@@ -1662,9 +1662,11 @@ test("an acceptance with nothing drafted records no comments", async (t) => {
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-idle-"));
   const port = 30000 + Math.floor(Math.random() * 20000);
+  // Each new hub starts with no live session and waits this long for start
+  // to register one, which can take over 300ms on a busy machine.
   const env = cliEnv(home, {
     PAIR_HUB_PORT: String(port),
-    PAIR_HUB_IDLE_SECONDS: "0.3",
+    PAIR_HUB_IDLE_SECONDS: "1",
   });
   const config = settings(env);
   t.after(async () => {
