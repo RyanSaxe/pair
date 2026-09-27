@@ -38,10 +38,11 @@ each clears the last note. A subagent that writes a page reports with
 ## Read the feedback
 
 Run `pair read`. It returns the submission as `event.payload` and marks it read.
-Its `intent` is `feedback-only` for feedback and `accept-plan` for an
+Its `intent` is `feedback-only` for feedback and `accept` for an
 acceptance, and its `groups` hold the choices, answers and notes. Also read
 anything the user said in the chat since the last round. An acceptance
-follows [session.md](session.md), and no pages are published after it.
+follows the Acceptance section of [session.md](session.md), and no pages are
+published after it.
 
 - `groups.alignUnflagged: true` means the reviewer agrees with what the
   pages stated that no note challenges: a proposed design, wording or plan.
@@ -67,8 +68,10 @@ retired or still open. A recommendation is not an agreement. Read
    first. Write the pages that follow Agreed to `pages.json` as
    `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A settled topic
    leaves the list, and an unchanged page is not repeated. A final plan
-   follows the final plan section of [quality.md](quality.md) and lists
-   `overview` first.
+   follows the final plan section of [quality.md](quality.md), carries
+   `"offer": "plan"` and lists `overview` first. A round whose built work
+   is complete, including a follow-up round after feedback, carries
+   `"offer": "finish"`.
 2. Build Agreed and publish it with the list before writing any other page:
    `pair build SRC/agreed/agreed.json OUT/agreed.html`, then
    `pair publish --file OUT/agreed.html --pages pages.json --source SRC/agreed`.
@@ -85,8 +88,8 @@ retired or still open. A recommendation is not an agreement. Read
    ready.
    Do not hold finished pages back for one publish at the end.
 5. The last page completes the round and enables the reviewer's Send
-   feedback button, or Finish review on a final plan. Say in the chat what
-   changed, then stop.
+   feedback button, or Finish review on a round with an offer. Say in the
+   chat what changed, then stop.
 
 A published page cannot change in this round. Build is the publication
 check: it lists every structural problem and writes nothing on failure.

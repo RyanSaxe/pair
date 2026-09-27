@@ -62,29 +62,22 @@ permission.
 
 ## Acceptance
 
-An `accept-plan` event includes an explicit `mode`:
-
-- `save`: acknowledge, complete, and report the durable plan path. Do not
-  implement.
-- `implement`: acknowledge, complete, and read the accepted plan. The event
-  may include `guidance` of up to 4,000 characters. Read it with the plan
-  and implement under the project's instructions, isolation requirements,
-  and existing permissions. If the guidance changes an agreed requirement,
-  request a new review. Acceptance authorizes nothing else.
-
-In either mode, the event's `groups` field contains the comments and
-choices the reader wrote on the plan before accepting it, and `pair complete`
-returns them as `groups`. Read them with the plan. If one of them changes an
-agreed requirement, request a new review, as with guidance.
+A round that carries an `offer` lets the reader accept it. An `accept` event
+names the round's `offer` and the `action` the reader chose. Its `groups`
+field contains the comments and choices the reader wrote on the round before
+accepting it, and it may include `guidance` of up to 4,000 characters. The
+`next` line of `pair read` names the offer's guide file, which says what each
+action asks of you.
 
 ```sh
 pair complete --session-dir PATH
 ```
 
-`pair complete` returns `nextAction`, `planPath` and any `guidance`. `planPath`
-is the built plan to open in a browser. The same pages, as HTML fragments with
-their prototypes, are in the session's `src/<round>/<page-id>/` and are the
-faster way for an agent to read the plan. Do not infer implementation permission
+`pair complete` returns `nextAction`, which is the chosen action, `planPath`,
+and any `guidance` and `groups`. `planPath` is the accepted round to open in
+a browser. The same pages, as HTML fragments with their prototypes, are in
+the session's `src/<round>/<page-id>/` and are the faster way for an agent to
+read them. Do not infer implementation permission
 from feedback, a recommendation or an acknowledgement. Leave accepted rounds and
 the acceptance record unchanged. A later change requires a new round and a new
 review.

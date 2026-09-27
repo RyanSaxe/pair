@@ -19,7 +19,6 @@ const page = (round, id) =>
   buildPage(path.join(os.tmpdir(), "wake-page.json"), {
     name: "t",
     round,
-    kind: "exploration",
     title: "T",
     page:
       id === "agreed"

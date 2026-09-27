@@ -1324,7 +1324,7 @@ function closeDrawer() {
 }
 function canAccept() {
   return (
-    plan.kind === "plan" &&
+    Boolean(plan.offer) &&
     connected &&
     current() &&
     !submittedCurrent() &&
@@ -1572,10 +1572,10 @@ function review() {
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;
-  const kind = forCurrent
-    ? views.get(remote.current.round).plan.kind
-    : plan.kind;
-  const finishes = kind === "plan";
+  const offer = forCurrent
+    ? views.get(remote.current.round).plan.offer
+    : plan.offer;
+  const finishes = Boolean(offer);
   const finishable = forCurrent
     ? connected &&
       !remote.openRound &&
@@ -1590,8 +1590,7 @@ function review() {
     !remote?.openRound &&
     (forCurrent || (current() && feedbackEditable()));
   const waitingForPages = Boolean(remote?.openRound);
-  const hasFeedback =
-    pending.count > 0 || (kind === "exploration" && draft.alignUnflagged);
+  const hasFeedback = pending.count > 0 || (!finishes && draft.alignUnflagged);
   $("submit").disabled =
     submissionInFlight ||
     (opensFeedback
@@ -1804,9 +1803,9 @@ function reconcilePages(view, manifest) {
   if (plan.round === view.plan.round && !showingWaiting()) pages = view.pages;
 }
 // A round this reader has not loaded, which its page set then fills in.
-function emptyView(round, { name, kind, title }) {
+function emptyView(round, { name, offer, title }) {
   const view = {
-    plan: { name, round, kind, title, pages: [], agreements: [] },
+    plan: { name, round, offer, title, pages: [], agreements: [] },
     agreements: [],
     pages: [],
   };
@@ -1883,7 +1882,7 @@ function loadPastView(round) {
     const entry = remote?.rounds?.find((item) => item.round === round);
     const view = emptyView(round, {
       name: entry?.name || remote.current.name,
-      kind: entry?.kind || remote.current.kind,
+      offer: (entry || remote.current).offer,
       title: entry?.title || remote.current.title,
     });
     pageSets.set(round, manifest);
@@ -2022,11 +2021,14 @@ function status() {
   const stage = !connected ? "disconnected" : remote?.stage || "ready";
   const complete = stage === "complete" && remote?.accepted;
   $("accepted").hidden = !complete;
-  if (complete)
+  if (complete) {
+    const { round, offer, action, path } = remote.accepted;
+    const chosen = offers[offer].accept.actions.find(
+      (item) => item.id === action,
+    );
     $("accepted").textContent =
-      remote.accepted.mode === "implement"
-        ? `Plan accepted. Implementation requested. Saved at ${remote.accepted.path}`
-        : `Plan accepted and saved at ${remote.accepted.path}`;
+      `Round ${round} accepted: ${chosen.label}. Saved at ${path}`;
+  }
   $("connection-status").textContent = !online
     ? "Local viewing. Feedback can be exported; live submission requires the session URL."
     : !connected
@@ -2112,7 +2114,7 @@ async function pollSessions() {
 }
 function stateWords(entry) {
   if (entry.needsYou)
-    return entry.kind === "plan" ? "Ready to accept" : "Waiting for you";
+    return entry.offer ? "Ready to accept" : "Waiting for you";
   if (entry.paused) return "Paused";
   if (entry.openRound)
     return `Working · ${entry.openRound.ready} pages readable`;
@@ -2238,10 +2240,7 @@ function renderSessions() {
     words.className = "words";
     const state = document.createElement("em");
     state.textContent = current ? "This tab" : stateWords(entry);
-    words.append(
-      state,
-      ` · ${entry.kind === "plan" ? "final plan" : "exploration"} · round ${entry.round} · ${ago(entry.updatedAt)}`,
-    );
+    words.append(state, ` · round ${entry.round} · ${ago(entry.updatedAt)}`);
     row.append(title, words);
     row.onclick = () => {
       if (current) toggleSidecar(false);
@@ -2600,7 +2599,7 @@ $("submit").onclick = () => {
     }
     switchTab("current");
   }
-  if (plan.kind === "plan") openFinish();
+  if (plan.offer) openFinish();
   else void sendFeedback();
 };
 // Sends Current's draft, with the overall comment typed in the Finish review
@@ -2613,7 +2612,7 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
   const extra = comment ? [comment] : [];
   if (
     unsentItems(state).count + extra.length === 0 &&
-    (plan.kind !== "exploration" || !state.alignUnflagged)
+    (plan.offer || !state.alignUnflagged)
   )
     return;
   submissionError = "";
@@ -2689,15 +2688,15 @@ $("export").onclick = () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
-/* Finish review: on a final plan the reader accepts it or requests changes,
-   and whatever they drafted goes with either decision. */
+/* Finish review: on a round with an offer the reader accepts it or requests
+   changes, and whatever they drafted goes with either decision. */
 const commentsDrafted = () => {
   const { notes, answers } = unsentItems(state);
   return notes.length + Object.keys(answers).length > 0;
 };
 function openFinish() {
   if (!canAccept()) return;
-  $("finish-detail").textContent = `${plan.title}, round ${plan.round}`;
+  renderFinish(document, plan, offers, acceptOffer);
   const words = draftedWords(state);
   if (words) {
     const link = document.createElement("a");
@@ -2751,7 +2750,7 @@ function finishError(message) {
 }
 function finishBusy(busy) {
   for (const button of document.querySelectorAll(
-    "[data-accept-mode], [data-decision]",
+    "#accept-actions button, [data-decision]",
   ))
     button.disabled = busy;
   if (busy) $("request-changes").disabled = true;
@@ -2805,43 +2804,38 @@ const unreachable = (error) =>
   error instanceof TypeError
     ? "The hub is unreachable. Try again shortly."
     : error.message;
-document.querySelectorAll("[data-accept-mode]").forEach(
-  (button) =>
-    (button.onclick = async () => {
-      const mode = button.dataset.acceptMode;
-      const guidance =
-        mode === "implement" ? $("accept-guidance").value.trim() : "";
-      const action =
-        mode === "implement"
-          ? "Start implementation of this plan."
-          : "Save for later. Do not start implementation.";
-      const groups = submissionGroups(state);
-      const items = itemLines();
-      const text = `Accept round ${plan.round} of ${plan.name}. ${action}${guidance ? `\n\nImplementation guidance:\n${guidance}` : ""}${items.length ? `\n\nComments on the plan:\n${items.join("\n")}` : ""}`;
-      if (
-        state.acceptance?.mode !== mode ||
-        (state.acceptance?.guidance || "") !== guidance ||
-        JSON.stringify(state.acceptance?.groups) !== JSON.stringify(groups)
-      )
-        state.acceptance = envelope("accept-plan", text, {
-          mode,
-          groups,
-          ...(guidance ? { guidance } : {}),
-        });
-      persist();
-      finishError("");
-      finishBusy(true);
-      try {
-        await send(state.acceptance);
-        save();
-        $("finish-dialog").close();
-      } catch (error) {
-        finishError(unreachable(error));
-      } finally {
-        finishBusy(false);
-      }
-    }),
-);
+async function acceptOffer(action) {
+  const guidance =
+    action.id === offers[plan.offer].accept.guidance.action
+      ? $("accept-guidance").value.trim()
+      : "";
+  const groups = submissionGroups(state);
+  const items = itemLines();
+  const text = `Accept round ${plan.round} of ${plan.name}: ${action.label}.${guidance ? `\n\nGuidance:\n${guidance}` : ""}${items.length ? `\n\nComments:\n${items.join("\n")}` : ""}`;
+  if (
+    state.acceptance?.action !== action.id ||
+    (state.acceptance?.guidance || "") !== guidance ||
+    JSON.stringify(state.acceptance?.groups) !== JSON.stringify(groups)
+  )
+    state.acceptance = envelope("accept", text, {
+      offer: plan.offer,
+      action: action.id,
+      groups,
+      ...(guidance ? { guidance } : {}),
+    });
+  persist();
+  finishError("");
+  finishBusy(true);
+  try {
+    await send(state.acceptance);
+    save();
+    $("finish-dialog").close();
+  } catch (error) {
+    finishError(unreachable(error));
+  } finally {
+    finishBusy(false);
+  }
+}
 // A click inside an embedded frame never reaches this document, but it does
 // move focus, so menus close on blur as well as on outside clicks.
 window.addEventListener("blur", closeMenus);

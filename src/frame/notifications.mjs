@@ -1,10 +1,9 @@
 export function reviewAlert(entry) {
   if (!entry?.needsYou || !entry.id || !entry.round) return null;
-  const plan = entry.kind === "plan";
   return {
-    id: `${plan ? "plan" : "round"}:${entry.id}:${entry.round}`,
+    id: `round:${entry.id}:${entry.round}`,
     sessionId: entry.id,
-    title: plan ? "A final plan is ready" : `Round ${entry.round} is ready`,
+    title: `Round ${entry.round} is ready${entry.offer ? " to accept" : ""}`,
     body: entry.title || "",
     url: entry.url,
     createdAt: entry.publishedAt,

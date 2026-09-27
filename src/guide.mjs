@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { offers } from "./offers.mjs";
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 const markdownLink = /\]\(([^()\s]+)\)/g;
@@ -21,6 +22,7 @@ export async function guideFile(name, stateRoot) {
     ...(await fs.readdir(path.join(packageRoot, "guide")))
       .filter((file) => file.endsWith(".md"))
       .map((file) => `guide/${file}`),
+    ...Object.values(offers).map((offer) => offer.guide),
     "src/components/README.md",
   ];
   const texts = await Promise.all(
