@@ -7,6 +7,53 @@ to start the next round. A session can plan a change, build an accepted plan
 or help you understand something, and the pages show mocks, diagrams, code
 and diffs so you judge by looking.
 
+## Install
+
+pair needs Node 20 or newer. npm installs the application, and the `skills`
+installer puts the skill where your agent CLI finds it. pair has no install
+command of its own.
+
+```sh
+npm install -g @ryansaxe/pair             # the application and the pair command
+npx skills add RyanSaxe/pair -g           # the skill, for Claude Code, Codex and Copilot CLI
+```
+
+`npx skills add` always installs the skill to `~/.agents/skills/pair`, which
+Codex and Copilot CLI read. If you use Claude Code, select it when the
+installer asks which agents to install to, and keep the default installation
+method, Symlink. Claude Code then gets a link to that folder in
+`~/.claude/skills` and offers the skill as `/pair`.
+
+When `npx skills add` does not ask which agents to install to, it also reports
+`✗ pair → PromptScript: PromptScript does not support global skill installation`.
+That line is about PromptScript, another agent, and the skill is still
+installed.
+
+To update pair, run `npm update -g @ryansaxe/pair`. The skill only tells the
+agent to run `pair guide`, which prints the instructions of the installed
+version, so the skill never needs reinstalling.
+
+### Codex and Copilot CLI
+
+Codex needs no other step. Invoke the skill there as `$pair`. If Codex asks
+you to approve every `pair` command, see [Troubleshooting](#troubleshooting).
+
+Copilot CLI can be woken only when it was started as `copilot --ui-server`.
+Version 1.0.86 has no setting that makes this the default, and `--ahp`, which
+succeeds `--ui-server`, is behind a feature flag. Start Copilot with
+`--ui-server` for any session that uses pair. In a Copilot session started
+without it, `pair start` refuses and prints `copilot --ui-server --resume ID`,
+which restarts that session so pair can wake it.
+
+### A skill already named pair
+
+If you already have a different skill named pair, rename it first: its folder
+and the `name` in its `SKILL.md`. `npx skills add` lists the agents whose pair
+skill it would overwrite and asks "Proceed with installation?". If you
+proceed, it replaces `~/.agents/skills/pair` and turns `~/.claude/skills/pair`
+into a link to it, even when that was a folder. With `-y` it replaces them
+without asking.
+
 ## Run it from a checkout
 
 pair needs Node 20 or newer and has no dependencies. In a clone of this
@@ -34,6 +81,26 @@ variables, including `PAIR_HUB_PORT`, and what pair keeps on disk.
 | `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                          |
 | `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                             |
 | `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                        |
+
+## Troubleshooting
+
+### Codex asks to approve every pair command
+
+Codex runs commands in a sandbox that blocks pair's hub. With Codex's default
+approval, a `pair` command the sandbox blocks runs again outside the sandbox
+without asking. If Codex asks you to approve every `pair` command instead, run
+this once in a terminal:
+
+```sh
+pair check --codex-rules
+```
+
+It writes `~/.codex/rules/pair.rules`, which allows `pair`. A command made only
+of `pair` calls, including several joined with `&&`, then runs outside the
+sandbox on its first try, with no retry and nothing to approve. A pipeline
+such as `pair guide | head -3` does not match the rule and still runs in the
+sandbox. Codex reads its rules when it starts, so restart Codex afterwards.
+pair never writes this file on its own.
 
 ## Layout
 
