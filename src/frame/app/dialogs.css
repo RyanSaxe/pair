@@ -184,7 +184,9 @@ dialog::backdrop {
   border-top: 1px solid var(--line);
   font-size: 13.5px;
 }
-.settings-row:first-of-type {
+/* The first row follows the head, which :first-of-type would count as the
+   dialog's first div. */
+.dialog-head + .settings-row {
   border-top: 0;
   padding-top: 0;
 }
