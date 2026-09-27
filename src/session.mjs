@@ -66,14 +66,12 @@ function embedConfig(html, config) {
 
 export function settings(env = process.env) {
   const home = env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-  const root = path.join(home, "interactive-plan");
+  const root = path.join(home, "pair");
   const port =
-    env.INTERACTIVE_PLAN_PORT === undefined
-      ? 4747
-      : Number(env.INTERACTIVE_PLAN_PORT);
+    env.PAIR_HUB_PORT === undefined ? 4747 : Number(env.PAIR_HUB_PORT);
   requireValue(
     Number.isInteger(port) && port >= 0 && port <= 65535,
-    "INTERACTIVE_PLAN_PORT must be a port number",
+    "PAIR_HUB_PORT must be a port number",
   );
   const seconds = (name, fallback) => {
     if (env[name] === undefined) return fallback;
@@ -91,8 +89,8 @@ export function settings(env = process.env) {
     hubFile: path.join(root, "hub", "hub.json"),
     hubLog: path.join(root, "hub", "hub.log"),
     port,
-    host: env.INTERACTIVE_PLAN_HOST || null,
-    idleMs: seconds("INTERACTIVE_PLAN_IDLE_SECONDS", 900) * 1000,
+    host: env.PAIR_HUB_HOST || null,
+    idleMs: seconds("PAIR_HUB_IDLE_SECONDS", 900) * 1000,
   };
 }
 
@@ -565,7 +563,7 @@ async function loadSession(directory, config, origin) {
   // Runs after the submission is saved, outside the browser's request, so a
   // slow or failing harness never delays the reviewer's Sent state.
   async function wakeAgent(revision) {
-    const line = `interactive-plan: feedback arrived on session ${directory} (revision ${revision}). Run first: ${command("ack")}. It prints the next step.`;
+    const line = `pair: feedback arrived on session ${directory} (revision ${revision}). Run first: ${command("ack")}. It prints the next step.`;
     let last;
     try {
       await (config.wake || wakeRunner)(wake, line);
@@ -1628,8 +1626,8 @@ export async function startHub(config = settings()) {
         const sessions = listed();
         const cookie = req.headers.cookie
           ?.split("; ")
-          .find((item) => item.startsWith("interactive-plan-last="))
-          ?.slice("interactive-plan-last=".length);
+          .find((item) => item.startsWith("pair-last="))
+          ?.slice("pair-last=".length);
         const remembered = cookie && registry.get(cookie);
         const target =
           sessions.find((item) => item.needsYou)?.url ||
@@ -1637,7 +1635,7 @@ export async function startHub(config = settings()) {
           sessions[0]?.url;
         if (target) return reply(302, "", "text/plain", { Location: target });
         return html(
-          '<!doctype html><title>Interactive plan</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
+          '<!doctype html><title>pair</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
         );
       }
       if (method === "POST" && url.pathname === "/agent/register") {
@@ -1720,7 +1718,7 @@ export async function startHub(config = settings()) {
               session.state.dismissedAt ? { closed: true } : {},
             ),
             {
-              "Set-Cookie": `interactive-plan-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
+              "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
             },
           );
         }
@@ -1779,7 +1777,7 @@ export async function startHub(config = settings()) {
           return reply(200, await session.exclusive(() => session.dismiss()));
         }
         /* The hub is a local review tool. It binds 127.0.0.1 unless the
-           operator sets INTERACTIVE_PLAN_HOST, and browser routes carry no
+           operator sets PAIR_HUB_HOST, and browser routes carry no
            token by design (see session.md), so the same-origin check is what
            stands between a page in another tab and this session. This route
            writes bytes, so it also caps the size and the count, decides the
@@ -2033,14 +2031,14 @@ export async function ensureHub(config = settings()) {
       info = null;
     } else
       console.error(
-        `interactive-plan: the hub runs code version ${info.version}; this helper is ${version}. It restarts when no session is live.`,
+        `pair: the hub runs code version ${info.version}; this helper is ${version}. It restarts when no session is live.`,
       );
   }
   if (!info) {
     if (record) await fs.rm(config.hubFile, { force: true });
     requireValue(
       !(config.port && (await portOpen(config.port))),
-      `Port ${config.port} is in use by another program; set INTERACTIVE_PLAN_PORT`,
+      `Port ${config.port} is in use by another program; set PAIR_HUB_PORT`,
     );
     info = await spawnHub(config);
   }

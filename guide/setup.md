@@ -14,7 +14,7 @@ optional path argument checks a different storage location. If you pass one,
 use that location for the session too.
 
 It also reports `components`: the path the builder reads for the user's own
-components, `$XDG_CONFIG_HOME/interactive-plan/components` with `~/.config`
+components, `$XDG_CONFIG_HOME/pair/components` with `~/.config`
 as the fallback, whether that directory exists, and what it and the skill
 hold. The builder skips it when it does not exist. The component index
 states when to write there.
@@ -28,7 +28,7 @@ to other sessions and to the hub on the fixed port.
   identifies the sandbox, then the helper runs again with approval. The
   approval reviewer may grant that retry without a prompt. Run
   `pair check --codex-rules` once outside the sandbox. It writes
-  `~/.codex/rules/interactive-plan.rules`, a file of pair's own with an allow
+  `~/.codex/rules/pair.rules`, a file of pair's own with an allow
   rule for `pair`. A command that matches it runs outside the sandbox on the
   first try with nothing to approve. Codex reads the file when it starts, so
   the current session still fails once on each helper command until Codex
@@ -39,11 +39,11 @@ to other sessions and to the hub on the fixed port.
 
 Environment variables, all optional:
 
-| Variable                        | Default | Meaning                                                                 |
-| ------------------------------- | ------- | ----------------------------------------------------------------------- |
-| `INTERACTIVE_PLAN_PORT`         | 4747    | The hub's fixed port on 127.0.0.1. `0` asks the OS for a port (tests).  |
-| `INTERACTIVE_PLAN_HOST`         | unset   | An extra address to bind, such as a Tailscale IP, to review on a phone. |
-| `INTERACTIVE_PLAN_IDLE_SECONDS` | 900     | Time with no live session after which the hub exits.                    |
+| Variable                | Default | Meaning                                                                 |
+| ----------------------- | ------- | ----------------------------------------------------------------------- |
+| `PAIR_HUB_PORT`         | 4747    | The hub's fixed port on 127.0.0.1. `0` asks the OS for a port (tests).  |
+| `PAIR_HUB_HOST`         | unset   | An extra address to bind, such as a Tailscale IP, to review on a phone. |
+| `PAIR_HUB_IDLE_SECONDS` | 900     | Time with no live session after which the hub exits.                    |
 
 Browser routes are unauthenticated, which is why the extra bind is opt in.
 Agent routes require the per-session bearer token on every interface.
@@ -74,16 +74,16 @@ chat.
 One hub process serves every live session. `start` spawns it when none is
 running. A session is live from `start` until `complete`, `pause` or
 closure from the browser. With no live session for
-`INTERACTIVE_PLAN_IDLE_SECONDS`, the hub exits and the next `start` creates
+`PAIR_HUB_IDLE_SECONDS`, the hub exits and the next `start` creates
 a new one on the same port. When `start` finds a hub running other code, it
 uses that hub and logs the mismatch, and the hub restarts on the newer code
 once no session is live. A running hub keeps the addresses it started with,
-so `INTERACTIVE_PLAN_HOST` takes effect only on a new hub.
+so `PAIR_HUB_HOST` takes effect only on a new hub.
 
 ### Storage
 
-Everything lives under `$XDG_STATE_HOME/interactive-plan/`, or
-`~/.local/state/interactive-plan/`:
+Everything lives under `$XDG_STATE_HOME/pair/`, or
+`~/.local/state/pair/`:
 
 - `hub/hub.json` holds the pid, port, hosts, code version and the local
   secret that registers sessions. `hub/hub.log` is the hub's log.

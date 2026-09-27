@@ -17,7 +17,7 @@ export function reviewAlert(entry) {
 // per session and revision so several tabs never announce the same event, and
 // the session shown in the focused tab is never announced.
 export function createReviewAlerts({ window: host, button, sessionId, open }) {
-  const prefix = "interactive-plan:alerts:";
+  const prefix = "pair:alerts:";
   const memory = new Map();
   let latest = [],
     requesting = false,

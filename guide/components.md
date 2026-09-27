@@ -25,7 +25,7 @@ component. A component is as wide as the reading column.
 When a page needs a shape no component has, build it in the page's own `css`
 and `js`. When the user asks to keep it for later plans, follow
 [README.md](../src/components/README.md) to move it into
-`$XDG_CONFIG_HOME/interactive-plan/components/<name>/` and say the path.
+`$XDG_CONFIG_HOME/pair/components/<name>/` and say the path.
 Never offer this.
 
 ## Code and figures

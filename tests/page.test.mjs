@@ -63,7 +63,7 @@ const firstAgreements = [
 before(async () => {
   home = await fs.mkdtemp(path.join(os.tmpdir(), "page-round-"));
   hub = await startHub({
-    ...settings({ XDG_STATE_HOME: home, INTERACTIVE_PLAN_PORT: "0" }),
+    ...settings({ XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" }),
     log() {},
     async wake() {},
   });
@@ -465,7 +465,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
   // The CLI reads its hub from the state directory, so it gets this test's own.
   const command = (args) =>
     exec(process.execPath, [cli, ...args], {
-      env: { ...process.env, XDG_STATE_HOME: home, INTERACTIVE_PLAN_PORT: "0" },
+      env: { ...process.env, XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" },
     });
   const agreedSource = path.join(root, "agreed-source");
   await fs.mkdir(agreedSource);
@@ -566,7 +566,7 @@ test("an unfinished revision resumes after the hub restarts", async () => {
   const config = {
     ...settings({
       XDG_STATE_HOME: path.join(home, "restart"),
-      INTERACTIVE_PLAN_PORT: "0",
+      PAIR_HUB_PORT: "0",
     }),
     log() {},
   };

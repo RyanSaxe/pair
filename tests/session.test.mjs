@@ -58,7 +58,7 @@ function cliEnv(home, extra = {}) {
     XDG_STATE_HOME: home,
     CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
     CLAUDE_CODE_MESSAGING_TOKEN: "test",
-    CODEX_THREAD_ID: "interactive-plan-test-thread",
+    CODEX_THREAD_ID: "pair-test-thread",
     ...extra,
   };
   delete env.COPILOT_AGENT_SESSION_ID;
@@ -454,7 +454,7 @@ function planData(
 }
 async function hub(t, extra = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-hub-"));
-  const env = { XDG_STATE_HOME: home, INTERACTIVE_PLAN_PORT: "0", ...extra };
+  const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
   const config = { ...settings(env), log() {}, async wake() {} };
   const server = await startHub(config);
   t.after(async () => {
@@ -1088,7 +1088,7 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-check-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const result = await exec(process.execPath, [pair, "check", directory], {
-    env: { ...process.env, INTERACTIVE_PLAN_PORT: "0" },
+    env: { ...process.env, PAIR_HUB_PORT: "0" },
   });
   const report = JSON.parse(result.stdout);
   assert.equal(report.ready, true);
@@ -1098,7 +1098,7 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   const live = JSON.parse(
     (
       await exec(process.execPath, [pair, "check", directory], {
-        env: { ...process.env, INTERACTIVE_PLAN_PORT: String(h.record.port) },
+        env: { ...process.env, PAIR_HUB_PORT: String(h.record.port) },
       })
     ).stdout,
   );
@@ -1303,19 +1303,10 @@ test("the root URL opens the session that most needs you, then the last viewed, 
     await session.feedback(event);
     await session.action("read");
   }
-  assert.equal(
-    (await open(`interactive-plan-last=${a.id}`)).location,
-    `${a.base}/`,
-  );
-  assert.equal(
-    (await open(`interactive-plan-last=nope`)).location,
-    `${b.base}/`,
-  );
+  assert.equal((await open(`pair-last=${a.id}`)).location, `${a.base}/`);
+  assert.equal((await open(`pair-last=nope`)).location, `${b.base}/`);
   const page = await fetch(h.server.origin + `${a.base}/`);
-  assert.match(
-    page.headers.get("set-cookie"),
-    new RegExp(`interactive-plan-last=${a.id}`),
-  );
+  assert.match(page.headers.get("set-cookie"), new RegExp(`pair-last=${a.id}`));
   const bare = await fetch(h.server.origin + a.base, { redirect: "manual" });
   assert.equal(bare.headers.get("location"), `${a.base}/`);
 });
@@ -1684,8 +1675,8 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-idle-"));
   const port = 30000 + Math.floor(Math.random() * 20000);
   const env = cliEnv(home, {
-    INTERACTIVE_PLAN_PORT: String(port),
-    INTERACTIVE_PLAN_IDLE_SECONDS: "0.3",
+    PAIR_HUB_PORT: String(port),
+    PAIR_HUB_IDLE_SECONDS: "0.3",
   });
   const config = settings(env);
   t.after(async () => {
@@ -1741,7 +1732,7 @@ test("the Codex network check installs rules and reports sandbox state", async (
     env: { ...h.env, CODEX_HOME: codexHome },
   });
   const rules = await fs.readFile(
-    path.join(codexHome, "rules", "interactive-plan.rules"),
+    path.join(codexHome, "rules", "pair.rules"),
     "utf8",
   );
   assert.equal(
@@ -1796,7 +1787,7 @@ test("a moved session still serves its current and earlier revisions", async (t)
 
 test("start replaces a stale hub record, and helper commands reattach after a crash without losing the queue", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-stale-"));
-  const env = cliEnv(home, { INTERACTIVE_PLAN_PORT: "0" });
+  const env = cliEnv(home, { PAIR_HUB_PORT: "0" });
   const config = settings(env);
   t.after(async () => {
     await killHub(config);

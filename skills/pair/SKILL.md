@@ -1,11 +1,11 @@
 ---
-name: interactive-plan
-description: Develop and review implementation plans in an interactive browser session. Use only when the user explicitly invokes interactive-plan by name, never for ordinary planning requests.
+name: pair
+description: Develop and review implementation plans in an interactive browser session. Use only when the user explicitly invokes pair by name, never for ordinary planning requests.
 ---
 
-# Interactive plan
+# Pair
 
-interactive-plan helps an agent and a user plan a piece of work together in
+pair helps an agent and a user plan a piece of work together in
 the browser. The agent's job is to close the ambiguity between the request
 and a plan that another engineer could implement. Some of it is in the task,
 what is being built and why, and some is in the work, how to build it.

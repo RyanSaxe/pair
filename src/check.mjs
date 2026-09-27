@@ -9,7 +9,7 @@ import { componentDirectories, userComponents } from "./build.mjs";
 // outside the workspace. An allow rule for pair, in a file of pair's own,
 // runs its commands outside the sandbox without a prompt.
 const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
-const rulesFile = path.join(codexHome, "rules", "interactive-plan.rules");
+const rulesFile = path.join(codexHome, "rules", "pair.rules");
 const rules =
   'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n';
 const rulesPresent = () =>
@@ -106,9 +106,9 @@ export async function main([argument]) {
     if ((await response.text()) !== "ready")
       throw new Error("Loopback request failed");
     const port =
-      process.env.INTERACTIVE_PLAN_PORT === undefined
+      process.env.PAIR_HUB_PORT === undefined
         ? 4747
-        : Number(process.env.INTERACTIVE_PLAN_PORT);
+        : Number(process.env.PAIR_HUB_PORT);
     console.log(
       JSON.stringify(
         {

@@ -59,7 +59,7 @@ try {
   if (/^https?:$/.test(location.protocol)) {
     const value = document.cookie
       .split("; ")
-      .find((item) => item.startsWith("interactive-plan-theme="))
+      .find((item) => item.startsWith("pair-theme="))
       ?.split("=")[1];
     if (["light", "dark"].includes(value)) preferredTheme = value;
   }
@@ -68,9 +68,9 @@ try {
 }
 let activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
 
-const storageKey = `interactive-plan:${session.sessionId || "offline"}:${plan.artifactId}`;
-const placeKey = `interactive-plan:place:${session.sessionId || "offline"}`;
-const prefsPrefix = `interactive-plan:prefs:${session.sessionId || "offline"}:`;
+const storageKey = `pair:${session.sessionId || "offline"}:${plan.artifactId}`;
+const placeKey = `pair:place:${session.sessionId || "offline"}`;
+const prefsPrefix = `pair:prefs:${session.sessionId || "offline"}:`;
 let state = emptyDraft(plan.revision);
 if (editable)
   try {
@@ -3113,7 +3113,7 @@ $("theme").addEventListener("click", (event) => {
   activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
   try {
     if (/^https?:$/.test(location.protocol))
-      document.cookie = `interactive-plan-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
+      document.cookie = `pair-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
   } catch {
     /* Keep the explicit choice in memory when cookies are blocked. */
   }

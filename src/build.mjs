@@ -11,7 +11,7 @@ const assets = new URL("./frame/", import.meta.url);
     directory would be an edit to installed software. */
 export function userComponents(env = process.env) {
   const home = env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return path.join(home, "interactive-plan", "components");
+  return path.join(home, "pair", "components");
 }
 
 const componentRoots = () => [

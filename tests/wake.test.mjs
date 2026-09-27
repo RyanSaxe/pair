@@ -63,7 +63,7 @@ const publishRevision = async (revision) => {
 before(async () => {
   home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-progress-"));
   const config = {
-    ...settings({ XDG_STATE_HOME: home, INTERACTIVE_PLAN_PORT: "0" }),
+    ...settings({ XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" }),
     log() {},
     async wake(target, line) {
       wakes.push({ target, line });
@@ -231,7 +231,7 @@ test("a submission wakes the agent with the line that names the session", async 
   assert.match(
     wakes[1].line,
     new RegExp(
-      `^interactive-plan: feedback arrived on session ${sessionDir} \\(revision 2\\)\\. Run first: pair ack --session-dir ${sessionDir}\\.`,
+      `^pair: feedback arrived on session ${sessionDir} \\(revision 2\\)\\. Run first: pair ack --session-dir ${sessionDir}\\.`,
     ),
   );
   assert.equal(view.wake.last.ok, true);

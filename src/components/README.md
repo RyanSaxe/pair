@@ -63,7 +63,7 @@ same distance from the slot's edges.
 
 ## Components of the user's own
 
-The builder also reads `$XDG_CONFIG_HOME/interactive-plan/components/`, with
+The builder also reads `$XDG_CONFIG_HOME/pair/components/`, with
 `~/.config` as the fallback. A directory there with the same name replaces
 the skill's component, and a skill update never touches it. To keep a
 page's one-off shape, write `markup.html`, `styles.css` and `behavior.mjs`
