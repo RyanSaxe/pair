@@ -389,7 +389,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(ack.body.status.report.note, "Reading your feedback");
   assert.match(
     ack.body.next,
-    /^Read .*round\.md in full, then run: pair read --session-dir /,
+    /^Run pair guide round\.md and read all it prints, then run: pair read --session-dir /,
   );
   // Receiving is not reading: the submission stays unread, so publish waits.
   assert.deepEqual(ack.body.status.acknowledged, []);

@@ -4,7 +4,7 @@ import path from "node:path";
 import { attach } from "../hub/client.mjs";
 import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
-import { guideFile } from "../shared/guide.mjs";
+import { guideCommand } from "../shared/guide.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, json, read, requireValue } from "../shared/util.mjs";
@@ -128,7 +128,7 @@ export async function main(argv) {
           started.next ||
           (resuming
             ? `Run: pair ack --session-dir ${directory}`
-            : `When the first round is ready, publish it as ${await guideFile("round.md", config.root)} describes, from "Publish the round".`),
+            : `Run ${guideCommand("round.md")} and follow its "Publish the round" section when the first round is ready.`),
       }),
     );
   }

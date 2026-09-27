@@ -1,5 +1,5 @@
 import path from "node:path";
-import { guideFile } from "../../shared/guide.mjs";
+import { guideCommand } from "../../shared/guide.mjs";
 import { offers } from "../../shared/offers.mjs";
 import { actionOf, idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
@@ -21,7 +21,8 @@ export function agent(session) {
     event && session.state.lastReceivedId !== event.id
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
-  const guide = (name) => guideFile(name, config.root);
+  // A line that points at a guide file names the command that prints it.
+  const guide = guideCommand;
   const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
   const actionAfter = (offer, after) =>
     offers[offer].accept.actions.find((item) => item.after === after);
@@ -31,25 +32,25 @@ export function agent(session) {
     const [event] = await pending();
     if (event)
       return event.payload.intent === "accept"
-        ? `Read ${await offerGuide(event.payload.offer)}, then run: ${command("read")}`
-        : `Read ${await guide("round.md")} in full, then run: ${command("read")}`;
+        ? `Run ${offerGuide(event.payload.offer)} and read all it prints, then run: ${command("read")}`
+        : `Run ${guide("round.md")} and read all it prints, then run: ${command("read")}`;
     if (session.state.stage === "complete") return "The session is complete.";
     if (session.state.stage === "saved") {
-      const { round, offer } = session.state.current;
-      return `Round ${round} is saved for later, as the ${actionAfter(offer, "saved").id} action in ${await offerGuide(offer)} describes. Say this line in chat, then end your turn: ${handoff}`;
+      const { round } = session.state.current;
+      return `Round ${round} is saved for later. Say this line in chat, then end your turn: ${handoff}`;
     }
     if (session.state.accepted) {
       const { round, offer } = session.state.accepted;
       const action = actionOf(session.state.accepted);
       // A start on the saved round sent this agent on to build it.
       if (action.after === "saved")
-        return `Round ${round} was saved for later, and you are building it now. Build it as the ${actionAfter(offer, "round").id} action in ${await offerGuide(offer)} describes.`;
-      return `Follow the ${action.id} action in ${await offerGuide(offer)}.`;
+        return `Round ${round} was saved for later, and you are building it now. Run ${offerGuide(offer)} and build the round as its ${actionAfter(offer, "round").label} section describes.`;
+      return `Run ${offerGuide(offer)} and follow its ${action.label} section.`;
     }
     if (session.state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!session.state.current)
-      return `When the first round is ready, publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes.`;
+      return `When the first round is ready, publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps.`;
     if (session.state.openRound) {
       const left = session.state.openRound.pages
         .filter((slot) => !slot.recordPath)
@@ -59,7 +60,7 @@ export function agent(session) {
       return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every 5 minutes.`;
     }
     if (session.state.stage === "working")
-      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes. Report with pair ack --note at least every 5 minutes.`;
+      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;
     return "The round is with the reviewer. Say in chat what changed if you have not, then end the turn. The hub wakes you when they submit.";
   }
   // Runs after the submission is saved, outside the browser's request, so a
@@ -276,7 +277,7 @@ export function agent(session) {
     const reading = unread
       ? command("read")
       : `${command("read")} --id ${session.state.accepted.eventId}`;
-    return `Round ${round} was saved for later, and you now build it. Read ${await offerGuide(offer)}, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as the ${actionAfter(offer, "round").id} action describes.`;
+    return `Round ${round} was saved for later, and you now build it. Run ${offerGuide(offer)} and read all it prints, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as its ${actionAfter(offer, "round").label} section describes.`;
   }
   return { handoff, report, nextStep, wakeAgent, dismiss, act, hold };
 }

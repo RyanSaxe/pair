@@ -6,7 +6,7 @@ import test from "node:test";
 import { renderFinish } from "../../../src/frame/review/send.mjs";
 import { offers } from "../../../src/shared/offers.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import { exists, hub, planData } from "../../support/hub.mjs";
+import { hub, planData } from "../../support/hub.mjs";
 
 test("a plan can be reopened, and only the current round's offer is accepted", async (t) => {
   const h = await hub(t);
@@ -164,24 +164,24 @@ for (const [id, offer] of Object.entries(offers))
       });
       assert.equal((await a.feedback(acceptance)).code, 200);
       assert.equal((await a.action("complete")).code, 409);
-      const guide = new RegExp(`/guide/offers/${id}\\.md`);
+      const guide = `pair guide offers/${id}.md`;
       const ack = (await a.action("ack")).body.next;
-      assert.match(ack, /^Read \S+, then run: pair read /);
-      assert.match(ack, guide);
+      assert.ok(
+        ack.startsWith(
+          `Run ${guide} and read all it prints, then run: pair read `,
+        ),
+      );
       const read = (await a.action("read")).body;
       assert.deepEqual(read.event.payload.groups.notes, [note]);
-      // The next line names the offer's guide file, and a saved round also
-      // gives the handoff line the holder says before it ends its turn.
-      const [, named, file] = read.next.match(
+      // The next line sends the agent to the action's section of the offer's
+      // guide file, and a saved round gives the handoff line the holder says
+      // before it ends its turn instead.
+      assert.equal(
+        read.next,
         action.after === "saved"
-          ? /^Round 1 is saved for later, as the (\S+) action in (\S+) describes\. Say this line in chat, then end your turn: /
-          : /^Follow the (\S+) action in (\S+)\.$/,
+          ? `Round 1 is saved for later. Say this line in chat, then end your turn: ${read.status.handoff}`
+          : `Run ${guide} and follow its ${action.label} section.`,
       );
-      assert.equal(named, action.id);
-      assert.match(file, guide);
-      assert.ok(path.isAbsolute(file) && (await exists(file)));
-      if (action.after === "saved")
-        assert.ok(read.next.endsWith(`: ${read.status.handoff}`));
       const record = JSON.parse(
         await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
       );
@@ -282,7 +282,10 @@ test("Start implementation goes on to a build round the reviewer follows", async
   // The frame shows the agent's progress from the acceptance until the build
   // round is complete, in every browser.
   assert.equal((await a.status()).body.latestSubmissionRound, "1");
-  assert.match((await a.action("read")).body.next, /^Follow the implement/);
+  assert.equal(
+    (await a.action("read")).body.next,
+    "Run pair guide offers/plan.md and follow its Start implementation section.",
+  );
   const build = {
     ...planData("2"),
     pages: [
@@ -311,7 +314,7 @@ test("the holder's start resumes an unread Save, and builds the plan once it is 
   assert.equal((await a.status()).body.stage, "saved");
   const read = (await a.action("read")).body;
   assert.equal(read.event.payload.action, "save");
-  assert.match(read.next, /^Round 1 is saved for later, as the save action/);
+  assert.match(read.next, /^Round 1 is saved for later\. Say this line/);
   // The same agent given the line later, such as a new conversation in the
   // same Claude Code process, builds the plan.
   const built = await start();
@@ -322,6 +325,6 @@ test("the holder's start resumes an unread Save, and builds the plan once it is 
   assert.equal(status.takeover, null);
   assert.match(
     (await a.action("ack")).body.next,
-    /^Round 1 was saved for later, and you are building it now\. Build it as the implement action in \S+\/plan\.md describes\.$/,
+    /^Round 1 was saved for later, and you are building it now\. Run pair guide offers\/plan\.md and build the round as its Start implementation section describes\.$/,
   );
 });

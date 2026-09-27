@@ -112,6 +112,3 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
   images, `pages/<round>/` with the published page records,
   `src/<round>/<page-id>/` with each page's source, `rounds/` with the
   built rounds, and `acceptance.json` after acceptance.
-- `guide/<hash>/` holds the copy of this guide that `next` lines name, with
-  every link an absolute path. Each version of the guide gets its own copy in
-  each installation.

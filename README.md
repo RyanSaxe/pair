@@ -73,14 +73,14 @@ variables, including `PAIR_HUB_PORT`, and what pair keeps on disk.
 
 ## Commands
 
-| Command                                            | What it does                                                                                               |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `pair guide`                                       | Print the agent's instructions, `guide/pair.md`, with each link an absolute path. The skill runs it first. |
-| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names guide files by their absolute path.       |
-| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.                  |
-| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                          |
-| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                             |
-| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                        |
+| Command                                            | What it does                                                                                        |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `pair guide [FILE]`                                | Print `guide/pair.md`, or the guide file FILE, with each guide link as the command that prints it.  |
+| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names the `pair guide` command it needs. |
+| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.           |
+| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                   |
+| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                      |
+| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                 |
 
 ## Troubleshooting
 

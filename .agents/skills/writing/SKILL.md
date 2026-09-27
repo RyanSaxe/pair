@@ -101,15 +101,17 @@ does next.
 
 - Write each step as an instruction to the agent: "Run `pair ack` first when
   the hub wakes you."
-- Give the whole command with its arguments. A prompt names a file by its
-  absolute path, as the guide's copy does.
+- Give the whole command with its arguments. A prompt names a guide file by
+  the `pair guide` command that prints it, and any other file by its absolute
+  path.
 - Put a condition before the action it controls: "When `pair start` refuses,
   run `pair check`."
 - State each rule in one file, and link to that file from the others.
 - Link guide files to each other and to `src/components/` with relative
-  Markdown links, such as `[round.md](round.md)`. `src/shared/guide.mjs`
-  rewrites each link to an absolute path in the agent's copy, and it skips a
-  target that contains a space or a parenthesis.
+  Markdown links, such as `[round.md](round.md)`. `pair guide` prints each
+  link to another guide file as the command that prints it, and each other
+  link with an absolute path, and it skips a target that contains a space or a
+  parenthesis.
 - Leave out what the agent does not need in order to act, such as how the hub
   stores state, why a design was chosen, or how pair got here. That goes in
   `docs/`.

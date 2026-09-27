@@ -184,7 +184,7 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   assert.match(
     took.next,
     new RegExp(
-      `^Round 1 was saved for later, and you now build it\\. Read \\S+/guide/offers/plan\\.md, then run: pair read --session-dir ${saved.sessionDir}\\. .* its action stays save\\. Build the plan as the implement action describes\\.$`,
+      `^Round 1 was saved for later, and you now build it\\. Run pair guide offers/plan\\.md and read all it prints, then run: pair read --session-dir ${saved.sessionDir}\\. .* its action stays save\\. Build the plan as its Start implementation section describes\\.$`,
     ),
   );
   const status = JSON.parse(await run(two, "status"));
