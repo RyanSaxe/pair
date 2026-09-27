@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -268,4 +269,330 @@ test("a refused pair side-work add leaves the path its source names", async (t) 
     },
   );
   assert.equal(await fs.readFile(named, "utf8"), "kept\n");
+});
+
+// publish copies its --source into the session before the hub sees the page,
+// so a publish that fails must leave no copy, or the retry is refused.
+async function sessionWithAgreed(t) {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-source-"));
+  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(scratch, { recursive: true, force: true });
+  });
+  const { sessionDir } = JSON.parse(await run("start"));
+  const round = { name: "cli", round: "1", title: "CLI plan" };
+  const page = async (id, record, html) => {
+    const source = path.join(scratch, `${id}-source`);
+    await fs.mkdir(source);
+    if (html) await fs.writeFile(path.join(source, `${id}.html`), html);
+    await fs.writeFile(
+      path.join(source, `${id}.json`),
+      JSON.stringify({ ...round, ...record }),
+    );
+    const built = path.join(scratch, `${id}.html`);
+    await run("build", path.join(source, `${id}.json`), built);
+    return { source, built };
+  };
+  const agreed = await page("agreed", {
+    offer: "plan",
+    page: {
+      id: "agreed",
+      title: "Agreed so far",
+      agreements: [],
+      task: { title: "The task", html: "<p>What the plan builds.</p>" },
+    },
+  });
+  const overview = await page(
+    "overview",
+    { page: { id: "overview", title: "Overview", file: "overview.html" } },
+    "<p>Ready by CLI</p>",
+  );
+  const list = path.join(scratch, "pages.json");
+  await fs.writeFile(
+    list,
+    JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
+  );
+  const publish = (file, source, ...rest) =>
+    run(
+      "publish",
+      "--session-dir",
+      sessionDir,
+      "--file",
+      file,
+      "--source",
+      source,
+      ...rest,
+    );
+  return { sessionDir, agreed, overview, list, publish, run };
+}
+
+test("a publish whose source cannot be copied can be retried", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  await assert.rejects(
+    publish(agreed.built, `${agreed.source}-mistyped`, "--pages", list),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /ENOENT/);
+      return true;
+    },
+  );
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "agreed")),
+    false,
+  );
+  await publish(agreed.built, agreed.source, "--pages", list);
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
+    true,
+  );
+});
+
+test("a publish the hub refuses keeps no copy of its source, and can be retried", async (t) => {
+  const { sessionDir, agreed, overview, list, publish } =
+    await sessionWithAgreed(t);
+  const kept = path.join(sessionDir, "src", "1", "overview");
+  await assert.rejects(publish(overview.built, overview.source), (error) => {
+    assert.equal(error.code, 1);
+    assert.match(error.stderr, /Publish Agreed before other pages/);
+    return true;
+  });
+  assert.equal(await exists(kept), false);
+  assert.equal(
+    await fs.readFile(path.join(overview.source, "overview.html"), "utf8"),
+    "<p>Ready by CLI</p>",
+  );
+  await publish(agreed.built, agreed.source, "--pages", list);
+  await publish(overview.built, overview.source);
+  assert.match(
+    await fs.readFile(path.join(kept, "overview.html"), "utf8"),
+    /Ready by CLI/,
+  );
+});
+
+// Publishes overview through a proxy that forwards to the hub and then
+// answers the CLI with answer(response, hubResponse, hubBody).
+async function publishThroughProxy(t, answer) {
+  const session = await sessionWithAgreed(t);
+  const { sessionDir, agreed, overview, list, publish, run } = session;
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const connectionFile = path.join(sessionDir, "connection.json");
+  const connection = JSON.parse(await fs.readFile(connectionFile, "utf8"));
+  const origin = connection.origin;
+  const proxy = http.createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    const hub = await fetch(origin + request.url, {
+      method: request.method,
+      headers: {
+        authorization: request.headers.authorization,
+        "content-type": request.headers["content-type"],
+      },
+      body,
+    });
+    answer(response, hub, await hub.text());
+  });
+  await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+  t.after(() => proxy.close());
+  connection.origin = `http://127.0.0.1:${proxy.address().port}`;
+  await fs.writeFile(connectionFile, JSON.stringify(connection));
+  const failure = await publish(overview.built, overview.source).then(
+    () => assert.fail("the publish succeeded"),
+    (error) => error,
+  );
+  // pair status goes to the hub itself.
+  await fs.writeFile(connectionFile, JSON.stringify({ ...connection, origin }));
+  const status = JSON.parse(await run("status", "--session-dir", sessionDir));
+  return {
+    failure,
+    status,
+    kept: path.join(sessionDir, "src", "1", "overview"),
+  };
+}
+
+// The hub keeps the source of each page it publishes, so the CLI removes its
+// copy only when the hub refused the publish.
+test("a publish whose answer is lost keeps the source the hub recorded", async (t) => {
+  const { failure, status, kept } = await publishThroughProxy(t, (response) =>
+    response.socket.destroy(),
+  );
+  assert.equal(failure.code, 1);
+  assert.match(failure.stderr, /The hub may have published this page/);
+  assert.equal(status.current.source, kept);
+  assert.equal(
+    await fs.readFile(path.join(kept, "overview.html"), "utf8"),
+    "<p>Ready by CLI</p>",
+  );
+});
+
+test("a publish whose answer is cut off keeps the source the hub recorded", async (t) => {
+  const { failure, status, kept } = await publishThroughProxy(
+    t,
+    (response, hub, body) => {
+      response.writeHead(hub.status, {
+        "content-type": "application/json",
+        "content-length": String(Buffer.byteLength(body)),
+      });
+      response.write(body.slice(0, 10));
+      // The CLI has the headers by then, so the body is what is cut off.
+      setTimeout(() => response.socket.destroy(), 200);
+    },
+  );
+  assert.match(failure.stderr, /The hub may have published this page/);
+  assert.equal(status.current.source, kept);
+  assert.equal(await exists(path.join(kept, "overview.html")), true);
+});
+
+test("a publish whose copy fails reports the copy's own error, and can be retried", async (t) => {
+  // Root reads any file, so the copy would not fail.
+  if (process.getuid?.() === 0) return t.skip();
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  const locked = path.join(agreed.source, "a-locked");
+  await fs.mkdir(locked);
+  await fs.writeFile(path.join(locked, "kept.txt"), "kept");
+  await fs.chmod(locked, 0o555);
+  const secret = path.join(agreed.source, "z-secret.txt");
+  await fs.writeFile(secret, "secret");
+  await fs.chmod(secret, 0o000);
+  await assert.rejects(
+    publish(agreed.built, agreed.source, "--pages", list),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /EACCES.*z-secret\.txt/);
+      return true;
+    },
+  );
+  assert.deepEqual(await fs.readdir(path.join(sessionDir, "src", "1")), []);
+  await fs.chmod(secret, 0o644);
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const copy = path.join(sessionDir, "src", "1", "agreed", "a-locked");
+  assert.equal(await fs.readFile(path.join(copy, "kept.txt"), "utf8"), "kept");
+  // The scratch directory is removed after the test, which needs both
+  // read-only directories writable again.
+  await fs.chmod(locked, 0o755);
+  await fs.chmod(copy, 0o755);
+});
+
+test("a kept source keeps its relative links", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  await fs.symlink("agreed.json", path.join(agreed.source, "link.json"));
+  await publish(agreed.built, agreed.source, "--pages", list);
+  assert.equal(
+    await fs.readlink(path.join(sessionDir, "src", "1", "agreed", "link.json")),
+    "agreed.json",
+  );
+});
+
+test("a --source that is a link is kept as the directory it names", async (t) => {
+  const { sessionDir, agreed, overview, list, publish } =
+    await sessionWithAgreed(t);
+  await fs.mkdir(path.join(overview.source, "sub"));
+  await fs.writeFile(path.join(overview.source, "sub", "own.txt"), "own");
+  const link = `${overview.source}-link`;
+  await fs.symlink(overview.source, link);
+  // Refused before Agreed, and the directory the link names is left alone.
+  await assert.rejects(publish(overview.built, link), /Publish Agreed/);
+  assert.equal(
+    await fs.readFile(path.join(overview.source, "sub", "own.txt"), "utf8"),
+    "own",
+  );
+  await publish(agreed.built, agreed.source, "--pages", list);
+  await publish(overview.built, link);
+  const kept = path.join(sessionDir, "src", "1", "overview");
+  assert.equal((await fs.lstat(kept)).isDirectory(), true);
+  assert.equal(
+    await fs.readFile(path.join(kept, "sub", "own.txt"), "utf8"),
+    "own",
+  );
+});
+
+test("a kept source's link out of the source keeps its target", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  const shared = path.join(path.dirname(agreed.source), "shared.txt");
+  await fs.writeFile(shared, "shared");
+  await fs.symlink("../shared.txt", path.join(agreed.source, "shared.txt"));
+  await publish(agreed.built, agreed.source, "--pages", list);
+  assert.equal(
+    await fs.readFile(
+      path.join(sessionDir, "src", "1", "agreed", "shared.txt"),
+      "utf8",
+    ),
+    "shared",
+  );
+});
+
+test("a read-only --source is kept like any other", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  await fs.chmod(agreed.source, 0o555);
+  await publish(agreed.built, agreed.source, "--pages", list).finally(() =>
+    fs.chmod(agreed.source, 0o755),
+  );
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
+    true,
+  );
+});
+
+test("an empty kept source says a publish may still be copying or was stopped", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  await fs.mkdir(path.join(sessionDir, "src", "1", "agreed"), {
+    recursive: true,
+  });
+  await assert.rejects(
+    publish(agreed.built, agreed.source, "--pages", list),
+    (error) => {
+      assert.match(
+        error.stderr,
+        /It is empty, so another publish of this page is still copying, or one was stopped/,
+      );
+      return true;
+    },
+  );
+});
+
+test("a kept source's link to a name starting with two dots stays inside", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  await fs.writeFile(path.join(agreed.source, "..notes.txt"), "notes");
+  await fs.symlink("..notes.txt", path.join(agreed.source, "notes-link"));
+  await publish(agreed.built, agreed.source, "--pages", list);
+  assert.equal(
+    await fs.readlink(
+      path.join(sessionDir, "src", "1", "agreed", "notes-link"),
+    ),
+    "..notes.txt",
+  );
+});
+
+test("a --source that is empty or a file is refused and leaves nothing", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  const empty = `${agreed.source}-empty`;
+  await fs.mkdir(empty);
+  await assert.rejects(
+    publish(agreed.built, empty, "--pages", list),
+    (error) => {
+      assert.match(error.stderr, /--source .* is empty/);
+      return true;
+    },
+  );
+  const file = path.join(agreed.source, "agreed.json");
+  await assert.rejects(
+    publish(agreed.built, file, "--pages", list),
+    (error) => {
+      assert.match(error.stderr, /--source must be a directory/);
+      return true;
+    },
+  );
+  assert.equal(await exists(path.join(sessionDir, "src", "1")), false);
+});
+
+test("a read-only directory with a link inside the source is kept", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  await fs.writeFile(path.join(agreed.source, "notes.md"), "notes");
+  await fs.symlink("notes.md", path.join(agreed.source, "latest.md"));
+  await fs.chmod(agreed.source, 0o555);
+  await publish(agreed.built, agreed.source, "--pages", list).finally(() =>
+    fs.chmod(agreed.source, 0o755),
+  );
+  const kept = path.join(sessionDir, "src", "1", "agreed");
+  assert.equal(await fs.readlink(path.join(kept, "latest.md")), "notes.md");
 });
