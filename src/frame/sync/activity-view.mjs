@@ -1,4 +1,3 @@
-import { state } from "#frame/app/store.mjs";
 import { since } from "#frame/app/time.mjs";
 import { $, recently } from "#frame/app/util.mjs";
 import {
@@ -23,7 +22,6 @@ import {
   roundModel,
 } from "#frame/sync/activity.mjs";
 import {
-  lastSubmission,
   pageSets,
   pageStatus,
   remote,
@@ -62,7 +60,7 @@ export function renderActivity() {
     onAgreed && !visible && roundFinished()
       ? finishedLine({
           publishedAt: remote.current.publishedAt,
-          receivedAt: lastSubmission.receivedAt,
+          receivedAt: remote.roundStartedAt,
         })
       : null;
   $("finished-line").hidden = !finished;
@@ -79,8 +77,12 @@ export function renderActivity() {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  const sentAt = lastSubmission?.receivedAt || state.submitted?.at;
-  $("activity-elapsed").textContent = running && sentAt ? since(sentAt) : "";
+  // The hub records when the agent's round started: the send, the
+  // acceptance, the pair start that builds a saved plan, or for round 1 the
+  // pair start that created the session.
+  const startedAt = remote?.roundStartedAt;
+  $("activity-elapsed").textContent =
+    running && startedAt ? since(startedAt) : "";
   $("activity-title").textContent = model.title;
   $("activity-summary").textContent = model.summary;
   const signature = JSON.stringify([

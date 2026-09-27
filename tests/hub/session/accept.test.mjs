@@ -297,6 +297,31 @@ test("Start implementation goes on to a build round the reviewer follows", async
   assert.equal(status.stage, "updated");
 });
 
+// Every browser counts the agent's running time from roundStartedAt: the
+// session's creation for round 1, and then each submission.
+test("the hub records when each round of the agent's work started", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const started = async () => (await a.status()).body.roundStartedAt;
+  const receivedAt = async (event) =>
+    JSON.parse(
+      await fs.readFile(
+        path.join(a.directory, "feedback", event.id + ".json"),
+        "utf8",
+      ),
+    ).receivedAt;
+  assert.ok(Number.isFinite(Date.parse(await started())));
+  await a.publish(planData("1", "plan"));
+  const feedback = a.event();
+  await a.feedback(feedback);
+  assert.equal(await started(), await receivedAt(feedback));
+  await a.action("read");
+  await a.publish(planData("2", "plan"));
+  const accept = a.event("accept", "2", { offer: "plan", action: "implement" });
+  await a.feedback(accept);
+  assert.equal(await started(), await receivedAt(accept));
+});
+
 test("the holder's start resumes an unread Save, and builds the plan once it is read", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -320,6 +345,11 @@ test("the holder's start resumes an unread Save, and builds the plan once it is 
   assert.equal(status.stage, "working");
   assert.equal(status.latestSubmissionRound, "1");
   assert.equal(status.takeover, null);
+  // The build starts the agent's running time, not the Save.
+  const saved = JSON.parse(
+    await fs.readFile(path.join(a.directory, "feedback", save.id + ".json")),
+  );
+  assert.ok(Date.parse(status.roundStartedAt) > Date.parse(saved.receivedAt));
   assert.match(
     (await a.action("ack")).body.next,
     /^Round 1 was saved for later, and you are building it now\. Build it as the implement action in \S+\/plan\.md describes\.$/,

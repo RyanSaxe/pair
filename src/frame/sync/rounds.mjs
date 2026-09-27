@@ -124,8 +124,7 @@ export const roundFinished = () =>
   Boolean(remote?.current) &&
   !remote.openRound &&
   remote.current.round !== submittedRound &&
-  remote.latestSubmissionRound === submittedRound &&
-  lastSubmission?.round === submittedRound;
+  remote.latestSubmissionRound === submittedRound;
 
 /* A published page is fetched once. Polls only update its place in the list. */
 export async function loadPageRecord(round, id) {
