@@ -151,7 +151,7 @@
   color: var(--shiki-dark) !important;
 }
 /* A <pre data-language> also matches the frame's generic pre rule and keeps
-   the browser's default margin: 1em 0, which frame.css never resets; a <div
+   the browser's default margin: 1em 0, which base.css never resets; a <div
    data-language> carries none of it. The rendered code is identical either
    way, because [data-language] .shiki supplies the vertical padding and
    .line the horizontal, so the reset makes the two elements render alike in

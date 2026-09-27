@@ -39,12 +39,27 @@ async function frameModules() {
     modules[name] = await read(`../shared/${name.slice("#shared/".length)}`);
   return modules;
 }
+// The frame's stylesheets in cascade order, which follows where each one's
+// first rule sat in the single stylesheet they came from.
+const stylesheets = [
+  "app/tokens.css",
+  "app/base.css",
+  "app/shell.css",
+  "pages/page-list.css",
+  "pages/reading.css",
+  "sync/activity.css",
+  "review/review.css",
+  "pages/agreed.css",
+  "pages/diagram.css",
+  "app/dialogs.css",
+  "app/modes.css",
+];
 export async function frameBundle() {
   const roots = componentRoots();
   const [shell, style, modules, drawingEditor, componentCss, componentJs] =
     await Promise.all([
       read("frame.html"),
-      read("frame.css"),
+      Promise.all(stylesheets.map(read)).then((texts) => texts.join("\n")),
       frameModules(),
       read("notes/drawing-editor.html"),
       componentStyles(roots),

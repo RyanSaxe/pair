@@ -1,0 +1,42 @@
+/* Modes */
+:root[data-mode="preview"] body {
+  background: var(--ground);
+}
+:root[data-mode="preview"] .app {
+  display: block;
+  height: auto;
+}
+:root[data-mode="preview"] .app-body {
+  display: block;
+}
+:root[data-mode="preview"] .sidebar,
+:root[data-mode="preview"] .frame-header,
+:root[data-mode="preview"] .history-strip,
+:root[data-mode="preview"] .page-footer,
+:root[data-mode="preview"] #quote {
+  display: none !important;
+}
+:root[data-mode="preview"] main {
+  background: var(--ground);
+  display: block;
+}
+:root[data-mode="preview"] .content {
+  padding: 18px 28px 40px;
+}
+:root[data-mode="preview"] h1 {
+  font-size: 17px;
+}
+:root[data-mode="readonly"] #submit,
+:root[data-mode="readonly"] #quote,
+:root[data-mode="readonly"] [data-comment],
+:root[data-mode="readonly"] .note-count {
+  display: none !important;
+}
+:root[data-mode="readonly"] [data-choice] [data-value],
+:root[data-mode="readonly"] [data-multiselect] input,
+:root[data-mode="readonly"] [data-question] textarea {
+  pointer-events: none;
+}
+:root[data-mode="preview"] .content {
+  margin: 0;
+}

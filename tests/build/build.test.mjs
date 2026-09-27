@@ -36,7 +36,7 @@ test("page CSS uses its own scope outside the frame content scope", async () => 
 });
 
 // The cascade ranks an unlayered rule above every layered one, so an
-// unlayered frame.css would outrank both other layers.
+// unlayered frame stylesheet would outrank both other layers.
 test("frame CSS is layered, and the component layer comes last", async () => {
   const html = await assemble(data);
   const style = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));

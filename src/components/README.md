@@ -44,8 +44,8 @@ Set `data-kind` on the component's root to a singular noun that follows
 ## Styles
 
 `styles.css` needs no wrapper. The builder writes it into a cascade layer
-that beats page CSS and `frame.css`, so a component sets its own type and
-spacing without fighting a frame selector. Use the design tokens in
+that beats page CSS and the frame's stylesheets, so a component sets its own
+type and spacing without fighting a frame selector. Use the design tokens in
 [frame.md](../../guide/frame.md).
 
 A component that holds authored content gives it a slot, and the frame

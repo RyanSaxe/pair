@@ -1,0 +1,114 @@
+/* Agreed */
+.agreement-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--panel);
+}
+/* The task opens Agreed, above the decisions. */
+.agreed-label {
+  margin: 4px 0 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.task-card {
+  margin-bottom: 18px;
+  border-color: var(--line-strong);
+}
+.task-card .agreement-body {
+  padding: 14px 16px 12px;
+}
+.task-card .agreement-body h2 {
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+.task-card .agreement-body p {
+  font-size: 13.5px;
+}
+.agreement-body {
+  padding: 12px 14px 10px;
+}
+.agreement-body h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+.agreement-body h2 .tag {
+  margin-left: 6px;
+}
+.agreement-body p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.agreement-source {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--ground);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.agreement-source .actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.agreement-source .link-btn,
+.agreement-source a {
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.agreement-sources {
+  border-top: 1px solid var(--line);
+  padding: 8px 14px 10px;
+  font-size: 12.5px;
+  display: grid;
+  gap: 8px;
+}
+.agreement-sources .record .small {
+  display: block;
+  margin-bottom: 2px;
+}
+.agreement-sources blockquote {
+  margin: 4px 0;
+}
+.agreement-preview {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+  background: var(--ground);
+  border-top: 0 solid var(--line);
+}
+.agreement-preview.open {
+  grid-template-rows: 1fr;
+  border-top-width: 1px;
+}
+.agreement-preview > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.agreement-preview iframe {
+  display: block;
+  width: 100%;
+  height: 380px;
+  border: 0;
+  background: var(--ground);
+}
+.agreement-retired > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 8px 0 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agreement-preview {
+    transition: none;
+  }
+}

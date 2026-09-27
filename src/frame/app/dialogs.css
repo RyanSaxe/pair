@@ -1,0 +1,292 @@
+/* Dialogs */
+dialog {
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+dialog::backdrop {
+  background: #0005;
+}
+.dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.dialog-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, 92vw);
+  height: fit-content;
+  max-height: 90dvh;
+  padding: 22px 24px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.drawing-dialog {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+}
+.drawing-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.drawing-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+.drawing-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.drawing-dialog .renderer-error {
+  margin: 0 16px 8px;
+}
+.drawing-dialog iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: white;
+}
+.dialog h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+.dialog .actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+}
+.dialog .actions .btn {
+  width: auto;
+}
+.dialog-head h2:focus,
+.dialog-head h2:focus-visible {
+  outline: 0;
+}
+.rev-list {
+  display: grid;
+  gap: 1px;
+  margin: 0 -8px;
+}
+.rev-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.rev-row.current {
+  background: var(--ground);
+  font-weight: 600;
+}
+.rev-row .tick {
+  color: var(--accent);
+}
+.rev-row small {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.rev-plan {
+  margin: -6px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.key-list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+.key-list dt {
+  white-space: nowrap;
+}
+.key-list dd {
+  margin: 0;
+  color: var(--muted);
+}
+/* Beside the reading column, not the window. .app caps at 1160px and
+   centres, so on a wide screen a control fixed to the window sits hundreds
+   of pixels right of the text. Below 1160px the max() is zero and the value
+   is the 22px it has always been. */
+.note-actions {
+  margin-top: 10px;
+}
+.note-actions .spacer {
+  margin-left: auto;
+}
+.note-field {
+  position: relative;
+}
+.dialog.note.dropping .note-field::after {
+  content: "Drop to attach";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 7px;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+/* Dialogs share one treatment; a long body scrolls inside. */
+.dialog {
+  overflow: auto;
+}
+.dialog .actions-right {
+  display: flex;
+  justify-content: flex-end;
+}
+.decide-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.decide-sections .actions {
+  flex-wrap: wrap;
+}
+.decide-sections > div {
+  grid-area: 1 / 1;
+}
+.decide-sections > [inert] {
+  visibility: hidden;
+}
+.dialog.note #note-anchor {
+  margin: 0 0 6px;
+}
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.settings-row:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+.settings-row .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.segmented button {
+  padding: 4px 10px;
+  border-left: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 12px;
+}
+.segmented button:first-child {
+  border-left: 0;
+}
+.segmented button[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.session-list {
+  display: grid;
+  gap: 1px;
+  margin: 0 -8px;
+}
+.session-list .session-gap {
+  height: 6px;
+}
+.session-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+@media (hover: hover) {
+  .session-row:hover {
+    background: var(--ground);
+  }
+}
+.session-row.current {
+  background: var(--accent-soft);
+}
+.session-row .title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-row .words {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-row .words em {
+  font-style: normal;
+  font-weight: 600;
+}
+.session-row.need .words em {
+  color: var(--attention);
+}
+.session-row.current .words em {
+  color: var(--ink);
+}
+.session-row.done .title {
+  font-weight: 500;
+  color: var(--muted);
+}
+/* A session row and the control that closes that session. */
+.session-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  /* The list bleeds 8px so a row's background is wider than its text. The
+     control in the trailing column is not part of that, and lines up with
+     the dialog's own close instead. */
+  padding-right: 8px;
+}
+.session-line[data-closing] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.session-dismiss {
+  flex: none;
+}
+@media (max-width: 720px) {
+  .dialog {
+    width: 92vw;
+  }
+}

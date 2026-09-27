@@ -1,0 +1,241 @@
+.sent-feedback {
+  margin-top: 22px;
+}
+.sent-feedback h2 {
+  margin: 0 0 10px;
+}
+.page-load-error {
+  padding: 16px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+}
+.page-load-error p {
+  color: var(--danger);
+}
+.draft-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.draft-head h2 {
+  margin: 0;
+}
+.draft-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.sent-card small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.sent-card {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sent-card p {
+  margin: 5px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sent-card blockquote {
+  margin: 7px 0;
+  padding-left: 9px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 12px;
+}
+.sent-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+.sent-images img {
+  display: block;
+  width: auto;
+  max-width: 130px;
+  height: 90px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  object-fit: cover;
+}
+/* Feedback page */
+.alignment-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.alignment-switch input {
+  appearance: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: pointer;
+}
+.alignment-switch input::before {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-radius: 50%;
+  background: var(--panel);
+  transition: transform 120ms ease;
+}
+.alignment-switch input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.alignment-switch input:checked::before {
+  transform: translateX(14px);
+}
+.alignment-switch input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.alignment-switch input:disabled {
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .alignment-switch input::before {
+    transition: none;
+  }
+}
+.feedback-group {
+  margin-bottom: 26px;
+}
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.group-head h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.feedback-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  align-items: start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.feedback-item h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.feedback-item h3 .tag {
+  margin-left: 6px;
+}
+.feedback-item p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.feedback-item blockquote {
+  margin: 6px 0 2px;
+}
+.feedback-item .context-link {
+  font-size: 12px;
+  display: inline-block;
+  margin-top: 4px;
+}
+.feedback-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  max-width: 230px;
+}
+.feedback-item-actions .btn {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.feedback-item.sent {
+  opacity: 0.7;
+}
+.feedback-end {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding: 14px 0 6px;
+}
+.feedback-item .drawing-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+/* Images on a note: a strip of thumbnails the reviewer can drop one by one,
+   and a layer over the field while a file is over it. */
+.note-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+.note-image {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ground);
+  line-height: 0;
+}
+.note-image img,
+img.note-image {
+  display: block;
+  width: auto;
+  height: 72px;
+  max-width: 160px;
+  object-fit: cover;
+}
+/* On Feedback the thumbnail is the whole element, with no control on it. */
+img.note-image {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.note-image .icon-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1;
+}
+@media (max-width: 720px) {
+  .feedback-item {
+    grid-template-columns: 1fr;
+  }
+  .feedback-item-actions {
+    justify-content: flex-start;
+    max-width: none;
+  }
+}
