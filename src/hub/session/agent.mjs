@@ -82,10 +82,12 @@ export function agent(session) {
     await transition({ stage: "complete", dismissedAt: timestamp() });
     return { status: view() };
   }
-  // The next command of an agent the session was taken from fails, start
-  // included, so it stops instead of publishing over its successor. After
-  // that it is told, like any agent that does not hold the session, how to
-  // take the session over, which it does only when the user asks.
+  // Every command but pair status goes through this check, start included.
+  // The first one from an agent the session was taken from fails with the
+  // time of the takeover and removes the agent from formerHolders, so the
+  // agent stops instead of publishing over its successor. After that, a
+  // command other than start from any agent but the holder fails with the
+  // line that says to take the session over with pair start if the user asks.
   async function requireHolder(agent, start = false) {
     const clock = (at) => new Date(at).toTimeString().slice(0, 5);
     const former = (session.state.formerHolders || []).find((item) =>
