@@ -64,6 +64,11 @@ dialog::backdrop {
   margin: 0 0 14px;
   font-size: 16px;
 }
+/* A head lays its heading out centered beside the close button, so the
+   heading takes no margin there. */
+.dialog .dialog-head h2 {
+  margin: 0;
+}
 .dialog .actions {
   display: flex;
   justify-content: space-between;
