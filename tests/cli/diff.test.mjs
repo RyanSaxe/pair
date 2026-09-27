@@ -68,3 +68,21 @@ test("pair diff gives identical files an empty patch and names a missing file", 
   );
   assert.equal(await exists(refused), false);
 });
+
+test("pair diff refuses to overwrite an existing output", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-diff-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const [before, after, output] = ["before.txt", "after.txt", "input.json"].map(
+    (name) => path.join(directory, name),
+  );
+  await fs.writeFile(before, "one\n");
+  await fs.writeFile(after, "two\n");
+  await fs.writeFile(output, "keep");
+  await assert.rejects(
+    exec(process.execPath, [pair, "diff", before, after, output], {
+      env: withoutGit,
+    }),
+    /EEXIST/,
+  );
+  assert.equal(await fs.readFile(output, "utf8"), "keep");
+});
