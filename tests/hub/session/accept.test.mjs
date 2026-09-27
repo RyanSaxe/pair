@@ -3,11 +3,10 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { assemble } from "../../../src/build/assemble.mjs";
 import { renderFinish } from "../../../src/frame/review/send.mjs";
 import { offers } from "../../../src/shared/offers.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import { exists, hub, planData, root } from "../../support/hub.mjs";
+import { exists, hub, planData } from "../../support/hub.mjs";
 
 test("a plan can be reopened, and only the current round's offer is accepted", async (t) => {
   const h = await hub(t);
@@ -55,31 +54,12 @@ test("a plan can be reopened, and only the current round's offer is accepted", a
   );
 });
 
-// Finish your review as the frame renders it for the frame's fixture built
-// with the offer. The frame may write only to elements the built dialog has.
-async function fixtureDialog(offer, accept) {
-  const directory = path.join(root, "tests/fixture");
-  const read = async ({ file, ...item }) => ({
-    ...item,
-    html: await fs.readFile(path.join(directory, file), "utf8"),
-  });
-  const source = JSON.parse(
-    await fs.readFile(path.join(directory, "fixture.json"), "utf8"),
-  );
-  const [first, ...rest] = await Promise.all(source.pages.map(read));
-  const built = await assemble({
-    ...source,
-    offer,
-    pages: [{ ...first, id: offers[offer].firstPage || first.id }, ...rest],
-    prototypes: await Promise.all(source.prototypes.map(read)),
-  });
-  const dialog = built.match(
-    /<dialog[^>]*id="finish-dialog"[\s\S]*?<\/dialog>/,
-  )[0];
+// Finish your review as renderFinish fills it, in a stand-in document that
+// returns an element for any ID.
+function finishDialog(round, accept) {
   const elements = new Map();
   const document = {
     getElementById(name) {
-      if (!dialog.includes(`id="${name}"`)) return null;
       if (!elements.has(name))
         elements.set(name, {
           replaceChildren(...children) {
@@ -90,14 +70,13 @@ async function fixtureDialog(offer, accept) {
     },
     createElement: () => ({}),
   };
-  renderFinish(document, readPlanData(built), offers, accept);
+  renderFinish(document, round, offers, accept);
   return elements;
 }
 
-// Every registry entry: the round opens on the offer's first page, the frame's
-// fixture built with the offer renders the entry in Finish your review, and
-// the button for each action is accepted with a drafted comment and sends the
-// agent to the offer's guide file.
+// Every registry entry: the round opens on the offer's first page, Finish
+// your review renders the entry, and the button for each action is accepted
+// with a drafted comment and sends the agent to the offer's guide file.
 for (const [id, offer] of Object.entries(offers))
   for (const action of offer.accept.actions)
     test(`a round that offers ${id} is accepted with ${action.id}`, async (t) => {
@@ -126,9 +105,12 @@ for (const [id, offer] of Object.entries(offers))
       );
       assert.equal(readPlanData(built).offer, id);
       let pressed;
-      const shown = await fixtureDialog(id, (chosen) => (pressed = chosen));
+      const shown = finishDialog(
+        readPlanData(built),
+        (chosen) => (pressed = chosen),
+      );
       const text = (element) => shown.get(element).textContent;
-      assert.equal(text("finish-detail"), "Component fixture, round 1");
+      assert.equal(text("finish-detail"), "Example work, round 1");
       assert.deepEqual(
         [
           "accept-label",
