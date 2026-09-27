@@ -8,11 +8,11 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { compareFiles } from "../../ai-harness/skills/interactive-plan/components/before-after/diff.mjs";
+import { compareFiles } from "../src/components/before-after/diff.mjs";
 import {
   createReviewAlerts,
   reviewAlert,
-} from "../../ai-harness/skills/interactive-plan/assets/notifications.mjs";
+} from "../src/frame/notifications.mjs";
 import {
   emptyDraft,
   loadDraft,
@@ -21,30 +21,19 @@ import {
   readPlaces,
   submissionGroups,
   unsentItems,
-} from "../../ai-harness/skills/interactive-plan/assets/draft.mjs";
+} from "../src/frame/draft.mjs";
+import { assemble, build, buildPage } from "../src/build.mjs";
 import {
-  assemble,
-  build,
-  buildPage,
-} from "../../ai-harness/skills/interactive-plan/scripts/build.mjs";
-import {
-  artifactData,
-  detectWake,
+  readPlanData,
   pageData,
   settings,
   startHub,
   version,
-} from "../../ai-harness/skills/interactive-plan/scripts/session.mjs";
+} from "../src/session.mjs";
 
 const exec = promisify(execFile);
-const root = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
-);
-const helper = path.join(
-  root,
-  "ai-harness/skills/interactive-plan/scripts/session.mjs",
-);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const pair = path.join(root, "src/cli.mjs");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exists = (file) =>
   fs.access(file).then(
@@ -59,20 +48,25 @@ const alive = (pid) => {
     return error.code !== "ESRCH";
   }
 };
-// The helper detects the nearest agent process before environment variables.
-// Give both supported agent paths dummy targets so a test wake cannot reach
-// a real session, including when this suite runs under Codex.
-function cliEnv(home, extra = {}) {
+// pair takes its wake target from the nearest agent CLI among its ancestors.
+// These commands run under a process named claude whose inbox socket nobody
+// listens on, so a test wake reaches no real session, and the suite passes
+// the same way under Claude Code, Codex, Copilot CLI or none of them.
+async function pairCli(home, extra = {}, cli = pair) {
+  const relay =
+    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
+  const claude = path.join(home, "claude");
+  await fs.symlink(process.execPath, claude);
   const env = {
     ...process.env,
     XDG_STATE_HOME: home,
     CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
     CLAUDE_CODE_MESSAGING_TOKEN: "test",
-    CODEX_THREAD_ID: "interactive-plan-test-thread",
     ...extra,
   };
-  delete env.COPILOT_AGENT_SESSION_ID;
-  return env;
+  const run = async (...args) =>
+    (await exec(claude, ["-e", relay, cli, ...args], { env })).stdout;
+  return { config: settings(env), run };
 }
 async function waitUntil(check, ms = 5000) {
   const deadline = Date.now() + ms;
@@ -94,7 +88,7 @@ async function killHub(config) {
 const sessionConfig = (html) =>
   JSON.parse(html.match(/id="session-config">([\s\S]*?)<\/script>/)[1]);
 
-test("each revision keeps its own remembered place", () => {
+test("each round keeps its own remembered place", () => {
   const pages = ["overview", "steps", "feedback"];
   const { tab, past, places } = readPlaces({
     tab: "past",
@@ -117,20 +111,15 @@ test("each revision keeps its own remembered place", () => {
     top: 0,
     tops: {},
   });
-  // A revision never visited opens at its first page.
+  // A round never visited opens at its first page.
   assert.equal(placeFor(places, "3", pages), null);
-  // A page the revision dropped would land the reader nowhere.
+  // A page the round dropped would land the reader nowhere.
   assert.equal(placeFor(places, "1", ["overview", "feedback"]), null);
   assert.deepEqual(readPlaces(null), {
     tab: "current",
     past: null,
     places: {},
   });
-  // A record from before places were kept per revision still counts.
-  assert.deepEqual(
-    readPlaces({ revision: "2", page: "steps", top: 10 }).places,
-    { 2: { page: "steps", top: 10, tops: {} } },
-  );
 });
 
 test("file comparison preserves exact sources and produces an applicable Git patch", async (t) => {
@@ -153,12 +142,17 @@ test("file comparison preserves exact sources and produces an applicable Git pat
   // The patch names the file, not the scratch paths it was made from.
   assert.match(result.patch, /^diff --git a\/cli\.py b\/cli\.py$/m);
   assert(!result.patch.includes(directory));
-  const patchPath = path.join(directory, "change.patch");
-  await fs.writeFile(patchPath, result.patch);
   // Git hands GIT_DIR to hooks, which would point apply at this repository.
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
   );
+  const output = path.join(directory, "input.json");
+  await exec(process.execPath, [pair, "diff", beforePath, afterPath, output], {
+    env,
+  });
+  assert.deepEqual(JSON.parse(await fs.readFile(output, "utf8")), result);
+  const patchPath = path.join(directory, "change.patch");
+  await fs.writeFile(patchPath, result.patch);
   await exec("git", ["apply", patchPath], {
     cwd: path.dirname(beforePath),
     env,
@@ -181,26 +175,26 @@ test("file comparison distinguishes identical input from a missing input", async
   );
 });
 
-test("drafts carry unsent items across revisions and drop what was sent", () => {
+test("drafts carry unsent items across rounds and drop what was sent", () => {
   const draft = emptyDraft("1");
   draft.notes.push({
     id: "n1",
     topic: "overview",
     anchor: "A",
     text: "one",
-    revision: "1",
+    round: "1",
   });
   draft.choices["overview/x"] = {
     topic: "overview",
     label: "X",
     value: "a",
-    revision: "1",
+    round: "1",
   };
   draft.answers["overview/q"] = {
     topic: "overview",
     label: "Q",
     text: "yes",
-    revision: "1",
+    round: "1",
   };
   assert.equal(unsentItems(draft).count, 3);
   assert.deepEqual(Object.keys(submissionGroups(draft)), [
@@ -218,7 +212,7 @@ test("drafts carry unsent items across revisions and drop what was sent", () => 
     topic: "overview",
     anchor: "B",
     text: "two",
-    revision: "1",
+    round: "1",
   });
   assert.equal(unsentItems(draft).count, 1);
   const groups = submissionGroups(draft);
@@ -244,7 +238,7 @@ test("drafts carry unsent items across revisions and drop what was sent", () => 
   assert.equal(next.submitted, null);
   assert.equal(next.acceptance, null);
   assert.equal(next.acceptGuidance, "");
-  assert.equal(next.revision, "2");
+  assert.equal(next.round, "2");
   assert.deepEqual(loadDraft(null, "3"), emptyDraft("3"));
   assert.deepEqual(loadDraft({ notes: "bad" }, "3"), emptyDraft("3"));
 });
@@ -306,11 +300,11 @@ function alertFixture({
     sessionId,
     open: (url) => opened.push(url),
   });
-  const entry = (id, revision, extra = {}) => ({
+  const entry = (id, round, extra = {}) => ({
     id,
     title: `Plan ${id}`,
     kind: "exploration",
-    revision,
+    round,
     stage: "updated",
     needsYou: true,
     publishedAt: new Date().toISOString(),
@@ -349,7 +343,7 @@ test("alerts announce other sessions once across tabs and never the focused sess
   await Promise.all([a.alerts.update([s1, s3]), b.alerts.update([s1, s3])]);
   assert.equal(a.sent.length + b.sent.length, 1);
   const item = a.sent[0] || b.sent[0];
-  assert.equal(item.title, "Revision 1 is ready");
+  assert.equal(item.title, "Round 1 is ready");
   assert.equal(item.options.body, "Plan s3");
   item.onclick();
   assert.deepEqual([...a.opened, ...b.opened], ["/s/s3/"]);
@@ -401,7 +395,7 @@ test("only sessions that need the user alert, with the final plan named", () => 
     id: "s1",
     title: "Plan",
     kind: "plan",
-    revision: "3",
+    round: "3",
     stage: "updated",
     needsYou: true,
     url: "/s/s1/",
@@ -438,14 +432,10 @@ test("denied, unavailable, and failed notifications disable the control", async 
   assert.match(a.button.title, /delivery failed/);
 });
 
-function planData(
-  revision = "1",
-  kind = "exploration",
-  artifactId = "example",
-) {
+function planData(round = "1", kind = "exploration", name = "example") {
   return {
-    artifactId,
-    revision,
+    name,
+    round,
     kind,
     title: "Example work",
     pages: [
@@ -459,7 +449,7 @@ function planData(
 }
 async function hub(t, extra = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-hub-"));
-  const env = { XDG_STATE_HOME: home, INTERACTIVE_PLAN_PORT: "0", ...extra };
+  const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
   const config = { ...settings(env), log() {}, async wake() {} };
   const server = await startHub(config);
   t.after(async () => {
@@ -511,13 +501,13 @@ async function hub(t, extra = {}) {
     };
     const action = (action, data = {}) =>
       request(`/agent/${id}/action`, { action, sessionId: id, ...data });
-    // A revision goes out as an agent sends it: Agreed with the page list,
+    // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
     const publish = async (data) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
-          artifactId: data.artifactId,
-          revision: data.revision,
+          name: data.name,
+          round: data.round,
           kind: data.kind,
           title: data.title,
           page,
@@ -537,10 +527,10 @@ async function hub(t, extra = {}) {
       }
       return result;
     };
-    const event = (intent = "feedback-only", revision = "1", extra = {}) => ({
+    const event = (intent = "feedback-only", round = "1", extra = {}) => ({
       sessionId: id,
-      artifactId: "example",
-      revision,
+      name: "example",
+      round,
       intent,
       id: crypto.randomUUID(),
       groups: {},
@@ -592,8 +582,8 @@ test("a page source builds a standalone preview without executing content", asyn
   await fs.writeFile(
     source,
     JSON.stringify({
-      artifactId: "build",
-      revision: "1",
+      name: "build",
+      round: "1",
       kind: "plan",
       title: "Build",
       page: {
@@ -620,30 +610,21 @@ test("a page source builds a standalone preview without executing content", asyn
   assert(html.includes("export function loadDraft"));
   assert(!html.includes("<!-- FRAME_"));
   assert(!html.includes('src="frame.js"'));
-  const output = path.join(directory, "artifact.html");
-  const builder = path.join(path.dirname(helper), "build.mjs");
-  await exec(process.execPath, [builder, source, output]);
+  const output = path.join(directory, "round.html");
+  await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
   await assert.rejects(
-    exec(process.execPath, [builder, source, output]),
+    exec(process.execPath, [pair, "build", source, output]),
     /EEXIST/,
   );
 
-  // The skill is installed through a symlink; the builder must still know
-  // it is the script being run.
-  const link = path.join(directory, "skill");
-  await fs.symlink(path.dirname(path.dirname(helper)), link);
+  // npm installs the command as a symlink to src/cli.mjs.
+  const link = path.join(directory, "pair");
+  await fs.symlink(pair, link);
   const linked = path.join(directory, "linked.html");
-  await exec(process.execPath, [
-    path.join(link, "scripts", "build.mjs"),
-    source,
-    linked,
-  ]);
+  await exec(process.execPath, [link, "build", source, linked]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
-  await assert.rejects(
-    exec(process.execPath, [path.join(link, "scripts", "build.mjs")]),
-    /Usage/,
-  );
+  await assert.rejects(exec(process.execPath, [link, "build"]), /Usage/);
 });
 
 test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {
@@ -653,8 +634,8 @@ test("preserved prototypes retain exact executable source without escaping into 
     '<!doctype html><button id="try">Try</button><script>document.querySelector("button").onclick = () => alert("$&");</script>';
   await fs.writeFile(path.join(directory, "prototype.html"), html);
   const data = {
-    artifactId: "example",
-    revision: "1",
+    name: "example",
+    round: "1",
     kind: "exploration",
     title: "Example work",
     page: {
@@ -751,10 +732,10 @@ test("publication resolves exact mixed sources from saved feedback before hashin
   const result = await a.publish(data);
   assert.equal(result.code, 200);
   const snapshot = await fs.readFile(
-    path.join(a.directory, "artifacts/example.2.html"),
+    path.join(a.directory, "rounds/example.2.html"),
     "utf8",
   );
-  const records = artifactData(snapshot).agreements[0].sourceRecords;
+  const records = readPlanData(snapshot).agreements[0].sourceRecords;
   assert.equal(records.length, 3);
   assert.equal(records[0].text, feedback.groups.notes[0].text);
   assert.equal(records[0].quote, "A failed item");
@@ -778,7 +759,7 @@ test("publication resolves exact mixed sources from saved feedback before hashin
   ]) {
     const rejected = await a.publish({
       ...data,
-      revision: "3",
+      round: "3",
       agreements: [{ ...entry, sourceRefs: [ref] }],
     });
     assert.equal(rejected.code, 400);
@@ -847,10 +828,10 @@ test("choice sources preserve readable labels and complete checklist snapshots",
   const published = await a.publish(data);
   assert.equal(published.code, 200);
   const html = await fs.readFile(
-    path.join(a.directory, "artifacts/example.2.html"),
+    path.join(a.directory, "rounds/example.2.html"),
     "utf8",
   );
-  const sources = artifactData(html).agreements[0].sourceRecords;
+  const sources = readPlanData(html).agreements[0].sourceRecords;
   assert.deepEqual(
     sources.map((source) => source.choice),
     Object.values(choices),
@@ -908,10 +889,10 @@ test("answers travel with feedback and resolve as agreement sources", async (t) 
   const published = await a.publish({ ...planData("2"), agreements: [entry] });
   assert.equal(published.code, 200, published.body.error);
   const html = await fs.readFile(
-    path.join(a.directory, "artifacts/example.2.html"),
+    path.join(a.directory, "rounds/example.2.html"),
     "utf8",
   );
-  const [record] = artifactData(html).agreements[0].sourceRecords;
+  const [record] = readPlanData(html).agreements[0].sourceRecords;
   assert.equal(record.kind, "answer");
   assert.equal(record.text, "Yes, keep the <sidebar>");
   assert.equal(record.label, "Sidebar?");
@@ -965,12 +946,12 @@ test("final review can reopen exploration and only accept the recomposed plan", 
   await a.action("read");
   assert.equal(
     (await a.action("complete")).body.planPath,
-    path.join(a.directory, "artifacts/example.3.html"),
+    path.join(a.directory, "rounds/example.3.html"),
   );
   assert.equal(
-    artifactData(
+    readPlanData(
       await fs.readFile(
-        path.join(a.directory, "artifacts/example.1.html"),
+        path.join(a.directory, "rounds/example.1.html"),
         "utf8",
       ),
     ).kind,
@@ -987,7 +968,7 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
     source: "User selected per-item errors",
     href: "./example.1.html?target=errors#overview",
   };
-  const parsed = artifactData(await assemble({ ...data, agreements: [entry] }));
+  const parsed = readPlanData(await assemble({ ...data, agreements: [entry] }));
   assert.deepEqual(parsed.agreements, [entry]);
   for (const agreements of [
     [entry, entry],
@@ -1018,8 +999,8 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
   await fs.writeFile(
     source,
     JSON.stringify({
-      artifactId: data.artifactId,
-      revision: data.revision,
+      name: data.name,
+      round: data.round,
       kind: data.kind,
       title: data.title,
       page: {
@@ -1044,20 +1025,20 @@ test("agreements survive topic changes and targeted feedback without rewriting s
   };
   const states = ["agreed", "reopened", "agreed", "retired"];
   for (const [index, state] of states.entries()) {
-    const revision = String(index + 1);
+    const round = String(index + 1);
     const data = {
-      ...planData(revision),
+      ...planData(round),
       pages: [
         {
-          id: `topic-${revision}`,
-          title: `Topic ${revision}`,
+          id: `topic-${round}`,
+          title: `Topic ${round}`,
           html: "<p>Current proposal</p>",
         },
       ],
       agreements: [{ ...entry, state }],
     };
     assert.equal((await a.publish(data)).code, 200);
-    const event = a.event("feedback-only", revision, {
+    const event = a.event("feedback-only", round, {
       groups: {
         notes: [
           {
@@ -1065,7 +1046,7 @@ test("agreements survive topic changes and targeted feedback without rewriting s
             topic: "agreed",
             agreementId: entry.id,
             anchor: entry.title,
-            revision,
+            round,
             text: "Reconsider the error type.",
           },
         ],
@@ -1081,9 +1062,9 @@ test("agreements survive topic changes and targeted feedback without rewriting s
     await a.action("read");
   }
   for (const [index, state] of states.entries()) {
-    const snapshot = artifactData(
+    const snapshot = readPlanData(
       await fs.readFile(
-        path.join(a.directory, `artifacts/example.${index + 1}.html`),
+        path.join(a.directory, `rounds/example.${index + 1}.html`),
         "utf8",
       ),
     );
@@ -1092,18 +1073,17 @@ test("agreements survive topic changes and targeted feedback without rewriting s
   }
   const status = (await a.status()).body;
   assert.deepEqual(
-    status.revisions.map((item) => item.revision),
+    status.rounds.map((item) => item.round),
     ["1", "2", "3", "4"],
   );
-  assert.equal(status.revisions[0].url, `${a.base}/r/1`);
+  assert.equal(status.rounds[0].url, `${a.base}/r/1`);
 });
 
 test("capability check tests storage, loopback, and the hub port, then cleans up", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-check-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const check = path.join(path.dirname(helper), "check.mjs");
-  const result = await exec(process.execPath, [check, directory], {
-    env: { ...process.env, INTERACTIVE_PLAN_PORT: "0" },
+  const result = await exec(process.execPath, [pair, "check", directory], {
+    env: { ...process.env, PAIR_HUB_PORT: "0" },
   });
   const report = JSON.parse(result.stdout);
   assert.equal(report.ready, true);
@@ -1112,8 +1092,8 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   const h = await hub(t);
   const live = JSON.parse(
     (
-      await exec(process.execPath, [check, directory], {
-        env: { ...process.env, INTERACTIVE_PLAN_PORT: String(h.record.port) },
+      await exec(process.execPath, [pair, "check", directory], {
+        env: { ...process.env, PAIR_HUB_PORT: String(h.record.port) },
       })
     ).stdout,
   );
@@ -1121,11 +1101,11 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(live.hub.version, version);
   const file = path.join(directory, "not-a-directory");
   await fs.writeFile(file, "preserve");
-  await assert.rejects(exec(process.execPath, [check, file]));
+  await assert.rejects(exec(process.execPath, [pair, "check", file]));
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
-test("artifact parsing requires a real plan overview and preserves rich HTML", () => {
+test("plan data parsing requires a real plan overview and preserves rich HTML", () => {
   const html = (data) =>
     `<script type="application/json" id="plan-data">${JSON.stringify(data)}</script>`;
   const renamed = (kind, id) => {
@@ -1134,14 +1114,14 @@ test("artifact parsing requires a real plan overview and preserves rich HTML", (
     return html(data);
   };
   assert.equal(
-    artifactData(html(planData("1", "plan"))).pages[0].html,
+    readPlanData(html(planData("1", "plan"))).pages[0].html,
     "<p>Preserve one result per input.</p>",
   );
   assert.throws(
-    () => artifactData(renamed("exploration", "feedback")),
+    () => readPlanData(renamed("exploration", "feedback")),
     /reserved/,
   );
-  assert.throws(() => artifactData(renamed("plan", "details")), /overview/);
+  assert.throws(() => readPlanData(renamed("plan", "details")), /overview/);
 });
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
@@ -1224,7 +1204,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
     list.map((item) => item.id),
     [b.id, a.id],
   );
-  assert.equal(list[0].revision, "2");
+  assert.equal(list[0].round, "2");
   assert.equal(
     (await b.action("pause", { reason: "asked to stop" })).code,
     200,
@@ -1318,24 +1298,15 @@ test("the root URL opens the session that most needs you, then the last viewed, 
     await session.feedback(event);
     await session.action("read");
   }
-  assert.equal(
-    (await open(`interactive-plan-last=${a.id}`)).location,
-    `${a.base}/`,
-  );
-  assert.equal(
-    (await open(`interactive-plan-last=nope`)).location,
-    `${b.base}/`,
-  );
+  assert.equal((await open(`pair-last=${a.id}`)).location, `${a.base}/`);
+  assert.equal((await open(`pair-last=nope`)).location, `${b.base}/`);
   const page = await fetch(h.server.origin + `${a.base}/`);
-  assert.match(
-    page.headers.get("set-cookie"),
-    new RegExp(`interactive-plan-last=${a.id}`),
-  );
+  assert.match(page.headers.get("set-cookie"), new RegExp(`pair-last=${a.id}`));
   const bare = await fetch(h.server.origin + a.base, { redirect: "manual" });
   assert.equal(bare.headers.get("location"), `${a.base}/`);
 });
 
-test("revision routes inject read-only and preview flags and serve prototypes sandboxed", async (t) => {
+test("round routes inject read-only and preview flags and serve prototypes sandboxed", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const demo = {
@@ -1364,7 +1335,7 @@ test("revision routes inject read-only and preview flags and serve prototypes sa
     sessionId: a.id,
     base: a.base,
   });
-  assert.equal(artifactData(live).revision, "2");
+  assert.equal(readPlanData(live).round, "2");
   const readonly = await a.request(`${a.base}/r/1`);
   assert.equal(readonly.code, 200);
   assert.deepEqual(sessionConfig(readonly.body), {
@@ -1372,7 +1343,7 @@ test("revision routes inject read-only and preview flags and serve prototypes sa
     base: a.base,
     readonly: true,
   });
-  assert.equal(artifactData(readonly.body).revision, "1");
+  assert.equal(readPlanData(readonly.body).round, "1");
   assert.deepEqual(
     sessionConfig((await a.request(`${a.base}/preview/1`)).body),
     {
@@ -1388,7 +1359,7 @@ test("revision routes inject read-only and preview flags and serve prototypes sa
   assert.match(prototype.headers.get("content-security-policy"), /sandbox/);
   assert.equal((await a.request(`${a.base}/r/1/prototype/nope`)).code, 404);
   const stored = await fs.readFile(
-    path.join(a.directory, "artifacts/example.1.html"),
+    path.join(a.directory, "rounds/example.1.html"),
     "utf8",
   );
   assert.deepEqual(sessionConfig(stored), { sessionId: a.id, base: a.base });
@@ -1425,7 +1396,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
       (
         await exec(
           process.execPath,
-          [helper, "read", "--session-dir", a.directory, ...args],
+          [pair, "read", "--session-dir", a.directory, ...args],
           { env: h.env },
         )
       ).stdout,
@@ -1439,15 +1410,12 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
   const original = await fs.readFile(
-    path.join(a.directory, "artifacts/example.1.html"),
+    path.join(a.directory, "rounds/example.1.html"),
     "utf8",
   );
   assert.equal((await a.publish(planData("2"))).code, 200);
   assert.equal(
-    await fs.readFile(
-      path.join(a.directory, "artifacts/example.1.html"),
-      "utf8",
-    ),
+    await fs.readFile(path.join(a.directory, "rounds/example.1.html"), "utf8"),
     original,
   );
   assert.equal((await a.feedback(a.event())).code, 409);
@@ -1456,15 +1424,15 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
     (
       await exec(
         process.execPath,
-        [helper, "status", "--session-dir", a.directory],
+        [pair, "status", "--session-dir", a.directory],
         { env: h.env },
       )
     ).stdout,
   );
-  assert.equal(status.current.revision, "2");
+  assert.equal(status.current.round, "2");
 });
 
-test("a session rejects a revision reused by another artifact", async (t) => {
+test("a session rejects a round number reused under another name", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1"));
@@ -1472,15 +1440,15 @@ test("a session rejects a revision reused by another artifact", async (t) => {
   await a.action("read");
   const duplicate = await a.publish(planData("1", "exploration", "other"));
   assert.equal(duplicate.code, 409);
-  assert.match(duplicate.body.error, /Revision 1 is already used/);
+  assert.match(duplicate.body.error, /Round 1 is already used/);
   assert.equal(
-    await exists(path.join(a.directory, "artifacts/other.1.html")),
+    await exists(path.join(a.directory, "rounds/other.1.html")),
     false,
   );
-  assert.equal((await a.status()).body.current.artifactId, "example");
+  assert.equal((await a.status()).body.current.name, "example");
   const next = await a.publish(planData("2", "exploration", "other"));
   assert.equal(next.code, 200, next.body.error);
-  assert.equal((await a.status()).body.current.artifactId, "other");
+  assert.equal((await a.status()).body.current.name, "other");
 });
 
 test("question actions and reply intents are unsupported", async (t) => {
@@ -1537,14 +1505,17 @@ for (const mode of ["save", "implement"])
     assert.equal((await a.action("complete")).code, 409);
     assert.match(
       (await a.action("ack")).body.next,
-      /^Read the Acceptance section of .*session\.md, then run: node .*session\.mjs read /,
+      /^Read the Acceptance section of .*session\.md, then run: pair read /,
     );
-    assert.match((await a.action("read")).body.next, /^Run: node .*complete/);
+    assert.match(
+      (await a.action("read")).body.next,
+      /^Run: pair complete --session-dir /,
+    );
     const complete = (await a.action("complete")).body;
     assert.equal(complete.nextAction, mode);
     assert.equal(
       complete.planPath,
-      path.join(a.directory, "artifacts/example.2.html"),
+      path.join(a.directory, "rounds/example.2.html"),
     );
     const record = JSON.parse(
       await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
@@ -1578,7 +1549,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(ack.body.status.report.note, "Reading your feedback");
   assert.match(
     ack.body.next,
-    /^Read .*round\.md in full, then run: node .*session\.mjs read --session-dir /,
+    /^Read .*round\.md in full, then run: pair read --session-dir /,
   );
   // Receiving is not reading: the submission stays unread, so publish waits.
   assert.deepEqual(ack.body.status.acknowledged, []);
@@ -1589,10 +1560,10 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(read.body.event.id, event.id);
   // Any other report clears the note, so the card never shows a stale one.
   assert.equal(read.body.status.report.note, null);
-  assert.match(read.body.next, /publish Agreed with --pages/);
+  assert.match(read.body.next, /publish Agreed with pair publish --pages/);
   const published = await a.publish(planData("2"));
-  assert.equal(published.body.revisionComplete, true);
-  assert.match(published.body.next, /^The revision is with the reviewer\./);
+  assert.equal(published.body.roundComplete, true);
+  assert.match(published.body.next, /^The round is with the reviewer\./);
 });
 
 test("implementation guidance is validated, saved with acceptance, and returned on completion", async (t) => {
@@ -1658,7 +1629,7 @@ test("an acceptance keeps the comments sent with it, and unread feedback still b
     anchor: "Overview",
     quote: "",
     text: "Keep the diff small.",
-    revision: "2",
+    round: "2",
   };
   const acceptance = a.event("accept-plan", "2", {
     mode: "implement",
@@ -1695,43 +1666,32 @@ test("an acceptance with nothing drafted records no comments", async (t) => {
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-idle-"));
   const port = 30000 + Math.floor(Math.random() * 20000);
-  const env = cliEnv(home, {
-    INTERACTIVE_PLAN_PORT: String(port),
-    INTERACTIVE_PLAN_IDLE_SECONDS: "0.3",
+  // Each new hub starts with no live session and waits this long for start
+  // to register one, which can take over 300ms on a busy machine.
+  const { config, run } = await pairCli(home, {
+    PAIR_HUB_PORT: String(port),
+    PAIR_HUB_IDLE_SECONDS: "1",
   });
-  const config = settings(env);
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const first = JSON.parse(
-    (await exec(process.execPath, [helper, "start"], { env })).stdout,
-  );
+  const first = JSON.parse(await run("start"));
   assert.equal(first.url, `http://127.0.0.1:${port}/s/${first.sessionId}/`);
   assert(first.sessionDir.startsWith(config.sessions));
   // The printed wake names the harness and carries none of the token or
   // thread it wakes with.
-  assert.deepEqual(first.wake, { harness: detectWake(env).harness });
+  assert.deepEqual(first.wake, { harness: "claude-code" });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.equal(record.port, port);
   assert.equal(record.version, version);
   // A session stays live until it completes or pauses, so the hub exits only
   // once this one is paused.
-  await exec(
-    process.execPath,
-    [helper, "pause", "--session-dir", first.sessionDir, "--reason", "idle"],
-    { env },
-  );
+  await run("pause", "--session-dir", first.sessionDir, "--reason", "idle");
   assert.equal(await waitUntil(() => !alive(record.pid), 5000), true);
   assert.equal(await exists(config.hubFile), false);
   const second = JSON.parse(
-    (
-      await exec(
-        process.execPath,
-        [helper, "start", "--session-dir", first.sessionDir],
-        { env },
-      )
-    ).stdout,
+    await run("start", "--session-dir", first.sessionDir),
   );
   assert.equal(second.sessionId, first.sessionId);
   assert.equal(second.url, first.url);
@@ -1744,24 +1704,160 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   );
 });
 
+test("start waits for a new hub to load the saved sessions", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-saved-"));
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  const { config, run } = await pairCli(home, {
+    PAIR_HUB_PORT: String(port),
+  });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  // A new hub answers on its port before it has loaded these, which takes
+  // it a few hundred milliseconds.
+  await Promise.all(
+    Array.from({ length: 400 }, async () => {
+      const sessionId = crypto.randomUUID();
+      const directory = path.join(config.sessions, sessionId);
+      await fs.mkdir(directory, { recursive: true });
+      await fs.writeFile(
+        path.join(directory, "status.json"),
+        JSON.stringify({
+          sessionId,
+          stage: "ready",
+          current: null,
+          acknowledged: [],
+          accepted: null,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    }),
+  );
+  const start = async () => JSON.parse(await run("start"));
+  // The first start spawns the hub. The second arrives while it loads.
+  const first = start();
+  assert.equal(
+    await waitUntil(() =>
+      fetch(`http://127.0.0.1:${port}/api/hub`).then(
+        () => true,
+        () => false,
+      ),
+    ),
+    true,
+  );
+  for (const session of await Promise.all([first, start()]))
+    assert.equal(
+      session.url,
+      `http://127.0.0.1:${port}/s/${session.sessionId}/`,
+    );
+});
+
+const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
+// The agent reads the guide file a next line names, then the files it links,
+// and never resolves a path itself.
+test("the guide the next lines name links every file by its absolute path", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  const started = JSON.parse(await run("start"));
+  const acked = JSON.parse(
+    await run("ack", "--session-dir", started.sessionDir),
+  );
+  const named = (next) => next.match(/ as (\S+) describes/)[1];
+  const roundGuide = named(started.next);
+  assert.equal(path.basename(roundGuide), "round.md");
+  assert.equal(named(acked.next), roundGuide);
+  const guideFiles = (await fs.readdir(path.join(root, "guide"))).filter(
+    (file) => file.endsWith(".md"),
+  );
+  const read = new Set();
+  async function follow(file) {
+    if (read.has(file)) return;
+    read.add(file);
+    const text = await fs.readFile(file, "utf8");
+    const prose = text.replace(markdownLink, "");
+    for (const name of guideFiles)
+      assert(!prose.includes(name), `${file} names ${name} without a link`);
+    for (const [, target] of text.matchAll(markdownLink)) {
+      assert(path.isAbsolute(target), `${file} links ${target}`);
+      assert(await exists(target), `${file} links ${target}`);
+      if (target.endsWith(".md")) await follow(target);
+    }
+  }
+  await follow(roundGuide);
+  assert(read.size > 1, "round.md links other guide files");
+});
+
+// Two installations of one version can share a state directory, such as a
+// global install and an npx cache, or npm link moved to another checkout.
+test("each installation's guide copy links only files that installation ships", async (t) => {
+  const home = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "pair-installs-")),
+  );
+  const state = path.join(home, "state");
+  let config;
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  const { files } = JSON.parse(
+    await fs.readFile(path.join(root, "package.json"), "utf8"),
+  );
+  for (const name of ["one", "two"]) {
+    const install = path.join(home, name, "pair");
+    for (const entry of ["package.json", ...files])
+      await fs.cp(path.join(root, entry), path.join(install, entry), {
+        recursive: true,
+      });
+    const cli = await pairCli(
+      path.join(home, name),
+      { XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
+      path.join(install, "src/cli.mjs"),
+    );
+    config = cli.config;
+    const { next } = JSON.parse(await cli.run("start"));
+    const copy = path.dirname(
+      path.dirname(next.match(/ as (\S+) describes/)[1]),
+    );
+    for (const file of await fs.readdir(copy, { recursive: true })) {
+      if (!file.endsWith(".md")) continue;
+      const text = await fs.readFile(path.join(copy, file), "utf8");
+      for (const [, target] of text.matchAll(markdownLink)) {
+        const where = `${name}: ${file} links ${target}`;
+        assert(
+          target.startsWith(copy + path.sep) ||
+            target.startsWith(install + path.sep),
+          where,
+        );
+        assert(await exists(target), where);
+      }
+    }
+  }
+});
+
 test("the Codex network check installs rules and reports sandbox state", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), "plan-codex-"));
   t.after(() => fs.rm(codexHome, { recursive: true, force: true }));
-  const check = path.join(path.dirname(helper), "check.mjs");
-  await exec(process.execPath, [check, "--codex-rules"], {
+  await exec(process.execPath, [pair, "check", "--codex-rules"], {
     env: { ...h.env, CODEX_HOME: codexHome },
   });
   const rules = await fs.readFile(
-    path.join(codexHome, "rules", "interactive-plan.rules"),
+    path.join(codexHome, "rules", "pair.rules"),
     "utf8",
   );
-  assert.equal(rules.match(/^prefix_rule\(pattern=\["node", /gm).length, 3);
-  assert.ok(rules.includes(helper));
+  assert.equal(
+    rules,
+    'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n',
+  );
   const report = JSON.parse(
     (
-      await exec(process.execPath, [check, a.directory], {
+      await exec(process.execPath, [pair, "check", a.directory], {
         env: { ...h.env, CODEX_HOME: codexHome, CODEX_SANDBOX: "seatbelt" },
       })
     ).stdout,
@@ -1769,7 +1865,38 @@ test("the Codex network check installs rules and reports sandbox state", async (
   assert.equal(report.codex.present, true);
 });
 
-test("a moved session still serves its current and earlier revisions", async (t) => {
+// interactive-plan's sessions keep their own format under their own state
+// directory, and pair never reads that format.
+test("the hub refuses to open a session interactive-plan created", async (t) => {
+  const h = await hub(t);
+  const directory = path.join(h.home, "interactive-plan", "sessions", "old");
+  await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(
+    path.join(directory, "status.json"),
+    JSON.stringify({
+      sessionId: crypto.randomUUID(),
+      stage: "ready",
+      acknowledged: [],
+      current: { artifactId: "plan", revision: "3", kind: "plan" },
+    }),
+  );
+  const response = await fetch(h.server.origin + "/agent/register", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${h.record.secret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sessionDir: directory,
+      wake: { harness: "codex", thread: "t" },
+    }),
+  });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /is not a pair session/);
+  assert.deepEqual(await fs.readdir(directory), ["status.json"]);
+});
+
+test("a moved session still serves its current and earlier rounds", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData("1"))).code, 200);
@@ -1792,13 +1919,13 @@ test("a moved session still serves its current and earlier revisions", async (t)
   assert.equal(registered.status, 200);
   assert.equal((await a.request(`${a.base}/`)).code, 200);
   assert.equal((await a.request(`${a.base}/r/1`)).code, 200);
-  const manifest = await a.request(`${a.base}/api/page-set?revision=1`);
+  const manifest = await a.request(`${a.base}/api/page-set?round=1`);
   assert.equal(manifest.code, 200);
   const slot = manifest.body.pages.find((item) => item.id === "overview");
   assert.equal(
     (
       await a.request(
-        `${a.base}/api/page?revision=1&id=overview&version=${slot.version}`,
+        `${a.base}/api/page?round=1&id=overview&version=${slot.version}`,
       )
     ).code,
     200,
@@ -1807,8 +1934,7 @@ test("a moved session still serves its current and earlier revisions", async (t)
 
 test("start replaces a stale hub record, and helper commands reattach after a crash without losing the queue", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-stale-"));
-  const env = cliEnv(home, { INTERACTIVE_PLAN_PORT: "0" });
-  const config = settings(env);
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
@@ -1827,27 +1953,19 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
       secret: "stale",
     }),
   );
-  const started = JSON.parse(
-    (await exec(process.execPath, [helper, "start"], { env })).stdout,
-  );
+  const started = JSON.parse(await run("start"));
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(record.pid, dead.pid);
   assert.notEqual(record.port, 1);
   const source = path.join(home, "source.json");
   const shared = {
-    artifactId: "example",
-    revision: "1",
+    name: "example",
+    round: "1",
     kind: "exploration",
     title: "Example work",
   };
   const command = (...args) =>
-    exec(
-      process.execPath,
-      [helper, ...args, "--session-dir", started.sessionDir],
-      {
-        env,
-      },
-    );
+    run(...args, "--session-dir", started.sessionDir);
   const agreedFile = path.join(home, "agreed.html");
   await fs.writeFile(
     agreedFile,
@@ -1879,8 +1997,8 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   const origin = `http://127.0.0.1:${record.port}`;
   const event = {
     sessionId: started.sessionId,
-    artifactId: "example",
-    revision: "1",
+    name: "example",
+    round: "1",
     intent: "feedback-only",
     id: crypto.randomUUID(),
     groups: {},
@@ -1894,15 +2012,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   assert.equal(receipt.status, 200);
   process.kill(record.pid, "SIGKILL");
   assert.equal(await waitUntil(() => !alive(record.pid)), true);
-  const output = JSON.parse(
-    (
-      await exec(
-        process.execPath,
-        [helper, "read", "--session-dir", started.sessionDir],
-        { env },
-      )
-    ).stdout,
-  );
+  const output = JSON.parse(await command("read"));
   assert.deepEqual(output.event.payload, event);
   const next = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(next.pid, record.pid);
@@ -2091,7 +2201,7 @@ test("a drawing answer saves a scene and PNG preview in its own session", async 
     kind: "drawing",
     topic: "overview",
     label: "System boundary",
-    revision: "1",
+    round: "1",
     sceneId: drawing.id,
     previewId: preview.id,
   };
@@ -2153,17 +2263,14 @@ test("the component fixture builds, so every component's markup stays valid", as
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const output = path.join(directory, "fixture.html");
   await exec(process.execPath, [
-    path.join(
-      root,
-      "ai-harness/skills/interactive-plan/scripts/fixture/build.mjs",
-    ),
+    path.join(root, "tests/fixture/build.mjs"),
     output,
   ]);
   // The fixture is the one place every component is rendered with real
   // content, so a structural mistake in it is a mistake in a component:
   // build.mjs refuses duplicate control IDs, a missing data-label, a
   // decision with one option, and an option label over 24 characters.
-  const pages = artifactData(await fs.readFile(output, "utf8")).pages;
+  const pages = readPlanData(await fs.readFile(output, "utf8")).pages;
   const html = pages.map((page) => page.html).join("");
   for (const attribute of [
     'data-choice="retry"',

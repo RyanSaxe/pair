@@ -1,0 +1,22 @@
+{
+  "name": "@ryansaxe/pair",
+  "version": "0.1.0",
+  "description": "Work with an agent in the browser: plan a change, build it, and explain it.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "pair": "src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "src",
+    "guide",
+    "adapters",
+    "skills"
+  ],
+  "scripts": {
+    "test": "node --test"
+  }
+}
