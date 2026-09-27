@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   createReviewAlerts,
   reviewAlert,
-} from "../../../src/frame/notifications.mjs";
+} from "../../../src/frame/sync/notifications.mjs";
 
 function alertFixture({
   storage = new Map(),

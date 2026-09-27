@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { placeFor, readPlaces } from "../../../src/frame/app/places.mjs";
 import {
   draftedWords,
   emptyDraft,
   loadDraft,
   markSent,
-  placeFor,
-  readPlaces,
   submissionGroups,
   unsentItems,
-} from "../../../src/frame/draft.mjs";
+} from "../../../src/frame/app/store.mjs";
 
 const list = (label, touched = false) => ({
   kind: "multiple",

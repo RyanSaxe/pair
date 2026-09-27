@@ -1,4 +1,9 @@
-const record = (value) =>
+import { $ } from "#frame/app/util.mjs";
+import { editable, prefsPrefix, storageKey } from "#frame/app/view.mjs";
+import { review } from "#frame/review/review.mjs";
+import { selectedTab } from "#frame/sync/rounds.mjs";
+
+export const record = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const filterValues = (object, keep) =>
   Object.fromEntries(Object.entries(object).filter(([, value]) => keep(value)));
@@ -18,39 +23,6 @@ export function emptyDraft(round) {
     submitted: null,
     pending: null,
   };
-}
-
-// Where the reader was in each round: the last page, and the scroll
-// position on every page they read. Also which tab and past round were on
-// screen.
-export function readPlaces(saved) {
-  const places = {};
-  const offset = (value) => {
-    const top = Number(value);
-    return Number.isFinite(top) && top > 0 ? top : 0;
-  };
-  const place = (value) => {
-    const tops = {};
-    if (record(value.tops))
-      for (const [id, top] of Object.entries(value.tops))
-        if (offset(top)) tops[id] = offset(top);
-    return { page: value.page, top: offset(value.top), tops };
-  };
-  if (!record(saved)) return { tab: "current", past: null, places };
-  if (record(saved.places))
-    for (const [round, value] of Object.entries(saved.places))
-      if (record(value) && typeof value.page === "string")
-        places[round] = place(value);
-  return {
-    tab: saved.tab === "past" ? "past" : "current",
-    past: typeof saved.past === "string" ? saved.past : null,
-    places,
-  };
-}
-// A remembered page that the round no longer has is ignored.
-export function placeFor(places, round, pageIds) {
-  const place = places[round];
-  return place && pageIds.includes(place.page) ? place : null;
 }
 
 // Drafts are keyed by session and name, not round. When a new round
@@ -139,4 +111,51 @@ export function markSent(draft, id, at) {
   draft.submitted = { id, at, round: draft.round, count };
   draft.pending = null;
   return draft;
+}
+
+export let state;
+export function setState(draft) {
+  state = draft;
+}
+// The draft this browser saved for Current, carried over to the round.
+export function savedDraft(round) {
+  try {
+    return loadDraft(JSON.parse(localStorage.getItem(storageKey)), round);
+  } catch {
+    /* The in-memory draft and export remain usable. */
+    return emptyDraft(round);
+  }
+}
+export const prefs = {
+  get(key) {
+    try {
+      return localStorage.getItem(prefsPrefix + key);
+    } catch {
+      return null;
+    }
+  },
+  set(key, value) {
+    try {
+      if (value === null || value === undefined)
+        localStorage.removeItem(prefsPrefix + key);
+      else localStorage.setItem(prefsPrefix + key, String(value));
+    } catch {
+      /* Preferences are conveniences; nothing depends on them. */
+    }
+  },
+};
+
+export function persist() {
+  if (!editable || selectedTab !== "current") return;
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+    $("storage-status").textContent = "";
+  } catch {
+    $("storage-status").textContent =
+      "Local storage unavailable. Export a copy to keep your feedback.";
+  }
+}
+export function save() {
+  persist();
+  review();
 }

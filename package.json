@@ -7,6 +7,10 @@
   "bin": {
     "pair": "src/cli.mjs"
   },
+  "imports": {
+    "#frame/*": "./src/frame/*",
+    "#shared/*": "./src/shared/*"
+  },
   "engines": {
     "node": ">=20"
   },

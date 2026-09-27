@@ -6,6 +6,7 @@ import path from "node:path";
 import { assemble } from "../../src/build/assemble.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
+import { frameSource } from "../support/frame.mjs";
 import { exec, pair, root } from "../support/hub.mjs";
 
 const data = {
@@ -61,6 +62,40 @@ test("the plan's script is the last module in the document", async () => {
   assert.equal(modules.length, 2, "the frame's module and the plan's");
   assert.match(modules[0], /planUI\.define\("question"/);
   assert.match(modules[1], /^\nplanUI\.define\("mine", \{\}\);\n<\/script>/);
+});
+
+// A round builds every page from the bundle stored with its Agreed, so a
+// round published before the frame's modules existed keeps its frame.
+test("a bundle stored before the frame's modules builds its one script", async () => {
+  const parts = [
+    "offers",
+    "finish",
+    "notifications",
+    "choices",
+    "draft",
+    "activity",
+    "script",
+    "componentJs",
+  ];
+  const bundle = {
+    shell:
+      "<!doctype html><title>t</title><!-- FRAME_STYLE --><!-- DRAWING_EDITOR -->" +
+      '<script type="application/json" id="plan-data">{}</script>' +
+      "<!-- FRAME_SCRIPT --><!-- CUSTOM_SCRIPT -->",
+    style: "",
+    drawingEditor: "",
+    componentCss: "",
+    ...Object.fromEntries(parts.map((part) => [part, `/* ${part} */`])),
+  };
+  const html = await assemble(data, { bundle });
+  assert.ok(!html.includes('<script type="importmap">'));
+  const modules = html.split('<script type="module">').slice(1);
+  assert.equal(modules.length, 2, "the frame's module and the plan's");
+  assert.ok(
+    modules[0].startsWith(
+      `\n${parts.map((part) => `/* ${part} */`).join("\n")}\n</script>`,
+    ),
+  );
 });
 
 test("a closing style tag in plan CSS is refused", async () => {
@@ -321,7 +356,7 @@ test("a page source builds a standalone preview without executing content", asyn
     'export function setup(root) { root.dataset.test = "ready"; }',
   );
   assert(html.includes(".prototype { color: var(--attention); }"));
-  assert(html.includes("export function loadDraft"));
+  assert(frameSource(html).includes("export function loadDraft"));
   assert(!html.includes("<!-- FRAME_"));
   assert(!html.includes('src="frame.js"'));
   const output = path.join(directory, "round.html");

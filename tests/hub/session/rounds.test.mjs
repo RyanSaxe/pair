@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { pageData } from "../../../src/shared/records.mjs";
+import { frameSource } from "../../support/frame.mjs";
 import { hub as newHub, planData } from "../../support/hub.mjs";
 import {
   act,
@@ -48,7 +49,7 @@ test("Agreed and all page names become visible in one publication", async () => 
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
-  assert.match(html, /Agreed so far/);
+  assert.match(frameSource(html), /Agreed so far/);
   assert.match(html, /"pageMode":"partial"/);
   assert.match(html, /Detail/);
   const manifest = await (
