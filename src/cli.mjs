@@ -21,17 +21,22 @@ async function guide() {
   const file = await guideFile("pair.md", settings().root);
   process.stdout.write(await fs.readFile(file, "utf8"));
 }
-const tools = { build, diff, check, guide };
+const commands = {
+  build,
+  diff,
+  check,
+  guide,
+  ...Object.fromEntries(
+    sessionCommands.map((name) => [name, (args) => session([name, ...args])]),
+  ),
+};
 
+// Every command's error goes through one catch, so each starts with pair:
+// and carries the Codex sandbox hint where the sandbox refused it.
 const [command, ...args] = process.argv.slice(2);
-if (sessionCommands.includes(command)) {
-  await session([command, ...args]).catch((error) => {
+if (Object.hasOwn(commands, command)) {
+  await commands[command](args).catch((error) => {
     console.error(`pair: ${withSandboxHint(error.message)}`);
-    process.exitCode = 1;
-  });
-} else if (Object.hasOwn(tools, command)) {
-  await tools[command](args).catch((error) => {
-    console.error(error.message);
     process.exitCode = 1;
   });
 } else {

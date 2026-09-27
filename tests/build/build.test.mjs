@@ -424,6 +424,14 @@ test("a page source builds a standalone preview", async (t) => {
   await assert.rejects(exec(process.execPath, [link, "build"]), /Usage/);
 });
 
+test("an error from pair build starts with pair:", async () => {
+  const missing = path.join(os.tmpdir(), "pair-no-such-dir", "source.json");
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", missing, "out.html"]),
+    ({ stderr }) => /^pair: ENOENT/.test(stderr),
+  );
+});
+
 test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-prototype-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
