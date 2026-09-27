@@ -2,6 +2,7 @@
   "name": "@ryansaxe/pair",
   "version": "0.1.0",
   "description": "Work with an agent in the browser: plan a change, build it, and explain it.",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "bin": {
