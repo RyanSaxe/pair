@@ -91,8 +91,8 @@ export async function loadSession(directory, config, origin) {
       .sort((a, b) => a.sequence - b.sequence);
   }
   // A saved round keeps its acceptance unread until an agent reads it, and
-  // stays saved.
-  if ((await pending()).length && state.stage !== "saved")
+  // stays saved. A closed session stays closed with feedback unread.
+  if ((await pending()).length && !["saved", "complete"].includes(state.stage))
     await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
   const sameRound = (event) =>

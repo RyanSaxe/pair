@@ -17,6 +17,7 @@ import {
   killHub,
   pair,
   pairCli,
+  planData,
   task,
   waitUntil,
 } from "../support/hub.mjs";
@@ -45,6 +46,23 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   await fs.writeFile(file, "preserve");
   await assert.rejects(exec(process.execPath, [pair, "check", file]));
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
+});
+
+test("a session closed with feedback unread stays closed after the hub restarts", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  await h.server.close();
+  const restarted = await startHub(h.config);
+  try {
+    const get = async (route) => (await fetch(restarted.origin + route)).json();
+    assert.equal((await get(`${a.base}/api/status`)).stage, "complete");
+    assert.deepEqual((await get("/api/sessions")).sessions, []);
+  } finally {
+    await restarted.close();
+  }
 });
 
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
