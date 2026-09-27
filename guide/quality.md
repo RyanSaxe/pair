@@ -8,7 +8,7 @@ that could sit unchanged on another plan.
 
 People judge a plan by looking. Show the subject and write only what the
 page cannot show. Choose the component by what the reviewer must see. The
-component index says what each one is for.
+[component index](components.md) says what each one is for.
 
 Three signs that a page is missing its visual:
 

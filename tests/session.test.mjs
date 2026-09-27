@@ -52,7 +52,7 @@ const alive = (pid) => {
 // These commands run under a process named claude whose inbox socket nobody
 // listens on, so a test wake reaches no real session, and the suite passes
 // the same way under Claude Code, Codex, Copilot CLI or none of them.
-async function pairCli(home, extra = {}) {
+async function pairCli(home, extra = {}, cli = pair) {
   const relay =
     'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
   const claude = path.join(home, "claude");
@@ -65,7 +65,7 @@ async function pairCli(home, extra = {}) {
     ...extra,
   };
   const run = async (...args) =>
-    (await exec(claude, ["-e", relay, pair, ...args], { env })).stdout;
+    (await exec(claude, ["-e", relay, cli, ...args], { env })).stdout;
   return { config: settings(env), run };
 }
 async function waitUntil(check, ms = 5000) {
@@ -1751,6 +1751,92 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
       session.url,
       `http://127.0.0.1:${port}/s/${session.sessionId}/`,
     );
+});
+
+const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
+// The agent reads the guide file a next line names, then the files it links,
+// and never resolves a path itself.
+test("the guide the next lines name links every file by its absolute path", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  const started = JSON.parse(await run("start"));
+  const acked = JSON.parse(
+    await run("ack", "--session-dir", started.sessionDir),
+  );
+  const named = (next) => next.match(/ as (\S+) describes/)[1];
+  const roundGuide = named(started.next);
+  assert.equal(path.basename(roundGuide), "round.md");
+  assert.equal(named(acked.next), roundGuide);
+  const guideFiles = (await fs.readdir(path.join(root, "guide"))).filter(
+    (file) => file.endsWith(".md"),
+  );
+  const read = new Set();
+  async function follow(file) {
+    if (read.has(file)) return;
+    read.add(file);
+    const text = await fs.readFile(file, "utf8");
+    const prose = text.replace(markdownLink, "");
+    for (const name of guideFiles)
+      assert(!prose.includes(name), `${file} names ${name} without a link`);
+    for (const [, target] of text.matchAll(markdownLink)) {
+      assert(path.isAbsolute(target), `${file} links ${target}`);
+      assert(await exists(target), `${file} links ${target}`);
+      if (target.endsWith(".md")) await follow(target);
+    }
+  }
+  await follow(roundGuide);
+  assert(read.size > 1, "round.md links other guide files");
+});
+
+// Two installations of one version can share a state directory, such as a
+// global install and an npx cache, or npm link moved to another checkout.
+test("each installation's guide copy links only files that installation ships", async (t) => {
+  const home = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "pair-installs-")),
+  );
+  const state = path.join(home, "state");
+  let config;
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  const { files } = JSON.parse(
+    await fs.readFile(path.join(root, "package.json"), "utf8"),
+  );
+  for (const name of ["one", "two"]) {
+    const install = path.join(home, name, "pair");
+    for (const entry of ["package.json", ...files])
+      await fs.cp(path.join(root, entry), path.join(install, entry), {
+        recursive: true,
+      });
+    const cli = await pairCli(
+      path.join(home, name),
+      { XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
+      path.join(install, "src/cli.mjs"),
+    );
+    config = cli.config;
+    const { next } = JSON.parse(await cli.run("start"));
+    const copy = path.dirname(
+      path.dirname(next.match(/ as (\S+) describes/)[1]),
+    );
+    for (const file of await fs.readdir(copy, { recursive: true })) {
+      if (!file.endsWith(".md")) continue;
+      const text = await fs.readFile(path.join(copy, file), "utf8");
+      for (const [, target] of text.matchAll(markdownLink)) {
+        const where = `${name}: ${file} links ${target}`;
+        assert(
+          target.startsWith(copy + path.sep) ||
+            target.startsWith(install + path.sep),
+          where,
+        );
+        assert(await exists(target), where);
+      }
+    }
+  }
 });
 
 test("the Codex network check installs rules and reports sandbox state", async (t) => {

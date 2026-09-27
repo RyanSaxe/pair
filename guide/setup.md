@@ -16,8 +16,8 @@ If you pass one, use that location for the session too.
 It also reports `components`: the path the builder reads for the user's own
 components, `$XDG_CONFIG_HOME/pair/components` with `~/.config`
 as the fallback, whether that directory exists, and what it and pair
-hold. The builder skips it when it does not exist. The component index
-states when to write there.
+hold. The builder skips it when it does not exist. The
+[component index](components.md) states when to write there.
 
 The hub needs a writable state directory and a listener on loopback. If the
 sandbox blocks either operation, allow the `pair` command. Do not switch to
@@ -97,3 +97,6 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
   images, `pages/<round>/` with the published page records,
   `src/<round>/<page-id>/` with each page's source, `rounds/` with the
   built rounds, and `acceptance.json` after acceptance.
+- `guide/<hash>/` holds the copy of this guide that `next` lines name, with
+  every link an absolute path. Each version of the guide gets its own copy in
+  each installation.

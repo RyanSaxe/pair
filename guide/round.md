@@ -67,7 +67,8 @@ retired or still open. A recommendation is not an agreement. Read
    first. Write the pages that follow Agreed to `pages.json` as
    `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A settled topic
    leaves the list, and an unchanged page is not repeated. A final plan
-   follows the final plan section of quality.md and lists `overview` first.
+   follows the final plan section of [quality.md](quality.md) and lists
+   `overview` first.
 2. Build Agreed and publish it with the list before writing any other page:
    `pair build SRC/agreed/agreed.json OUT/agreed.html`, then
    `pair publish --file OUT/agreed.html --pages pages.json --source SRC/agreed`.

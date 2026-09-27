@@ -46,7 +46,7 @@ titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
 | data-comment                         | A button that opens a note on the nearest ancestor with an ID, using the attribute as its label.                                                                   |
 | planUI.comment(anchor, quote)        | Open a note from a custom control.                                                                                                                                 |
 | planUI.enhance(element)              | Render components in content a script added.                                                                                                                       |
-| planUI.define(name, {match, setup})  | Register a component. See the component index.                                                                                                                     |
+| planUI.define(name, {match, setup})  | Register a component. See the [component index](components.md).                                                                                                    |
 | planUI.chart(element, options)       | Return an ECharts instance asynchronously.                                                                                                                         |
 | planUI.diff(element, input, options) | Render one Git file patch. Input has before, after and patch strings. options.diffStyle is split or unified.                                                       |
 | planUI.prefs.get(key), set(key, v)   | Remember a viewing preference in the browser.                                                                                                                      |

@@ -12,6 +12,7 @@ import * as claudeCode from "../adapters/claude-code/wake.mjs";
 import * as codex from "../adapters/codex/wake.mjs";
 import * as copilot from "../adapters/copilot/wake.mjs";
 import { choiceText } from "./frame/choices.mjs";
+import { guideFile } from "./guide.mjs";
 
 // Each agent CLI wakes through its adapter, keyed by the harness name a wake
 // target carries. With no agent CLI among the ancestors, the first adapter
@@ -19,11 +20,11 @@ import { choiceText } from "./frame/choices.mjs";
 const adapters = { copilot, codex, "claude-code": claudeCode };
 const here = fileURLToPath(import.meta.url);
 const cli = path.join(path.dirname(here), "cli.mjs");
-const roundDoc = path.resolve(path.dirname(here), "../guide/round.md");
-const sessionDoc = path.resolve(path.dirname(here), "../guide/session.md");
-// The hub runs this file and the adapters, so a change to either restarts it.
+// The hub runs this file, guide.mjs and the adapters, so a change to any of
+// them restarts it.
 export const version = [
   here,
+  fileURLToPath(new URL("./guide.mjs", import.meta.url)),
   ...Object.keys(adapters).map((name) =>
     fileURLToPath(new URL(`../adapters/${name}/wake.mjs`, import.meta.url)),
   ),
@@ -542,18 +543,19 @@ async function loadSession(directory, config, origin) {
   // Every agent command prints the step after it, so an agent that lost its
   // place, or skipped round.md, is told where the session stands.
   async function nextStep() {
+    const guide = (name) => guideFile(name, config.root);
     const [event] = await pending();
     if (event)
       return event.payload.intent === "accept-plan"
-        ? `Read the Acceptance section of ${sessionDoc}, then run: ${command("read")}`
-        : `Read ${roundDoc} in full, then run: ${command("read")}`;
+        ? `Read the Acceptance section of ${await guide("session.md")}, then run: ${command("read")}`
+        : `Read ${await guide("round.md")} in full, then run: ${command("read")}`;
     if (state.stage === "complete") return "The session is complete.";
     if (state.accepted)
-      return `Run: ${command("complete")}, then follow the acceptance mode in ${sessionDoc}.`;
+      return `Run: ${command("complete")}, then follow the acceptance mode in ${await guide("session.md")}.`;
     if (state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!state.current)
-      return `When the first round is ready, publish Agreed with pair publish --pages before any other page, as ${roundDoc} describes.`;
+      return `When the first round is ready, publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes.`;
     if (state.openRound) {
       const left = state.openRound.pages
         .filter((slot) => !slot.recordPath)
@@ -563,7 +565,7 @@ async function loadSession(directory, config, origin) {
       return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every 5 minutes.`;
     }
     if (state.stage === "working")
-      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page, as ${roundDoc} describes. Report with pair ack --note at least every 5 minutes.`;
+      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes. Report with pair ack --note at least every 5 minutes.`;
     return "The round is with the reviewer. Say in chat what changed if you have not, then end the turn. The hub wakes you when they submit.";
   }
   // Runs after the submission is saved, outside the browser's request, so a
@@ -2139,7 +2141,7 @@ export async function main(argv) {
         ...(await attach(directory, config)),
         next: resuming
           ? `Run: pair ack --session-dir ${directory}`
-          : `When the first round is ready, publish it as ${roundDoc} describes, from "Publish the round".`,
+          : `When the first round is ready, publish it as ${await guideFile("round.md", config.root)} describes, from "Publish the round".`,
       }),
     );
   }
