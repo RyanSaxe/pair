@@ -6,8 +6,7 @@ Finish without a PR or Open a PR, and `pair read` returns the acceptance with
 the chosen action in `action`.
 
 Read the comments first. The acceptance's `groups` hold the comments and
-choices the reviewer drafted before accepting, and `pair complete` returns
-them again.
+choices the reviewer drafted before accepting.
 
 ## Finish without a PR
 

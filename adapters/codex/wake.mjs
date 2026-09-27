@@ -1,3 +1,7 @@
+export const name = "Codex";
+
+export const identity = (target) => target.thread;
+
 // Codex exports the thread ID to the commands it runs.
 export function detect(env, { ancestor }) {
   if (ancestor ? ancestor.command !== "codex" : !env.CODEX_THREAD_ID)

@@ -871,8 +871,16 @@ select {
   margin: 10px 0 16px;
   overflow-wrap: anywhere;
 }
-.accepted code {
+.handoff {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+.handoff code {
+  flex: 1;
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 /* Sessions panel */

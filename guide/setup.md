@@ -66,19 +66,26 @@ Copilot listens only when started with `--ui-server`, so its refusal names
 `copilot --ui-server --resume <session id>`. Its embedded server accepts any
 local client when `COPILOT_CONNECTION_TOKEN` is unset. After a submission,
 `pair status` reports the last wake under `wake.last`, with `ok` and, when it
-failed, the `reason`. The browser then asks the reader to send a message in
-chat.
+failed, the `reason`. When the wake failed, the browser's Feedback card asks
+the reader to send a message in chat and shows the handoff line, which another
+agent takes the session over with.
+
+The agent whose wake target `pair start` records holds the session. The hub
+knows it by the inbox socket, the thread ID or the session ID. Every command
+sends the identity of the agent that runs it, and the hub refuses a command
+from any agent but the holder.
 
 ### The hub
 
 One hub process serves every live session. `pair start` spawns it when none is
-running. A session is live from `pair start` until `pair complete`, `pair pause`
-or closure from the browser. With no live session for `PAIR_HUB_IDLE_SECONDS`,
-the hub exits and the next `pair start` creates a new one on the same port. When
-`pair start` finds a hub running other code, it uses that hub and logs the
-mismatch, and the hub restarts on the newer code once no session is live. A
-running hub keeps the addresses it started with, so `PAIR_HUB_HOST` takes effect
-only on a new hub.
+running. A session is live from `pair start` until `pair complete`,
+`pair pause`, Save for later or closure from the browser. With no live session
+for `PAIR_HUB_IDLE_SECONDS`, the hub exits and the next `pair start` creates a
+new one on the same port. A new hub loads every session from disk, so a saved
+session stays in Live sessions at the same URL. When `pair start` finds a hub
+running other code, it uses that hub and logs the mismatch, and the hub
+restarts on the newer code once no session is live. A running hub keeps the
+addresses it started with, so `PAIR_HUB_HOST` takes effect only on a new hub.
 
 ### Storage
 
@@ -88,8 +95,12 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
 - `hub/hub.json` holds the pid, port, hosts, code version and the local
   secret that registers sessions. `hub/hub.log` is the hub's log.
 - `sessions/<dir>/status.json` holds the stage (`ready`, `updated`,
-  `submitted`, `working` or `complete`), `openRound` while a round's pages
-  are arriving, `paused` and `wake`. `pair status` prints it.
+  `submitted`, `working`, `saved` or `complete`), `openRound` while a round's
+  pages are arriving, `paused`, `wake`, `holder`: the agent that holds the
+  session and when it registered, and `formerHolders`: the agents it was
+  taken from that have not run a command since. The holder's `pair status`
+  prints it without any agent's socket or thread, and with `handoff`, the
+  line that hands the session to another agent.
 - `sessions/<dir>/connection.json` holds the session ID, the hub's origin,
   the agent token and the wake target. The directory name is not the
   session ID.

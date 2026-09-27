@@ -1,3 +1,7 @@
+// An action's `after` is what the session does once the reviewer accepts
+// with it: it is saved until an agent runs its handoff line, it goes on to
+// the agent's next round, or it completes when the agent has done the
+// action.
 export const offers = {
   plan: {
     firstPage: "overview",
@@ -11,8 +15,13 @@ export const offers = {
         action: "implement",
       },
       actions: [
-        { id: "save", label: "Save for later" },
-        { id: "implement", label: "Start implementation", primary: true },
+        { id: "save", label: "Save for later", after: "saved" },
+        {
+          id: "implement",
+          label: "Start implementation",
+          primary: true,
+          after: "round",
+        },
       ],
     },
     changes: "The agent revises the plan and publishes a new round.",
@@ -29,8 +38,13 @@ export const offers = {
         action: "pull-request",
       },
       actions: [
-        { id: "finish", label: "Finish without a PR" },
-        { id: "pull-request", label: "Open a PR", primary: true },
+        { id: "finish", label: "Finish without a PR", after: "complete" },
+        {
+          id: "pull-request",
+          label: "Open a PR",
+          primary: true,
+          after: "complete",
+        },
       ],
     },
     changes: "The agent changes the work and publishes a new round.",

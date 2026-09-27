@@ -256,6 +256,15 @@ function offerFor(id) {
     ? offers[id]
     : null;
 }
+const actionOf = ({ offer, action }) =>
+  offers[offer].accept.actions.find((item) => item.id === action);
+// The holder is the agent the hub wakes, named the way its adapter tells
+// one session of its agent CLI from another.
+const identify = (target) => ({
+  harness: target.harness,
+  id: adapters[target.harness].identity(target),
+});
+const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // A round that makes an offer opens on the page the offer names, such as a
 // plan's overview.
 function requireFirstPage(offer, id) {
@@ -495,7 +504,10 @@ async function loadSession(directory, config, origin) {
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  if ((await pending()).length) await transition({ stage: "submitted" });
+  // A saved round keeps its acceptance unread until an agent reads it, and
+  // stays saved.
+  if ((await pending()).length && state.stage !== "saved")
+    await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
   const sameRound = (event) =>
     state.current &&
@@ -505,7 +517,9 @@ async function loadSession(directory, config, origin) {
     Boolean(state.current) &&
     !state.openRound &&
     ["ready", "updated"].includes(state.stage);
-  const active = () => state.stage !== "complete" && !state.paused;
+  // A saved session waits for an agent, so it does not keep the hub running.
+  const active = () =>
+    !["complete", "saved"].includes(state.stage) && !state.paused;
   function withDrawingPaths(event) {
     const answers = event.payload.groups?.answers;
     if (
@@ -542,6 +556,8 @@ async function loadSession(directory, config, origin) {
     };
   }
   const command = (name) => `pair ${name} --session-dir ${directory}`;
+  // Any agent in any harness takes the session over with this line.
+  const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
   // Each agent command is a report, and the reviewer sees when the last one
   // came. Only ack carries a note, so any other report clears the last one.
   const report = (note = null) => ({ report: { at: timestamp(), note } });
@@ -549,19 +565,31 @@ async function loadSession(directory, config, origin) {
     event && state.lastReceivedId !== event.id
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
+  const guide = (name) => guideFile(name, config.root);
+  const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
+  const actionAfter = (offer, after) =>
+    offers[offer].accept.actions.find((item) => item.after === after);
   // Every agent command prints the step after it, so an agent that lost its
   // place, or skipped round.md, is told where the session stands.
   async function nextStep() {
-    const guide = (name) => guideFile(name, config.root);
-    const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
     const [event] = await pending();
     if (event)
       return event.payload.intent === "accept"
         ? `Read ${await offerGuide(event.payload.offer)}, then run: ${command("read")}`
         : `Read ${await guide("round.md")} in full, then run: ${command("read")}`;
     if (state.stage === "complete") return "The session is complete.";
-    if (state.accepted)
-      return `Follow the ${state.accepted.action} action in ${await offerGuide(state.accepted.offer)}.`;
+    if (state.stage === "saved") {
+      const { round, offer } = state.current;
+      return `Round ${round} is saved for later, as the ${actionAfter(offer, "saved").id} action in ${await offerGuide(offer)} describes. Say this line in chat, then end your turn: ${handoff}`;
+    }
+    if (state.accepted) {
+      const { round, offer } = state.accepted;
+      const action = actionOf(state.accepted);
+      // A start on the saved round sent this agent on to build it.
+      if (action.after === "saved")
+        return `Round ${round} was saved for later, and you are building it now. Build it as the ${actionAfter(offer, "round").id} action in ${await offerGuide(offer)} describes.`;
+      return `Follow the ${action.id} action in ${await offerGuide(offer)}.`;
+    }
     if (state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!state.current)
@@ -808,16 +836,24 @@ async function loadSession(directory, config, origin) {
       receivedAt: timestamp(),
       payload: data,
     });
+    const after = data.intent === "accept" ? actionOf(data).after : null;
     await transition({
       stage:
-        data.intent === "feedback-only" && state.stage === "working"
-          ? "working"
-          : "submitted",
+        after === "saved"
+          ? "saved"
+          : data.intent === "feedback-only" && state.stage === "working"
+            ? "working"
+            : "submitted",
       latestSubmissionId: data.id,
+      // The round of a submission the agent answers with its next round.
+      // The frame shows the agent's progress until that round is complete.
       latestSubmissionRound:
-        data.intent === "feedback-only" ? data.round : null,
+        data.intent === "feedback-only" || after === "round"
+          ? data.round
+          : null,
       wake: state.wake ? { ...state.wake, last: null } : null,
       accepted: null,
+      takeover: null,
     });
     if (wake && !state.paused)
       setTimeout(() => exclusive(() => wakeAgent(data.round)), 0);
@@ -1149,8 +1185,36 @@ async function loadSession(directory, config, origin) {
     set.generation++;
     return commitPageRound(set);
   }
+  // The next command of an agent the session was taken from fails, start
+  // included, so it stops instead of publishing over its successor. After
+  // that it is told, like any agent that does not hold the session, how to
+  // take the session over, which it does only when the user asks.
+  async function requireHolder(agent, start = false) {
+    const clock = (at) => new Date(at).toTimeString().slice(0, 5);
+    const former = (state.formerHolders || []).find((item) =>
+      sameAgent(item, agent),
+    );
+    if (former) {
+      await transition({
+        formerHolders: state.formerHolders.filter((item) => item !== former),
+      });
+      requireValue(
+        false,
+        `Another agent took this session over at ${clock(former.until)}. Stop working on it.`,
+        409,
+      );
+    }
+    if (!start && state.holder && !sameAgent(state.holder, agent))
+      requireValue(
+        false,
+        `Another agent has held this session since ${clock(state.holder.at)}. Stop working on it unless the user asks you to take it over with: ${command("start")}`,
+        409,
+      );
+  }
   async function act(data) {
     requireValue(data.sessionId === state.sessionId, "Wrong session", 409);
+    await requireHolder(data.agent);
+    if (data.action === "status") return { status: view() };
     if (data.action === "read") {
       // With an id, read returns that submission again and changes nothing,
       // for a turn that resumes after an interruption.
@@ -1171,7 +1235,7 @@ async function loadSession(directory, config, origin) {
       const patch = {
         ...report(),
         ...receive(event),
-        stage: "working",
+        stage: state.stage === "saved" ? "saved" : "working",
         acknowledged: [...state.acknowledged, event.id],
         acknowledgedAt: timestamp(),
         lastAcknowledgedId: event.id,
@@ -1243,23 +1307,26 @@ async function loadSession(directory, config, origin) {
         "Acknowledge acceptance of the current round before completing",
         409,
       );
+      const action = actionOf(state.accepted);
+      if (action.after !== "complete")
+        requireValue(
+          false,
+          `${action.label} keeps the session, so it does not complete. ${await nextStep()}`,
+          409,
+        );
       await transition({ stage: "complete" });
-      return {
-        status: view(),
-        planPath: state.accepted.path,
-        nextAction: state.accepted.action,
-        ...(state.accepted.guidance
-          ? { guidance: state.accepted.guidance }
-          : {}),
-        ...(state.accepted.groups ? { groups: state.accepted.groups } : {}),
-      };
+      return { status: view() };
     }
     requireValue(false, "Unknown agent action");
   }
   function view() {
-    const { roundPages, ...visible } = state;
+    const { roundPages, holder, formerHolders, ...visible } = state;
     return {
       ...visible,
+      // The holder's identity is a socket path or a thread ID, which stays
+      // out of the browser like the rest of the wake target.
+      holder: holder ? { harness: holder.harness, at: holder.at } : null,
+      handoff,
       ...(state.openRound
         ? {
             openRound: {
@@ -1348,13 +1415,59 @@ async function loadSession(directory, config, origin) {
       url: base + "/",
     };
   }
-  async function setWake(target) {
+  // pair start makes its agent the holder, the one agent the hub wakes. Any
+  // other registration, such as a command reattaching to a new hub, comes
+  // from the holder. start on a saved round builds it, unless the holder
+  // has yet to read the Save: that start resumes an interrupted turn, which
+  // reads the Save and says the handoff line. Once the Save is read, nothing
+  // tells a resumed turn from a request to build, so start builds the plan in
+  // any agent, the holder included, such as a new conversation in the same
+  // Claude Code process.
+  async function hold(target, start) {
+    const agent = identify(target);
+    const held = state.holder;
+    const same = sameAgent(held, agent);
+    const unread = (await pending()).length > 0;
+    await requireHolder(agent, start);
     await atomic(wakeFile, target);
     wake = target;
-    await transition({
+    const patch = {
       wake: { harness: target.harness, last: state.wake?.last || null },
       paused: null,
-    });
+    };
+    if (!same) {
+      patch.holder = { ...agent, at: timestamp() };
+      // The reviewer's card says who took over, until they next submit.
+      if (held)
+        Object.assign(patch, report(), {
+          takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
+          wake: { harness: target.harness, last: null },
+          formerHolders: [
+            ...(state.formerHolders || []),
+            { harness: held.harness, id: held.id, until: patch.holder.at },
+          ],
+        });
+    }
+    // A build clears the failed wake of the Save, so the card follows the
+    // build and not a harness that had exited.
+    const build = start && state.stage === "saved" && !(same && unread);
+    if (build)
+      Object.assign(patch, report(), {
+        stage: "working",
+        latestSubmissionRound: state.current.round,
+        wake: { harness: target.harness, last: null },
+      });
+    await transition(patch);
+    return build ? buildNext(unread) : null;
+  }
+  // The acceptance keeps its save action, so the line says outright that
+  // this agent builds the plan.
+  async function buildNext(unread) {
+    const { round, offer } = state.current;
+    const reading = unread
+      ? command("read")
+      : `${command("read")} --id ${state.accepted.eventId}`;
+    return `Round ${round} was saved for later, and you now build it. Read ${await offerGuide(offer)}, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as the ${actionAfter(offer, "round").id} action describes.`;
   }
   function roundEntry(round) {
     const entry = (state.rounds || []).find((item) => item.round === round);
@@ -1446,7 +1559,7 @@ async function loadSession(directory, config, origin) {
     latestFeedback,
     listing,
     active,
-    setWake,
+    hold,
     roundEntry,
     pageSet,
     pageRecord,
@@ -1667,7 +1780,9 @@ export async function startHub(config = settings()) {
         );
         const directory = path.resolve(data.sessionDir);
         const session = await register(() => adopt(directory));
-        await session.exclusive(() => session.setWake(data.wake));
+        const next = await session.exclusive(() =>
+          session.hold(data.wake, data.start === true),
+        );
         await atomic(path.join(directory, "connection.json"), {
           sessionId: session.id,
           origin,
@@ -1680,6 +1795,7 @@ export async function startHub(config = settings()) {
           url: origin + session.base + "/",
           wake: { harness: data.wake.harness },
           ...(hostOrigin ? { hostUrl: hostOrigin + session.base + "/" } : {}),
+          ...(next ? { next } : {}),
         });
       }
       if (parts[0] === "agent" && parts.length === 3) {
@@ -2062,11 +2178,7 @@ export async function ensureHub(config = settings()) {
   }
   return { ...info, origin: `http://127.0.0.1:${info.port}` };
 }
-export async function attach(
-  directory,
-  config = settings(),
-  wake = detectWake(),
-) {
+export async function attach(directory, config, wake, start = false) {
   const hub = await ensureHub(config);
   const record = await readRecord(config);
   requireValue(
@@ -2079,7 +2191,7 @@ export async function attach(
       authorization: `Bearer ${record.secret}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ sessionDir: directory, wake }),
+    body: JSON.stringify({ sessionDir: directory, wake, start }),
     signal: AbortSignal.timeout(15000),
   });
   const result = await response.json();
@@ -2147,21 +2259,25 @@ export async function main(argv) {
   }
   let directory =
     options["session-dir"] && path.resolve(options["session-dir"]);
+  const wake = detectWake();
   if (command === "start") {
     const resuming = Boolean(directory);
     directory ||= path.join(config.sessions, crypto.randomUUID());
+    const started = await attach(directory, config, wake, true);
     return console.log(
       json({
-        ...(await attach(directory, config)),
-        next: resuming
-          ? `Run: pair ack --session-dir ${directory}`
-          : `When the first round is ready, publish it as ${await guideFile("round.md", config.root)} describes, from "Publish the round".`,
+        ...started,
+        next:
+          started.next ||
+          (resuming
+            ? `Run: pair ack --session-dir ${directory}`
+            : `When the first round is ready, publish it as ${await guideFile("round.md", config.root)} describes, from "Publish the round".`),
       }),
     );
   }
   requireValue(directory, "Every operation requires --session-dir PATH");
   const connectionFile = path.join(directory, "connection.json");
-  if (!(await exists(connectionFile))) await attach(directory, config);
+  if (!(await exists(connectionFile))) await attach(directory, config, wake);
   let connection = await read(connectionFile);
   const checkConnection = () =>
     requireValue(
@@ -2169,31 +2285,34 @@ export async function main(argv) {
       "Invalid connection origin",
     );
   checkConnection();
-  async function request(route, data, retry = true) {
+  // Every command names the agent that runs it, and the hub takes commands
+  // only from the session's holder.
+  const agent = identify(wake);
+  async function request(data, retry = true) {
     const reattach = async () => {
-      await attach(directory, config);
+      await attach(directory, config, wake);
       connection = await read(connectionFile);
       checkConnection();
-      return request(route, data, false);
+      return request(data, false);
     };
     let response;
     try {
-      response = await fetch(connection.origin + route(connection.sessionId), {
-        method: data ? "POST" : "GET",
-        headers: {
-          authorization: `Bearer ${connection.token}`,
-          ...(data ? { "Content-Type": "application/json" } : {}),
+      response = await fetch(
+        `${connection.origin}/agent/${connection.sessionId}/action`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${connection.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...data,
+            sessionId: connection.sessionId,
+            agent,
+          }),
+          signal: AbortSignal.timeout(15000),
         },
-        ...(data
-          ? {
-              body: JSON.stringify({
-                ...data,
-                sessionId: connection.sessionId,
-              }),
-            }
-          : {}),
-        signal: AbortSignal.timeout(15000),
-      });
+      );
     } catch (error) {
       if (retry && error.name === "TypeError") return reattach();
       throw error;
@@ -2213,9 +2332,9 @@ export async function main(argv) {
     );
     return result;
   }
-  if (command === "status")
-    return console.log(json(await request((id) => `/s/${id}/api/status`)));
   const action = { action: command };
+  if (command === "status")
+    return console.log(json((await request(action)).status));
   if (command === "read") action.id = options.id;
   if (command === "ack") action.note = options.note;
   if (command === "pause") action.reason = options.reason;
@@ -2242,7 +2361,7 @@ export async function main(argv) {
     }
   }
   try {
-    console.log(json(await request((id) => `/agent/${id}/action`, action)));
+    console.log(json(await request(action)));
   } catch (error) {
     if (kept) await fs.rm(kept, { recursive: true, force: true });
     throw error;

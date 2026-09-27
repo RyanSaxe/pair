@@ -65,10 +65,11 @@ a page.
 
 After the last page of a round publishes, or after `pair pause`, the turn ends.
 The hub starts another turn when a submission arrives, including an acceptance.
-`pair complete` ends the review. When `pair start` refuses because the harness
-cannot receive a wake event, give the user the printed instruction and wait for
-a restart.
+When `pair start` refuses because the harness cannot receive a wake event, give
+the user the printed instruction and wait for a restart.
 
 An acceptance names the action the user chose, and `pair read` names the
 guide file that says what the action asks. Follow it and the project's
-permissions. Do not change an accepted plan.
+permissions. Accepting a plan keeps the session: Start implementation builds
+it in the next round, and Save for later leaves it until an agent runs its
+handoff line. Do not change an accepted plan.

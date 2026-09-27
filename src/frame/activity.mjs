@@ -66,11 +66,16 @@ export function activityModel({
           : received
             ? "Preparing the next round"
             : "Waiting for the agent";
+  // An agent that took the session over since the reviewer's last send is
+  // named with the time it took over.
+  const takeover = remote?.takeover
+    ? ` · ${remote.takeover.name} took over at ${new Date(remote.takeover.at).toTimeString().slice(0, 5)}`
+    : "";
   const summary = inFlight
     ? "Saving your comments"
-    : slots.length
-      ? `${ready} of ${slots.length} pages ready`
-      : "Feedback saved";
+    : (slots.length
+        ? `${ready} of ${slots.length} pages ready`
+        : "Feedback saved") + takeover;
   const late = (at) => Boolean(at) && now - Date.parse(at) >= 300000;
   // The footer always has a mark and a line, so the card keeps its shape
   // from the send to the last page. The frame shows `at` as a relative time.
@@ -88,7 +93,10 @@ export function activityModel({
       text: `Agent paused${remote.paused.reason ? `: ${remote.paused.reason}.` : "."} Send a message in chat.`,
       late: true,
     };
-  else if (!received) footer = { mark: "queued", text: "No agent report yet" };
+  // With nothing sent yet, such as a takeover on the first round, there is
+  // no send for the agent to report on.
+  else if (latest && !received)
+    footer = { mark: "queued", text: "No agent report yet" };
   else if (finished)
     footer = {
       mark: "complete",
@@ -123,6 +131,18 @@ export function activityModel({
       ? "moving"
       : "still";
   return { slots, ready, failed, stopped, title, summary, footer, track };
+}
+
+// Outside a round that a send started, the card still tells the reviewer
+// about the agent: that another agent took the session over since their
+// last send, or that the wake for an acceptance failed.
+export function agentNotice(remote) {
+  if (!remote || remote.stage === "complete") return false;
+  return (
+    Boolean(remote.takeover) ||
+    (remote.wake?.last?.ok === false &&
+      ["submitted", "working"].includes(remote.stage))
+  );
 }
 
 // While a round's pages are still arriving, the Pages heading says so, so

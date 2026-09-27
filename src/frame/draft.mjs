@@ -125,11 +125,17 @@ export function submissionGroups(draft) {
   };
 }
 
-export function markSent(draft, id, at) {
-  const { count } = unsentItems(draft);
+// An acceptance sends the drafted items too, so none of them carries over
+// to the next round's draft.
+export function markItemsSent(draft, id) {
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
   for (const answer of Object.values(draft.answers)) answer.sentIn ||= id;
+}
+
+export function markSent(draft, id, at) {
+  const { count } = unsentItems(draft);
+  markItemsSent(draft, id);
   draft.submitted = { id, at, round: draft.round, count };
   draft.pending = null;
   return draft;

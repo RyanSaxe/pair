@@ -45,7 +45,7 @@ const post = async (route, body, headers) => {
 const act = (data) =>
   post(
     `/agent/${sessionId}/action`,
-    { ...data, sessionId },
+    { ...data, sessionId, agent: { harness: "codex", id: "thread-1" } },
     { authorization: `Bearer ${token}` },
   );
 const status = async () =>
@@ -376,6 +376,7 @@ test("the hub wakes Claude Code through its inbox socket", async (t) => {
     },
     { authorization: `Bearer ${claudeHub.secret}` },
   );
+  const holder = { harness: "claude-code", id: socket };
   const agent = {
     authorization: `Bearer ${
       JSON.parse(
@@ -387,6 +388,7 @@ test("the hub wakes Claude Code through its inbox socket", async (t) => {
     `/agent/${id}/action`,
     {
       sessionId: id,
+      agent: holder,
       action: "publish",
       html: await page("1", "agreed"),
       pages: [{ id: "p", title: "P" }],
@@ -395,7 +397,12 @@ test("the hub wakes Claude Code through its inbox socket", async (t) => {
   );
   await call(
     `/agent/${id}/action`,
-    { sessionId: id, action: "publish", html: await page("1", "p") },
+    {
+      sessionId: id,
+      agent: holder,
+      action: "publish",
+      html: await page("1", "p"),
+    },
     agent,
   );
   await call(

@@ -1,5 +1,10 @@
 import net from "node:net";
 
+export const name = "Claude Code";
+
+// A Claude Code session has one inbox socket, and its subagents share it.
+export const identity = (target) => target.socket;
+
 // Claude Code gives the commands it runs an inbox socket and its token.
 export function detect(env, { ancestor }) {
   if (
