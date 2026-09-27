@@ -150,5 +150,5 @@ published as `@ryansaxe/pair-opencode`.
 `"private": true` in `package.json` makes `npm publish` refuse, and
 `npx skills add RyanSaxe/pair` needs the repository to be public. To release,
 remove `"private": true`, make `RyanSaxe/pair` public, and run `npm publish`.
-Then run the install and update commands in `docs/install.md` with `HOME` set
-to an empty directory. `LICENSE` and `"license": "MIT"` are already in place.
+Then run the install and update commands in
+`docs/getting-started/install.md` with `HOME` set to an empty directory. `LICENSE` and `"license": "MIT"` are already in place.

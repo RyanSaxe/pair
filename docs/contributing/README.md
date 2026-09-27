@@ -14,9 +14,11 @@ pair start
 `pair start` starts the hub on `127.0.0.1:4747` if none is running, creates a
 session under `~/.local/state/pair/sessions/`, and prints its URL. An agent
 runs it from its own shell, because the hub wakes that agent's session when
-you send feedback. [Commands](../commands.md#environment-variables) lists the
+you send feedback.
+[Commands](../reference/commands.md#environment-variables) lists the
 environment variables, including `PAIR_HUB_PORT`, and
-[How it works](../how-it-works.md#storage) says what pair keeps on disk.
+[Architecture](../concepts/architecture.md#storage) says what pair keeps on
+disk.
 
 ## Layout
 

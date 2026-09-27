@@ -1,0 +1,66 @@
+# Sessions and rounds
+
+A session is one piece of work you do with your agent: planning a change,
+building it, or understanding something. It lives at one URL, and each round
+appears in the same tab.
+
+![A session: you ask, then work through rounds until something is understood, a plan is accepted, or the work is accepted](../assets/session.svg)
+
+## A round
+
+1. The agent publishes **Agreed** and the names of the round's pages, then
+   each page as it finishes. You can start reading straight away.
+2. You respond on the pages: choose, answer, comment.
+3. You press **Send feedback**. The agent reads it and publishes the next
+   round.
+
+While the agent works, a card at the top of Agreed shows what it is doing
+and how many pages are ready.
+
+## What you can do on a page
+
+| To                        | Do this                                                                 |
+| ------------------------- | ----------------------------------------------------------------------- |
+| Choose between options    | Press an option. **Recommended** is only a suggestion until you choose. |
+| Answer a question         | Type in its box, or draw when it asks for a drawing.                    |
+| Comment on anything       | Select text or a block, then press <kbd>c</kbd>.                        |
+| Get an answer now         | Send the comment as a [thread](threads-and-side-work.md).               |
+| Review what you will send | Press <kbd>r</kbd>.                                                     |
+
+## Agreed
+
+Agreed is the first page of every round. It holds the **task**, what the
+session is working towards, and every decision settled so far, each with a
+link to where it was agreed. Comment on anything there that is wrong.
+
+| Tag               | Meaning                             |
+| ----------------- | ----------------------------------- |
+| New, Updated      | Changed in this round.              |
+| Revisiting        | Your feedback reopened it.          |
+| No longer applies | Folded at the end, with the reason. |
+
+## Notifications
+
+The bell in the header, or <kbd>n</kbd>, opens the notification center.
+
+| Section         | Shows                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| Waiting for you | Other sessions whose round waits for your feedback.                                                     |
+| New, Earlier    | Every session's events, newest first: a page published, a reply in a thread, side work at Pull request. |
+
+- The bell's number counts waiting sessions and unseen events. It is red
+  while a session waits and blue when only events are new, and the tab's
+  title shows it too.
+- **All live sessions**, at the foot of the center, lists every session,
+  with **Copy handoff line** and ✕ to close one.
+- With notifications on in Settings, you also get a system notification for
+  each event, unless its session is open in the tab you are using.
+
+## Feedback
+
+- Everything you do is a draft in your browser until you send it.
+- **Everything else looks good**, on by default, agrees with whatever the
+  pages proposed that no comment of yours challenges. It never answers a
+  choice for you.
+- Feedback never lets the agent build. Only
+  [accepting a plan](offers-and-building.md) does.

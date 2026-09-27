@@ -1,0 +1,33 @@
+# Install
+
+`pair` needs Node 20.1.0 or newer.
+
+```sh
+npm install -g @ryansaxe/pair             # the application and the pair command
+npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
+```
+
+To update, run `npm update -g @ryansaxe/pair`. The skill never needs
+reinstalling.
+
+## Your agent CLI
+
+Claude Code lists the skill as `/pair`, and Codex as `$pair`.
+
+| Agent CLI   | What it needs                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | When `npx skills add` asks which agents to install to, select Claude Code and keep Symlink.                                                 |
+| Codex       | Nothing. If it asks to approve every `pair` command, see [Troubleshooting](../troubleshooting.md#codex-asks-to-approve-every-pair-command). |
+| Copilot CLI | Start it as `copilot --ui-server`, or the hub cannot wake it. `pair start` prints the command that restarts a session with it.              |
+
+A `codex exec` run needs permission to run `pair` outside Codex's sandbox
+before it starts, and can be woken only while it is still running.
+
+## Good to know
+
+- `npx skills add` may print
+  `✗ pair → PromptScript: PromptScript does not support global skill installation`.
+  That is about another agent, and the skill is installed.
+- If you already have a different skill named pair, rename it first, both
+  its folder and the `name` in its `SKILL.md`. Otherwise `npx skills add`
+  replaces it after asking "Proceed with installation?".
