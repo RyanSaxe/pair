@@ -6,6 +6,7 @@ import {
   editable,
   mode,
   page,
+  pastRound,
   plan,
   session,
   submittedRound,
@@ -147,10 +148,12 @@ export function renderActivity() {
     handoff.append(handoffLine(remote.handoff));
 }
 // Every page of a past round, its Feedback page included, names the
-// round. Current never has the strip.
+// round. Current never has the strip. A tab click leaves the page on screen,
+// so the strip shows whenever that page belongs to the earlier round,
+// whichever tab is chosen.
 export function renderHistory() {
   const old = mode === "readonly";
-  const past = selectedTab === "past";
+  const past = editable && displayedRound === pastRound;
   const strip = $("history-strip");
   strip.hidden = !(old || past);
   if (strip.hidden) return;
@@ -158,7 +161,7 @@ export function renderHistory() {
   if (old && session.closed) label.textContent = "This plan is closed";
   else {
     const name = document.createElement("b");
-    name.textContent = `Round ${plan.round}`;
+    name.textContent = `Round ${old ? plan.round : pastRound}`;
     label.replaceChildren(name);
     if (past || shownSubmission()) {
       const meta = document.createElement("span");
