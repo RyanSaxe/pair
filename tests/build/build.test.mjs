@@ -3,7 +3,10 @@ import { test } from "node:test";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { assemble, buildPage } from "../src/build.mjs";
+import { assemble } from "../../src/build/assemble.mjs";
+import { build, buildPage } from "../../src/cli/build.mjs";
+import { pageData, readPlanData } from "../../src/shared/records.mjs";
+import { exec, pair, root } from "../support/hub.mjs";
 
 const data = {
   name: "t",
@@ -103,10 +106,13 @@ const page = (html, extra = {}) => ({
   pages: [{ id: "p", title: "P", html }],
   ...extra,
 });
+
 const decision = (options) =>
   `<section data-choice="d" data-label="D">${options}</section>`;
+
 const option = (value = "a") =>
   `<button data-value="${value}" data-label="${value}">${value}</button>`;
+
 const refused = (plan, message, js) =>
   assert.rejects(assemble(plan, { js }), (error) => {
     assert.match(error.message, message);
@@ -271,53 +277,146 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
   assert.deepEqual(data.task, task);
 });
 
-test("the build's language list is the one for the Shiki the frame loads", async () => {
-  const frame = await fs.readFile(
-    new URL("../src/frame/frame.js", import.meta.url),
-    "utf8",
+test("a page source builds a standalone preview without executing content", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  // The frame draws the page title, so the page's own heading is an h2.
+  const content =
+    '<h2>Interface</h2><pre data-language="text">literal </script> and $&</pre>';
+  await fs.writeFile(path.join(directory, "interface.html"), content);
+  await fs.writeFile(
+    path.join(directory, "custom.css"),
+    ".prototype { color: var(--attention); }",
   );
-  const list = JSON.parse(
-    await fs.readFile(
-      new URL("../src/shiki-languages.json", import.meta.url),
-      "utf8",
-    ),
+  await fs.writeFile(
+    path.join(directory, "custom.js"),
+    'export function setup(root) { root.dataset.test = "ready"; }',
   );
-  assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
+  const source = path.join(directory, "source.json");
+  await fs.writeFile(
+    source,
+    JSON.stringify({
+      name: "build",
+      round: "1",
+      offer: "plan",
+      title: "Build",
+      page: {
+        id: "overview",
+        title: "Overview",
+        file: "interface.html",
+        css: "custom.css",
+        js: "custom.js",
+      },
+    }),
+  );
+  const html = await build(source);
+  assert.equal(pageData(html).page.html, content);
+  assert.equal(pageData(html).page.file, undefined);
+  assert.equal(
+    pageData(html).page.cssText,
+    ".prototype { color: var(--attention); }",
+  );
+  assert.equal(
+    pageData(html).page.jsText,
+    'export function setup(root) { root.dataset.test = "ready"; }',
+  );
+  assert(html.includes(".prototype { color: var(--attention); }"));
+  assert(html.includes("export function loadDraft"));
+  assert(!html.includes("<!-- FRAME_"));
+  assert(!html.includes('src="frame.js"'));
+  const output = path.join(directory, "round.html");
+  await exec(process.execPath, [pair, "build", source, output]);
+  assert.equal(await fs.readFile(output, "utf8"), html);
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", source, output]),
+    /EEXIST/,
+  );
+
+  // npm installs the command as a symlink to src/cli.mjs.
+  const link = path.join(directory, "pair");
+  await fs.symlink(pair, link);
+  const linked = path.join(directory, "linked.html");
+  await exec(process.execPath, [link, "build", source, linked]);
+  assert.equal(await fs.readFile(linked, "utf8"), html);
+  await assert.rejects(exec(process.execPath, [link, "build"]), /Usage/);
 });
 
-test("page tabs leave the reader in place, while round choices open a page", async () => {
-  const frame = await fs.readFile(
-    new URL("../src/frame/frame.js", import.meta.url),
-    "utf8",
+test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-prototype-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const html =
+    '<!doctype html><button id="try">Try</button><script>document.querySelector("button").onclick = () => alert("$&");</script>';
+  await fs.writeFile(path.join(directory, "prototype.html"), html);
+  const data = {
+    name: "example",
+    round: "1",
+    title: "Example work",
+    page: {
+      id: "overview",
+      title: "Preview",
+      html: '<div data-prototype="demo"></div><code>data-prototype="ID"</code>',
+      prototypes: [
+        {
+          id: "demo",
+          title: "Approved interaction",
+          file: "prototype.html",
+          height: 420,
+        },
+      ],
+    },
+  };
+  const source = path.join(directory, "source.json");
+  await fs.writeFile(source, JSON.stringify(data));
+  const result = await build(source);
+  const parsed = pageData(result);
+  assert.equal(parsed.page.prototypes[0].html, html);
+  assert.equal(parsed.page.prototypes[0].file, undefined);
+  assert(!result.includes(html));
+  for (const prototypes of [
+    [],
+    [null],
+    [{ ...parsed.page.prototypes[0], height: 0 }],
+    [{ ...parsed.page.prototypes[0], html: "" }],
+    [parsed.page.prototypes[0], parsed.page.prototypes[0]],
+  ])
+    await assert.rejects(
+      buildPage(source, { ...parsed, page: { ...parsed.page, prototypes } }),
+    );
+  await fs.writeFile(
+    source,
+    JSON.stringify({
+      ...data,
+      page: {
+        ...data.page,
+        prototypes: [{ ...data.page.prototypes[0], html }],
+      },
+    }),
   );
-  const tabClick = frame.slice(
-    frame.indexOf('const tab = event.target.closest("button[data-tab]");'),
-    frame.indexOf('const navigation = event.target.closest("[data-page]");'),
-  );
-  assert.match(
-    tabClick,
-    /switchTab\(tab\.dataset\.tab, null, \{ showPage: false \}\);/,
-  );
-  assert.doesNotMatch(tabClick, /\bshow\(/);
+  await assert.rejects(build(source), /file.*html|html.*file/);
+});
 
-  const roundClick = frame.slice(
-    frame.indexOf("row.onclick = () => {"),
-    frame.indexOf("list.append(row);"),
-  );
-  assert.match(
-    roundClick,
-    /switchTab\("current", null, \{ showPage: true \}\);/,
-  );
-
-  const pastOpen = frame.slice(
-    frame.indexOf("async function openPast"),
-    frame.indexOf(
-      "// Current's draft",
-      frame.indexOf("async function openPast"),
-    ),
-  );
-  assert.match(
-    pastOpen,
-    /switchTab\("past", targetId, \{ showPage: true \}\);/,
-  );
+test("the component fixture builds, so every component's markup stays valid", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-fixture-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const output = path.join(directory, "fixture.html");
+  await exec(process.execPath, [
+    path.join(root, "tests/fixture/build.mjs"),
+    output,
+  ]);
+  // The fixture is the one place every component is rendered with real
+  // content, so a structural mistake in it is a mistake in a component:
+  // src/build/lint.mjs refuses duplicate control IDs, a missing data-label,
+  // a decision with one option, and an option label over 24 characters.
+  const pages = readPlanData(await fs.readFile(output, "utf8")).pages;
+  const html = pages.map((page) => page.html).join("");
+  for (const attribute of [
+    'data-choice="retry"',
+    'data-multiselect="scope"',
+    'data-question="threshold"',
+    'data-drawing-question="boundary"',
+    'data-lines="3-4"',
+    "data-notes=",
+    "data-terms=",
+  ])
+    assert.ok(html.includes(attribute), `fixture lost ${attribute}`);
 });

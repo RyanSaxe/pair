@@ -2,23 +2,23 @@ import net from "node:net";
 
 export const name = "Claude Code";
 
+// Claude Code gives the commands it runs an inbox socket and its token.
+export const command = "claude";
+export const variables = [
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+];
+export const unwakeable =
+  "this Claude Code session exposes no inbox socket, so it cannot be woken.";
+
 // A Claude Code session has one inbox socket, and its subagents share it.
 export const identity = (target) => target.socket;
 
-// Claude Code gives the commands it runs an inbox socket and its token.
-export function detect(env, { ancestor }) {
-  if (
-    ancestor ? ancestor.command !== "claude" : !env.CLAUDE_CODE_MESSAGING_SOCKET
-  )
-    return null;
-  const socket = env.CLAUDE_CODE_MESSAGING_SOCKET;
-  const token = env.CLAUDE_CODE_MESSAGING_TOKEN;
-  if (!socket || !token)
-    throw new Error(
-      "this Claude Code session exposes no inbox socket, so it cannot be woken.",
-    );
-  return { harness: "claude-code", socket, token };
-}
+export const detect = (env) => ({
+  harness: "claude-code",
+  socket: env.CLAUDE_CODE_MESSAGING_SOCKET,
+  token: env.CLAUDE_CODE_MESSAGING_TOKEN,
+});
 
 // Two JSON lines over the socket: the auth line, then a user message.
 export function wake({ socket, token }, line) {

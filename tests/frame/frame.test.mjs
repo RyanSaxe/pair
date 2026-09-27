@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import test from "node:test";
 
 const frame = await fs.readFile(
-  new URL("../src/frame/frame.js", import.meta.url),
+  new URL("../../src/frame/frame.js", import.meta.url),
   "utf8",
 );
 
@@ -59,4 +59,55 @@ test("a send keeps the reader on Current", () => {
 test("drafting a comment never hides the way to accept a final plan", () => {
   const accept = between("function canAccept(", "\n}");
   assert.ok(!/unsent/i.test(accept));
+});
+
+test("the build's language list is the one for the Shiki the frame loads", async () => {
+  const frame = await fs.readFile(
+    new URL("../../src/frame/frame.js", import.meta.url),
+    "utf8",
+  );
+  const list = JSON.parse(
+    await fs.readFile(
+      new URL("../../src/build/shiki-languages.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
+});
+
+test("page tabs leave the reader in place, while round choices open a page", async () => {
+  const frame = await fs.readFile(
+    new URL("../../src/frame/frame.js", import.meta.url),
+    "utf8",
+  );
+  const tabClick = frame.slice(
+    frame.indexOf('const tab = event.target.closest("button[data-tab]");'),
+    frame.indexOf('const navigation = event.target.closest("[data-page]");'),
+  );
+  assert.match(
+    tabClick,
+    /switchTab\(tab\.dataset\.tab, null, \{ showPage: false \}\);/,
+  );
+  assert.doesNotMatch(tabClick, /\bshow\(/);
+
+  const roundClick = frame.slice(
+    frame.indexOf("row.onclick = () => {"),
+    frame.indexOf("list.append(row);"),
+  );
+  assert.match(
+    roundClick,
+    /switchTab\("current", null, \{ showPage: true \}\);/,
+  );
+
+  const pastOpen = frame.slice(
+    frame.indexOf("async function openPast"),
+    frame.indexOf(
+      "// Current's draft",
+      frame.indexOf("async function openPast"),
+    ),
+  );
+  assert.match(
+    pastOpen,
+    /switchTab\("past", targetId, \{ showPage: true \}\);/,
+  );
 });

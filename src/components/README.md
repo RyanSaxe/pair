@@ -2,8 +2,7 @@
 
 A component directory holds `markup.html`, and `styles.css` and
 `behavior.mjs` when the component needs them. The builder reads those three
-files and nothing else, so a directory may also hold a helper, such as
-`before-after/diff.mjs`, which `pair diff` runs.
+files and nothing else.
 [guide/components.md](../../guide/components.md) is the catalog a plan
 author reads.
 

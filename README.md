@@ -115,24 +115,27 @@ pair never writes this file on its own.
 ## Adapters
 
 pair wakes Claude Code, Codex and Copilot CLI, each through its folder under
-`adapters/`. A `wake.mjs` exports the CLI's `name`, such as `Codex`, and
-three functions:
+`adapters/`. A `wake.mjs` exports the CLI's `name`, such as `Codex`, the
+`command` its executable is called, the `variables` it gives the commands it
+runs, the `unwakeable` message for a session without all of them, and three
+functions:
 
-- `detect(env, tools)` returns the wake target for its agent CLI, or `null`
-  when the environment belongs to another CLI. `tools.ancestor` is the
-  ancestor process being asked about, or `null` when `pair start` asks about
-  the environment variables alone. It throws when the environment is its CLI's
-  but the session cannot be woken.
+- `detect(env, tools)` returns the wake target for its agent CLI, once the
+  CLI has claimed the environment and every one of its `variables` is set.
+  `tools.ancestor` is the ancestor process being asked about, or `null` when
+  `pair start` asks about the environment variables alone. It throws when
+  the session still cannot be woken.
 - `identity(target)` returns the part of a wake target that tells one session
   of the CLI from another: the inbox socket, the thread ID or the session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
   throws with the reason. `run(file, args)` runs a program and rejects with
   its error output.
 
-`src/session.mjs` lists the adapters. `pair start` asks every adapter about
-each ancestor process, nearest first, so the agent CLI that ran the command
+`src/hub/wake.mjs` lists the adapters. `pair start` asks every adapter about
+each ancestor process, nearest first, and the CLI whose `command` the
+ancestor runs claims the environment, so the agent CLI that ran the command
 wins over an outer one whose variables it inherited. When no ancestor
-decides, the first adapter whose variables are set decides.
+decides, the first adapter whose first variable is set claims it.
 
 ## Holders and handoff
 
@@ -152,7 +155,7 @@ Take over pair session PATH: run pair start --session-dir PATH and follow what i
 
 A round can carry an offer, which the reviewer accepts in the Finish your
 review dialog: `plan` on a complete plan and `finish` on complete work the
-agent built. Each entry in `src/offers.mjs` gives the dialog's Accept row and
+agent built. Each entry in `src/shared/offers.mjs` gives the dialog's Accept row and
 the hint under Request changes, the page a round must open on when it names
 one, and a guide file under `guide/offers/` that tells the agent what each
 action asks. Each action's `after` says what the session does once the
@@ -166,8 +169,11 @@ new offer is one entry there and one guide file.
 ```sh
 node --test
 npx prettier@3.9.6 --check .
+npx eslint@10.11.0 .
 ```
 
-CI runs both on every push and pull request. The fixture under `tests/fixture/`
-is a page with every component, and its [README](tests/fixture/README.md) says
-how to build it and what to check in it.
+CI runs all three on every push and pull request. ESLint fails a JavaScript
+file over 1000 lines, and CI also lists each one over 500, the size a file
+aims for. The fixture under `tests/fixture/` is a page with every component,
+and its [README](tests/fixture/README.md) says how to build it and what to
+check in it.

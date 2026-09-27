@@ -3,10 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { settings } from "../src/session.mjs";
+import { settings } from "../../src/shared/settings.mjs";
 
 const exec = promisify(execFile);
-const pair = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
+const pair = fileURLToPath(new URL("../../src/cli.mjs", import.meta.url));
 
 // pair takes its wake target and its identity from the nearest agent CLI
 // among its ancestors. These commands run under a process named claude whose

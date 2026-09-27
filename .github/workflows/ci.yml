@@ -27,3 +27,16 @@ jobs:
         with:
           node-version: 24
       - run: npx --yes prettier@3.9.6 --check .
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # eslint.config.mjs fails a file over 1000 lines. The second run lists
+      # each file over 500 as a warning and does not fail.
+      - run: npx --yes eslint@10.11.0 .
+      - run: |
+          npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 500]}' .
