@@ -309,23 +309,27 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal(status.current.round, "2");
 });
 
-test("a session rejects a round number reused under another name", async (t) => {
+test("a session keeps one plan name and uses each round number once", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1"));
   await a.feedback(a.event());
   await a.action("read");
-  const duplicate = await a.publish(planData("1", undefined, "other"));
+  const duplicate = await a.publish(planData("1"));
   assert.equal(duplicate.code, 409);
   assert.match(duplicate.body.error, /Round 1 is already used/);
+  const renamed = await a.publish(planData("2", undefined, "other"));
+  assert.equal(renamed.code, 409);
   assert.equal(
-    await exists(path.join(a.directory, "rounds/other.1.html")),
+    renamed.body.error,
+    "This session's plan is named example. Keep that name in every round.",
+  );
+  assert.equal(
+    await exists(path.join(a.directory, "rounds/other.2.html")),
     false,
   );
   assert.equal((await a.status()).body.current.name, "example");
-  const next = await a.publish(planData("2", undefined, "other"));
-  assert.equal(next.code, 200, next.body.error);
-  assert.equal((await a.status()).body.current.name, "other");
+  assert.equal((await a.publish(planData("2"))).code, 200);
 });
 
 test("queued rounds keep receipt order", async (t) => {

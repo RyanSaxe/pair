@@ -228,6 +228,12 @@ export function rounds(session) {
         `Round ${record.round} is already used`,
         409,
       );
+      // pages.md makes the name a stable ID for the whole session.
+      requireValue(
+        !session.state.current || record.name === session.state.current.name,
+        `This session's plan is named ${session.state.current?.name}. Keep that name in every round.`,
+        409,
+      );
       await resolvePageAgreements(page.agreements);
       const previous = session.state.roundPages?.[session.state.current?.round];
       orderAgreements(
