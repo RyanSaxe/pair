@@ -1,7 +1,7 @@
 # Writing a component
 
-A component directory holds `markup.html`, and `styles.css` and
-`behavior.mjs` when the component needs them. The builder reads those three
+A component directory contains `markup.html`, and `styles.css` and
+`behavior.mjs` when the component needs them. `pair build` reads those three
 files and nothing else.
 [guide/components.md](../../guide/components.md) is the catalog a plan
 author reads.
@@ -21,17 +21,18 @@ planUI.define("scope-checklist", {
 ```
 
 `match` is a CSS selector. `setup` runs once for each element the selector
-finds. A failure prints in the element's place and leaves the rest of the
-page rendered. A `setup` that returns a promise is awaited before the frame
-restores the scroll position.
+finds. When `setup` throws or its promise rejects, the frame shows the error
+in the element's place and renders the rest of the page. The frame waits
+for a `setup` that returns a promise before it restores the scroll
+position.
 
 A page renders by replacing `#page-content`, so `setup` runs again on every
-visit. Hold nothing between renders. Keep a viewing preference the reader
+visit. Keep no state between renders. Keep a viewing preference the reviewer
 chose, such as a layout, in `planUI.prefs`, keyed by `page.id` and the
 element's own ID so two of the same component on a page stay separate.
 
-The frame supplies the shared parts a component uses directly: `figure()`
-for a figure's header, actions and caption, `copyButton()`, `failed()` for a
+The frame provides these functions for a component's script: `figure()` for
+a figure's header, actions and caption, `copyButton()`, `failed()` for a
 renderer error in place, `script()` with the pinned CDN locations in
 `libraries`, `color()` for a token's current value, and `readData()` for a
 JSON array in a data attribute. A component calls another through `planUI`:
@@ -43,12 +44,12 @@ Set `data-kind` on the component's root to a singular noun that follows
 
 ## Styles
 
-`styles.css` needs no wrapper. The builder writes it into a cascade layer
-that beats page CSS and the frame's stylesheets, so a component sets its own
-type and spacing without fighting a frame selector. Use the design tokens in
-[frame.md](../../guide/frame.md).
+`styles.css` needs no wrapper. `pair build` puts it in a cascade layer above
+page CSS and the frame's own styles, so a component's type and spacing rules
+override the frame's. Use the design tokens in
+[pages.md](../../guide/pages.md).
 
-The builder also scopes component CSS to `#page-content`, so a selector
+`pair build` also scopes component CSS to `#page-content`, so a selector
 that starts at `:root` or `html` never matches. Follow the theme with
 `light-dark()`, which reads the `color-scheme` that the frame sets.
 
@@ -57,10 +58,11 @@ above and 22px below. A root that sets its own margin elsewhere gives it up
 there with `:scope > ROOT { margin: revert-layer; }`, as the code and formula
 components do.
 
-A component that holds authored content gives it a slot, and the frame
-supplies the space around it. The slot zeroes the outer margin of its first
-and last child, so a `<pre>`, a `<div>`, a figure and a table all sit the
-same distance from the slot's edges.
+A component with authored content puts that content in a slot. The frame
+zeroes the top margin of a slot's first child and the bottom margin of its
+last, so a `<pre>`, a `<div>`, a figure and a table all sit the same
+distance from the slot's edges. The frame's rule covers these slots, and a
+new component's `styles.css` zeroes the same margins in its own slot:
 
 | Component       | Slot                      |
 | --------------- | ------------------------- |
@@ -69,9 +71,9 @@ same distance from the slot's edges.
 | before-after    | `.change-content`         |
 | behavior-cases  | `.behavior-case > div`    |
 
-## Components of the user's own
+## Components outside pair
 
-The builder also reads `$XDG_CONFIG_HOME/pair/components/`, with
+`pair build` also reads `$XDG_CONFIG_HOME/pair/components/`, with
 `~/.config` as the fallback. A directory there with the same name replaces
 pair's component, and an update to pair never touches it. To keep a
 page's one-off shape, write `markup.html`, `styles.css` and `behavior.mjs`
