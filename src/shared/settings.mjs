@@ -27,9 +27,16 @@ export const version = ["src/hub", "src/shared", "adapters"]
   .digest("hex")
   .slice(0, 12);
 
+export const stateHome = (env = process.env) =>
+  env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
+export function requireNode() {
+  requireValue(
+    Number(process.versions.node.split(".")[0]) >= 20,
+    "Node 20 or newer is required",
+  );
+}
 export function settings(env = process.env) {
-  const home = env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-  const root = path.join(home, "pair");
+  const root = path.join(stateHome(env), "pair");
   const port =
     env.PAIR_HUB_PORT === undefined ? 4747 : Number(env.PAIR_HUB_PORT);
   requireValue(

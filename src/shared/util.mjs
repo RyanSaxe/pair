@@ -27,6 +27,11 @@ export function embedConfig(html, config) {
       `<script type="application/json" id="session-config">${script}</script>`,
   );
 }
+export const listen = (server, port, host = "127.0.0.1") =>
+  new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, host, () => resolve(server));
+  });
 export function serializer() {
   let queue = Promise.resolve();
   return (fn) => {

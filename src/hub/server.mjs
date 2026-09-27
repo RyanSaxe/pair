@@ -8,6 +8,7 @@ import {
   embedConfig,
   exists,
   json,
+  listen,
   read,
   requireValue,
   serializer,
@@ -364,19 +365,13 @@ export async function startHub(config = settings()) {
       );
     }
   }
-  const listen = (host, port) =>
-    new Promise((resolve, reject) => {
-      const server = http.createServer(handle);
-      server.once("error", reject);
-      server.listen(port, host, () => resolve(server));
-    });
-  const servers = [await listen("127.0.0.1", config.port)];
+  const servers = [await listen(http.createServer(handle), config.port)];
   const port = servers[0].address().port;
   origin = `http://127.0.0.1:${port}`;
   const hosts = ["127.0.0.1"];
   if (config.host) {
     try {
-      servers.push(await listen(config.host, port));
+      servers.push(await listen(http.createServer(handle), port, config.host));
     } catch (error) {
       servers[0].close();
       throw error;

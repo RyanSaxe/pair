@@ -42,7 +42,7 @@ function processAlive(pid) {
     return error.code !== "ESRCH";
   }
 }
-const portOpen = (port) =>
+export const portOpen = (port) =>
   new Promise((resolve) => {
     const socket = net.connect({ host: "127.0.0.1", port });
     socket.once("connect", () => {
@@ -85,7 +85,7 @@ async function spawnHub(config) {
   requireValue(
     started,
     process.env.CODEX_SANDBOX
-      ? `The hub did not start inside the sandbox (its log is ${config.hubLog}): ${sandboxAdvice()}`
+      ? `The hub did not start inside the sandbox (its log is ${config.hubLog}): ${sandboxAdvice}`
       : `The hub did not start; see ${config.hubLog}`,
   );
   return started;

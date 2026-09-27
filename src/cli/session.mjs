@@ -6,7 +6,7 @@ import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
 import { guideFile } from "../shared/guide.mjs";
 import { pageData } from "../shared/records.mjs";
-import { settings } from "../shared/settings.mjs";
+import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, json, read, requireValue } from "../shared/util.mjs";
 
 // The source a round was built from is kept beside its built file, so the
@@ -47,10 +47,7 @@ function argumentsFrom(argv) {
   return { command, options };
 }
 export async function main(argv) {
-  requireValue(
-    Number(process.versions.node.split(".")[0]) >= 20,
-    "Node 20 or newer is required",
-  );
+  requireNode();
   const { command, options } = argumentsFrom(argv);
   const config = settings();
   if (command === "hub") {
