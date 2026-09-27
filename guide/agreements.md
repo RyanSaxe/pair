@@ -62,3 +62,13 @@ A valid source does not make the summary correct. Read the feedback and the
 conversation before writing or changing an agreement. A comment the user
 leaves on an agreement records the agreement's ID and changes nothing on its
 own.
+
+## In a build round
+
+A build round's Agreed holds the task and none of the plan's decisions. It
+does not repeat or link the plan, because the reviewer opens the plan from
+the Rounds dialog. While the round's pages arrive, the frame shows their
+progress at the top of Agreed. Like every page, Agreed never changes once
+published, so state a departure from the plan on the page about that work.
+A follow-up round's Agreed records what the reviewer's comments settled, as
+in any round.

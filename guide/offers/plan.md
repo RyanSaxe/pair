@@ -21,11 +21,10 @@ plan and nothing else.
 1. Read the plan. Its pages are HTML fragments in the session's
    `src/<round>/<page-id>/`.
 2. Before the first change, publish the build round's Agreed and page list,
-   as [round.md](../round.md) describes. Agreed holds the task and does not
-   repeat or link the plan, because the reviewer opens the plan from the
-   Rounds dialog. List one page per step of the plan unless another
-   structure explains the work better. The last page is the pull request
-   description.
+   as [round.md](../round.md) describes, with Agreed as
+   [agreements.md](../agreements.md) says for a build round. List one page
+   per step of the plan unless another structure explains the work better.
+   The last page is the pull request description.
 3. Commit on a branch as the project's instructions say, and open no pull
    request.
 4. Publish each page when its part of the work is done. The page shows what
