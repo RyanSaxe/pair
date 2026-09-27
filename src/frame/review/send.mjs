@@ -41,14 +41,59 @@ import {
 
 export let submissionError = "";
 export let submissionInFlight = false;
-export function canAccept() {
+// A round can be accepted while it offers something and is Current, unsent
+// and with the reviewer. Drafted comments do not count, because an
+// acceptance sends them with it.
+export function canAccept({ offer, connected, current, submitted, stage }) {
   return (
-    Boolean(plan.offer) &&
+    Boolean(offer) &&
     connected &&
-    current() &&
-    !submittedCurrent() &&
-    ["ready", "updated"].includes(remote.stage)
+    current &&
+    !submitted &&
+    ["ready", "updated"].includes(stage)
   );
+}
+export const acceptable = () =>
+  canAccept({
+    offer: plan.offer,
+    connected,
+    current: current(),
+    submitted: submittedCurrent(),
+    stage: remote?.stage,
+  });
+// The header button. It finishes the review on a round with an offer, sends
+// feedback on any other round, and opens Feedback once Current's round is
+// sent. Its count is the drafted items that go with it.
+export function submitButton({
+  inFlight,
+  opensFeedback,
+  onSentFeedback,
+  finishes,
+  finishable,
+  waitingForPages,
+  sendable,
+  pending,
+  alignUnflagged,
+}) {
+  const hasFeedback = pending > 0 || (!finishes && alignUnflagged);
+  const label = finishes ? "Finish review" : "Send feedback";
+  return {
+    disabled:
+      inFlight ||
+      (opensFeedback
+        ? onSentFeedback
+        : finishes
+          ? !finishable
+          : waitingForPages || !hasFeedback || !sendable),
+    text: inFlight
+      ? "Sending"
+      : opensFeedback
+        ? "Feedback"
+        : pending
+          ? `${label} (${pending})`
+          : label,
+    primary: !opensFeedback && !waitingForPages,
+  };
 }
 function feedbackText(extraNotes = []) {
   return [
@@ -196,7 +241,7 @@ const commentsDrafted = () => {
   return notes.length + Object.keys(answers).length > 0;
 };
 function openFinish() {
-  if (!canAccept()) return;
+  if (!acceptable()) return;
   renderFinish(document, plan, offers, acceptOffer);
   const words = draftedWords(state);
   if (words) {

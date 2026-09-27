@@ -173,14 +173,6 @@ export async function startHub(config = settings()) {
           "Agent token required",
           403,
         );
-        if (method === "GET" && parts[2] === "next")
-          return reply(
-            200,
-            await session.exclusive(async () => ({
-              status: session.view(),
-              event: (await session.pending())[0] || null,
-            })),
-          );
         if (method === "POST" && parts[2] === "action") {
           const data = await readBody(req, 10_000_000);
           return reply(200, await session.exclusive(() => session.act(data)));
@@ -208,10 +200,8 @@ export async function startHub(config = settings()) {
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
           if (!session.state.current)
             return reply(200, "No round published yet.", "text/plain");
-          // Resolved under the session's directory, so a moved session
-          // still serves its current round. A session the reviewer closed
-          // is read-only, so no tab left open on it can submit and wake an
-          // agent that will never run again.
+          // A session the reviewer closed is read-only, so no tab left open
+          // on it can submit and wake an agent that will never run again.
           return html(
             await roundPage(
               session,

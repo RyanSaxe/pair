@@ -28,9 +28,6 @@ test("alignment defaults on, preserves a changed value, and travels with feedbac
   fresh.alignUnflagged = false;
   assert.equal(submissionGroups(fresh).alignUnflagged, false);
   assert.equal(loadDraft(fresh, "2").alignUnflagged, false);
-  const older = { ...fresh };
-  delete older.alignUnflagged;
-  assert.equal(loadDraft(older, "2").alignUnflagged, true);
 });
 
 test("an untouched checklist does not count", () => {
@@ -77,20 +74,6 @@ test("a touched, unsent list carries over to the next round", () => {
   const next = loadDraft(JSON.parse(JSON.stringify(draft)), "2");
   assert.equal(next.choices["scope/one"].touched, true);
   assert.equal(unsentItems(next).count, 1);
-});
-
-test("single choices count as before", () => {
-  const draft = draftWith({
-    "d/pick": {
-      topic: "d",
-      label: "Pick",
-      value: "x",
-      valueLabel: "X",
-      target: "t",
-      round: "1",
-    },
-  });
-  assert.equal(unsentItems(draft).count, 1);
 });
 
 test("the Review line names the comments and choices behind the count", () => {

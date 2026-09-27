@@ -7,53 +7,46 @@ import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
 import {
   alive,
+  freePort,
   hub,
   killHub,
+  pairCli,
   planData,
   sleep,
   waitUntil,
 } from "../../support/hub.mjs";
-import { pairCli } from "../../support/pair-cli.mjs";
 
 test("start hands the session to its agent, and only the holder works on it and is woken", async (t) => {
   const h = await hub(t);
-  const a = await h.session("first");
+  const [one, two, three] = [await h.inbox(), await h.inbox(), await h.inbox()];
+  const a = await h.session({ box: one });
   await a.publish(planData());
-  const register = (thread, start) =>
-    a.request(
-      "/agent/register",
-      {
-        sessionDir: a.directory,
-        wake: { harness: "codex", thread },
-        ...(start ? { start } : {}),
-      },
-      { authorization: `Bearer ${h.record.secret}` },
-    );
+  const register = (box, start) =>
+    h.register(a.directory, box.target, start ? { start } : {});
   const clock = (iso) =>
     [new Date(iso).getHours(), new Date(iso).getMinutes()]
       .map((part) => String(part).padStart(2, "0"))
       .join(":");
   // The holder running start again, after an interrupted turn, keeps it.
   const first = (await a.status()).body.holder;
-  assert.equal((await register("thread-first", true)).code, 200);
+  assert.equal((await register(one, true)).code, 200);
   assert.deepEqual((await a.status()).body.holder, first);
   // An agent that never held it hears who has held it since when, and how
   // to take it over, not that anyone took it over.
-  const third = { harness: "codex", id: "thread-third" };
   assert.equal(
-    (await a.action("status", { agent: third })).body.error,
+    (await a.action("status", { agent: three.agent })).body.error,
     `Another agent has held this session since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
   );
   // Another agent's start takes it over, and the reviewer's card says so.
   await sleep(5);
-  assert.equal((await register("thread-second", true)).code, 200);
+  assert.equal((await register(two, true)).code, 200);
   const { holder, takeover } = (await a.status()).body;
-  assert.equal(holder.harness, "codex");
+  assert.equal(holder.harness, "claude-code");
   assert.notEqual(holder.at, first.at);
-  assert.deepEqual(takeover, { name: "Codex", at: holder.at });
+  assert.deepEqual(takeover, { name: "Claude Code", at: holder.at });
   // The first agent's next command, start included, is refused with the time
   // it lost the session, so it stops instead of taking the session back.
-  const lost = await register("thread-first", true);
+  const lost = await register(one, true);
   assert.equal(lost.code, 409);
   assert.equal(
     lost.body.error,
@@ -63,29 +56,28 @@ test("start hands the session to its agent, and only the holder works on it and 
   for (const refused of [
     await a.action("ack"),
     await a.action("publish", { html: "" }),
-    await register("thread-first", false),
+    await register(one, false),
   ]) {
     assert.equal(refused.code, 409);
     assert.match(refused.body.error, /^Another agent has held this session/);
   }
   assert.deepEqual((await a.status()).body.holder, holder);
-  const second = { harness: "codex", id: "thread-second" };
-  assert.equal((await a.action("ack", { agent: second })).code, 200);
+  assert.equal((await a.action("ack", { agent: two.agent })).code, 200);
   // Only the holder is woken, and the card's takeover line lasts until the
   // reviewer sends again.
   assert.equal((await a.feedback(a.event())).code, 200);
-  assert.equal(await waitUntil(() => h.wakes.length === 1), true);
-  assert.deepEqual(h.wakes, [{ harness: "codex", thread: "thread-second" }]);
+  assert.equal(await waitUntil(() => two.wakes.length === 1), true);
+  assert.equal(one.wakes.length, 0);
   assert.equal((await a.status()).body.takeover, null);
   // The handoff line hands the session back to the first agent.
-  assert.equal((await register("thread-first", true)).code, 200);
+  assert.equal((await register(one, true)).code, 200);
   assert.equal((await a.action("read")).code, 200);
-  assert.equal((await a.action("ack", { agent: second })).code, 409);
+  assert.equal((await a.action("ack", { agent: two.agent })).code, 409);
 });
 
 test("a saved plan outlives its hub until another agent takes it over", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-handoff-"));
-  const port = 30000 + Math.floor(Math.random() * 20000);
+  const port = await freePort();
   const env = {
     XDG_STATE_HOME: home,
     PAIR_HUB_PORT: String(port),

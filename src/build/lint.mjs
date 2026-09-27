@@ -28,7 +28,7 @@ function closestLanguage(name) {
     )
     .sort((a, b) => b.length - a.length)[0];
 }
-/** Structural problems in the assembled pages and the plan's script. */
+/** Structural problems in the assembled pages and a page's own script. */
 export function problems(data, js = "", { allowUnknownPages = false } = {}) {
   const list = [];
   const pageIds = new Set();
@@ -168,7 +168,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
     /document\.(body|documentElement)\.(style|className|classList|dataset|innerHTML|setAttribute|append|prepend|insertAdjacent|replaceChildren|remove)\b/;
   js.split("\n").forEach((line, index) => {
     const hit = line.match(mutation);
-    if (hit) list.push(`plan.js line ${index + 1} restyles document.${hit[1]}`);
+    if (hit) list.push(`page.js line ${index + 1} restyles document.${hit[1]}`);
   });
   return list;
 }

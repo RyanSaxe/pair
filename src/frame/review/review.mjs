@@ -34,9 +34,10 @@ import {
 } from "#frame/pages/pages.mjs";
 import { choiceText } from "#frame/review/choices.mjs";
 import {
-  canAccept,
+  acceptable,
   submissionError,
   submissionInFlight,
+  submitButton,
 } from "#frame/review/send.mjs";
 import { renderActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import {
@@ -442,37 +443,28 @@ export function review() {
   const offer = forCurrent
     ? views.get(remote.current.round).plan.offer
     : plan.offer;
-  const finishes = Boolean(offer);
-  const finishable = forCurrent
-    ? connected &&
-      !remote.openRound &&
-      ["ready", "updated"].includes(remote.stage)
-    : canAccept();
-  const opensFeedback = sent && !forCurrent;
-  const onSentFeedback =
-    $("reading").hidden &&
-    (mode === "readonly" || plan.round === submittedRound);
-  const sendable =
-    connected &&
-    !remote?.openRound &&
-    (forCurrent || (current() && feedbackEditable()));
-  const waitingForPages = Boolean(remote?.openRound);
-  const hasFeedback = pending.count > 0 || (!finishes && draft.alignUnflagged);
-  $("submit").disabled =
-    submissionInFlight ||
-    (opensFeedback
-      ? onSentFeedback
-      : finishes
-        ? !finishable
-        : waitingForPages || !hasFeedback || !sendable);
-  const label = finishes ? "Finish review" : "Send feedback";
-  $("submit").textContent = submissionInFlight
-    ? "Sending"
-    : opensFeedback
-      ? "Feedback"
-      : pending.count
-        ? `${label} (${pending.count})`
-        : label;
-  $("submit").classList.toggle("primary", !opensFeedback && !waitingForPages);
+  const button = submitButton({
+    inFlight: submissionInFlight,
+    opensFeedback: sent && !forCurrent,
+    onSentFeedback:
+      $("reading").hidden &&
+      (mode === "readonly" || plan.round === submittedRound),
+    finishes: Boolean(offer),
+    finishable: forCurrent
+      ? connected &&
+        !remote.openRound &&
+        ["ready", "updated"].includes(remote.stage)
+      : acceptable(),
+    waitingForPages: Boolean(remote?.openRound),
+    sendable:
+      connected &&
+      !remote?.openRound &&
+      (forCurrent || (current() && feedbackEditable())),
+    pending: pending.count,
+    alignUnflagged: draft.alignUnflagged,
+  });
+  $("submit").disabled = button.disabled;
+  $("submit").textContent = button.text;
+  $("submit").classList.toggle("primary", button.primary);
   status();
 }

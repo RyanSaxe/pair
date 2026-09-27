@@ -21,13 +21,12 @@ const run = (remote, extra = {}) =>
   activityModel({ remote, currentSet, submittedRound, now, ...extra });
 
 test("feedback waits without inventing page names", () => {
-  // An acknowledgement from an earlier round does not count for this one.
+  // A report on an earlier round does not count for this one.
   const waiting = run({
     current: { round: "1" },
     latestSubmissionId: "s2",
     lastAcknowledgedId: "s1",
-    acknowledgedAt: "2026-01-01T00:01:00Z",
-    updatedAt: "2026-01-01T00:02:00Z",
+    report: { at: "2026-01-01T00:01:00Z", note: null },
   });
   assert.equal(waiting.title, "Waiting for the agent");
   assert.deepEqual(waiting.slots, []);
@@ -43,7 +42,7 @@ test("feedback waits without inventing page names", () => {
   const acknowledged = run({
     current: { round: "1" },
     ...read,
-    acknowledgedAt: "2026-01-01T00:09:20Z",
+    report: { at: "2026-01-01T00:09:20Z", note: null },
   });
   assert.equal(acknowledged.title, "Preparing the next round");
   assert.deepEqual(acknowledged.slots, []);
@@ -60,7 +59,7 @@ test("published page names keep their order while readiness changes", () => {
   const model = run({
     current: { round: "2" },
     ...read,
-    updatedAt: "2026-01-01T00:09:00Z",
+    report: { at: "2026-01-01T00:09:00Z", note: null },
   });
   assert.equal(model.title, "Pages in progress");
   assert.equal(model.summary, "1 of 3 pages ready");
@@ -79,7 +78,7 @@ test("published page names keep their order while readiness changes", () => {
     {
       current: { round: "2", publishedAt: "2026-01-01T00:08:00Z" },
       ...read,
-      updatedAt: "2026-01-01T00:00:00Z",
+      report: { at: "2026-01-01T00:00:00Z", note: null },
     },
     {
       currentSet: {
@@ -99,7 +98,7 @@ test("a report older than five minutes turns late and pause or wake failure wins
   const remote = {
     current: { round: "2" },
     ...read,
-    updatedAt: "2026-01-01T00:05:00Z",
+    report: { at: "2026-01-01T00:05:00Z", note: null },
   };
   assert.equal(
     run(remote, { now: Date.parse("2026-01-01T00:09:59Z") }).footer.late,
@@ -167,14 +166,14 @@ test("the round status counts pages until the last one and names a silent agent"
       { id: "steps", state: "queued" },
     ],
   };
-  const remote = { openRound, updatedAt: "2026-01-01T00:08:00Z" };
+  const remote = { openRound, report: { at: "2026-01-01T00:08:00Z" } };
   assert.deepEqual(roundModel({ remote, now }), {
     text: "2 of 4 ready",
     late: false,
   });
   assert.deepEqual(
     roundModel({
-      remote: { ...remote, updatedAt: "2026-01-01T00:03:00Z" },
+      remote: { ...remote, report: { at: "2026-01-01T00:03:00Z" } },
       now,
     }),
     { text: "No report for 7 min", late: true },
@@ -186,18 +185,6 @@ test("the round status counts pages until the last one and names a silent agent"
   const done = {
     pages: openRound.pages.map((item) => ({ ...item, state: "ready" })),
   };
-  // An agent report counts even when nothing else changed.
-  assert.deepEqual(
-    roundModel({
-      remote: {
-        ...remote,
-        updatedAt: "2026-01-01T00:03:00Z",
-        report: { at: "2026-01-01T00:08:00Z" },
-      },
-      now,
-    }),
-    { text: "2 of 4 ready", late: false },
-  );
   assert.equal(roundModel({ remote: { openRound: done }, now }), null);
   assert.equal(roundModel({ remote: {}, now }), null);
 });

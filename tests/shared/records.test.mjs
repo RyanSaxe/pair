@@ -38,9 +38,7 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
     ],
   };
   await assert.rejects(assemble({ ...duplicateAgreed, agreements: [] }));
-  const directory = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agreement-build-"),
-  );
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-agreement-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   await fs.writeFile(path.join(directory, "decision.html"), entry.html);
   const { html, ...metadata } = entry;
@@ -50,7 +48,6 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
     JSON.stringify({
       name: data.name,
       round: data.round,
-      kind: data.kind,
       title: data.title,
       page: {
         id: "agreed",

@@ -1,7 +1,9 @@
+import "./env.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,9 +47,22 @@ export async function waitUntil(check, ms = 5000) {
   return false;
 }
 
+// A port that nothing listens on, for a hub the command spawns on a fixed
+// port.
+export async function freePort() {
+  const server = net.createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  return port;
+}
+
+// Stops a hub the command spawned. An in-process hub's record has this
+// process's own pid, and signalling it would end the test run.
 export async function killHub(config) {
   try {
     const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
+    if (record.pid === process.pid) return;
     process.kill(record.pid, "SIGTERM");
     await waitUntil(() => !alive(record.pid), 3000);
   } catch {
@@ -57,6 +72,8 @@ export async function killHub(config) {
 
 export const sessionConfig = (html) =>
   JSON.parse(html.match(/id="session-config">([\s\S]*?)<\/script>/)[1]);
+
+export const task = { title: "The task", html: "<p>What the plan builds.</p>" };
 
 export function planData(round = "1", offer, name = "example") {
   return {
@@ -74,18 +91,49 @@ export function planData(round = "1", offer, name = "example") {
   };
 }
 
-export async function hub(t, extra = {}) {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-hub-"));
-  const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
-  // The wake targets the hub woke, in order.
+// A stand-in for a Claude Code session: a socket the hub wakes the way it
+// wakes Claude Code. Each wake arrives as its auth line and its message.
+// After close, the next wake fails as a wake to a finished session does.
+export async function inbox(t, home) {
+  // A socket path must stay under 104 bytes on macOS, so it sits in the
+  // hub's home rather than in a session directory.
+  const socket = path.join(
+    home,
+    `${crypto.randomBytes(4).toString("hex")}.sock`,
+  );
+  const token = crypto.randomUUID();
   const wakes = [];
-  const config = {
-    ...settings(env),
-    log() {},
-    async wake(target) {
-      wakes.push(target);
-    },
+  const server = net.createServer((client) => {
+    let text = "";
+    client.on("data", (chunk) => (text += chunk));
+    client.on("end", () => {
+      const [auth, message] = text
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      wakes.push({ auth, message });
+      client.end();
+    });
+  });
+  await new Promise((resolve) => server.listen(socket, resolve));
+  const close = () => new Promise((resolve) => server.close(() => resolve()));
+  t.after(close);
+  return {
+    socket,
+    token,
+    wakes,
+    close,
+    target: { harness: "claude-code", socket, token },
+    agent: { harness: "claude-code", id: socket },
   };
+}
+
+// An in-process hub on a port the OS assigns, in a home of its own. Every
+// session registers with its own inbox, so a test sees only its own wakes.
+export async function hub(t, extra = {}) {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
+  const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
+  const config = { ...settings(env), log() {} };
   const server = await startHub(config);
   t.after(async () => {
     await server.close();
@@ -93,24 +141,29 @@ export async function hub(t, extra = {}) {
     await fs.rm(home, { recursive: true, force: true });
   });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
-  // A session is registered by a Codex thread, or by the agent a pairCli
-  // runs as, so that the command can work on it.
-  async function session(name = crypto.randomUUID(), cli = null) {
-    const wake = cli
-      ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
-      : { harness: "codex", thread: `thread-${name}` };
-    const agent = cli ? cli.agent : { harness: "codex", id: wake.thread };
-    const directory = path.join(config.sessions, name);
-    const registered = await fetch(server.origin + "/agent/register", {
+  const register = async (sessionDir, wake, options = {}) => {
+    const response = await fetch(server.origin + "/agent/register", {
       method: "POST",
       headers: {
         authorization: `Bearer ${record.secret}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ sessionDir: directory, wake }),
+      body: JSON.stringify({ sessionDir, wake, ...options }),
     });
-    const info = await registered.json();
-    assert.equal(registered.status, 200, info.error);
+    return { code: response.status, body: await response.json() };
+  };
+  // A session registered by an inbox, or by the agent a pairCli runs as,
+  // so that the command can work on it.
+  async function session({ cli, box } = {}) {
+    const mailbox = cli ? null : box || (await inbox(t, home));
+    const wake = cli
+      ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
+      : mailbox.target;
+    const agent = cli ? cli.agent : mailbox.agent;
+    const directory = path.join(config.sessions, crypto.randomUUID());
+    const registered = await register(directory, wake);
+    assert.equal(registered.code, 200, registered.body.error);
+    const info = registered.body;
     const connection = JSON.parse(
       await fs.readFile(path.join(directory, "connection.json"), "utf8"),
     );
@@ -137,8 +190,12 @@ export async function hub(t, extra = {}) {
       }
       return { code: response.status, body, headers: response.headers };
     };
-    const action = (action, data = {}) =>
-      request(`/agent/${id}/action`, { action, sessionId: id, agent, ...data });
+    const action = (action, data = {}, headers) =>
+      request(
+        `/agent/${id}/action`,
+        { action, sessionId: id, agent, ...data },
+        headers,
+      );
     // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
     const publish = async (data) => {
@@ -154,7 +211,7 @@ export async function hub(t, extra = {}) {
         html: await build({
           id: "agreed",
           title: "Agreed so far",
-          task: { title: "The task", html: "<p>What the plan builds.</p>" },
+          task,
           agreements: data.agreements || [],
         }),
         pages: data.pages.map(({ id, title }) => ({ id, title })),
@@ -181,6 +238,8 @@ export async function hub(t, extra = {}) {
       directory,
       info,
       connection,
+      inbox: mailbox,
+      agent,
       request,
       action,
       publish,
@@ -188,7 +247,6 @@ export async function hub(t, extra = {}) {
       feedback: (data, headers) =>
         request(`/s/${id}/api/feedback`, data, headers),
       status: () => request(`/s/${id}/api/status`),
-      next: (headers) => request(`/agent/${id}/next`, undefined, headers),
     };
   }
   return {
@@ -197,7 +255,34 @@ export async function hub(t, extra = {}) {
     config,
     server,
     record,
-    wakes,
+    register,
+    inbox: () => inbox(t, home),
     session,
+  };
+}
+
+// pair takes its wake target and its identity from the nearest agent CLI
+// among its ancestors. These commands run under a process named claude whose
+// inbox socket nobody listens on, so a test wake reaches no real session, and
+// the suite passes the same way under Claude Code, Codex, Copilot CLI or none
+// of them.
+export async function pairCli(home, extra = {}, cli = pair) {
+  const relay =
+    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
+  const claude = path.join(home, "claude");
+  await fs.symlink(process.execPath, claude);
+  const env = {
+    ...process.env,
+    XDG_STATE_HOME: home,
+    CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
+    CLAUDE_CODE_MESSAGING_TOKEN: "test",
+    ...extra,
+  };
+  const run = async (...args) =>
+    (await exec(claude, ["-e", relay, cli, ...args], { env })).stdout;
+  return {
+    config: settings(env),
+    run,
+    agent: { harness: "claude-code", id: env.CLAUDE_CODE_MESSAGING_SOCKET },
   };
 }

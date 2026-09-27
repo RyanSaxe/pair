@@ -197,12 +197,11 @@ test("answers travel with feedback and resolve as agreement sources", async (t) 
     },
   });
   assert.equal((await a.feedback(feedback)).code, 200);
-  const received = await a.next();
+  const received = await a.action("read");
   assert.deepEqual(
     received.body.event.payload.groups.answers,
     feedback.groups.answers,
   );
-  await a.action("read");
   const entry = {
     id: "sidebar",
     title: "Keep the sidebar",
@@ -283,13 +282,12 @@ test("agreements survive topic changes and targeted feedback without rewriting s
       },
     });
     assert.equal((await a.feedback(event)).code, 200);
-    const received = await a.next();
+    const received = await a.action("read");
     assert.equal(
       received.body.event.payload.groups.notes[0].agreementId,
       entry.id,
     );
     assert.equal(received.body.event.payload.intent, "feedback-only");
-    await a.action("read");
   }
   for (const [index, state] of states.entries()) {
     const snapshot = readPlanData(

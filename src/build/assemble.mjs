@@ -138,14 +138,12 @@ export async function assemble(
   data,
   { css = "", js = "", allowUnknownPages = false, bundle } = {},
 ) {
-  const found = problems(data, js, { allowUnknownPages });
+  // A page's script arrives here encoded, and buildPage has already
+  // checked it as written.
+  const found = problems(data, "", { allowUnknownPages });
   if (found.length) throw new Error(found.join("\n"));
   bundle ||= await frameBundle();
   const { shell, style, drawingEditor, componentCss } = bundle;
-  if (/<\/style/i.test(css) || /<\/script/i.test(js))
-    throw new Error(
-      "Custom CSS/JS cannot contain HTML closing style/script tags; escape the less-than character in strings.",
-    );
   // A bundle stored before the dialogs had a file of their own carries them
   // in its shell.
   const html = shell

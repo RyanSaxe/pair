@@ -4,8 +4,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { exists } from "../support/hub.mjs";
-import { pairCli } from "../support/pair-cli.mjs";
+import { exists, pairCli } from "../support/hub.mjs";
 
 // The server otherHub starts answers /api/hub with every field of pair's
 // reply except app, as the interactive-plan hub and older pair hubs do. It

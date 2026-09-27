@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { assemble } from "../../src/build/assemble.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// The fixture shows pair's own components, never the ones a user keeps
+// under $XDG_CONFIG_HOME/pair/components.
+process.env.XDG_CONFIG_HOME = path.join(here, "no-user-components");
 const [output, ...extra] = process.argv.slice(2);
 if (!output || extra.length) {
   console.error("Usage: node tests/fixture/build.mjs OUTPUT.html");

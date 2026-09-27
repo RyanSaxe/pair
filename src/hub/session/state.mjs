@@ -239,7 +239,6 @@ export async function loadSession(directory, config, origin) {
       return state;
     },
     exclusive,
-    pending,
     submit: session.submit,
     upload: session.upload,
     readUpload: session.readUpload,

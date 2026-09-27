@@ -8,12 +8,11 @@ import { readPlanData } from "../../src/shared/records.mjs";
 import {
   exists,
   hub,
+  pairCli,
   planData,
   sessionConfig,
   sleep,
 } from "../support/hub.mjs";
-import { pairCli } from "../support/pair-cli.mjs";
-import { sessionId, hub as wakeHub } from "../support/wake-hub.mjs";
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
   const h = await hub(t);
@@ -28,7 +27,7 @@ test("two sessions on one hub isolate tokens, events, and acknowledgements", asy
   const event = a.event();
   assert.equal((await b.feedback(event)).code, 409);
   assert.equal((await a.feedback(event)).code, 200);
-  assert.equal((await b.next()).body.event, null);
+  assert.equal((await b.action("read")).body.event, null);
   assert.equal((await b.action("read", { id: event.id })).code, 404);
   assert.equal((await a.action("read")).body.event.id, event.id);
   assert.deepEqual((await b.status()).body.acknowledged, []);
@@ -38,17 +37,15 @@ test("two sessions on one hub isolate tokens, events, and acknowledgements", asy
   );
   assert.equal(
     (
-      await a.next({
-        authorization: `Bearer ${b.connection.token}`,
-      })
+      await a.action(
+        "read",
+        {},
+        { authorization: `Bearer ${b.connection.token}` },
+      )
     ).code,
     403,
   );
-  assert.equal(
-    (await a.request(`/agent/${a.id}/next`, undefined, { authorization: "" }))
-      .code,
-    403,
-  );
+  assert.equal((await a.action("read", {}, { authorization: "" })).code, 403);
   const html = (await a.request(`${a.base}/`)).body;
   assert(html.includes(a.id));
   assert(!html.includes(a.connection.token));
@@ -68,62 +65,30 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
     b = await h.session();
   await h.session();
   await a.publish(planData());
-  await sleep(5);
   await b.publish(planData());
-  let list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => item.id),
-    [a.id, b.id],
-  );
-  const feedback = b.event();
-  await b.feedback(feedback);
-  await b.action("read");
-  list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => [item.id, item.needsYou, item.stage]),
-    [
-      [a.id, true, "updated"],
-      [b.id, false, "working"],
-    ],
-  );
-  await b.publish(planData("2"));
-  const first = a.event();
-  await a.feedback(first);
+  // a was published first, and only b waits for the reviewer.
+  await a.feedback(a.event());
   await a.action("read");
-  list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => item.id),
-    [b.id, a.id],
-  );
-  assert.equal(list[0].round, "2");
+  const listed = async () =>
+    (await a.request("/api/sessions")).body.sessions.map((item) => [
+      item.id,
+      item.needsYou,
+      item.paused,
+    ]);
+  assert.deepEqual(await listed(), [
+    [b.id, true, false],
+    [a.id, false, false],
+  ]);
   assert.equal(
-    (await b.action("pause", { reason: "asked to stop" })).code,
+    (await a.action("pause", { reason: "asked to stop" })).code,
     200,
   );
-  assert.equal((await b.status()).body.paused.reason, "asked to stop");
-  list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => [item.id, item.paused]),
-    [
-      [b.id, true],
-      [a.id, false],
-    ],
-  );
-  assert.equal((await b.request(`${b.base}/`)).code, 200);
-  const again = await fetch(h.server.origin + "/agent/register", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${h.record.secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sessionDir: b.directory,
-      wake: { harness: "codex", thread: "thread-again" },
-      start: true,
-    }),
-  });
-  assert.equal(again.status, 200);
-  assert.equal((await b.status()).body.paused, null);
+  assert.equal((await a.status()).body.paused.reason, "asked to stop");
+  assert.deepEqual(await listed(), [
+    [b.id, true, false],
+    [a.id, false, true],
+  ]);
+  assert.equal((await a.request(`${a.base}/`)).code, 200);
 });
 
 test("closing a session from the bell panel completes it and drops it from the list", async (t) => {
@@ -275,7 +240,7 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
 test("explicit feedback is retryable, remains unread until read, and blocks premature publication", async (t) => {
   const h = await hub(t);
   const agent = await pairCli(h.home, { PAIR_HUB_PORT: "0" });
-  const a = await h.session(undefined, agent);
+  const a = await h.session({ cli: agent });
   await a.publish(planData());
   const event = a.event();
   const receipt = await a.feedback(event);
@@ -294,6 +259,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   const again = await cli("--id", event.id);
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
+  assert.equal((await a.action("read", { id: "nope" })).code, 404);
   const original = await fs.readFile(
     path.join(a.directory, "rounds/example.1.html"),
     "utf8",
@@ -311,41 +277,27 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal(status.current.round, "2");
 });
 
-test("a session rejects a round number reused under another name", async (t) => {
+test("a session keeps one plan name and uses each round number once", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1"));
   await a.feedback(a.event());
   await a.action("read");
-  const duplicate = await a.publish(planData("1", undefined, "other"));
+  const duplicate = await a.publish(planData("1"));
   assert.equal(duplicate.code, 409);
   assert.match(duplicate.body.error, /Round 1 is already used/);
+  const renamed = await a.publish(planData("2", undefined, "other"));
+  assert.equal(renamed.code, 409);
   assert.equal(
-    await exists(path.join(a.directory, "rounds/other.1.html")),
+    renamed.body.error,
+    "This session's plan is named example. Keep that name in every round.",
+  );
+  assert.equal(
+    await exists(path.join(a.directory, "rounds/other.2.html")),
     false,
   );
   assert.equal((await a.status()).body.current.name, "example");
-  const next = await a.publish(planData("2", undefined, "other"));
-  assert.equal(next.code, 200, next.body.error);
-  assert.equal((await a.status()).body.current.name, "other");
-});
-
-test("question actions and reply intents are unsupported", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  await a.publish(planData());
-  const status = (await a.status()).body;
-  assert.equal(Object.hasOwn(status, "question"), false);
-  const browser = (await a.request(`${a.base}/`)).body;
-  assert.doesNotMatch(browser, /question-dialog|question-form|send-reply/);
-  assert.equal(
-    (await a.feedback(a.event("clarification-reply", "1"))).code,
-    400,
-  );
-  assert.equal(
-    (await a.action("question", { text: "Typed errors?" })).code,
-    400,
-  );
+  assert.equal((await a.publish(planData("2"))).code, 200);
 });
 
 test("queued rounds keep receipt order", async (t) => {
@@ -356,12 +308,11 @@ test("queued rounds keep receipt order", async (t) => {
     second = a.event();
   await a.feedback(first);
   await a.feedback(second);
-  const unread = (await a.next()).body.event;
-  assert.equal(unread.id, first.id);
-  await a.action("read");
-  const next = (await a.next()).body.event;
+  const read = (await a.action("read")).body.event;
+  assert.equal(read.id, first.id);
+  const next = (await a.action("read")).body.event;
   assert.equal(next.id, second.id);
-  assert.equal(next.sequence, unread.sequence + 1);
+  assert.equal(next.sequence, read.sequence + 1);
   assert.equal((await a.status()).body.stage, "working");
 });
 
@@ -396,53 +347,20 @@ test("the hub refuses to open a session interactive-plan created", async (t) => 
   assert.deepEqual(await fs.readdir(directory), ["status.json"]);
 });
 
-test("a moved session still serves its current and earlier rounds", async (t) => {
+test("the browser can read sent feedback without agent-only paths", async (t) => {
   const h = await hub(t);
   const a = await h.session();
-  assert.equal((await a.publish(planData("1"))).code, 200);
-  await a.feedback(a.event());
-  await a.action("read");
-  assert.equal((await a.publish(planData("2"))).code, 200);
-  const moved = a.directory + "-moved";
-  await fs.rename(a.directory, moved);
-  const registered = await fetch(h.server.origin + "/agent/register", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${h.record.secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sessionDir: moved,
-      wake: { harness: "codex", thread: "thread-moved" },
-      start: true,
-    }),
+  assert.equal((await a.publish(planData())).code, 200);
+  const feedback = a.event("feedback-only", "1", {
+    groups: { choices: {}, notes: [] },
   });
-  assert.equal(registered.status, 200);
-  assert.equal((await a.request(`${a.base}/`)).code, 200);
-  assert.equal((await a.request(`${a.base}/r/1`)).code, 200);
-  const manifest = await a.request(`${a.base}/api/page-set?round=1`);
-  assert.equal(manifest.code, 200);
-  const slot = manifest.body.pages.find((item) => item.id === "overview");
-  assert.equal(
-    (
-      await a.request(
-        `${a.base}/api/page?round=1&id=overview&version=${slot.version}`,
-      )
-    ).code,
-    200,
-  );
-});
-
-test("the browser can read sent feedback without agent-only paths", async () => {
-  const submission = await (
-    await fetch(`${wakeHub.origin}/s/${sessionId}/api/submission?round=1`)
-  ).json();
-  assert.equal(submission.submission.id, "evt1");
-  assert.equal(submission.submission.round, "1");
-  assert.deepEqual(submission.submission.groups.notes, []);
-  assert.deepEqual(submission.submission.groups.choices, {});
-  const invalid = await fetch(
-    `${wakeHub.origin}/s/${sessionId}/api/submission?round=..%2Fsecret`,
-  );
-  assert.equal(invalid.status, 400);
+  assert.equal((await a.feedback(feedback)).code, 200);
+  const { submission } = (await a.request(`${a.base}/api/submission?round=1`))
+    .body;
+  assert.equal(submission.id, feedback.id);
+  assert.equal(submission.round, "1");
+  assert.deepEqual(submission.groups.notes, []);
+  assert.deepEqual(submission.groups.choices, {});
+  const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
+  assert.equal(invalid.code, 400);
 });

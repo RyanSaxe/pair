@@ -68,7 +68,7 @@ export function agent(session) {
     const line = `pair: feedback arrived on session ${directory} (Round ${round}). Run first: ${command("ack")}. It prints the next step.`;
     let last;
     try {
-      await (config.wake || wakeRunner)(session.wake, line);
+      await wakeRunner(session.wake, line);
       last = { at: timestamp(), ok: true };
     } catch (error) {
       last = { at: timestamp(), ok: false, reason: error.message };
