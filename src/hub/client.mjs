@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
@@ -41,6 +41,22 @@ function processAlive(pid) {
   } catch (error) {
     return error.code !== "ESRCH";
   }
+}
+// A record can outlive its hub, and after the machine restarts its pid can
+// name another program, which ps then shows. A pair hub's command ends in
+// cli.mjs hub. When ps fails or prints nothing, as it may in a sandbox, a
+// live process counts as the hub.
+function hubRunning(pid) {
+  if (!processAlive(pid)) return false;
+  let command;
+  try {
+    command = execFileSync("ps", ["-o", "command=", "-p", String(pid)], {
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return true;
+  }
+  return !command || /cli\.mjs hub$/.test(command);
 }
 export const portOpen = (port) =>
   new Promise((resolve) => {
@@ -101,7 +117,7 @@ async function ensureHub(config = settings()) {
   if (info && info.version !== version) {
     if (info.live === 0) {
       process.kill(info.pid, "SIGTERM");
-      await waitFor(async () => !(await hubInfo(info.port, record)), 5000);
+      await waitFor(async () => !processAlive(info.pid), 5000);
       info = null;
     } else
       console.error(
@@ -109,6 +125,12 @@ async function ensureHub(config = settings()) {
       );
   }
   if (!info) {
+    // A hub that runs but does not answer, as from inside a sandbox with no
+    // sockets, keeps its record for the commands that can reach it.
+    requireValue(
+      !(record && hubRunning(record.pid)),
+      `The hub (pid ${record?.pid}) runs but does not answer on port ${record?.port}`,
+    );
     if (record) await fs.rm(config.hubFile, { force: true });
     requireValue(
       !(config.port && (await portOpen(config.port))),
