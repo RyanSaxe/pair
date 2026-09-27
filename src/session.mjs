@@ -553,17 +553,17 @@ async function loadSession(directory, config, origin) {
     if (state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!state.current)
-      return `When the first round is ready, publish Agreed with --pages before any other page, as ${roundDoc} describes.`;
+      return `When the first round is ready, publish Agreed with pair publish --pages before any other page, as ${roundDoc} describes.`;
     if (state.openRound) {
       const left = state.openRound.pages
         .filter((slot) => !slot.recordPath)
         .map((slot) =>
           slot.state === "active" ? `${slot.id} (started)` : slot.id,
         );
-      return `Pages still to publish: ${left.join(", ")}. Run progress --start ID as you begin a page, publish it as soon as it builds, and report with ack --note at least every 5 minutes.`;
+      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every 5 minutes.`;
     }
     if (state.stage === "working")
-      return `Update the task and Agreed from the feedback, then publish Agreed with --pages before any other page, as ${roundDoc} describes. Report with ack --note at least every 5 minutes.`;
+      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page, as ${roundDoc} describes. Report with pair ack --note at least every 5 minutes.`;
     return "The round is with the reviewer. Say in chat what changed if you have not, then end the turn. The hub wakes you when they submit.";
   }
   // Runs after the submission is saved, outside the browser's request, so a
@@ -1078,8 +1078,8 @@ async function loadSession(directory, config, origin) {
     if (page.id === "agreed") {
       set.agreed = recordPath;
       set.agreedVersion = version;
-      // The round keeps the frame it started with, so a skill update
-      // mid-round cannot mix two frames in one built file.
+      // The round keeps the frame it started with, so an update to
+      // pair mid-round cannot mix two frames in one built file.
       const { frameBundle } = await import("./build.mjs");
       set.bundlePath = path.join(
         recordDir,
@@ -2024,7 +2024,7 @@ export async function ensureHub(config = settings()) {
       info = null;
     } else
       console.error(
-        `pair: the hub runs code version ${info.version}; this helper is ${version}. It restarts when no session is live.`,
+        `pair: the hub runs code version ${info.version}; this command is ${version}. It restarts when no session is live.`,
       );
   }
   if (!info) {
@@ -2046,7 +2046,7 @@ export async function attach(
   const record = await readRecord(config);
   requireValue(
     record && record.pid === hub.pid,
-    "The hub record is missing; stop the hub process and run start again",
+    "The hub record is missing; stop the hub process and run `pair start` again",
   );
   const response = await fetch(hub.origin + "/agent/register", {
     method: "POST",

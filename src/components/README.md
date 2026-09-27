@@ -65,6 +65,6 @@ same distance from the slot's edges.
 
 The builder also reads `$XDG_CONFIG_HOME/pair/components/`, with
 `~/.config` as the fallback. A directory there with the same name replaces
-the skill's component, and a skill update never touches it. To keep a
+pair's component, and an update to pair never touches it. To keep a
 page's one-off shape, write `markup.html`, `styles.css` and `behavior.mjs`
 there and move the code out of the page's files.

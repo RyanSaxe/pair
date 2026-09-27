@@ -1556,7 +1556,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(read.body.event.id, event.id);
   // Any other report clears the note, so the card never shows a stale one.
   assert.equal(read.body.status.report.note, null);
-  assert.match(read.body.next, /publish Agreed with --pages/);
+  assert.match(read.body.next, /publish Agreed with pair publish --pages/);
   const published = await a.publish(planData("2"));
   assert.equal(published.body.roundComplete, true);
   assert.match(published.body.next, /^The round is with the reviewer\./);

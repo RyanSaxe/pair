@@ -62,7 +62,7 @@ export function detect(
   const port = ancestor ? portOf(ancestor.pid) : null;
   if (!port)
     throw new Error(
-      `this Copilot session cannot be woken. Restart it with \`copilot --ui-server --resume ${sessionId}\` and run start again.`,
+      `this Copilot session cannot be woken. Restart it with \`copilot --ui-server --resume ${sessionId}\` and run \`pair start\` again.`,
     );
   const { sdk, tried } = findSdk(env);
   if (!sdk)

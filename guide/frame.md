@@ -1,7 +1,7 @@
 # Frame contract
 
 This file holds what an author needs to write a page. How the frame looks
-and behaves beyond that is in `assets/` and its tests, and does not belong
+and behaves beyond that is in `src/frame/` and its tests, and does not belong
 here.
 
 ## Page content

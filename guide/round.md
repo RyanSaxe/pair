@@ -11,33 +11,33 @@ none of the rounds. [quality.md](quality.md) has the detail behind these
 goals. Reread it when a page or the plan needs more than this paragraph.
 
 The hub wakes the agent when the reviewer submits, and the wake message
-names `ack`. Every command is
+names `pair ack`. Every command is
 `pair COMMAND --session-dir PATH`, with the path from the
 wake message, and every command prints the next step.
 
 ## Tell the reviewer what you are doing
 
-Run `ack` first when the hub wakes you. It tells the reviewer you have their
-submission, without reading it, and prints where to go next.
+Run `pair ack` first when the hub wakes you. It tells the reviewer you have
+their submission, without reading it, and prints where to go next.
 
-From the first round on, `ack --note "…"` is how the reviewer knows what
+From the first round on, `pair ack --note "…"` is how the reviewer knows what
 you are working on: the note appears on their Feedback card beside the time
 you sent it. Run it whenever you start something they would want to know
 about, such as reading their feedback, checking the code a page depends on,
 planning the pages, writing a page or waiting for subagents. Write the note
-for them, in under 80 characters. `progress --start` shows which page you
+for them, in under 80 characters. `pair progress --start` shows which page you
 are on, and a note says what you are doing on it:
-`ack --note "Adding last month's CI failures to the retry page"`.
+`pair ack --note "Adding last month's CI failures to the retry page"`.
 
-Report whenever the work changes, and at least every five minutes. After
-five minutes without a report, the card's report line and the Pages heading
-turn orange. `read`, `progress` and `publish` are reports too, and each
-clears the last note. A subagent that writes a page reports with `progress`
-and `ack` itself.
+Report whenever the work changes, and at least every five minutes. After five
+minutes without a report, the card's report line and the Pages heading turn
+orange. `pair read`, `pair progress` and `pair publish` are reports too, and
+each clears the last note. A subagent that writes a page reports with
+`pair progress` and `pair ack` itself.
 
 ## Read the feedback
 
-Run `read`. It returns the submission as `event.payload` and marks it read.
+Run `pair read`. It returns the submission as `event.payload` and marks it read.
 Its `intent` is `feedback-only` for feedback and `accept-plan` for an
 acceptance, and its `groups` hold the choices, answers and notes. Also read
 anything the user said in the chat since the last round. An acceptance
@@ -70,18 +70,17 @@ retired or still open. A recommendation is not an agreement. Read
    follows the final plan section of quality.md and lists `overview` first.
 2. Build Agreed and publish it with the list before writing any other page:
    `pair build SRC/agreed/agreed.json OUT/agreed.html`, then
-   `publish --file OUT/agreed.html --pages pages.json --source SRC/agreed`.
+   `pair publish --file OUT/agreed.html --pages pages.json --source SRC/agreed`.
    [pages.md](pages.md) describes the source directories. The reader
    sees Agreed and every page name at once.
 3. Mark a page started as soon as work on it begins, research included:
-   `progress --start ID`, or `--start "a|b"` for pages worked on at the same
-   time. Independent pages can be worked on in parallel, by subagents where
+   `pair progress --start ID`, or `--start "a|b"` for pages worked on at the
+   same time. Independent pages can be worked on in parallel, by subagents where
    the harness has them. To revise an earlier page, copy its source from the
-   session's `src/<round>/<page-id>/` and change its `round` to this
-   one.
+   session's `src/<round>/<page-id>/` and change its `round` to this one.
 4. Publish each page as soon as it builds:
    `pair build SRC/ID/ID.json OUT/ID.html`, then
-   `publish --file OUT/ID.html --source SRC/ID`. Publishing marks the page
+   `pair publish --file OUT/ID.html --source SRC/ID`. Publishing marks the page
    ready.
    Do not hold finished pages back for one publish at the end.
 5. The last page completes the round and enables the reviewer's Send

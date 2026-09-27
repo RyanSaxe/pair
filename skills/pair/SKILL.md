@@ -37,16 +37,16 @@ not described.
 ## Files
 
 - [round.md](../../guide/round.md): the sequence for each round. The hub's
-  wake message names `ack`, which points to it.
+  wake message names `pair ack`, which points to it.
 - [quality.md](../../guide/quality.md): what makes a page and a plan good.
   Read it before the first round.
 - [writing.md](../../guide/writing.md): the rules every sentence follows.
 - [session.md](../../guide/session.md): starting, resuming and accepting a
-  session. Read it before `start`.
+  session. Read it before `pair start`.
 - [component index](../../guide/components.md): every component and its markup.
   A page copies a component's markup and nothing else.
-- [the components README](../../src/components/README.md): writing a component, when a
-  page needs one or the user asks to keep one.
+- [the components README](../../src/components/README.md): writing a component,
+  when a page needs one or the user asks to keep one.
 - [pages.md](../../guide/pages.md), [agreements.md](../../guide/agreements.md),
   [frame.md](../../guide/frame.md) and
   [prototypes.md](../../guide/prototypes.md): the contracts. Look one up
@@ -63,11 +63,11 @@ compare or approve. When the first Agreed publishes, open the session in the
 user's default browser and give the link in chat. Ask every later question on
 a page.
 
-After the last page of a round publishes, or after `pause`, the turn ends.
-The hub starts another turn when a submission arrives, including an
-acceptance. `complete` ends the review. When `start` refuses because the
-harness cannot receive a wake event, give the user the printed instruction
-and wait for a restart.
+After the last page of a round publishes, or after `pair pause`, the turn ends.
+The hub starts another turn when a submission arrives, including an acceptance.
+`pair complete` ends the review. When `pair start` refuses because the harness
+cannot receive a wake event, give the user the printed instruction and wait for
+a restart.
 
 An acceptance specifies `save` or `implement`. Follow that mode and the
 project's permissions. Do not change an accepted plan.

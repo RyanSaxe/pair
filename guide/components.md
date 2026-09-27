@@ -104,11 +104,11 @@ For text or code, generate the input with Git:
 pair diff BEFORE AFTER OUTPUT.json
 ```
 
-Put that JSON in the markup's `textarea[data-diff-input]` with each `&`
-written as `&amp;` and each `<` as `&lt;`, and put the file name in
-`data-file` on the section. The patch names the file by AFTER's base name, so
-give the proposed copy the file's real name, or a name that says what it is. The helper requires Git and refuses to
-overwrite an existing output.
+Put that JSON in the markup's `textarea[data-diff-input]` with each `&` written
+as `&amp;` and each `<` as `&lt;`, and put the file name in `data-file` on the
+section. The patch names the file by AFTER's base name, so give the proposed
+copy the file's real name, or a name that says what it is. `pair diff` requires
+Git and refuses to overwrite an existing output.
 
 For visual changes, fill the before and proposed slots and explain the
 change in the legend. Put the `added`, `removed` or `changed` class on

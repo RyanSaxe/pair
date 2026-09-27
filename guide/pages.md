@@ -9,15 +9,15 @@ pair build SRC/policy/policy.json OUT/policy.html
 ```
 
 The build refuses to overwrite, so build a change to a new path or delete
-the old output first. `publish --source SRC/policy` keeps that directory
+the old output first. `pair publish --source SRC/policy` keeps that directory
 under `src/<round>/<page-id>/` in the session, so keep built pages,
 previews and scratch files out of it. Embed every local resource a page
 uses. Do not install packages to author a plan.
 
-A round changes its pages, their CSS, JavaScript and prototypes, and
-Agreed. The frame, the skill's components, the helper and the hub are skill
-code. If feedback asks to change one of them, say so in the chat and plan it
-as skill work.
+A round changes its pages, their CSS, JavaScript and prototypes, and Agreed. The
+frame, pair's components, the `pair` command and the hub are pair's own code. If
+feedback asks to change one of them, say so in the chat and plan it as work on
+pair.
 
 Agreed and every other page share the outer fields. Agreed also requires a
 `task`, whose fields are in [agreements.md](agreements.md):

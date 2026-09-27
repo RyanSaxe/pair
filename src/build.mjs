@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { readPlanData, pagePlan, validPage } from "./session.mjs";
 
 const assets = new URL("./frame/", import.meta.url);
-/** Where a user keeps components of their own, outside the skill. The skill
-    is installed and updated as a unit, so a component written into its own
+/** Where a user keeps components of their own, outside pair. pair is
+    installed and updated as a unit, so a component written into its own
     directory would be an edit to installed software. */
 export function userComponents(env = process.env) {
   const home = env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
@@ -32,7 +32,7 @@ async function componentNames(root) {
 
 /** Every component, by name. A name in a later root replaces the same name
     in an earlier one, which is how a user changes a shipped component
-    without forking the skill. A root that does not exist contributes none. */
+    without forking pair. A root that does not exist contributes none. */
 export async function componentDirectories(roots = componentRoots()) {
   const found = new Map();
   for (const [index, root] of roots.entries())

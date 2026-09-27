@@ -57,8 +57,8 @@ async function portReport(port) {
   }
   return { port, state: "busy" };
 }
-/* The builder reads a second component root outside the skill, so a user
-   keeps components of their own across skill updates. */
+/* The builder reads a second component root outside pair, so a user keeps
+   components of their own across updates to pair. */
 async function componentReport() {
   const directory = userComponents();
   const found = await componentDirectories();

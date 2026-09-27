@@ -327,7 +327,7 @@ test("start refuses without a wake path and says what to do", () => {
         { COPILOT_AGENT_SESSION_ID: "s" },
         tools([{ pid: 3, command: "copilot" }], null),
       ),
-    /copilot --ui-server --resume s/,
+    /copilot --ui-server --resume s` and run `pair start` again/,
   );
   assert.throws(
     () =>

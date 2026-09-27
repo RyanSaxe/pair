@@ -1,7 +1,7 @@
 # Build the fixture
 
 The fixture includes every component and figure with realistic content. The
-builder bundles whatever `components/` holds, so adding a directory there is
+builder bundles whatever `src/components/` holds, so adding a directory there is
 all it takes for the fixture to render it. From the repository root, build
 and open a standalone preview:
 
