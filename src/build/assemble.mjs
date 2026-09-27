@@ -56,18 +56,27 @@ const stylesheets = [
 ];
 export async function frameBundle() {
   const roots = componentRoots();
-  const [shell, style, modules, drawingEditor, componentCss, componentJs] =
-    await Promise.all([
-      read("frame.html"),
-      Promise.all(stylesheets.map(read)).then((texts) => texts.join("\n")),
-      frameModules(),
-      read("notes/drawing-editor.html"),
-      componentStyles(roots),
-      componentBehaviors(roots),
-    ]);
+  const [
+    shell,
+    dialogs,
+    style,
+    modules,
+    drawingEditor,
+    componentCss,
+    componentJs,
+  ] = await Promise.all([
+    read("app/shell.html"),
+    read("app/dialogs.html"),
+    Promise.all(stylesheets.map(read)).then((texts) => texts.join("\n")),
+    frameModules(),
+    read("notes/drawing-editor.html"),
+    componentStyles(roots),
+    componentBehaviors(roots),
+  ]);
   return {
     format: 2,
     shell,
+    dialogs,
     style,
     modules,
     drawingEditor,
@@ -137,7 +146,10 @@ export async function assemble(
     throw new Error(
       "Custom CSS/JS cannot contain HTML closing style/script tags; escape the less-than character in strings.",
     );
+  // A bundle stored before the dialogs had a file of their own carries them
+  // in its shell.
   const html = shell
+    .replace("<!-- DIALOGS -->", () => bundle.dialogs ?? "")
     .replace("<!-- DRAWING_EDITOR -->", () => scriptJson(drawingEditor))
     .replace(
       "<!-- FRAME_STYLE -->",
