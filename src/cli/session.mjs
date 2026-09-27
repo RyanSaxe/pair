@@ -81,8 +81,10 @@ export async function main(argv) {
   if (command === "hub") {
     const hub = await startHub(config);
     for (const signal of ["SIGTERM", "SIGINT"])
-      process.once(signal, () => hub.close().then(() => process.exit(0)));
-    return;
+      process.once(signal, () => hub.close());
+    // The hub also closes itself once no session has been live for a while.
+    await hub.closed;
+    process.exit(0);
   }
   let directory =
     options["session-dir"] && path.resolve(options["session-dir"]);

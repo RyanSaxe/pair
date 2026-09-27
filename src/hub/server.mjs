@@ -381,11 +381,14 @@ export async function startHub(config = settings()) {
     secret,
   });
   let lastLiveAt = Date.now();
-  let closing = false;
   let timer;
-  const close = async () => {
-    if (closing) return;
-    closing = true;
+  // The hub closes once, however many callers ask, and closed settles when
+  // it has, so the hub command knows when to exit.
+  let closing = null;
+  let settle;
+  const closed = new Promise((resolve) => (settle = resolve));
+  const close = () => (closing ||= shutDown().then(settle));
+  async function shutDown() {
     clearInterval(timer);
     for (const server of servers) {
       server.closeAllConnections();
@@ -397,7 +400,7 @@ export async function startHub(config = settings()) {
     } catch {
       /* The record is already gone or belongs to a newer hub. */
     }
-  };
+  }
   timer = setInterval(
     async () => {
       const now = Date.now();
@@ -405,7 +408,6 @@ export async function startHub(config = settings()) {
       else if (now - lastLiveAt > config.idleMs) {
         log("no live sessions; exiting");
         await close();
-        process.exit(0);
       }
     },
     Math.min(5000, Math.max(50, config.idleMs / 4)),
@@ -413,5 +415,5 @@ export async function startHub(config = settings()) {
   log(
     `hub ${version} listening on ${origin}${hostOrigin ? ` and ${hostOrigin}` : ""}`,
   );
-  return { origin, hostOrigin, port, secret, close };
+  return { origin, hostOrigin, port, secret, close, closed };
 }
