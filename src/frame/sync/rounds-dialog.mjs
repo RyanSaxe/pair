@@ -49,7 +49,7 @@ export function renderRounds() {
     const here = entry.round === displayedRound;
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "rev-row" + (here ? " current" : "");
+    row.className = "dialog-row" + (here ? " current" : "");
     const tick = document.createElement("span");
     tick.className = "tick";
     tick.textContent = here ? "✓" : "";
