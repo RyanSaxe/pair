@@ -41,6 +41,12 @@ export function rounds(session) {
           entry.sourceRecords.push({ kind: ref.kind, text: ref.text });
           continue;
         }
+        if (ref.kind === "thread") {
+          entry.sourceRecords.push(
+            threadRecord(session.threadSource(ref.threadId)),
+          );
+          continue;
+        }
         const event = events.find((item) => item.id === ref.submissionId);
         requireValue(event, "Source submission not found");
         const item = sourceItem(event.payload, ref);
@@ -80,6 +86,23 @@ export function rounds(session) {
         });
       }
     }
+  }
+  // A thread settles a decision as a note does, and Agreed links to the
+  // block it is on.
+  function threadRecord(thread) {
+    const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
+    return {
+      kind: "thread",
+      threadId: thread.id,
+      text: thread.messages[0].text,
+      label: thread.anchor,
+      topic: thread.topic,
+      name: thread.name,
+      round: thread.round,
+      href,
+      ...(thread.target ? { target: thread.target } : {}),
+      ...(thread.quote ? { quote: thread.quote } : {}),
+    };
   }
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));

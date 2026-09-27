@@ -30,9 +30,28 @@ and a note says what you are doing on it:
 `pair ack --note "Adding last month's CI failures to the retry page"`.
 
 Report whenever the work changes, and at least every five minutes.
-`pair read`, `pair progress` and `pair publish` are reports too, and each
-clears the last note. A subagent that writes a page reports with
-`pair progress` and `pair ack` itself.
+`pair read`, `pair progress`, `pair publish` and `pair reply` are reports
+too, and each clears the last note. A subagent that writes a page reports
+with `pair progress` and `pair ack` itself.
+
+## Answer a thread
+
+The reviewer can send a note to you at once as a thread, and the hub sends
+you a wake message for each message in it, whether or not you are working.
+Answer it between your current steps without dropping your work. Run
+`pair reply --note ID`, which marks the thread read and prints it with the
+paths of its images. Post the answer with
+`pair reply --note ID --text "…"`, or with `--file reply.html` for an HTML
+fragment written like a page, which the hub checks with the page rules. A
+reply can contain text, code, diffs, diagrams, charts, formulas and a
+prototype of the thread's round. It cannot contain a decision, checklist or
+question, because the reviewer answers those with Send feedback, or with
+Finish review on a round with an offer. When the answer needs more than a
+few blocks or a decision, say in the reply what you will show, and put it on
+a page in the next round. When the thread asks for a change to the work you
+are doing now, say in the reply what you will change, and change it. Then
+go back to what you were doing. A thread that settles a decision is a
+source on Agreed, as [agreements.md](agreements.md) describes.
 
 ## Read the feedback
 

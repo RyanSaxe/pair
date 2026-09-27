@@ -26,7 +26,7 @@ when it is wrong. Never ask the reviewer to approve it.
 | title, html | Concise title and the actual agreement, with exact details as needed.                                                                                                 |
 | state       | `agreed` by default. A `reopened` agreement keeps its earlier wording until it is resolved. A `retired` agreement says why in its `html`.                             |
 | change      | Optional marker for this publication only: `new` or `updated`. Leave it off in round 1, because everything on Agreed is new.                                          |
-| sourceRefs  | References to choices, notes, answers or conversation context that support the agreement.                                                                             |
+| sourceRefs  | References to choices, notes, answers, threads or conversation context that support the agreement.                                                                    |
 | source      | Plain source text when no feedback item can be referenced, or why you made a choice.                                                                                  |
 | href        | Optional http or https URL of a source outside the session, such as an issue or a document. Agreed shows it as an Open source link. The hub refuses any other scheme. |
 
@@ -44,10 +44,12 @@ Each reference has a `kind`:
 | note         | submissionId, noteId   | A saved comment, with its quote and target.                                          |
 | choice       | submissionId, choiceId | A saved choice. choiceId is its key under `groups.choices`, such as `page/decision`. |
 | answer       | submissionId, answerId | A saved answer to a question component. answerId is the submission's answers key.    |
+| thread       | threadId               | A thread the reviewer started from a note. threadId is the ID `pair reply` takes.    |
 | conversation | text                   | Context from the agent conversation, labeled as such.                                |
 
 When Agreed publishes, the hub resolves each browser reference against
-this session's saved submissions and rejects a missing submission or item.
+this session's saved submissions and threads, and rejects a missing
+submission, thread or item.
 Do not write `sourceRecords` yourself. Remove old `change` markers on the
 next publication, and do not recreate settled entries to fill the record.
 

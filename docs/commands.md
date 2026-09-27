@@ -1,14 +1,15 @@
 # Commands
 
-| Command                                            | What it does                                                                                                                                                                    |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pair guide`, `pair guide NAME`                    | Print the agent's instructions, `guide/pair.md`, or the guide file NAME, such as `round.md`. Each link to another guide file appears as the `pair guide` command for that file. |
-| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and the `pair guide` command for each guide file the step needs.                                                         |
-| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.                                                                                       |
-| `pair side-work add`, `pair side-work update ID`   | Record work outside the session's task, for you to start in parallel from Agreed, and report each change to it.                                                                 |
-| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                                                                                               |
-| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                                                                                                  |
-| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                                                                                             |
+| Command                                             | What it does                                                                                                                                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pair guide`, `pair guide NAME`                     | Print the agent's instructions, `guide/pair.md`, or the guide file NAME, such as `round.md`. Each link to another guide file appears as the `pair guide` command for that file. |
+| `pair start`, `ack`, `read`, `publish`, `progress`  | Run a round through the hub. Each prints the next step and the `pair guide` command for each guide file the step needs.                                                         |
+| `pair status`, `pause`, `complete`                  | Print the session's state, pause it, or end it once the action for accepted work is done.                                                                                       |
+| `pair reply --note ID [--text TEXT \| --file FILE]` | Mark a thread read and print it, or post the agent's reply in it: text, or an HTML fragment that `pair build`'s page checks accept.                                             |
+| `pair side-work add`, `pair side-work update ID`    | Record work outside the session's task, for you to start in parallel from Agreed, and report each change to it.                                                                 |
+| `pair build SOURCE.json OUTPUT.html`                | Build a page from its source, or list every structural problem and write nothing.                                                                                               |
+| `pair diff BEFORE AFTER OUTPUT.json`                | Write the input for the before-after component from two files.                                                                                                                  |
+| `pair check`, `pair check --codex-rules`            | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                                                                                             |
 
 `pair check` also reports `components`: the directory `pair build` reads for
 your own components, `$XDG_CONFIG_HOME/pair/components` with `~/.config` as
