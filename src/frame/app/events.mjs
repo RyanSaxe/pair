@@ -5,7 +5,6 @@ import {
   feedbackEditable,
   mode,
   page,
-  pages,
   plan,
   session,
 } from "#frame/app/view.mjs";
@@ -18,7 +17,7 @@ import {
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { show } from "#frame/pages/pages.mjs";
+import { pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
 import { sessionOrder, toggleSidecar } from "#frame/sync/sessions.mjs";
@@ -146,7 +145,7 @@ export function installEvents() {
       const entry = sessionOrder[Number(key) - 1];
       if (entry && entry.id !== session.sessionId) location.assign(entry.url);
     } else if (key === "]" || key === "[") {
-      const order = pages.map((item) => item.id);
+      const order = pageOrder().map((item) => item.id);
       const index = order.indexOf($("feedback").hidden ? page.id : "feedback");
       const next = order[index + (key === "]" ? 1 : -1)];
       if (next) show(next);

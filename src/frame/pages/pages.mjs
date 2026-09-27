@@ -179,16 +179,18 @@ export function closeDrawer() {
   $("pages-dialog").close();
   $("menu-button").setAttribute("aria-expanded", "false");
 }
+// Agreed so far leads the order, as it leads the sidebar, and Feedback ends
+// it. The footer's links and the [ and ] keys use this one order.
+export const pageOrder = () => [
+  ...pages.filter((item) => item.id === "agreed"),
+  ...pages.filter((item) => item.id !== "agreed"),
+  ...(hasFeedbackPage && !showingWaiting()
+    ? [{ id: "feedback", title: "Feedback" }]
+    : []),
+];
 // Every reading page ends with where you came from and where to go next.
 export function renderFooter(feedback) {
-  // Agreed so far leads the order, as it leads the sidebar.
-  const order = [
-    ...pages.filter((item) => item.id === "agreed"),
-    ...pages.filter((item) => item.id !== "agreed"),
-    ...(hasFeedbackPage && !showingWaiting()
-      ? [{ id: "feedback", title: "Feedback" }]
-      : []),
-  ];
+  const order = pageOrder();
   const index = order.findIndex(
     (item) => item.id === (feedback ? "feedback" : page.id),
   );
