@@ -1,0 +1,350 @@
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { test } from "node:test";
+import { pageData } from "../../../src/shared/records.mjs";
+import { hub as newHub, planData } from "../../support/hub.mjs";
+import {
+  act,
+  directory,
+  firstAgreements,
+  firstPages,
+  hub,
+  page,
+  post,
+  publish,
+  sessionId,
+  status,
+} from "../../support/page-hub.mjs";
+import {
+  act as wakeAct,
+  status as wakeStatus,
+} from "../../support/wake-hub.mjs";
+
+test("Agreed and all page names become visible in one publication", async () => {
+  assert.equal((await publish("1", "agreed", "Agreed so far")).status, 400);
+  assert.equal((await status()).current, null);
+  assert.equal(
+    (
+      await publish("1", "agreed", "Agreed so far", undefined, {}, [
+        firstPages[0],
+        firstPages[0],
+      ])
+    ).status,
+    400,
+  );
+  assert.equal((await status()).current, null);
+  const result = await publish(
+    "1",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    { agreements: firstAgreements },
+    firstPages,
+  );
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.page.id, "agreed");
+  assert.match(result.body.next, /^Pages still to publish: overview, detail\./);
+  assert.equal((await status()).rounds.length, 0);
+  const response = await fetch(`${hub.origin}/s/${sessionId}/`);
+  const html = await response.text();
+  assert.match(html, /Agreed so far/);
+  assert.match(html, /"pageMode":"partial"/);
+  assert.match(html, /Detail/);
+  const manifest = await (
+    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
+  ).json();
+  assert.deepEqual(
+    manifest.pages.map((item) => item.id),
+    ["agreed", "overview", "detail"],
+  );
+  assert.equal(manifest.pages[1].state, "queued");
+  assert.equal(manifest.complete, false);
+  assert.equal(
+    (
+      await act({
+        action: "progress",
+        pages: [
+          { id: "overview", title: "Overview" },
+          { id: "overview", title: "Duplicate" },
+        ],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await publish("1", "detail", "Detail", "<p>x</p>", {}, firstPages)).status,
+    400,
+  );
+  assert.equal(
+    (await act({ action: "progress", start: ["missing"] })).status,
+    409,
+  );
+  assert.equal(
+    (
+      await act({
+        action: "publish",
+        html: await page("1", "unlisted", "Unlisted", "<p>x</p>"),
+      })
+    ).status,
+    409,
+  );
+});
+
+test("listed pages arrive independently and only the last completes the round", async () => {
+  assert.equal(
+    (await act({ action: "progress", start: ["detail"] })).status,
+    200,
+  );
+  const before = await status();
+  assert.equal(before.openRound.pages[1].state, "active");
+  assert.equal(before.needsYou, false);
+  const early = await post(
+    `/s/${sessionId}/api/feedback`,
+    {
+      sessionId,
+      id: "early",
+      name: "page-test",
+      round: "1",
+      intent: "feedback-only",
+      text: "Too early",
+      groups: {},
+    },
+    { origin: hub.origin },
+  );
+  assert.equal(early.status, 409);
+  const detail = await publish(
+    "1",
+    "detail",
+    "Detail",
+    "<p>Finished detail</p>",
+  );
+  assert.equal(detail.status, 200, JSON.stringify(detail.body));
+  assert.equal(detail.body.roundComplete, false);
+  const immutable = await fs.readFile(detail.body.page.recordPath, "utf8");
+  assert.doesNotMatch(
+    await (await fetch(`${hub.origin}/s/${sessionId}/`)).text(),
+    /Finished detail/,
+  );
+  const manifest = await (
+    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
+  ).json();
+  const slot = manifest.pages.find((item) => item.id === "detail");
+  assert.equal(slot.state, "ready");
+  const recordResponse = await fetch(
+    `${hub.origin}/s/${sessionId}/api/page?round=1&id=detail&version=${slot.version}`,
+  );
+  assert.equal(recordResponse.status, 200);
+  assert.match((await recordResponse.json()).page.html, /Finished detail/);
+  assert.equal(
+    (
+      await fetch(
+        `${hub.origin}/s/${sessionId}/api/page?round=1&id=detail&version=${"0".repeat(64)}`,
+      )
+    ).status,
+    404,
+  );
+  const valid = await page(
+    "1",
+    "overview",
+    "Overview",
+    "<p>Finished overview</p>",
+  );
+  const tampered = pageData(valid);
+  tampered.page.html = "<h1>Duplicate heading</h1>";
+  const failed = await act({
+    action: "publish",
+    html: valid.replace(
+      /(<script type="application\/json" id="page-data">)[\s\S]*?(<\/script>)/,
+      (_, start, end) =>
+        start + JSON.stringify(tampered).replaceAll("<", "\\u003c") + end,
+    ),
+  });
+  assert.equal(failed.status, 400);
+  assert.equal(
+    (await status()).current.sha256,
+    detail.body.status.current.sha256,
+  );
+  const rounds = path.join(directory, "rounds");
+  const held = path.join(directory, "rounds-held");
+  await fs.rename(rounds, held);
+  await fs.writeFile(rounds, "blocked");
+  try {
+    const writeFailure = await publish(
+      "1",
+      "overview",
+      "Overview",
+      "<p>Finished overview</p>",
+    );
+    assert.equal(writeFailure.status, 500);
+    assert.equal(
+      (await status()).current.sha256,
+      detail.body.status.current.sha256,
+    );
+  } finally {
+    await fs.unlink(rounds);
+    await fs.rename(held, rounds);
+  }
+  const overview = await publish(
+    "1",
+    "overview",
+    "Overview",
+    "<p>Finished overview</p>",
+  );
+  assert.equal(overview.status, 200, JSON.stringify(overview.body));
+  assert.equal(overview.body.roundComplete, true);
+  assert.equal((await status()).rounds.length, 1);
+  assert.equal((await status()).openRound, null);
+  assert.equal((await status()).needsYou, true);
+  const completeSet = await (
+    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
+  ).json();
+  assert.equal(completeSet.complete, true);
+  assert.equal(
+    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=missing`))
+      .status,
+    404,
+  );
+  assert.equal(
+    (
+      await fetch(
+        `${hub.origin}/s/${sessionId}/api/page?round=1&id=missing&version=${completeSet.pages[0].version}`,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    await fs.readFile(detail.body.page.recordPath, "utf8"),
+    immutable,
+  );
+  assert.equal(
+    (await publish("1", "detail", "Detail", "<p>again</p>")).status,
+    409,
+  );
+});
+
+test("the next round may choose unrelated pages without changing history", async () => {
+  const response = await post(
+    `/s/${sessionId}/api/feedback`,
+    {
+      sessionId,
+      id: "feedback-1",
+      name: "page-test",
+      round: "1",
+      intent: "feedback-only",
+      text: "Change topics",
+      groups: {
+        notes: [
+          {
+            id: "note-1",
+            topic: "detail",
+            anchor: "Detail",
+            text: "This is agreed.",
+          },
+        ],
+      },
+    },
+    { origin: hub.origin },
+  );
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal((await act({ action: "read" })).status, 200);
+  const agreed = await publish(
+    "2",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    {
+      agreements: [
+        { ...firstAgreements[1], html: "<p>After</p>" },
+        {
+          id: "gamma",
+          title: "Gamma",
+          html: "<p>New</p>",
+          source: "Conversation",
+        },
+        firstAgreements[0],
+        {
+          id: "from-detail",
+          title: "A settled detail",
+          html: "<p>The earlier detail is settled.</p>",
+          sourceRefs: [
+            { kind: "note", submissionId: "feedback-1", noteId: "note-1" },
+          ],
+        },
+      ],
+    },
+    [
+      { id: "overview", title: "Overview" },
+      { id: "new-topic", title: "New topic" },
+    ],
+  );
+  assert.equal(agreed.status, 200, JSON.stringify(agreed.body));
+  const source = JSON.parse(
+    await fs.readFile(agreed.body.page.recordPath, "utf8"),
+  ).page.agreements.find((entry) => entry.id === "from-detail")
+    .sourceRecords[0];
+  assert.equal(source.round, "1");
+  assert.equal(source.topic, "detail");
+  const ordered = JSON.parse(
+    await fs.readFile(agreed.body.page.recordPath, "utf8"),
+  ).page.agreements.map((entry) => entry.id);
+  assert.deepEqual(ordered, ["beta", "gamma", "from-detail", "alpha"]);
+  const [one, two] = await Promise.all([
+    publish("2", "new-topic", "New topic", "<p>Fresh topic</p>"),
+    publish("2", "overview", "Overview", "<p>New overview</p>"),
+  ]);
+  assert.equal(one.status, 200, JSON.stringify(one.body));
+  assert.equal(two.status, 200, JSON.stringify(two.body));
+  const old = await (await fetch(`${hub.origin}/s/${sessionId}/r/1`)).text();
+  const fresh = await (await fetch(`${hub.origin}/s/${sessionId}/`)).text();
+  assert.match(old, /Finished detail/);
+  assert.doesNotMatch(fresh, /Finished detail/);
+  assert.match(fresh, /Fresh topic/);
+  assert.equal((await status()).rounds.length, 2);
+  assert.equal(
+    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)).status,
+    200,
+  );
+});
+
+test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
+  const h = await newHub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const event = a.event();
+  await a.feedback(event);
+  const ack = await a.action("ack", { note: "  Reading your feedback  " });
+  assert.equal(ack.code, 200);
+  assert.deepEqual(ack.body.received, {
+    id: event.id,
+    intent: "feedback-only",
+  });
+  assert.equal(ack.body.status.lastReceivedId, event.id);
+  assert.equal(ack.body.status.report.note, "Reading your feedback");
+  assert.match(
+    ack.body.next,
+    /^Read .*round\.md in full, then run: pair read --session-dir /,
+  );
+  // Receiving is not reading: the submission stays unread, so publish waits.
+  assert.deepEqual(ack.body.status.acknowledged, []);
+  assert.equal((await a.publish(planData("2"))).code, 409);
+  for (const note of ["x".repeat(81), 3])
+    assert.equal((await a.action("ack", { note })).code, 400);
+  const read = await a.action("read");
+  assert.equal(read.body.event.id, event.id);
+  // Any other report clears the note, so the card never shows a stale one.
+  assert.equal(read.body.status.report.note, null);
+  assert.match(read.body.next, /publish Agreed with pair publish --pages/);
+  const published = await a.publish(planData("2"));
+  assert.equal(published.body.roundComplete, true);
+  assert.match(published.body.next, /^The round is with the reviewer\./);
+});
+
+test("page progress cannot start before Agreed for the next round", async () => {
+  const result = await wakeAct({
+    action: "progress",
+    start: ["p"],
+  });
+  assert.equal(result.status, 409);
+  assert.equal((await wakeStatus()).openRound, null);
+});

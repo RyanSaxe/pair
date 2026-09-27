@@ -5,9 +5,11 @@ import {
   emptyDraft,
   loadDraft,
   markSent,
+  placeFor,
+  readPlaces,
   submissionGroups,
   unsentItems,
-} from "../src/frame/draft.mjs";
+} from "../../../src/frame/draft.mjs";
 
 const list = (label, touched = false) => ({
   kind: "multiple",
@@ -111,4 +113,110 @@ test("the Review line names the comments and choices behind the count", () => {
   );
   markSent(draft, "sent", "2026-01-01T00:00:00Z");
   assert.equal(draftedWords(draft), "");
+});
+
+test("each round keeps its own remembered place", () => {
+  const pages = ["overview", "steps", "feedback"];
+  const { tab, past, places } = readPlaces({
+    tab: "past",
+    past: "1",
+    places: {
+      1: { page: "steps", top: 640, tops: { steps: 640, overview: 120 } },
+      2: { page: "overview", top: "x", tops: { overview: -3 } },
+    },
+  });
+  assert.equal(tab, "past");
+  assert.equal(past, "1");
+  // Each page read keeps its own scroll position.
+  assert.deepEqual(placeFor(places, "1", pages), {
+    page: "steps",
+    top: 640,
+    tops: { steps: 640, overview: 120 },
+  });
+  assert.deepEqual(placeFor(places, "2", pages), {
+    page: "overview",
+    top: 0,
+    tops: {},
+  });
+  // A round never visited opens at its first page.
+  assert.equal(placeFor(places, "3", pages), null);
+  // A page the round dropped would land the reader nowhere.
+  assert.equal(placeFor(places, "1", ["overview", "feedback"]), null);
+  assert.deepEqual(readPlaces(null), {
+    tab: "current",
+    past: null,
+    places: {},
+  });
+});
+
+test("drafts carry unsent items across rounds and drop what was sent", () => {
+  const draft = emptyDraft("1");
+  draft.notes.push({
+    id: "n1",
+    topic: "overview",
+    anchor: "A",
+    text: "one",
+    round: "1",
+  });
+  draft.choices["overview/x"] = {
+    topic: "overview",
+    label: "X",
+    value: "a",
+    round: "1",
+  };
+  draft.answers["overview/q"] = {
+    topic: "overview",
+    label: "Q",
+    text: "yes",
+    round: "1",
+  };
+  assert.equal(unsentItems(draft).count, 3);
+  assert.deepEqual(Object.keys(submissionGroups(draft)), [
+    "alignUnflagged",
+    "choices",
+    "notes",
+    "answers",
+  ]);
+  markSent(draft, "sub-1", "2000-01-01T00:00:00Z");
+  assert.equal(unsentItems(draft).count, 0);
+  assert.equal(draft.submitted.count, 3);
+  assert.equal(draft.notes[0].sentIn, "sub-1");
+  draft.notes.push({
+    id: "n2",
+    topic: "overview",
+    anchor: "B",
+    text: "two",
+    round: "1",
+  });
+  assert.equal(unsentItems(draft).count, 1);
+  const groups = submissionGroups(draft);
+  assert.deepEqual(
+    groups.notes.map((note) => note.id),
+    ["n2"],
+  );
+  assert.equal("sentIn" in groups.notes[0], false);
+  assert.equal("answers" in groups, false);
+  draft.acceptance = {
+    id: "accept-1",
+    action: "implement",
+    guidance: "Do this",
+  };
+  draft.acceptGuidance = "Do this";
+  const same = loadDraft(JSON.parse(JSON.stringify(draft)), "1");
+  assert.equal(same.notes.length, 2);
+  assert.equal(same.submitted.id, "sub-1");
+  assert.equal(same.acceptGuidance, "Do this");
+  const next = loadDraft(JSON.parse(JSON.stringify(draft)), "2");
+  assert.deepEqual(
+    next.notes.map((note) => note.id),
+    ["n2"],
+  );
+  assert.deepEqual(next.choices, {});
+  assert.deepEqual(next.answers, {});
+  assert.equal(next.submitted, null);
+  assert.equal(next.acceptance, null);
+  assert.equal(next.acceptGuidance, "");
+  assert.equal(next.round, "2");
+  assert.deepEqual(loadDraft(null, "3"), emptyDraft("3"));
+  assert.deepEqual(loadDraft({ notes: "bad" }, "3"), emptyDraft("3"));
 });

@@ -1,128 +1,21 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import net from "node:net";
-import os from "node:os";
 import path from "node:path";
-import { after, before, test } from "node:test";
-import { withSandboxHint } from "../adapters/codex/rules.mjs";
-import { buildPage } from "../src/cli/build.mjs";
-import { startHub } from "../src/hub/server.mjs";
-import { detectWake } from "../src/hub/wake.mjs";
-import { settings } from "../src/shared/settings.mjs";
-
-let hub, home, sessionId, sessionDir, token;
-const wakes = [];
-let wakeFails = false;
-const page = (round, id) =>
-  buildPage(path.join(os.tmpdir(), "wake-page.json"), {
-    name: "t",
-    round,
-    title: "T",
-    page:
-      id === "agreed"
-        ? {
-            id,
-            title: "Agreed so far",
-            agreements: [],
-            task: { title: "The task", html: "<p>What the plan builds.</p>" },
-          }
-        : { id, title: "P", html: "<p>x</p>" },
-  });
-const post = async (route, body, headers) => {
-  const response = await fetch(hub.origin + route, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-  });
-  return {
-    ok: response.ok,
-    status: response.status,
-    body: await response.json(),
-  };
-};
-const act = (data) =>
-  post(
-    `/agent/${sessionId}/action`,
-    { ...data, sessionId, agent: { harness: "codex", id: "thread-1" } },
-    { authorization: `Bearer ${token}` },
-  );
-const status = async () =>
-  (await fetch(`${hub.origin}/s/${sessionId}/api/status`)).json();
-const publishRound = async (round) => {
-  const agreed = await act({
-    action: "publish",
-    html: await page(round, "agreed"),
-    pages: [{ id: "p", title: "P" }],
-  });
-  assert.ok(agreed.ok, JSON.stringify(agreed.body));
-  return act({ action: "publish", html: await page(round, "p") });
-};
-
-before(async () => {
-  home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-progress-"));
-  const config = {
-    ...settings({ XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" }),
-    log() {},
-    async wake(target, line) {
-      wakes.push({ target, line });
-      if (wakeFails) throw new Error("thread gone");
-    },
-  };
-  hub = await startHub(config);
-  sessionDir = path.join(home, "session");
-  const registered = await post(
-    "/agent/register",
-    { sessionDir, wake: { harness: "codex", thread: "thread-1" } },
-    { authorization: `Bearer ${hub.secret}` },
-  );
-  assert.deepEqual(registered.body.wake, { harness: "codex" });
-  sessionId = registered.body.sessionId;
-  token = JSON.parse(
-    await fs.readFile(path.join(sessionDir, "connection.json"), "utf8"),
-  ).token;
-  assert.ok((await publishRound("1")).ok);
-  const feedback = await post(
-    `/s/${sessionId}/api/feedback`,
-    {
-      sessionId,
-      id: "evt1",
-      name: "t",
-      round: "1",
-      intent: "feedback-only",
-      groups: { choices: {}, notes: [] },
-      text: "hi",
-    },
-    { origin: hub.origin },
-  );
-  assert.ok(feedback.ok, JSON.stringify(feedback.body));
-});
-after(async () => {
-  await hub.close();
-  await fs.rm(home, { recursive: true, force: true });
-});
-
-test("the browser can read sent feedback without agent-only paths", async () => {
-  const submission = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/submission?round=1`)
-  ).json();
-  assert.equal(submission.submission.id, "evt1");
-  assert.equal(submission.submission.round, "1");
-  assert.deepEqual(submission.submission.groups.notes, []);
-  assert.deepEqual(submission.submission.groups.choices, {});
-  const invalid = await fetch(
-    `${hub.origin}/s/${sessionId}/api/submission?round=..%2Fsecret`,
-  );
-  assert.equal(invalid.status, 400);
-});
-
-test("page progress cannot start before Agreed for the next round", async () => {
-  const result = await act({
-    action: "progress",
-    start: ["p"],
-  });
-  assert.equal(result.status, 409);
-  assert.equal((await status()).openRound, null);
-});
+import { test } from "node:test";
+import { withSandboxHint } from "../../adapters/codex/rules.mjs";
+import { detectWake } from "../../src/hub/wake.mjs";
+import {
+  act,
+  failWakes,
+  hub,
+  post,
+  publishRound,
+  sessionDir,
+  sessionId,
+  status,
+  token,
+  wakes,
+} from "../support/wake-hub.mjs";
 
 test("read returns the oldest unread submission once and marks it read", async () => {
   assert.equal((await status()).latestSubmissionRound, "1");
@@ -172,6 +65,7 @@ const feedback = (id) =>
     },
     { origin: hub.origin },
   );
+
 test("feedback alignment must be boolean when present", async () => {
   const invalid = await post(
     `/s/${sessionId}/api/feedback`,
@@ -189,6 +83,7 @@ test("feedback alignment must be boolean when present", async () => {
   assert.equal(invalid.status, 400);
   assert.match(invalid.body.error, /alignUnflagged must be a boolean/);
 });
+
 // The before hook's submission already woke the agent once, so each test
 // waits for its own wake by count and for its result to reach the status.
 const settled = async (count, ok = true) => {
@@ -237,10 +132,10 @@ test("a submission wakes the agent with the line that names the session", async 
 });
 
 test("a failed wake is recorded and the submission stays readable", async () => {
-  wakeFails = true;
+  failWakes(true);
   assert.ok((await feedback("evt3")).ok);
   const view = await settled(3, false);
-  wakeFails = false;
+  failWakes(false);
   assert.equal(view.wake.last.ok, false);
   assert.equal(view.wake.last.reason, "thread gone");
   const next = await fetch(`${hub.origin}/agent/${sessionId}/next`, {
@@ -278,6 +173,7 @@ const tools = (chain, port = 4321, sdk = "/sdk/index.js") => ({
   listeningPort: () => port,
   copilotSdk: () => ({ sdk, tried: ["/a/index.js"] }),
 });
+
 const claude = {
   CLAUDE_CODE_MESSAGING_SOCKET: "/tmp/cc-socks/1.sock",
   CLAUDE_CODE_MESSAGING_TOKEN: "tok",
@@ -335,103 +231,4 @@ test("start refuses without a wake path and says what to do", () => {
       ),
     /SDK was not found at \/a\/index\.js/,
   );
-});
-
-test("the hub wakes Claude Code through its inbox socket", async (t) => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "pair-inbox-"));
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const received = [];
-  const inbox = net.createServer((client) => {
-    let text = "";
-    client.on("data", (chunk) => (text += chunk));
-    client.on("end", () => {
-      received.push(text);
-      client.end();
-    });
-  });
-  const socket = path.join(root, "inbox.sock");
-  await new Promise((resolve) => inbox.listen(socket, resolve));
-  t.after(() => inbox.close());
-  const claudeHub = await startHub({
-    ...settings({ XDG_STATE_HOME: root, PAIR_HUB_PORT: "0" }),
-    log() {},
-  });
-  t.after(() => claudeHub.close());
-  const directory = path.join(root, "session");
-  const call = async (route, body, headers) =>
-    (
-      await fetch(claudeHub.origin + route, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify(body),
-      })
-    ).json();
-  const { sessionId: id } = await call(
-    "/agent/register",
-    {
-      sessionDir: directory,
-      wake: { harness: "claude-code", socket, token: "tok" },
-    },
-    { authorization: `Bearer ${claudeHub.secret}` },
-  );
-  const holder = { harness: "claude-code", id: socket };
-  const agent = {
-    authorization: `Bearer ${
-      JSON.parse(
-        await fs.readFile(path.join(directory, "connection.json"), "utf8"),
-      ).token
-    }`,
-  };
-  await call(
-    `/agent/${id}/action`,
-    {
-      sessionId: id,
-      agent: holder,
-      action: "publish",
-      html: await page("1", "agreed"),
-      pages: [{ id: "p", title: "P" }],
-    },
-    agent,
-  );
-  await call(
-    `/agent/${id}/action`,
-    {
-      sessionId: id,
-      agent: holder,
-      action: "publish",
-      html: await page("1", "p"),
-    },
-    agent,
-  );
-  await call(
-    `/s/${id}/api/feedback`,
-    {
-      sessionId: id,
-      id: "sent",
-      name: "t",
-      round: "1",
-      intent: "feedback-only",
-      groups: { choices: {}, notes: [] },
-      text: "hi",
-    },
-    { origin: claudeHub.origin },
-  );
-  let view;
-  for (let i = 0; i < 50 && !view?.wake?.last; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    view = await (await fetch(`${claudeHub.origin}/s/${id}/api/status`)).json();
-  }
-  assert.equal(view.wake.last.ok, true);
-  const [auth, message] = received[0]
-    .trim()
-    .split("\n")
-    .map((line) => JSON.parse(line));
-  assert.deepEqual(auth, { type: "auth", token: "tok" });
-  assert.deepEqual(message, {
-    type: "user",
-    message: {
-      role: "user",
-      content: `pair: feedback arrived on session ${directory} (Round 1). Run first: pair ack --session-dir ${directory}. It prints the next step.`,
-    },
-  });
 });
