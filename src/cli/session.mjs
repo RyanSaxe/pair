@@ -105,6 +105,12 @@ export async function main(argv) {
     );
   }
   requireValue(directory, "Every operation requires --session-dir PATH");
+  // Only pair start creates a session, so a mistyped path fails here instead
+  // of starting a session outside sessions/ that no hub loads again.
+  requireValue(
+    await exists(path.join(directory, "status.json")),
+    `No pair session at ${directory}. Check the path, or create a session with pair start.`,
+  );
   const connectionFile = path.join(directory, "connection.json");
   if (!(await exists(connectionFile))) await attach(directory, config, wake);
   let connection = await read(connectionFile);

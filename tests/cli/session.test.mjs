@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { hub, pairCli } from "../support/hub.mjs";
+import { exists, hub, killHub, pairCli } from "../support/hub.mjs";
 
 test("the CLI builds and publishes each page with its own saved source", async (t) => {
   const h = await hub(t);
@@ -106,4 +107,25 @@ test("the CLI builds and publishes each page with its own saved source", async (
     /Ready by CLI/,
   );
   assert.equal((await registered.status()).body.rounds.length, 1);
+});
+
+// A mistyped path would otherwise start a session outside sessions/, which
+// no hub loads again.
+test("a session command refuses a directory that holds no session", async (t) => {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-missing-"));
+  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(scratch, { recursive: true, force: true });
+  });
+  const missing = path.join(scratch, "no-session");
+  await assert.rejects(run("ack", "--session-dir", missing), (error) => {
+    assert.equal(error.code, 1);
+    assert.equal(
+      error.stderr,
+      `pair: No pair session at ${missing}. Check the path, or create a session with pair start.\n`,
+    );
+    return true;
+  });
+  assert.equal(await exists(missing), false);
 });
