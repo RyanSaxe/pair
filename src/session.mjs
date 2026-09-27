@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFile, execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
@@ -9,14 +9,29 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
+import * as claudeCode from "../adapters/claude-code/wake.mjs";
+import * as codex from "../adapters/codex/wake.mjs";
+import * as copilot from "../adapters/copilot/wake.mjs";
 import { choiceText } from "./frame/choices.mjs";
 
+// Each agent CLI wakes through its adapter, keyed by the harness name a wake
+// target carries. With no agent CLI among the ancestors, the first adapter
+// whose variables are set decides, in this order.
+const adapters = { copilot, codex, "claude-code": claudeCode };
 const here = fileURLToPath(import.meta.url);
 const round = path.resolve(path.dirname(here), "../guide/round.md");
 const sessionDoc = path.resolve(path.dirname(here), "../guide/session.md");
-export const version = crypto
-  .createHash("sha256")
-  .update(readFileSync(here))
+// The hub runs this file and the adapters, so a change to either restarts it.
+export const version = [
+  here,
+  ...Object.keys(adapters).map((name) =>
+    fileURLToPath(new URL(`../adapters/${name}/wake.mjs`, import.meta.url)),
+  ),
+]
+  .reduce(
+    (hash, file) => hash.update(readFileSync(file)),
+    crypto.createHash("sha256"),
+  )
   .digest("hex")
   .slice(0, 12);
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
@@ -1486,10 +1501,9 @@ async function readBody(req, limit) {
   return JSON.parse(raw);
 }
 
-const harnesses = { claude: "claude-code", codex: "codex", copilot: "copilot" };
-// The nearest harness among the ancestors decides which session start belongs
-// to, because a harness started inside another inherits the outer one's
-// variables. Names are the executables: claude, codex, copilot.
+// The nearest ancestor process that an adapter recognizes decides which
+// session start belongs to, because an agent CLI started inside another
+// inherits the outer one's variables. Names are the executables.
 function ancestors(pid = process.ppid) {
   const chain = [];
   for (let current = pid; current > 1;) {
@@ -1508,97 +1522,17 @@ function ancestors(pid = process.ppid) {
   }
   return chain;
 }
-function listeningPort(pid) {
-  try {
-    const out = execFileSync(
-      "lsof",
-      ["-a", "-p", String(pid), "-iTCP", "-sTCP:LISTEN", "-nP", "-Fn"],
-      { encoding: "utf8" },
-    );
-    const match = /^n127\.0\.0\.1:(\d+)$/m.exec(out);
-    return match ? Number(match[1]) : null;
-  } catch {
-    return null;
-  }
-}
-function copilotSdk(env) {
-  const roots = [
-    env.COPILOT_PKG_CACHE_HOME,
-    path.join(os.homedir(), "Library", "Caches", "copilot"),
-    env.XDG_CACHE_HOME && path.join(env.XDG_CACHE_HOME, "copilot"),
-    path.join(os.homedir(), ".cache", "copilot"),
-  ].filter(Boolean);
-  const tried = roots.map((root) =>
-    path.join(
-      root,
-      "pkg",
-      `${process.platform}-${process.arch}`,
-      env.COPILOT_CLI_BINARY_VERSION || "",
-      "copilot-sdk",
-      "index.js",
-    ),
-  );
-  return {
-    sdk: tried.find((candidate) => existsSync(candidate)) || null,
-    tried,
-  };
-}
-export function detectWake(
-  env = process.env,
-  tools = { ancestors, listeningPort, copilotSdk },
-) {
-  const chain = tools.ancestors();
-  const nearest = chain.find((entry) => harnesses[entry.command]);
-  const harness = nearest
-    ? harnesses[nearest.command]
-    : env.COPILOT_AGENT_SESSION_ID
-      ? "copilot"
-      : env.CODEX_THREAD_ID
-        ? "codex"
-        : env.CLAUDE_CODE_MESSAGING_SOCKET
-          ? "claude-code"
-          : null;
+export function detectWake(env = process.env, tools = { ancestors }) {
+  for (const ancestor of [...tools.ancestors(), null])
+    for (const adapter of Object.values(adapters)) {
+      const target = adapter.detect(env, { ...tools, ancestor });
+      if (target) return target;
+    }
   requireValue(
-    harness,
+    false,
     "no wake path. This needs Claude Code, Codex, or Copilot, and none of their session variables is set.",
   );
-  if (harness === "claude-code") {
-    const socket = env.CLAUDE_CODE_MESSAGING_SOCKET;
-    const token = env.CLAUDE_CODE_MESSAGING_TOKEN;
-    requireValue(
-      socket && token,
-      "this Claude Code session exposes no inbox socket, so it cannot be woken.",
-    );
-    return { harness, socket, token };
-  }
-  if (harness === "codex") {
-    requireValue(
-      env.CODEX_THREAD_ID,
-      "this Codex session exports no CODEX_THREAD_ID, so it cannot be woken.",
-    );
-    return { harness, thread: env.CODEX_THREAD_ID };
-  }
-  const sessionId = env.COPILOT_AGENT_SESSION_ID;
-  requireValue(
-    sessionId,
-    "this Copilot session exports no COPILOT_AGENT_SESSION_ID, so it cannot be woken.",
-  );
-  const port = nearest ? tools.listeningPort(nearest.pid) : null;
-  requireValue(
-    port,
-    `this Copilot session cannot be woken. Restart it with \`copilot --ui-server --resume ${sessionId}\` and run start again.`,
-  );
-  const { sdk, tried } = tools.copilotSdk(env);
-  requireValue(
-    sdk,
-    `the Copilot SDK was not found at ${tried.join(", ")}, so this session cannot be woken.`,
-  );
-  return { harness, sessionId, port, sdk };
 }
-const wakeCopilotScript = path.resolve(
-  path.dirname(here),
-  "../adapters/copilot/wake.mjs",
-);
 function run(file, args) {
   return new Promise((resolve, reject) => {
     execFile(file, args, { timeout: 30_000 }, (error, stdout, stderr) => {
@@ -1607,42 +1541,8 @@ function run(file, args) {
     });
   });
 }
-function wakeClaude({ socket, token }, line) {
-  return new Promise((resolve, reject) => {
-    const client = net.connect(socket);
-    client.setTimeout(5000, () => client.destroy(new Error("timed out")));
-    client.on("error", reject);
-    client.on("close", resolve);
-    client.end(
-      JSON.stringify({ type: "auth", token }) +
-        "\n" +
-        JSON.stringify({
-          type: "user",
-          message: { role: "user", content: line },
-        }) +
-        "\n",
-    );
-  });
-}
 export function wakeRunner(target, line) {
-  if (target.harness === "claude-code") return wakeClaude(target, line);
-  if (target.harness === "codex")
-    return run("codex", [
-      "queue",
-      "--thread",
-      target.thread,
-      "--message",
-      line,
-    ]);
-  if (target.harness === "copilot")
-    return run(process.execPath, [
-      wakeCopilotScript,
-      target.sdk,
-      String(target.port),
-      target.sessionId,
-      line,
-    ]);
-  return Promise.reject(new Error(`unknown harness ${target.harness}`));
+  return adapters[target.harness].wake(target, line, run);
 }
 
 export async function startHub(config = settings()) {
@@ -1755,8 +1655,8 @@ export async function startHub(config = settings()) {
         requireValue(
           data.wake &&
             typeof data.wake === "object" &&
-            Object.values(harnesses).includes(data.wake.harness),
-          "wake must name a harness: claude-code, codex, or copilot",
+            Object.hasOwn(adapters, data.wake.harness),
+          `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
         const directory = path.resolve(data.sessionDir);
         const session = await register(() => adopt(directory));
