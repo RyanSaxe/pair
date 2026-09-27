@@ -38,8 +38,8 @@ export async function buildPage(source, input) {
     );
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
-  // assemble checks the script the frame runs, which carries the page's own
-  // script encoded, so the page's script is checked here as written.
+  // assemble receives the page's script encoded, so it is checked here as
+  // written.
   const authoredProblems = problems(data, page.jsText || "", {
     allowUnknownPages: true,
   });

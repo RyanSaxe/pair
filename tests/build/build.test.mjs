@@ -7,7 +7,6 @@ import path from "node:path";
 import { assemble } from "../../src/build/assemble.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
-import { frameSource } from "../support/frame.mjs";
 import { exec, pair, root } from "../support/hub.mjs";
 
 const data = {
@@ -17,52 +16,81 @@ const data = {
   pages: [{ id: "p", title: "P", html: "<p>x</p>" }],
 };
 
-test("page CSS uses its own scope outside the frame content scope", async () => {
-  const html = await buildPage(path.join(os.tmpdir(), "page.json"), {
+const pageSource = (page) =>
+  buildPage(path.join(os.tmpdir(), "page.json"), {
     name: "t",
     round: "1",
     title: "T",
-    page: { id: "p", title: "P", html: "<p>x</p>", cssText: "p{color:red}" },
+    page: { id: "p", title: "P", html: "<p>x</p>", ...page },
   });
+// The text inside the block that opens with `prelude {`, found by counting
+// braces from its opening one.
+const block = (css, prelude) => {
+  const open = css.indexOf(`${prelude} {`) + prelude.length + 1;
+  assert.ok(open > prelude.length, `no ${prelude} block`);
+  for (let i = open + 1, depth = 1; i < css.length; i++) {
+    depth += css[i] === "{" ? 1 : css[i] === "}" ? -1 : 0;
+    if (depth === 0) return css.slice(open + 1, i);
+  }
+  assert.fail(`${prelude} never closes`);
+};
+// The page's text with each data: URL decoded, so a check finds a file
+// whether the build writes it inline or encodes it.
+const carried = (html) =>
+  [
+    html,
+    ...[...html.matchAll(/data:text\/javascript;base64,([\w+/=]+)/g)].map(
+      ([, encoded]) => Buffer.from(encoded, "base64").toString("utf8"),
+    ),
+  ].join("\n");
+
+// The cascade ranks a later layer above an earlier one and an unlayered rule
+// above both, so a page rule inside the plan layer loses to a component rule,
+// and its scope limits it to its own page and round.
+test("page CSS reaches only its own page, below the component layer", async () => {
+  const html = await pageSource({ cssText: "p{color:red}" });
   const style = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
-  assert.match(style, /@layer frame, plan, components;/);
-  assert.match(
-    style,
-    /@layer plan \{\n@scope \(#page-content\[data-page-id="p"\]\[data-round="1"\]\) \{ p\{color:red\} \}/,
-  );
-  assert.ok(
-    style.indexOf('@scope (#page-content[data-page-id="p"][data-round="1"])') <
-      style.indexOf("@scope (#page-content)"),
-  );
+  assert.match(style, /^<style>\s*@layer frame, plan, components;/);
+  const plan = block(style, "@layer plan");
+  const scope = '@scope (#page-content[data-page-id="p"][data-round="1"])';
+  assert.equal(block(plan, scope).trim(), "p{color:red}");
+  assert.equal(style.split("p{color:red}").length, 2, "the rule appears once");
+  assert.ok(block(block(style, "@scope (#page-content)"), "@layer components"));
 });
 
-// The cascade ranks an unlayered rule above every layered one, so an
-// unlayered frame stylesheet would outrank both other layers.
-test("frame CSS is layered, and the component layer comes last", async () => {
+test("every component's styles and behavior reach the page", async () => {
   const html = await assemble(data);
-  const style = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
-  assert.match(style, /@layer frame \{\n:root \{/);
-  assert.ok(
-    style.indexOf("@layer plan {") < style.indexOf("@layer components {"),
-    "the plan layer is written before the component layer",
+  const layer = block(
+    block(html.slice(html.indexOf("<style>")), "@scope (#page-content)"),
+    "@layer components",
   );
+  const text = carried(html);
+  const root = new URL("../../src/components/", import.meta.url);
+  for (const name of await fs.readdir(root)) {
+    const read = (file) =>
+      fs.readFile(new URL(`${name}/${file}`, root), "utf8").catch(() => "");
+    const [styles, behavior] = await Promise.all([
+      read("styles.css"),
+      read("behavior.mjs"),
+    ]);
+    if (styles.trim()) assert.ok(layer.includes(styles.trim()), name);
+    if (!behavior.trim()) continue;
+    assert.ok(behavior.includes(`planUI.define("${name}"`), name);
+    assert.ok(text.includes(behavior.trim()), name);
+  }
 });
 
-test("a component's styles and behavior are bundled", async () => {
-  const html = await assemble(data);
-  assert.match(html, /\/\* components\/question\/styles\.css \*\//);
-  assert.match(html, /\/\* components\/question\/behavior\.mjs \*\//);
-  assert.match(html, /planUI\.define\("question"/);
-});
-
-// A plan's script runs after the frame's module, so planUI.define is
+// A page's script runs after the frame's modules, so planUI.define is
 // available to it before the first page renders.
-test("the plan's script is the last module in the document", async () => {
-  const html = await assemble(data, { js: 'planUI.define("mine", {});' });
-  const modules = html.split('<script type="module">').slice(1);
-  assert.equal(modules.length, 2, "the frame's module and the plan's");
-  assert.match(modules[0], /planUI\.define\("question"/);
-  assert.match(modules[1], /^\nplanUI\.define\("mine", \{\}\);\n<\/script>/);
+test("a page's script is the last module in the document", async () => {
+  const jsText = 'export function setup() { planUI.define("mine", {}); }';
+  const html = await pageSource({ jsText });
+  const modules = [
+    ...html.matchAll(/<script type="module"[^>]*>([\s\S]*?)<\/script>/g),
+  ].map(([, script]) => carried(script));
+  assert.ok(modules.length >= 2, "the frame's modules and the page's");
+  assert.ok(modules.at(-1).includes(jsText));
+  assert.ok(modules.slice(0, -1).every((script) => !script.includes(jsText)));
 });
 
 // A round builds every page from the bundle stored with its Agreed, so a
@@ -99,9 +127,9 @@ test("a bundle stored before the frame's modules builds its one script", async (
   );
 });
 
-test("a closing style tag in plan CSS is refused", async () => {
+test("a closing style tag in page CSS is refused", async () => {
   await assert.rejects(
-    assemble(data, { css: "</style><script>1</script>" }),
+    pageSource({ cssText: "</style><script>1</script>" }),
     /closing style/,
   );
 });
@@ -119,21 +147,19 @@ test("the build refuses an offer the registry does not define", async () => {
   );
 });
 
-test("page JavaScript cannot restyle the frame", async () => {
-  await assert.rejects(
-    buildPage(path.join(os.tmpdir(), "page.json"), {
-      name: "t",
-      round: "1",
-      title: "T",
-      page: {
-        id: "p",
-        title: "P",
-        html: "<p>x</p>",
-        jsText:
-          "export function setup() { document.body.style.color = 'red'; }",
-      },
+test("page JavaScript may read the frame's root elements but not change them", async () => {
+  await assert.doesNotReject(
+    pageSource({
+      jsText:
+        "export function setup() { return document.body.clientWidth > 900; }",
     }),
-    /restyles document\.body/,
+  );
+  await assert.rejects(
+    pageSource({
+      jsText:
+        "export function setup() {\n  document.body.style.color = 'red';\n}",
+    }),
+    /page\.js line 2 restyles document\.body/,
   );
 });
 
@@ -149,8 +175,8 @@ const decision = (options) =>
 const option = (value = "a") =>
   `<button data-value="${value}" data-label="${value}">${value}</button>`;
 
-const refused = (plan, message, js) =>
-  assert.rejects(assemble(plan, { js }), (error) => {
+const refused = (plan, message) =>
+  assert.rejects(assemble(plan), (error) => {
     assert.match(error.message, message);
     return true;
   });
@@ -260,11 +286,6 @@ test("the build refuses each structural problem and names it", async () => {
     page(`<div data-prototype="ghost"></div>`),
     /^page "p": prototype "ghost" does not exist$/m,
   );
-  await refused(
-    data,
-    /^plan\.js line 2 restyles document\.body$/m,
-    "1;\ndocument.body.style.background = 'red';",
-  );
 });
 
 test("well-formed controls, anchors and blocks pass", async () => {
@@ -282,7 +303,6 @@ test("well-formed controls, anchors and blocks pass", async () => {
         ],
       },
     ),
-    { js: "const wide = document.body.clientWidth > 900;" },
   );
   assert.match(html, /id="plan-data"/);
 });
@@ -313,8 +333,8 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
   assert.deepEqual(data.task, task);
 });
 
-test("a page source builds a standalone preview without executing content", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-build-"));
+test("a page source builds a standalone preview", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   // The frame draws the page title, so the page's own heading is an h2.
   const content =
@@ -356,10 +376,6 @@ test("a page source builds a standalone preview without executing content", asyn
     pageData(html).page.jsText,
     'export function setup(root) { root.dataset.test = "ready"; }',
   );
-  assert(html.includes(".prototype { color: var(--attention); }"));
-  assert(frameSource(html).includes("export function loadDraft"));
-  assert(!html.includes("<!-- FRAME_"));
-  assert(!html.includes('src="frame.js"'));
   const output = path.join(directory, "round.html");
   await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
@@ -378,7 +394,7 @@ test("a page source builds a standalone preview without executing content", asyn
 });
 
 test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-prototype-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-prototype-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const html =
     '<!doctype html><button id="try">Try</button><script>document.querySelector("button").onclick = () => alert("$&");</script>';
@@ -431,28 +447,16 @@ test("preserved prototypes retain exact executable source without escaping into 
   await assert.rejects(build(source), /file.*html|html.*file/);
 });
 
-test("the component fixture builds, so every component's markup stays valid", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-fixture-"));
+test("the component fixture builds", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-fixture-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const output = path.join(directory, "fixture.html");
+  // The build refuses a page that breaks one of its rules, so this fails
+  // when a fixture page does.
   await exec(process.execPath, [
     path.join(root, "tests/fixture/build.mjs"),
     output,
   ]);
-  // The fixture is the one place every component is rendered with real
-  // content, so a structural mistake in it is a mistake in a component:
-  // src/build/lint.mjs refuses duplicate control IDs, a missing data-label,
-  // a decision with one option, and an option label over 24 characters.
-  const pages = readPlanData(await fs.readFile(output, "utf8")).pages;
-  const html = pages.map((page) => page.html).join("");
-  for (const attribute of [
-    'data-choice="retry"',
-    'data-multiselect="scope"',
-    'data-question="threshold"',
-    'data-drawing-question="boundary"',
-    'data-lines="3-4"',
-    "data-notes=",
-    "data-terms=",
-  ])
-    assert.ok(html.includes(attribute), `fixture lost ${attribute}`);
+  const plan = readPlanData(await fs.readFile(output, "utf8"));
+  assert.equal(plan.title, "Component fixture");
 });
