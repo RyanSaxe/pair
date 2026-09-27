@@ -392,10 +392,10 @@
         >
           <span class="tick"></span
           ><span
-            >Accept plan<br /><small
-              >Save it for later, or start implementation now.</small
-            ></span
-          >
+            ><span id="accept-label"></span><br /><small
+              id="accept-hint"
+            ></small
+          ></span>
         </button>
         <button
           class="rev-row"
@@ -404,43 +404,25 @@
           data-decision="changes"
         >
           <span class="tick"></span
-          ><span
-            >Request changes<br /><small
-              >The agent revises the plan and publishes a new round.</small
-            ></span
-          >
+          ><span>Request changes<br /><small id="changes-hint"></small></span>
         </button>
       </div>
       <p class="small" id="finish-drafted"></p>
       <p class="small" id="finish-error" role="status" hidden></p>
       <!-- Both sections share one grid cell, so switching rows keeps the
-           dialog's size. -->
+           dialog's size. The round's offer fills the Accept row and its
+           section. -->
       <div class="decide-sections">
         <div id="finish-accept">
-          <p class="small">
-            Starting implementation hands the plan to the waiting agent. Saving
-            keeps it for later and the agent stops.
-          </p>
-          <label for="accept-guidance">Implementation guidance, optional</label>
+          <p class="small" id="accept-note"></p>
+          <label for="accept-guidance" id="accept-guidance-label"></label>
           <textarea
             id="accept-guidance"
             maxlength="4000"
             aria-describedby="accept-guidance-detail"
           ></textarea>
-          <p class="small" id="accept-guidance-detail">
-            Sent only with Start implementation.
-          </p>
-          <div class="actions">
-            <button class="btn" type="button" data-accept-mode="save">
-              Save for later</button
-            ><button
-              class="btn primary"
-              type="button"
-              data-accept-mode="implement"
-            >
-              Start implementation
-            </button>
-          </div>
+          <p class="small" id="accept-guidance-detail"></p>
+          <div class="actions" id="accept-actions"></div>
         </div>
         <div id="finish-changes" inert>
           <p class="small">
@@ -548,7 +530,6 @@
       {
         "name": "proposal",
         "round": "1",
-        "kind": "exploration",
         "title": "Work proposal",
         "pages": [
           {

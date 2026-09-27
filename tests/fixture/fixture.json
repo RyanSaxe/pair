@@ -1,7 +1,6 @@
 {
   "name": "fixture",
   "round": "1",
-  "kind": "exploration",
   "title": "Component fixture",
   "task": {
     "title": "Payment retries",

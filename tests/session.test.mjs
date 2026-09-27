@@ -23,6 +23,8 @@ import {
   unsentItems,
 } from "../src/frame/draft.mjs";
 import { assemble, build, buildPage } from "../src/build.mjs";
+import { renderFinish } from "../src/frame/finish.mjs";
+import { offers } from "../src/offers.mjs";
 import {
   readPlanData,
   pageData,
@@ -222,7 +224,11 @@ test("drafts carry unsent items across rounds and drop what was sent", () => {
   );
   assert.equal("sentIn" in groups.notes[0], false);
   assert.equal("answers" in groups, false);
-  draft.acceptance = { id: "accept-1", mode: "implement", guidance: "Do this" };
+  draft.acceptance = {
+    id: "accept-1",
+    action: "implement",
+    guidance: "Do this",
+  };
   draft.acceptGuidance = "Do this";
   const same = loadDraft(JSON.parse(JSON.stringify(draft)), "1");
   assert.equal(same.notes.length, 2);
@@ -303,7 +309,6 @@ function alertFixture({
   const entry = (id, round, extra = {}) => ({
     id,
     title: `Plan ${id}`,
-    kind: "exploration",
     round,
     stage: "updated",
     needsYou: true,
@@ -357,9 +362,9 @@ test("alerts announce other sessions once across tabs and never the focused sess
   });
   await reload.alerts.update([s1, s3]);
   assert.equal(reload.sent.length, 0);
-  const plan = a.entry("s4", "3", { kind: "plan", publishedAt: later() });
+  const plan = a.entry("s4", "3", { offer: "plan", publishedAt: later() });
   await b.alerts.update([plan]);
-  assert.equal(b.sent.at(-1).title, "A final plan is ready");
+  assert.equal(b.sent.at(-1).title, "Round 3 is ready to accept");
 });
 
 test("granted permission enables automatically unless explicitly disabled; re-enabling skips backlog", async () => {
@@ -390,11 +395,11 @@ test("granted permission enables automatically unless explicitly disabled; re-en
   assert.equal(b.sent.length, 1);
 });
 
-test("only sessions that need the user alert, with the final plan named", () => {
+test("only sessions that need the user alert, and an offered round says so", () => {
   const entry = {
     id: "s1",
     title: "Plan",
-    kind: "plan",
+    offer: "plan",
     round: "3",
     stage: "updated",
     needsYou: true,
@@ -402,9 +407,9 @@ test("only sessions that need the user alert, with the final plan named", () => 
     publishedAt: "2026-01-01T00:00:00Z",
   };
   assert.deepEqual(reviewAlert(entry), {
-    id: "plan:s1:3",
+    id: "round:s1:3",
     sessionId: "s1",
-    title: "A final plan is ready",
+    title: "Round 3 is ready to accept",
     body: "Plan",
     url: "/s/s1/",
     createdAt: "2026-01-01T00:00:00Z",
@@ -432,11 +437,11 @@ test("denied, unavailable, and failed notifications disable the control", async 
   assert.match(a.button.title, /delivery failed/);
 });
 
-function planData(round = "1", kind = "exploration", name = "example") {
+function planData(round = "1", offer, name = "example") {
   return {
     name,
     round,
-    kind,
+    ...(offer ? { offer } : {}),
     title: "Example work",
     pages: [
       {
@@ -508,7 +513,7 @@ async function hub(t, extra = {}) {
         buildPage(path.join(directory, "source.json"), {
           name: data.name,
           round: data.round,
-          kind: data.kind,
+          offer: data.offer,
           title: data.title,
           page,
         });
@@ -584,7 +589,7 @@ test("a page source builds a standalone preview without executing content", asyn
     JSON.stringify({
       name: "build",
       round: "1",
-      kind: "plan",
+      offer: "plan",
       title: "Build",
       page: {
         id: "overview",
@@ -636,7 +641,6 @@ test("preserved prototypes retain exact executable source without escaping into 
   const data = {
     name: "example",
     round: "1",
-    kind: "exploration",
     title: "Example work",
     page: {
       id: "overview",
@@ -919,29 +923,33 @@ test("answers travel with feedback and resolve as agreement sources", async (t) 
   assert.match(missing.body.error, /Source item not found/);
 });
 
-test("final review can reopen exploration and only accept the recomposed plan", async (t) => {
+test("a plan can be reopened, and only the current round's offer is accepted", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1", "plan"));
   const feedback = a.event();
   await a.feedback(feedback);
   await a.action("read");
-  assert.equal((await a.publish(planData("2", "exploration"))).code, 200);
-  assert.equal(
-    (await a.feedback(a.event("accept-plan", "1", { mode: "save" }))).code,
-    409,
-  );
-  assert.equal(
-    (await a.feedback(a.event("accept-plan", "2", { mode: "save" }))).code,
-    409,
-  );
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  const save = { offer: "plan", action: "save" };
+  assert.equal((await a.feedback(a.event("accept", "1", save))).code, 409);
+  assert.equal((await a.feedback(a.event("accept", "2", save))).code, 409);
   const choice = a.event("feedback-only", "2", {
     text: "Use per-item results.",
   });
   await a.feedback(choice);
   await a.action("read");
   await a.publish(planData("3", "plan"));
-  const acceptance = a.event("accept-plan", "3", { mode: "save" });
+  for (const [offer, action, code] of [
+    ["finish", "finish", 409],
+    ["plan", "finish", 400],
+    ["plan", undefined, 400],
+  ])
+    assert.equal(
+      (await a.feedback(a.event("accept", "3", { offer, action }))).code,
+      code,
+    );
+  const acceptance = a.event("accept", "3", save);
   assert.equal((await a.feedback(acceptance)).code, 200);
   await a.action("read");
   assert.equal(
@@ -954,7 +962,7 @@ test("final review can reopen exploration and only accept the recomposed plan", 
         path.join(a.directory, "rounds/example.1.html"),
         "utf8",
       ),
-    ).kind,
+    ).offer,
     "plan",
   );
 });
@@ -1108,8 +1116,8 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
 test("plan data parsing requires a real plan overview and preserves rich HTML", () => {
   const html = (data) =>
     `<script type="application/json" id="plan-data">${JSON.stringify(data)}</script>`;
-  const renamed = (kind, id) => {
-    const data = planData("1", kind);
+  const renamed = (offer, id) => {
+    const data = planData("1", offer);
     data.pages[0].id = id;
     return html(data);
   };
@@ -1117,11 +1125,11 @@ test("plan data parsing requires a real plan overview and preserves rich HTML", 
     readPlanData(html(planData("1", "plan"))).pages[0].html,
     "<p>Preserve one result per input.</p>",
   );
+  assert.throws(() => readPlanData(renamed(undefined, "feedback")), /reserved/);
   assert.throws(
-    () => readPlanData(renamed("exploration", "feedback")),
-    /reserved/,
+    () => readPlanData(renamed("plan", "details")),
+    /offers plan lists overview first/,
   );
-  assert.throws(() => readPlanData(renamed("plan", "details")), /overview/);
 });
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
@@ -1438,7 +1446,7 @@ test("a session rejects a round number reused under another name", async (t) => 
   await a.publish(planData("1"));
   await a.feedback(a.event());
   await a.action("read");
-  const duplicate = await a.publish(planData("1", "exploration", "other"));
+  const duplicate = await a.publish(planData("1", undefined, "other"));
   assert.equal(duplicate.code, 409);
   assert.match(duplicate.body.error, /Round 1 is already used/);
   assert.equal(
@@ -1446,7 +1454,7 @@ test("a session rejects a round number reused under another name", async (t) => 
     false,
   );
   assert.equal((await a.status()).body.current.name, "example");
-  const next = await a.publish(planData("2", "exploration", "other"));
+  const next = await a.publish(planData("2", undefined, "other"));
   assert.equal(next.code, 200, next.body.error);
   assert.equal((await a.status()).body.current.name, "other");
 });
@@ -1486,52 +1494,165 @@ test("queued rounds keep receipt order", async (t) => {
   assert.equal((await a.status()).body.stage, "working");
 });
 
-for (const mode of ["save", "implement"])
-  test(`acceptance records explicit ${mode} mode for the exact final plan`, async (t) => {
-    const h = await hub(t);
-    const a = await h.session();
-    await a.publish(planData());
-    assert.equal(
-      (await a.feedback(a.event("accept-plan", "1", { mode }))).code,
-      409,
-    );
-    await a.feedback(a.event());
-    await a.action("read");
-    await a.publish(planData("2", "plan"));
-    assert.equal((await a.feedback(a.event("accept-plan", "2"))).code, 400);
-    assert.equal((await a.action("complete")).code, 409);
-    const acceptance = a.event("accept-plan", "2", { mode });
-    assert.equal((await a.feedback(acceptance)).code, 200);
-    assert.equal((await a.action("complete")).code, 409);
-    assert.match(
-      (await a.action("ack")).body.next,
-      /^Read the Acceptance section of .*session\.md, then run: pair read /,
-    );
-    assert.match(
-      (await a.action("read")).body.next,
-      /^Run: pair complete --session-dir /,
-    );
-    const complete = (await a.action("complete")).body;
-    assert.equal(complete.nextAction, mode);
-    assert.equal(
-      complete.planPath,
-      path.join(a.directory, "rounds/example.2.html"),
-    );
-    const record = JSON.parse(
-      await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
-    );
-    assert.equal(record.mode, mode);
-    assert.equal(
-      record.sha256,
-      crypto
-        .createHash("sha256")
-        .update(await fs.readFile(record.path))
-        .digest("hex"),
-    );
-    assert.deepEqual((await a.request("/api/sessions")).body.sessions, []);
-    assert.equal((await a.publish(planData("3", "plan"))).code, 409);
-    assert.equal((await a.status()).body.accepted.mode, mode);
+// Finish your review as the frame renders it for the frame's fixture built
+// with the offer. The frame may write only to elements the built dialog has.
+async function fixtureDialog(offer, accept) {
+  const directory = path.join(root, "tests/fixture");
+  const read = async ({ file, ...item }) => ({
+    ...item,
+    html: await fs.readFile(path.join(directory, file), "utf8"),
   });
+  const source = JSON.parse(
+    await fs.readFile(path.join(directory, "fixture.json"), "utf8"),
+  );
+  const [first, ...rest] = await Promise.all(source.pages.map(read));
+  const built = await assemble({
+    ...source,
+    offer,
+    pages: [{ ...first, id: offers[offer].firstPage || first.id }, ...rest],
+    prototypes: await Promise.all(source.prototypes.map(read)),
+  });
+  const dialog = built.match(
+    /<dialog[^>]*id="finish-dialog"[\s\S]*?<\/dialog>/,
+  )[0];
+  const elements = new Map();
+  const document = {
+    getElementById(name) {
+      if (!dialog.includes(`id="${name}"`)) return null;
+      if (!elements.has(name))
+        elements.set(name, {
+          replaceChildren(...children) {
+            this.children = children;
+          },
+        });
+      return elements.get(name);
+    },
+    createElement: () => ({}),
+  };
+  renderFinish(document, readPlanData(built), offers, accept);
+  return elements;
+}
+
+// Every registry entry: the round opens on the offer's first page, the frame's
+// fixture built with the offer renders the entry in Finish your review, and
+// the button for each action is accepted with a drafted comment and sends the
+// agent to the offer's guide file.
+for (const [id, offer] of Object.entries(offers))
+  for (const action of offer.accept.actions)
+    test(`a round that offers ${id} is accepted with ${action.id}`, async (t) => {
+      const h = await hub(t);
+      const a = await h.session();
+      const first = offer.firstPage || "summary";
+      const pages = [
+        { id: first, title: "First", html: "<p>The first page.</p>" },
+        { id: "detail", title: "Detail", html: "<p>The detail.</p>" },
+      ];
+      if (offer.firstPage) {
+        const refused = await a.publish({
+          ...planData("1", id),
+          pages: [...pages].reverse(),
+        });
+        assert.equal(refused.code, 400);
+        assert.match(refused.body.error, new RegExp(`lists ${first} first`));
+      }
+      assert.equal(
+        (await a.publish({ ...planData("1", id), pages })).code,
+        200,
+      );
+      const built = await fs.readFile(
+        path.join(a.directory, "rounds/example.1.html"),
+        "utf8",
+      );
+      assert.equal(readPlanData(built).offer, id);
+      let pressed;
+      const shown = await fixtureDialog(id, (chosen) => (pressed = chosen));
+      const text = (element) => shown.get(element).textContent;
+      assert.equal(text("finish-detail"), "Component fixture, round 1");
+      assert.deepEqual(
+        [
+          "accept-label",
+          "accept-hint",
+          "changes-hint",
+          "accept-note",
+          "accept-guidance-label",
+          "accept-guidance-detail",
+        ].map(text),
+        [
+          offer.accept.label,
+          offer.accept.hint,
+          offer.changes,
+          offer.accept.note,
+          offer.accept.guidance.label,
+          offer.accept.guidance.hint,
+        ],
+      );
+      // Plain actions on the left, and the primary one on the right.
+      const buttons = shown.get("accept-actions").children;
+      assert.deepEqual(
+        buttons.map((button) => [button.textContent, button.className]),
+        offer.accept.actions.map((item, index, all) => [
+          item.label,
+          index === all.length - 1 ? "btn primary" : "btn",
+        ]),
+      );
+      buttons.find((button) => button.textContent === action.label).onclick();
+      assert.equal(pressed, action);
+      // The sessions list says which rounds wait to be accepted.
+      const [listed] = (await a.request("/api/sessions")).body.sessions;
+      assert.equal(listed.offer, id);
+      assert.equal((await a.action("complete")).code, 409);
+      const note = {
+        id: "note-1",
+        topic: first,
+        anchor: "First",
+        quote: "",
+        text: "Keep the diff small.",
+        round: "1",
+      };
+      const guidance =
+        action.id === offer.accept.guidance.action
+          ? { guidance: "Start with the tests." }
+          : {};
+      const acceptance = a.event("accept", "1", {
+        offer: id,
+        action: pressed.id,
+        groups: { alignUnflagged: true, choices: {}, notes: [note] },
+        ...guidance,
+      });
+      assert.equal((await a.feedback(acceptance)).code, 200);
+      assert.equal((await a.action("complete")).code, 409);
+      const guide = new RegExp(`/guide/offers/${id}\\.md`);
+      const ack = (await a.action("ack")).body.next;
+      assert.match(ack, /^Read \S+, then run: pair read /);
+      assert.match(ack, guide);
+      const read = (await a.action("read")).body;
+      assert.deepEqual(read.event.payload.groups.notes, [note]);
+      const [, named, file] = read.next.match(
+        /^Follow the (\S+) action in (\S+)\.$/,
+      );
+      assert.equal(named, action.id);
+      assert.match(file, guide);
+      assert.ok(path.isAbsolute(file) && (await exists(file)));
+      const complete = (await a.action("complete")).body;
+      assert.equal(complete.nextAction, action.id);
+      assert.equal(complete.guidance, guidance.guidance);
+      assert.deepEqual(complete.groups.notes, [note]);
+      const record = JSON.parse(
+        await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
+      );
+      assert.equal(record.offer, id);
+      assert.equal(record.action, action.id);
+      assert.deepEqual(record.groups, complete.groups);
+      assert.equal(
+        record.sha256,
+        crypto
+          .createHash("sha256")
+          .update(await fs.readFile(record.path))
+          .digest("hex"),
+      );
+      assert.deepEqual((await a.request("/api/sessions")).body.sessions, []);
+      assert.equal((await a.publish(planData("2", id))).code, 409);
+    });
 
 test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
   const h = await hub(t);
@@ -1566,33 +1687,21 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.match(published.body.next, /^The round is with the reviewer\./);
 });
 
-test("implementation guidance is validated, saved with acceptance, and returned on completion", async (t) => {
+test("guidance goes only with its action, is trimmed and bounded, and is saved once", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1", "plan"));
+  const accept = (action, guidance) =>
+    a.event("accept", "1", { offer: "plan", action, guidance });
+  assert.equal((await a.feedback(accept("save", "Do this"))).code, 400);
   assert.equal(
-    (
-      await a.feedback(
-        a.event("accept-plan", "1", { mode: "save", guidance: "Do this" }),
-      )
-    ).code,
+    (await a.feedback(accept("implement", "x".repeat(4001)))).code,
     400,
   );
-  assert.equal(
-    (
-      await a.feedback(
-        a.event("accept-plan", "1", {
-          mode: "implement",
-          guidance: "x".repeat(4001),
-        }),
-      )
-    ).code,
-    400,
+  const acceptance = accept(
+    "implement",
+    "  Start with the drawing question.  ",
   );
-  const acceptance = a.event("accept-plan", "1", {
-    mode: "implement",
-    guidance: "  Start with the drawing question.  ",
-  });
   assert.equal((await a.feedback(acceptance)).code, 200);
   assert.equal((await a.feedback(acceptance)).code, 200);
   assert.equal(
@@ -1612,45 +1721,22 @@ test("implementation guidance is validated, saved with acceptance, and returned 
   assert.equal(record.guidance, complete.guidance);
 });
 
-test("an acceptance keeps the comments sent with it, and unread feedback still blocks one", async (t) => {
+test("unread feedback blocks an acceptance", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1", "plan"));
   await a.feedback(a.event("feedback-only", "1"));
-  assert.equal(
-    (await a.feedback(a.event("accept-plan", "1", { mode: "save" }))).code,
-    409,
-  );
-  await a.action("read");
-  await a.publish(planData("2", "plan"));
-  const note = {
-    id: "note-1",
-    topic: "overview",
-    anchor: "Overview",
-    quote: "",
-    text: "Keep the diff small.",
-    round: "2",
-  };
-  const acceptance = a.event("accept-plan", "2", {
-    mode: "implement",
-    groups: { alignUnflagged: true, choices: {}, notes: [note] },
-  });
-  assert.equal((await a.feedback(acceptance)).code, 200);
-  await a.action("read");
-  const complete = (await a.action("complete")).body;
-  assert.deepEqual(complete.groups.notes, [note]);
-  const record = JSON.parse(
-    await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
-  );
-  assert.deepEqual(record.groups, complete.groups);
+  const save = { offer: "plan", action: "save" };
+  assert.equal((await a.feedback(a.event("accept", "1", save))).code, 409);
 });
 
 test("an acceptance with nothing drafted records no comments", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1", "plan"));
-  const acceptance = a.event("accept-plan", "1", {
-    mode: "save",
+  const acceptance = a.event("accept", "1", {
+    offer: "plan",
+    action: "save",
     groups: { alignUnflagged: true, choices: {}, notes: [] },
   });
   assert.equal((await a.feedback(acceptance)).code, 200);
@@ -1961,7 +2047,6 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   const shared = {
     name: "example",
     round: "1",
-    kind: "exploration",
     title: "Example work",
   };
   const command = (...args) =>

@@ -13,6 +13,7 @@ import * as codex from "../adapters/codex/wake.mjs";
 import * as copilot from "../adapters/copilot/wake.mjs";
 import { choiceText } from "./frame/choices.mjs";
 import { guideFile } from "./guide.mjs";
+import { offers } from "./offers.mjs";
 
 // Each agent CLI wakes through its adapter, keyed by the harness name a wake
 // target carries. With no agent CLI among the ancestors, the first adapter
@@ -20,11 +21,12 @@ import { guideFile } from "./guide.mjs";
 const adapters = { copilot, codex, "claude-code": claudeCode };
 const here = fileURLToPath(import.meta.url);
 const cli = path.join(path.dirname(here), "cli.mjs");
-// The hub runs this file, guide.mjs and the adapters, so a change to any of
-// them restarts it.
+// The hub runs this file, guide.mjs, offers.mjs and the adapters, so a change
+// to any of them restarts it.
 export const version = [
   here,
   fileURLToPath(new URL("./guide.mjs", import.meta.url)),
+  fileURLToPath(new URL("./offers.mjs", import.meta.url)),
   ...Object.keys(adapters).map((name) =>
     fileURLToPath(new URL(`../adapters/${name}/wake.mjs`, import.meta.url)),
   ),
@@ -109,8 +111,8 @@ function validPlan(data) {
   requireValue(idPattern.test(data.name || ""), "Invalid name");
   requireValue(roundPattern.test(data.round || ""), "Invalid round");
   requireValue(
-    ["exploration", "plan"].includes(data.kind),
-    "kind must be exploration or plan",
+    data.offer === undefined || offerFor(data.offer),
+    `Unknown offer ${JSON.stringify(data.offer)}. The offers are ${Object.keys(offers).join(", ")}.`,
   );
   requireValue(
     typeof data.title === "string" && data.title.trim(),
@@ -245,13 +247,23 @@ function validPlan(data) {
         "Unknown prototype reference",
       );
   }
-  requireValue(
-    data.kind !== "plan" ||
-      data.pageMode === "partial" ||
-      data.pages[0].id === "overview",
-    "A final plan starts with an overview page",
-  );
+  if (data.pageMode !== "partial")
+    requireFirstPage(data.offer, data.pages[0].id);
   return data;
+}
+function offerFor(id) {
+  return typeof id === "string" && Object.hasOwn(offers, id)
+    ? offers[id]
+    : null;
+}
+// A round that makes an offer opens on the page the offer names, such as a
+// plan's overview.
+function requireFirstPage(offer, id) {
+  const first = offerFor(offer)?.firstPage;
+  requireValue(
+    !first || id === first,
+    `A round that offers ${offer} lists ${first} first`,
+  );
 }
 // The task opens Agreed: what the plan is building towards, in a title and a
 // few sentences.
@@ -328,7 +340,7 @@ export function pagePlan({ page, ...record }) {
   return {
     name: record.name,
     round: record.round,
-    kind: record.kind,
+    offer: record.offer,
     title: record.title,
     pageMode: "partial",
     pages: agreed ? [] : [{ id: page.id, title: page.title, html: page.html }],
@@ -337,7 +349,7 @@ export function pagePlan({ page, ...record }) {
     prototypes: page.prototypes || [],
   };
 }
-function pageList(items, kind) {
+function pageList(items, offer) {
   requireValue(
     Array.isArray(items) && items.length > 0,
     "List at least one page",
@@ -355,10 +367,7 @@ function pageList(items, kind) {
     );
     ids.add(item.id);
   }
-  requireValue(
-    kind !== "plan" || items[0].id === "overview",
-    "A final plan lists overview first",
-  );
+  requireFirstPage(offer, items[0].id);
   return items.map(({ id, title }) => ({
     id,
     title,
@@ -544,14 +553,15 @@ async function loadSession(directory, config, origin) {
   // place, or skipped round.md, is told where the session stands.
   async function nextStep() {
     const guide = (name) => guideFile(name, config.root);
+    const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
     const [event] = await pending();
     if (event)
-      return event.payload.intent === "accept-plan"
-        ? `Read the Acceptance section of ${await guide("session.md")}, then run: ${command("read")}`
+      return event.payload.intent === "accept"
+        ? `Read ${await offerGuide(event.payload.offer)}, then run: ${command("read")}`
         : `Read ${await guide("round.md")} in full, then run: ${command("read")}`;
     if (state.stage === "complete") return "The session is complete.";
     if (state.accepted)
-      return `Run: ${command("complete")}, then follow the acceptance mode in ${await guide("session.md")}.`;
+      return `Follow the ${state.accepted.action} action in ${await offerGuide(state.accepted.offer)}.`;
     if (state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!state.current)
@@ -659,7 +669,7 @@ async function loadSession(directory, config, origin) {
       "Submission requires ID and text",
     );
     requireValue(
-      ["feedback-only", "accept-plan"].includes(data.intent),
+      ["feedback-only", "accept"].includes(data.intent),
       "Invalid submission intent",
     );
     requireValue(
@@ -740,20 +750,22 @@ async function loadSession(directory, config, origin) {
         }
       }
     }
-    if (data.intent === "accept-plan") {
+    if (data.intent === "accept") {
+      const accept = offerFor(data.offer)?.accept;
       requireValue(
-        ["save", "implement"].includes(data.mode),
-        "Choose save or implement explicitly",
+        accept?.actions.some((action) => action.id === data.action),
+        "An acceptance names an offer and one of its actions",
       );
       if (data.guidance !== undefined) {
         requireValue(
-          data.mode === "implement" && typeof data.guidance === "string",
-          "Only implementation acceptance can include guidance",
+          data.action === accept.guidance.action &&
+            typeof data.guidance === "string",
+          `Only ${accept.guidance.action} takes guidance`,
         );
         data.guidance = data.guidance.trim();
         requireValue(
           data.guidance.length <= 4000,
-          "Implementation guidance exceeds 4,000 characters",
+          "Guidance exceeds 4,000 characters",
         );
         if (!data.guidance) delete data.guidance;
       }
@@ -773,12 +785,15 @@ async function loadSession(directory, config, origin) {
       "Review the current round before submitting; export older drafts if needed",
       409,
     );
-    if (data.intent === "accept-plan") {
+    if (data.intent === "accept") {
       requireValue(
-        state.current.kind === "plan" &&
-          ["ready", "updated"].includes(state.stage) &&
-          !(await pending()).length,
-        "Resolve feedback before accepting the current final plan",
+        data.offer === state.current.offer,
+        `Round ${state.current.round} does not offer ${data.offer}`,
+        409,
+      );
+      requireValue(
+        ["ready", "updated"].includes(state.stage) && !(await pending()).length,
+        "Resolve feedback before accepting the current round",
         409,
       );
     }
@@ -891,7 +906,7 @@ async function loadSession(directory, config, origin) {
     const data = {
       name: set.name,
       round: set.round,
-      kind: set.kind,
+      offer: set.offer,
       title: set.title,
       ...(complete ? {} : { pageMode: "partial" }),
       pages,
@@ -928,7 +943,7 @@ async function loadSession(directory, config, origin) {
       current = {
         name: set.name,
         round: set.round,
-        kind: set.kind,
+        offer: set.offer,
         title: set.title,
         path: file,
         url: base + "/",
@@ -943,7 +958,7 @@ async function loadSession(directory, config, origin) {
           {
             name: set.name,
             round: set.round,
-            kind: set.kind,
+            offer: set.offer,
             title: set.title,
             publishedAt: current.publishedAt,
             url: `${base}/r/${encodeURIComponent(set.round)}`,
@@ -958,7 +973,6 @@ async function loadSession(directory, config, origin) {
       stage: complete ? "updated" : "working",
       current,
       title: set.title,
-      kind: set.kind,
       rounds,
       accepted: null,
     });
@@ -1002,7 +1016,7 @@ async function loadSession(directory, config, origin) {
     );
     let set;
     if (page.id === "agreed") {
-      const slots = pageList(pages, record.kind);
+      const slots = pageList(pages, record.offer);
       requireValue(
         !state.openRound,
         "Agreed is already published for this round",
@@ -1025,7 +1039,7 @@ async function loadSession(directory, config, origin) {
       set = {
         name: record.name,
         round: record.round,
-        kind: record.kind,
+        offer: record.offer,
         title: record.title,
         agreed: null,
         pages: slots,
@@ -1036,7 +1050,7 @@ async function loadSession(directory, config, origin) {
       requireValue(state.openRound, "Publish Agreed before other pages", 409);
       set = structuredClone(state.openRound);
       requireValue(
-        ["name", "round", "kind", "title"].every(
+        ["name", "round", "offer", "title"].every(
           (key) => record[key] === set[key],
         ),
         "Page does not match this round",
@@ -1162,16 +1176,16 @@ async function loadSession(directory, config, origin) {
         acknowledgedAt: timestamp(),
         lastAcknowledgedId: event.id,
       };
-      if (event.payload.intent === "accept-plan") {
+      if (event.payload.intent === "accept") {
         requireValue(
           sameRound(event.payload),
-          "Acceptance no longer matches the current plan",
+          "Acceptance no longer matches the current round",
           409,
         );
         patch.accepted = {
           eventId: event.id,
           ...state.current,
-          mode: event.payload.mode,
+          action: event.payload.action,
           ...(event.payload.guidance
             ? { guidance: event.payload.guidance }
             : {}),
@@ -1226,14 +1240,14 @@ async function loadSession(directory, config, origin) {
         state.accepted &&
           state.accepted.sha256 === state.current?.sha256 &&
           !(await pending()).length,
-        "Acknowledge acceptance of the current plan before completing",
+        "Acknowledge acceptance of the current round before completing",
         409,
       );
       await transition({ stage: "complete" });
       return {
         status: view(),
         planPath: state.accepted.path,
-        nextAction: state.accepted.mode === "implement" ? "implement" : "save",
+        nextAction: state.accepted.action,
         ...(state.accepted.guidance
           ? { guidance: state.accepted.guidance }
           : {}),
@@ -1314,7 +1328,7 @@ async function loadSession(directory, config, origin) {
     return {
       id: state.sessionId,
       title: state.current.title,
-      kind: state.current.kind,
+      offer: state.current.offer,
       round: state.current.round,
       stage: state.stage,
       needsYou: needsYou(),

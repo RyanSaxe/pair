@@ -258,6 +258,8 @@ export async function frameBundle() {
     draft,
     activity,
     drawingEditor,
+    offers,
+    finish,
   ] = await Promise.all(
     [
       "frame.html",
@@ -268,6 +270,8 @@ export async function frameBundle() {
       "draft.mjs",
       "activity.mjs",
       "drawing-editor.html",
+      "../offers.mjs",
+      "finish.mjs",
     ].map((name) => fs.readFile(new URL(name, assets), "utf8")),
   );
   const roots = componentRoots();
@@ -284,6 +288,8 @@ export async function frameBundle() {
     draft,
     activity,
     drawingEditor,
+    offers,
+    finish,
     componentCss,
     componentJs,
   };
@@ -304,6 +310,8 @@ export async function assemble(
     draft,
     activity,
     drawingEditor,
+    offers,
+    finish,
     componentCss,
     componentJs,
   } = bundle || (await frameBundle());
@@ -331,7 +339,7 @@ export async function assemble(
     .replace(
       "<!-- FRAME_SCRIPT -->",
       () =>
-        `<script type="module">\n${notifications}\n${choices}\n${draft}\n${activity}\n${script}\n${componentJs}\n</script>`,
+        `<script type="module">\n${offers}\n${finish}\n${notifications}\n${choices}\n${draft}\n${activity}\n${script}\n${componentJs}\n</script>`,
     )
     // A module, and after the frame's, so the plan's own script sees planUI
     // and can register a component of its own before the first page renders.

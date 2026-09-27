@@ -69,5 +69,6 @@ The hub starts another turn when a submission arrives, including an acceptance.
 cannot receive a wake event, give the user the printed instruction and wait for
 a restart.
 
-An acceptance specifies `save` or `implement`. Follow that mode and the
-project's permissions. Do not change an accepted plan.
+An acceptance names the action the user chose, and `pair read` names the
+guide file that says what the action asks. Follow it and the project's
+permissions. Do not change an accepted plan.

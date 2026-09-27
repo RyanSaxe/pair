@@ -28,7 +28,7 @@ variables, including `PAIR_HUB_PORT`, and what pair keeps on disk.
 | Command                                            | What it does                                                                                         |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names guide files by their absolute path. |
-| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the plan is accepted, printing the plan's path.  |
+| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once a round is accepted, printing the round's path.  |
 | `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                    |
 | `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                       |
 | `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                  |
@@ -61,6 +61,16 @@ pair wakes Claude Code, Codex and Copilot CLI, each through its folder under
 each ancestor process, nearest first, so the agent CLI that ran the command
 wins over an outer one whose variables it inherited. When no ancestor
 decides, the first adapter whose variables are set decides.
+
+## Offers
+
+A round can carry an offer, which the reviewer accepts in the Finish your
+review dialog: `plan` on a complete plan and `finish` on built work that is
+complete. Each entry in `src/offers.mjs` gives the dialog's Accept row and
+the hint under Request changes, the page a round must open on when it names
+one, and a guide file under `guide/offers/` that tells the agent what each
+action asks. The build, the hub and the frame all read this registry, so a new
+offer is one entry there and one guide file.
 
 ## Development
 

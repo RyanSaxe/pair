@@ -31,7 +31,7 @@ const page = async (round, id, title, html, extra = {}) =>
   buildPage(path.join(directory, "source.json"), {
     name: "page-test",
     round,
-    kind: "plan",
+    offer: "plan",
     title: "Page test",
     page: {
       id,
@@ -401,7 +401,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
   const badAgreed = await buildPage(path.join(root, "bad.json"), {
     name: "cli",
     round: "1",
-    kind: "plan",
+    offer: "plan",
     title: "CLI plan",
     page: {
       id: "agreed",
@@ -432,7 +432,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
   const goodAgreed = await buildPage(path.join(root, "good.json"), {
     name: "cli",
     round: "1",
-    kind: "plan",
+    offer: "plan",
     title: "CLI plan",
     page: {
       id: "agreed",
@@ -473,7 +473,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     JSON.stringify({
       name: "cli",
       round: "1",
-      kind: "plan",
+      offer: "plan",
       title: "CLI plan",
       page: {
         id: "agreed",
@@ -520,7 +520,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     JSON.stringify({
       name: "cli",
       round: "1",
-      kind: "plan",
+      offer: "plan",
       title: "CLI plan",
       page: { id: "overview", title: "Overview", file: "overview.html" },
     }),
@@ -603,7 +603,7 @@ test("an unfinished round resumes after the hub restarts", async () => {
       buildPage(path.join(localDir, "source.json"), {
         name: "restart",
         round: "1",
-        kind: "plan",
+        offer: "plan",
         title: "Restart",
         page,
       });

@@ -8,7 +8,6 @@ import { assemble, buildPage } from "../src/build.mjs";
 const data = {
   name: "t",
   round: "1",
-  kind: "exploration",
   title: "T",
   pages: [{ id: "p", title: "P", html: "<p>x</p>" }],
 };
@@ -17,7 +16,6 @@ test("page CSS uses its own scope outside the frame content scope", async () => 
   const html = await buildPage(path.join(os.tmpdir(), "page.json"), {
     name: "t",
     round: "1",
-    kind: "exploration",
     title: "T",
     page: { id: "p", title: "P", html: "<p>x</p>", cssText: "p{color:red}" },
   });
@@ -69,12 +67,24 @@ test("a closing style tag in plan CSS is refused", async () => {
   );
 });
 
+test("the build refuses an offer the registry does not define", async () => {
+  await assert.rejects(
+    buildPage(path.join(os.tmpdir(), "page.json"), {
+      name: "t",
+      round: "1",
+      offer: "ship",
+      title: "T",
+      page: { id: "p", title: "P", html: "<p>x</p>" },
+    }),
+    /Unknown offer "ship"\. The offers are plan, finish\./,
+  );
+});
+
 test("page JavaScript cannot restyle the frame", async () => {
   await assert.rejects(
     buildPage(path.join(os.tmpdir(), "page.json"), {
       name: "t",
       round: "1",
-      kind: "exploration",
       title: "T",
       page: {
         id: "p",
@@ -240,7 +250,6 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
     buildPage(path.join(os.tmpdir(), "agreed.json"), {
       name: "t",
       round: "1",
-      kind: "exploration",
       title: "T",
       page: { id: "agreed", title: "Agreed so far", agreements: [], ...page },
     });
