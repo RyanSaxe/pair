@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { artifactData, pagePlan, validPage } from "./session.mjs";
+import { readPlanData, pagePlan, validPage } from "./session.mjs";
 
 const assets = new URL("./frame/", import.meta.url);
 /** Where a user keeps components of their own, outside the skill. The skill
@@ -344,17 +344,17 @@ export async function assemble(
       (_, start, end) =>
         start + JSON.stringify(data).replaceAll("<", "\\u003c") + end,
     );
-  artifactData(html);
+  readPlanData(html);
   return html;
 }
 
-// Revisions reuse page IDs, and the reader keeps several revisions loaded,
-// so page CSS and scripts match the revision as well as the page.
-export function pageScope(id, revision) {
-  return `#page-content[data-page-id="${id}"][data-revision="${revision}"]`;
+// Rounds reuse page IDs, and the reader keeps several rounds loaded, so
+// page CSS and scripts match the round as well as the page.
+export function pageScope(id, round) {
+  return `#page-content[data-page-id="${id}"][data-round="${round}"]`;
 }
 
-export function pageScripts(pages, revision) {
+export function pageScripts(pages, round) {
   return pages
     .filter((page) => page.jsText)
     .map((page) => {
@@ -362,10 +362,10 @@ export function pageScripts(pages, revision) {
       return `import("data:text/javascript;base64,${encoded}").then(({ setup }) => {
         if (typeof setup !== "function") throw new Error("Page ${page.id} must export setup");
         const run = ({ detail }) => {
-          if (detail.page.id === ${JSON.stringify(page.id)} && detail.revision === ${JSON.stringify(revision)}) setup(detail.element, window.planUI);
+          if (detail.page.id === ${JSON.stringify(page.id)} && detail.round === ${JSON.stringify(round)}) setup(detail.element, window.planUI);
         };
         window.addEventListener("plan:page", run);
-        if (window.planUI?.page?.id === ${JSON.stringify(page.id)} && window.planUI?.revision === ${JSON.stringify(revision)})
+        if (window.planUI?.page?.id === ${JSON.stringify(page.id)} && window.planUI?.round === ${JSON.stringify(round)})
           setup(document.getElementById("page-content"), window.planUI);
       }).catch((error) => console.error("Page ${page.id} script:", error));`;
     })
@@ -406,7 +406,7 @@ export async function buildPage(source, input) {
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
   const css = page.cssText
-    ? `@scope (${pageScope(page.id, record.revision)}) { ${page.cssText} }`
+    ? `@scope (${pageScope(page.id, record.round)}) { ${page.cssText} }`
     : "";
   // assemble checks the script the frame runs, which carries the page's own
   // script encoded, so the page's script is checked here as written.
@@ -416,7 +416,7 @@ export async function buildPage(source, input) {
   if (authoredProblems.length) throw new Error(authoredProblems.join("\n"));
   const preview = await assemble(data, {
     css,
-    js: pageScripts([page], record.revision),
+    js: pageScripts([page], record.round),
     allowUnknownPages: true,
   });
   return preview.replace(

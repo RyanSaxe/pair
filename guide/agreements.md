@@ -8,7 +8,7 @@ sentences. Say what will exist when the work is done and why, and what is
 deliberately left out when that matters. Decisions follow it on Agreed, and
 open questions belong on pages, so neither goes in it.
 
-State it in revision 1 from the conversation, and revise it whenever
+State it in round 1 from the conversation, and revise it whenever
 feedback changes what is being built. The reviewer reads it and comments
 when it is wrong. Never ask the reviewer to approve it.
 
@@ -30,7 +30,7 @@ when it is wrong. Never ask the reviewer to approve it.
 | source      | Plain source text when no feedback item can be referenced.                                   |
 
 Each agreement needs `sourceRefs` or `source`. When `groups.alignUnflagged`
-settled a proposal the page stated, name the revision and submission ID in
+settled a proposal the page stated, name the round and submission ID in
 `source`, state that `groups.alignUnflagged` was true, and explain why the
 comments did not challenge it.
 
@@ -50,11 +50,11 @@ next publication, and do not recreate settled entries to fill the record.
 
 When the agreement settles something the reader saw, such as a look, a
 layout, wording or an interface, its `html` names the material that shows
-it: the revision, the page and the figure, prototype or code block. The
+it: the round, the page and the figure, prototype or code block. The
 final plan reuses that material, updated to match later agreements.
 
 The reader's Preview of an agreement opens the first browser source in
-`sourceRefs`. When agreed material changes in a later revision, mark the
+`sourceRefs`. When agreed material changes in a later round, mark the
 agreement `change: updated`, rewrite its text, and put the newest source
 first.
 

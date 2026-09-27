@@ -7,7 +7,7 @@ import {
 } from "../src/frame/activity.mjs";
 
 const now = Date.parse("2026-01-01T00:10:00Z");
-const submittedRevision = "1";
+const submittedRound = "1";
 const currentSet = {
   pages: [
     { id: "agreed", title: "Agreed so far", state: "ready" },
@@ -17,12 +17,12 @@ const currentSet = {
 };
 const read = { latestSubmissionId: "s2", lastAcknowledgedId: "s2" };
 const run = (remote, extra = {}) =>
-  activityModel({ remote, currentSet, submittedRevision, now, ...extra });
+  activityModel({ remote, currentSet, submittedRound, now, ...extra });
 
 test("feedback waits without inventing page names", () => {
   // An acknowledgement from an earlier round does not count for this one.
   const waiting = run({
-    current: { revision: "1" },
+    current: { round: "1" },
     latestSubmissionId: "s2",
     lastAcknowledgedId: "s1",
     acknowledgedAt: "2026-01-01T00:01:00Z",
@@ -35,16 +35,16 @@ test("feedback waits without inventing page names", () => {
     mark: "queued",
     text: "No agent report yet",
   });
-  const sending = run({ current: { revision: "1" } }, { inFlight: true });
+  const sending = run({ current: { round: "1" } }, { inFlight: true });
   assert.equal(sending.title, "Sending feedback");
   assert.equal(sending.track, "moving");
   assert.equal(sending.footer.mark, "active");
   const acknowledged = run({
-    current: { revision: "1" },
+    current: { round: "1" },
     ...read,
     acknowledgedAt: "2026-01-01T00:09:20Z",
   });
-  assert.equal(acknowledged.title, "Preparing the next revision");
+  assert.equal(acknowledged.title, "Preparing the next round");
   assert.deepEqual(acknowledged.slots, []);
   assert.equal(acknowledged.track, "moving");
   assert.deepEqual(acknowledged.footer, {
@@ -57,7 +57,7 @@ test("feedback waits without inventing page names", () => {
 
 test("published page names keep their order while readiness changes", () => {
   const model = run({
-    current: { revision: "2" },
+    current: { round: "2" },
     ...read,
     updatedAt: "2026-01-01T00:09:00Z",
   });
@@ -76,7 +76,7 @@ test("published page names keep their order while readiness changes", () => {
   });
   const finished = run(
     {
-      current: { revision: "2", publishedAt: "2026-01-01T00:08:00Z" },
+      current: { round: "2", publishedAt: "2026-01-01T00:08:00Z" },
       ...read,
       updatedAt: "2026-01-01T00:00:00Z",
     },
@@ -96,7 +96,7 @@ test("published page names keep their order while readiness changes", () => {
 
 test("a report older than five minutes turns late and pause or wake failure wins", () => {
   const remote = {
-    current: { revision: "2" },
+    current: { round: "2" },
     ...read,
     updatedAt: "2026-01-01T00:05:00Z",
   };
@@ -120,7 +120,7 @@ test("a report older than five minutes turns late and pause or wake failure wins
   });
   assert.match(failed.footer.text, /Could not wake the agent/);
   const pausedEarly = run({
-    current: { revision: "1" },
+    current: { round: "1" },
     ...read,
     paused: { reason: "Waiting" },
   });
@@ -129,13 +129,13 @@ test("a report older than five minutes turns late and pause or wake failure wins
 
 test("ack shows the agent has the feedback, and its note replaces the report line", () => {
   const received = run({
-    current: { revision: "1" },
+    current: { round: "1" },
     latestSubmissionId: "s2",
     lastReceivedId: "s2",
     lastAcknowledgedId: "s1",
     report: { at: "2026-01-01T00:09:30Z", note: null },
   });
-  assert.equal(received.title, "Preparing the next revision");
+  assert.equal(received.title, "Preparing the next round");
   assert.equal(received.track, "moving");
   assert.deepEqual(received.footer, {
     mark: "active",
@@ -145,7 +145,7 @@ test("ack shows the agent has the feedback, and its note replaces the report lin
   });
   // A note keeps the time it was sent, so an old one still turns late.
   const noted = run({
-    current: { revision: "2" },
+    current: { round: "2" },
     ...read,
     report: { at: "2026-01-01T00:04:00Z", note: "Writing the overview page" },
   });
@@ -159,14 +159,14 @@ test("ack shows the agent has the feedback, and its note replaces the report lin
 });
 
 test("the round status counts pages until the last one and names a silent agent", () => {
-  const pageRound = {
+  const openRound = {
     pages: [
       { id: "overview", state: "ready" },
       { id: "detail", state: "active" },
       { id: "steps", state: "queued" },
     ],
   };
-  const remote = { pageRound, updatedAt: "2026-01-01T00:08:00Z" };
+  const remote = { openRound, updatedAt: "2026-01-01T00:08:00Z" };
   assert.deepEqual(roundModel({ remote, now }), {
     text: "2 of 4 ready",
     late: false,
@@ -183,7 +183,7 @@ test("the round status counts pages until the last one and names a silent agent"
     late: true,
   });
   const done = {
-    pages: pageRound.pages.map((item) => ({ ...item, state: "ready" })),
+    pages: openRound.pages.map((item) => ({ ...item, state: "ready" })),
   };
   // An agent report counts even when nothing else changed.
   assert.deepEqual(
@@ -197,7 +197,7 @@ test("the round status counts pages until the last one and names a silent agent"
     }),
     { text: "2 of 4 ready", late: false },
   );
-  assert.equal(roundModel({ remote: { pageRound: done }, now }), null);
+  assert.equal(roundModel({ remote: { openRound: done }, now }), null);
   assert.equal(roundModel({ remote: {}, now }), null);
 });
 

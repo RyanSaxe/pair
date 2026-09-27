@@ -24,7 +24,7 @@ import {
 } from "../src/frame/draft.mjs";
 import { assemble, build, buildPage } from "../src/build.mjs";
 import {
-  artifactData,
+  readPlanData,
   detectWake,
   pageData,
   settings,
@@ -84,7 +84,7 @@ async function killHub(config) {
 const sessionConfig = (html) =>
   JSON.parse(html.match(/id="session-config">([\s\S]*?)<\/script>/)[1]);
 
-test("each revision keeps its own remembered place", () => {
+test("each round keeps its own remembered place", () => {
   const pages = ["overview", "steps", "feedback"];
   const { tab, past, places } = readPlaces({
     tab: "past",
@@ -107,20 +107,15 @@ test("each revision keeps its own remembered place", () => {
     top: 0,
     tops: {},
   });
-  // A revision never visited opens at its first page.
+  // A round never visited opens at its first page.
   assert.equal(placeFor(places, "3", pages), null);
-  // A page the revision dropped would land the reader nowhere.
+  // A page the round dropped would land the reader nowhere.
   assert.equal(placeFor(places, "1", ["overview", "feedback"]), null);
   assert.deepEqual(readPlaces(null), {
     tab: "current",
     past: null,
     places: {},
   });
-  // A record from before places were kept per revision still counts.
-  assert.deepEqual(
-    readPlaces({ revision: "2", page: "steps", top: 10 }).places,
-    { 2: { page: "steps", top: 10, tops: {} } },
-  );
 });
 
 test("file comparison preserves exact sources and produces an applicable Git patch", async (t) => {
@@ -176,26 +171,26 @@ test("file comparison distinguishes identical input from a missing input", async
   );
 });
 
-test("drafts carry unsent items across revisions and drop what was sent", () => {
+test("drafts carry unsent items across rounds and drop what was sent", () => {
   const draft = emptyDraft("1");
   draft.notes.push({
     id: "n1",
     topic: "overview",
     anchor: "A",
     text: "one",
-    revision: "1",
+    round: "1",
   });
   draft.choices["overview/x"] = {
     topic: "overview",
     label: "X",
     value: "a",
-    revision: "1",
+    round: "1",
   };
   draft.answers["overview/q"] = {
     topic: "overview",
     label: "Q",
     text: "yes",
-    revision: "1",
+    round: "1",
   };
   assert.equal(unsentItems(draft).count, 3);
   assert.deepEqual(Object.keys(submissionGroups(draft)), [
@@ -213,7 +208,7 @@ test("drafts carry unsent items across revisions and drop what was sent", () => 
     topic: "overview",
     anchor: "B",
     text: "two",
-    revision: "1",
+    round: "1",
   });
   assert.equal(unsentItems(draft).count, 1);
   const groups = submissionGroups(draft);
@@ -239,7 +234,7 @@ test("drafts carry unsent items across revisions and drop what was sent", () => 
   assert.equal(next.submitted, null);
   assert.equal(next.acceptance, null);
   assert.equal(next.acceptGuidance, "");
-  assert.equal(next.revision, "2");
+  assert.equal(next.round, "2");
   assert.deepEqual(loadDraft(null, "3"), emptyDraft("3"));
   assert.deepEqual(loadDraft({ notes: "bad" }, "3"), emptyDraft("3"));
 });
@@ -301,11 +296,11 @@ function alertFixture({
     sessionId,
     open: (url) => opened.push(url),
   });
-  const entry = (id, revision, extra = {}) => ({
+  const entry = (id, round, extra = {}) => ({
     id,
     title: `Plan ${id}`,
     kind: "exploration",
-    revision,
+    round,
     stage: "updated",
     needsYou: true,
     publishedAt: new Date().toISOString(),
@@ -344,7 +339,7 @@ test("alerts announce other sessions once across tabs and never the focused sess
   await Promise.all([a.alerts.update([s1, s3]), b.alerts.update([s1, s3])]);
   assert.equal(a.sent.length + b.sent.length, 1);
   const item = a.sent[0] || b.sent[0];
-  assert.equal(item.title, "Revision 1 is ready");
+  assert.equal(item.title, "Round 1 is ready");
   assert.equal(item.options.body, "Plan s3");
   item.onclick();
   assert.deepEqual([...a.opened, ...b.opened], ["/s/s3/"]);
@@ -396,7 +391,7 @@ test("only sessions that need the user alert, with the final plan named", () => 
     id: "s1",
     title: "Plan",
     kind: "plan",
-    revision: "3",
+    round: "3",
     stage: "updated",
     needsYou: true,
     url: "/s/s1/",
@@ -433,14 +428,10 @@ test("denied, unavailable, and failed notifications disable the control", async 
   assert.match(a.button.title, /delivery failed/);
 });
 
-function planData(
-  revision = "1",
-  kind = "exploration",
-  artifactId = "example",
-) {
+function planData(round = "1", kind = "exploration", name = "example") {
   return {
-    artifactId,
-    revision,
+    name,
+    round,
     kind,
     title: "Example work",
     pages: [
@@ -506,13 +497,13 @@ async function hub(t, extra = {}) {
     };
     const action = (action, data = {}) =>
       request(`/agent/${id}/action`, { action, sessionId: id, ...data });
-    // A revision goes out as an agent sends it: Agreed with the page list,
+    // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
     const publish = async (data) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
-          artifactId: data.artifactId,
-          revision: data.revision,
+          name: data.name,
+          round: data.round,
           kind: data.kind,
           title: data.title,
           page,
@@ -532,10 +523,10 @@ async function hub(t, extra = {}) {
       }
       return result;
     };
-    const event = (intent = "feedback-only", revision = "1", extra = {}) => ({
+    const event = (intent = "feedback-only", round = "1", extra = {}) => ({
       sessionId: id,
-      artifactId: "example",
-      revision,
+      name: "example",
+      round,
       intent,
       id: crypto.randomUUID(),
       groups: {},
@@ -587,8 +578,8 @@ test("a page source builds a standalone preview without executing content", asyn
   await fs.writeFile(
     source,
     JSON.stringify({
-      artifactId: "build",
-      revision: "1",
+      name: "build",
+      round: "1",
       kind: "plan",
       title: "Build",
       page: {
@@ -615,7 +606,7 @@ test("a page source builds a standalone preview without executing content", asyn
   assert(html.includes("export function loadDraft"));
   assert(!html.includes("<!-- FRAME_"));
   assert(!html.includes('src="frame.js"'));
-  const output = path.join(directory, "artifact.html");
+  const output = path.join(directory, "round.html");
   await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
   await assert.rejects(
@@ -639,8 +630,8 @@ test("preserved prototypes retain exact executable source without escaping into 
     '<!doctype html><button id="try">Try</button><script>document.querySelector("button").onclick = () => alert("$&");</script>';
   await fs.writeFile(path.join(directory, "prototype.html"), html);
   const data = {
-    artifactId: "example",
-    revision: "1",
+    name: "example",
+    round: "1",
     kind: "exploration",
     title: "Example work",
     page: {
@@ -737,10 +728,10 @@ test("publication resolves exact mixed sources from saved feedback before hashin
   const result = await a.publish(data);
   assert.equal(result.code, 200);
   const snapshot = await fs.readFile(
-    path.join(a.directory, "artifacts/example.2.html"),
+    path.join(a.directory, "rounds/example.2.html"),
     "utf8",
   );
-  const records = artifactData(snapshot).agreements[0].sourceRecords;
+  const records = readPlanData(snapshot).agreements[0].sourceRecords;
   assert.equal(records.length, 3);
   assert.equal(records[0].text, feedback.groups.notes[0].text);
   assert.equal(records[0].quote, "A failed item");
@@ -764,7 +755,7 @@ test("publication resolves exact mixed sources from saved feedback before hashin
   ]) {
     const rejected = await a.publish({
       ...data,
-      revision: "3",
+      round: "3",
       agreements: [{ ...entry, sourceRefs: [ref] }],
     });
     assert.equal(rejected.code, 400);
@@ -833,10 +824,10 @@ test("choice sources preserve readable labels and complete checklist snapshots",
   const published = await a.publish(data);
   assert.equal(published.code, 200);
   const html = await fs.readFile(
-    path.join(a.directory, "artifacts/example.2.html"),
+    path.join(a.directory, "rounds/example.2.html"),
     "utf8",
   );
-  const sources = artifactData(html).agreements[0].sourceRecords;
+  const sources = readPlanData(html).agreements[0].sourceRecords;
   assert.deepEqual(
     sources.map((source) => source.choice),
     Object.values(choices),
@@ -894,10 +885,10 @@ test("answers travel with feedback and resolve as agreement sources", async (t) 
   const published = await a.publish({ ...planData("2"), agreements: [entry] });
   assert.equal(published.code, 200, published.body.error);
   const html = await fs.readFile(
-    path.join(a.directory, "artifacts/example.2.html"),
+    path.join(a.directory, "rounds/example.2.html"),
     "utf8",
   );
-  const [record] = artifactData(html).agreements[0].sourceRecords;
+  const [record] = readPlanData(html).agreements[0].sourceRecords;
   assert.equal(record.kind, "answer");
   assert.equal(record.text, "Yes, keep the <sidebar>");
   assert.equal(record.label, "Sidebar?");
@@ -951,12 +942,12 @@ test("final review can reopen exploration and only accept the recomposed plan", 
   await a.action("read");
   assert.equal(
     (await a.action("complete")).body.planPath,
-    path.join(a.directory, "artifacts/example.3.html"),
+    path.join(a.directory, "rounds/example.3.html"),
   );
   assert.equal(
-    artifactData(
+    readPlanData(
       await fs.readFile(
-        path.join(a.directory, "artifacts/example.1.html"),
+        path.join(a.directory, "rounds/example.1.html"),
         "utf8",
       ),
     ).kind,
@@ -973,7 +964,7 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
     source: "User selected per-item errors",
     href: "./example.1.html?target=errors#overview",
   };
-  const parsed = artifactData(await assemble({ ...data, agreements: [entry] }));
+  const parsed = readPlanData(await assemble({ ...data, agreements: [entry] }));
   assert.deepEqual(parsed.agreements, [entry]);
   for (const agreements of [
     [entry, entry],
@@ -1004,8 +995,8 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
   await fs.writeFile(
     source,
     JSON.stringify({
-      artifactId: data.artifactId,
-      revision: data.revision,
+      name: data.name,
+      round: data.round,
       kind: data.kind,
       title: data.title,
       page: {
@@ -1030,20 +1021,20 @@ test("agreements survive topic changes and targeted feedback without rewriting s
   };
   const states = ["agreed", "reopened", "agreed", "retired"];
   for (const [index, state] of states.entries()) {
-    const revision = String(index + 1);
+    const round = String(index + 1);
     const data = {
-      ...planData(revision),
+      ...planData(round),
       pages: [
         {
-          id: `topic-${revision}`,
-          title: `Topic ${revision}`,
+          id: `topic-${round}`,
+          title: `Topic ${round}`,
           html: "<p>Current proposal</p>",
         },
       ],
       agreements: [{ ...entry, state }],
     };
     assert.equal((await a.publish(data)).code, 200);
-    const event = a.event("feedback-only", revision, {
+    const event = a.event("feedback-only", round, {
       groups: {
         notes: [
           {
@@ -1051,7 +1042,7 @@ test("agreements survive topic changes and targeted feedback without rewriting s
             topic: "agreed",
             agreementId: entry.id,
             anchor: entry.title,
-            revision,
+            round,
             text: "Reconsider the error type.",
           },
         ],
@@ -1067,9 +1058,9 @@ test("agreements survive topic changes and targeted feedback without rewriting s
     await a.action("read");
   }
   for (const [index, state] of states.entries()) {
-    const snapshot = artifactData(
+    const snapshot = readPlanData(
       await fs.readFile(
-        path.join(a.directory, `artifacts/example.${index + 1}.html`),
+        path.join(a.directory, `rounds/example.${index + 1}.html`),
         "utf8",
       ),
     );
@@ -1078,10 +1069,10 @@ test("agreements survive topic changes and targeted feedback without rewriting s
   }
   const status = (await a.status()).body;
   assert.deepEqual(
-    status.revisions.map((item) => item.revision),
+    status.rounds.map((item) => item.round),
     ["1", "2", "3", "4"],
   );
-  assert.equal(status.revisions[0].url, `${a.base}/r/1`);
+  assert.equal(status.rounds[0].url, `${a.base}/r/1`);
 });
 
 test("capability check tests storage, loopback, and the hub port, then cleans up", async (t) => {
@@ -1110,7 +1101,7 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
-test("artifact parsing requires a real plan overview and preserves rich HTML", () => {
+test("plan data parsing requires a real plan overview and preserves rich HTML", () => {
   const html = (data) =>
     `<script type="application/json" id="plan-data">${JSON.stringify(data)}</script>`;
   const renamed = (kind, id) => {
@@ -1119,14 +1110,14 @@ test("artifact parsing requires a real plan overview and preserves rich HTML", (
     return html(data);
   };
   assert.equal(
-    artifactData(html(planData("1", "plan"))).pages[0].html,
+    readPlanData(html(planData("1", "plan"))).pages[0].html,
     "<p>Preserve one result per input.</p>",
   );
   assert.throws(
-    () => artifactData(renamed("exploration", "feedback")),
+    () => readPlanData(renamed("exploration", "feedback")),
     /reserved/,
   );
-  assert.throws(() => artifactData(renamed("plan", "details")), /overview/);
+  assert.throws(() => readPlanData(renamed("plan", "details")), /overview/);
 });
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
@@ -1209,7 +1200,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
     list.map((item) => item.id),
     [b.id, a.id],
   );
-  assert.equal(list[0].revision, "2");
+  assert.equal(list[0].round, "2");
   assert.equal(
     (await b.action("pause", { reason: "asked to stop" })).code,
     200,
@@ -1311,7 +1302,7 @@ test("the root URL opens the session that most needs you, then the last viewed, 
   assert.equal(bare.headers.get("location"), `${a.base}/`);
 });
 
-test("revision routes inject read-only and preview flags and serve prototypes sandboxed", async (t) => {
+test("round routes inject read-only and preview flags and serve prototypes sandboxed", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const demo = {
@@ -1340,7 +1331,7 @@ test("revision routes inject read-only and preview flags and serve prototypes sa
     sessionId: a.id,
     base: a.base,
   });
-  assert.equal(artifactData(live).revision, "2");
+  assert.equal(readPlanData(live).round, "2");
   const readonly = await a.request(`${a.base}/r/1`);
   assert.equal(readonly.code, 200);
   assert.deepEqual(sessionConfig(readonly.body), {
@@ -1348,7 +1339,7 @@ test("revision routes inject read-only and preview flags and serve prototypes sa
     base: a.base,
     readonly: true,
   });
-  assert.equal(artifactData(readonly.body).revision, "1");
+  assert.equal(readPlanData(readonly.body).round, "1");
   assert.deepEqual(
     sessionConfig((await a.request(`${a.base}/preview/1`)).body),
     {
@@ -1364,7 +1355,7 @@ test("revision routes inject read-only and preview flags and serve prototypes sa
   assert.match(prototype.headers.get("content-security-policy"), /sandbox/);
   assert.equal((await a.request(`${a.base}/r/1/prototype/nope`)).code, 404);
   const stored = await fs.readFile(
-    path.join(a.directory, "artifacts/example.1.html"),
+    path.join(a.directory, "rounds/example.1.html"),
     "utf8",
   );
   assert.deepEqual(sessionConfig(stored), { sessionId: a.id, base: a.base });
@@ -1415,15 +1406,12 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
   const original = await fs.readFile(
-    path.join(a.directory, "artifacts/example.1.html"),
+    path.join(a.directory, "rounds/example.1.html"),
     "utf8",
   );
   assert.equal((await a.publish(planData("2"))).code, 200);
   assert.equal(
-    await fs.readFile(
-      path.join(a.directory, "artifacts/example.1.html"),
-      "utf8",
-    ),
+    await fs.readFile(path.join(a.directory, "rounds/example.1.html"), "utf8"),
     original,
   );
   assert.equal((await a.feedback(a.event())).code, 409);
@@ -1437,10 +1425,10 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
       )
     ).stdout,
   );
-  assert.equal(status.current.revision, "2");
+  assert.equal(status.current.round, "2");
 });
 
-test("a session rejects a revision reused by another artifact", async (t) => {
+test("a session rejects a round number reused under another name", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData("1"));
@@ -1448,15 +1436,15 @@ test("a session rejects a revision reused by another artifact", async (t) => {
   await a.action("read");
   const duplicate = await a.publish(planData("1", "exploration", "other"));
   assert.equal(duplicate.code, 409);
-  assert.match(duplicate.body.error, /Revision 1 is already used/);
+  assert.match(duplicate.body.error, /Round 1 is already used/);
   assert.equal(
-    await exists(path.join(a.directory, "artifacts/other.1.html")),
+    await exists(path.join(a.directory, "rounds/other.1.html")),
     false,
   );
-  assert.equal((await a.status()).body.current.artifactId, "example");
+  assert.equal((await a.status()).body.current.name, "example");
   const next = await a.publish(planData("2", "exploration", "other"));
   assert.equal(next.code, 200, next.body.error);
-  assert.equal((await a.status()).body.current.artifactId, "other");
+  assert.equal((await a.status()).body.current.name, "other");
 });
 
 test("question actions and reply intents are unsupported", async (t) => {
@@ -1523,7 +1511,7 @@ for (const mode of ["save", "implement"])
     assert.equal(complete.nextAction, mode);
     assert.equal(
       complete.planPath,
-      path.join(a.directory, "artifacts/example.2.html"),
+      path.join(a.directory, "rounds/example.2.html"),
     );
     const record = JSON.parse(
       await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
@@ -1570,8 +1558,8 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(read.body.status.report.note, null);
   assert.match(read.body.next, /publish Agreed with --pages/);
   const published = await a.publish(planData("2"));
-  assert.equal(published.body.revisionComplete, true);
-  assert.match(published.body.next, /^The revision is with the reviewer\./);
+  assert.equal(published.body.roundComplete, true);
+  assert.match(published.body.next, /^The round is with the reviewer\./);
 });
 
 test("implementation guidance is validated, saved with acceptance, and returned on completion", async (t) => {
@@ -1637,7 +1625,7 @@ test("an acceptance keeps the comments sent with it, and unread feedback still b
     anchor: "Overview",
     quote: "",
     text: "Keep the diff small.",
-    revision: "2",
+    round: "2",
   };
   const acceptance = a.event("accept-plan", "2", {
     mode: "implement",
@@ -1749,7 +1737,7 @@ test("the Codex network check installs rules and reports sandbox state", async (
   assert.equal(report.codex.present, true);
 });
 
-test("a moved session still serves its current and earlier revisions", async (t) => {
+test("a moved session still serves its current and earlier rounds", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData("1"))).code, 200);
@@ -1772,13 +1760,13 @@ test("a moved session still serves its current and earlier revisions", async (t)
   assert.equal(registered.status, 200);
   assert.equal((await a.request(`${a.base}/`)).code, 200);
   assert.equal((await a.request(`${a.base}/r/1`)).code, 200);
-  const manifest = await a.request(`${a.base}/api/page-set?revision=1`);
+  const manifest = await a.request(`${a.base}/api/page-set?round=1`);
   assert.equal(manifest.code, 200);
   const slot = manifest.body.pages.find((item) => item.id === "overview");
   assert.equal(
     (
       await a.request(
-        `${a.base}/api/page?revision=1&id=overview&version=${slot.version}`,
+        `${a.base}/api/page?round=1&id=overview&version=${slot.version}`,
       )
     ).code,
     200,
@@ -1815,8 +1803,8 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   assert.notEqual(record.port, 1);
   const source = path.join(home, "source.json");
   const shared = {
-    artifactId: "example",
-    revision: "1",
+    name: "example",
+    round: "1",
     kind: "exploration",
     title: "Example work",
   };
@@ -1859,8 +1847,8 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   const origin = `http://127.0.0.1:${record.port}`;
   const event = {
     sessionId: started.sessionId,
-    artifactId: "example",
-    revision: "1",
+    name: "example",
+    round: "1",
     intent: "feedback-only",
     id: crypto.randomUUID(),
     groups: {},
@@ -2071,7 +2059,7 @@ test("a drawing answer saves a scene and PNG preview in its own session", async 
     kind: "drawing",
     topic: "overview",
     label: "System boundary",
-    revision: "1",
+    round: "1",
     sceneId: drawing.id,
     previewId: preview.id,
   };
@@ -2140,7 +2128,7 @@ test("the component fixture builds, so every component's markup stays valid", as
   // content, so a structural mistake in it is a mistake in a component:
   // build.mjs refuses duplicate control IDs, a missing data-label, a
   // decision with one option, and an option label over 24 characters.
-  const pages = artifactData(await fs.readFile(output, "utf8")).pages;
+  const pages = readPlanData(await fs.readFile(output, "utf8")).pages;
   const html = pages.map((page) => page.html).join("");
   for (const attribute of [
     'data-choice="retry"',

@@ -39,11 +39,11 @@ that repeat nearby text.
 
 ## Exploration
 
-Each revision should move the plan as far as the reviewer can take it in
+Each round should move the plan as far as the reviewer can take it in
 one sitting. That is a balance. Too little, and planning takes more rounds
 than it needs. Too much, and the reviewer skims, so decisions get made
 without being judged. Put the decisions that matter most now in the same
-revision, together with the decisions they depend on, and leave for later
+round, together with the decisions they depend on, and leave for later
 what depends on answers not yet given. Some plans take two rounds and others
 ten. A page holds one coherent topic and may hold several related decisions.
 Agreed is the only running context, so add no overview or summary page.
@@ -53,12 +53,12 @@ recommended option, whatever `groups.alignUnflagged` says. Do not repeat an
 open decision's unchanged page. Return to it with new evidence, a changed
 proposal or a sharper question. When the user asks you to decide, decide,
 record the decision on Agreed and continue. When a proposal changes, show
-it against the version the reviewer saw. If two revisions in a row resolve
+it against the version the reviewer saw. If two rounds in a row resolve
 nothing, put what remains on one page with a recommendation for each item.
 
 ## The final plan
 
-An engineer or agent who saw none of the revisions and none of the
+An engineer or agent who saw none of the rounds and none of the
 conversation implements the plan. Anything the plan does not show, they do
 not know. Present it when nothing in the task or the work is left to
 decide.
@@ -71,7 +71,7 @@ interfaces it depends on and how to verify it.
 
 Reuse the approved material instead of drawing it again or describing it.
 Copy the mock, the prototype, the diagram, the code or the wording from its
-page source in the session's `src/<revision>/<page-id>/`, and change it to
+page source in the session's `src/<round>/<page-id>/`, and change it to
 match everything agreed after it was shown. An earlier mock may have been
 approved on one point and rejected on another. Show what was agreed, and say
 which parts are binding and which are illustrative.

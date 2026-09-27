@@ -88,12 +88,12 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
 - `hub/hub.json` holds the pid, port, hosts, code version and the local
   secret that registers sessions. `hub/hub.log` is the hub's log.
 - `sessions/<dir>/status.json` holds the stage (`ready`, `updated`,
-  `submitted`, `working` or `complete`), `pageRound` while a revision's pages
+  `submitted`, `working` or `complete`), `openRound` while a round's pages
   are arriving, `paused` and `wake`. `status` prints it.
 - `sessions/<dir>/connection.json` holds the session ID, the hub's origin,
   the agent token and the wake target. The directory name is not the
   session ID.
 - The same directory holds `feedback/`, `uploads/` with the reviewer's
-  images, `pages/<revision>/` with the published page records,
-  `src/<revision>/<page-id>/` with each page's source, `artifacts/` with the
-  built revisions, and `acceptance.json` after acceptance.
+  images, `pages/<round>/` with the published page records,
+  `src/<round>/<page-id>/` with each page's source, `rounds/` with the
+  built rounds, and `acceptance.json` after acceptance.

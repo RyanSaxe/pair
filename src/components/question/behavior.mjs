@@ -1,5 +1,5 @@
 /* The Answer button and the answered card. planUI.prefs keeps the state for
-   this session and revision, so a reload comes back answered. */
+   this session and round, so a reload comes back answered. */
 planUI.define("question", {
   match: ".question[data-question]",
   setup(card, { page, planUI }) {

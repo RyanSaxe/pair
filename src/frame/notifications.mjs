@@ -1,12 +1,10 @@
 export function reviewAlert(entry) {
-  if (!entry?.needsYou || !entry.id || !entry.revision) return null;
+  if (!entry?.needsYou || !entry.id || !entry.round) return null;
   const plan = entry.kind === "plan";
   return {
-    id: `${plan ? "plan" : "revision"}:${entry.id}:${entry.revision}`,
+    id: `${plan ? "plan" : "round"}:${entry.id}:${entry.round}`,
     sessionId: entry.id,
-    title: plan
-      ? "A final plan is ready"
-      : `Revision ${entry.revision} is ready`,
+    title: plan ? "A final plan is ready" : `Round ${entry.round} is ready`,
     body: entry.title || "",
     url: entry.url,
     createdAt: entry.publishedAt,
@@ -14,7 +12,7 @@ export function reviewAlert(entry) {
 }
 
 // One permission and one enabled switch for the hub origin. Alerts are keyed
-// per session and revision so several tabs never announce the same event, and
+// per session and round so several tabs never announce the same event, and
 // the session shown in the focused tab is never announced.
 export function createReviewAlerts({ window: host, button, sessionId, open }) {
   const prefix = "pair:alerts:";
@@ -69,7 +67,7 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         ? "Allow notifications in your browser's site settings."
         : failed
           ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a revision or final plan is ready in any session.";
+          : "Alerts when a round or final plan is ready in any session.";
   }
   function enable() {
     write("enabledAt", String(Date.now()));

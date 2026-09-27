@@ -6,8 +6,8 @@ import path from "node:path";
 import { assemble, buildPage } from "../src/build.mjs";
 
 const data = {
-  artifactId: "t",
-  revision: "1",
+  name: "t",
+  round: "1",
   kind: "exploration",
   title: "T",
   pages: [{ id: "p", title: "P", html: "<p>x</p>" }],
@@ -15,8 +15,8 @@ const data = {
 
 test("page CSS uses its own scope outside the frame content scope", async () => {
   const html = await buildPage(path.join(os.tmpdir(), "page.json"), {
-    artifactId: "t",
-    revision: "1",
+    name: "t",
+    round: "1",
     kind: "exploration",
     title: "T",
     page: { id: "p", title: "P", html: "<p>x</p>", cssText: "p{color:red}" },
@@ -25,12 +25,11 @@ test("page CSS uses its own scope outside the frame content scope", async () => 
   assert.match(style, /@layer frame, plan, components;/);
   assert.match(
     style,
-    /@layer plan \{\n@scope \(#page-content\[data-page-id="p"\]\[data-revision="1"\]\) \{ p\{color:red\} \}/,
+    /@layer plan \{\n@scope \(#page-content\[data-page-id="p"\]\[data-round="1"\]\) \{ p\{color:red\} \}/,
   );
   assert.ok(
-    style.indexOf(
-      '@scope (#page-content[data-page-id="p"][data-revision="1"])',
-    ) < style.indexOf("@scope (#page-content)"),
+    style.indexOf('@scope (#page-content[data-page-id="p"][data-round="1"])') <
+      style.indexOf("@scope (#page-content)"),
   );
 });
 
@@ -73,8 +72,8 @@ test("a closing style tag in plan CSS is refused", async () => {
 test("page JavaScript cannot restyle the frame", async () => {
   await assert.rejects(
     buildPage(path.join(os.tmpdir(), "page.json"), {
-      artifactId: "t",
-      revision: "1",
+      name: "t",
+      round: "1",
       kind: "exploration",
       title: "T",
       page: {
@@ -239,8 +238,8 @@ test("well-formed controls, anchors and blocks pass", async () => {
 test("an Agreed page opens with a task, and the plan data carries it", async () => {
   const agreed = (page) =>
     buildPage(path.join(os.tmpdir(), "agreed.json"), {
-      artifactId: "t",
-      revision: "1",
+      name: "t",
+      round: "1",
       kind: "exploration",
       title: "T",
       page: { id: "agreed", title: "Agreed so far", agreements: [], ...page },
@@ -277,7 +276,7 @@ test("the build's language list is the one for the Shiki the frame loads", async
   assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
 });
 
-test("page tabs leave the reader in place, while revision choices open a page", async () => {
+test("page tabs leave the reader in place, while round choices open a page", async () => {
   const frame = await fs.readFile(
     new URL("../src/frame/frame.js", import.meta.url),
     "utf8",
@@ -292,12 +291,12 @@ test("page tabs leave the reader in place, while revision choices open a page", 
   );
   assert.doesNotMatch(tabClick, /\bshow\(/);
 
-  const revisionClick = frame.slice(
+  const roundClick = frame.slice(
     frame.indexOf("row.onclick = () => {"),
     frame.indexOf("list.append(row);"),
   );
   assert.match(
-    revisionClick,
+    roundClick,
     /switchTab\("current", null, \{ showPage: true \}\);/,
   );
 

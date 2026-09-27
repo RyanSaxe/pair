@@ -1,7 +1,7 @@
 /* An approved prototype in a sandboxed frame, with its source beneath. */
 function prototypeUrl(prototype) {
   if (online)
-    return `${base}/r/${encodeURIComponent(plan.revision)}/prototype/${encodeURIComponent(prototype.id)}`;
+    return `${base}/r/${encodeURIComponent(plan.round)}/prototype/${encodeURIComponent(prototype.id)}`;
   return URL.createObjectURL(new Blob([prototype.html], { type: "text/html" }));
 }
 planUI.define("prototype", {

@@ -1904,7 +1904,7 @@ img.note-image {
   font-size: 16px;
   line-height: 1;
 }
-/* The same quiet strip marks submitted pages and older revisions. */
+/* The same quiet strip marks submitted pages and older rounds. */
 .history-strip {
   flex: none;
   position: sticky;
@@ -1926,7 +1926,7 @@ img.note-image {
   font-weight: 600;
   white-space: nowrap;
 }
-#revision.older {
+#round.older {
   color: var(--accent);
   background: var(--accent-soft);
 }

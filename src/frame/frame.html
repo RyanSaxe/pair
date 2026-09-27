@@ -33,10 +33,10 @@
         </button>
         <button
           class="icon-btn"
-          id="revision"
+          id="round"
           type="button"
           aria-haspopup="dialog"
-          aria-label="Revisions"
+          aria-label="Rounds"
         >
           <svg
             viewBox="0 0 24 24"
@@ -116,7 +116,7 @@
         <aside class="sidebar" id="sidebar">
           <div class="side-label">
             <span>Pages</span
-            ><span class="round-status idle" data-round
+            ><span class="round-status idle" data-round-status
               ><i></i><span></span
             ></span>
           </div>
@@ -406,7 +406,7 @@
           <span class="tick"></span
           ><span
             >Request changes<br /><small
-              >The agent revises the plan and publishes a new revision.</small
+              >The agent revises the plan and publishes a new round.</small
             ></span
           >
         </button>
@@ -466,24 +466,20 @@
         </div>
       </div>
     </dialog>
-    <dialog
-      class="dialog"
-      id="revision-dialog"
-      aria-labelledby="revision-title"
-    >
+    <dialog class="dialog" id="round-dialog" aria-labelledby="round-title">
       <div class="dialog-head">
-        <h2 id="revision-title" tabindex="-1" autofocus>Revisions</h2>
+        <h2 id="round-title" tabindex="-1" autofocus>Rounds</h2>
         <button
           class="icon-btn"
           type="button"
-          data-close="revision-dialog"
+          data-close="round-dialog"
           aria-label="Close"
         >
           ✕
         </button>
       </div>
-      <p class="rev-plan" id="revision-plan"></p>
-      <div class="rev-list" id="revision-list"></div>
+      <p class="rev-plan" id="round-plan"></p>
+      <div class="rev-list" id="round-list"></div>
     </dialog>
     <dialog class="dialog keys" id="keys-dialog" aria-labelledby="keys-title">
       <div class="dialog-head">
@@ -521,7 +517,9 @@
     <dialog class="dialog" id="pages-dialog" aria-labelledby="pages-title">
       <div class="dialog-head">
         <h2 id="pages-title" tabindex="-1" autofocus>Pages</h2>
-        <span class="round-status idle" data-round><i></i><span></span></span>
+        <span class="round-status idle" data-round-status
+          ><i></i><span></span
+        ></span>
         <button
           class="icon-btn"
           type="button"
@@ -548,8 +546,8 @@
     </script>
     <script type="application/json" id="plan-data">
       {
-        "artifactId": "proposal",
-        "revision": "1",
+        "name": "proposal",
+        "round": "1",
         "kind": "exploration",
         "title": "Work proposal",
         "pages": [

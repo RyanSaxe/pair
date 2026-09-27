@@ -4,7 +4,7 @@ const session = JSON.parse($("session-config").textContent);
 const base = typeof session.base === "string" ? session.base : "";
 const online =
   Boolean(session.sessionId) && /^https?:$/.test(location.protocol);
-/* A closed session reads like an older revision: nothing can be sent from
+/* A closed session reads like an older round: nothing can be sent from
    it. The strip below the header says which of the two it is. */
 const mode = session.preview
   ? "preview"
@@ -12,7 +12,7 @@ const mode = session.preview
     ? "readonly"
     : "live";
 const editable = mode === "live";
-// A read-only revision keeps a Feedback page that lists what was sent on it.
+// A read-only round keeps a Feedback page that lists what was sent on it.
 const hasFeedbackPage = editable || mode === "readonly";
 document.documentElement.dataset.mode = mode;
 const query = new URL(location.href).searchParams;
@@ -20,14 +20,14 @@ let agreements = plan.agreements || [];
 let agreedTask = plan.task || null;
 let pages = [{ id: "agreed", title: "Agreed so far", html: "" }, ...plan.pages];
 let selectedTab = "current";
-// The last revision this reader submitted, which keeps Current disabled until
-// the next one arrives, and the past revision the left tab shows.
-let submittedRevision = null;
-let pastRevision = null;
-// What was sent on each past revision the left tab has shown.
-const sentByRevision = new Map();
+// The last round this reader submitted, which keeps Current disabled until
+// the next one arrives, and the past round the left tab shows.
+let submittedRound = null;
+let pastRound = null;
+// What was sent on each past round the left tab has shown.
+const sentByRound = new Map();
 const views = new Map([
-  [plan.revision, { plan, agreements, task: agreedTask, pages }],
+  [plan.round, { plan, agreements, task: agreedTask, pages }],
 ]);
 const pageSets = new Map();
 const recordLoads = new Map();
@@ -68,16 +68,13 @@ try {
 }
 let activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
 
-const storageKey = `pair:${session.sessionId || "offline"}:${plan.artifactId}`;
+const storageKey = `pair:${session.sessionId || "offline"}:${plan.name}`;
 const placeKey = `pair:place:${session.sessionId || "offline"}`;
 const prefsPrefix = `pair:prefs:${session.sessionId || "offline"}:`;
-let state = emptyDraft(plan.revision);
+let state = emptyDraft(plan.round);
 if (editable)
   try {
-    state = loadDraft(
-      JSON.parse(localStorage.getItem(storageKey)),
-      plan.revision,
-    );
+    state = loadDraft(JSON.parse(localStorage.getItem(storageKey)), plan.round);
   } catch {
     /* The in-memory draft and export remain usable. */
   }
@@ -85,16 +82,16 @@ let placeStore = { tab: "current", past: null, places: {} };
 try {
   placeStore = readPlaces(JSON.parse(localStorage.getItem(placeKey)));
 } catch {
-  /* Every revision then opens at its first page. */
+  /* Every round then opens at its first page. */
 }
 const places = placeStore.places;
-if (editable) pastRevision = placeStore.past;
-// A reload after a send opens Current waiting for the next revision, with the
-// sent revision in the left tab.
-if (editable && state.submitted?.revision === plan.revision) {
-  submittedRevision = plan.revision;
-  pastRevision = plan.revision;
-  const view = waitingView(plan.revision);
+if (editable) pastRound = placeStore.past;
+// A reload after a send opens Current waiting for the next round, with the
+// sent round in the left tab.
+if (editable && state.submitted?.round === plan.round) {
+  submittedRound = plan.round;
+  pastRound = plan.round;
+  const view = waitingView(plan.round);
   plan = view.plan;
   pages = view.pages;
   agreements = view.agreements;
@@ -157,7 +154,7 @@ function stale(kind, key, item) {
 }
 
 let page = pages[0],
-  displayedRevision = plan.revision,
+  displayedRound = plan.round,
   remote = null,
   connected = false,
   sessions = [],
@@ -186,13 +183,13 @@ function track(task) {
 const syntaxThemes = { light: "github-light", dark: "github-dark" };
 const current = () =>
   selectedTab === "current" &&
-  remote?.current?.artifactId === plan.artifactId &&
-  remote?.current?.revision === plan.revision;
+  remote?.current?.name === plan.name &&
+  remote?.current?.round === plan.round;
 const submittedCurrent = () =>
   editable &&
   (selectedTab === "past" ||
-    state.submitted?.revision === plan.revision ||
-    (current() && remote?.latestSubmissionRevision === plan.revision));
+    state.submitted?.round === plan.round ||
+    (current() && remote?.latestSubmissionRound === plan.round));
 const feedbackEditable = () =>
   editable &&
   selectedTab === "current" &&
@@ -273,23 +270,23 @@ const scroller = () =>
   [document.querySelector("main"), document.querySelector(".app-body")].find(
     (el) => /auto|scroll/.test(getComputedStyle(el).overflowY),
   );
-/* Where you were in each revision, so switching tabs, picking a revision from
+/* Where you were in each round, so switching tabs, picking a round from
    the clock, a reload, and the bell's jump to another session and back all
-   land on the page and scroll position you left. A revision you have not
+   land on the page and scroll position you left. A round you have not
    visited has no entry, which starts it at its first page. Only the live
    reader stores them, so a read-only page cannot overwrite its tabs. */
 let placeTimer = 0;
 function rememberPlace() {
   const pageId = $("reading").hidden ? "feedback" : page.id;
-  const revision = displayedRevision;
-  const held = restoring?.revision === revision && restoring.page === pageId;
+  const round = displayedRound;
+  const held = restoring?.round === round && restoring.page === pageId;
   const top = held
     ? restoring.top
     : Math.round(scroller().scrollTop) - aboveAgreed();
-  places[revision] = {
+  places[round] = {
     page: pageId,
     top,
-    tops: { ...places[revision]?.tops, [pageId]: top },
+    tops: { ...places[round]?.tops, [pageId]: top },
   };
   savePlaces();
 }
@@ -300,14 +297,14 @@ function savePlaces() {
     try {
       localStorage.setItem(
         placeKey,
-        JSON.stringify({ tab: selectedTab, past: pastRevision, places }),
+        JSON.stringify({ tab: selectedTab, past: pastRound, places }),
       );
     } catch {
       /* Returning to the same place is a convenience, not a requirement. */
     }
   }, 250);
 }
-const placeIn = (revision, pageIds) => placeFor(places, revision, pageIds);
+const placeIn = (round, pageIds) => placeFor(places, round, pageIds);
 /* A page can still be loading, or its renderers can still change its height,
    when the reader returns to it, and the browser clamps the position
    meanwhile. Until the page settles, the position being restored stands in
@@ -321,9 +318,8 @@ const shownBody = () =>
   $("reading").hidden ? $("feedback") : $("page-content");
 function rememberHeight() {
   const pageId = $("reading").hidden ? "feedback" : page.id;
-  if (restoring?.revision === displayedRevision && restoring.page === pageId)
-    return;
-  heights.set(`${displayedRevision}:${pageId}`, shownBody().offsetHeight);
+  if (restoring?.round === displayedRound && restoring.page === pageId) return;
+  heights.set(`${displayedRound}:${pageId}`, shownBody().offsetHeight);
 }
 document.addEventListener("scroll", rememberHeight, true);
 function endRestore() {
@@ -334,11 +330,11 @@ function endRestore() {
 function restoreScroll(top) {
   endRestore();
   restoring = {
-    revision: displayedRevision,
+    round: displayedRound,
     page: $("reading").hidden ? "feedback" : page.id,
     top,
   };
-  const height = heights.get(`${restoring.revision}:${restoring.page}`);
+  const height = heights.get(`${restoring.round}:${restoring.page}`);
   if (height) shownBody().style.minHeight = `${height}px`;
   settleScroll();
 }
@@ -362,7 +358,7 @@ function settleScroll() {
 }
 document.addEventListener("scroll", rememberPlace, true);
 function visiblePageId() {
-  if (displayedRevision !== viewKey()) return null;
+  if (displayedRound !== viewKey()) return null;
   return $("reading").hidden ? "feedback" : page.id;
 }
 // inPlace re-renders the page on screen for an arrival, without closing the
@@ -372,10 +368,9 @@ function show(
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
-  displayedRevision = viewKey();
+  displayedRound = viewKey();
   hideArrival();
-  const resuming =
-    restoring?.revision === displayedRevision && restoring.page === id;
+  const resuming = restoring?.round === displayedRound && restoring.page === id;
   if (!resuming) endRestore();
   const top = scroller().scrollTop;
   const feedback = id === "feedback" && hasFeedbackPage;
@@ -385,12 +380,12 @@ function show(
     clearHighlight("plan-note");
     page = pages.find((item) => item.id === id) || pages[0];
     if (page.status === "ready" && page.pending)
-      void loadPageRecord(plan.revision, page.id).catch(() => {});
+      void loadPageRecord(plan.round, page.id).catch(() => {});
     disposeRenderers();
     $("page-title").textContent = page.title;
     chooseBlock(null);
     $("page-content").dataset.pageId = page.id;
-    $("page-content").dataset.revision = plan.revision;
+    $("page-content").dataset.round = plan.round;
     const [mark, label] = pendingState(page);
     $("page-content").innerHTML = page.pending
       ? `<div class="pending-page ${mark === "active" ? "working" : "queued"}"><span class="pending-state">${pageIndicator(mark).outerHTML}${label}</span><div class="pending-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>`
@@ -409,10 +404,10 @@ function show(
     countNotes();
     renderSentPageComments();
     window.planUI.page = page;
-    window.planUI.revision = plan.revision;
+    window.planUI.round = plan.round;
     window.dispatchEvent(
       new CustomEvent("plan:page", {
-        detail: { page, element: $("page-content"), revision: plan.revision },
+        detail: { page, element: $("page-content"), round: plan.round },
       }),
     );
     // Shiki, Mermaid and the charts all change a block's height after the
@@ -435,11 +430,11 @@ function show(
     (feedback ? $("feedback").querySelector("h1") : $("page-title")).focus({
       preventScroll: true,
     });
-  // Returning to a page within a revision lands where the reader left it.
+  // Returning to a page within a round lands where the reader left it.
   if (!keepScroll) {
     const saved = targetId
       ? 0
-      : places[displayedRevision]?.tops?.[feedback ? "feedback" : page.id];
+      : places[displayedRound]?.tops?.[feedback ? "feedback" : page.id];
     if (saved) restoreScroll(saved);
     else scroller().scrollTo(0, 0);
   } else if (resuming) settleScroll();
@@ -688,7 +683,7 @@ function describeRecord(record) {
   if (record.kind === "answer") return `your answer to “${record.label}”`;
   return `your choice “${record.text}” for ${record.label}`;
 }
-// In the live reader, a source's Open link loads its revision into the left
+// In the live reader, a source's Open link loads its round into the left
 // tab at the page and block it names. A modified click still opens the
 // read-only page in a new tab.
 function openInTab(link, record) {
@@ -703,7 +698,7 @@ function openInTab(link, record) {
     )
       return;
     event.preventDefault();
-    void openPast(record.revision, {
+    void openPast(record.round, {
       pageId: record.topic,
       targetId: record.target,
     });
@@ -714,7 +709,7 @@ function recordUrl(record, route) {
   if (record.target) params.set("target", record.target);
   if (record.quote) params.set("quote", record.quote);
   const search = params.toString();
-  return `${base}/${route}/${encodeURIComponent(record.revision)}${search ? "?" + search : ""}#${encodeURIComponent(record.topic)}`;
+  return `${base}/${route}/${encodeURIComponent(record.round)}${search ? "?" + search : ""}#${encodeURIComponent(record.topic)}`;
 }
 function tag(text, tone = "") {
   const element = document.createElement("span");
@@ -754,7 +749,7 @@ function agreementCard(entry) {
   strip.className = "agreement-source";
   const text = document.createElement("span");
   text.textContent = first
-    ? `Agreed in revision ${first.revision} · ${describeRecord(first)}`
+    ? `Agreed in round ${first.round} · ${describeRecord(first)}`
     : records.length
       ? "From the conversation"
       : entry.source
@@ -776,7 +771,7 @@ function agreementCard(entry) {
       toggle.textContent = open ? "Hide preview" : "Preview";
       if (open && !preview.querySelector("iframe")) {
         const frame = document.createElement("iframe");
-        frame.title = `Revision ${first.revision}: ${describeRecord(first)}`;
+        frame.title = `Round ${first.round}: ${describeRecord(first)}`;
         frame.src = recordUrl(first, "preview");
         preview.firstElementChild.append(frame);
       }
@@ -813,7 +808,7 @@ function agreementCard(entry) {
     meta.textContent =
       record.kind === "conversation"
         ? "Conversation · agent-provided context"
-        : `Revision ${record.revision} · ${describeRecord(record)}`;
+        : `Round ${record.round} · ${describeRecord(record)}`;
     box.append(meta);
     if (record.quote) {
       const quote = document.createElement("blockquote");
@@ -890,9 +885,9 @@ function taskCard() {
   const text = document.createElement("span");
   text.textContent =
     agreedTask.change === "new"
-      ? "New in this revision"
+      ? "New in this round"
       : agreedTask.change === "updated"
-        ? "Updated in this revision"
+        ? "Updated in this round"
         : "";
   const actions = document.createElement("div");
   actions.className = "actions";
@@ -971,8 +966,8 @@ function itemCard({ kind, key, item }) {
   title.hidden = kind === "note" && !item.anchor;
   if (item.sentIn) title.append(tag("Sent", "ok"));
   const old = stale(kind, key, item);
-  if (old && item.revision && item.revision !== plan.revision)
-    title.append(tag(`from revision ${item.revision}`, "muted"));
+  if (old && item.round && item.round !== plan.round)
+    title.append(tag(`from round ${item.round}`, "muted"));
   body.append(title);
   if (kind === "note" && item.quote) {
     const quote = document.createElement("blockquote");
@@ -1125,10 +1120,10 @@ function renderFeedback() {
     (entry) =>
       entry.topic !== "overall" && !pages.some((p) => p.id === entry.topic),
   );
-  for (const revision of new Set(orphans.map((entry) => entry.item.revision)))
+  for (const round of new Set(orphans.map((entry) => entry.item.round)))
     group(
-      revision ? `From revision ${revision}` : "From an earlier revision",
-      orphans.filter((entry) => entry.item.revision === revision),
+      round ? `From round ${round}` : "From an earlier round",
+      orphans.filter((entry) => entry.item.round === round),
     );
   $("overall-notes").replaceChildren(
     ...items.filter((entry) => entry.topic === "overall").map(itemCard),
@@ -1211,10 +1206,10 @@ function renderSentPageComments() {
 let renderedSentKey = null;
 function renderSentFeedback() {
   const sent = shownSubmission();
-  // A past revision's submission may still be loading, which is not the same
+  // A past round's submission may still be loading, which is not the same
   // as none having been sent.
-  const loaded = mode === "readonly" || sentByRevision.has(plan.revision);
-  const key = `${plan.revision}:${sent?.id || (loaded ? "none" : "")}`;
+  const loaded = mode === "readonly" || sentByRound.has(plan.round);
+  const key = `${plan.round}:${sent?.id || (loaded ? "none" : "")}`;
   if (renderedSentKey === key) return;
   renderedSentKey = key;
   const list = $("sent-feedback-list");
@@ -1223,7 +1218,7 @@ function renderSentFeedback() {
     if (loaded) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "No feedback was sent on this revision.";
+      empty.textContent = "No feedback was sent on this round.";
       list.append(empty);
     }
     return;
@@ -1240,43 +1235,38 @@ function renderSentFeedback() {
   }
   renderSentPageComments();
 }
-// The submission sent on the revision on screen: the latest one, which the
-// poll keeps, or one fetched for an older revision in the left tab.
+// The submission sent on the round on screen: the latest one, which the
+// poll keeps, or one fetched for an older round in the left tab.
 function shownSubmission() {
-  if (mode === "readonly" || lastSubmission?.revision === plan.revision)
+  if (mode === "readonly" || lastSubmission?.round === plan.round)
     return lastSubmission;
-  return sentByRevision.get(plan.revision) || null;
+  return sentByRound.get(plan.round) || null;
 }
-// A past revision shows what was sent on it, so its controls read from that
-// revision's submission rather than from a draft.
+// A past round shows what was sent on it, so its controls read from that
+// round's submission rather than from a draft.
 function showSent(draft, submission) {
   draft.choices = submission?.groups?.choices || {};
   draft.answers = submission?.groups?.answers || {};
 }
-function sentDraft(revision) {
-  const draft = emptyDraft(revision);
+function sentDraft(round) {
+  const draft = emptyDraft(round);
   showSent(
     draft,
-    lastSubmission?.revision === revision
-      ? lastSubmission
-      : sentByRevision.get(revision),
+    lastSubmission?.round === round ? lastSubmission : sentByRound.get(round),
   );
   return draft;
 }
-async function loadPastSubmission(revision) {
-  if (sentByRevision.has(revision) || lastSubmission?.revision === revision)
-    return;
+async function loadPastSubmission(round) {
+  if (sentByRound.has(round) || lastSubmission?.round === round) return;
   const response = await fetch(
-    `${base}/api/submission?revision=${encodeURIComponent(revision)}`,
+    `${base}/api/submission?round=${encodeURIComponent(round)}`,
   );
   if (!response.ok) return;
   const { submission } = await response.json();
-  sentByRevision.set(revision, submission);
+  sentByRound.set(round, submission);
   const onScreen =
-    selectedTab === "past" &&
-    displayedRevision === revision &&
-    plan.revision === revision;
-  const draft = onScreen ? state : views.get(revision)?.draft;
+    selectedTab === "past" && displayedRound === round && plan.round === round;
+  const draft = onScreen ? state : views.get(round)?.draft;
   if (submission && draft && !draft.submitted) showSent(draft, submission);
   if (!onScreen) return;
   if (!$("reading").hidden)
@@ -1286,13 +1276,11 @@ async function loadPastSubmission(revision) {
 }
 async function loadSubmission() {
   const key =
-    mode === "readonly"
-      ? `revision:${plan.revision}`
-      : remote?.latestSubmissionId;
+    mode === "readonly" ? `round:${plan.round}` : remote?.latestSubmissionId;
   if (!key || key === lastSubmissionLoadedId) return;
   const route =
     mode === "readonly"
-      ? `${base}/api/submission?revision=${encodeURIComponent(plan.revision)}`
+      ? `${base}/api/submission?round=${encodeURIComponent(plan.round)}`
       : `${base}/api/submission`;
   const response = await fetch(route);
   if (!response.ok) return;
@@ -1301,7 +1289,7 @@ async function loadSubmission() {
   if (mode !== "readonly" && submission && submission.id !== key) return;
   lastSubmission = submission;
   lastSubmissionLoadedId = key;
-  // A read-only revision has no draft, so its controls show what was sent.
+  // A read-only round has no draft, so its controls show what was sent.
   if (mode === "readonly" && submission) {
     showSent(state, submission);
     if (!$("reading").hidden)
@@ -1390,7 +1378,7 @@ function slotLabel(state, { stopped, failed }) {
   return failed ? "Stopped" : "Paused";
 }
 function renderActivity() {
-  // A read-only revision shows what was sent on it, without agent activity.
+  // A read-only round shows what was sent on it, without agent activity.
   if (mode === "readonly") {
     $("agent-activity").hidden = true;
     $("sent-feedback").hidden = false;
@@ -1403,7 +1391,7 @@ function renderActivity() {
   $("sent-feedback").hidden = !past;
   if (past) renderSentFeedback();
   const onAgreed =
-    !past && displayedRevision === viewKey() && page.id === "agreed";
+    !past && displayedRound === viewKey() && page.id === "agreed";
   const visible = onAgreed && (submissionInFlight || roundRunning());
   $("agent-activity").hidden = !visible;
   const finished =
@@ -1422,8 +1410,8 @@ function renderActivity() {
   if (!visible) return;
   const model = activityModel({
     remote,
-    currentSet: pageSets.get(remote?.current?.revision),
-    submittedRevision,
+    currentSet: pageSets.get(remote?.current?.round),
+    submittedRound,
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
@@ -1490,20 +1478,18 @@ function renderActivity() {
 // The round the reader's last send started runs from the send until its last
 // page is published, and then Agreed says when it finished.
 const roundRunning = () =>
-  Boolean(submittedRevision) &&
+  Boolean(submittedRound) &&
   (waiting() ||
-    Boolean(
-      remote?.pageRound && remote.current?.revision !== submittedRevision,
-    ));
+    Boolean(remote?.openRound && remote.current?.round !== submittedRound));
 const roundFinished = () =>
-  Boolean(submittedRevision) &&
+  Boolean(submittedRound) &&
   Boolean(remote?.current) &&
-  !remote.pageRound &&
-  remote.current.revision !== submittedRevision &&
-  remote.latestSubmissionRevision === submittedRevision &&
-  lastSubmission?.revision === submittedRevision;
-// Every page of a past revision, its Feedback page included, names the
-// revision. Current never has the strip.
+  !remote.openRound &&
+  remote.current.round !== submittedRound &&
+  remote.latestSubmissionRound === submittedRound &&
+  lastSubmission?.round === submittedRound;
+// Every page of a past round, its Feedback page included, names the
+// round. Current never has the strip.
 function renderHistory() {
   const old = mode === "readonly";
   const past = selectedTab === "past";
@@ -1514,7 +1500,7 @@ function renderHistory() {
   if (old && session.closed) label.textContent = "This plan is closed";
   else {
     const name = document.createElement("b");
-    name.textContent = `Revision ${plan.revision}`;
+    name.textContent = `Round ${plan.round}`;
     label.replaceChildren(name);
     if (past || shownSubmission()) {
       const meta = document.createElement("span");
@@ -1531,7 +1517,7 @@ function renderHistory() {
     : () => switchTab("current");
 }
 function review() {
-  if (displayedRevision !== viewKey()) {
+  if (displayedRound !== viewKey()) {
     renderHistory();
     status();
     return;
@@ -1580,30 +1566,30 @@ function review() {
     renderFeedback();
     renderedFeedback = rendered;
   }
-  // The header button always acts on Current. From a past revision it submits
-  // Current's draft, and once Current's revision is sent it opens that
-  // revision's Feedback.
+  // The header button always acts on Current. From a past round it submits
+  // Current's draft, and once Current's round is sent it opens that
+  // round's Feedback.
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;
   const kind = forCurrent
-    ? views.get(remote.current.revision).plan.kind
+    ? views.get(remote.current.round).plan.kind
     : plan.kind;
   const finishes = kind === "plan";
   const finishable = forCurrent
     ? connected &&
-      !remote.pageRound &&
+      !remote.openRound &&
       ["ready", "updated"].includes(remote.stage)
     : canAccept();
   const opensFeedback = sent && !forCurrent;
   const onSentFeedback =
     $("reading").hidden &&
-    (mode === "readonly" || plan.revision === submittedRevision);
+    (mode === "readonly" || plan.round === submittedRound);
   const sendable =
     connected &&
-    !remote?.pageRound &&
+    !remote?.openRound &&
     (forCurrent || (current() && feedbackEditable()));
-  const waitingForPages = Boolean(remote?.pageRound);
+  const waitingForPages = Boolean(remote?.openRound);
   const hasFeedback =
     pending.count > 0 || (kind === "exploration" && draft.alignUnflagged);
   $("submit").disabled =
@@ -1627,7 +1613,7 @@ function review() {
 function feedbackText(extraNotes = []) {
   return [
     `Feedback: ${plan.title}`,
-    `Artifact ${plan.artifactId}, revision ${plan.revision}`,
+    `Round ${plan.round} of ${plan.name}`,
     "Feedback only. No implementation approval.",
     `Everything else looks good: ${state.alignUnflagged ? "yes" : "no"}.`,
     ...itemLines(extraNotes),
@@ -1672,8 +1658,8 @@ function envelope(intent, text, extra = {}) {
   return {
     sessionId: session.sessionId,
     id: uuid(),
-    artifactId: plan.artifactId,
-    revision: plan.revision,
+    name: plan.name,
+    round: plan.round,
     intent,
     groups: {},
     text,
@@ -1696,25 +1682,25 @@ async function send(event) {
 }
 
 /* A published page is fetched once. Polls only update its place in the list. */
-async function loadPageRecord(revision, id) {
-  const view = views.get(revision);
-  const manifest = pageSets.get(revision);
+async function loadPageRecord(round, id) {
+  const view = views.get(round);
+  const manifest = pageSets.get(round);
   const slot = manifest?.pages.find((item) => item.id === id);
   if (!view || !slot?.version) return;
-  const key = `${revision}/${id}/${slot.version}`;
+  const key = `${round}/${id}/${slot.version}`;
   if (recordLoads.has(key)) return recordLoads.get(key);
   const task = (async () => {
-    const url = `${base}/api/page?revision=${encodeURIComponent(revision)}&id=${encodeURIComponent(id)}&version=${slot.version}`;
+    const url = `${base}/api/page?round=${encodeURIComponent(round)}&id=${encodeURIComponent(id)}&version=${slot.version}`;
     const response = await fetch(url);
     if (!response.ok) throw Error("Could not load this page.");
     const record = await response.json();
-    if (record.revision !== revision || record.page.id !== id)
+    if (record.round !== round || record.page.id !== id)
       throw Error("Wrong page record.");
     const entry = view.pages.find((item) => item.id === id);
     if (id === "agreed") {
       view.agreements = record.page.agreements;
       view.task = record.page.task || null;
-      if (plan.revision === revision && !showingWaiting()) {
+      if (plan.round === round && !showingWaiting()) {
         agreements = view.agreements;
         agreedTask = view.task;
       }
@@ -1741,19 +1727,19 @@ async function loadPageRecord(revision, id) {
       view.plan.prototypes.push(...(record.page.prototypes || []));
       if (record.page.cssText) {
         const style = document.createElement("style");
-        style.textContent = `@layer plan { @scope (#page-content[data-page-id="${id}"][data-revision="${revision}"]) { ${record.page.cssText} } }`;
+        style.textContent = `@layer plan { @scope (#page-content[data-page-id="${id}"][data-round="${round}"]) { ${record.page.cssText} } }`;
         document.head.append(style);
       }
       if (setup)
         window.addEventListener("plan:page", ({ detail }) => {
-          if (detail.page.id === id && detail.revision === revision)
+          if (detail.page.id === id && detail.round === round)
             setup(detail.element, window.planUI);
         });
     }
     if (
-      displayedRevision === revision &&
+      displayedRound === round &&
       id !== "agreed" &&
-      plan.revision === revision &&
+      plan.round === round &&
       page.id === id &&
       !$("reading").hidden
     ) {
@@ -1767,15 +1753,15 @@ async function loadPageRecord(revision, id) {
   })().catch((error) => {
     recordLoads.delete(key);
     if (
-      displayedRevision === revision &&
-      plan.revision === revision &&
+      displayedRound === round &&
+      plan.round === round &&
       page.id === id &&
       !$("reading").hidden
     ) {
       $("page-content").innerHTML =
         `<div class="page-load-error" role="alert"><p>Could not load this page.</p><button class="btn" type="button">Retry</button></div>`;
       $("page-content").querySelector("button").onclick = () =>
-        loadPageRecord(revision, id).catch(() => {});
+        loadPageRecord(round, id).catch(() => {});
     }
     throw error;
   });
@@ -1815,56 +1801,55 @@ function reconcilePages(view, manifest) {
     view.pages.find((item) => item.id === slot.id),
   );
   view.plan.pages = view.pages.filter((item) => item.id !== "agreed");
-  if (plan.revision === view.plan.revision && !showingWaiting())
-    pages = view.pages;
+  if (plan.round === view.plan.round && !showingWaiting()) pages = view.pages;
 }
-// A revision this reader has not loaded, which its page set then fills in.
-function emptyView(revision, { artifactId, kind, title }) {
+// A round this reader has not loaded, which its page set then fills in.
+function emptyView(round, { name, kind, title }) {
   const view = {
-    plan: { artifactId, revision, kind, title, pages: [], agreements: [] },
+    plan: { name, round, kind, title, pages: [], agreements: [] },
     agreements: [],
     pages: [],
   };
-  views.set(revision, view);
+  views.set(round, view);
   return view;
 }
 async function syncPageSet() {
-  const revision = remote?.current?.revision;
-  if (!revision || !remote.pageSetGeneration) return;
+  const round = remote?.current?.round;
+  if (!round || !remote.pageSetGeneration) return;
   if (pageSetLoading) return pageSetLoading;
-  const previous = pageSets.get(revision);
+  const previous = pageSets.get(round);
   if (previous?.generation === remote.pageSetGeneration) return;
   pageSetLoading = (async () => {
     const response = await fetch(
-      `${base}/api/page-set?revision=${encodeURIComponent(revision)}`,
+      `${base}/api/page-set?round=${encodeURIComponent(round)}`,
     );
     if (!response.ok) throw Error("Could not load page list.");
     const manifest = await response.json();
-    const view = views.get(revision) || emptyView(revision, remote.current);
+    const view = views.get(round) || emptyView(round, remote.current);
     const wasReady = new Set(
       previous?.pages
         .filter((item) => item.state === "ready")
         .map((item) => item.id),
     );
-    pageSets.set(revision, manifest);
+    pageSets.set(round, manifest);
     reconcilePages(view, manifest);
     try {
-      await loadPageRecord(revision, "agreed");
+      await loadPageRecord(round, "agreed");
     } catch (error) {
-      if (previous) pageSets.set(revision, previous);
-      else pageSets.delete(revision);
+      if (previous) pageSets.set(round, previous);
+      else pageSets.delete(round);
       throw error;
     }
     if (
       selectedTab === "current" &&
-      plan.revision === revision &&
+      plan.round === round &&
       !showingWaiting()
     ) {
       updateNavigation();
-      if (displayedRevision === revision) {
+      if (displayedRound === round) {
         const selected = manifest.pages.find((item) => item.id === page.id);
         if (selected?.state === "ready" && page.pending)
-          void loadPageRecord(revision, page.id).catch(() => {});
+          void loadPageRecord(round, page.id).catch(() => {});
         else if (selected && page.pending && !$("reading").hidden) {
           const [mark, label] = pendingState(page);
           $("page-content")
@@ -1882,89 +1867,81 @@ async function syncPageSet() {
   });
   return pageSetLoading;
 }
-// A revision published before page sets existed has none. It opens on its
-// own read-only page instead, without asking again on every poll.
-const missingSets = new Set();
 const pastLoads = new Map();
-// Load a past revision's page list and Agreed into a view the left tab can
-// show. Resolves false for a revision that has no page set.
-function loadPastView(revision) {
-  if (!revision) return Promise.resolve(false);
-  if (views.has(revision)) return Promise.resolve(true);
-  if (missingSets.has(revision)) return Promise.resolve(false);
-  if (pastLoads.has(revision)) return pastLoads.get(revision);
+// Load a past round's page list and Agreed into a view the left tab can
+// show.
+function loadPastView(round) {
+  if (!round) return Promise.resolve(false);
+  if (views.has(round)) return Promise.resolve(true);
+  if (pastLoads.has(round)) return pastLoads.get(round);
   const task = (async () => {
     const response = await fetch(
-      `${base}/api/page-set?revision=${encodeURIComponent(revision)}`,
+      `${base}/api/page-set?round=${encodeURIComponent(round)}`,
     );
-    if (response.status === 404) {
-      missingSets.add(revision);
-      return false;
-    }
-    if (!response.ok) throw Error("Could not load that revision's pages.");
+    if (!response.ok) throw Error("Could not load that round's pages.");
     const manifest = await response.json();
-    const entry = remote?.revisions?.find((item) => item.revision === revision);
-    const view = emptyView(revision, {
-      artifactId: entry?.artifactId || remote.current.artifactId,
+    const entry = remote?.rounds?.find((item) => item.round === round);
+    const view = emptyView(round, {
+      name: entry?.name || remote.current.name,
       kind: entry?.kind || remote.current.kind,
       title: entry?.title || remote.current.title,
     });
-    pageSets.set(revision, manifest);
+    pageSets.set(round, manifest);
     reconcilePages(view, manifest);
     try {
-      await loadPageRecord(revision, "agreed");
+      await loadPageRecord(round, "agreed");
     } catch (error) {
-      views.delete(revision);
-      pageSets.delete(revision);
+      views.delete(round);
+      pageSets.delete(round);
       throw error;
     }
     updateNavigation();
     return true;
   })().finally(() => {
-    pastLoads.delete(revision);
+    pastLoads.delete(round);
   });
-  pastLoads.set(revision, task);
+  pastLoads.set(round, task);
   return task;
 }
-// The clock and an agreement's Open link load a past revision into the left
-// tab. A revision from before page sets opens on its own read-only page.
-async function openPast(revision, { pageId = null, targetId = null } = {}) {
-  const loaded = await loadPastView(revision).catch(() => false);
+// The clock and an agreement's Open link load a past round into the left
+// tab. When its pages cannot load, it opens on its own read-only page.
+async function openPast(round, { pageId = null, targetId = null } = {}) {
+  const loaded = await loadPastView(round).catch(() => false);
   if (!loaded) {
-    location.assign(`${base}/r/${encodeURIComponent(revision)}`);
+    location.assign(`${base}/r/${encodeURIComponent(round)}`);
     return;
   }
-  pastRevision = revision;
-  if (pageId) places[revision] = { page: pageId, top: 0 };
+  pastRound = round;
+  if (pageId) places[round] = { page: pageId, top: 0 };
   switchTab("past", targetId, { showPage: true });
 }
-// Current's draft while a past revision is on screen: the one set aside when
+// Current's draft while a past round is on screen: the one set aside when
 // the reader left Current, or the saved one.
 function currentDraft() {
-  const view = views.get(remote?.current?.revision);
+  const view = views.get(remote?.current?.round);
   if (view?.draft) return view.draft;
   try {
     return loadDraft(
       JSON.parse(localStorage.getItem(storageKey)),
-      remote.current.revision,
+      remote.current.round,
     );
   } catch {
-    return emptyDraft(remote.current.revision);
+    return emptyDraft(remote.current.round);
   }
 }
-// Each tab reopens its revision at the page and scroll position the reader
+// Each tab reopens its round at the page and scroll position the reader
 // left, or at Agreed on a first visit.
 function switchTab(tab, targetId = null, { showPage = true } = {}) {
   if (tab === "current" && !currentShown() && !submissionInFlight) return;
   if (tab === "past" && !pastAvailable()) return;
   if ($("finish-dialog").open) $("finish-dialog").close();
   rememberHeight();
-  const revision = tab === "current" ? remote.current.revision : pastRevision;
+  const round = tab === "current" ? remote.current.round : pastRound;
   const view =
     tab === "current" && (waiting() || submissionInFlight)
-      ? waitingView(revision)
-      : views.get(revision);
-  views.get(plan.revision).draft = state;
+      ? waitingView(round)
+      : views.get(round);
+  views.get(plan.round).draft = state;
   selectedTab = tab;
   plan = view.plan;
   document.title = plan.title;
@@ -1977,10 +1954,10 @@ function switchTab(tab, targetId = null, { showPage = true } = {}) {
   } catch {
     /* The in-memory draft and export remain available. */
   }
-  // The waiting view has no draft of its own; it holds the sent revision's.
+  // The waiting view has no draft of its own; it holds the sent round's.
   state =
-    views.get(revision).draft ||
-    (tab === "past" ? sentDraft(revision) : loadDraft(saved, revision));
+    views.get(round).draft ||
+    (tab === "past" ? sentDraft(round) : loadDraft(saved, round));
   rebuildKnown();
   if (tab === "current") initializeChecklists();
   renderedFeedback = null;
@@ -1989,32 +1966,32 @@ function switchTab(tab, targetId = null, { showPage = true } = {}) {
     page = pages[0];
     const place = view.waiting
       ? null
-      : placeIn(revision, [...pages.map((item) => item.id), "feedback"]);
+      : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
     show(place?.page || "agreed", targetId);
     if (place?.top && !targetId) restoreScroll(place.top);
   } else savePlaces();
-  if (tab === "past") void loadPastSubmission(revision).catch(() => {});
-  renderRevisions();
+  if (tab === "past") void loadPastSubmission(round).catch(() => {});
+  renderRounds();
 }
 const currentAvailable = () =>
   Boolean(
     remote?.current &&
-    remote.current.revision !== submittedRevision &&
-    views.has(remote.current.revision),
+    remote.current.round !== submittedRound &&
+    views.has(remote.current.round),
   );
-// Current's revision was sent, here or in another browser, and the agent has
+// Current's round was sent, here or in another browser, and the agent has
 // not published the next one. Before the first poll, the draft says so.
 const waiting = () =>
   editable &&
   (remote?.current
-    ? remote.latestSubmissionRevision === remote.current.revision
-    : state.submitted?.revision === plan.revision);
+    ? remote.latestSubmissionRound === remote.current.round
+    : state.submitted?.round === plan.round);
 const currentShown = () => currentAvailable() || waiting();
 // While Current waits, it holds one Agreed page that is still being
-// prepared, above which the activity component shows. The next revision's
+// prepared, above which the activity component shows. The next round's
 // Agreed replaces it in place.
-function waitingView(revision) {
-  const sent = views.get(revision).plan;
+function waitingView(round) {
+  const sent = views.get(round).plan;
   return {
     plan: { ...sent, pages: [] },
     agreements: [],
@@ -2032,16 +2009,15 @@ function waitingView(revision) {
     waiting: true,
   };
 }
-// The waiting view carries the sent revision's number, which the left tab
-// shows too, so code that finds the view on screen by its revision checks
+// The waiting view carries the sent round's number, which the left tab
+// shows too, so code that finds the view on screen by its round checks
 // this first.
 const showingWaiting = () =>
   selectedTab === "current" && Boolean(pages[0]?.waiting);
 // What show() puts on screen, for the checks that compare it with the view
 // the tabs hold. The waiting view gets a key of its own.
-const viewKey = () =>
-  showingWaiting() ? `${plan.revision} waiting` : plan.revision;
-const pastAvailable = () => Boolean(pastRevision && views.has(pastRevision));
+const viewKey = () => (showingWaiting() ? `${plan.round} waiting` : plan.round);
+const pastAvailable = () => Boolean(pastRound && views.has(pastRound));
 function status() {
   const stage = !connected ? "disconnected" : remote?.stage || "ready";
   const complete = stage === "complete" && remote?.accepted;
@@ -2068,26 +2044,25 @@ async function poll() {
     if (result.sessionId !== session.sessionId) throw Error("Wrong session");
     remote = result;
     connected = true;
-    if (editable && !submittedRevision)
-      submittedRevision =
-        state.submitted?.revision || remote.latestSubmissionRevision;
-    if (editable && !pastRevision) pastRevision = submittedRevision || null;
-    // A read-only page stays on its own revision. A failed page-set fetch is
+    if (editable && !submittedRound)
+      submittedRound = state.submitted?.round || remote.latestSubmissionRound;
+    if (editable && !pastRound) pastRound = submittedRound || null;
+    // A read-only page stays on its own round. A failed page-set fetch is
     // retried on the next poll and does not mean the hub is unreachable.
     if (editable) {
       await syncPageSet().catch(() => {});
-      await loadPastView(pastRevision).catch(() => {});
+      await loadPastView(pastRound).catch(() => {});
     }
-    // Current's revision was sent, here or in another browser: the left tab
-    // takes it, and Current waits for the next revision.
+    // Current's round was sent, here or in another browser: the left tab
+    // takes it, and Current waits for the next round.
     if (waiting() && !submissionInFlight) {
-      submittedRevision = remote.current.revision;
+      submittedRound = remote.current.round;
       if (selectedTab === "current" && !showingWaiting()) {
-        pastRevision = submittedRevision;
+        pastRound = submittedRound;
         switchTab("current");
       }
     }
-    // The next revision's Agreed arrived while Current waited. It replaces
+    // The next round's Agreed arrived while Current waited. It replaces
     // the pending Agreed without moving the reader or the scroll position.
     if (showingWaiting() && currentAvailable() && !submissionInFlight) {
       switchTab("current", null, { showPage: false });
@@ -2100,7 +2075,7 @@ async function poll() {
     void loadSubmission().catch(() => {});
     if (
       state.pending?.event?.id === remote.latestSubmissionId &&
-      remote.latestSubmissionRevision === plan.revision &&
+      remote.latestSubmissionRound === plan.round &&
       state.submitted?.id !== remote.latestSubmissionId
     ) {
       markSent(state, remote.latestSubmissionId, new Date().toISOString());
@@ -2109,7 +2084,7 @@ async function poll() {
   } catch {
     connected = false;
   }
-  renderRevisions();
+  renderRounds();
   updateNavigation();
   renderRound();
   review();
@@ -2118,7 +2093,7 @@ async function poll() {
 // round's status. The text stays while the status fades out.
 function renderRound() {
   const model = editable ? roundModel({ remote }) : null;
-  for (const status of document.querySelectorAll("[data-round]")) {
+  for (const status of document.querySelectorAll("[data-round-status]")) {
     status.classList.toggle("idle", !model);
     status.classList.toggle("late", Boolean(model?.late));
     if (model) status.lastElementChild.textContent = model.text;
@@ -2139,8 +2114,8 @@ function stateWords(entry) {
   if (entry.needsYou)
     return entry.kind === "plan" ? "Ready to accept" : "Waiting for you";
   if (entry.paused) return "Paused";
-  if (entry.pageRound)
-    return `Working · ${entry.pageRound.ready} pages readable`;
+  if (entry.openRound)
+    return `Working · ${entry.openRound.ready} pages readable`;
   if (["submitted", "working"].includes(entry.stage))
     return `Working · ${since(entry.updatedAt)}`;
   return "Live";
@@ -2265,7 +2240,7 @@ function renderSessions() {
     state.textContent = current ? "This tab" : stateWords(entry);
     words.append(
       state,
-      ` · ${entry.kind === "plan" ? "final plan" : "exploration"} · revision ${entry.revision} · ${ago(entry.updatedAt)}`,
+      ` · ${entry.kind === "plan" ? "final plan" : "exploration"} · round ${entry.round} · ${ago(entry.updatedAt)}`,
     );
     row.append(title, words);
     row.onclick = () => {
@@ -2302,35 +2277,35 @@ function renderSessions() {
     list.append(line);
   }
 }
-let renderedRevisions = "";
-function renderRevisions() {
+let renderedRounds = "";
+function renderRounds() {
   const entries = (
-    remote?.revisions?.length
-      ? remote.revisions
-      : [{ revision: plan.revision, publishedAt: null }]
+    remote?.rounds?.length
+      ? remote.rounds
+      : [{ round: plan.round, publishedAt: null }]
   )
     .slice()
     .reverse();
   if (
-    remote?.pageRound &&
-    !entries.some((entry) => entry.revision === remote.current.revision)
+    remote?.openRound &&
+    !entries.some((entry) => entry.round === remote.current.round)
   )
     entries.unshift(remote.current);
-  const latest = remote?.current?.revision ?? entries[0].revision;
+  const latest = remote?.current?.round ?? entries[0].round;
   const signature = JSON.stringify([
     latest,
-    entries.map((entry) => [entry.revision, entry.publishedAt]),
-    displayedRevision,
+    entries.map((entry) => [entry.round, entry.publishedAt]),
+    displayedRound,
     mode,
     selectedTab,
-    submittedRevision,
+    submittedRound,
   ]);
-  if (signature === renderedRevisions) return;
-  renderedRevisions = signature;
-  const list = $("revision-list");
+  if (signature === renderedRounds) return;
+  renderedRounds = signature;
+  const list = $("round-list");
   list.replaceChildren();
   for (const entry of entries) {
-    const here = entry.revision === displayedRevision;
+    const here = entry.round === displayedRound;
     const row = document.createElement("button");
     row.type = "button";
     row.className = "rev-row" + (here ? " current" : "");
@@ -2338,47 +2313,44 @@ function renderRevisions() {
     tick.className = "tick";
     tick.textContent = here ? "✓" : "";
     const label = document.createElement("span");
-    label.textContent = `Revision ${entry.revision}`;
+    label.textContent = `Round ${entry.round}`;
     const status = document.createElement("small");
     status.textContent =
-      entry.revision === latest && latest !== submittedRevision
+      entry.round === latest && latest !== submittedRound
         ? "Current"
         : "Feedback sent";
     label.append(document.createElement("br"), status);
     const time = document.createElement("small");
     time.textContent = entry.publishedAt ? ago(entry.publishedAt) : "";
     row.append(tick, label, time);
-    // The live reader loads a past revision into the left tab. A read-only
-    // page has no tabs, so it opens the revision's own page.
+    // The live reader loads a past round into the left tab. A read-only
+    // page has no tabs, so it opens the round's own page.
     row.onclick = () => {
-      toggleRevisionMenu(false);
+      toggleRoundMenu(false);
       if (here) return;
       if (mode !== "live")
         location.assign(
-          entry.revision === latest
+          entry.round === latest
             ? `${base}/`
-            : entry.url || `${base}/r/${encodeURIComponent(entry.revision)}`,
+            : entry.url || `${base}/r/${encodeURIComponent(entry.round)}`,
         );
-      else if (entry.revision === latest && currentAvailable())
+      else if (entry.round === latest && currentAvailable())
         switchTab("current", null, { showPage: true });
-      else void openPast(entry.revision);
+      else void openPast(entry.round);
     };
     list.append(row);
   }
   // The plan's name lives in this dialog, because the frame shows it nowhere
   // else.
-  $("revision-plan").textContent = plan.title;
+  $("round-plan").textContent = plan.title;
   const older = mode === "readonly" || selectedTab === "past";
-  $("revision").classList.toggle("older", older);
+  $("round").classList.toggle("older", older);
   renderHistory();
-  $("revision").setAttribute(
-    "aria-label",
-    `Revisions, on revision ${plan.revision}`,
-  );
+  $("round").setAttribute("aria-label", `Rounds, on round ${plan.round}`);
 }
-function toggleRevisionMenu(open = !$("revision-dialog").open) {
-  if (open) $("revision-dialog").showModal();
-  else if ($("revision-dialog").open) $("revision-dialog").close();
+function toggleRoundMenu(open = !$("round-dialog").open) {
+  if (open) $("round-dialog").showModal();
+  else if ($("round-dialog").open) $("round-dialog").close();
 }
 function toggleSidecar(open = !$("sessions-dialog").open) {
   if (open && $("bell").hidden) return;
@@ -2391,7 +2363,7 @@ function closeMenus() {
   chooseBlock(null);
   window.dispatchEvent(new CustomEvent("plan:dismiss"));
   closeDrawer();
-  toggleRevisionMenu(false);
+  toggleRoundMenu(false);
   toggleSidecar(false);
   if ($("settings-dialog").open) $("settings-dialog").close();
 }
@@ -2415,7 +2387,7 @@ function checklist(group, topic, previous) {
     topic,
     label: group.dataset.label || group.dataset.multiselect,
     target: group.id,
-    revision: plan.revision,
+    round: plan.round,
     touched: previous?.touched === true,
     options: Array.from(
       group.querySelectorAll('input[type="checkbox"][data-value]'),
@@ -2598,7 +2570,7 @@ $("note-form").onsubmit = (event) => {
     ...noteContext,
     id: editing || uuid(),
     text,
-    revision: plan.revision,
+    round: plan.round,
     ...(noteImages.length ? { attachments: noteImages } : {}),
   };
   if (editing)
@@ -2620,10 +2592,10 @@ $("align-unflagged").onchange = (event) => {
 };
 $("submit").onclick = () => {
   if (selectedTab === "past") {
-    // Current's revision was already sent, so the button opens its Feedback.
+    // Current's round was already sent, so the button opens its Feedback.
     if (!currentAvailable()) {
-      places[submittedRevision] = { page: "feedback", top: 0 };
-      void openPast(submittedRevision);
+      places[submittedRound] = { page: "feedback", top: 0 };
+      void openPast(submittedRound);
       return;
     }
     switchTab("current");
@@ -2633,11 +2605,11 @@ $("submit").onclick = () => {
 };
 // Sends Current's draft, with the overall comment typed in the Finish review
 // dialog when there is one, and leaves Current waiting on Agreed for the next
-// revision. From the header, Agreed shows the send while it is in flight and
+// round. From the header, Agreed shows the send while it is in flight and
 // a failure returns the reader to where they were. From the dialog, the
 // dialog stays open and shows the failure itself.
 async function sendFeedback({ comment = null, fromDialog = false } = {}) {
-  if (remote?.pageRound || !feedbackEditable()) return;
+  if (remote?.openRound || !feedbackEditable()) return;
   const extra = comment ? [comment] : [];
   if (
     unsentItems(state).count + extra.length === 0 &&
@@ -2655,7 +2627,7 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     await Promise.all(
       pages
         .filter((item) => item.id !== "agreed" && item.pending)
-        .map((item) => loadPageRecord(plan.revision, item.id)),
+        .map((item) => loadPageRecord(plan.round, item.id)),
     );
     initializeChecklists();
     const groups = submissionGroups(state);
@@ -2674,8 +2646,8 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     delete state.requestCommentId;
     markSent(state, result.id, new Date().toISOString());
     submissionInFlight = false;
-    submittedRevision = plan.revision;
-    pastRevision = plan.revision;
+    submittedRound = plan.round;
+    pastRound = plan.round;
     if (fromDialog) switchTab("current");
     save();
     void loadSubmission().catch(() => {});
@@ -2713,7 +2685,7 @@ $("export").onclick = () => {
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${plan.artifactId}-${plan.revision}-feedback.json`;
+  link.download = `${plan.name}-${plan.round}-feedback.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
@@ -2725,7 +2697,7 @@ const commentsDrafted = () => {
 };
 function openFinish() {
   if (!canAccept()) return;
-  $("finish-detail").textContent = `${plan.title}, revision ${plan.revision}`;
+  $("finish-detail").textContent = `${plan.title}, round ${plan.round}`;
   const words = draftedWords(state);
   if (words) {
     const link = document.createElement("a");
@@ -2815,7 +2787,7 @@ $("request-changes").onclick = async () => {
         quote: "",
         id: state.requestCommentId,
         text,
-        revision: plan.revision,
+        round: plan.round,
       }
     : null;
   finishError("");
@@ -2845,7 +2817,7 @@ document.querySelectorAll("[data-accept-mode]").forEach(
           : "Save for later. Do not start implementation.";
       const groups = submissionGroups(state);
       const items = itemLines();
-      const text = `Accept ${plan.artifactId} revision ${plan.revision}. ${action}${guidance ? `\n\nImplementation guidance:\n${guidance}` : ""}${items.length ? `\n\nComments on the plan:\n${items.join("\n")}` : ""}`;
+      const text = `Accept round ${plan.round} of ${plan.name}. ${action}${guidance ? `\n\nImplementation guidance:\n${guidance}` : ""}${items.length ? `\n\nComments on the plan:\n${items.join("\n")}` : ""}`;
       if (
         state.acceptance?.mode !== mode ||
         (state.acceptance?.guidance || "") !== guidance ||
@@ -2889,8 +2861,8 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     show(navigation.dataset.page);
   }
-  if (event.target.closest("#revision")) {
-    toggleRevisionMenu();
+  if (event.target.closest("#round")) {
+    toggleRoundMenu();
     return;
   }
   if (event.target.closest("#bell")) {
@@ -2928,7 +2900,7 @@ document.addEventListener("click", (event) => {
           choice.textContent.trim() ||
           choice.dataset.value,
         target: group.id,
-        revision: plan.revision,
+        round: plan.round,
       };
     restoreChoices();
     save();
@@ -3510,7 +3482,7 @@ addEventListener("message", async (event) => {
         topic: drawing.topic,
         label: drawing.label,
         kind: "drawing",
-        revision: plan.revision,
+        round: plan.round,
         sceneId: scene.id,
         previewId: preview.id,
         target: drawing.target,
@@ -3534,7 +3506,7 @@ window.planUI = {
         label: label || id,
         text,
         target,
-        revision: plan.revision,
+        round: plan.round,
       };
     else delete state.answers[key];
     save();
@@ -3599,7 +3571,7 @@ const tabs = document.createElement("div");
 tabs.className = "page-tabs";
 tabs.setAttribute("role", "tablist");
 tabs.setAttribute("aria-label", "Page versions");
-// The left tab holds the past revision on screen, so the tabs read in time
+// The left tab holds the past round on screen, so the tabs read in time
 // order.
 for (const tab of ["past", "current"]) {
   const button = document.createElement("button");
@@ -3610,13 +3582,13 @@ for (const tab of ["past", "current"]) {
   button.textContent = tab === "current" ? "Current" : "Previous";
   tabs.append(button);
 }
-// A read-only page shows one revision, so there is nothing to switch to.
+// A read-only page shows one round, so there is nothing to switch to.
 tabs.hidden = !editable;
 const pageList = document.createElement("div");
 pageList.id = "page-list";
 $("navigation").append(tabs, pageList);
 function updateNavigation(force = false) {
-  const currentSet = pageSets.get(remote?.current?.revision);
+  const currentSet = pageSets.get(remote?.current?.round);
   const readyPages = currentAvailable()
     ? currentSet?.pages.filter((item) => item.state === "ready").length || 0
     : selectedTab === "current"
@@ -3629,16 +3601,14 @@ function updateNavigation(force = false) {
     "aria-label",
     `Pages, ${plural(readyPages, "current page")} ready to read`,
   );
-  $("current-tab").disabled = Boolean(submittedRevision) && !currentShown();
+  $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
-  $("past-tab").textContent = pastRevision
-    ? `Revision ${pastRevision}`
-    : "Previous";
+  $("past-tab").textContent = pastRound ? `Round ${pastRound}` : "Previous";
   for (const tab of ["past", "current"])
     $(`${tab}-tab`).setAttribute("aria-selected", String(selectedTab === tab));
   if (
     force ||
-    pageList.dataset.revision !== plan.revision ||
+    pageList.dataset.round !== plan.round ||
     pageList.dataset.tab !== selectedTab
   ) {
     pageList.replaceChildren();
@@ -3660,7 +3630,7 @@ function updateNavigation(force = false) {
       review.append(label, total);
       pageList.append(separator(), review);
     }
-    pageList.dataset.revision = plan.revision;
+    pageList.dataset.round = plan.round;
     pageList.dataset.tab = selectedTab;
   }
   for (const item of pages) {
@@ -3718,13 +3688,13 @@ narrow.addEventListener("change", placeNavigation);
 placeNavigation();
 if (editable) initializeChecklists();
 theme();
-renderRevisions();
+renderRounds();
 /* The first page renders once every component has registered. Component
    behaviors are bundled after this file and the plan's script is a module
    of its own, so both run while the document is still loading and both are
    done by DOMContentLoaded. */
 function start() {
-  const place = placeIn(plan.revision, [
+  const place = placeIn(plan.round, [
     ...pages.map((item) => item.id),
     ...(editable ? ["feedback"] : []),
   ]);
@@ -3748,7 +3718,7 @@ function start() {
     }
   }
   if (online && mode !== "preview") {
-    // A reload returns to the past revision that was on screen.
+    // A reload returns to the past round that was on screen.
     poll().then(() => {
       if (editable && placeStore.tab === "past" && selectedTab === "current")
         if (placeStore.past) void openPast(placeStore.past);

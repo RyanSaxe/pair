@@ -1,6 +1,6 @@
 {
-  "artifactId": "fixture",
-  "revision": "1",
+  "name": "fixture",
+  "round": "1",
   "kind": "exploration",
   "title": "Component fixture",
   "task": {

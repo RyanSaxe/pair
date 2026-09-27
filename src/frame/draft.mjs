@@ -7,9 +7,9 @@ const mapValues = (object, fn) =>
     Object.entries(object).map(([key, value]) => [key, fn(value)]),
   );
 
-export function emptyDraft(revision) {
+export function emptyDraft(round) {
   return {
-    revision,
+    round,
     alignUnflagged: true,
     notes: [],
     choices: {},
@@ -20,10 +20,9 @@ export function emptyDraft(revision) {
   };
 }
 
-// Where the reader was in each revision: the last page, and the scroll
-// position on every page they read. Also which tab and past revision were on
-// screen. A record from before places were kept per revision holds one
-// revision's place, which is kept.
+// Where the reader was in each round: the last page, and the scroll
+// position on every page they read. Also which tab and past round were on
+// screen.
 export function readPlaces(saved) {
   const places = {};
   const offset = (value) => {
@@ -38,38 +37,36 @@ export function readPlaces(saved) {
     return { page: value.page, top: offset(value.top), tops };
   };
   if (!record(saved)) return { tab: "current", past: null, places };
-  if (typeof saved.revision === "string" && typeof saved.page === "string")
-    places[saved.revision] = place(saved);
   if (record(saved.places))
-    for (const [revision, value] of Object.entries(saved.places))
+    for (const [round, value] of Object.entries(saved.places))
       if (record(value) && typeof value.page === "string")
-        places[revision] = place(value);
+        places[round] = place(value);
   return {
     tab: saved.tab === "past" ? "past" : "current",
     past: typeof saved.past === "string" ? saved.past : null,
     places,
   };
 }
-// A remembered page that the revision no longer has is ignored.
-export function placeFor(places, revision, pageIds) {
-  const place = places[revision];
+// A remembered page that the round no longer has is ignored.
+export function placeFor(places, round, pageIds) {
+  const place = places[round];
   return place && pageIds.includes(place.page) ? place : null;
 }
 
-// Drafts are keyed by session and artifact, not revision. When a new revision
+// Drafts are keyed by session and name, not round. When a new round
 // lands, items that were already sent are dropped and unsent items carry over.
-export function loadDraft(saved, revision) {
+export function loadDraft(saved, round) {
   if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
-    return emptyDraft(revision);
+    return emptyDraft(round);
   const draft = {
-    ...emptyDraft(revision),
+    ...emptyDraft(round),
     ...saved,
     alignUnflagged:
       typeof saved.alignUnflagged === "boolean" ? saved.alignUnflagged : true,
     answers: record(saved.answers) ? saved.answers : {},
     noteDrafts: record(saved.noteDrafts) ? saved.noteDrafts : {},
   };
-  if (saved.revision !== revision) {
+  if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
     draft.answers = filterValues(draft.answers, (answer) => !answer.sentIn);
@@ -77,7 +74,7 @@ export function loadDraft(saved, revision) {
     draft.pending = null;
     draft.acceptance = null;
     draft.acceptGuidance = "";
-    draft.revision = revision;
+    draft.round = round;
   }
   return draft;
 }
@@ -133,7 +130,7 @@ export function markSent(draft, id, at) {
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
   for (const answer of Object.values(draft.answers)) answer.sentIn ||= id;
-  draft.submitted = { id, at, revision: draft.revision, count };
+  draft.submitted = { id, at, round: draft.round, count };
   draft.pending = null;
   return draft;
 }

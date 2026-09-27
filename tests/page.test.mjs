@@ -27,10 +27,10 @@ const act = (body) =>
   );
 const status = async () =>
   (await fetch(`${hub.origin}/s/${sessionId}/api/status`)).json();
-const page = async (revision, id, title, html, extra = {}) =>
+const page = async (round, id, title, html, extra = {}) =>
   buildPage(path.join(directory, "source.json"), {
-    artifactId: "page-test",
-    revision,
+    name: "page-test",
+    round,
     kind: "plan",
     title: "Page test",
     page: {
@@ -45,10 +45,10 @@ const page = async (revision, id, title, html, extra = {}) =>
       ...extra,
     },
   });
-const publish = async (revision, id, title, html, extra, pages) =>
+const publish = async (round, id, title, html, extra, pages) =>
   act({
     action: "publish",
-    html: await page(revision, id, title, html, extra),
+    html: await page(round, id, title, html, extra),
     ...(pages ? { pages } : {}),
   });
 const firstPages = [
@@ -110,14 +110,14 @@ test("Agreed and all page names become visible in one publication", async () => 
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
   assert.match(result.body.next, /^Pages still to publish: overview, detail\./);
-  assert.equal((await status()).revisions.length, 0);
+  assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
   assert.match(html, /Agreed so far/);
   assert.match(html, /"pageMode":"partial"/);
   assert.match(html, /Detail/);
   const manifest = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?revision=1`)
+    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
   ).json();
   assert.deepEqual(
     manifest.pages.map((item) => item.id),
@@ -156,21 +156,21 @@ test("Agreed and all page names become visible in one publication", async () => 
   );
 });
 
-test("listed pages arrive independently and only the last completes the revision", async () => {
+test("listed pages arrive independently and only the last completes the round", async () => {
   assert.equal(
     (await act({ action: "progress", start: ["detail"] })).status,
     200,
   );
   const before = await status();
-  assert.equal(before.pageRound.pages[1].state, "active");
+  assert.equal(before.openRound.pages[1].state, "active");
   assert.equal(before.needsYou, false);
   const early = await post(
     `/s/${sessionId}/api/feedback`,
     {
       sessionId,
       id: "early",
-      artifactId: "page-test",
-      revision: "1",
+      name: "page-test",
+      round: "1",
       intent: "feedback-only",
       text: "Too early",
       groups: {},
@@ -185,26 +185,26 @@ test("listed pages arrive independently and only the last completes the revision
     "<p>Finished detail</p>",
   );
   assert.equal(detail.status, 200, JSON.stringify(detail.body));
-  assert.equal(detail.body.revisionComplete, false);
+  assert.equal(detail.body.roundComplete, false);
   const immutable = await fs.readFile(detail.body.page.recordPath, "utf8");
   assert.doesNotMatch(
     await (await fetch(`${hub.origin}/s/${sessionId}/`)).text(),
     /Finished detail/,
   );
   const manifest = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?revision=1`)
+    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
   ).json();
   const slot = manifest.pages.find((item) => item.id === "detail");
   assert.equal(slot.state, "ready");
   const recordResponse = await fetch(
-    `${hub.origin}/s/${sessionId}/api/page?revision=1&id=detail&version=${slot.version}`,
+    `${hub.origin}/s/${sessionId}/api/page?round=1&id=detail&version=${slot.version}`,
   );
   assert.equal(recordResponse.status, 200);
   assert.match((await recordResponse.json()).page.html, /Finished detail/);
   assert.equal(
     (
       await fetch(
-        `${hub.origin}/s/${sessionId}/api/page?revision=1&id=detail&version=${"0".repeat(64)}`,
+        `${hub.origin}/s/${sessionId}/api/page?round=1&id=detail&version=${"0".repeat(64)}`,
       )
     ).status,
     404,
@@ -230,10 +230,10 @@ test("listed pages arrive independently and only the last completes the revision
     (await status()).current.sha256,
     detail.body.status.current.sha256,
   );
-  const artifacts = path.join(directory, "artifacts");
-  const held = path.join(directory, "artifacts-held");
-  await fs.rename(artifacts, held);
-  await fs.writeFile(artifacts, "blocked");
+  const rounds = path.join(directory, "rounds");
+  const held = path.join(directory, "rounds-held");
+  await fs.rename(rounds, held);
+  await fs.writeFile(rounds, "blocked");
   try {
     const writeFailure = await publish(
       "1",
@@ -247,8 +247,8 @@ test("listed pages arrive independently and only the last completes the revision
       detail.body.status.current.sha256,
     );
   } finally {
-    await fs.unlink(artifacts);
-    await fs.rename(held, artifacts);
+    await fs.unlink(rounds);
+    await fs.rename(held, rounds);
   }
   const overview = await publish(
     "1",
@@ -257,23 +257,23 @@ test("listed pages arrive independently and only the last completes the revision
     "<p>Finished overview</p>",
   );
   assert.equal(overview.status, 200, JSON.stringify(overview.body));
-  assert.equal(overview.body.revisionComplete, true);
-  assert.equal((await status()).revisions.length, 1);
-  assert.equal((await status()).pageRound, null);
+  assert.equal(overview.body.roundComplete, true);
+  assert.equal((await status()).rounds.length, 1);
+  assert.equal((await status()).openRound, null);
   assert.equal((await status()).needsYou, true);
   const completeSet = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?revision=1`)
+    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
   ).json();
   assert.equal(completeSet.complete, true);
   assert.equal(
-    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?revision=missing`))
+    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=missing`))
       .status,
     404,
   );
   assert.equal(
     (
       await fetch(
-        `${hub.origin}/s/${sessionId}/api/page?revision=1&id=missing&version=${completeSet.pages[0].version}`,
+        `${hub.origin}/s/${sessionId}/api/page?round=1&id=missing&version=${completeSet.pages[0].version}`,
       )
     ).status,
     404,
@@ -288,14 +288,14 @@ test("listed pages arrive independently and only the last completes the revision
   );
 });
 
-test("the next revision may choose unrelated pages without changing history", async () => {
+test("the next round may choose unrelated pages without changing history", async () => {
   const response = await post(
     `/s/${sessionId}/api/feedback`,
     {
       sessionId,
       id: "feedback-1",
-      artifactId: "page-test",
-      revision: "1",
+      name: "page-test",
+      round: "1",
       intent: "feedback-only",
       text: "Change topics",
       groups: {
@@ -348,7 +348,7 @@ test("the next revision may choose unrelated pages without changing history", as
     await fs.readFile(agreed.body.page.recordPath, "utf8"),
   ).page.agreements.find((entry) => entry.id === "from-detail")
     .sourceRecords[0];
-  assert.equal(source.revision, "1");
+  assert.equal(source.round, "1");
   assert.equal(source.topic, "detail");
   const ordered = JSON.parse(
     await fs.readFile(agreed.body.page.recordPath, "utf8"),
@@ -365,10 +365,9 @@ test("the next revision may choose unrelated pages without changing history", as
   assert.match(old, /Finished detail/);
   assert.doesNotMatch(fresh, /Finished detail/);
   assert.match(fresh, /Fresh topic/);
-  assert.equal((await status()).revisions.length, 2);
+  assert.equal((await status()).rounds.length, 2);
   assert.equal(
-    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?revision=1`))
-      .status,
+    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)).status,
     200,
   );
 });
@@ -400,8 +399,8 @@ test("the CLI builds and publishes each page with its own saved source", async (
   assert.equal(unsupported.status, 400);
   assert.match(unsupported.body.error, /page-data/);
   const badAgreed = await buildPage(path.join(root, "bad.json"), {
-    artifactId: "cli",
-    revision: "1",
+    name: "cli",
+    round: "1",
     kind: "plan",
     title: "CLI plan",
     page: {
@@ -431,8 +430,8 @@ test("the CLI builds and publishes each page with its own saved source", async (
   );
   assert.equal(rejected.status, 400);
   const goodAgreed = await buildPage(path.join(root, "good.json"), {
-    artifactId: "cli",
-    revision: "1",
+    name: "cli",
+    round: "1",
     kind: "plan",
     title: "CLI plan",
     page: {
@@ -472,8 +471,8 @@ test("the CLI builds and publishes each page with its own saved source", async (
   await fs.writeFile(
     path.join(agreedSource, "agreed.json"),
     JSON.stringify({
-      artifactId: "cli",
-      revision: "1",
+      name: "cli",
+      round: "1",
       kind: "plan",
       title: "CLI plan",
       page: {
@@ -519,8 +518,8 @@ test("the CLI builds and publishes each page with its own saved source", async (
   await fs.writeFile(
     path.join(overviewSource, "overview.json"),
     JSON.stringify({
-      artifactId: "cli",
-      revision: "1",
+      name: "cli",
+      round: "1",
       kind: "plan",
       title: "CLI plan",
       page: { id: "overview", title: "Overview", file: "overview.html" },
@@ -557,12 +556,12 @@ test("the CLI builds and publishes each page with its own saved source", async (
       await (
         await fetch(`${hub.origin}/s/${registered.body.sessionId}/api/status`)
       ).json()
-    ).revisions.length,
+    ).rounds.length,
     1,
   );
 });
 
-test("an unfinished revision resumes after the hub restarts", async () => {
+test("an unfinished round resumes after the hub restarts", async () => {
   const config = {
     ...settings({
       XDG_STATE_HOME: path.join(home, "restart"),
@@ -602,8 +601,8 @@ test("an unfinished revision resumes after the hub restarts", async () => {
       });
     const build = (page) =>
       buildPage(path.join(localDir, "source.json"), {
-        artifactId: "restart",
-        revision: "1",
+        name: "restart",
+        round: "1",
         kind: "plan",
         title: "Restart",
         page,
@@ -644,8 +643,8 @@ test("an unfinished revision resumes after the hub restarts", async () => {
     const statusAfterRestart = await (
       await fetch(`${localHub.origin}/s/${id}/api/status`)
     ).json();
-    assert.equal(statusAfterRestart.pageRound.pages[0].state, "ready");
-    assert.equal(statusAfterRestart.revisions.length, 0);
+    assert.equal(statusAfterRestart.openRound.pages[0].state, "ready");
+    assert.equal(statusAfterRestart.rounds.length, 0);
     assert.equal(
       (
         await action({
@@ -661,7 +660,7 @@ test("an unfinished revision resumes after the hub restarts", async () => {
     );
     assert.equal(
       (await (await fetch(`${localHub.origin}/s/${id}/api/status`)).json())
-        .revisions.length,
+        .rounds.length,
       1,
     );
   } finally {

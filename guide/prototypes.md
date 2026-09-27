@@ -13,7 +13,7 @@ into the final plan unchanged.
 | height | Positive preview height in pixels.                                       |
 
 Put prototypes in their owning page's `prototypes` array. IDs are unique
-within that revision. Put `data-prototype="ID"` on the element where the
+within that round. Put `data-prototype="ID"` on the element where the
 prototype belongs. The
 frame renders it with a header that has the title, a Source toggle that
 shows the exact source with syntax highlighting, and an Open full size

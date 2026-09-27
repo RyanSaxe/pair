@@ -1,6 +1,6 @@
 # Components
 
-A component is a directory the builder bundles into every revision. Copy
+A component is a directory the builder bundles into every round. Copy
 its `markup.html` into a page and replace the content and IDs. Its styles
 and behavior are already in the frame, so they do not belong in the page's
 `css` or `js`. Component CSS outranks page CSS, so do not restyle a
@@ -70,15 +70,15 @@ option first, with the tag.
 Side by side needs every column to be at least 240px wide, and a figure
 scales to its column there and keeps its natural size in a tab. Give each
 option one line of consequence that is specific to it. After recording a
-choice on Agreed, remove that decision from the next revision.
+choice on Agreed, remove that decision from the next round.
 
 ## Questions and checklists
 
 Use a question when the answer is prose, not a selection. Keep it to one
 sentence and say what the answer decides. Use a drawing question when the
 reviewer needs to sketch a boundary, flow or layout. After recording an
-answer on Agreed, remove the question from the next revision. A question
-left in the revision asks again.
+answer on Agreed, remove the question from the next round. A question
+left in the round asks again.
 
 Start each checklist with no boxes checked, because the agent cannot tell a
 box the reviewer checked from one that started checked. Mark the items the

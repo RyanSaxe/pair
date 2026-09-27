@@ -12,7 +12,7 @@ what is being built and why, and some is in the work, how to build it.
 Ambiguity in the task usually has to close first, because the work depends
 on it, but either kind can surface at any point.
 
-Each revision puts that ambiguity on pages as proposals, options and
+Each round puts that ambiguity on pages as proposals, options and
 questions, with the material needed to judge them. People judge by looking,
 so a page shows its subject with mocks, diagrams, code and diffs, and uses a
 visual decision when the options differ in something the reviewer could
@@ -28,7 +28,7 @@ plan, starting with an overview page. The user accepts it or sends
 feedback. If feedback reopens a settled choice, return to exploration before
 presenting another complete plan.
 
-An engineer or agent who saw none of the revisions and none of the
+An engineer or agent who saw none of the rounds and none of the
 conversation implements the final plan. Every approved look, wording,
 interface and behavior appears in the plan itself, updated to match
 everything agreed after it was shown. An approved mock is shown in the plan,
@@ -36,10 +36,10 @@ not described.
 
 ## Files
 
-- [round.md](../../guide/round.md): the sequence for each revision. The hub's
+- [round.md](../../guide/round.md): the sequence for each round. The hub's
   wake message names `ack`, which points to it.
 - [quality.md](../../guide/quality.md): what makes a page and a plan good.
-  Read it before the first revision.
+  Read it before the first round.
 - [writing.md](../../guide/writing.md): the rules every sentence follows.
 - [session.md](../../guide/session.md): starting, resuming and accepting a
   session. Read it before `start`.
@@ -47,7 +47,7 @@ not described.
   A page copies a component's markup and nothing else.
 - [the components README](../../src/components/README.md): writing a component, when a
   page needs one or the user asks to keep one.
-- [artifact.md](../../guide/artifact.md), [agreements.md](../../guide/agreements.md),
+- [pages.md](../../guide/pages.md), [agreements.md](../../guide/agreements.md),
   [frame.md](../../guide/frame.md) and
   [prototypes.md](../../guide/prototypes.md): the contracts. Look one up
   while building.
@@ -55,7 +55,7 @@ not described.
 
 ## Opening
 
-The session begins in the conversation. Before the first revision, establish
+The session begins in the conversation. Before the first round, establish
 what the user wants, what they do and do not want, what the project shows and
 what remains uncertain. Ask one question at a time and use each answer before
 asking the next question. Move to the browser once there is material to
@@ -63,11 +63,11 @@ compare or approve. When the first Agreed publishes, open the session in the
 user's default browser and give the link in chat. Ask every later question on
 a page.
 
-After the last page of a revision publishes, or after `pause`, the turn ends.
+After the last page of a round publishes, or after `pause`, the turn ends.
 The hub starts another turn when a submission arrives, including an
 acceptance. `complete` ends the review. When `start` refuses because the
 harness cannot receive a wake event, give the user the printed instruction
 and wait for a restart.
 
 An acceptance specifies `save` or `implement`. Follow that mode and the
-project's permissions. Do not change an accepted artifact.
+project's permissions. Do not change an accepted plan.

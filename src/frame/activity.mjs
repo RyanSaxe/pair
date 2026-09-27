@@ -28,7 +28,7 @@ export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
 export function activityModel({
   remote,
   currentSet,
-  submittedRevision,
+  submittedRound,
   inFlight = false,
   now = Date.now(),
 }) {
@@ -45,12 +45,12 @@ export function activityModel({
   const failed = remote?.wake?.last?.ok === false;
   const paused = Boolean(remote?.paused);
   const stopped = failed || paused;
-  const slots = remote?.pageRound
+  const slots = remote?.openRound
     ? [
         { id: "agreed", title: "Agreed so far", state: "ready" },
-        ...remote.pageRound.pages,
+        ...remote.openRound.pages,
       ]
-    : remote?.current?.revision !== submittedRevision
+    : remote?.current?.round !== submittedRound
       ? currentSet?.pages || []
       : [];
   const ready = slots.filter((item) => item.state === "ready").length;
@@ -64,7 +64,7 @@ export function activityModel({
         : slots.length
           ? "Pages in progress"
           : received
-            ? "Preparing the next revision"
+            ? "Preparing the next round"
             : "Waiting for the agent";
   const summary = inFlight
     ? "Saving your comments"
@@ -125,11 +125,11 @@ export function activityModel({
   return { slots, ready, failed, stopped, title, summary, footer, track };
 }
 
-// While a revision's pages are still arriving, the Pages heading says so, so
+// While a round's pages are still arriving, the Pages heading says so, so
 // dim names never sit there without a sign of the agent. The page round
 // exists only until the last page publishes.
 export function roundModel({ remote, now = Date.now() }) {
-  const round = remote?.pageRound;
+  const round = remote?.openRound;
   if (!round) return null;
   const total = round.pages.length + 1;
   const ready = 1 + round.pages.filter((item) => item.state === "ready").length;

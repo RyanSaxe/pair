@@ -1,8 +1,8 @@
 # Run the review session
 
-Keep the session
-directory's path in the conversation so that an interrupted turn can resume
-it. Keep generated artifacts and feedback outside the project's history.
+Keep the session directory's path in the conversation so that an
+interrupted turn can resume it. Keep generated files and feedback outside
+the project's history.
 
 ## Starting
 
@@ -26,8 +26,8 @@ On the first Agreed publication, open the URL in the operating system's
 default browser (macOS `open`, Windows PowerShell `Start-Process`, Linux
 `xdg-open`, with the URL quoted) and give the link in chat, with `hostUrl`
 beside it when `start` printed one. If the launch fails, say so and keep the
-link available. Do not open another tab on later revisions. The open tab
-shows new pages and revisions in place.
+link available. Do not open another tab on later rounds. The open tab
+shows new pages and rounds in place.
 
 ## Resuming
 
@@ -80,8 +80,8 @@ pair complete --session-dir PATH
 
 `complete` returns `nextAction`, `planPath` and any `guidance`. `planPath` is
 the built plan to open in a browser. The same pages, as HTML fragments with
-their prototypes, are in the session's `src/<revision>/<page-id>/` and are
+their prototypes, are in the session's `src/<round>/<page-id>/` and are
 the faster way for an agent to read the plan. Do not infer implementation
 permission from feedback, a recommendation or an acknowledgement. Leave
-accepted artifacts and the acceptance record unchanged. A later change
-requires a new revision and a new review.
+accepted rounds and the acceptance record unchanged. A later change
+requires a new round and a new review.

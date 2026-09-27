@@ -51,12 +51,12 @@ titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
 | planUI.diff(element, input, options) | Render one Git file patch. Input has before, after and patch strings. options.diffStyle is split or unified.                                                       |
 | planUI.prefs.get(key), set(key, v)   | Remember a viewing preference in the browser.                                                                                                                      |
 | planUI.mode                          | live, readonly or preview.                                                                                                                                         |
-| plan:page, plan:theme                | Window events after each page render (detail has page, element and revision) and after a theme change.                                                             |
+| plan:page, plan:theme                | Window events after each page render (detail has page, element and round) and after a theme change.                                                                |
 
 The frame sets `aria-pressed` and checkbox state from the reviewer's draft,
 so do not author `aria-pressed` or `checked`. Group IDs are unique within a
 page across all kinds, and option IDs within a group. When a topic continues
-in the next revision, keep its control IDs and labels so the reviewer's
+in the next round, keep its control IDs and labels so the reviewer's
 unsent draft follows it. Put checklist markup in the page HTML, not in a
 script, so every checklist is in the submission, including lists on pages
 the reviewer never opened. Keep authored controls focusable.

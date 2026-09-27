@@ -14,7 +14,7 @@ const list = (label, touched = false) => ({
   topic: "scope",
   label,
   target: "multiselect-scope-0",
-  revision: "1",
+  round: "1",
   touched,
   options: [{ value: "a", label: "A", checked: true }],
 });
@@ -58,7 +58,7 @@ test("a touched checklist counts once, even when put back", () => {
   );
 });
 
-test("a submit sends every list and the next revision starts them fresh", () => {
+test("a submit sends every list and the next round starts them fresh", () => {
   const draft = draftWith({
     "scope/one": list("One", true),
     "scope/two": list("Two"),
@@ -71,7 +71,7 @@ test("a submit sends every list and the next revision starts them fresh", () => 
   assert.deepEqual(next.choices, {});
 });
 
-test("a touched, unsent list carries over to the next revision", () => {
+test("a touched, unsent list carries over to the next round", () => {
   const draft = draftWith({ "scope/one": list("One", true) });
   const next = loadDraft(JSON.parse(JSON.stringify(draft)), "2");
   assert.equal(next.choices["scope/one"].touched, true);
@@ -86,7 +86,7 @@ test("single choices count as before", () => {
       value: "x",
       valueLabel: "X",
       target: "t",
-      revision: "1",
+      round: "1",
     },
   });
   assert.equal(unsentItems(draft).count, 1);

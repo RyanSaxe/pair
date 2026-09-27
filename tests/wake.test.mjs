@@ -14,10 +14,10 @@ import {
 let hub, home, sessionId, sessionDir, token;
 const wakes = [];
 let wakeFails = false;
-const page = (revision, id) =>
+const page = (round, id) =>
   buildPage(path.join(os.tmpdir(), "wake-page.json"), {
-    artifactId: "t",
-    revision,
+    name: "t",
+    round,
     kind: "exploration",
     title: "T",
     page:
@@ -50,14 +50,14 @@ const act = (data) =>
   );
 const status = async () =>
   (await fetch(`${hub.origin}/s/${sessionId}/api/status`)).json();
-const publishRevision = async (revision) => {
+const publishRound = async (round) => {
   const agreed = await act({
     action: "publish",
-    html: await page(revision, "agreed"),
+    html: await page(round, "agreed"),
     pages: [{ id: "p", title: "P" }],
   });
   assert.ok(agreed.ok, JSON.stringify(agreed.body));
-  return act({ action: "publish", html: await page(revision, "p") });
+  return act({ action: "publish", html: await page(round, "p") });
 };
 
 before(async () => {
@@ -82,14 +82,14 @@ before(async () => {
   token = JSON.parse(
     await fs.readFile(path.join(sessionDir, "connection.json"), "utf8"),
   ).token;
-  assert.ok((await publishRevision("1")).ok);
+  assert.ok((await publishRound("1")).ok);
   const feedback = await post(
     `/s/${sessionId}/api/feedback`,
     {
       sessionId,
       id: "evt1",
-      artifactId: "t",
-      revision: "1",
+      name: "t",
+      round: "1",
       intent: "feedback-only",
       groups: { choices: {}, notes: [] },
       text: "hi",
@@ -105,29 +105,29 @@ after(async () => {
 
 test("the browser can read sent feedback without agent-only paths", async () => {
   const submission = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/submission?revision=1`)
+    await fetch(`${hub.origin}/s/${sessionId}/api/submission?round=1`)
   ).json();
   assert.equal(submission.submission.id, "evt1");
-  assert.equal(submission.submission.revision, "1");
+  assert.equal(submission.submission.round, "1");
   assert.deepEqual(submission.submission.groups.notes, []);
   assert.deepEqual(submission.submission.groups.choices, {});
   const invalid = await fetch(
-    `${hub.origin}/s/${sessionId}/api/submission?revision=..%2Fsecret`,
+    `${hub.origin}/s/${sessionId}/api/submission?round=..%2Fsecret`,
   );
   assert.equal(invalid.status, 400);
 });
 
-test("page progress cannot start before Agreed for the next revision", async () => {
+test("page progress cannot start before Agreed for the next round", async () => {
   const result = await act({
     action: "progress",
     start: ["p"],
   });
   assert.equal(result.status, 409);
-  assert.equal((await status()).pageRound, null);
+  assert.equal((await status()).openRound, null);
 });
 
 test("read returns the oldest unread submission once and marks it read", async () => {
-  assert.equal((await status()).latestSubmissionRevision, "1");
+  assert.equal((await status()).latestSubmissionRound, "1");
   const first = await act({ action: "read" });
   assert.ok(first.ok, JSON.stringify(first.body));
   assert.equal(first.body.event.id, "evt1");
@@ -153,11 +153,11 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
   );
 });
 
-test("a complete page round opens the next revision", async () => {
-  assert.ok((await publishRevision("2")).ok);
+test("a complete page round opens the next round", async () => {
+  assert.ok((await publishRound("2")).ok);
   const view = await status();
   assert.equal(view.stage, "updated");
-  assert.equal(view.pageRound, null);
+  assert.equal(view.openRound, null);
 });
 
 const feedback = (id) =>
@@ -166,8 +166,8 @@ const feedback = (id) =>
     {
       sessionId,
       id,
-      artifactId: "t",
-      revision: "2",
+      name: "t",
+      round: "2",
       intent: "feedback-only",
       groups: { alignUnflagged: true, choices: {}, notes: [] },
       text: "hi",
@@ -180,8 +180,8 @@ test("feedback alignment must be boolean when present", async () => {
     {
       sessionId,
       id: "bad-alignment",
-      artifactId: "t",
-      revision: "2",
+      name: "t",
+      round: "2",
       intent: "feedback-only",
       groups: { alignUnflagged: "yes", choices: {}, notes: [] },
       text: "hi",
@@ -226,12 +226,12 @@ test("a submission wakes the agent with the line that names the session", async 
   assert.equal(wakes.length, 1);
   assert.ok((await feedback("evt2")).ok);
   const view = await settled(2);
-  assert.equal(view.latestSubmissionRevision, "2");
+  assert.equal(view.latestSubmissionRound, "2");
   assert.deepEqual(wakes[1].target, { harness: "codex", thread: "thread-1" });
   assert.match(
     wakes[1].line,
     new RegExp(
-      `^pair: feedback arrived on session ${sessionDir} \\(revision 2\\)\\. Run first: pair ack --session-dir ${sessionDir}\\.`,
+      `^pair: feedback arrived on session ${sessionDir} \\(Round 2\\)\\. Run first: pair ack --session-dir ${sessionDir}\\.`,
     ),
   );
   assert.equal(view.wake.last.ok, true);
