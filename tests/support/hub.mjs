@@ -137,8 +137,12 @@ export async function hub(t, extra = {}) {
       }
       return { code: response.status, body, headers: response.headers };
     };
-    const action = (action, data = {}) =>
-      request(`/agent/${id}/action`, { action, sessionId: id, agent, ...data });
+    const action = (action, data = {}, headers) =>
+      request(
+        `/agent/${id}/action`,
+        { action, sessionId: id, agent, ...data },
+        headers,
+      );
     // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
     const publish = async (data) => {
@@ -188,7 +192,6 @@ export async function hub(t, extra = {}) {
       feedback: (data, headers) =>
         request(`/s/${id}/api/feedback`, data, headers),
       status: () => request(`/s/${id}/api/status`),
-      next: (headers) => request(`/agent/${id}/next`, undefined, headers),
     };
   }
   return {

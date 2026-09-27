@@ -28,7 +28,7 @@ test("two sessions on one hub isolate tokens, events, and acknowledgements", asy
   const event = a.event();
   assert.equal((await b.feedback(event)).code, 409);
   assert.equal((await a.feedback(event)).code, 200);
-  assert.equal((await b.next()).body.event, null);
+  assert.equal((await b.action("read")).body.event, null);
   assert.equal((await b.action("read", { id: event.id })).code, 404);
   assert.equal((await a.action("read")).body.event.id, event.id);
   assert.deepEqual((await b.status()).body.acknowledged, []);
@@ -38,17 +38,15 @@ test("two sessions on one hub isolate tokens, events, and acknowledgements", asy
   );
   assert.equal(
     (
-      await a.next({
-        authorization: `Bearer ${b.connection.token}`,
-      })
+      await a.action(
+        "read",
+        {},
+        { authorization: `Bearer ${b.connection.token}` },
+      )
     ).code,
     403,
   );
-  assert.equal(
-    (await a.request(`/agent/${a.id}/next`, undefined, { authorization: "" }))
-      .code,
-    403,
-  );
+  assert.equal((await a.action("read", {}, { authorization: "" })).code, 403);
   const html = (await a.request(`${a.base}/`)).body;
   assert(html.includes(a.id));
   assert(!html.includes(a.connection.token));
@@ -338,12 +336,11 @@ test("queued rounds keep receipt order", async (t) => {
     second = a.event();
   await a.feedback(first);
   await a.feedback(second);
-  const unread = (await a.next()).body.event;
-  assert.equal(unread.id, first.id);
-  await a.action("read");
-  const next = (await a.next()).body.event;
+  const read = (await a.action("read")).body.event;
+  assert.equal(read.id, first.id);
+  const next = (await a.action("read")).body.event;
   assert.equal(next.id, second.id);
-  assert.equal(next.sequence, unread.sequence + 1);
+  assert.equal(next.sequence, read.sequence + 1);
   assert.equal((await a.status()).body.stage, "working");
 });
 

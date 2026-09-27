@@ -173,14 +173,6 @@ export async function startHub(config = settings()) {
           "Agent token required",
           403,
         );
-        if (method === "GET" && parts[2] === "next")
-          return reply(
-            200,
-            await session.exclusive(async () => ({
-              status: session.view(),
-              event: (await session.pending())[0] || null,
-            })),
-          );
         if (method === "POST" && parts[2] === "action") {
           const data = await readBody(req, 10_000_000);
           return reply(200, await session.exclusive(() => session.act(data)));

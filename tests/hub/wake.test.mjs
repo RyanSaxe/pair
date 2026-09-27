@@ -13,7 +13,6 @@ import {
   sessionDir,
   sessionId,
   status,
-  token,
   wakes,
 } from "../support/wake-hub.mjs";
 
@@ -120,10 +119,6 @@ test("a failed wake is recorded and the submission stays readable", async () => 
   failWakes(false);
   assert.equal(view.wake.last.ok, false);
   assert.equal(view.wake.last.reason, "thread gone");
-  const next = await fetch(`${hub.origin}/agent/${sessionId}/next`, {
-    headers: { authorization: `Bearer ${token}` },
-  }).then((response) => response.json());
-  assert.equal(next.event.id, "evt3");
   assert.equal((await act({ action: "read" })).body.event.id, "evt3");
 });
 
