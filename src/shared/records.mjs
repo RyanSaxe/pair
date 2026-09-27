@@ -213,6 +213,12 @@ export function validPage(record) {
     "Invalid page ID",
   );
   requireValue(titled(page), "Page title is required");
+  // The hub takes the round's offer from Agreed and would ignore one on any
+  // other page, so a page that names one is refused.
+  requireValue(
+    page.id === "agreed" || record.offer === undefined,
+    `page "${page.id}" names an offer. Only Agreed's source names the round's offer.`,
+  );
   requireValue(
     page.id === "agreed"
       ? Array.isArray(page.agreements)

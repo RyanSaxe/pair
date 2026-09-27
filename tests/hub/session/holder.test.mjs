@@ -117,7 +117,7 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   const saved = JSON.parse(await one.run("start"));
   const run = (cli, ...args) =>
     cli.run(...args, "--session-dir", saved.sessionDir);
-  const plan = { name: "example", round: "1", offer: "plan", title: "Plan" };
+  const plan = { name: "example", round: "1", title: "Plan" };
   const files = {
     agreed: {
       id: "agreed",
@@ -130,7 +130,11 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   for (const [id, page] of Object.entries(files))
     await fs.writeFile(
       path.join(home, `${id}.html`),
-      await buildPage(path.join(home, "source.json"), { ...plan, page }),
+      await buildPage(path.join(home, "source.json"), {
+        ...plan,
+        ...(id === "agreed" ? { offer: "plan" } : {}),
+        page,
+      }),
     );
   await fs.writeFile(
     path.join(home, "pages.json"),
@@ -155,6 +159,7 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
       sessionId: saved.sessionId,
       id: crypto.randomUUID(),
       intent: "accept",
+      offer: "plan",
       action: "save",
       groups: {},
       text: "Save it",

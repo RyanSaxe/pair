@@ -8,7 +8,7 @@ import { assemble } from "../../src/build/assemble.mjs";
 import { problems } from "../../src/build/lint.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
-import { exec, pair, root } from "../support/hub.mjs";
+import { exec, pair, root, task } from "../support/hub.mjs";
 
 const data = {
   name: "t",
@@ -142,7 +142,7 @@ test("the build refuses an offer the registry does not define", async () => {
       round: "1",
       offer: "ship",
       title: "T",
-      page: { id: "p", title: "P", html: "<p>x</p>" },
+      page: { id: "agreed", title: "Agreed", agreements: [], task },
     }),
     /Unknown offer "ship"\. The offers are plan, finish\./,
   );
@@ -385,7 +385,6 @@ test("a page source builds a standalone preview", async (t) => {
     JSON.stringify({
       name: "build",
       round: "1",
-      offer: "plan",
       title: "Build",
       page: {
         id: "overview",
