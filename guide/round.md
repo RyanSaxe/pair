@@ -12,7 +12,7 @@ goals. Reread it when a page or the plan needs more than this paragraph.
 
 The hub wakes the agent when the reviewer submits, and the wake message
 names `ack`. Every command is
-`node scripts/session.mjs COMMAND --session-dir PATH`, with the path from the
+`pair COMMAND --session-dir PATH`, with the path from the
 wake message, and every command prints the next step.
 
 ## Tell the reviewer what you are doing
@@ -69,7 +69,7 @@ retired or still open. A recommendation is not an agreement. Read
    leaves the list, and an unchanged page is not repeated. A final plan
    follows the final plan section of quality.md and lists `overview` first.
 2. Build Agreed and publish it with the list before writing any other page:
-   `node scripts/build.mjs SRC/agreed/agreed.json OUT/agreed.html`, then
+   `pair build SRC/agreed/agreed.json OUT/agreed.html`, then
    `publish --file OUT/agreed.html --pages pages.json --source SRC/agreed`.
    [artifact.md](artifact.md) describes the source directories. The reader
    sees Agreed and every page name at once.
@@ -80,7 +80,7 @@ retired or still open. A recommendation is not an agreement. Read
    session's `src/<revision>/<page-id>/` and change its `revision` to this
    one.
 4. Publish each page as soon as it builds:
-   `node scripts/build.mjs SRC/ID/ID.json OUT/ID.html`, then
+   `pair build SRC/ID/ID.json OUT/ID.html`, then
    `publish --file OUT/ID.html --source SRC/ID`. Publishing marks the page
    ready.
    Do not hold finished pages back for one publish at the end.

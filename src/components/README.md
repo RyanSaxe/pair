@@ -2,9 +2,10 @@
 
 A component directory holds `markup.html`, and `styles.css` and
 `behavior.mjs` when the component needs them. The builder reads those three
-files and nothing else, so a directory may also hold a helper the agent
-runs, such as `before-after/diff.mjs`. [the component index](../../guide/components.md) is the
-catalog a plan author reads.
+files and nothing else, so a directory may also hold a helper, such as
+`before-after/diff.mjs`, which `pair diff` runs.
+[guide/components.md](../../guide/components.md) is the catalog a plan
+author reads.
 
 ## Behavior
 
@@ -67,9 +68,3 @@ The builder also reads `$XDG_CONFIG_HOME/interactive-plan/components/`, with
 the skill's component, and a skill update never touches it. To keep a
 page's one-off shape, write `markup.html`, `styles.css` and `behavior.mjs`
 there and move the code out of the page's files.
-
-## Checking a change
-
-The fixture under `scripts/fixture/` renders every component, and its
-`slots` page holds each slot against every kind of element. Open it in both
-themes, at a wide window and at 375px, after changing a component.

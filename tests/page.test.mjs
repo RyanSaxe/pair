@@ -461,12 +461,10 @@ test("the CLI builds and publishes each page with its own saved source", async (
     ).current,
     null,
   );
-  const skill = fileURLToPath(new URL("../src/", import.meta.url));
-  const helper = path.join(skill, "session.mjs");
-  const builder = path.join(skill, "build.mjs");
+  const cli = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
   // The CLI reads its hub from the state directory, so it gets this test's own.
-  const command = (file, args) =>
-    exec(process.execPath, [file, ...args], {
+  const command = (args) =>
+    exec(process.execPath, [cli, ...args], {
       env: { ...process.env, XDG_STATE_HOME: home, INTERACTIVE_PLAN_PORT: "0" },
     });
   const agreedSource = path.join(root, "agreed-source");
@@ -487,13 +485,13 @@ test("the CLI builds and publishes each page with its own saved source", async (
     }),
   );
   const agreedHtml = path.join(root, "agreed.html");
-  await command(builder, [path.join(agreedSource, "agreed.json"), agreedHtml]);
+  await command(["build", path.join(agreedSource, "agreed.json"), agreedHtml]);
   const list = path.join(root, "pages.json");
   await fs.writeFile(
     list,
     JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
   );
-  await command(helper, [
+  await command([
     "publish",
     "--session-dir",
     session,
@@ -506,7 +504,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
   ]);
   const acked = JSON.parse(
     (
-      await command(helper, [
+      await command([
         "ack",
         "--note",
         "Writing the overview page",
@@ -533,11 +531,12 @@ test("the CLI builds and publishes each page with its own saved source", async (
     "<p>Ready by CLI</p>",
   );
   const overviewHtml = path.join(root, "overview-built.html");
-  await command(builder, [
+  await command([
+    "build",
     path.join(overviewSource, "overview.json"),
     overviewHtml,
   ]);
-  await command(helper, [
+  await command([
     "publish",
     "--session-dir",
     session,

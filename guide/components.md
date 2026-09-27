@@ -101,7 +101,7 @@ interactive content inside an option.
 For text or code, generate the input with Git:
 
 ```sh
-node components/before-after/diff.mjs BEFORE AFTER OUTPUT.json
+pair diff BEFORE AFTER OUTPUT.json
 ```
 
 Put that JSON in the markup's `textarea[data-diff-input]` with each `&`

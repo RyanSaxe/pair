@@ -1,7 +1,6 @@
-#!/usr/bin/env node
 import { execFile, execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
@@ -19,6 +18,7 @@ import { choiceText } from "./frame/choices.mjs";
 // whose variables are set decides, in this order.
 const adapters = { copilot, codex, "claude-code": claudeCode };
 const here = fileURLToPath(import.meta.url);
+const cli = path.join(path.dirname(here), "cli.mjs");
 const round = path.resolve(path.dirname(here), "../guide/round.md");
 const sessionDoc = path.resolve(path.dirname(here), "../guide/session.md");
 // The hub runs this file and the adapters, so a change to either restarts it.
@@ -527,7 +527,7 @@ async function loadSession(directory, config, origin) {
       },
     };
   }
-  const command = (name) => `node ${here} ${name} --session-dir ${directory}`;
+  const command = (name) => `pair ${name} --session-dir ${directory}`;
   // Each agent command is a report, and the reviewer sees when the last one
   // came. Only ack carries a note, so any other report clears the last one.
   const report = (note = null) => ({ report: { at: timestamp(), note } });
@@ -2000,7 +2000,7 @@ async function waitFor(check, ms) {
 async function spawnHub(config) {
   await fs.mkdir(config.hubDir, { recursive: true, mode: 0o700 });
   const log = await fs.open(config.hubLog, "a", 0o600);
-  const child = spawn(process.execPath, [here, "hub"], {
+  const child = spawn(process.execPath, [cli, "hub"], {
     detached: true,
     stdio: ["ignore", log.fd, log.fd],
     cwd: os.homedir(),
@@ -2097,7 +2097,7 @@ async function keepSource(sessionDir, source, html) {
 // Codex sets CODEX_SANDBOX for every command, bypassed or not, so only a
 // real refusal from the sandbox earns the advice.
 const sandboxAdvice = () =>
-  `run this command outside the sandbox (escalated), and run \`node ${path.join(path.dirname(here), "check.mjs")} --codex-rules\` once so an allow rule keeps Codex from asking again`;
+  "run this command outside the sandbox (escalated), and run `pair check --codex-rules` once so an allow rule keeps Codex from asking again";
 export function withSandboxHint(message, env = process.env) {
   if (!env.CODEX_SANDBOX || !/\bEPERM\b/.test(message)) return message;
   return `${message}. The sandbox blocked it: ${sandboxAdvice()}`;
@@ -2138,7 +2138,7 @@ export async function main(argv) {
       json({
         ...(await attach(directory, config)),
         next: resuming
-          ? `Run: node ${here} ack --session-dir ${directory}`
+          ? `Run: pair ack --session-dir ${directory}`
           : `When the first revision is ready, publish it as ${round} describes, from "Publish the revision".`,
       }),
     );
@@ -2231,22 +2231,4 @@ export async function main(argv) {
     if (kept) await fs.rm(kept, { recursive: true, force: true });
     throw error;
   }
-}
-// Compare real paths: through the ~/.config symlink the two differ, and a
-// guard on the spelling alone exits without running anything.
-const invoked = (() => {
-  try {
-    return (
-      process.argv[1] &&
-      realpathSync(path.resolve(process.argv[1])) === realpathSync(here)
-    );
-  } catch {
-    return false;
-  }
-})();
-if (invoked) {
-  main(process.argv.slice(2)).catch((error) => {
-    console.error(`interactive-plan: ${withSandboxHint(error.message)}`);
-    process.exitCode = 1;
-  });
 }

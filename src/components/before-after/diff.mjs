@@ -1,9 +1,6 @@
-#!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
@@ -52,35 +49,13 @@ function named(patch, name) {
   return lines.join("\n");
 }
 
-// Compare real paths: the skill is installed through a symlink, and a guard
-// on the spelling alone exits without running anything.
-const invoked = (() => {
-  try {
-    return (
-      Boolean(process.argv[1]) &&
-      realpathSync(path.resolve(process.argv[1])) ===
-        realpathSync(fileURLToPath(import.meta.url))
-    );
-  } catch {
-    return false;
-  }
-})();
-
-if (invoked) {
-  try {
-    const [before, after, output, ...extra] = process.argv.slice(2);
-    if (!before || !after || !output || extra.length)
-      throw Error(
-        "Usage: node components/before-after/diff.mjs BEFORE AFTER OUTPUT.json",
-      );
-    const input = await compareFiles(before, after);
-    await fs.writeFile(output, JSON.stringify(input, null, 2) + "\n", {
-      flag: "wx",
-      mode: 0o600,
-    });
-    console.log(path.resolve(output));
-  } catch (error) {
-    console.error(error.message);
-    process.exitCode = 1;
-  }
+export async function main([before, after, output, ...extra]) {
+  if (!before || !after || !output || extra.length)
+    throw Error("Usage: pair diff BEFORE AFTER OUTPUT.json");
+  const input = await compareFiles(before, after);
+  await fs.writeFile(output, JSON.stringify(input, null, 2) + "\n", {
+    flag: "wx",
+    mode: 0o600,
+  });
+  console.log(path.resolve(output));
 }

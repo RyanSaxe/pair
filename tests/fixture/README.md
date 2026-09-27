@@ -2,18 +2,18 @@
 
 The fixture includes every component and figure with realistic content. The
 builder bundles whatever `components/` holds, so adding a directory there is
-all it takes for the fixture to render it. From the skill directory, build
+all it takes for the fixture to render it. From the repository root, build
 and open a standalone preview:
 
 ```sh
 fixture_dir=$(mktemp -d)
-node scripts/fixture/build.mjs "$fixture_dir/fixture.html"
+node tests/fixture/build.mjs "$fixture_dir/fixture.html"
 open "$fixture_dir/fixture.html"
 ```
 
 On Linux, use `xdg-open` instead of `open`. This assembled fixture has several
 pages but no `page-data` record,
-so the page-only `session.mjs publish` command rejects it. Inspect every page
+so the page-only `pair publish` command rejects it. Inspect every page
 in both themes before shipping a frame or component change. The standalone
 preview does not send feedback to a session.
 

@@ -34,7 +34,7 @@ import {
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const helper = path.join(root, "src/session.mjs");
+const pair = path.join(root, "src/cli.mjs");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exists = (file) =>
   fs.access(file).then(
@@ -143,12 +143,17 @@ test("file comparison preserves exact sources and produces an applicable Git pat
   // The patch names the file, not the scratch paths it was made from.
   assert.match(result.patch, /^diff --git a\/cli\.py b\/cli\.py$/m);
   assert(!result.patch.includes(directory));
-  const patchPath = path.join(directory, "change.patch");
-  await fs.writeFile(patchPath, result.patch);
   // Git hands GIT_DIR to hooks, which would point apply at this repository.
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
   );
+  const output = path.join(directory, "input.json");
+  await exec(process.execPath, [pair, "diff", beforePath, afterPath, output], {
+    env,
+  });
+  assert.deepEqual(JSON.parse(await fs.readFile(output, "utf8")), result);
+  const patchPath = path.join(directory, "change.patch");
+  await fs.writeFile(patchPath, result.patch);
   await exec("git", ["apply", patchPath], {
     cwd: path.dirname(beforePath),
     env,
@@ -611,29 +616,20 @@ test("a page source builds a standalone preview without executing content", asyn
   assert(!html.includes("<!-- FRAME_"));
   assert(!html.includes('src="frame.js"'));
   const output = path.join(directory, "artifact.html");
-  const builder = path.join(path.dirname(helper), "build.mjs");
-  await exec(process.execPath, [builder, source, output]);
+  await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
   await assert.rejects(
-    exec(process.execPath, [builder, source, output]),
+    exec(process.execPath, [pair, "build", source, output]),
     /EEXIST/,
   );
 
-  // The skill is installed through a symlink; the builder must still know
-  // it is the script being run.
-  const link = path.join(directory, "skill");
-  await fs.symlink(path.dirname(path.dirname(helper)), link);
+  // npm installs the command as a symlink to src/cli.mjs.
+  const link = path.join(directory, "pair");
+  await fs.symlink(pair, link);
   const linked = path.join(directory, "linked.html");
-  await exec(process.execPath, [
-    path.join(link, "src", "build.mjs"),
-    source,
-    linked,
-  ]);
+  await exec(process.execPath, [link, "build", source, linked]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
-  await assert.rejects(
-    exec(process.execPath, [path.join(link, "src", "build.mjs")]),
-    /Usage/,
-  );
+  await assert.rejects(exec(process.execPath, [link, "build"]), /Usage/);
 });
 
 test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {
@@ -1091,8 +1087,7 @@ test("agreements survive topic changes and targeted feedback without rewriting s
 test("capability check tests storage, loopback, and the hub port, then cleans up", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-check-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const check = path.join(path.dirname(helper), "check.mjs");
-  const result = await exec(process.execPath, [check, directory], {
+  const result = await exec(process.execPath, [pair, "check", directory], {
     env: { ...process.env, INTERACTIVE_PLAN_PORT: "0" },
   });
   const report = JSON.parse(result.stdout);
@@ -1102,7 +1097,7 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   const h = await hub(t);
   const live = JSON.parse(
     (
-      await exec(process.execPath, [check, directory], {
+      await exec(process.execPath, [pair, "check", directory], {
         env: { ...process.env, INTERACTIVE_PLAN_PORT: String(h.record.port) },
       })
     ).stdout,
@@ -1111,7 +1106,7 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(live.hub.version, version);
   const file = path.join(directory, "not-a-directory");
   await fs.writeFile(file, "preserve");
-  await assert.rejects(exec(process.execPath, [check, file]));
+  await assert.rejects(exec(process.execPath, [pair, "check", file]));
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
@@ -1415,7 +1410,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
       (
         await exec(
           process.execPath,
-          [helper, "read", "--session-dir", a.directory, ...args],
+          [pair, "read", "--session-dir", a.directory, ...args],
           { env: h.env },
         )
       ).stdout,
@@ -1446,7 +1441,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
     (
       await exec(
         process.execPath,
-        [helper, "status", "--session-dir", a.directory],
+        [pair, "status", "--session-dir", a.directory],
         { env: h.env },
       )
     ).stdout,
@@ -1527,9 +1522,12 @@ for (const mode of ["save", "implement"])
     assert.equal((await a.action("complete")).code, 409);
     assert.match(
       (await a.action("ack")).body.next,
-      /^Read the Acceptance section of .*session\.md, then run: node .*session\.mjs read /,
+      /^Read the Acceptance section of .*session\.md, then run: pair read /,
     );
-    assert.match((await a.action("read")).body.next, /^Run: node .*complete/);
+    assert.match(
+      (await a.action("read")).body.next,
+      /^Run: pair complete --session-dir /,
+    );
     const complete = (await a.action("complete")).body;
     assert.equal(complete.nextAction, mode);
     assert.equal(
@@ -1568,7 +1566,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(ack.body.status.report.note, "Reading your feedback");
   assert.match(
     ack.body.next,
-    /^Read .*round\.md in full, then run: node .*session\.mjs read --session-dir /,
+    /^Read .*round\.md in full, then run: pair read --session-dir /,
   );
   // Receiving is not reading: the submission stays unread, so publish waits.
   assert.deepEqual(ack.body.status.acknowledged, []);
@@ -1695,7 +1693,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
     await fs.rm(home, { recursive: true, force: true });
   });
   const first = JSON.parse(
-    (await exec(process.execPath, [helper, "start"], { env })).stdout,
+    (await exec(process.execPath, [pair, "start"], { env })).stdout,
   );
   assert.equal(first.url, `http://127.0.0.1:${port}/s/${first.sessionId}/`);
   assert(first.sessionDir.startsWith(config.sessions));
@@ -1709,7 +1707,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   // once this one is paused.
   await exec(
     process.execPath,
-    [helper, "pause", "--session-dir", first.sessionDir, "--reason", "idle"],
+    [pair, "pause", "--session-dir", first.sessionDir, "--reason", "idle"],
     { env },
   );
   assert.equal(await waitUntil(() => !alive(record.pid), 5000), true);
@@ -1718,7 +1716,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
     (
       await exec(
         process.execPath,
-        [helper, "start", "--session-dir", first.sessionDir],
+        [pair, "start", "--session-dir", first.sessionDir],
         { env },
       )
     ).stdout,
@@ -1739,19 +1737,20 @@ test("the Codex network check installs rules and reports sandbox state", async (
   const a = await h.session();
   const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), "plan-codex-"));
   t.after(() => fs.rm(codexHome, { recursive: true, force: true }));
-  const check = path.join(path.dirname(helper), "check.mjs");
-  await exec(process.execPath, [check, "--codex-rules"], {
+  await exec(process.execPath, [pair, "check", "--codex-rules"], {
     env: { ...h.env, CODEX_HOME: codexHome },
   });
   const rules = await fs.readFile(
     path.join(codexHome, "rules", "interactive-plan.rules"),
     "utf8",
   );
-  assert.equal(rules.match(/^prefix_rule\(pattern=\["node", /gm).length, 3);
-  assert.ok(rules.includes(helper));
+  assert.equal(
+    rules,
+    'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n',
+  );
   const report = JSON.parse(
     (
-      await exec(process.execPath, [check, a.directory], {
+      await exec(process.execPath, [pair, "check", a.directory], {
         env: { ...h.env, CODEX_HOME: codexHome, CODEX_SANDBOX: "seatbelt" },
       })
     ).stdout,
@@ -1818,7 +1817,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
     }),
   );
   const started = JSON.parse(
-    (await exec(process.execPath, [helper, "start"], { env })).stdout,
+    (await exec(process.execPath, [pair, "start"], { env })).stdout,
   );
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(record.pid, dead.pid);
@@ -1833,7 +1832,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   const command = (...args) =>
     exec(
       process.execPath,
-      [helper, ...args, "--session-dir", started.sessionDir],
+      [pair, ...args, "--session-dir", started.sessionDir],
       {
         env,
       },
@@ -1888,7 +1887,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
     (
       await exec(
         process.execPath,
-        [helper, "read", "--session-dir", started.sessionDir],
+        [pair, "read", "--session-dir", started.sessionDir],
         { env },
       )
     ).stdout,

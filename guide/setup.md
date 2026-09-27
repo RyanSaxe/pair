@@ -6,8 +6,7 @@ hub port taken by another program, storage it cannot write, or a sandbox
 that blocks the hub. If Node is unavailable or too old, explain the
 requirement and ask how the user wants to provide it.
 
-When `start` or another command fails, run `node scripts/check.mjs` from the
-skill directory. It checks each part on its own: that session storage is
+When `start` or another command fails, run `pair check`. It checks each part on its own: that session storage is
 writable, that a local HTTP endpoint works and which process owns the hub
 port. It reports the port as `free`, `hub` (with the running hub's code
 version and live session count) or `busy` (another program owns it). An
@@ -28,15 +27,14 @@ to other sessions and to the hub on the fixed port.
 - Codex: the sandbox blocks both operations. The first helper failure
   identifies the sandbox, then the helper runs again with approval. The
   approval reviewer may grant that retry without a prompt. Run
-  `node scripts/check.mjs --codex-rules` once outside the sandbox. It writes
-  `~/.codex/rules/interactive-plan.rules`,
-  a file of the skill's own with allow rules for `node` and the skill's
-  three scripts. A command that matches one runs outside the sandbox on the
+  `pair check --codex-rules` once outside the sandbox. It writes
+  `~/.codex/rules/interactive-plan.rules`, a file of pair's own with an allow
+  rule for `pair`. A command that matches it runs outside the sandbox on the
   first try with nothing to approve. Codex reads the file when it starts, so
   the current session still fails once on each helper command until Codex
   restarts. The check reports whether the file is present.
-- Claude Code: nothing in auto mode. Otherwise allow the helper's `node`
-  command in the permission settings.
+- Claude Code: nothing in auto mode. Otherwise allow the `pair` command in
+  the permission settings.
 - Copilot: nothing beyond the allow flags the session already needs.
 
 Environment variables, all optional:

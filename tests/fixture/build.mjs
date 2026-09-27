@@ -8,7 +8,7 @@ import { assemble } from "../../src/build.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const [output, ...extra] = process.argv.slice(2);
 if (!output || extra.length) {
-  console.error("Usage: node scripts/fixture/build.mjs OUTPUT.html");
+  console.error("Usage: node tests/fixture/build.mjs OUTPUT.html");
   process.exit(1);
 }
 const source = JSON.parse(await fs.readFile(path.join(here, "fixture.json")));

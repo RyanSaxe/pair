@@ -1,13 +1,13 @@
 # Run the review session
 
-Resolve commands relative to the skill directory. Keep the session
+Keep the session
 directory's path in the conversation so that an interrupted turn can resume
 it. Keep generated artifacts and feedback outside the project's history.
 
 ## Starting
 
 ```sh
-node scripts/session.mjs start
+pair start
 ```
 
 `start` starts the hub if none is running, registers the session and prints
@@ -38,7 +38,7 @@ that the hub is alive, retry the same session, and inspect the recorded owner
 before any recovery. Never delete ownership files without reading them.
 
 ```sh
-node scripts/session.mjs ack --session-dir PATH
+pair ack --session-dir PATH
 ```
 
 When the user says in words to stop, run `pause`. The page tells the reader
@@ -47,7 +47,7 @@ A submission to a paused session wakes no one. `read` returns it after
 `start --session-dir PATH` resumes the session.
 
 ```sh
-node scripts/session.mjs pause --session-dir PATH --reason "asked to stop"
+pair pause --session-dir PATH --reason "asked to stop"
 ```
 
 If the user closes the session from the browser, the hub completes it and
@@ -75,7 +75,7 @@ returns them as `groups`. Read them with the plan. If one of them changes an
 agreed requirement, request a new review, as with guidance.
 
 ```sh
-node scripts/session.mjs complete --session-dir PATH
+pair complete --session-dir PATH
 ```
 
 `complete` returns `nextAction`, `planPath` and any `guidance`. `planPath` is

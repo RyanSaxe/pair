@@ -177,7 +177,7 @@ test("the build refuses each structural problem and names it", async () => {
   );
   await refused(
     page(`<pre data-language="diff">- a\n+ b</pre>`),
-    /^page "p": a code block marked diff belongs in before-after\. Run node components\/before-after\/diff\.mjs BEFORE AFTER OUT\.json$/m,
+    /^page "p": a code block marked diff belongs in before-after\. Run pair diff BEFORE AFTER OUT\.json$/m,
   );
   await refused(
     page(`<pre data-language="golang">x</pre>`),

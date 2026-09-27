@@ -1,5 +1,4 @@
-#!/usr/bin/env node
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -158,7 +157,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         // marked as a diff shows neither.
         if (/^(?:diff|patch)$/i.test(attribute(tag, "data-language") || ""))
           list.push(
-            `${at}: a code block marked diff belongs in before-after. Run node components/before-after/diff.mjs BEFORE AFTER OUT.json`,
+            `${at}: a code block marked diff belongs in before-after. Run pair diff BEFORE AFTER OUT.json`,
           );
       }
       const language = attribute(tag, "data-language");
@@ -431,29 +430,10 @@ export async function build(source) {
   return buildPage(source, JSON.parse(await fs.readFile(source, "utf8")));
 }
 
-/** Whether this file is the one Node was asked to run, symlinks resolved. */
-function isMain(argv1 = process.argv[1]) {
-  if (!argv1) return false;
-  try {
-    return (
-      realpathSync(path.resolve(argv1)) ===
-      realpathSync(fileURLToPath(import.meta.url))
-    );
-  } catch {
-    return false;
-  }
-}
-
-if (isMain()) {
-  try {
-    const [source, output, ...extra] = process.argv.slice(2);
-    if (!source || !output || extra.length)
-      throw new Error("Usage: node scripts/build.mjs SOURCE.json OUTPUT.html");
-    const html = await build(path.resolve(source));
-    await fs.writeFile(output, html, { flag: "wx", mode: 0o600 });
-    console.log(path.resolve(output));
-  } catch (error) {
-    console.error(error.message);
-    process.exitCode = 1;
-  }
+export async function main([source, output, ...extra]) {
+  if (!source || !output || extra.length)
+    throw new Error("Usage: pair build SOURCE.json OUTPUT.html");
+  const html = await build(path.resolve(source));
+  await fs.writeFile(output, html, { flag: "wx", mode: 0o600 });
+  console.log(path.resolve(output));
 }

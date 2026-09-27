@@ -5,7 +5,7 @@ directory, holding its JSON source and the files it names. Build it to a
 path outside that directory before publishing:
 
 ```sh
-node scripts/build.mjs SRC/policy/policy.json OUT/policy.html
+pair build SRC/policy/policy.json OUT/policy.html
 ```
 
 The build refuses to overwrite, so build a change to a new path or delete
