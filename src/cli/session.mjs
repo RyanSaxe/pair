@@ -58,6 +58,15 @@ const actions = {
     return action;
   },
   complete: async () => ({}),
+  "side-work": async ({ change, id, title, text, source, state, url }) => ({
+    change,
+    id,
+    title,
+    text,
+    source,
+    state,
+    url,
+  }),
 };
 // The options each command takes. A misspelt option is refused, so a
 // command never runs without a value it was given.
@@ -71,18 +80,37 @@ const commandOptions = {
   pause: ["session-dir", "reason"],
   publish: ["session-dir", "file", "pages", "source"],
   complete: ["session-dir"],
+  // pair side-work names its change first, and update then names the item.
+  "side-work": {
+    add: ["session-dir", "title", "text", "source"],
+    update: ["session-dir", "state", "url"],
+  },
 };
+const sideWorkUsage = `pair side-work takes add or update:
+  pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
+  pair side-work update ID --session-dir PATH --state working|pr|done [--url URL]`;
 export const sessionCommands = Object.keys(commandOptions);
 function argumentsFrom(argv) {
   const [command, ...rest] = argv;
-  const known = commandOptions[command];
+  let known = commandOptions[command];
+  let name = command;
   const options = {};
+  if (command === "side-work") {
+    options.change = rest.shift();
+    requireValue(Object.hasOwn(known, options.change || ""), sideWorkUsage);
+    known = known[options.change];
+    name = `side-work ${options.change}`;
+    if (options.change === "update") {
+      requireValue(rest[0] && !rest[0].startsWith("--"), sideWorkUsage);
+      options.id = rest.shift();
+    }
+  }
   for (let i = 0; i < rest.length; i++) {
     requireValue(rest[i].startsWith("--"), "Options must use --name value");
     const key = rest[i].slice(2);
     requireValue(
       known.includes(key),
-      `--${key} is not an option of pair ${command}, which takes ${known.length ? known.map((name) => `--${name}`).join(", ") : "none"}`,
+      `--${key} is not an option of pair ${name}, which takes ${known.length ? known.map((option) => `--${option}`).join(", ") : "none"}`,
     );
     requireValue(
       rest[i + 1] && !rest[i + 1].startsWith("--"),
@@ -106,15 +134,16 @@ export async function main(argv) {
   }
   let directory =
     options["session-dir"] && path.resolve(options["session-dir"]);
-  // status only reads, so it runs without an agent, as from a plain
-  // terminal, unless the session has to register with a new hub. It still
-  // names the agent when there is one, because a hub that runs older code
-  // answers status only for the holder.
+  // status only reads, and side-work may come from an agent the holder
+  // briefed, so both run without an agent that can be woken, as from a plain
+  // terminal, unless the session has to register with a new hub. status
+  // still names the agent when there is one, because a hub that runs older
+  // code answers status only for the holder.
   let wake = null;
   try {
     wake = detectWake();
   } catch (error) {
-    if (command !== "status") throw error;
+    if (!["status", "side-work"].includes(command)) throw error;
   }
   const register = () => attach(directory, config, (wake ||= detectWake()));
   if (command === "start") {
@@ -200,7 +229,8 @@ export async function main(argv) {
     console.log(json(command === "status" ? result.status : result));
   } catch (error) {
     // A source kept for a publish the hub refused would block the retry.
-    if (action.source)
+    // Side work's source is text for the reviewer, not a kept directory.
+    if (command === "publish" && action.source)
       await fs.rm(action.source, { recursive: true, force: true });
     throw error;
   }
