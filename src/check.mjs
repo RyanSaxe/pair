@@ -4,6 +4,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { componentDirectories, userComponents } from "./build.mjs";
+import { hubInfo, readRecord, settings } from "./session.mjs";
 
 // Codex runs shell commands in a sandbox with no sockets and no writes
 // outside the workspace. An allow rule for pair, in a file of pair's own,
@@ -45,17 +46,10 @@ async function portReport(port) {
     socket.once("error", () => resolve(false));
   });
   if (!busy) return { port, state: "free" };
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/hub`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    const info = await response.json();
-    if (info.hub === true)
-      return { port, state: "hub", version: info.version, live: info.live };
-  } catch {
-    /* Something other than a hub answers on the port. */
-  }
-  return { port, state: "busy" };
+  const info = await hubInfo(port, await readRecord(settings()));
+  return info
+    ? { port, state: "hub", version: info.version, live: info.live }
+    : { port, state: "busy" };
 }
 /* The builder reads a second component root outside pair, so a user keeps
    components of their own across updates to pair. */

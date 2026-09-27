@@ -1735,6 +1735,7 @@ export async function startHub(config = settings()) {
       const method = req.method;
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
+          app: "pair",
           hub: true,
           version,
           pid: process.pid,
@@ -2075,7 +2076,7 @@ export async function startHub(config = settings()) {
   return { origin, hostOrigin, port, secret, close };
 }
 
-async function readRecord(config) {
+export async function readRecord(config) {
   try {
     return await read(config.hubFile);
   } catch (error) {
@@ -2083,13 +2084,18 @@ async function readRecord(config) {
     throw error;
   }
 }
-async function hubInfo(port) {
+// The interactive-plan hub answers /api/hub on the same port with the same
+// fields, so only a reply naming pair is pair's hub. A pair hub whose code
+// predates that field is known instead by the pid in pair's own record.
+export async function hubInfo(port, record) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/api/hub`, {
       signal: AbortSignal.timeout(1500),
     });
     const info = await response.json();
-    return info.hub === true ? info : null;
+    return info.app === "pair" || (record && info.pid === record.pid)
+      ? info
+      : null;
   } catch {
     return null;
   }
@@ -2126,7 +2132,7 @@ async function waitFor(check, ms) {
 async function recordedHub(config) {
   const record = await readRecord(config);
   if (!record) return null;
-  const info = await hubInfo(record.port);
+  const info = await hubInfo(record.port, record);
   return info?.pid === record.pid ? info : null;
 }
 async function spawnHub(config) {
@@ -2153,15 +2159,15 @@ async function spawnHub(config) {
 export async function ensureHub(config = settings()) {
   const record = await readRecord(config);
   const port = record?.port || config.port;
-  let info = port ? await hubInfo(port) : null;
+  let info = port ? await hubInfo(port, record) : null;
   if (!info && record && processAlive(record.pid))
-    info = await waitFor(() => hubInfo(record.port), 5000);
+    info = await waitFor(() => hubInfo(record.port, record), 5000);
   // A hub that answers with no record may still be loading its sessions.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
   if (info && info.version !== version) {
     if (info.live === 0) {
       process.kill(info.pid, "SIGTERM");
-      await waitFor(async () => !(await hubInfo(info.port)), 5000);
+      await waitFor(async () => !(await hubInfo(info.port, record)), 5000);
       info = null;
     } else
       console.error(
