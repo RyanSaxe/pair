@@ -1,0 +1,2 @@
+# Fixture pages carry Mermaid and JSON as text, and reflowing them breaks both.
+tests/fixture/*.html
