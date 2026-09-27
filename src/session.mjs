@@ -480,7 +480,6 @@ async function loadSession(directory, config, origin) {
   // The wake target holds a token or a socket path, so it lives in its own
   // agent-private file and never in a browser response.
   const wakeFile = path.join(directory, "wake.json");
-  let wake = (await exists(wakeFile)) ? await read(wakeFile) : null;
   const transition = async (patch) => {
     const next = { ...state, ...patch, updatedAt: timestamp() };
     await atomic(stateFile, next);
@@ -495,7 +494,7 @@ async function loadSession(directory, config, origin) {
       files.map((name) => read(path.join(directory, "feedback", name))),
     );
   }
-  let sequence = (await events()).reduce(
+  const sequence = (await events()).reduce(
     (last, event) => Math.max(last, event.sequence),
     0,
   );
@@ -520,6 +519,165 @@ async function loadSession(directory, config, origin) {
   // A saved session waits for an agent, so it does not keep the hub running.
   const active = () =>
     !["complete", "saved"].includes(state.stage) && !state.paused;
+  // The parts of a session share this context. A part calls another part's
+  // function through it, so no part depends on the order they are made in.
+  const session = {
+    directory,
+    config,
+    origin,
+    base,
+    exclusive,
+    transition,
+    events,
+    pending,
+    sameRound,
+    view,
+    wakeFile,
+    wake: (await exists(wakeFile)) ? await read(wakeFile) : null,
+    sequence,
+    get state() {
+      return state;
+    },
+  };
+  Object.assign(
+    session,
+    uploads(session),
+    submissions(session),
+    agent(session),
+    rounds(session),
+  );
+  function view() {
+    const { roundPages, holder, formerHolders, ...visible } = state;
+    return {
+      ...visible,
+      // The holder's identity is a socket path or a thread ID, which stays
+      // out of the browser like the rest of the wake target.
+      holder: holder ? { harness: holder.harness, at: holder.at } : null,
+      handoff: session.handoff,
+      ...(state.openRound
+        ? {
+            openRound: {
+              round: state.openRound.round,
+              pages: state.openRound.pages.map(({ id, title, state }) => ({
+                id,
+                title,
+                state,
+              })),
+            },
+          }
+        : {}),
+      rounds: state.rounds || [],
+      wake: state.wake || null,
+      paused: state.paused || null,
+      needsYou: needsYou(),
+    };
+  }
+  async function latestFeedback(requestedRound) {
+    requireValue(
+      requestedRound === null || roundPattern.test(requestedRound),
+      "Invalid round",
+    );
+    const event = requestedRound
+      ? (await events())
+          .filter(
+            (item) =>
+              item.payload.intent === "feedback-only" &&
+              item.payload.round === requestedRound,
+          )
+          .sort((a, b) => b.sequence - a.sequence)[0]
+      : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
+        ? await read(
+            path.join(
+              directory,
+              "feedback",
+              `${state.latestSubmissionId}.json`,
+            ),
+          )
+        : null;
+    if (!event) return null;
+    if (event.payload.intent !== "feedback-only") return null;
+    const { groups, round } = event.payload;
+    return {
+      id: event.id,
+      round,
+      receivedAt: event.receivedAt,
+      groups: {
+        alignUnflagged: groups.alignUnflagged,
+        notes: (groups.notes || []).map(
+          ({ topic, anchor, quote, text, attachments }) => ({
+            topic,
+            anchor,
+            quote,
+            text,
+            attachments: (attachments || []).map(({ id }) => ({ id })),
+          }),
+        ),
+        choices: groups.choices || {},
+        answers: groups.answers || {},
+      },
+    };
+  }
+  function listing() {
+    if (!state.current) return null;
+    return {
+      id: state.sessionId,
+      title: state.current.title,
+      offer: state.current.offer,
+      round: state.current.round,
+      stage: state.stage,
+      needsYou: needsYou(),
+      ...(state.openRound
+        ? {
+            openRound: {
+              ready:
+                1 +
+                (state.openRound.pages || []).filter((item) => item.recordPath)
+                  .length,
+            },
+          }
+        : {}),
+      paused: Boolean(state.paused),
+      publishedAt: state.current.publishedAt,
+      updatedAt: state.updatedAt,
+      url: base + "/",
+    };
+  }
+  return {
+    directory,
+    token,
+    base,
+    get id() {
+      return state.sessionId;
+    },
+    get state() {
+      return state;
+    },
+    exclusive,
+    pending,
+    submit: session.submit,
+    upload: session.upload,
+    readUpload: session.readUpload,
+    uploadScene: session.uploadScene,
+    readScene: session.readScene,
+    removeUpload: session.removeUpload,
+    dismiss: session.dismiss,
+    act: session.act,
+    view,
+    latestFeedback,
+    listing,
+    active,
+    hold: session.hold,
+    roundEntry: session.roundEntry,
+    pageSet: session.pageSet,
+    pageRecord: session.pageRecord,
+    prototype: session.prototype,
+  };
+}
+
+// What the reviewer sends: feedback and acceptances.
+function submissions(session) {
+  const { directory, transition, pending, sameRound, exclusive, view } =
+    session;
   function withDrawingPaths(event) {
     const answers = event.payload.groups?.answers;
     if (
@@ -555,141 +713,12 @@ async function loadSession(directory, config, origin) {
       },
     };
   }
-  const command = (name) => `pair ${name} --session-dir ${directory}`;
-  // Any agent in any harness takes the session over with this line.
-  const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
-  // Each agent command is a report, and the reviewer sees when the last one
-  // came. Only ack carries a note, so any other report clears the last one.
-  const report = (note = null) => ({ report: { at: timestamp(), note } });
-  const receive = (event) =>
-    event && state.lastReceivedId !== event.id
-      ? { lastReceivedId: event.id, receivedAt: timestamp() }
-      : {};
-  const guide = (name) => guideFile(name, config.root);
-  const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
-  const actionAfter = (offer, after) =>
-    offers[offer].accept.actions.find((item) => item.after === after);
-  // Every agent command prints the step after it, so an agent that lost its
-  // place, or skipped round.md, is told where the session stands.
-  async function nextStep() {
-    const [event] = await pending();
-    if (event)
-      return event.payload.intent === "accept"
-        ? `Read ${await offerGuide(event.payload.offer)}, then run: ${command("read")}`
-        : `Read ${await guide("round.md")} in full, then run: ${command("read")}`;
-    if (state.stage === "complete") return "The session is complete.";
-    if (state.stage === "saved") {
-      const { round, offer } = state.current;
-      return `Round ${round} is saved for later, as the ${actionAfter(offer, "saved").id} action in ${await offerGuide(offer)} describes. Say this line in chat, then end your turn: ${handoff}`;
-    }
-    if (state.accepted) {
-      const { round, offer } = state.accepted;
-      const action = actionOf(state.accepted);
-      // A start on the saved round sent this agent on to build it.
-      if (action.after === "saved")
-        return `Round ${round} was saved for later, and you are building it now. Build it as the ${actionAfter(offer, "round").id} action in ${await offerGuide(offer)} describes.`;
-      return `Follow the ${action.id} action in ${await offerGuide(offer)}.`;
-    }
-    if (state.paused)
-      return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
-    if (!state.current)
-      return `When the first round is ready, publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes.`;
-    if (state.openRound) {
-      const left = state.openRound.pages
-        .filter((slot) => !slot.recordPath)
-        .map((slot) =>
-          slot.state === "active" ? `${slot.id} (started)` : slot.id,
-        );
-      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every 5 minutes.`;
-    }
-    if (state.stage === "working")
-      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes. Report with pair ack --note at least every 5 minutes.`;
-    return "The round is with the reviewer. Say in chat what changed if you have not, then end the turn. The hub wakes you when they submit.";
-  }
-  // Runs after the submission is saved, outside the browser's request, so a
-  // slow or failing harness never delays the reviewer's Sent state.
-  async function wakeAgent(round) {
-    const line = `pair: feedback arrived on session ${directory} (Round ${round}). Run first: ${command("ack")}. It prints the next step.`;
-    let last;
-    try {
-      await (config.wake || wakeRunner)(wake, line);
-      last = { at: timestamp(), ok: true };
-    } catch (error) {
-      last = { at: timestamp(), ok: false, reason: error.message };
-    }
-    await transition({ wake: { harness: wake.harness, last } });
-  }
-  /* Closing a session from the browser. complete() refuses without an
-     acceptance, so ending an abandoned session needs its own door. */
-  async function dismiss() {
-    await transition({ stage: "complete", dismissedAt: timestamp() });
-    return { status: view() };
-  }
-  /* The hub names every file, so a caller never chooses a path and a name
-     can never escape the uploads directory. */
-  async function upload(bytes) {
-    const kind = imageKind(bytes);
-    requireValue(kind, "Only PNG, JPEG, WebP and GIF images are accepted", 415);
-    const id = crypto.randomBytes(8).toString("hex");
-    const file = path.join(directory, "uploads", `${id}.${kind.ext}`);
-    await fs.writeFile(file, bytes, { mode: 0o600 });
-    return { id, path: file, type: kind.type, bytes: bytes.length };
-  }
-  async function readUpload(id) {
-    requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID", 404);
-    const held = await fs.readdir(path.join(directory, "uploads"));
-    const name = held.find((entry) => entry.startsWith(`${id}.`));
-    requireValue(name, "No such image", 404);
-    const bytes = await fs.readFile(path.join(directory, "uploads", name));
-    const kind = imageKind(bytes);
-    requireValue(kind, "No such image", 404);
-    return { bytes, type: kind.type };
-  }
-  async function uploadScene(bytes) {
-    let scene;
-    try {
-      scene = JSON.parse(bytes.toString("utf8"));
-    } catch {
-      requireValue(false, "Drawing scene must be JSON");
-    }
-    requireValue(
-      scene?.type === "excalidraw" &&
-        Array.isArray(scene.elements) &&
-        scene.elements.length > 0 &&
-        scene.appState &&
-        typeof scene.appState === "object" &&
-        !Array.isArray(scene.appState) &&
-        scene.files &&
-        typeof scene.files === "object" &&
-        !Array.isArray(scene.files),
-      "Drawing scene must contain Excalidraw elements, appState and files",
-    );
-    const id = crypto.randomBytes(8).toString("hex");
-    const file = path.join(directory, "scenes", `${id}.excalidraw`);
-    await fs.writeFile(file, bytes, { mode: 0o600 });
-    return {
-      id,
-      path: file,
-      type: "application/vnd.excalidraw+json",
-      bytes: bytes.length,
-    };
-  }
-  async function readScene(id) {
-    requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad drawing scene ID", 404);
-    const file = path.join(directory, "scenes", `${id}.excalidraw`);
-    requireValue(await exists(file), "No such drawing scene", 404);
-    return { bytes: await fs.readFile(file), path: file };
-  }
-  /* A note the reviewer removed takes its images with it. */
-  async function removeUpload(id) {
-    requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID");
-    const held = await fs.readdir(path.join(directory, "uploads"));
-    const name = held.find((entry) => entry.startsWith(`${id}.`));
-    if (name) await fs.rm(path.join(directory, "uploads", name));
-    return { id, removed: Boolean(name) };
-  }
   async function submit(data) {
-    requireValue(data.sessionId === state.sessionId, "Wrong session", 409);
+    requireValue(
+      data.sessionId === session.state.sessionId,
+      "Wrong session",
+      409,
+    );
     requireValue(
       idPattern.test(data.id || "") &&
         typeof data.text === "string" &&
@@ -729,8 +758,8 @@ async function loadSession(directory, config, origin) {
             ),
             "Drawing answers require label, topic, round and both file IDs",
           );
-          await readScene(answer.sceneId);
-          const preview = await readUpload(answer.previewId);
+          await session.readScene(answer.sceneId);
+          const preview = await session.readUpload(answer.previewId);
           requireValue(
             preview.type === "image/png",
             "Drawing preview must be PNG",
@@ -815,24 +844,25 @@ async function loadSession(directory, config, origin) {
     );
     if (data.intent === "accept") {
       requireValue(
-        data.offer === state.current.offer,
-        `Round ${state.current.round} does not offer ${data.offer}`,
+        data.offer === session.state.current.offer,
+        `Round ${session.state.current.round} does not offer ${data.offer}`,
         409,
       );
       requireValue(
-        ["ready", "updated"].includes(state.stage) && !(await pending()).length,
+        ["ready", "updated"].includes(session.state.stage) &&
+          !(await pending()).length,
         "Resolve feedback before accepting the current round",
         409,
       );
     }
     requireValue(
-      !state.openRound,
+      !session.state.openRound,
       "Finish every listed page before submitting feedback",
       409,
     );
     await atomic(file, {
       id: data.id,
-      sequence: ++sequence,
+      sequence: ++session.sequence,
       receivedAt: timestamp(),
       payload: data,
     });
@@ -841,7 +871,7 @@ async function loadSession(directory, config, origin) {
       stage:
         after === "saved"
           ? "saved"
-          : data.intent === "feedback-only" && state.stage === "working"
+          : data.intent === "feedback-only" && session.state.stage === "working"
             ? "working"
             : "submitted",
       latestSubmissionId: data.id,
@@ -851,14 +881,365 @@ async function loadSession(directory, config, origin) {
         data.intent === "feedback-only" || after === "round"
           ? data.round
           : null,
-      wake: state.wake ? { ...state.wake, last: null } : null,
+      wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       accepted: null,
       takeover: null,
     });
-    if (wake && !state.paused)
-      setTimeout(() => exclusive(() => wakeAgent(data.round)), 0);
+    if (session.wake && !session.state.paused)
+      setTimeout(() => exclusive(() => session.wakeAgent(data.round)), 0);
     return { id: data.id, saved: true, status: view() };
   }
+  return { withDrawingPaths, submit };
+}
+
+// Images and drawing scenes the reviewer adds to a session.
+function uploads(session) {
+  const { directory } = session;
+  /* The hub names every file, so a caller never chooses a path and a name
+     can never escape the uploads directory. */
+  async function upload(bytes) {
+    const kind = imageKind(bytes);
+    requireValue(kind, "Only PNG, JPEG, WebP and GIF images are accepted", 415);
+    const id = crypto.randomBytes(8).toString("hex");
+    const file = path.join(directory, "uploads", `${id}.${kind.ext}`);
+    await fs.writeFile(file, bytes, { mode: 0o600 });
+    return { id, path: file, type: kind.type, bytes: bytes.length };
+  }
+  async function readUpload(id) {
+    requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID", 404);
+    const held = await fs.readdir(path.join(directory, "uploads"));
+    const name = held.find((entry) => entry.startsWith(`${id}.`));
+    requireValue(name, "No such image", 404);
+    const bytes = await fs.readFile(path.join(directory, "uploads", name));
+    const kind = imageKind(bytes);
+    requireValue(kind, "No such image", 404);
+    return { bytes, type: kind.type };
+  }
+  async function uploadScene(bytes) {
+    let scene;
+    try {
+      scene = JSON.parse(bytes.toString("utf8"));
+    } catch {
+      requireValue(false, "Drawing scene must be JSON");
+    }
+    requireValue(
+      scene?.type === "excalidraw" &&
+        Array.isArray(scene.elements) &&
+        scene.elements.length > 0 &&
+        scene.appState &&
+        typeof scene.appState === "object" &&
+        !Array.isArray(scene.appState) &&
+        scene.files &&
+        typeof scene.files === "object" &&
+        !Array.isArray(scene.files),
+      "Drawing scene must contain Excalidraw elements, appState and files",
+    );
+    const id = crypto.randomBytes(8).toString("hex");
+    const file = path.join(directory, "scenes", `${id}.excalidraw`);
+    await fs.writeFile(file, bytes, { mode: 0o600 });
+    return {
+      id,
+      path: file,
+      type: "application/vnd.excalidraw+json",
+      bytes: bytes.length,
+    };
+  }
+  async function readScene(id) {
+    requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad drawing scene ID", 404);
+    const file = path.join(directory, "scenes", `${id}.excalidraw`);
+    requireValue(await exists(file), "No such drawing scene", 404);
+    return { bytes: await fs.readFile(file), path: file };
+  }
+  /* A note the reviewer removed takes its images with it. */
+  async function removeUpload(id) {
+    requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID");
+    const held = await fs.readdir(path.join(directory, "uploads"));
+    const name = held.find((entry) => entry.startsWith(`${id}.`));
+    if (name) await fs.rm(path.join(directory, "uploads", name));
+    return { id, removed: Boolean(name) };
+  }
+  return { upload, readUpload, uploadScene, readScene, removeUpload };
+}
+
+// The agent's commands, the holder, and the lines that tell the agent what
+// to do next.
+function agent(session) {
+  const { directory, config, transition, pending, sameRound, view } = session;
+  const command = (name) => `pair ${name} --session-dir ${directory}`;
+  // Any agent in any harness takes the session over with this line.
+  const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
+  // Each agent command is a report, and the reviewer sees when the last one
+  // came. Only ack carries a note, so any other report clears the last one.
+  const report = (note = null) => ({ report: { at: timestamp(), note } });
+  const receive = (event) =>
+    event && session.state.lastReceivedId !== event.id
+      ? { lastReceivedId: event.id, receivedAt: timestamp() }
+      : {};
+  const guide = (name) => guideFile(name, config.root);
+  const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
+  const actionAfter = (offer, after) =>
+    offers[offer].accept.actions.find((item) => item.after === after);
+  // Every agent command prints the step after it, so an agent that lost its
+  // place, or skipped round.md, is told where the session stands.
+  async function nextStep() {
+    const [event] = await pending();
+    if (event)
+      return event.payload.intent === "accept"
+        ? `Read ${await offerGuide(event.payload.offer)}, then run: ${command("read")}`
+        : `Read ${await guide("round.md")} in full, then run: ${command("read")}`;
+    if (session.state.stage === "complete") return "The session is complete.";
+    if (session.state.stage === "saved") {
+      const { round, offer } = session.state.current;
+      return `Round ${round} is saved for later, as the ${actionAfter(offer, "saved").id} action in ${await offerGuide(offer)} describes. Say this line in chat, then end your turn: ${handoff}`;
+    }
+    if (session.state.accepted) {
+      const { round, offer } = session.state.accepted;
+      const action = actionOf(session.state.accepted);
+      // A start on the saved round sent this agent on to build it.
+      if (action.after === "saved")
+        return `Round ${round} was saved for later, and you are building it now. Build it as the ${actionAfter(offer, "round").id} action in ${await offerGuide(offer)} describes.`;
+      return `Follow the ${action.id} action in ${await offerGuide(offer)}.`;
+    }
+    if (session.state.paused)
+      return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
+    if (!session.state.current)
+      return `When the first round is ready, publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes.`;
+    if (session.state.openRound) {
+      const left = session.state.openRound.pages
+        .filter((slot) => !slot.recordPath)
+        .map((slot) =>
+          slot.state === "active" ? `${slot.id} (started)` : slot.id,
+        );
+      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every 5 minutes.`;
+    }
+    if (session.state.stage === "working")
+      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page, as ${await guide("round.md")} describes. Report with pair ack --note at least every 5 minutes.`;
+    return "The round is with the reviewer. Say in chat what changed if you have not, then end the turn. The hub wakes you when they submit.";
+  }
+  // Runs after the submission is saved, outside the browser's request, so a
+  // slow or failing harness never delays the reviewer's Sent session.state.
+  async function wakeAgent(round) {
+    const line = `pair: feedback arrived on session ${directory} (Round ${round}). Run first: ${command("ack")}. It prints the next step.`;
+    let last;
+    try {
+      await (config.wake || wakeRunner)(session.wake, line);
+      last = { at: timestamp(), ok: true };
+    } catch (error) {
+      last = { at: timestamp(), ok: false, reason: error.message };
+    }
+    await transition({ wake: { harness: session.wake.harness, last } });
+  }
+  /* Closing a session from the browser. complete() refuses without an
+     acceptance, so ending an abandoned session needs its own door. */
+  async function dismiss() {
+    await transition({ stage: "complete", dismissedAt: timestamp() });
+    return { status: view() };
+  }
+  // The next command of an agent the session was taken from fails, start
+  // included, so it stops instead of publishing over its successor. After
+  // that it is told, like any agent that does not hold the session, how to
+  // take the session over, which it does only when the user asks.
+  async function requireHolder(agent, start = false) {
+    const clock = (at) => new Date(at).toTimeString().slice(0, 5);
+    const former = (session.state.formerHolders || []).find((item) =>
+      sameAgent(item, agent),
+    );
+    if (former) {
+      await transition({
+        formerHolders: session.state.formerHolders.filter(
+          (item) => item !== former,
+        ),
+      });
+      requireValue(
+        false,
+        `Another agent took this session over at ${clock(former.until)}. Stop working on it.`,
+        409,
+      );
+    }
+    if (
+      !start &&
+      session.state.holder &&
+      !sameAgent(session.state.holder, agent)
+    )
+      requireValue(
+        false,
+        `Another agent has held this session since ${clock(session.state.holder.at)}. Stop working on it unless the user asks you to take it over with: ${command("start")}`,
+        409,
+      );
+  }
+  async function act(data) {
+    requireValue(
+      data.sessionId === session.state.sessionId,
+      "Wrong session",
+      409,
+    );
+    await requireHolder(data.agent);
+    if (data.action === "status") return { status: view() };
+    if (data.action === "read") {
+      // With an id, read returns that submission again and changes nothing,
+      // for a turn that resumes after an interruption.
+      if (data.id !== undefined) {
+        requireValue(idPattern.test(data.id || ""), "Submission ID required");
+        const event = await read(
+          path.join(directory, "feedback", data.id + ".json"),
+        );
+        return {
+          status: view(),
+          event: session.withDrawingPaths(event),
+          next: await nextStep(),
+        };
+      }
+      const [event] = await pending();
+      if (!event)
+        return { status: view(), event: null, next: await nextStep() };
+      const patch = {
+        ...report(),
+        ...receive(event),
+        stage: session.state.stage === "saved" ? "saved" : "working",
+        acknowledged: [...session.state.acknowledged, event.id],
+        acknowledgedAt: timestamp(),
+        lastAcknowledgedId: event.id,
+      };
+      if (event.payload.intent === "accept") {
+        requireValue(
+          sameRound(event.payload),
+          "Acceptance no longer matches the current round",
+          409,
+        );
+        patch.accepted = {
+          eventId: event.id,
+          ...session.state.current,
+          action: event.payload.action,
+          ...(event.payload.guidance
+            ? { guidance: event.payload.guidance }
+            : {}),
+          ...(heldItems(event.payload.groups)
+            ? { groups: event.payload.groups }
+            : {}),
+          acceptedAt: event.receivedAt,
+        };
+        await atomic(path.join(directory, "acceptance.json"), patch.accepted);
+      }
+      await transition(patch);
+      return {
+        status: view(),
+        event: session.withDrawingPaths(event),
+        next: await nextStep(),
+      };
+    }
+    if (data.action === "ack") {
+      requireValue(
+        data.note === undefined ||
+          (typeof data.note === "string" && data.note.trim().length <= 80),
+        "An ack note is text of at most 80 characters",
+      );
+      const [event] = await pending();
+      await transition({
+        ...report(data.note?.trim() || null),
+        ...receive(event),
+      });
+      return {
+        status: view(),
+        received: event ? { id: event.id, intent: event.payload.intent } : null,
+        next: await nextStep(),
+      };
+    }
+    if (data.action === "progress") {
+      return session.pageProgress(data);
+    }
+    if (data.action === "pause") {
+      requireValue(
+        typeof data.reason === "string" && data.reason.trim(),
+        "pause requires a reason",
+      );
+      await transition({
+        paused: { at: timestamp(), reason: data.reason.trim() },
+      });
+      return { status: view() };
+    }
+    if (data.action === "publish")
+      return session.publishPage(data.html, data.source, data.pages);
+    if (data.action === "complete") {
+      requireValue(
+        session.state.accepted &&
+          session.state.accepted.sha256 === session.state.current?.sha256 &&
+          !(await pending()).length,
+        "Acknowledge acceptance of the current round before completing",
+        409,
+      );
+      const action = actionOf(session.state.accepted);
+      if (action.after !== "complete")
+        requireValue(
+          false,
+          `${action.label} keeps the session, so it does not complete. ${await nextStep()}`,
+          409,
+        );
+      await transition({ stage: "complete" });
+      return { status: view() };
+    }
+    requireValue(false, "Unknown agent action");
+  }
+  // pair start makes its agent the holder, the one agent the hub wakes. Any
+  // other registration, such as a command reattaching to a new hub, comes
+  // from the holder. start on a saved round builds it, unless the holder
+  // has yet to read the Save: that start resumes an interrupted turn, which
+  // reads the Save and says the handoff line. Once the Save is read, nothing
+  // tells a resumed turn from a request to build, so start builds the plan in
+  // any agent, the holder included, such as a new conversation in the same
+  // Claude Code process.
+  async function hold(target, start) {
+    const agent = identify(target);
+    const held = session.state.holder;
+    const same = sameAgent(held, agent);
+    const unread = (await pending()).length > 0;
+    await requireHolder(agent, start);
+    await atomic(session.wakeFile, target);
+    session.wake = target;
+    const patch = {
+      wake: { harness: target.harness, last: session.state.wake?.last || null },
+      paused: null,
+    };
+    if (!same) {
+      patch.holder = { ...agent, at: timestamp() };
+      // The reviewer's card says who took over, until they next submit.
+      if (held)
+        Object.assign(patch, report(), {
+          takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
+          wake: { harness: target.harness, last: null },
+          formerHolders: [
+            ...(session.state.formerHolders || []),
+            { harness: held.harness, id: held.id, until: patch.holder.at },
+          ],
+        });
+    }
+    // A build clears the failed wake of the Save, so the card follows the
+    // build and not a harness that had exited.
+    const build = start && session.state.stage === "saved" && !(same && unread);
+    if (build)
+      Object.assign(patch, report(), {
+        stage: "working",
+        latestSubmissionRound: session.state.current.round,
+        wake: { harness: target.harness, last: null },
+      });
+    await transition(patch);
+    return build ? buildNext(unread) : null;
+  }
+  // The acceptance keeps its save action, so the line says outright that
+  // this agent builds the plan.
+  async function buildNext(unread) {
+    const { round, offer } = session.state.current;
+    const reading = unread
+      ? command("read")
+      : `${command("read")} --id ${session.state.accepted.eventId}`;
+    return `Round ${round} was saved for later, and you now build it. Read ${await offerGuide(offer)}, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as the ${actionAfter(offer, "round").id} action describes.`;
+  }
+  return { handoff, report, nextStep, wakeAgent, dismiss, act, hold };
+}
+
+// Publishing a round's pages, and reading the rounds a session keeps.
+function rounds(session) {
+  const { directory, origin, base, transition, events, pending, view } =
+    session;
   async function resolvePageAgreements(entries) {
     const submissions = await events();
     for (const entry of entries) {
@@ -959,7 +1340,7 @@ async function loadSession(directory, config, origin) {
   }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);
-    let current = state.current;
+    let current = session.state.current;
     if (!current || current.round !== set.round || complete) {
       let html;
       try {
@@ -968,7 +1349,10 @@ async function loadSession(directory, config, origin) {
         error.statusCode ||= 400;
         throw error;
       }
-      const stored = embedConfig(html, { sessionId: state.sessionId, base });
+      const stored = embedConfig(html, {
+        sessionId: session.state.sessionId,
+        base,
+      });
       const name = complete
         ? `${set.name}.${set.round}.html`
         : `${set.name}.${set.round}.live.html`;
@@ -990,7 +1374,7 @@ async function loadSession(directory, config, origin) {
     }
     const rounds = complete
       ? [
-          ...(state.rounds || []),
+          ...(session.state.rounds || []),
           {
             name: set.name,
             round: set.round,
@@ -1000,11 +1384,11 @@ async function loadSession(directory, config, origin) {
             url: `${base}/r/${encodeURIComponent(set.round)}`,
           },
         ]
-      : state.rounds || [];
+      : session.state.rounds || [];
     await transition({
-      ...report(),
+      ...session.report(),
       openRound: complete ? null : set,
-      roundPages: { ...(state.roundPages || {}), [set.round]: set },
+      roundPages: { ...(session.state.roundPages || {}), [set.round]: set },
       pageSetGeneration: set.generation,
       stage: complete ? "updated" : "working",
       current,
@@ -1016,7 +1400,7 @@ async function loadSession(directory, config, origin) {
       status: view(),
       url: origin + current.url,
       roundComplete: complete,
-      next: await nextStep(),
+      next: await session.nextStep(),
     };
   }
   async function publishPage(html, source, pages) {
@@ -1026,7 +1410,7 @@ async function loadSession(directory, config, origin) {
       409,
     );
     requireValue(
-      ["ready", "working"].includes(state.stage),
+      ["ready", "working"].includes(session.state.stage),
       "Read feedback before publishing a page",
       409,
     );
@@ -1054,17 +1438,19 @@ async function loadSession(directory, config, origin) {
     if (page.id === "agreed") {
       const slots = pageList(pages, record.offer);
       requireValue(
-        !state.openRound,
+        !session.state.openRound,
         "Agreed is already published for this round",
         409,
       );
       requireValue(
-        !(state.rounds || []).some((item) => item.round === record.round),
+        !(session.state.rounds || []).some(
+          (item) => item.round === record.round,
+        ),
         `Round ${record.round} is already used`,
         409,
       );
       await resolvePageAgreements(page.agreements);
-      const previous = state.roundPages?.[state.current?.round];
+      const previous = session.state.roundPages?.[session.state.current?.round];
       orderAgreements(
         page.agreements,
         previous?.agreed
@@ -1083,8 +1469,12 @@ async function loadSession(directory, config, origin) {
         generation: 1,
       };
     } else {
-      requireValue(state.openRound, "Publish Agreed before other pages", 409);
-      set = structuredClone(state.openRound);
+      requireValue(
+        session.state.openRound,
+        "Publish Agreed before other pages",
+        409,
+      );
+      set = structuredClone(session.state.openRound);
       requireValue(
         ["name", "round", "offer", "title"].every(
           (key) => record[key] === set[key],
@@ -1161,11 +1551,11 @@ async function loadSession(directory, config, origin) {
   }
   async function pageProgress(data) {
     requireValue(
-      state.openRound && state.stage === "working",
+      session.state.openRound && session.state.stage === "working",
       "Publish Agreed first",
       409,
     );
-    const set = structuredClone(state.openRound);
+    const set = structuredClone(session.state.openRound);
     requireValue(
       data.pages === undefined &&
         data.done === undefined &&
@@ -1185,292 +1575,10 @@ async function loadSession(directory, config, origin) {
     set.generation++;
     return commitPageRound(set);
   }
-  // The next command of an agent the session was taken from fails, start
-  // included, so it stops instead of publishing over its successor. After
-  // that it is told, like any agent that does not hold the session, how to
-  // take the session over, which it does only when the user asks.
-  async function requireHolder(agent, start = false) {
-    const clock = (at) => new Date(at).toTimeString().slice(0, 5);
-    const former = (state.formerHolders || []).find((item) =>
-      sameAgent(item, agent),
-    );
-    if (former) {
-      await transition({
-        formerHolders: state.formerHolders.filter((item) => item !== former),
-      });
-      requireValue(
-        false,
-        `Another agent took this session over at ${clock(former.until)}. Stop working on it.`,
-        409,
-      );
-    }
-    if (!start && state.holder && !sameAgent(state.holder, agent))
-      requireValue(
-        false,
-        `Another agent has held this session since ${clock(state.holder.at)}. Stop working on it unless the user asks you to take it over with: ${command("start")}`,
-        409,
-      );
-  }
-  async function act(data) {
-    requireValue(data.sessionId === state.sessionId, "Wrong session", 409);
-    await requireHolder(data.agent);
-    if (data.action === "status") return { status: view() };
-    if (data.action === "read") {
-      // With an id, read returns that submission again and changes nothing,
-      // for a turn that resumes after an interruption.
-      if (data.id !== undefined) {
-        requireValue(idPattern.test(data.id || ""), "Submission ID required");
-        const event = await read(
-          path.join(directory, "feedback", data.id + ".json"),
-        );
-        return {
-          status: view(),
-          event: withDrawingPaths(event),
-          next: await nextStep(),
-        };
-      }
-      const [event] = await pending();
-      if (!event)
-        return { status: view(), event: null, next: await nextStep() };
-      const patch = {
-        ...report(),
-        ...receive(event),
-        stage: state.stage === "saved" ? "saved" : "working",
-        acknowledged: [...state.acknowledged, event.id],
-        acknowledgedAt: timestamp(),
-        lastAcknowledgedId: event.id,
-      };
-      if (event.payload.intent === "accept") {
-        requireValue(
-          sameRound(event.payload),
-          "Acceptance no longer matches the current round",
-          409,
-        );
-        patch.accepted = {
-          eventId: event.id,
-          ...state.current,
-          action: event.payload.action,
-          ...(event.payload.guidance
-            ? { guidance: event.payload.guidance }
-            : {}),
-          ...(heldItems(event.payload.groups)
-            ? { groups: event.payload.groups }
-            : {}),
-          acceptedAt: event.receivedAt,
-        };
-        await atomic(path.join(directory, "acceptance.json"), patch.accepted);
-      }
-      await transition(patch);
-      return {
-        status: view(),
-        event: withDrawingPaths(event),
-        next: await nextStep(),
-      };
-    }
-    if (data.action === "ack") {
-      requireValue(
-        data.note === undefined ||
-          (typeof data.note === "string" && data.note.trim().length <= 80),
-        "An ack note is text of at most 80 characters",
-      );
-      const [event] = await pending();
-      await transition({
-        ...report(data.note?.trim() || null),
-        ...receive(event),
-      });
-      return {
-        status: view(),
-        received: event ? { id: event.id, intent: event.payload.intent } : null,
-        next: await nextStep(),
-      };
-    }
-    if (data.action === "progress") {
-      return pageProgress(data);
-    }
-    if (data.action === "pause") {
-      requireValue(
-        typeof data.reason === "string" && data.reason.trim(),
-        "pause requires a reason",
-      );
-      await transition({
-        paused: { at: timestamp(), reason: data.reason.trim() },
-      });
-      return { status: view() };
-    }
-    if (data.action === "publish")
-      return publishPage(data.html, data.source, data.pages);
-    if (data.action === "complete") {
-      requireValue(
-        state.accepted &&
-          state.accepted.sha256 === state.current?.sha256 &&
-          !(await pending()).length,
-        "Acknowledge acceptance of the current round before completing",
-        409,
-      );
-      const action = actionOf(state.accepted);
-      if (action.after !== "complete")
-        requireValue(
-          false,
-          `${action.label} keeps the session, so it does not complete. ${await nextStep()}`,
-          409,
-        );
-      await transition({ stage: "complete" });
-      return { status: view() };
-    }
-    requireValue(false, "Unknown agent action");
-  }
-  function view() {
-    const { roundPages, holder, formerHolders, ...visible } = state;
-    return {
-      ...visible,
-      // The holder's identity is a socket path or a thread ID, which stays
-      // out of the browser like the rest of the wake target.
-      holder: holder ? { harness: holder.harness, at: holder.at } : null,
-      handoff,
-      ...(state.openRound
-        ? {
-            openRound: {
-              round: state.openRound.round,
-              pages: state.openRound.pages.map(({ id, title, state }) => ({
-                id,
-                title,
-                state,
-              })),
-            },
-          }
-        : {}),
-      rounds: state.rounds || [],
-      wake: state.wake || null,
-      paused: state.paused || null,
-      needsYou: needsYou(),
-    };
-  }
-  async function latestFeedback(requestedRound) {
-    requireValue(
-      requestedRound === null || roundPattern.test(requestedRound),
-      "Invalid round",
-    );
-    const event = requestedRound
-      ? (await events())
-          .filter(
-            (item) =>
-              item.payload.intent === "feedback-only" &&
-              item.payload.round === requestedRound,
-          )
-          .sort((a, b) => b.sequence - a.sequence)[0]
-      : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
-        ? await read(
-            path.join(
-              directory,
-              "feedback",
-              `${state.latestSubmissionId}.json`,
-            ),
-          )
-        : null;
-    if (!event) return null;
-    if (event.payload.intent !== "feedback-only") return null;
-    const { groups, round } = event.payload;
-    return {
-      id: event.id,
-      round,
-      receivedAt: event.receivedAt,
-      groups: {
-        alignUnflagged: groups.alignUnflagged,
-        notes: (groups.notes || []).map(
-          ({ topic, anchor, quote, text, attachments }) => ({
-            topic,
-            anchor,
-            quote,
-            text,
-            attachments: (attachments || []).map(({ id }) => ({ id })),
-          }),
-        ),
-        choices: groups.choices || {},
-        answers: groups.answers || {},
-      },
-    };
-  }
-  function listing() {
-    if (!state.current) return null;
-    return {
-      id: state.sessionId,
-      title: state.current.title,
-      offer: state.current.offer,
-      round: state.current.round,
-      stage: state.stage,
-      needsYou: needsYou(),
-      ...(state.openRound
-        ? {
-            openRound: {
-              ready:
-                1 +
-                (state.openRound.pages || []).filter((item) => item.recordPath)
-                  .length,
-            },
-          }
-        : {}),
-      paused: Boolean(state.paused),
-      publishedAt: state.current.publishedAt,
-      updatedAt: state.updatedAt,
-      url: base + "/",
-    };
-  }
-  // pair start makes its agent the holder, the one agent the hub wakes. Any
-  // other registration, such as a command reattaching to a new hub, comes
-  // from the holder. start on a saved round builds it, unless the holder
-  // has yet to read the Save: that start resumes an interrupted turn, which
-  // reads the Save and says the handoff line. Once the Save is read, nothing
-  // tells a resumed turn from a request to build, so start builds the plan in
-  // any agent, the holder included, such as a new conversation in the same
-  // Claude Code process.
-  async function hold(target, start) {
-    const agent = identify(target);
-    const held = state.holder;
-    const same = sameAgent(held, agent);
-    const unread = (await pending()).length > 0;
-    await requireHolder(agent, start);
-    await atomic(wakeFile, target);
-    wake = target;
-    const patch = {
-      wake: { harness: target.harness, last: state.wake?.last || null },
-      paused: null,
-    };
-    if (!same) {
-      patch.holder = { ...agent, at: timestamp() };
-      // The reviewer's card says who took over, until they next submit.
-      if (held)
-        Object.assign(patch, report(), {
-          takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
-          wake: { harness: target.harness, last: null },
-          formerHolders: [
-            ...(state.formerHolders || []),
-            { harness: held.harness, id: held.id, until: patch.holder.at },
-          ],
-        });
-    }
-    // A build clears the failed wake of the Save, so the card follows the
-    // build and not a harness that had exited.
-    const build = start && state.stage === "saved" && !(same && unread);
-    if (build)
-      Object.assign(patch, report(), {
-        stage: "working",
-        latestSubmissionRound: state.current.round,
-        wake: { harness: target.harness, last: null },
-      });
-    await transition(patch);
-    return build ? buildNext(unread) : null;
-  }
-  // The acceptance keeps its save action, so the line says outright that
-  // this agent builds the plan.
-  async function buildNext(unread) {
-    const { round, offer } = state.current;
-    const reading = unread
-      ? command("read")
-      : `${command("read")} --id ${state.accepted.eventId}`;
-    return `Round ${round} was saved for later, and you now build it. Read ${await offerGuide(offer)}, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as the ${actionAfter(offer, "round").id} action describes.`;
-  }
   function roundEntry(round) {
-    const entry = (state.rounds || []).find((item) => item.round === round);
+    const entry = (session.state.rounds || []).find(
+      (item) => item.round === round,
+    );
     if (entry)
       return {
         ...entry,
@@ -1480,12 +1588,12 @@ async function loadSession(directory, config, origin) {
           `${entry.name}.${entry.round}.html`,
         ),
       };
-    if (state.current?.round === round) return state.current;
+    if (session.state.current?.round === round) return session.state.current;
     return null;
   }
   function pageSet(round) {
     requireValue(roundPattern.test(round || ""), "Invalid round");
-    const set = state.roundPages?.[round];
+    const set = session.state.roundPages?.[round];
     requireValue(set, "Unknown round", 404);
     return {
       round,
@@ -1515,7 +1623,7 @@ async function loadSession(directory, config, origin) {
     );
     const slot = manifest.pages.find((item) => item.id === id);
     requireValue(slot && slot.version === version, "Unknown page version", 404);
-    const set = state.roundPages[round];
+    const set = session.state.roundPages[round];
     return read(
       storedPagePath(
         set,
@@ -1536,30 +1644,8 @@ async function loadSession(directory, config, origin) {
     requireValue(false, "Unknown prototype", 404);
   }
   return {
-    directory,
-    token,
-    base,
-    get id() {
-      return state.sessionId;
-    },
-    get state() {
-      return state;
-    },
-    exclusive,
-    pending,
-    submit,
-    upload,
-    readUpload,
-    uploadScene,
-    readScene,
-    removeUpload,
-    dismiss,
-    act,
-    view,
-    latestFeedback,
-    listing,
-    active,
-    hold,
+    publishPage,
+    pageProgress,
     roundEntry,
     pageSet,
     pageRecord,
