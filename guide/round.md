@@ -108,8 +108,10 @@ before changing Agreed.
 
 A published page cannot change in this round. `pair build` is the
 publication check: it lists every structural problem and writes nothing on
-failure. Open a page in a browser only when it has CSS or a script you wrote
-and you cannot judge it from the source.
+failure. It cannot know the round's other pages, so `pair publish` checks
+that each `#` link names a page of the round or an element on its own page,
+and refuses the page when one does not. Open a page in a browser only when
+it has CSS or a script you wrote and you cannot judge it from the source.
 
 ## Side work
 
