@@ -142,13 +142,11 @@
 .shiki[data-more="true"] {
   mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
+/* Component CSS sits inside @scope (#page-content), where :root never
+   matches, so the theme comes from color-scheme, which the frame sets. */
 .shiki,
 .shiki span {
-  color: var(--shiki-light) !important;
-}
-:root[data-theme="dark"] .shiki,
-:root[data-theme="dark"] .shiki span {
-  color: var(--shiki-dark) !important;
+  color: light-dark(var(--shiki-light), var(--shiki-dark)) !important;
 }
 /* A <pre data-language> also matches the frame's generic pre rule and keeps
    the browser's default margin: 1em 0, which base.css never resets; a <div
