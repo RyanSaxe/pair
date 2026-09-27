@@ -1,6 +1,6 @@
 # Components
 
-A component is a directory the builder bundles into every round. Copy
+A component is a directory that `pair build` bundles into every page. Copy
 its `markup.html` into a page and replace the content and IDs. Its styles
 and behavior are already in the frame, so they do not belong in the page's
 `css` or `js`. Component CSS outranks page CSS, so do not restyle a
@@ -23,16 +23,16 @@ component. A component is as wide as the reading column.
 | [prototype](../src/components/prototype/markup.html)               | An approved or proposed interaction        | `data-prototype` naming an entry in the page's `prototypes`. The frame supplies the sandboxed frame, the Source fold and Open full size. See [prototypes.md](prototypes.md). |
 
 When a page needs a shape no component has, build it in the page's own `css`
-and `js`. When the user asks to keep it for later plans, follow
+and `js`. When the reviewer asks to keep it for later plans, follow
 [README.md](../src/components/README.md) to move it into
 `$XDG_CONFIG_HOME/pair/components/<name>/` and say the path.
-Never offer this.
+Never suggest this to the reviewer.
 
 ## Code and figures
 
 `data-language` is the language's name in Shiki, the highlighter: `ts`,
-`python`, `shell`, `json`, or `text` for plain text. The build refuses a
-name Shiki does not know and suggests the nearest one.
+`python`, `shell`, `json`, or `text` for plain text. `pair build` refuses a
+name that is not a Shiki language ID and suggests the nearest one.
 
 `data-file` on a code block adds a header with the file name, the language
 and a Copy button. `data-caption` on code, a diagram or a chart adds a
@@ -44,6 +44,9 @@ caption line, and `data-title` on a chart adds a header.
 | data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                |
 | data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. A speech bubble in the gutter of each named line, opening the note in a popover. Needs no range.     |
 | data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, in the order the colours appear. |
+
+Line numbers count from the block's first line, so name a quoted excerpt's
+real range in `data-caption`, such as `Lines 611-621`.
 
 Use `data-lines` only when the selected range is the subject of the review,
 and `data-notes` only when the exact line needs an explanation. Leave both
@@ -64,9 +67,10 @@ math is inside a JSON string.
 
 Use the visual decision whenever the options differ in something the
 reviewer could see: a layout, a flow, a structure, code, a chart or a
-prototype. Put that figure in each option. Use the plain decision only when a
-title and one line are enough to judge each option. Put the recommended
-option first, with the tag.
+prototype. Put that figure in each option: a diagram, code, a chart, an
+image, a prototype, or a mock drawn in the page's own HTML and CSS with the
+frame's tokens. Use the plain decision only when a title and one line are
+enough to judge each option. Put the recommended option first, with the tag.
 Side by side needs every column to be at least 240px wide, and a figure
 scales to its column there and keeps its natural size in a tab. Give each
 option one line of consequence that is specific to it. After recording a
@@ -75,10 +79,10 @@ choice on Agreed, remove that decision from the next round.
 ## Questions and checklists
 
 Use a question when the answer is prose, not a selection. Keep it to one
-sentence and say what the answer decides. Use a drawing question when the
-reviewer needs to sketch a boundary, flow or layout. After recording an
-answer on Agreed, remove the question from the next round. A question
-left in the round asks again.
+sentence and say which part of the plan the answer settles. Use a drawing
+question when the reviewer needs to sketch a boundary, flow or layout. After
+recording an answer on Agreed, remove the question from the next round,
+because the reviewer reads a question left there as asked again.
 
 Start each checklist with no boxes checked, because the agent cannot tell a
 box the reviewer checked from one that started checked. Mark the items the
@@ -104,6 +108,9 @@ For text or code, generate the input with Git:
 pair diff BEFORE AFTER OUTPUT.json
 ```
 
+Give it the whole files, not excerpts, so the patch numbers each line as the
+file does. Show each file's change as its own diff.
+
 Put that JSON in the markup's `textarea[data-diff-input]` with each `&` written
 as `&amp;` and each `<` as `&lt;`, and put the file name in `data-file` on the
 section. The patch names the file by AFTER's base name, so give the proposed
@@ -127,8 +134,8 @@ wider than the column.
 The text of `data-diagram` is the Mermaid source, one statement per line.
 It is HTML text, like a code block's source: write `&lt;` for `<` and
 `&amp;` for `&`, so a line break in a label is `&lt;br/&gt;`. An unescaped
-`<br/>` becomes an HTML element, and the label loses the break without an
-error. `>` needs no escaping, so `-->` and `->>` stay as written. The build
+`<br/>` becomes an HTML element, and the label renders without the break,
+with no error. `>` needs no escaping, so `-->` and `->>` stay as written. The build
 does not check Mermaid, and a diagram that does not parse shows the error
 under it.
 

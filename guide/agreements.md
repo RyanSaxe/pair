@@ -12,27 +12,30 @@ State it in round 1 from the conversation, and revise it whenever
 feedback changes what is being built. The reviewer reads it and comments
 when it is wrong. Never ask the reviewer to approve it.
 
-| Field  | Contract                                                        |
-| ------ | --------------------------------------------------------------- |
-| title  | What is being built, in a few words.                            |
-| html   | Two or three sentences: the outcome, why, and what is left out. |
-| change | Optional marker for this publication only: `new` or `updated`.  |
+| Field  | Contract                                                                                |
+| ------ | --------------------------------------------------------------------------------------- |
+| title  | What is being built, in a few words.                                                    |
+| html   | Two or three sentences: the outcome, why, and what is left out.                         |
+| change | Optional marker for this publication only: `new` or `updated`. Leave it off in round 1. |
 
 ## Decisions
 
-| Field       | Contract                                                                                     |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| id          | Unique stable agreement ID, preserved when the topic changes.                                |
-| title, html | Concise title and the actual agreement, with exact details as needed.                        |
-| state       | agreed by default. reopened retains prior wording until resolved. retired includes a reason. |
-| change      | Optional marker for this publication only: `new` or `updated`.                               |
-| sourceRefs  | References to choices, notes, answers or conversation context that support the agreement.    |
-| source      | Plain source text when no feedback item can be referenced.                                   |
+| Field       | Contract                                                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id          | Unique stable agreement ID, kept when the topic changes.                                                                                                              |
+| title, html | Concise title and the actual agreement, with exact details as needed.                                                                                                 |
+| state       | `agreed` by default. A `reopened` agreement keeps its earlier wording until it is resolved. A `retired` agreement says why in its `html`.                             |
+| change      | Optional marker for this publication only: `new` or `updated`. Leave it off in round 1, because everything on Agreed is new.                                          |
+| sourceRefs  | References to choices, notes, answers or conversation context that support the agreement.                                                                             |
+| source      | Plain source text when no feedback item can be referenced, or why you made a choice.                                                                                  |
+| href        | Optional http or https URL of a source outside the session, such as an issue or a document. Agreed shows it as an Open source link. The hub refuses any other scheme. |
 
-Each agreement needs `sourceRefs` or `source`. When `groups.alignUnflagged`
-settled a proposal the page stated, name the round and submission ID in
-`source`, state that `groups.alignUnflagged` was true, and explain why the
-comments did not challenge it.
+Each agreement needs `sourceRefs` or `source`. When you decide a choice
+because the reviewer asked you to, cite their note in `sourceRefs` and say
+in `source` that you chose and why. When `groups.alignUnflagged` settled a
+proposal the page stated, name the round and submission ID in `source`,
+state that `groups.alignUnflagged` was true, and explain why the comments
+did not challenge it.
 
 Each reference has a `kind`:
 
@@ -43,32 +46,36 @@ Each reference has a `kind`:
 | answer       | submissionId, answerId | A saved answer to a question component. answerId is the submission's answers key.    |
 | conversation | text                   | Context from the agent conversation, labeled as such.                                |
 
-When Agreed publishes, the publisher resolves each browser reference against
+When Agreed publishes, the hub resolves each browser reference against
 this session's saved submissions and rejects a missing submission or item.
 Do not write `sourceRecords` yourself. Remove old `change` markers on the
 next publication, and do not recreate settled entries to fill the record.
 
-When the agreement settles something the reader saw, such as a look, a
+When the agreement settles something the reviewer saw, such as a look, a
 layout, wording or an interface, its `html` names the material that shows
-it: the round, the page and the figure, prototype or code block. The
-final plan reuses that material, updated to match later agreements.
+it: the round, the page and the figure, prototype or code block. Reuse
+that material in the final plan, updated to match later agreements.
 
-The reader's Preview of an agreement opens the first browser source in
-`sourceRefs`. When agreed material changes in a later round, mark the
-agreement `change: updated`, rewrite its text, and put the newest source
-first.
+When agreed material changes in a later round, mark the agreement
+`change: updated`, rewrite its text, and put the newest source first,
+because the agreement's Preview opens the first browser source in
+`sourceRefs`.
+
+The hub orders Agreed by when each agreement last changed. Agreements whose
+`title`, `html` or `state` differ from the previous round's Agreed come
+first, and agreements that changed in the same round keep the order you
+wrote them in.
 
 A valid source does not make the summary correct. Read the feedback and the
-conversation before writing or changing an agreement. A comment the user
-leaves on an agreement records the agreement's ID and changes nothing on its
-own.
+conversation before writing or changing an agreement. A note on an agreement
+has the agreement's ID in `agreementId`, and the agreement changes only when
+you rewrite it.
 
 ## In a build round
 
-A build round's Agreed holds the task and none of the plan's decisions. It
-does not repeat or link the plan, because the reviewer opens the plan from
-the Rounds dialog. While the round's pages arrive, the frame shows their
-progress at the top of Agreed. Like every page, Agreed never changes once
+A build round's Agreed contains the task and none of the plan's decisions.
+It does not repeat or link the plan, because the reviewer opens the plan
+from the Rounds dialog. Like every page, Agreed never changes once
 published, so state a departure from the plan on the page about that work.
-A follow-up round's Agreed records what the reviewer's comments settled, as
+A follow-up round's Agreed lists what the reviewer's comments settled, as
 in any round.
