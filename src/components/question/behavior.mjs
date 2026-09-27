@@ -28,14 +28,14 @@ planUI.define("question", {
         card.dataset.label,
         card.id,
       );
-      planUI.prefs?.set(key, "1");
+      planUI.prefs.set(key, "1");
       show(true);
     };
     edit.onclick = () => {
-      planUI.prefs?.set(key, "");
+      planUI.prefs.set(key, "");
       show(false);
       area.focus();
     };
-    if (planUI.prefs?.get(key) && area.value.trim()) show(true);
+    if (planUI.prefs.get(key) && area.value.trim()) show(true);
   },
 });

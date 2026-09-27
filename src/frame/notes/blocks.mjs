@@ -94,9 +94,7 @@ export function placeBar() {
   bar.style.height = `${Math.round(box.height)}px`;
 }
 export function chooseBlock(block) {
-  chosen?.classList.remove("is-chosen");
   chosen = block && block !== chosen ? block : null;
-  chosen?.classList.add("is-chosen");
   placeBar();
   commentTarget();
 }

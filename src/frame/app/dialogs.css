@@ -14,10 +14,6 @@ dialog::backdrop {
   gap: 10px;
   margin-bottom: 16px;
 }
-.dialog-head h2 {
-  margin: 0;
-  font-size: 16px;
-}
 .dialog {
   position: fixed;
   inset: 0;
@@ -73,9 +69,6 @@ dialog::backdrop {
   justify-content: space-between;
   gap: 8px;
   margin-top: 18px;
-}
-.dialog .actions .btn {
-  width: auto;
 }
 .dialog-head h2:focus,
 .dialog-head h2:focus-visible {
@@ -281,9 +274,6 @@ dialog::backdrop {
 .session-line[data-closing] {
   opacity: 0.45;
   pointer-events: none;
-}
-.session-dismiss {
-  flex: none;
 }
 @media (max-width: 720px) {
   .dialog {

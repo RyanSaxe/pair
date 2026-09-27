@@ -7,11 +7,6 @@
 .scope-count b {
   color: var(--ink);
 }
-.scope-list .scope-row:first-of-type {
-  border-top: 1px solid var(--line);
-}
-.scope-list {
-}
 .scope-row {
   display: flex;
   align-items: center;

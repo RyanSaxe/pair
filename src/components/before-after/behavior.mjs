@@ -61,12 +61,12 @@ planUI.define("before-after", {
     };
     for (const button of buttons)
       button.onclick = () => {
-        prefs?.set(key, button.dataset.diffStyle);
+        prefs.set(key, button.dataset.diffStyle);
         render(button.dataset.diffStyle);
       };
-    render(prefs?.get(key) || automatic());
+    render(prefs.get(key) || automatic());
     new ResizeObserver(() => {
-      if (prefs?.get(key)) return;
+      if (prefs.get(key)) return;
       const next = automatic();
       if (next !== style) render(next);
     }).observe(root);

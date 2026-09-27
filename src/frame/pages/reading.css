@@ -12,7 +12,6 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  transition: opacity 0.2s ease;
 }
 #reading,
 #feedback {
@@ -252,14 +251,7 @@ body:has(dialog[open]) .quote-button {
     display: inline-block;
   }
   .content {
-    max-width: none;
-    margin: 0;
     /* The last line clears the comment control, which is always on screen. */
     padding: 20px 16px calc(90px + env(safe-area-inset-bottom));
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .content {
-    transition: none;
   }
 }

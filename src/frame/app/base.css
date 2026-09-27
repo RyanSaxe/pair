@@ -8,9 +8,6 @@ body {
 [hidden] {
   display: none !important;
 }
-[popover]:not(:popover-open) {
-  display: none;
-}
 button,
 input,
 textarea,
@@ -139,11 +136,6 @@ kbd {
   --notice-ink: var(--danger);
   --notice-bg: var(--danger-bg);
   --notice-border: var(--danger-border);
-}
-.notice[data-tone="attention"] {
-  --notice-ink: var(--attention);
-  --notice-bg: var(--attention-bg);
-  --notice-border: var(--attention-border);
 }
 .btn {
   display: inline-flex;

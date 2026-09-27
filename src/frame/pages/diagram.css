@@ -22,12 +22,6 @@
   rx: 10px;
   ry: 10px;
 }
-:is([data-diagram], .lightbox) .node.marked > rect,
-:is([data-diagram], .lightbox) .node.marked > polygon {
-  fill: var(--attention-bg) !important;
-  stroke: var(--attention) !important;
-  stroke-width: 1.8px !important;
-}
 :is([data-diagram], .lightbox) .node.linked {
   cursor: pointer;
 }
@@ -60,51 +54,4 @@
   font-size: 10px;
   color: var(--muted);
   background: var(--panel) !important;
-}
-/* A label Mermaid is measuring sits outside the diagram at that moment, so
-   these rules cannot be scoped to one. They carry the diagram- prefix
-   instead: a bare .note here matched the note dialog, which carries
-   class="dialog note", and gave a closed dialog display: block, so it
-   painted over the page and its close control did nothing. */
-.diagram-title {
-  display: block;
-  font-weight: 600;
-}
-.diagram-path {
-  display: inline-block;
-  margin-top: 2px;
-  color: var(--muted) !important;
-  font:
-    10px ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    monospace;
-}
-.diagram-delta {
-  margin-left: 6px;
-  font-size: 10px;
-  font-weight: 600;
-}
-.diagram-delta.add {
-  color: var(--ok) !important;
-}
-.diagram-delta.cut {
-  color: var(--danger) !important;
-}
-.diagram-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 5px;
-  border-radius: 99px;
-  color: var(--accent) !important;
-  background: var(--accent-soft);
-  font-size: 10px;
-  font-weight: 600;
-}
-.diagram-note {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted) !important;
-  font-size: 11px;
 }

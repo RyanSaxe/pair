@@ -51,10 +51,6 @@ export function installEvents() {
       toggleSidecar();
       return;
     }
-    if (event.target.closest("#sidecar-close")) {
-      toggleSidecar(false);
-      return;
-    }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");
     if (comment && $("page-content").contains(comment))

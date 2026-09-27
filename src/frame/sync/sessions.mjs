@@ -113,11 +113,6 @@ function renderSessions() {
     const title = document.createElement("span");
     title.className = "title";
     title.textContent = entry.title;
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "icon-btn session-dismiss";
-    close.setAttribute("aria-label", `Close ${entry.title}`);
-    close.textContent = "✕";
     const words = document.createElement("span");
     words.className = "words";
     const state = document.createElement("em");
@@ -134,6 +129,11 @@ function renderSessions() {
     line.className = "session-line";
     line.append(row);
     if (!current) {
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "icon-btn session-dismiss";
+      close.setAttribute("aria-label", `Close ${entry.title}`);
+      close.textContent = "✕";
       line.append(close);
       close.onclick = async (event) => {
         event.stopPropagation();

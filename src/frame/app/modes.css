@@ -37,6 +37,3 @@
 :root[data-mode="readonly"] [data-question] textarea {
   pointer-events: none;
 }
-:root[data-mode="preview"] .content {
-  margin: 0;
-}

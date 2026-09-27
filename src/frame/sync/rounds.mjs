@@ -247,7 +247,7 @@ function reconcilePages(view, manifest) {
 // A round this reader has not loaded, which its page set then fills in.
 function emptyView(round, { name, offer, title }) {
   const view = {
-    plan: { name, round, offer, title, pages: [], agreements: [] },
+    plan: { name, round, offer, title, pages: [] },
     agreements: [],
     pages: [],
   };

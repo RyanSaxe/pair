@@ -108,7 +108,7 @@ function initialize(section, { planUI }) {
   function applyLayout() {
     // Tabs at every width; side by side is the reviewer's choice, not the
     // author's.
-    let mode = prefs?.get(key) || "tabs";
+    let mode = prefs.get(key) || "tabs";
     if (
       mode !== "columns" ||
       section.clientWidth / options.length < minimumColumn
@@ -142,7 +142,7 @@ function initialize(section, { planUI }) {
   layout.addEventListener("click", (event) => {
     const button = event.target.closest("[data-vd-layout]");
     if (!button) return;
-    prefs?.set(key, button.dataset.vdLayout);
+    prefs.set(key, button.dataset.vdLayout);
     applyLayout();
   });
   new MutationObserver(sync).observe(section, {

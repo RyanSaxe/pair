@@ -330,7 +330,7 @@ function hideArrival() {
   $("page-arrival").hidden = true;
 }
 export function announceArrivals(previousReady) {
-  if (!narrow.matches || !Array.isArray(previousReady)) return;
+  if (!narrow.matches) return;
   const seen = new Set(previousReady);
   const arrived = pages.filter(
     (item) => item.id !== "agreed" && !item.pending && !seen.has(item.id),

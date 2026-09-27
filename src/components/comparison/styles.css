@@ -62,9 +62,6 @@
   color: var(--muted);
   font-style: italic;
 }
-.comparison-content [data-language] {
-  overflow: auto;
-}
 .comparison-content [data-diagram] {
   display: grid;
   place-items: center;

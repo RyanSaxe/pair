@@ -27,9 +27,6 @@
 .frame-header .spacer {
   margin-left: auto;
 }
-.frame-header .small {
-  overflow-wrap: anywhere;
-}
 .header-submit {
   flex: none;
   text-align: center;
@@ -41,7 +38,6 @@
   grid-template-columns: 224px minmax(0, 1fr);
 }
 .sidebar {
-  position: static;
   z-index: var(--z-sidebar);
   display: flex;
   flex-direction: column;
@@ -226,9 +222,6 @@ main {
 /* Narrow screens: the header stays and the page list moves from the sidebar
    into a dialog behind the menu button. */
 @media (max-width: 720px) {
-  .app {
-    max-width: none;
-  }
   .app-body {
     display: block;
     overflow-y: auto;
@@ -243,7 +236,6 @@ main {
     min-height: 100%;
   }
   main {
-    border-right: 0;
     overflow: visible;
     min-height: 100%;
   }

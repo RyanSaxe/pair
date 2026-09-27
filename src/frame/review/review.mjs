@@ -123,7 +123,7 @@ function itemCard({ kind, key, item }) {
     body.append(
       contextLink(
         item.topic,
-        kind === "note" ? item.target : item.target,
+        item.target,
         kind === "note" ? "View" : "Edit on the page",
       ),
     );

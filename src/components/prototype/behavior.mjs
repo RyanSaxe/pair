@@ -15,7 +15,6 @@ planUI.define("prototype", {
     frame.title = prototype.title;
     frame.className = "approved-prototype";
     frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups");
-    frame.setAttribute("allowtransparency", "true");
     frame.style.height = `${prototype.height}px`;
     frame.srcdoc = prototype.html;
     const details = document.createElement("details");
