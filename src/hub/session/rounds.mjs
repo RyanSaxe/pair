@@ -31,7 +31,6 @@ export function rounds(session) {
   const { directory, origin, base, transition, events, pending, view } =
     session;
   async function resolvePageAgreements(entries) {
-    const submissions = await events();
     for (const entry of entries) {
       delete entry.sourceRecords;
       if (!entry.sourceRefs) continue;
@@ -41,7 +40,7 @@ export function rounds(session) {
           entry.sourceRecords.push({ kind: ref.kind, text: ref.text });
           continue;
         }
-        const event = submissions.find((item) => item.id === ref.submissionId);
+        const event = events.find((item) => item.id === ref.submissionId);
         requireValue(event, "Source submission not found");
         const item = sourceItem(event.payload, ref);
         requireValue(

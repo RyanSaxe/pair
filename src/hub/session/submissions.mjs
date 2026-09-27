@@ -1,13 +1,7 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { actionOf, idPattern, offerFor } from "../../shared/records.mjs";
-import {
-  atomic,
-  exists,
-  read,
-  requireValue,
-  timestamp,
-} from "../../shared/util.mjs";
+import { exists, read, requireValue } from "../../shared/util.mjs";
 
 // Every event carries groups, which are often empty. An acceptance record
 // keeps them only when they hold a note, a choice or an answer.
@@ -200,12 +194,7 @@ export function submissions(session) {
       "Finish every listed page before submitting feedback",
       409,
     );
-    await atomic(file, {
-      id: data.id,
-      sequence: ++session.sequence,
-      receivedAt: timestamp(),
-      payload: data,
-    });
+    await session.saveEvent(data);
     const after = data.intent === "accept" ? actionOf(data).after : null;
     await transition({
       stage:

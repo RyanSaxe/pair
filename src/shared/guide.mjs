@@ -17,7 +17,7 @@ const exists = (file) =>
 // are absolute paths, so it never resolves one. The copy lives under the state
 // directory because pair never changes its own files: with npm link, the
 // installed package is the git checkout.
-export async function guideFile(name, stateRoot) {
+async function readGuide() {
   const documents = [
     ...(await fs.readdir(path.join(packageRoot, "guide")))
       .filter((file) => file.endsWith(".md"))
@@ -36,7 +36,16 @@ export async function guideFile(name, stateRoot) {
   const hash = crypto.createHash("sha256").update(`${packageRoot}\0`);
   for (const [index, document] of documents.entries())
     hash.update(`${document}\0${texts[index]}\0`);
-  const copy = path.join(stateRoot, "guide", hash.digest("hex").slice(0, 12));
+  return { documents, texts, name: hash.digest("hex").slice(0, 12) };
+}
+// The hub names a guide file in the next line of every agent command, so a
+// process reads and hashes the guide once rather than for each line. An edit
+// to the guide reaches a running hub when the hub restarts.
+let guide;
+export async function guideFile(name, stateRoot) {
+  guide ||= readGuide();
+  const { documents, texts, name: copyName } = await guide;
+  const copy = path.join(stateRoot, "guide", copyName);
   const named = path.join(copy, "guide", name);
   if (await exists(copy)) return named;
   const temporary = `${copy}.${crypto.randomUUID()}.tmp`;

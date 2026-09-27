@@ -65,20 +65,28 @@ export async function loadSession(directory, config, origin) {
     state = next;
     return state;
   };
-  async function events() {
-    const files = (await fs.readdir(path.join(directory, "feedback"))).filter(
-      (name) => name.endsWith(".json"),
-    );
-    return Promise.all(
-      files.map((name) => read(path.join(directory, "feedback", name))),
-    );
-  }
-  const sequence = (await events()).reduce(
+  // Every submission, read from disk once. saveEvent adds each new one.
+  const events = await Promise.all(
+    (await fs.readdir(path.join(directory, "feedback")))
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => read(path.join(directory, "feedback", name))),
+  );
+  let sequence = events.reduce(
     (last, event) => Math.max(last, event.sequence),
     0,
   );
+  async function saveEvent(payload) {
+    const event = {
+      id: payload.id,
+      sequence: ++sequence,
+      receivedAt: timestamp(),
+      payload,
+    };
+    await atomic(path.join(directory, "feedback", payload.id + ".json"), event);
+    events.push(event);
+  }
   async function pending() {
-    return (await events())
+    return events
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
@@ -108,12 +116,12 @@ export async function loadSession(directory, config, origin) {
     exclusive,
     transition,
     events,
+    saveEvent,
     pending,
     sameRound,
     view,
     wakeFile,
     wake: (await exists(wakeFile)) ? await read(wakeFile) : null,
-    sequence,
     get state() {
       return state;
     },
@@ -157,7 +165,7 @@ export async function loadSession(directory, config, origin) {
       "Invalid round",
     );
     const event = requestedRound
-      ? (await events())
+      ? events
           .filter(
             (item) =>
               item.payload.intent === "feedback-only" &&
