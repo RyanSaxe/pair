@@ -165,7 +165,8 @@ test("a thread refuses an image the session does not have, and a closed session"
 
 test("Agreed cites a thread, and the publisher refuses one that does not exist", async (t) => {
   const { a, start, settled } = await published(t);
-  const { id } = (await start({ quote: "A failed item" })).body.thread;
+  const { id } = (await start({ quote: "A failed item", occurrence: 2 })).body
+    .thread;
   await settled(id);
   assert.equal((await a.feedback(a.event())).code, 200);
   await a.action("read");
@@ -191,5 +192,6 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   assert.equal(record.kind, "thread");
   assert.equal(record.text, "What happens to a failed item?");
   assert.equal(record.quote, "A failed item");
+  assert.equal(record.occurrence, 2);
   assert.equal(record.href, "./example.1.html?target=failure#overview");
 });

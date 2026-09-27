@@ -129,14 +129,49 @@ dialog::backdrop {
    centres, so on a wide screen a control fixed to the window sits hundreds
    of pixels right of the text. Below 1160px the max() is zero and the value
    is the 22px it has always been. */
+/* Start a thread on the left and Add to feedback on the right, on one row
+   at every width. A touch screen has no keys to hint at, and a window too
+   narrow for both hints drops them rather than wrap. */
 .note-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 10px;
 }
-.note-actions .spacer {
+.note-actions .btn.primary {
   margin-left: auto;
+}
+.note-actions kbd {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.8;
+}
+@media (pointer: coarse), (max-width: 400px) {
+  .note-actions kbd {
+    display: none;
+  }
 }
 .note-field {
   position: relative;
+}
+/* The image button sits inside the text field, in room the field's own
+   padding leaves at its foot. */
+.note-field textarea {
+  padding-bottom: 40px;
+}
+.note-image-pick {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
 }
 .dialog.note.dropping .note-field::after {
   content: "Drop to attach";

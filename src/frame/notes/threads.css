@@ -1,0 +1,229 @@
+/* A thread: a card under the block its note is on, in the frame's card
+   style. The #page-content prefix outranks the page's own p rule. */
+pair-thread {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+#page-content pair-thread p {
+  margin: 0;
+  font-size: 12.5px;
+}
+pair-thread[collapsed] {
+  padding-block: 7px;
+}
+pair-thread[collapsed] > :not(.thread-head) {
+  display: none;
+}
+.thread-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.thread-messages {
+  display: grid;
+  gap: 10px;
+}
+.thread-message {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+}
+.thread-avatar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--ground);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.thread-avatar.agent {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.thread-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+#page-content .thread-name {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+#page-content .thread-meta {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.thread-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.thread-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.thread-images .note-image {
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+/* A long message is cut at about twelve lines under a fade, and Show all
+   opens it. */
+.thread-clamp {
+  position: relative;
+}
+.thread-clamp.clamped {
+  max-height: 250px;
+  overflow: hidden;
+}
+.thread-clamp.clamped::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 56px;
+  background: linear-gradient(to bottom, transparent, var(--panel));
+  pointer-events: none;
+}
+.thread-content {
+  display: grid;
+  gap: 6px;
+}
+/* The grid's gap spaces a message's blocks, so none keeps its own margin. */
+.thread-content > * {
+  margin-block: 0;
+}
+.thread-more {
+  justify-self: start;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.thread-sent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.thread-info {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-align: center;
+}
+/* A tooltip has the soft accent ground and ink text, a small shadow
+   instead of a border, and an arrow at the icon that opened it. */
+.thread-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 96px;
+  z-index: 2;
+  width: max-content;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 11.5px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  visibility: hidden;
+}
+.thread-tip::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 16px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent-soft);
+  transform: rotate(45deg);
+}
+.thread-info:is(:hover, :focus-visible) + .thread-tip {
+  visibility: visible;
+}
+#page-content .thread-working {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 11px;
+}
+.thread-working::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: thread-pulse 1.2s ease-in-out infinite;
+}
+@keyframes thread-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .thread-working::before {
+    animation: none;
+  }
+}
+#page-content .thread-bad {
+  color: var(--danger);
+  font-size: 11.5px;
+}
+.thread-status {
+  display: grid;
+  gap: 6px;
+}
+.thread-status:empty {
+  display: none;
+}
+.thread-reply {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.thread-reply textarea {
+  flex: 1;
+  min-height: 0;
+  max-height: 200px;
+  margin: 0;
+  padding: 5px 8px;
+  resize: none;
+  field-sizing: content;
+  background: var(--ground);
+  font-size: 12.5px;
+}
+.thread-reply kbd {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.8;
+}
+@media (pointer: coarse) {
+  .thread-reply kbd {
+    display: none;
+  }
+}

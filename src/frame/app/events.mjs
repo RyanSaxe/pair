@@ -4,6 +4,7 @@ import {
   editable,
   feedbackEditable,
   mode,
+  noteEditable,
   page,
   plan,
   session,
@@ -170,7 +171,7 @@ export function installEvents() {
       next.tabIndex = -1;
       next.focus({ preventScroll: true });
       next.scrollIntoView({ block: "center" });
-    } else if (key === "c" && feedbackEditable() && !$("reading").hidden)
+    } else if (key === "c" && noteEditable() && !$("reading").hidden)
       commentOnTarget();
     else if (key === "r" && editable) show("feedback");
     else if (key === "s" && editable) {

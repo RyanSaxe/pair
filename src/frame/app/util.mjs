@@ -19,6 +19,26 @@ export const hubUnreachable = "The hub is unreachable. Try again shortly.";
 export const unreachable = (error, message = hubUnreachable) =>
   error instanceof TypeError ? message : error.message;
 export const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
+// A note's occurrence is which appearance of its words in its block the
+// reviewer selected, counting from 1. occurrenceAt gives the appearance of
+// needle in text that begins at start or later, and occurrenceIndex gives
+// where an appearance begins, or -1.
+export function occurrenceAt(text, needle, start) {
+  let occurrence = 1;
+  for (
+    let index = text.indexOf(needle);
+    index >= 0 && index < start;
+    index = text.indexOf(needle, index + 1)
+  )
+    occurrence++;
+  return occurrence;
+}
+export function occurrenceIndex(text, needle, occurrence = 1) {
+  let index = text.indexOf(needle);
+  for (let seen = 1; seen < occurrence && index >= 0; seen++)
+    index = text.indexOf(needle, index + 1);
+  return index;
+}
 export const plural = (count, word) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
 // The activity card counts seconds in its first minute, so a fresh report

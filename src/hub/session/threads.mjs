@@ -124,6 +124,13 @@ export function threads(session) {
       [data.quote, data.target, data.agreementId].every(optional),
       "A thread's quote, target and agreement are text",
     );
+    // Which appearance of the quote in its block the reviewer selected,
+    // counting from 1.
+    requireValue(
+      data.occurrence === undefined ||
+        (Number.isInteger(data.occurrence) && data.occurrence > 0),
+      "A thread's occurrence is a whole number from 1",
+    );
     const message = await reviewerMessage(data);
     const thread = {
       id: data.id,
@@ -134,6 +141,7 @@ export function threads(session) {
       anchor: data.anchor.trim(),
       ...(text(data.quote) ? { quote: data.quote.trim() } : {}),
       ...(text(data.target) ? { target: data.target } : {}),
+      ...(data.occurrence > 1 ? { occurrence: data.occurrence } : {}),
       ...(text(data.agreementId) ? { agreementId: data.agreementId } : {}),
       state: "sending",
       readAt: null,

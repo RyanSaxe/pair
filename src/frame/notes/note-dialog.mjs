@@ -1,7 +1,14 @@
-import { save, state } from "#frame/app/store.mjs";
+import { persist, save, state } from "#frame/app/store.mjs";
 import { $, uuid } from "#frame/app/util.mjs";
-import { base, feedbackEditable, page, plan } from "#frame/app/view.mjs";
+import {
+  base,
+  feedbackEditable,
+  noteEditable,
+  page,
+  plan,
+} from "#frame/app/view.mjs";
 import { editing, noteContext, noteDraftKey } from "#frame/notes/notes.mjs";
+import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 
 /* Images on a note. A screenshot pasted from the clipboard has no filename
@@ -123,6 +130,28 @@ export function installNoteDialog() {
       $("note-dialog").classList.remove("dropping");
       if (type === "drop") attach(event.dataTransfer.files);
     });
+  /* Start a thread sends the note to the agent now instead of keeping it
+     for Send feedback or Finish review, so the note leaves the draft and its
+     images stay. */
+  $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
+  $("note-thread").onclick = () => {
+    if (!noteEditable() || $("note-thread").hidden) return;
+    const text = $("note-text").value.trim();
+    if (!text) {
+      $("note-form").reportValidity();
+      return;
+    }
+    startThread(noteContext, text, noteImages);
+    if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
+    noteImagesSaved = true;
+    persist();
+    $("note-dialog").close();
+  };
+  $("note-text").addEventListener("keydown", (event) => {
+    if (!sendKey(event)) return;
+    event.preventDefault();
+    $("note-thread").click();
+  });
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
     if (!feedbackEditable()) return;

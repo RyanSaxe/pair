@@ -25,6 +25,7 @@ function describeRecord(record) {
   const where =
     pages.find((item) => item.id === record.topic)?.title || record.topic;
   if (record.kind === "note") return `your note on ${where}`;
+  if (record.kind === "thread") return `your thread on ${where}`;
   if (record.kind === "answer") return `your answer to “${record.label}”`;
   return `your choice “${record.text}” for ${record.label}`;
 }
@@ -53,6 +54,7 @@ function recordUrl(record, route) {
   const params = new URLSearchParams();
   if (record.target) params.set("target", record.target);
   if (record.quote) params.set("quote", record.quote);
+  if (record.occurrence) params.set("occurrence", record.occurrence);
   const search = params.toString();
   return `${base}/${route}/${encodeURIComponent(record.round)}${search ? "?" + search : ""}#${encodeURIComponent(record.topic)}`;
 }

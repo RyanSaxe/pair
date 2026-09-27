@@ -156,13 +156,6 @@ then measure the same pages again.
 
 ## Features
 
-### Threads
-
-A note can start a thread. The hub stores it and wakes the agent, which
-answers between its current steps with `pair reply`, and the reply appears
-under the note's block without a new round. Today a question about a page
-waits for the round's feedback and costs a full round.
-
 ### Notification center
 
 The bell opens a notification center instead of the Live sessions list.

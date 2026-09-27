@@ -70,6 +70,10 @@ follow the action the reviewer chose.
   but this. When the field is `false` or missing, silence is not agreement.
 - The reviewer anchors a note to one block but may mean it for other
   decisions too. Read each note against every decision.
+- A note on words the reviewer selected has them in `quote`. When those
+  words appear more than once in the note's block, `occurrence` is the
+  number of the one the reviewer selected, such as 2 for the second. A note
+  without `occurrence` is on the first.
 - Open the image at every `attachments` path on a note, and the
   `previewPath` PNG of a drawing answer. `scenePath` names the file with the
   drawing's editable shapes.

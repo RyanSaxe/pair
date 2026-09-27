@@ -83,6 +83,9 @@ export function rounds(session) {
           ...(target ? { target } : {}),
           ...(ref.kind === "choice" ? { choice: item } : {}),
           ...(typeof item.quote === "string" ? { quote: item.quote } : {}),
+          ...(Number.isInteger(item.occurrence) && item.occurrence > 1
+            ? { occurrence: item.occurrence }
+            : {}),
         });
       }
     }
@@ -102,6 +105,7 @@ export function rounds(session) {
       href,
       ...(thread.target ? { target: thread.target } : {}),
       ...(thread.quote ? { quote: thread.quote } : {}),
+      ...(thread.occurrence ? { occurrence: thread.occurrence } : {}),
     };
   }
   const storedPagePath = (set, file) =>

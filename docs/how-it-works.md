@@ -23,6 +23,12 @@ progress card at the top of Agreed says "Could not wake the agent. Send a
 message in chat." and shows the handoff line, which another agent runs to
 take the session over.
 
+A thread wakes the holder too, once for each message you send in it, with a
+line that names the thread and the `pair reply` command that prints it. The
+hub sends it while the session is paused as well, because you are waiting
+for the answer. When that wake fails, the thread's card says "Could not
+reach the agent" and shows the handoff line.
+
 ## Holders and handoff
 
 A session's holder is the agent that last ran `pair start` on it. The hub
@@ -106,8 +112,8 @@ pair stores everything under `$XDG_STATE_HOME/pair/`, or
 - The same directory contains `feedback/`, `uploads/` with the reviewer's
   images, `pages/<round>/` with the published page records,
   `src/<round>/<page-id>/` with each page's source, `rounds/` with the
-  built rounds, `side-work/` with one file for each side-work item, and
-  `acceptance.json` after acceptance.
+  built rounds, `threads/` with one file per thread, `side-work/` with one
+  file for each side-work item, and `acceptance.json` after acceptance.
 
 The hub accepts an image attached to a note in PNG, JPEG, GIF or WebP, which
 it identifies by the file's first bytes rather than its name or

@@ -43,12 +43,26 @@
     <label for="note-text">Feedback</label>
     <div class="note-field">
       <textarea id="note-text" required></textarea>
-    </div>
-    <div class="note-images" id="note-images" hidden></div>
-    <p class="renderer-error" id="note-image-error" hidden></p>
-    <div class="row note-actions">
-      <button class="btn quiet" type="button" id="note-image-pick">
-        Add an image
+      <button
+        class="icon-btn note-image-pick"
+        type="button"
+        id="note-image-pick"
+        aria-label="Add an image"
+        title="Add an image"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="4" width="18" height="16" rx="2.5" />
+          <circle cx="9" cy="10" r="1.8" />
+          <path d="m21 16-5-5-9 9" />
+        </svg>
       </button>
       <input
         type="file"
@@ -57,9 +71,24 @@
         multiple
         hidden
       />
-      <span class="spacer"></span>
-      <button type="submit" class="btn primary" aria-keyshortcuts="Shift+Enter">
-        Add to feedback
+    </div>
+    <div class="note-images" id="note-images" hidden></div>
+    <p class="renderer-error" id="note-image-error" hidden></p>
+    <!-- Start a thread sends the note to the agent now, and Add to feedback
+         keeps it for Send feedback, or Finish review on a round with an
+         offer. Once the round's feedback is sent, only Start a thread shows.
+         The frame fills in the platform's send key. -->
+    <div class="note-actions">
+      <button class="btn" type="button" id="note-thread">
+        Start a thread <kbd data-send-key></kbd>
+      </button>
+      <button
+        type="submit"
+        class="btn primary"
+        id="note-save"
+        aria-keyshortcuts="Shift+Enter"
+      >
+        <span id="note-save-label">Add to feedback</span> <kbd>⇧ ↵</kbd>
       </button>
     </div>
   </form>
@@ -179,6 +208,8 @@
     <dd>Focus Send feedback or Finish review; Enter sends or opens it</dd>
     <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
     <dd>Answer a question or add feedback from its textarea</dd>
+    <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
+    <dd>Start a thread from a note, or send a reply in a thread</dd>
     <dt><kbd>a</kbd></dt>
     <dd>Open Agreed</dd>
     <dt><kbd>Esc</kbd></dt>
