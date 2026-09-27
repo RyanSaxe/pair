@@ -224,11 +224,11 @@ export function agent(session) {
   // pair start makes its agent the holder, the one agent the hub wakes. Any
   // other registration, such as a command reattaching to a new hub, changes
   // nothing when it comes from an agent other than the holder. start on a
-  // saved round builds it, unless the holder has yet to read the Save: that
-  // start resumes an interrupted turn, which reads the Save and says the
-  // handoff line. Once the Save is read, nothing tells a resumed turn from a
-  // request to build, so start builds the plan in any agent, the holder
-  // included, such as a new conversation in the same Claude Code process.
+  // saved round builds it, from any agent and whether or not the Save was
+  // read, with one exception: the holder's own start while its Save is unread
+  // resumes an interrupted turn, which reads the Save and says the handoff
+  // line. Once the holder has read the Save, its start builds too, such as
+  // from a new conversation in the same Claude Code process.
   async function hold(target, start) {
     const agent = identify(target);
     const held = session.state.holder;
