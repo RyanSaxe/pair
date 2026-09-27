@@ -1988,6 +1988,15 @@ async function waitFor(check, ms) {
   }
   return null;
 }
+// A hub answers on its port as soon as it listens, but writes its record
+// only after it has loaded every session on disk, and it cannot register a
+// session before then. So a hub counts as started once its record names it.
+async function recordedHub(config) {
+  const record = await readRecord(config);
+  if (!record) return null;
+  const info = await hubInfo(record.port);
+  return info?.pid === record.pid ? info : null;
+}
 async function spawnHub(config) {
   await fs.mkdir(config.hubDir, { recursive: true, mode: 0o700 });
   const log = await fs.open(config.hubLog, "a", 0o600);
@@ -1998,11 +2007,9 @@ async function spawnHub(config) {
   });
   child.unref();
   await log.close();
-  const started = await waitFor(async () => {
-    const record = await readRecord(config);
-    if (record?.pid === child.pid) return hubInfo(record.port);
-    return config.port ? hubInfo(config.port) : null;
-  }, 15_000);
+  // When another start spawned a hub at the same moment, the one that took
+  // the port is the one the record names.
+  const started = await waitFor(() => recordedHub(config), 15_000);
   requireValue(
     started,
     process.env.CODEX_SANDBOX
@@ -2017,6 +2024,8 @@ export async function ensureHub(config = settings()) {
   let info = port ? await hubInfo(port) : null;
   if (!info && record && processAlive(record.pid))
     info = await waitFor(() => hubInfo(record.port), 5000);
+  // A hub that answers with no record may still be loading its sessions.
+  if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
   if (info && info.version !== version) {
     if (info.live === 0) {
       process.kill(info.pid, "SIGTERM");

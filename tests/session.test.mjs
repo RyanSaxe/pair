@@ -1711,6 +1711,57 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   );
 });
 
+test("start waits for a new hub to load the saved sessions", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-saved-"));
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  const env = cliEnv(home, { PAIR_HUB_PORT: String(port) });
+  const config = settings(env);
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  // A new hub answers on its port before it has loaded these, which takes
+  // it a few hundred milliseconds.
+  await Promise.all(
+    Array.from({ length: 400 }, async () => {
+      const sessionId = crypto.randomUUID();
+      const directory = path.join(config.sessions, sessionId);
+      await fs.mkdir(directory, { recursive: true });
+      await fs.writeFile(
+        path.join(directory, "status.json"),
+        JSON.stringify({
+          sessionId,
+          stage: "ready",
+          current: null,
+          acknowledged: [],
+          accepted: null,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    }),
+  );
+  const start = () =>
+    exec(process.execPath, [pair, "start"], { env }).then(({ stdout }) =>
+      JSON.parse(stdout),
+    );
+  // The first start spawns the hub. The second arrives while it loads.
+  const first = start();
+  assert.equal(
+    await waitUntil(() =>
+      fetch(`http://127.0.0.1:${port}/api/hub`).then(
+        () => true,
+        () => false,
+      ),
+    ),
+    true,
+  );
+  for (const session of await Promise.all([first, start()]))
+    assert.equal(
+      session.url,
+      `http://127.0.0.1:${port}/s/${session.sessionId}/`,
+    );
+});
+
 test("the Codex network check installs rules and reports sandbox state", async (t) => {
   const h = await hub(t);
   const a = await h.session();
