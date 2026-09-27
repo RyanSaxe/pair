@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { readPlanData } from "../shared/records.mjs";
+import { jsonScript, jsonScriptTag, scriptJson } from "../shared/util.mjs";
 import {
   componentBehaviors,
   componentRoots,
@@ -79,9 +80,7 @@ export async function assemble(
       "Custom CSS/JS cannot contain HTML closing style/script tags; escape the less-than character in strings.",
     );
   const html = shell
-    .replace("<!-- DRAWING_EDITOR -->", () =>
-      JSON.stringify(drawingEditor).replaceAll("<", "\\u003c"),
-    )
+    .replace("<!-- DRAWING_EDITOR -->", () => scriptJson(drawingEditor))
     .replace(
       "<!-- FRAME_STYLE -->",
       // The cascade ranks an unlayered rule above every layered one, so the
@@ -106,18 +105,20 @@ export async function assemble(
       "<!-- CUSTOM_SCRIPT -->",
       () => `<script type="module">\n${js}\n</script>`,
     )
-    .replace(
-      /(<script type="application\/json" id="plan-data">)[\s\S]*?(<\/script>)/,
-      (_, start, end) =>
-        start + JSON.stringify(data).replaceAll("<", "\\u003c") + end,
-    );
+    .replace(jsonScript("plan-data"), () => jsonScriptTag("plan-data", data));
   readPlanData(html);
   return html;
 }
 // Rounds reuse page IDs, and the reader keeps several rounds loaded, so
 // page CSS and scripts match the round as well as the page.
-export function pageScope(id, round) {
+function pageScope(id, round) {
   return `#page-content[data-page-id="${id}"][data-round="${round}"]`;
+}
+export function pageStyles(pages, round) {
+  return pages
+    .filter((page) => page.cssText)
+    .map((page) => `@scope (${pageScope(page.id, round)}) { ${page.cssText} }`)
+    .join("\n");
 }
 export function pageScripts(pages, round) {
   return pages

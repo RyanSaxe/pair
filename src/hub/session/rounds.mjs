@@ -1,6 +1,12 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import {
+  assemble,
+  frameBundle,
+  pageScripts,
+  pageStyles,
+} from "../../build/assemble.mjs";
 import { choiceText } from "../../frame/choices.mjs";
 import {
   idPattern,
@@ -11,9 +17,10 @@ import {
   sourceItem,
 } from "../../shared/records.mjs";
 import {
-  configScript,
+  atomic,
   embedConfig,
   json,
+  jsonScript,
   read,
   requireValue,
   timestamp,
@@ -77,8 +84,6 @@ export function rounds(session) {
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));
   async function renderPageRound(set, complete) {
-    const { assemble, pageScope, pageScripts } =
-      await import("../../build/assemble.mjs");
     const bundle = await read(storedPagePath(set, set.bundlePath));
     const agreed = await read(storedPagePath(set, set.agreed));
     const records = await Promise.all(
@@ -97,13 +102,6 @@ export function rounds(session) {
       working: slot.state === "active",
     }));
     const all = [agreed.page, ...records.map((record) => record.page)];
-    const css = all
-      .filter((page) => page.cssText)
-      .map(
-        (page) =>
-          `@scope (${pageScope(page.id, set.round)}) { ${page.cssText} }`,
-      )
-      .join("\n");
     const data = {
       name: set.name,
       round: set.round,
@@ -116,7 +114,7 @@ export function rounds(session) {
       prototypes: all.flatMap((page) => page.prototypes || []),
     };
     return assemble(data, {
-      css,
+      css: pageStyles(all, set.round),
       js: pageScripts(all, set.round),
       allowUnknownPages: !complete,
       bundle,
@@ -141,9 +139,7 @@ export function rounds(session) {
         ? `${set.name}.${set.round}.html`
         : `${set.name}.${set.round}.live.html`;
       const file = path.join(directory, "rounds", name);
-      const temporary = `${file}.${crypto.randomUUID()}.tmp`;
-      await fs.writeFile(temporary, stored, { mode: 0o600, flag: "wx" });
-      await fs.rename(temporary, file);
+      await atomic(file, stored);
       current = {
         name: set.name,
         round: set.round,
@@ -205,11 +201,11 @@ export function rounds(session) {
       "Source must be a directory inside the session directory",
     );
     requireValue(
-      configScript.test(html),
+      jsonScript("session-config").test(html),
       "HTML requires a session-config JSON script",
     );
     requireValue(
-      /\bid=["']page-data["']/.test(html),
+      jsonScript("page-data").test(html),
       "HTML requires a page-data JSON script",
     );
     const record = pageData(html);
@@ -306,7 +302,6 @@ export function rounds(session) {
       set.agreedVersion = version;
       // The round keeps the frame it started with, so an update to
       // pair mid-round cannot mix two frames in one built file.
-      const { frameBundle } = await import("../../build/assemble.mjs");
       set.bundlePath = path.join(
         recordDir,
         `frame.${crypto.randomUUID()}.json`,

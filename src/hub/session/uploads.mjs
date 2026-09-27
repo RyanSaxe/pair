@@ -6,6 +6,11 @@ import { exists, requireValue } from "../../shared/util.mjs";
 // Images and drawing scenes the reviewer adds to a session.
 export function uploads(session) {
   const { directory } = session;
+  // An upload is named by its ID and the extension of its type.
+  async function uploadName(id) {
+    const names = await fs.readdir(path.join(directory, "uploads"));
+    return names.find((entry) => entry.startsWith(`${id}.`));
+  }
   /* The hub names every file, so a caller never chooses a path and a name
      can never escape the uploads directory. */
   async function upload(bytes) {
@@ -18,8 +23,7 @@ export function uploads(session) {
   }
   async function readUpload(id) {
     requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID", 404);
-    const held = await fs.readdir(path.join(directory, "uploads"));
-    const name = held.find((entry) => entry.startsWith(`${id}.`));
+    const name = await uploadName(id);
     requireValue(name, "No such image", 404);
     const bytes = await fs.readFile(path.join(directory, "uploads", name));
     const kind = imageKind(bytes);
@@ -64,12 +68,18 @@ export function uploads(session) {
   /* A note the reviewer removed takes its images with it. */
   async function removeUpload(id) {
     requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID");
-    const held = await fs.readdir(path.join(directory, "uploads"));
-    const name = held.find((entry) => entry.startsWith(`${id}.`));
+    const name = await uploadName(id);
     if (name) await fs.rm(path.join(directory, "uploads", name));
     return { id, removed: Boolean(name) };
   }
-  return { upload, readUpload, uploadScene, readScene, removeUpload };
+  return {
+    uploadName,
+    upload,
+    readUpload,
+    uploadScene,
+    readScene,
+    removeUpload,
+  };
 }
 /* An image is identified by its leading bytes, not by a Content-Type a
    caller sets or an extension a name carries. Anything else is refused, so

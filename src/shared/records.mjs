@@ -1,12 +1,17 @@
 import { offers } from "./offers.mjs";
-import { requireValue } from "./util.mjs";
+import { jsonScript, requireValue } from "./util.mjs";
 
 export const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export const roundPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$/;
+// A page ID is valid, not yet used in its round, and not one of the two the
+// frame reserves.
+const freePageId = (id, ids) =>
+  idPattern.test(id || "") &&
+  !["agreed", "feedback"].includes(id) &&
+  !ids.has(id);
+const titled = (item) => typeof item.title === "string" && item.title.trim();
 export function readPlanData(html) {
-  const match = html.match(
-    /<script\b(?=[^>]*\bid=["']plan-data["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/i,
-  );
+  const match = html.match(jsonScript("plan-data"));
   requireValue(
     match,
     'HTML requires an application/json script with id="plan-data"',
@@ -130,15 +135,11 @@ function validPlan(data) {
   }
   for (const page of data.pages) {
     requireValue(
-      idPattern.test(page.id || "") &&
-        !["agreed", "feedback"].includes(page.id) &&
-        !ids.has(page.id),
+      freePageId(page.id, ids),
       "Page IDs must be unique; agreed and feedback are reserved",
     );
     requireValue(
-      typeof page.title === "string" &&
-        page.title.trim() &&
-        typeof page.html === "string",
+      titled(page) && typeof page.html === "string",
       "Pages require title and html",
     );
     ids.add(page.id);
@@ -194,9 +195,7 @@ function validTask(task) {
   );
 }
 export function pageData(html) {
-  const match = html.match(
-    /<script\b(?=[^>]*\bid=["']page-data["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/i,
-  );
+  const match = html.match(jsonScript("page-data"));
   requireValue(match, "Invalid page record");
   let record;
   try {
@@ -213,10 +212,7 @@ export function validPage(record) {
     idPattern.test(page.id || "") && page.id !== "feedback",
     "Invalid page ID",
   );
-  requireValue(
-    typeof page.title === "string" && page.title.trim(),
-    "Page title is required",
-  );
+  requireValue(titled(page), "Page title is required");
   requireValue(
     page.id === "agreed"
       ? Array.isArray(page.agreements)
@@ -266,12 +262,7 @@ export function pageList(items, offer) {
   const ids = new Set();
   for (const item of items) {
     requireValue(
-      item &&
-        idPattern.test(item.id || "") &&
-        !["agreed", "feedback"].includes(item.id) &&
-        !ids.has(item.id) &&
-        typeof item.title === "string" &&
-        item.title.trim(),
+      item && freePageId(item.id, ids) && titled(item),
       "Page IDs and titles must be valid and unique",
     );
     ids.add(item.id);

@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { assemble, pageScope, pageScripts } from "../build/assemble.mjs";
+import { assemble, pageScripts, pageStyles } from "../build/assemble.mjs";
 import { problems } from "../build/lint.mjs";
 import { pagePlan, validPage } from "../shared/records.mjs";
+import { jsonScriptTag } from "../shared/util.mjs";
 
 export async function buildPage(source, input) {
   const read = (file) =>
@@ -37,9 +38,6 @@ export async function buildPage(source, input) {
     );
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
-  const css = page.cssText
-    ? `@scope (${pageScope(page.id, record.round)}) { ${page.cssText} }`
-    : "";
   // assemble checks the script the frame runs, which carries the page's own
   // script encoded, so the page's script is checked here as written.
   const authoredProblems = problems(data, page.jsText || "", {
@@ -47,14 +45,13 @@ export async function buildPage(source, input) {
   });
   if (authoredProblems.length) throw new Error(authoredProblems.join("\n"));
   const preview = await assemble(data, {
-    css,
+    css: pageStyles([page], record.round),
     js: pageScripts([page], record.round),
     allowUnknownPages: true,
   });
   return preview.replace(
     "</body>",
-    () =>
-      `<script type="application/json" id="page-data">${JSON.stringify(record).replaceAll("<", "\\u003c")}</script></body>`,
+    () => `${jsonScriptTag("page-data", record)}</body>`,
   );
 }
 export async function build(source) {

@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { actionOf, idPattern, offerFor } from "../../shared/records.mjs";
@@ -126,11 +125,6 @@ export function submissions(session) {
        image this session holds, so a submission cannot point the agent at a
        path the hub never wrote. */
     if (Array.isArray(data.groups.notes)) {
-      const held = new Set(
-        (await fs.readdir(path.join(directory, "uploads"))).map((name) =>
-          name.slice(0, name.indexOf(".")),
-        ),
-      );
       for (const note of data.groups.notes) {
         if (note?.attachments === undefined) continue;
         requireValue(
@@ -147,7 +141,7 @@ export function submissions(session) {
             "An attachment needs id, path, type and bytes",
           );
           requireValue(
-            held.has(item.id),
+            await session.uploadName(item.id),
             `Image ${item.id} is not in this session`,
           );
         }
