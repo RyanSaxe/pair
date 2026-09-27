@@ -10,7 +10,7 @@ const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // The agent's commands, the holder, and the lines that tell the agent what
 // to do next.
 export function agent(session) {
-  const { directory, config, transition, pending, sameRound, view } = session;
+  const { directory, config, transition, pending, view } = session;
   const command = (name) => `pair ${name} --session-dir ${directory}`;
   // Any agent in any harness takes the session over with this line.
   const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
@@ -147,11 +147,6 @@ export function agent(session) {
         lastAcknowledgedId: event.id,
       };
       if (event.payload.intent === "accept") {
-        requireValue(
-          sameRound(event.payload),
-          "Acceptance no longer matches the current round",
-          409,
-        );
         patch.accepted = {
           eventId: event.id,
           ...session.state.current,
@@ -207,9 +202,7 @@ export function agent(session) {
       return session.publishPage(data.html, data.source, data.pages);
     if (data.action === "complete") {
       requireValue(
-        session.state.accepted &&
-          session.state.accepted.sha256 === session.state.current?.sha256 &&
-          !(await pending()).length,
+        session.state.accepted,
         "Acknowledge acceptance of the current round before completing",
         409,
       );

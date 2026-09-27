@@ -90,7 +90,7 @@ async function spawnHub(config) {
   );
   return started;
 }
-export async function ensureHub(config = settings()) {
+async function ensureHub(config = settings()) {
   const record = await readRecord(config);
   const port = record?.port || config.port;
   let info = port ? await hubInfo(port, record) : null;

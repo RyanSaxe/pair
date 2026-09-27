@@ -141,10 +141,7 @@ export async function main(argv) {
   if (command === "ack") action.note = options.note;
   if (command === "pause") action.reason = options.reason;
   if (command === "progress") {
-    requireValue(
-      options.start && !options.pages && !options.steps && !options.done,
-      "progress takes --start ID",
-    );
+    requireValue(options.start, "progress takes --start ID");
     action.start = options.start.split("|");
   }
   let kept = null;

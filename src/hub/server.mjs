@@ -204,8 +204,7 @@ export async function startHub(config = settings()) {
           return html(
             await roundPage(
               session,
-              session.roundEntry(session.state.current.round) ||
-                session.state.current,
+              session.roundEntry(session.state.current.round),
               session.state.dismissedAt ? { closed: true } : {},
             ),
             {

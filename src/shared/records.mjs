@@ -197,9 +197,10 @@ export function pageData(html) {
   const match = html.match(
     /<script\b(?=[^>]*\bid=["']page-data["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/i,
   );
+  requireValue(match, "Invalid page record");
   let record;
   try {
-    record = JSON.parse(match ? match[1] : html);
+    record = JSON.parse(match[1]);
   } catch {
     requireValue(false, "Invalid page record");
   }

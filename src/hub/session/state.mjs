@@ -222,7 +222,6 @@ export async function loadSession(directory, config, origin) {
     };
   }
   return {
-    directory,
     token,
     base,
     get id() {

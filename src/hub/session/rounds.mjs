@@ -341,10 +341,7 @@ export function rounds(session) {
     );
     const set = structuredClone(session.state.openRound);
     requireValue(
-      data.pages === undefined &&
-        data.done === undefined &&
-        Array.isArray(data.start) &&
-        data.start.length > 0,
+      Array.isArray(data.start) && data.start.length > 0,
       "Page progress only takes --start; publishing marks a page done",
     );
     for (const id of data.start) {

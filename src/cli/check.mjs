@@ -93,9 +93,6 @@ export async function main([argument]) {
           storage: base,
           components: await componentReport(),
           hub: port ? await portReport(port) : { port, state: "os-assigned" },
-          browser:
-            "Check available agent tools or ask for manual browser review",
-          renderers: "Check required renderers in the actual browser",
           ...(codex
             ? {
                 codex: {
