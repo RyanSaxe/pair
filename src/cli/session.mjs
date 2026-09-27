@@ -32,6 +32,34 @@ async function keepSource(sessionDir, source, html) {
   await fs.cp(path.resolve(source), target, { recursive: true });
   return target;
 }
+// The action each command sends the hub, from its options. start registers
+// with the hub instead, and hub is the command start spawns.
+const actions = {
+  status: async () => ({}),
+  read: async (options) => ({ id: options.id }),
+  ack: async (options) => ({ note: options.note }),
+  progress: async (options) => {
+    requireValue(options.start, "progress takes --start ID");
+    return { start: options.start.split("|") };
+  },
+  pause: async (options) => ({ reason: options.reason }),
+  publish: async (options) => {
+    requireValue(options.file, "publish requires --file HTML");
+    const html = await fs.readFile(path.resolve(options.file), "utf8");
+    const action = { html };
+    if (options.pages)
+      action.pages = (await read(path.resolve(options.pages))).pages;
+    if (options.source)
+      action.source = await keepSource(
+        options["session-dir"],
+        options.source,
+        html,
+      );
+    return action;
+  },
+  complete: async () => ({}),
+};
+export const sessionCommands = ["start", "hub", ...Object.keys(actions)];
 function argumentsFrom(argv) {
   const [command, ...rest] = argv;
   const options = {};
@@ -131,35 +159,14 @@ export async function main(argv) {
     );
     return result;
   }
-  const action = { action: command };
-  if (command === "status")
-    return console.log(json((await request(action)).status));
-  if (command === "read") action.id = options.id;
-  if (command === "ack") action.note = options.note;
-  if (command === "pause") action.reason = options.reason;
-  if (command === "progress") {
-    requireValue(options.start, "progress takes --start ID");
-    action.start = options.start.split("|");
-  }
-  let kept = null;
-  if (command === "publish") {
-    requireValue(options.file, "publish requires --file HTML");
-    action.html = await fs.readFile(path.resolve(options.file), "utf8");
-    if (options.pages)
-      action.pages = (await read(path.resolve(options.pages))).pages;
-    if (options.source) {
-      kept = await keepSource(
-        options["session-dir"],
-        options.source,
-        action.html,
-      );
-      action.source = kept;
-    }
-  }
+  const action = { action: command, ...(await actions[command](options)) };
   try {
-    console.log(json(await request(action)));
+    const result = await request(action);
+    console.log(json(command === "status" ? result.status : result));
   } catch (error) {
-    if (kept) await fs.rm(kept, { recursive: true, force: true });
+    // A source kept for a publish the hub refused would block the retry.
+    if (action.source)
+      await fs.rm(action.source, { recursive: true, force: true });
     throw error;
   }
 }

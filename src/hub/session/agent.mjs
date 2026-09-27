@@ -113,6 +113,103 @@ export function agent(session) {
         409,
       );
   }
+  async function readFeedback(data) {
+    // With an id, read returns that submission again and changes nothing,
+    // for a turn that resumes after an interruption.
+    if (data.id !== undefined) {
+      requireValue(idPattern.test(data.id || ""), "Submission ID required");
+      const event = await read(
+        path.join(directory, "feedback", data.id + ".json"),
+      );
+      return {
+        status: view(),
+        event: session.withDrawingPaths(event),
+        next: await nextStep(),
+      };
+    }
+    const [event] = await pending();
+    if (!event) return { status: view(), event: null, next: await nextStep() };
+    const patch = {
+      ...report(),
+      ...receive(event),
+      stage: session.state.stage === "saved" ? "saved" : "working",
+      acknowledged: [...session.state.acknowledged, event.id],
+      acknowledgedAt: timestamp(),
+      lastAcknowledgedId: event.id,
+    };
+    if (event.payload.intent === "accept") {
+      patch.accepted = {
+        eventId: event.id,
+        ...session.state.current,
+        action: event.payload.action,
+        ...(event.payload.guidance ? { guidance: event.payload.guidance } : {}),
+        ...(heldItems(event.payload.groups)
+          ? { groups: event.payload.groups }
+          : {}),
+        acceptedAt: event.receivedAt,
+      };
+      await atomic(path.join(directory, "acceptance.json"), patch.accepted);
+    }
+    await transition(patch);
+    return {
+      status: view(),
+      event: session.withDrawingPaths(event),
+      next: await nextStep(),
+    };
+  }
+  async function ack(data) {
+    requireValue(
+      data.note === undefined ||
+        (typeof data.note === "string" && data.note.trim().length <= 80),
+      "An ack note is text of at most 80 characters",
+    );
+    const [event] = await pending();
+    await transition({
+      ...report(data.note?.trim() || null),
+      ...receive(event),
+    });
+    return {
+      status: view(),
+      received: event ? { id: event.id, intent: event.payload.intent } : null,
+      next: await nextStep(),
+    };
+  }
+  async function pause(data) {
+    requireValue(
+      typeof data.reason === "string" && data.reason.trim(),
+      "pause requires a reason",
+    );
+    await transition({
+      paused: { at: timestamp(), reason: data.reason.trim() },
+    });
+    return { status: view() };
+  }
+  async function complete() {
+    requireValue(
+      session.state.accepted,
+      "Acknowledge acceptance of the current round before completing",
+      409,
+    );
+    const action = actionOf(session.state.accepted);
+    if (action.after !== "complete")
+      requireValue(
+        false,
+        `${action.label} keeps the session, so it does not complete. ${await nextStep()}`,
+        409,
+      );
+    await transition({ stage: "complete" });
+    return { status: view() };
+  }
+  // The actions an agent command sends, by the command that sends it.
+  const actions = {
+    status: async () => ({ status: view() }),
+    read: readFeedback,
+    ack,
+    progress: (data) => session.pageProgress(data),
+    pause,
+    publish: (data) => session.publishPage(data.html, data.source, data.pages),
+    complete,
+  };
   async function act(data) {
     requireValue(
       data.sessionId === session.state.sessionId,
@@ -120,103 +217,8 @@ export function agent(session) {
       409,
     );
     await requireHolder(data.agent);
-    if (data.action === "status") return { status: view() };
-    if (data.action === "read") {
-      // With an id, read returns that submission again and changes nothing,
-      // for a turn that resumes after an interruption.
-      if (data.id !== undefined) {
-        requireValue(idPattern.test(data.id || ""), "Submission ID required");
-        const event = await read(
-          path.join(directory, "feedback", data.id + ".json"),
-        );
-        return {
-          status: view(),
-          event: session.withDrawingPaths(event),
-          next: await nextStep(),
-        };
-      }
-      const [event] = await pending();
-      if (!event)
-        return { status: view(), event: null, next: await nextStep() };
-      const patch = {
-        ...report(),
-        ...receive(event),
-        stage: session.state.stage === "saved" ? "saved" : "working",
-        acknowledged: [...session.state.acknowledged, event.id],
-        acknowledgedAt: timestamp(),
-        lastAcknowledgedId: event.id,
-      };
-      if (event.payload.intent === "accept") {
-        patch.accepted = {
-          eventId: event.id,
-          ...session.state.current,
-          action: event.payload.action,
-          ...(event.payload.guidance
-            ? { guidance: event.payload.guidance }
-            : {}),
-          ...(heldItems(event.payload.groups)
-            ? { groups: event.payload.groups }
-            : {}),
-          acceptedAt: event.receivedAt,
-        };
-        await atomic(path.join(directory, "acceptance.json"), patch.accepted);
-      }
-      await transition(patch);
-      return {
-        status: view(),
-        event: session.withDrawingPaths(event),
-        next: await nextStep(),
-      };
-    }
-    if (data.action === "ack") {
-      requireValue(
-        data.note === undefined ||
-          (typeof data.note === "string" && data.note.trim().length <= 80),
-        "An ack note is text of at most 80 characters",
-      );
-      const [event] = await pending();
-      await transition({
-        ...report(data.note?.trim() || null),
-        ...receive(event),
-      });
-      return {
-        status: view(),
-        received: event ? { id: event.id, intent: event.payload.intent } : null,
-        next: await nextStep(),
-      };
-    }
-    if (data.action === "progress") {
-      return session.pageProgress(data);
-    }
-    if (data.action === "pause") {
-      requireValue(
-        typeof data.reason === "string" && data.reason.trim(),
-        "pause requires a reason",
-      );
-      await transition({
-        paused: { at: timestamp(), reason: data.reason.trim() },
-      });
-      return { status: view() };
-    }
-    if (data.action === "publish")
-      return session.publishPage(data.html, data.source, data.pages);
-    if (data.action === "complete") {
-      requireValue(
-        session.state.accepted,
-        "Acknowledge acceptance of the current round before completing",
-        409,
-      );
-      const action = actionOf(session.state.accepted);
-      if (action.after !== "complete")
-        requireValue(
-          false,
-          `${action.label} keeps the session, so it does not complete. ${await nextStep()}`,
-          409,
-        );
-      await transition({ stage: "complete" });
-      return { status: view() };
-    }
-    requireValue(false, "Unknown agent action");
+    requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
+    return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
   // other registration, such as a command reattaching to a new hub, comes
