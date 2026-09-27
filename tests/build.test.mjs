@@ -3,7 +3,7 @@ import { test } from "node:test";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { assemble, buildPage } from "./build.mjs";
+import { assemble, buildPage } from "../src/build.mjs";
 
 const data = {
   artifactId: "t",
@@ -265,18 +265,21 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
 
 test("the build's language list is the one for the Shiki the frame loads", async () => {
   const frame = await fs.readFile(
-    new URL("../assets/frame.js", import.meta.url),
+    new URL("../src/frame/frame.js", import.meta.url),
     "utf8",
   );
   const list = JSON.parse(
-    await fs.readFile(new URL("shiki-languages.json", import.meta.url), "utf8"),
+    await fs.readFile(
+      new URL("../src/shiki-languages.json", import.meta.url),
+      "utf8",
+    ),
   );
   assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
 });
 
 test("page tabs leave the reader in place, while revision choices open a page", async () => {
   const frame = await fs.readFile(
-    new URL("../assets/frame.js", import.meta.url),
+    new URL("../src/frame/frame.js", import.meta.url),
     "utf8",
   );
   const tabClick = frame.slice(

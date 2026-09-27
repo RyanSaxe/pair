@@ -3,10 +3,11 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { after, before, test } from "node:test";
-import { buildPage } from "./build.mjs";
-import { pageData, settings, startHub } from "./session.mjs";
+import { buildPage } from "../src/build.mjs";
+import { pageData, settings, startHub } from "../src/session.mjs";
 
 let hub, home, directory, sessionId, token;
 const exec = promisify(execFile);
@@ -460,7 +461,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     ).current,
     null,
   );
-  const skill = path.dirname(new URL(import.meta.url).pathname);
+  const skill = fileURLToPath(new URL("../src/", import.meta.url));
   const helper = path.join(skill, "session.mjs");
   const builder = path.join(skill, "build.mjs");
   // The CLI reads its hub from the state directory, so it gets this test's own.

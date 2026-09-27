@@ -3,7 +3,7 @@
 A component directory holds `markup.html`, and `styles.css` and
 `behavior.mjs` when the component needs them. The builder reads those three
 files and nothing else, so a directory may also hold a helper the agent
-runs, such as `before-after/diff.mjs`. [index.md](index.md) is the
+runs, such as `before-after/diff.mjs`. [the component index](../../guide/components.md) is the
 catalog a plan author reads.
 
 ## Behavior
@@ -46,7 +46,7 @@ Set `data-kind` on the component's root to a singular noun that follows
 `styles.css` needs no wrapper. The builder writes it into a cascade layer
 that beats page CSS and `frame.css`, so a component sets its own type and
 spacing without fighting a frame selector. Use the design tokens in
-[frame.md](../references/frame.md).
+[frame.md](../../guide/frame.md).
 
 A component that holds authored content gives it a slot, and the frame
 supplies the space around it. The slot zeroes the outer margin of its first

@@ -9,11 +9,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { choiceText } from "../assets/choices.mjs";
+import { choiceText } from "./frame/choices.mjs";
 
 const here = fileURLToPath(import.meta.url);
-const round = path.resolve(path.dirname(here), "../references/round.md");
-const sessionDoc = path.resolve(path.dirname(here), "../references/session.md");
+const round = path.resolve(path.dirname(here), "../guide/round.md");
+const sessionDoc = path.resolve(path.dirname(here), "../guide/session.md");
 export const version = crypto
   .createHash("sha256")
   .update(readFileSync(here))
@@ -1595,7 +1595,10 @@ export function detectWake(
   );
   return { harness, sessionId, port, sdk };
 }
-const wakeCopilotScript = path.join(path.dirname(here), "wake-copilot.mjs");
+const wakeCopilotScript = path.resolve(
+  path.dirname(here),
+  "../adapters/copilot/wake.mjs",
+);
 function run(file, args) {
   return new Promise((resolve, reject) => {
     execFile(file, args, { timeout: 30_000 }, (error, stdout, stderr) => {

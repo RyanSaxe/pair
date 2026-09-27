@@ -3,8 +3,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
-import { buildPage } from "./build.mjs";
-import { detectWake, settings, startHub, withSandboxHint } from "./session.mjs";
+import { buildPage } from "../src/build.mjs";
+import {
+  detectWake,
+  settings,
+  startHub,
+  withSandboxHint,
+} from "../src/session.mjs";
 
 let hub, home, sessionId, sessionDir, token;
 const wakes = [];

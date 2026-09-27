@@ -8,11 +8,11 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { compareFiles } from "../../ai-harness/skills/interactive-plan/components/before-after/diff.mjs";
+import { compareFiles } from "../src/components/before-after/diff.mjs";
 import {
   createReviewAlerts,
   reviewAlert,
-} from "../../ai-harness/skills/interactive-plan/assets/notifications.mjs";
+} from "../src/frame/notifications.mjs";
 import {
   emptyDraft,
   loadDraft,
@@ -21,12 +21,8 @@ import {
   readPlaces,
   submissionGroups,
   unsentItems,
-} from "../../ai-harness/skills/interactive-plan/assets/draft.mjs";
-import {
-  assemble,
-  build,
-  buildPage,
-} from "../../ai-harness/skills/interactive-plan/scripts/build.mjs";
+} from "../src/frame/draft.mjs";
+import { assemble, build, buildPage } from "../src/build.mjs";
 import {
   artifactData,
   detectWake,
@@ -34,17 +30,11 @@ import {
   settings,
   startHub,
   version,
-} from "../../ai-harness/skills/interactive-plan/scripts/session.mjs";
+} from "../src/session.mjs";
 
 const exec = promisify(execFile);
-const root = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
-);
-const helper = path.join(
-  root,
-  "ai-harness/skills/interactive-plan/scripts/session.mjs",
-);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const helper = path.join(root, "src/session.mjs");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exists = (file) =>
   fs.access(file).then(
@@ -635,13 +625,13 @@ test("a page source builds a standalone preview without executing content", asyn
   await fs.symlink(path.dirname(path.dirname(helper)), link);
   const linked = path.join(directory, "linked.html");
   await exec(process.execPath, [
-    path.join(link, "scripts", "build.mjs"),
+    path.join(link, "src", "build.mjs"),
     source,
     linked,
   ]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
   await assert.rejects(
-    exec(process.execPath, [path.join(link, "scripts", "build.mjs")]),
+    exec(process.execPath, [path.join(link, "src", "build.mjs")]),
     /Usage/,
   );
 });
@@ -2153,10 +2143,7 @@ test("the component fixture builds, so every component's markup stays valid", as
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const output = path.join(directory, "fixture.html");
   await exec(process.execPath, [
-    path.join(
-      root,
-      "ai-harness/skills/interactive-plan/scripts/fixture/build.mjs",
-    ),
+    path.join(root, "tests/fixture/build.mjs"),
     output,
   ]);
   // The fixture is the one place every component is rendered with real

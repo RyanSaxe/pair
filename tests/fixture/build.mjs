@@ -3,7 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assemble } from "../build.mjs";
+import { assemble } from "../../src/build.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const [output, ...extra] = process.argv.slice(2);

@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { artifactData, pagePlan, validPage } from "./session.mjs";
 
-const assets = new URL("../assets/", import.meta.url);
+const assets = new URL("./frame/", import.meta.url);
 /** Where a user keeps components of their own, outside the skill. The skill
     is installed and updated as a unit, so a component written into its own
     directory would be an edit to installed software. */
@@ -16,7 +16,7 @@ export function userComponents(env = process.env) {
 }
 
 const componentRoots = () => [
-  fileURLToPath(new URL("../components/", import.meta.url)),
+  fileURLToPath(new URL("./components/", import.meta.url)),
   userComponents(),
 ];
 

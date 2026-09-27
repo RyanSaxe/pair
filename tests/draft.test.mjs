@@ -7,7 +7,7 @@ import {
   markSent,
   submissionGroups,
   unsentItems,
-} from "./draft.mjs";
+} from "../src/frame/draft.mjs";
 
 const list = (label, touched = false) => ({
   kind: "multiple",

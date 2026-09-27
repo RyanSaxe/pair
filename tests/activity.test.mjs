@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activityModel, finishedLine, roundModel } from "./activity.mjs";
+import {
+  activityModel,
+  finishedLine,
+  roundModel,
+} from "../src/frame/activity.mjs";
 
 const now = Date.parse("2026-01-01T00:10:00Z");
 const submittedRevision = "1";

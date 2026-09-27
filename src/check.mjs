@@ -14,7 +14,7 @@ const skill = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 const rulesFile = path.join(codexHome, "rules", "interactive-plan.rules");
 const rules =
-  ["scripts/session.mjs", "scripts/build.mjs", "scripts/check.mjs"]
+  ["src/session.mjs", "src/build.mjs", "src/check.mjs"]
     .map(
       (script) =>
         `prefix_rule(pattern=["node", ${JSON.stringify(path.join(skill, script))}], decision="allow", justification="interactive-plan: the helper talks to its local hub and writes the session under the state directory")`,

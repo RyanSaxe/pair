@@ -75,6 +75,6 @@ every note identifies its block.
 ## Figures
 
 Code, formulas, diagrams, charts and prototypes are components. The
-[component index](../components/index.md) states their markup and
+[component index](components.md) states their markup and
 attributes. They load their renderers from pinned CDN locations, so
 rendering needs a network connection.

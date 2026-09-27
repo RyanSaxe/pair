@@ -36,22 +36,22 @@ not described.
 
 ## Files
 
-- [round.md](references/round.md): the sequence for each revision. The hub's
+- [round.md](../../guide/round.md): the sequence for each revision. The hub's
   wake message names `ack`, which points to it.
-- [quality.md](references/quality.md): what makes a page and a plan good.
+- [quality.md](../../guide/quality.md): what makes a page and a plan good.
   Read it before the first revision.
-- [writing.md](references/writing.md): the rules every sentence follows.
-- [session.md](references/session.md): starting, resuming and accepting a
+- [writing.md](../../guide/writing.md): the rules every sentence follows.
+- [session.md](../../guide/session.md): starting, resuming and accepting a
   session. Read it before `start`.
-- [component index](components/index.md): every component and its markup.
+- [component index](../../guide/components.md): every component and its markup.
   A page copies a component's markup and nothing else.
-- [components/README.md](components/README.md): writing a component, when a
+- [the components README](../../src/components/README.md): writing a component, when a
   page needs one or the user asks to keep one.
-- [artifact.md](references/artifact.md), [agreements.md](references/agreements.md),
-  [frame.md](references/frame.md) and
-  [prototypes.md](references/prototypes.md): the contracts. Look one up
+- [artifact.md](../../guide/artifact.md), [agreements.md](../../guide/agreements.md),
+  [frame.md](../../guide/frame.md) and
+  [prototypes.md](../../guide/prototypes.md): the contracts. Look one up
   while building.
-- [setup.md](references/setup.md): when starting, waking or a command fails.
+- [setup.md](../../guide/setup.md): when starting, waking or a command fails.
 
 ## Opening
 
