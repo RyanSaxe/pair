@@ -7,6 +7,7 @@ import {
   pageScripts,
   pageStyles,
 } from "../../build/assemble.mjs";
+import { linkProblems } from "../../build/lint.mjs";
 import { choiceText } from "../../frame/review/choices.mjs";
 import {
   idPattern,
@@ -115,7 +116,9 @@ export function rounds(session) {
     return assemble(data, {
       css: pageStyles(all, set.round),
       js: pageScripts(all, set.round),
-      allowUnknownPages: !complete,
+      // Each page's links were checked when it published, and a page
+      // published before that check must not keep its round from completing.
+      allowUnknownPages: true,
       bundle,
     });
   }
@@ -281,6 +284,15 @@ export function rounds(session) {
         409,
       );
       requireValue(!slot.recordPath, "Page is already published", 409);
+      // Agreed's list names every page of the round, so a page's links are
+      // checked as it publishes. A bad link found only when the round
+      // completes would sit in a page that can no longer change.
+      const badLinks = linkProblems(
+        page.html || "",
+        `page "${page.id}"`,
+        new Set([...set.pages.map((item) => item.id), "agreed", "feedback"]),
+      );
+      requireValue(!badLinks.length, badLinks.join("\n"));
       const used = new Set();
       for (const file of [
         set.agreed,
