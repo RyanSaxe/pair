@@ -28,6 +28,21 @@ function closestLanguage(name) {
     )
     .sort((a, b) => b.length - a.length)[0];
 }
+/** A "#" link names a page of the round, Agreed, Feedback, or an element
+ * on its own page. */
+export function linkProblems(html, at, targets) {
+  const tags = html.match(/<[a-zA-Z][^>]*>/g) || [];
+  const ids = new Set(tags.map((tag) => attribute(tag, "id")));
+  return tags
+    .map((tag) => attribute(tag, "href"))
+    .filter(
+      (link) =>
+        link?.startsWith("#") &&
+        !targets.has(link.slice(1)) &&
+        !ids.has(link.slice(1)),
+    )
+    .map((link) => `${at}: link "${link}" names no page`);
+}
 /** Structural problems in the assembled pages and a page's own script. */
 export function problems(data, js = "", { allowUnknownPages = false } = {}) {
   const list = [];
@@ -42,7 +57,6 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
     const html = page.html || "";
     const at = `page "${page.id}"`;
     const tags = html.match(/<[a-zA-Z][^>]*>/g) || [];
-    const ids = new Set(tags.map((tag) => attribute(tag, "id")));
     const controls = new Set();
     for (const tag of tags) {
       for (const kind of controlKinds) {
@@ -93,18 +107,11 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
           `${at}: data-language "${language}" is not a language Shiki highlights. ${closest ? `Did you mean "${closest}"?` : "Use a Shiki language ID, such as ts, python, shell or text."}`,
         );
       }
-      const link = attribute(tag, "href");
-      if (
-        link?.startsWith("#") &&
-        !targets.has(link.slice(1)) &&
-        !allowUnknownPages
-      )
-        if (!ids.has(link.slice(1)))
-          list.push(`${at}: link "${link}" names no page`);
       const prototype = attribute(tag, "data-prototype");
       if (prototype !== undefined && !prototypes.has(prototype))
         list.push(`${at}: prototype "${prototype}" does not exist`);
     }
+    if (!allowUnknownPages) list.push(...linkProblems(html, at, targets));
     // Each control's options run from its tag to the next control's tag.
     const parts = html.split(
       /(?=<[a-zA-Z][^>]*\sdata-(?:choice|multiselect|question|drawing-question)=)/,

@@ -420,6 +420,51 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.match(published.body.next, /^Round 2 is published\./);
 });
 
+// A page cannot change once it is published, so a bad link has to be found
+// before then, or the round could never complete.
+test("a page's links are checked as it publishes, not when the round completes", async (t) => {
+  const h = await testHub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  await a.feedback(a.event());
+  await a.action("read");
+  const refused = await a.publish({
+    ...planData("2"),
+    pages: [
+      { id: "overview", title: "Overview", html: '<a href="#nowhere">x</a>' },
+      { id: "details", title: "Details", html: "<p>Detail.</p>" },
+    ],
+  });
+  assert.equal(refused.code, 400);
+  assert.equal(
+    refused.body.error,
+    'page "overview": link "#nowhere" names no page',
+  );
+  const records = await fs.readdir(path.join(a.directory, "pages", "2"));
+  assert.deepEqual(records.map((file) => file.split(".")[0]).sort(), [
+    "agreed",
+    "frame",
+  ]);
+});
+
+test("a page may link to a page of its round that publishes after it", async (t) => {
+  const h = await testHub(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: '<a href="#details">Details</a>',
+      },
+      { id: "details", title: "Details", html: '<a href="#overview">Back</a>' },
+    ],
+  });
+  assert.equal(published.code, 200);
+  assert.equal(published.body.roundComplete, true);
+});
+
 test("page progress cannot start before Agreed for the next round", async (t) => {
   const h = await testHub(t);
   const a = await h.session();
