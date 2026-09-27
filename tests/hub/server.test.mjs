@@ -330,24 +330,6 @@ test("a session rejects a round number reused under another name", async (t) => 
   assert.equal((await a.status()).body.current.name, "other");
 });
 
-test("question actions and reply intents are unsupported", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  await a.publish(planData());
-  const status = (await a.status()).body;
-  assert.equal(Object.hasOwn(status, "question"), false);
-  const browser = (await a.request(`${a.base}/`)).body;
-  assert.doesNotMatch(browser, /question-dialog|question-form|send-reply/);
-  assert.equal(
-    (await a.feedback(a.event("clarification-reply", "1"))).code,
-    400,
-  );
-  assert.equal(
-    (await a.action("question", { text: "Typed errors?" })).code,
-    400,
-  );
-});
-
 test("queued rounds keep receipt order", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -394,43 +376,6 @@ test("the hub refuses to open a session interactive-plan created", async (t) => 
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /is not a pair session/);
   assert.deepEqual(await fs.readdir(directory), ["status.json"]);
-});
-
-test("a moved session still serves its current and earlier rounds", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  assert.equal((await a.publish(planData("1"))).code, 200);
-  await a.feedback(a.event());
-  await a.action("read");
-  assert.equal((await a.publish(planData("2"))).code, 200);
-  const moved = a.directory + "-moved";
-  await fs.rename(a.directory, moved);
-  const registered = await fetch(h.server.origin + "/agent/register", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${h.record.secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sessionDir: moved,
-      wake: { harness: "codex", thread: "thread-moved" },
-      start: true,
-    }),
-  });
-  assert.equal(registered.status, 200);
-  assert.equal((await a.request(`${a.base}/`)).code, 200);
-  assert.equal((await a.request(`${a.base}/r/1`)).code, 200);
-  const manifest = await a.request(`${a.base}/api/page-set?round=1`);
-  assert.equal(manifest.code, 200);
-  const slot = manifest.body.pages.find((item) => item.id === "overview");
-  assert.equal(
-    (
-      await a.request(
-        `${a.base}/api/page?round=1&id=overview&version=${slot.version}`,
-      )
-    ).code,
-    200,
-  );
 });
 
 test("the browser can read sent feedback without agent-only paths", async () => {

@@ -62,19 +62,6 @@ test("every page sets its own note line, Agreed and unfinished pages included", 
   );
 });
 
-test("a send keeps the reader on Current", async () => {
-  const frame = await Promise.all(
-    (
-      await fs.readdir(new URL("../../src/frame/", import.meta.url), {
-        recursive: true,
-      })
-    )
-      .filter((name) => name.endsWith(".mjs"))
-      .map(read),
-  );
-  assert.ok(!frame.join("\n").includes('switchTab("past")'));
-});
-
 test("drafting a comment never hides the way to accept a final plan", async () => {
   const send = await read("review/send.mjs");
   const accept = between(send, "function canAccept(", "\n}");

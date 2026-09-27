@@ -208,10 +208,8 @@ export async function startHub(config = settings()) {
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
           if (!session.state.current)
             return reply(200, "No round published yet.", "text/plain");
-          // Resolved under the session's directory, so a moved session
-          // still serves its current round. A session the reviewer closed
-          // is read-only, so no tab left open on it can submit and wake an
-          // agent that will never run again.
+          // A session the reviewer closed is read-only, so no tab left open
+          // on it can submit and wake an agent that will never run again.
           return html(
             await roundPage(
               session,

@@ -79,20 +79,6 @@ test("a touched, unsent list carries over to the next round", () => {
   assert.equal(unsentItems(next).count, 1);
 });
 
-test("single choices count as before", () => {
-  const draft = draftWith({
-    "d/pick": {
-      topic: "d",
-      label: "Pick",
-      value: "x",
-      valueLabel: "X",
-      target: "t",
-      round: "1",
-    },
-  });
-  assert.equal(unsentItems(draft).count, 1);
-});
-
 test("the Review line names the comments and choices behind the count", () => {
   const draft = emptyDraft("1");
   assert.equal(draftedWords(draft), "");

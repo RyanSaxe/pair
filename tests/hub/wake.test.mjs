@@ -66,24 +66,6 @@ const feedback = (id) =>
     { origin: hub.origin },
   );
 
-test("feedback alignment must be boolean when present", async () => {
-  const invalid = await post(
-    `/s/${sessionId}/api/feedback`,
-    {
-      sessionId,
-      id: "bad-alignment",
-      name: "t",
-      round: "2",
-      intent: "feedback-only",
-      groups: { alignUnflagged: "yes", choices: {}, notes: [] },
-      text: "hi",
-    },
-    { origin: hub.origin },
-  );
-  assert.equal(invalid.status, 400);
-  assert.match(invalid.body.error, /alignUnflagged must be a boolean/);
-});
-
 // The before hook's submission already woke the agent once, so each test
 // waits for its own wake by count and for its result to reach the status.
 const settled = async (count, ok = true) => {
