@@ -148,6 +148,8 @@ export async function loadPageRecord(round, id) {
     if (id === "agreed") {
       view.agreements = record.page.agreements;
       view.task = record.page.task || null;
+      entry.loaded = true;
+      entry.pending = false;
       if (plan.round === round && !showingWaiting()) useView(view);
     } else {
       let setup = null;
