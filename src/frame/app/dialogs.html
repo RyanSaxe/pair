@@ -1,0 +1,191 @@
+<!-- Each dialog's head ends with this close button, which the frame adds. -->
+<template id="close-button">
+  <button class="icon-btn" type="button" aria-label="Close">✕</button>
+</template>
+<dialog class="dialog" id="settings-dialog" aria-labelledby="settings-title">
+  <div class="dialog-head">
+    <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
+  </div>
+  <div class="settings-row">
+    <span>Appearance</span>
+    <div class="segmented" id="theme" role="radiogroup" aria-label="Appearance">
+      <button type="button" role="radio" data-theme="system">System</button>
+      <button type="button" role="radio" data-theme="light">Light</button>
+      <button type="button" role="radio" data-theme="dark">Dark</button>
+    </div>
+  </div>
+  <div class="settings-row">
+    <span>Notifications</span>
+    <button class="btn" id="notifications" type="button">Enable</button>
+  </div>
+  <div class="settings-row">
+    <span>Keys</span>
+    <span class="small">Press <kbd>?</kbd> for the list</span>
+  </div>
+</dialog>
+<dialog
+  class="dialog sessions"
+  id="sessions-dialog"
+  aria-labelledby="sessions-title"
+>
+  <div class="dialog-head">
+    <h2 id="sessions-title" tabindex="-1" autofocus>Live sessions</h2>
+  </div>
+  <div class="session-list" id="sidecar-list"></div>
+</dialog>
+<dialog class="dialog note" id="note-dialog" aria-labelledby="note-title">
+  <form id="note-form">
+    <div class="dialog-head" data-close-label="Close note">
+      <h2 id="note-title">Add note</h2>
+    </div>
+    <p class="small" id="note-anchor"></p>
+    <blockquote id="note-quote" hidden></blockquote>
+    <label for="note-text">Feedback</label>
+    <div class="note-field">
+      <textarea id="note-text" required></textarea>
+    </div>
+    <div class="note-images" id="note-images" hidden></div>
+    <p class="renderer-error" id="note-image-error" hidden></p>
+    <div class="row note-actions">
+      <button class="btn quiet" type="button" id="note-image-pick">
+        Add an image
+      </button>
+      <input
+        type="file"
+        id="note-image-input"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        multiple
+        hidden
+      />
+      <span class="spacer"></span>
+      <button type="submit" class="btn primary" aria-keyshortcuts="Shift+Enter">
+        Add to feedback
+      </button>
+    </div>
+  </form>
+</dialog>
+<dialog
+  class="drawing-dialog"
+  id="drawing-dialog"
+  aria-labelledby="drawing-title"
+>
+  <div class="drawing-head">
+    <h2 id="drawing-title">Draw an answer</h2>
+    <span class="spacer"></span>
+    <button class="btn" id="drawing-cancel" type="button">Cancel</button>
+    <button class="btn primary" id="drawing-save" type="button">
+      Save drawing
+    </button>
+  </div>
+  <p class="renderer-error" id="drawing-error" role="status" hidden></p>
+  <iframe
+    id="drawing-frame"
+    title="Drawing editor"
+    sandbox="allow-scripts"
+    referrerpolicy="no-referrer"
+  ></iframe>
+</dialog>
+<dialog class="dialog" id="finish-dialog" aria-labelledby="finish-title">
+  <div class="dialog-head">
+    <h2 id="finish-title" tabindex="-1" autofocus>Finish your review</h2>
+  </div>
+  <p class="rev-plan" id="finish-detail"></p>
+  <div class="rev-list" role="radiogroup" aria-label="Decision">
+    <button class="rev-row" type="button" role="radio" data-decision="accept">
+      <span class="tick"></span
+      ><span
+        ><span id="accept-label"></span><br /><small id="accept-hint"></small
+      ></span>
+    </button>
+    <button class="rev-row" type="button" role="radio" data-decision="changes">
+      <span class="tick"></span
+      ><span>Request changes<br /><small id="changes-hint"></small></span>
+    </button>
+  </div>
+  <p class="small" id="finish-drafted"></p>
+  <p class="small" id="finish-error" role="status" hidden></p>
+  <!-- Both sections share one grid cell, so switching rows keeps the
+       dialog's size. The round's offer fills the Accept row and its
+       section. -->
+  <div class="decide-sections">
+    <div id="finish-accept">
+      <p class="small" id="accept-note"></p>
+      <label for="accept-guidance" id="accept-guidance-label"></label>
+      <textarea
+        id="accept-guidance"
+        maxlength="4000"
+        aria-describedby="accept-guidance-detail"
+      ></textarea>
+      <p class="small" id="accept-guidance-detail"></p>
+      <div class="actions" id="accept-actions"></div>
+    </div>
+    <div id="finish-changes" inert>
+      <p class="small">
+        Requesting changes sends your comments to the waiting agent. Nothing is
+        accepted, and the plan stays open.
+      </p>
+      <label for="request-comment" id="request-comment-label"
+        >Overall comment</label
+      >
+      <textarea
+        id="request-comment"
+        maxlength="4000"
+        aria-describedby="request-comment-detail"
+      ></textarea>
+      <p class="small" id="request-comment-detail">
+        Sent with your request, like an overall comment on Review.
+      </p>
+      <div class="actions actions-right">
+        <button class="btn primary" type="button" id="request-changes">
+          Request changes
+        </button>
+      </div>
+    </div>
+  </div>
+</dialog>
+<dialog class="dialog" id="round-dialog" aria-labelledby="round-title">
+  <div class="dialog-head">
+    <h2 id="round-title" tabindex="-1" autofocus>Rounds</h2>
+  </div>
+  <p class="rev-plan" id="round-plan"></p>
+  <div class="rev-list" id="round-list"></div>
+</dialog>
+<dialog class="dialog keys" id="keys-dialog" aria-labelledby="keys-title">
+  <div class="dialog-head">
+    <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
+  </div>
+  <dl class="key-list">
+    <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+    <dd>Jump to a session, in the order of the bell panel</dd>
+    <dt><kbd>]</kbd> <kbd>[</kbd></dt>
+    <dd>Next and previous page</dd>
+    <dt><kbd>j</kbd> <kbd>k</kbd></dt>
+    <dd>Choose the next and previous block on the page</dd>
+    <dt><kbd>c</kbd></dt>
+    <dd>Comment on the selection, the chosen block, or the page</dd>
+    <dt><kbd>r</kbd></dt>
+    <dd>Review your feedback</dd>
+    <dt><kbd>s</kbd></dt>
+    <dd>Focus Send feedback or Finish review; Enter sends or opens it</dd>
+    <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
+    <dd>Answer a question or add feedback from its textarea</dd>
+    <dt><kbd>a</kbd></dt>
+    <dd>Open Agreed</dd>
+    <dt><kbd>Esc</kbd></dt>
+    <dd>Close menus, panels, and dialogs</dd>
+  </dl>
+</dialog>
+<dialog class="dialog" id="pages-dialog" aria-labelledby="pages-title">
+  <div class="dialog-head">
+    <h2 id="pages-title" tabindex="-1" autofocus>Pages</h2>
+    <span class="round-status idle" data-round-status
+      ><i></i><span></span
+    ></span>
+  </div>
+  <div class="pages-slot" id="pages-slot"></div>
+</dialog>
+<dialog
+  class="lightbox"
+  id="diagram-dialog"
+  aria-label="Diagram, full size"
+></dialog>

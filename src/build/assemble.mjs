@@ -1,4 +1,6 @@
 import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { readPlanData } from "../shared/records.mjs";
 import { jsonScript, jsonScriptTag, scriptJson } from "../shared/util.mjs";
 import {
@@ -9,77 +11,145 @@ import {
 import { problems } from "./lint.mjs";
 
 const assets = new URL("../frame/", import.meta.url);
+const read = (name) => fs.readFile(new URL(name, assets), "utf8");
+
+async function* files(directory) {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) yield* files(file);
+    else yield file;
+  }
+}
+// Every module under src/frame/ by its #frame/ name, and each src/shared/
+// module one of them imports by a #shared/ name.
+async function frameModules() {
+  const root = fileURLToPath(assets);
+  const modules = {};
+  const names = [];
+  for await (const file of files(root))
+    if (file.endsWith(".mjs"))
+      names.push(path.relative(root, file).split(path.sep).join("/"));
+  for (const name of names.sort()) modules[`#frame/${name}`] = await read(name);
+  const shared = new Set(
+    Object.values(modules).flatMap((text) =>
+      [...text.matchAll(/from "(#shared\/[^"]+)"/g)].map((match) => match[1]),
+    ),
+  );
+  for (const name of [...shared].sort())
+    modules[name] = await read(`../shared/${name.slice("#shared/".length)}`);
+  return modules;
+}
+// The frame's stylesheets in cascade order, which follows where each one's
+// first rule sat in the single stylesheet they came from.
+const stylesheets = [
+  "app/tokens.css",
+  "app/base.css",
+  "app/shell.css",
+  "pages/page-list.css",
+  "pages/reading.css",
+  "sync/activity.css",
+  "review/review.css",
+  "pages/agreed.css",
+  "pages/diagram.css",
+  "app/dialogs.css",
+  "app/modes.css",
+];
 export async function frameBundle() {
+  const roots = componentRoots();
   const [
     shell,
+    dialogs,
     style,
-    script,
-    notifications,
-    choices,
-    draft,
-    activity,
+    modules,
     drawingEditor,
-    offers,
-    finish,
-  ] = await Promise.all(
-    [
-      "frame.html",
-      "frame.css",
-      "frame.js",
-      "notifications.mjs",
-      "choices.mjs",
-      "draft.mjs",
-      "activity.mjs",
-      "drawing-editor.html",
-      "../shared/offers.mjs",
-      "finish.mjs",
-    ].map((name) => fs.readFile(new URL(name, assets), "utf8")),
-  );
-  const roots = componentRoots();
-  const [componentCss, componentJs] = await Promise.all([
+    componentCss,
+    componentJs,
+  ] = await Promise.all([
+    read("app/shell.html"),
+    read("app/dialogs.html"),
+    Promise.all(stylesheets.map(read)).then((texts) => texts.join("\n")),
+    frameModules(),
+    read("notes/drawing-editor.html"),
     componentStyles(roots),
     componentBehaviors(roots),
   ]);
   return {
+    format: 2,
     shell,
+    dialogs,
     style,
-    script,
-    notifications,
-    choices,
-    draft,
-    activity,
+    modules,
     drawingEditor,
-    offers,
-    finish,
     componentCss,
     componentJs,
   };
 }
+// The names component behaviors use without importing them. registry.mjs
+// re-exports each one from the module that declares it.
+const componentNames = [
+  "$",
+  "base",
+  "color",
+  "copyButton",
+  "failed",
+  "figure",
+  "libraries",
+  "linkButton",
+  "online",
+  "page",
+  "pages",
+  "plan",
+  "readData",
+  "script",
+  "show",
+  "syntaxThemes",
+  "uuid",
+];
+// A module in a data: URL has no base URL, so the frame's modules import
+// each other by #frame/… and #shared/… names, which the import map resolves.
+function moduleScript({ modules, componentJs }) {
+  const imports = {};
+  for (const [name, text] of Object.entries(modules)) {
+    const source = `${text}\n//# sourceURL=${name.slice(1)}\n`;
+    imports[name] =
+      `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
+  }
+  return (
+    `<script type="importmap">\n${JSON.stringify({ imports })}\n</script>\n` +
+    `<script type="module">\n` +
+    `import { ${componentNames.join(", ")} } from "#frame/app/registry.mjs";\n` +
+    `import "#frame/app/boot.mjs";\n${componentJs}\n</script>`
+  );
+}
+// A round keeps the bundle stored when its Agreed was published. A bundle
+// with no format predates the split, and its files share one scope.
+const joinedScript = (bundle) =>
+  `<script type="module">\n${[
+    bundle.offers,
+    bundle.finish,
+    bundle.notifications,
+    bundle.choices,
+    bundle.draft,
+    bundle.activity,
+    bundle.script,
+    bundle.componentJs,
+  ].join("\n")}\n</script>`;
 export async function assemble(
   data,
   { css = "", js = "", allowUnknownPages = false, bundle } = {},
 ) {
   const found = problems(data, js, { allowUnknownPages });
   if (found.length) throw new Error(found.join("\n"));
-  const {
-    shell,
-    style,
-    script,
-    notifications,
-    choices,
-    draft,
-    activity,
-    drawingEditor,
-    offers,
-    finish,
-    componentCss,
-    componentJs,
-  } = bundle || (await frameBundle());
+  bundle ||= await frameBundle();
+  const { shell, style, drawingEditor, componentCss } = bundle;
   if (/<\/style/i.test(css) || /<\/script/i.test(js))
     throw new Error(
       "Custom CSS/JS cannot contain HTML closing style/script tags; escape the less-than character in strings.",
     );
+  // A bundle stored before the dialogs had a file of their own carries them
+  // in its shell.
   const html = shell
+    .replace("<!-- DIALOGS -->", () => bundle.dialogs ?? "")
     .replace("<!-- DRAWING_EDITOR -->", () => scriptJson(drawingEditor))
     .replace(
       "<!-- FRAME_STYLE -->",
@@ -94,10 +164,8 @@ export async function assemble(
         `@layer plan {\n${css}\n}\n@scope (#page-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
         `</style>`,
     )
-    .replace(
-      "<!-- FRAME_SCRIPT -->",
-      () =>
-        `<script type="module">\n${offers}\n${finish}\n${notifications}\n${choices}\n${draft}\n${activity}\n${script}\n${componentJs}\n</script>`,
+    .replace("<!-- FRAME_SCRIPT -->", () =>
+      bundle.format === 2 ? moduleScript(bundle) : joinedScript(bundle),
     )
     // A module, and after the frame's, so the plan's own script sees planUI
     // and can register a component of its own before the first page renders.

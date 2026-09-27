@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { assemble } from "../../../src/build/assemble.mjs";
-import { renderFinish } from "../../../src/frame/finish.mjs";
+import { renderFinish } from "../../../src/frame/review/send.mjs";
 import { offers } from "../../../src/shared/offers.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
 import { exists, hub, planData, root } from "../../support/hub.mjs";

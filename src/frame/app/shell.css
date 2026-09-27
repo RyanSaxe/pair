@@ -1,0 +1,258 @@
+/* Shell */
+/* The whole frame, sidebar included, is capped and centered so the nav stays
+   next to the text while the composition stays centered on wide screens. */
+/* 100dvh is the height you can actually see, so a short page does not
+   scroll by the height of a browser toolbar. The content scrolls inside
+   the shell rather than the window. */
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 1160px;
+  margin: 0 auto;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+.frame-header {
+  flex: none;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.frame-header .spacer {
+  margin-left: auto;
+}
+.header-submit {
+  flex: none;
+  text-align: center;
+}
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+}
+.sidebar {
+  z-index: var(--z-sidebar);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+.side-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.main-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.main-column > main {
+  flex: 1;
+}
+main {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+.bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+@media (hover: hover) {
+  .bell:hover {
+    background: var(--ground);
+  }
+}
+.bell svg {
+  width: 18px;
+  height: 18px;
+}
+.bell b {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.bell.need {
+  color: var(--attention);
+}
+.bell.need b {
+  background: var(--attention);
+  color: #fff;
+}
+.icon-btn.menu {
+  display: none;
+  position: relative;
+}
+.icon-btn.menu svg {
+  width: 18px;
+  height: 18px;
+}
+.icon-btn.menu b {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.icon-btn.menu.need {
+  color: var(--accent);
+}
+.page-arrival {
+  position: absolute;
+  z-index: var(--z-header);
+  top: 64px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 32px);
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+.page-arrival button {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 650;
+}
+.save-error {
+  position: fixed;
+  z-index: var(--z-header);
+  top: 64px;
+  right: max(16px, calc((100vw - 1160px) / 2 + 16px));
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+.save-error button {
+  margin-left: auto;
+  font-size: 16px;
+  line-height: 1;
+}
+/* The same quiet strip marks submitted pages and older rounds. */
+.history-strip {
+  flex: none;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 12px;
+}
+.history-strip button {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+#round.older {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+#history-label b {
+  font-weight: 600;
+}
+#history-label .meta {
+  color: var(--muted);
+}
+/* Narrow screens: the header stays and the page list moves from the sidebar
+   into a dialog behind the menu button. */
+@media (max-width: 720px) {
+  .app-body {
+    display: block;
+    overflow-y: auto;
+  }
+  .icon-btn.menu {
+    display: inline-flex;
+  }
+  .sidebar {
+    display: none;
+  }
+  .main-column {
+    min-height: 100%;
+  }
+  main {
+    overflow: visible;
+    min-height: 100%;
+  }
+  .page-arrival {
+    top: 60px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+  table {
+    display: block;
+    overflow: auto;
+  }
+  /* iOS zooms into a field under 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

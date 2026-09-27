@@ -5,7 +5,7 @@ import {
   agentNotice,
   finishedLine,
   roundModel,
-} from "../../../src/frame/activity.mjs";
+} from "../../../src/frame/sync/activity.mjs";
 
 const now = Date.parse("2026-01-01T00:10:00Z");
 const submittedRound = "1";

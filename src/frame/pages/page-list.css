@@ -1,0 +1,227 @@
+/* The round's status sits in the Pages heading, which is always there, so it
+   appears and fades without moving the list. */
+.round-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: opacity 0.6s ease;
+}
+.round-status > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.round-status i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: page-breathe 2s ease-in-out infinite;
+}
+.round-status.late {
+  color: var(--attention);
+}
+.round-status.late i {
+  background: var(--attention);
+  animation: none;
+}
+.round-status.idle {
+  opacity: 0;
+}
+.dialog-head .round-status {
+  margin-left: auto;
+  font-size: 12.5px;
+}
+/* `.dialog h2` gives every dialog heading a bottom margin, which would lift
+   Pages above the status and the close button beside it. */
+#pages-dialog .dialog-head h2 {
+  margin-bottom: 0;
+}
+.pages-slot nav {
+  display: block;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+#page-list {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+}
+.page-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 8px 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.pages-slot nav .page-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pages-slot nav .page-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+/* A page name stays on one line, so a row never changes height. A page that
+   is not ready yet is dimmed and fades up when it publishes. The working
+   page is the only one with a mark, the breathing dot. */
+#page-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  /* A grid item keeps its text's full width unless allowed to shrink, and
+     then a long name would push the row past the sidebar. */
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+#page-list button > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity 0.6s ease;
+}
+#page-list button[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--accent-soft);
+}
+#page-list button.pending > span:first-child {
+  opacity: 0.45;
+}
+#page-list button.pending[aria-current="page"] > span:first-child {
+  opacity: 0.6;
+}
+#page-list button .page-activity {
+  flex: none;
+}
+#page-list button .page-activity:not(.active) {
+  display: none;
+}
+/* The unsent count reads as text beside its label, as Current (4) does. */
+#review-row {
+  justify-content: flex-start;
+  gap: 4px;
+}
+.page-activity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.page-activity svg {
+  width: 16px;
+  height: 16px;
+}
+.page-activity.queued {
+  color: var(--muted);
+}
+.page-activity.complete {
+  color: var(--ok);
+}
+.page-activity.active {
+  color: var(--accent);
+}
+.page-activity.active::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: page-breathe 2s ease-in-out infinite;
+}
+/* A paused or unwoken agent is not working, so its active page stops
+   breathing and takes the attention color. */
+.page-activity.active.stopped {
+  color: var(--attention);
+}
+.page-activity.active.stopped::before {
+  animation: none;
+}
+@keyframes page-breathe {
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+.pending-page {
+  max-width: 620px;
+  margin: 20px 0;
+}
+.pending-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-weight: 650;
+}
+.pending-skeleton {
+  display: grid;
+  gap: 11px;
+  margin-top: 24px;
+}
+.pending-skeleton i {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--ground);
+}
+.pending-skeleton i:nth-child(2) {
+  width: 78%;
+}
+.pending-skeleton i:nth-child(3) {
+  width: 58%;
+}
+#page-list .separator {
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+}
+.pages-slot nav button .count {
+  flex: none;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+/* The page list is one element, shown in the sidebar or in the dialog. */
+#pages-dialog .pages-slot nav {
+  padding: 0;
+  overflow: visible;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-activity.active::before,
+  .round-status i {
+    animation: none;
+  }
+  .round-status {
+    transition: none;
+  }
+  #page-list button > span:first-child {
+    transition: none;
+  }
+}

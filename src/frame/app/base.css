@@ -1,0 +1,310 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--ground);
+}
+[hidden] {
+  display: none !important;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+p {
+  margin: 0 0 14px;
+}
+h1 {
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  font-weight: 650;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+h1:focus {
+  outline: 0;
+}
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 28px 0 10px;
+}
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+ul,
+ol {
+  padding-left: 22px;
+}
+li {
+  margin-bottom: 6px;
+}
+.muted,
+.small {
+  color: var(--muted);
+}
+.small {
+  font-size: 12px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--panel);
+  font:
+    11px/18px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  text-align: center;
+  color: var(--ink);
+}
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.tag.attention {
+  color: var(--attention);
+  background: var(--attention-bg);
+}
+.tag.ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+.tag.muted {
+  color: var(--muted);
+  background: var(--ground);
+}
+.notice {
+  padding: 10px 14px;
+  border: 1px solid var(--notice-border);
+  border-left-width: 3px;
+  border-radius: 0 8px 8px 0;
+  color: var(--notice-ink);
+  background: var(--notice-bg);
+}
+.notice[data-tone="success"] {
+  --notice-ink: var(--ok);
+  --notice-bg: var(--ok-bg);
+  --notice-border: var(--ok-border);
+}
+.notice[data-tone="danger"] {
+  --notice-ink: var(--danger);
+  --notice-bg: var(--danger-bg);
+  --notice-border: var(--danger-border);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn.quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+[data-choice] .btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+@media (hover: hover) {
+  .btn.quiet:hover {
+    color: var(--ink);
+    background: var(--ground);
+  }
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+@media (hover: hover) {
+  .icon-btn:hover {
+    background: var(--ground);
+    color: var(--ink);
+  }
+}
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.link-btn {
+  color: var(--accent);
+  font-size: inherit;
+}
+@media (hover: hover) {
+  .link-btn:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+select {
+  padding: 6px 8px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+}
+blockquote {
+  margin: 10px 0;
+  border-left: 2px solid var(--line-strong);
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+/* Reading elements */
+pre {
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--code);
+  border-radius: 8px;
+  font:
+    12px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+code {
+  font:
+    12px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+p code,
+li code,
+td code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--code);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+}
+th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+img,
+svg {
+  max-width: 100%;
+}
+.renderer-error {
+  color: var(--muted);
+  font-size: 12px;
+}
+/* Question component's answer field and other frame-owned inputs */
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  margin: 8px 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 10px 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+}
+:where(main, .sidebar, .pages-slot nav, .app-body) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+/* Safari ignores scrollbar-color and styles scrollbars only through the
+   WebKit pseudo-elements. */
+@supports not (scrollbar-color: auto) {
+  :where(main, .sidebar, .pages-slot nav, .app-body)::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  :where(main, .sidebar, .pages-slot nav, .app-body)::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  :where(main, .sidebar, .pages-slot nav, .app-body)::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: var(--line-strong) padding-box;
+  }
+}

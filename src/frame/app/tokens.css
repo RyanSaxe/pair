@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light;
+  /* One order for every layer, so a new piece of chrome cannot quietly
+     cover something. The selection control sits above all of it. */
+  --z-sidebar: 5;
+  --z-header: 6;
+  --z-selection: 40;
+  --ground: light-dark(#f6f6f8, #121417);
+  --panel: light-dark(#ffffff, #1a1d22);
+  --line: light-dark(#e3e4e8, #2a2e35);
+  --line-strong: light-dark(#cfd1d7, #3a3f48);
+  --ink: light-dark(#17191c, #e7e9ec);
+  --muted: light-dark(#6b7079, #9aa1ab);
+  --accent: light-dark(#3457d5, #8fa5ff);
+  --accent-ink: light-dark(#ffffff, #0d1330);
+  --accent-soft: light-dark(#eef1fc, #1e2740);
+  --attention: light-dark(#b45309, #f0b25f);
+  --attention-bg: light-dark(#fff4e5, #3a2b14);
+  --attention-border: light-dark(#e0a35a, #7a5a2a);
+  --ok: light-dark(#1f7a45, #7fd39a);
+  --ok-bg: light-dark(#e6f5ec, #173023);
+  --ok-border: light-dark(#6fbf8c, #2f6b45);
+  --danger: light-dark(#a12622, #ffaaa4);
+  --danger-bg: light-dark(#fff0ee, #402321);
+  --danger-border: light-dark(#d98a86, #8a4a45);
+  --code: light-dark(#f1f2f4, #15181c);
+  --mark: light-dark(#fff3bf, #4a3f14);
+  --shadow:
+    0 10px 30px light-dark(#0002, #0006), 0 1px 3px light-dark(#0001, #0004);
+  font:
+    14px/1.55 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
+  background: var(--ground);
+  color: var(--ink);
+}
+/* Each colour token holds its light and its dark value, and color-scheme
+   picks one: the system's, unless the reader chose a theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}

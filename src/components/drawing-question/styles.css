@@ -14,9 +14,6 @@
   border-radius: 8px;
   background: white;
 }
-.drawing-question .drawing-preview[hidden] {
-  display: none;
-}
 .drawing-question > .tag,
 .drawing-question .btn {
   justify-self: start;

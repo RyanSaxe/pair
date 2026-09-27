@@ -1,5 +1,3 @@
-.visual-decision {
-}
 .vd-head {
   display: flex;
   justify-content: space-between;
@@ -44,8 +42,6 @@
    card under the figure. */
 .visual-option {
   display: grid;
-  grid-template-rows: auto;
-  grid-auto-rows: auto;
   gap: 8px;
   min-width: 0;
   border: 1px solid var(--line);
@@ -87,7 +83,6 @@
 /* An option with no figure ends under its line: the third row and its gap
    otherwise leave 8px of panel below the last word. */
 .visual-option:not(:has(> figure)) {
-  grid-template-rows: auto auto;
   padding-bottom: 10px;
 }
 /* A diagram and a code block each scroll sideways inside their own figure,
@@ -145,7 +140,6 @@
    the tab carries the tick. */
 .visual-decision[data-mode="tabs"] .vd-columns {
   display: block;
-  padding: 0;
 }
 .visual-decision[data-mode="tabs"] .visual-option {
   border: 0;
@@ -157,12 +151,6 @@
 }
 .visual-decision[data-mode="tabs"] .visual-option > p {
   padding: 0 14px 10px;
-}
-.visual-decision[data-mode="tabs"] .visual-option > figure {
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: var(--ground);
 }
 .visual-decision[data-mode="columns"] .vd-tablist {
   display: none;

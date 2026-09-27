@@ -54,8 +54,8 @@ export const componentStyles = (roots) =>
   componentParts(roots, "styles.css", (at, text) => `/* ${at} */\n${text}`);
 /* Each behavior is evaluated in a block, so what a component declares at the
    top of its file stays inside it and two components cannot collide over a
-   name. The frame's own helpers stay in scope, because the block is inside
-   the frame's module. */
+   name. The blocks run in the page's module script, which imports the
+   frame's helpers a component uses from app/registry.mjs. */
 export const componentBehaviors = (roots) =>
   componentParts(
     roots,

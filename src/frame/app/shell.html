@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>pair</title>
+    <!-- FRAME_STYLE -->
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="frame-header" id="frame-header">
+        <button
+          class="icon-btn menu"
+          id="menu-button"
+          type="button"
+          aria-label="Pages"
+          aria-controls="pages-dialog"
+          aria-expanded="false"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2.5" y="2.5" width="19" height="19" rx="3.5" />
+            <path d="M7 9h10M7 13h10M7 17h6" />
+          </svg>
+          <b id="page-count" aria-hidden="true" hidden></b>
+        </button>
+        <button
+          class="icon-btn"
+          id="round"
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Rounds"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3.2 12a8.8 8.8 0 1 0 2.6-6.2" />
+            <path d="M3.2 3.4v4.4h4.4" />
+            <path d="M12 7.3V12l3.5 2.1" />
+          </svg>
+        </button>
+        <button
+          class="icon-btn"
+          id="settings"
+          type="button"
+          aria-label="Settings"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+            />
+          </svg>
+        </button>
+        <button
+          class="bell"
+          id="bell"
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Other live sessions"
+          hidden
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10 21a2 2 0 0 0 4 0" />
+          </svg>
+          <b id="bell-count"></b>
+        </button>
+        <span class="spacer"></span>
+        <button
+          class="btn primary header-submit"
+          id="submit"
+          type="button"
+          disabled
+        >
+          Send feedback
+        </button>
+      </header>
+      <div class="page-arrival" id="page-arrival" role="status" hidden>
+        <span id="page-arrival-text"></span>
+        <button type="button" id="page-arrival-view">View</button>
+        <button type="button" id="page-arrival-dismiss" aria-label="Dismiss">
+          ✕
+        </button>
+      </div>
+      <div class="app-body">
+        <aside class="sidebar" id="sidebar">
+          <div class="side-label">
+            <span>Pages</span
+            ><span class="round-status idle" data-round-status
+              ><i></i><span></span
+            ></span>
+          </div>
+          <div class="pages-slot" id="sidebar-slot">
+            <nav id="navigation" aria-label="Plan pages"></nav>
+          </div>
+        </aside>
+        <!-- The strip sits above the scrolling column, so the scrollbar
+             starts below it. -->
+        <div class="main-column">
+          <div class="history-strip" id="history-strip" hidden>
+            <span id="history-label"></span>
+            <button type="button" id="history-return"></button>
+          </div>
+          <main>
+            <div class="content" id="content">
+              <div class="save-error" id="save-error" role="alert" hidden>
+                <span id="save-error-text"></span>
+                <button
+                  type="button"
+                  id="save-error-dismiss"
+                  aria-label="Dismiss error"
+                >
+                  ×
+                </button>
+              </div>
+              <div
+                class="notice accepted"
+                id="accepted"
+                data-tone="success"
+                hidden
+              ></div>
+              <section id="reading">
+                <h1 tabindex="-1" id="page-title"></h1>
+                <div class="agent-activity" id="agent-activity" hidden>
+                  <div class="activity-heading">
+                    <strong id="activity-title"></strong>
+                    <time id="activity-elapsed"></time>
+                  </div>
+                  <p id="activity-summary"></p>
+                  <div
+                    class="activity-segments"
+                    id="activity-segments"
+                    aria-hidden="true"
+                  ></div>
+                  <div class="activity-pages" id="activity-pages"></div>
+                  <p class="activity-report" id="activity-report">
+                    <span id="activity-report-text"></span>
+                  </p>
+                  <div id="activity-handoff" hidden></div>
+                </div>
+                <p class="finished-line" id="finished-line" hidden></p>
+                <div class="note-bars" id="note-bars"></div>
+                <div class="chosen-bar" id="chosen-bar" hidden></div>
+                <div id="page-content"></div>
+                <section
+                  class="sent-page-comments"
+                  id="sent-page-comments"
+                  hidden
+                ></section>
+                <p class="note-count" id="note-count" hidden></p>
+                <nav class="page-footer" aria-label="Previous and next">
+                  <a id="footer-previous" hidden></a>
+                  <a id="footer-next" hidden></a>
+                </nav>
+              </section>
+              <section id="feedback" hidden>
+                <h1 tabindex="-1" id="feedback-title">Review</h1>
+                <section class="sent-feedback" id="sent-feedback" hidden>
+                  <h2>Your feedback</h2>
+                  <div id="sent-feedback-list"></div>
+                </section>
+                <div id="feedback-review">
+                  <div class="draft-head" id="draft-head" hidden>
+                    <h2>Your feedback</h2>
+                    <span id="draft-count"></span>
+                  </div>
+                  <p
+                    class="notice"
+                    id="submit-error"
+                    data-tone="danger"
+                    role="alert"
+                    hidden
+                  ></p>
+                  <label class="alignment-switch" for="align-unflagged">
+                    <span>Everything else looks good</span>
+                    <input
+                      id="align-unflagged"
+                      type="checkbox"
+                      role="switch"
+                      checked
+                    />
+                  </label>
+                  <div id="feedback-groups"></div>
+                  <section class="feedback-group">
+                    <div class="group-head">
+                      <h2>Overall</h2>
+                      <button class="btn quiet" id="overall-note" type="button">
+                        Add overall comment
+                      </button>
+                    </div>
+                    <div id="overall-notes"></div>
+                  </section>
+                  <div class="feedback-end">
+                    <button class="btn quiet" id="export" type="button">
+                      Export copy
+                    </button>
+                  </div>
+                  <p class="small" id="storage-status"></p>
+                  <p class="small" id="connection-status"></p>
+                </div>
+                <nav class="page-footer" aria-label="Pages">
+                  <button id="feedback-pages" type="button">Pages →</button>
+                </nav>
+              </section>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+    <!-- DIALOGS -->
+    <script type="application/json" id="drawing-editor-source">
+      <!-- DRAWING_EDITOR -->
+    </script>
+    <button class="btn primary quote-button" id="quote" type="button" hidden>
+      Comment on this page
+    </button>
+    <div class="note-tip" id="note-tip" hidden></div>
+
+    <script type="application/json" id="session-config">
+      {}
+    </script>
+    <script type="application/json" id="plan-data">
+      {}
+    </script>
+    <!-- FRAME_SCRIPT -->
+    <!-- CUSTOM_SCRIPT -->
+  </body>
+</html>

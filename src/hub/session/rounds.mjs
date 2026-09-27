@@ -7,7 +7,7 @@ import {
   pageScripts,
   pageStyles,
 } from "../../build/assemble.mjs";
-import { choiceText } from "../../frame/choices.mjs";
+import { choiceText } from "../../frame/review/choices.mjs";
 import {
   idPattern,
   orderAgreements,
