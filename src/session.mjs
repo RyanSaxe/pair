@@ -419,11 +419,6 @@ function serializer() {
 
 async function loadSession(directory, config, origin) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  for (const child of ["rounds", "feedback", "uploads", "scenes"])
-    await fs.mkdir(path.join(directory, child), {
-      recursive: true,
-      mode: 0o700,
-    });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
     ? await read(stateFile)
@@ -439,6 +434,17 @@ async function loadSession(directory, config, origin) {
     idPattern.test(state.sessionId) && Array.isArray(state.acknowledged),
     "Invalid session state",
   );
+  // A session another program created names its round some other way, and
+  // pair reads only its own format.
+  requireValue(
+    !state.current || typeof state.current.round === "string",
+    `${directory} is not a pair session, so pair does not open it. Start a new session.`,
+  );
+  for (const child of ["rounds", "feedback", "uploads", "scenes"])
+    await fs.mkdir(path.join(directory, child), {
+      recursive: true,
+      mode: 0o700,
+    });
   const connectionFile = path.join(directory, "connection.json");
   let token = null;
   if (await exists(connectionFile)) {

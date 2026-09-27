@@ -1737,6 +1737,37 @@ test("the Codex network check installs rules and reports sandbox state", async (
   assert.equal(report.codex.present, true);
 });
 
+// interactive-plan's sessions keep their own format under their own state
+// directory, and pair never reads that format.
+test("the hub refuses to open a session interactive-plan created", async (t) => {
+  const h = await hub(t);
+  const directory = path.join(h.home, "interactive-plan", "sessions", "old");
+  await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(
+    path.join(directory, "status.json"),
+    JSON.stringify({
+      sessionId: crypto.randomUUID(),
+      stage: "ready",
+      acknowledged: [],
+      current: { artifactId: "plan", revision: "3", kind: "plan" },
+    }),
+  );
+  const response = await fetch(h.server.origin + "/agent/register", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${h.record.secret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sessionDir: directory,
+      wake: { harness: "codex", thread: "t" },
+    }),
+  });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /is not a pair session/);
+  assert.deepEqual(await fs.readdir(directory), ["status.json"]);
+});
+
 test("a moved session still serves its current and earlier rounds", async (t) => {
   const h = await hub(t);
   const a = await h.session();

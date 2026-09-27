@@ -20,7 +20,9 @@ Give it to the user, and run `start` again after the restart.
 If a session already exists, resume it with `start --session-dir PATH`,
 which keeps its URL. Do not create a replacement. The directory name under
 `sessions/` is not the session ID in the URL. `connection.json` in the
-directory holds the ID.
+directory holds the ID. Sessions that interactive-plan created stay under
+`~/.local/state/interactive-plan/`, and `start` refuses to resume one that
+published a round, so start a new session instead.
 
 On the first Agreed publication, open the URL in the operating system's
 default browser (macOS `open`, Windows PowerShell `Start-Process`, Linux
