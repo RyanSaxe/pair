@@ -12,6 +12,7 @@ import {
   planData,
   sessionConfig,
   sleep,
+  waitUntil,
 } from "../support/hub.mjs";
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
@@ -124,6 +125,37 @@ test("closing a session from the bell panel completes it and drops it from the l
     sessionId: a.id,
     base: a.base,
   });
+});
+
+// A tab opened before the session closed can still send, after the bell
+// panel's Close session or after pair complete.
+test("a closed session refuses feedback and wakes no agent", async (t) => {
+  const h = await hub(t);
+  const dismissed = await h.session();
+  await dismissed.publish(planData());
+  assert.equal(
+    (await dismissed.request(`${dismissed.base}/api/dismiss`, {})).code,
+    200,
+  );
+  const completed = await h.session();
+  await completed.publish(planData("1", "finish"));
+  const accepted = completed.event("accept", "1", {
+    offer: "finish",
+    action: "finish",
+  });
+  assert.equal((await completed.feedback(accepted)).code, 200);
+  assert.equal(await waitUntil(() => completed.inbox.wakes.length === 1), true);
+  assert.equal((await completed.action("read")).code, 200);
+  assert.equal((await completed.action("complete")).code, 200);
+  for (const session of [dismissed, completed]) {
+    const sent = await session.feedback(session.event());
+    assert.equal(sent.code, 409);
+    assert.equal(sent.body.error, "This session is closed");
+    assert.equal((await session.status()).body.stage, "complete");
+  }
+  await sleep(50);
+  assert.equal(dismissed.inbox.wakes.length, 0);
+  assert.equal(completed.inbox.wakes.length, 1);
 });
 
 test("the root URL opens the session that most needs you, then the last viewed, else says so", async (t) => {
