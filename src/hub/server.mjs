@@ -329,7 +329,7 @@ export async function startHub(config = settings()) {
         error.statusCode ||
           (error.code === "ENOENT"
             ? 404
-            : error instanceof SyntaxError
+            : error instanceof SyntaxError || error instanceof URIError
               ? 400
               : 500),
         { error: error.message },

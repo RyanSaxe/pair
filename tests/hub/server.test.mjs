@@ -269,6 +269,14 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
   assert.equal(forged, 403);
 });
 
+test("a round URL with a malformed escape is a bad request", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  for (const route of ["r", "preview"])
+    assert.equal((await a.request(`${a.base}/${route}/%E0%A4%A`)).code, 400);
+});
+
 test("explicit feedback is retryable, remains unread until read, and blocks premature publication", async (t) => {
   const h = await hub(t);
   const agent = await pairCli(h.home, { PAIR_HUB_PORT: "0" });
