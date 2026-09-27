@@ -161,6 +161,11 @@ pre[data-language] {
   padding: 0;
   border: 0;
 }
+/* At the top of the page the frame sets the space around a code block, as
+   it does around every block, so the margin comes from the frame's layer. */
+:scope > pre[data-language] {
+  margin: revert-layer;
+}
 .figure-body > [data-language] {
   border-radius: 0;
 }

@@ -1,6 +1,10 @@
 /* A formula that names its terms. The four hues are a content palette, kept
    apart from the chrome's --accent, --ok, --attention and --danger, and
    written as light-dark pairs so a term reads on both grounds. */
+/* At the top of the page the frame sets the space around a formula. */
+:scope > .formula {
+  margin: revert-layer;
+}
 .formula {
   --t1: light-dark(#1d4ed8, #93b4ff);
   --t2: light-dark(#a16207, #e8bd63);
