@@ -98,9 +98,9 @@ if (editable) initializeChecklists();
 theme();
 renderRounds();
 /* The first page renders once every component has registered. Component
-   behaviors are bundled after this file and the plan's script is a module
-   of its own, so both run while the document is still loading and both are
-   done by DOMContentLoaded. */
+   behaviors run in the page's module script after this module, and the
+   plan's script is a module of its own, so both run while the document is
+   still loading and both are done by DOMContentLoaded. */
 function start() {
   const place = placeIn(plan.round, [
     ...pages.map((item) => item.id),
@@ -138,7 +138,7 @@ function start() {
 }
 /* A module runs once the document is parsed, so readyState is "interactive"
    by this line and DOMContentLoaded is still ahead. That event is the point
-   where every deferred script has run, this module's component blocks and
-   the plan's module included. */
+   where every deferred script has run, the page's module script with its
+   component blocks and the plan's module included. */
 if (document.readyState === "complete") start();
 else window.addEventListener("DOMContentLoaded", start, { once: true });

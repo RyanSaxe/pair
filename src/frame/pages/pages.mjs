@@ -55,6 +55,9 @@ function visiblePageId() {
   if (displayedRound !== viewKey()) return null;
   return $("reading").hidden ? "feedback" : page.id;
 }
+// Page changes push history so the back button and a pasted hash both work;
+// re-rendering the same page, restoring after a reload, and popstate itself
+// leave history alone.
 // inPlace re-renders the page on screen for an arrival, without closing the
 // Pages drawer or another menu, or moving focus.
 export function show(

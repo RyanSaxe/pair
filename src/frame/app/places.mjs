@@ -48,9 +48,6 @@ export function loadPlaces() {
   places = placeStore.places;
   return placeStore;
 }
-// Page changes push history so the back button and a pasted hash both work;
-// re-rendering the same page, restoring after a reload, and popstate itself
-// leave history alone.
 /* Above 720px main scrolls and the sidebar stays; below it the body does. */
 export const scroller = () =>
   [document.querySelector("main"), document.querySelector(".app-body")].find(

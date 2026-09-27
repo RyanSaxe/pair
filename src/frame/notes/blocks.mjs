@@ -74,7 +74,6 @@ function blockName(block) {
   return name.length > 60 ? name.slice(0, 57) + "…" : name;
 }
 
-/* Choices, checklists, answers */
 // A note on a block carries the block's ID so Feedback can jump back to it.
 export function blockTargets(root, topic) {
   [...root.children].forEach((block, index) => {
