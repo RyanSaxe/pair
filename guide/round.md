@@ -71,9 +71,15 @@ retired or still open. A recommendation is not an agreement. Read
    `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A settled topic
    leaves the list, and an unchanged page is not repeated. A final plan
    follows the final plan section of [quality.md](quality.md), carries
-   `"offer": "plan"` and lists `overview` first. A round whose built work
-   is complete, including a follow-up round after feedback, carries
-   `"offer": "finish"`.
+   `"offer": "plan"` and lists `overview` first. A round in which you build
+   the work carries `"offer": "finish"`: the build round, and each follow-up
+   round after feedback on the build. Put the offer in the source of Agreed
+   and of every page, although the work is not done yet. The hub sets the
+   round's offer when Agreed publishes and refuses a page whose offer
+   differs, and the reviewer can accept only after the last page publishes.
+   The last page of such a round is the pull request description, so a
+   follow-up round repeats it, updated to describe the work as it now
+   stands. A round that only explains carries no offer.
 2. Build Agreed and publish it with the list before writing any other page:
    `pair build SRC/agreed/agreed.json OUT/agreed.html`, then
    `pair publish --file OUT/agreed.html --pages pages.json --source SRC/agreed`.

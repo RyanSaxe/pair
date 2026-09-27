@@ -59,7 +59,7 @@ Agreed and every other page share the outer fields. Agreed also requires a
 | ---------- | ---------------------------------------------------------------------------------------------- |
 | name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                |
 | round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.         |
-| offer      | Optional. `plan` on a complete plan, `finish` on built work that is complete.                  |
+| offer      | Optional. `plan` on a complete plan, `finish` on a round in which you build the work.          |
 | title      | The plan's title.                                                                              |
 | page.file  | An HTML fragment, relative to the JSON file. `page.html` may hold the fragment inline instead. |
 | page.css   | Optional page CSS. The frame scopes it to this page.                                           |

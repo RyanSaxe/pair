@@ -1,10 +1,13 @@
 #!/usr/bin/env node
+import fs from "node:fs/promises";
 import { main as build } from "./build.mjs";
 import { main as check } from "./check.mjs";
 import { main as diff } from "./components/before-after/diff.mjs";
-import { main as session, withSandboxHint } from "./session.mjs";
+import { guideFile } from "./guide.mjs";
+import { main as session, settings, withSandboxHint } from "./session.mjs";
 
-const usage = `Usage: pair start [--session-dir PATH]
+const usage = `Usage: pair guide
+       pair start [--session-dir PATH]
        pair ack|read|publish|progress|pause|complete|status --session-dir PATH [options]
        pair build SOURCE.json OUTPUT.html
        pair diff BEFORE AFTER OUTPUT.json
@@ -22,7 +25,13 @@ const sessionCommands = new Set([
   "status",
   "hub",
 ]);
-const tools = { build, diff, check };
+// The skill's one instruction. It prints guide/pair.md from the guide copy,
+// whose links are absolute paths.
+async function guide() {
+  const file = await guideFile("pair.md", settings().root);
+  process.stdout.write(await fs.readFile(file, "utf8"));
+}
+const tools = { build, diff, check, guide };
 
 const [command, ...args] = process.argv.slice(2);
 if (sessionCommands.has(command)) {
