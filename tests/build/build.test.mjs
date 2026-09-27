@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { assemble } from "../../src/build/assemble.mjs";
+import { problems } from "../../src/build/lint.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
 import { exec, pair, root } from "../support/hub.mjs";
@@ -288,6 +289,36 @@ test("the build refuses each structural problem and names it", async () => {
   );
 });
 
+// A fragment is matched as text, so one with regular expression syntax in it
+// neither throws nor matches another id.
+test("a link names no page unless an id equals its fragment", () => {
+  assert.deepEqual(
+    problems(page('<a href="#x(">x</a><a href="#a.b">y</a><i id="aXb"></i>')),
+    [
+      'page "p": link "#x(" names no page',
+      'page "p": link "#a.b" names no page',
+    ],
+  );
+});
+
+test("a checklist box is refused for the checked attribute, not for the word in a label", async () => {
+  const checklist = (input) =>
+    page(
+      `<fieldset data-multiselect="s" data-label="S"><label>${input} A</label></fieldset>`,
+    );
+  await assert.doesNotReject(
+    assemble(
+      checklist(
+        '<input type="checkbox" data-value="a" data-label="Types checked by tsc">',
+      ),
+    ),
+  );
+  await refused(
+    checklist('<input type="checkbox" data-value="a" data-label="A" checked>'),
+    /^page "p": checklist "s" has a checked box\. Start every box unchecked\.$/m,
+  );
+});
+
 test("well-formed controls, anchors and blocks pass", async () => {
   const html = await assemble(
     page(
@@ -391,6 +422,14 @@ test("a page source builds a standalone preview", async (t) => {
   await exec(process.execPath, [link, "build", source, linked]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
   await assert.rejects(exec(process.execPath, [link, "build"]), /Usage/);
+});
+
+test("an error from pair build starts with pair:", async () => {
+  const missing = path.join(os.tmpdir(), "pair-no-such-dir", "source.json");
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", missing, "out.html"]),
+    ({ stderr }) => /^pair: ENOENT/.test(stderr),
+  );
 });
 
 test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {

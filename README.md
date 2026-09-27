@@ -9,9 +9,9 @@ and diffs so you judge by looking.
 
 ## Install
 
-pair needs Node 20 or newer. npm installs the application, and the `skills`
-installer puts the skill where your agent CLI finds it. pair has no install
-command of its own.
+pair needs Node 20.1.0 or newer. npm installs the application, and the
+`skills` installer puts the skill where your agent CLI finds it. pair has no
+install command of its own.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -56,7 +56,7 @@ without asking.
 
 ## Run it from a checkout
 
-pair needs Node 20 or newer and has no dependencies. In a clone of this
+pair needs Node 20.1.0 or newer and has no dependencies. In a clone of this
 repository, `npm link` puts the `pair` command on your path, running the
 checkout, so an edit takes effect at the next command:
 
@@ -73,14 +73,14 @@ variables, including `PAIR_HUB_PORT`, and what pair keeps on disk.
 
 ## Commands
 
-| Command                                            | What it does                                                                                               |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `pair guide`                                       | Print the agent's instructions, `guide/pair.md`, with each link an absolute path. The skill runs it first. |
-| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names guide files by their absolute path.       |
-| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.                  |
-| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                          |
-| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                             |
-| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                        |
+| Command                                            | What it does                                                                                        |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `pair guide [FILE]`                                | Print `guide/pair.md`, or the guide file FILE, with each guide link as the command that prints it.  |
+| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names the `pair guide` command it needs. |
+| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.           |
+| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                   |
+| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                      |
+| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                 |
 
 ## Troubleshooting
 
@@ -140,12 +140,13 @@ decides, the first adapter whose first variable is set claims it.
 ## Holders and handoff
 
 One agent holds a session: the one that last ran `pair start` on it. The hub
-wakes only that agent and refuses a command from any other. The next command
-of an agent the session was taken from, `pair start` included, fails with the
-time it lost the session. Every command sends the identity of the agent that
-runs it, so a subagent works as its parent. Another agent takes a session
-over with its handoff line, which the browser shows with Copy after Save for
-later and after a failed wake:
+wakes only that agent and refuses every command but `pair status` from any
+other. After a takeover, the former holder's first command other than
+`pair status`, `pair start` included, fails with the time it lost the
+session. Every command sends the identity of the agent that runs it, so a
+subagent works as its parent. Another agent takes a session over with its
+handoff line, which the browser shows with Copy after Save for later and
+after a failed wake:
 
 ```text
 Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.

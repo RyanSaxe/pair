@@ -389,7 +389,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(ack.body.status.report.note, "Reading your feedback");
   assert.match(
     ack.body.next,
-    /^Read .*round\.md in full, then run: pair read --session-dir /,
+    /^Run pair guide round\.md and read all it prints, then run: pair read --session-dir /,
   );
   // Receiving is not reading: the submission stays unread, so publish waits.
   assert.deepEqual(ack.body.status.acknowledged, []);
@@ -414,4 +414,30 @@ test("page progress cannot start before Agreed for the next round", async (t) =>
   const result = await a.action("progress", { start: ["overview"] });
   assert.equal(result.code, 409);
   assert.equal((await a.status()).body.openRound, null);
+});
+
+test("a round keeps only its complete file, and a refused page leaves no record", async (t) => {
+  const h = await testHub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.deepEqual(await fs.readdir(path.join(a.directory, "rounds")), [
+    "example.1.html",
+  ]);
+  await a.feedback(a.event());
+  await a.action("read");
+  // The last page completes the round, and the complete round refuses a
+  // link to a page it does not have.
+  const refused = await a.publish({
+    ...planData("2"),
+    pages: [
+      { id: "overview", title: "Overview", html: '<a href="#nowhere">x</a>' },
+    ],
+  });
+  assert.equal(refused.code, 400);
+  assert.match(refused.body.error, /link "#nowhere" names no page/);
+  const records = await fs.readdir(path.join(a.directory, "pages", "2"));
+  assert.deepEqual(records.map((file) => file.split(".")[0]).sort(), [
+    "agreed",
+    "frame",
+  ]);
 });

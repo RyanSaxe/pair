@@ -42,6 +42,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
     const html = page.html || "";
     const at = `page "${page.id}"`;
     const tags = html.match(/<[a-zA-Z][^>]*>/g) || [];
+    const ids = new Set(tags.map((tag) => attribute(tag, "id")));
     const controls = new Set();
     for (const tag of tags) {
       for (const kind of controlKinds) {
@@ -98,7 +99,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         !targets.has(link.slice(1)) &&
         !allowUnknownPages
       )
-        if (!new RegExp(`\\sid="${link.slice(1)}"`).test(html))
+        if (!ids.has(link.slice(1)))
           list.push(`${at}: link "${link}" names no page`);
       const prototype = attribute(tag, "data-prototype");
       if (prototype !== undefined && !prototypes.has(prototype))
@@ -126,11 +127,13 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         );
       if (kind === "data-question" && !/<textarea\b/i.test(part))
         list.push(`${at}: question "${id}" has no textarea`);
-      // A box the author checked would read as the reviewer's choice.
+      // A box the author checked would read as the reviewer's choice. The
+      // quoted values go first, so a label with the word checked in it is
+      // not read as the attribute.
       if (
         kind === "data-multiselect" &&
         (part.match(/<input\b[^>]*>/gi) || []).some((input) =>
-          /\schecked(?=[\s=/>])/i.test(input),
+          /\schecked(?=[\s=/>])/i.test(input.replace(/"[^"]*"|'[^']*'/g, '""')),
         )
       )
         list.push(

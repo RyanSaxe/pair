@@ -8,7 +8,7 @@ import {
 } from "../../adapters/codex/rules.mjs";
 import { componentDirectories, userComponents } from "../build/components.mjs";
 import { hubInfo, portOpen, readRecord } from "../hub/client.mjs";
-import { requireNode, settings, stateHome } from "../shared/settings.mjs";
+import { requireNode, settings } from "../shared/settings.mjs";
 import { listen } from "../shared/util.mjs";
 
 async function portReport(config) {
@@ -40,7 +40,8 @@ export async function main([argument]) {
   const server = http.createServer((_, response) => response.end("ready"));
   try {
     requireNode();
-    const base = path.resolve(argument || stateHome());
+    // The hub writes under <state>/pair, so that is the directory to test.
+    const base = argument ? path.resolve(argument) : settings().root;
     await fs.mkdir(base, { recursive: true });
     directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
     await fs.writeFile(path.join(directory, "draft"), "ready");

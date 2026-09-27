@@ -17,6 +17,8 @@ import {
   killHub,
   pair,
   pairCli,
+  planData,
+  root,
   task,
   waitUntil,
 } from "../support/hub.mjs";
@@ -45,6 +47,36 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   await fs.writeFile(file, "preserve");
   await assert.rejects(exec(process.execPath, [pair, "check", file]));
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
+});
+
+test("pair check tests the state directory the hub writes to", async (t) => {
+  const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-check-state-"));
+  t.after(() => fs.rm(state, { recursive: true, force: true }));
+  const report = JSON.parse(
+    (
+      await exec(process.execPath, [pair, "check"], {
+        env: { ...process.env, XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
+      })
+    ).stdout,
+  );
+  assert.equal(report.storage, path.join(state, "pair"));
+});
+
+test("a session closed with feedback unread stays closed after the hub restarts", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  await h.server.close();
+  const restarted = await startHub(h.config);
+  try {
+    const get = async (route) => (await fetch(restarted.origin + route)).json();
+    assert.equal((await get(`${a.base}/api/status`)).stage, "complete");
+    assert.deepEqual((await get("/api/sessions")).sessions, []);
+  } finally {
+    await restarted.close();
+  }
 });
 
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
@@ -225,6 +257,69 @@ test("start replaces a stale hub record, and session commands reattach after a c
   );
   assert.equal(connection.sessionId, started.sessionId);
   assert.equal(connection.origin, `http://127.0.0.1:${next.port}`);
+});
+
+// A hub restarts on newer code once no session on it is live, and the start
+// that stops it does not take the stopping hub for one that hangs.
+test("start replaces an idle hub that runs other code", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));
+  const env = { XDG_STATE_HOME: path.join(home, "state"), PAIR_HUB_PORT: "0" };
+  const copy = path.join(home, "copy");
+  const { files } = JSON.parse(
+    await fs.readFile(path.join(root, "package.json"), "utf8"),
+  );
+  for (const entry of ["package.json", ...files])
+    await fs.cp(path.join(root, entry), path.join(copy, entry), {
+      recursive: true,
+    });
+  await fs.appendFile(path.join(copy, "src/build/lint.mjs"), "\n// other\n");
+  for (const name of ["other", "current"])
+    await fs.mkdir(path.join(home, name));
+  const other = await pairCli(
+    path.join(home, "other"),
+    env,
+    path.join(copy, "src/cli.mjs"),
+  );
+  const current = await pairCli(path.join(home, "current"), env);
+  t.after(async () => {
+    await killHub(current.config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  const { sessionDir } = JSON.parse(await other.run("start"));
+  await other.run("pause", "--session-dir", sessionDir, "--reason", "idle");
+  const before = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
+  assert.notEqual(before.version, version);
+  await current.run("start");
+  const after = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
+  assert.notEqual(after.pid, before.pid);
+  assert.equal(after.version, version);
+  assert.equal(alive(before.pid), false);
+});
+
+// Inside Codex's sandbox no command reaches the hub, which still runs, and a
+// start there must leave the record for the commands outside it.
+test("start keeps the record of a hub that runs but does not answer", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-stopped-"));
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  await run("start");
+  const record = await fs.readFile(config.hubFile, "utf8");
+  const { pid, port } = JSON.parse(record);
+  process.kill(pid, "SIGSTOP");
+  t.after(async () => {
+    process.kill(pid, "SIGCONT");
+    process.kill(pid, "SIGTERM");
+    await waitUntil(() => !alive(pid));
+    await killHub(config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  await assert.rejects(run("start"), ({ stderr }) => {
+    assert.equal(
+      stderr,
+      `pair: The hub (pid ${pid}) runs but does not answer on port ${port}\n`,
+    );
+    return true;
+  });
+  assert.equal(await fs.readFile(config.hubFile, "utf8"), record);
 });
 
 test("an unfinished round resumes after the hub restarts", async (t) => {

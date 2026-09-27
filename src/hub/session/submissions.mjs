@@ -53,6 +53,13 @@ export function submissions(session) {
     };
   }
   async function submit(data) {
+    // A tab opened before the session closed can still post, and a submission
+    // would reopen the session and wake an agent that has finished.
+    requireValue(
+      session.state.stage !== "complete",
+      "This session is closed",
+      409,
+    );
     requireValue(
       data.sessionId === session.state.sessionId,
       "Wrong session",

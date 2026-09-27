@@ -55,7 +55,7 @@ export function withSandboxHint(message, env = process.env) {
 export function checkRefusal(error, env = process.env) {
   return error.code === "EPERM" && env.CODEX_SANDBOX
     ? new Error(
-        `the Codex sandbox blocks the hub's socket and its state directory. Run outside the sandbox (escalated): pair check --codex-rules, which writes ${rulesFile} so no later command asks. Then run the check again.`,
+        `the Codex sandbox blocks the hub's socket and its state directory. Run outside the sandbox (escalated): pair check --codex-rules, which writes ${rulesFile} so a command made only of pair calls runs without asking. Then run the check again.`,
       )
     : error;
 }

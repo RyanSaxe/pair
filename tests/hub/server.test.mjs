@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import test from "node:test";
+import { buildPage } from "../../src/cli/build.mjs";
 import { readPlanData } from "../../src/shared/records.mjs";
 import {
   exists,
@@ -12,6 +13,7 @@ import {
   planData,
   sessionConfig,
   sleep,
+  waitUntil,
 } from "../support/hub.mjs";
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
@@ -126,6 +128,37 @@ test("closing a session from the bell panel completes it and drops it from the l
   });
 });
 
+// A tab opened before the session closed can still send, after the bell
+// panel's Close session or after pair complete.
+test("a closed session refuses feedback and wakes no agent", async (t) => {
+  const h = await hub(t);
+  const dismissed = await h.session();
+  await dismissed.publish(planData());
+  assert.equal(
+    (await dismissed.request(`${dismissed.base}/api/dismiss`, {})).code,
+    200,
+  );
+  const completed = await h.session();
+  await completed.publish(planData("1", "finish"));
+  const accepted = completed.event("accept", "1", {
+    offer: "finish",
+    action: "finish",
+  });
+  assert.equal((await completed.feedback(accepted)).code, 200);
+  assert.equal(await waitUntil(() => completed.inbox.wakes.length === 1), true);
+  assert.equal((await completed.action("read")).code, 200);
+  assert.equal((await completed.action("complete")).code, 200);
+  for (const session of [dismissed, completed]) {
+    const sent = await session.feedback(session.event());
+    assert.equal(sent.code, 409);
+    assert.equal(sent.body.error, "This session is closed");
+    assert.equal((await session.status()).body.stage, "complete");
+  }
+  await sleep(50);
+  assert.equal(dismissed.inbox.wakes.length, 0);
+  assert.equal(completed.inbox.wakes.length, 1);
+});
+
 test("the root URL opens the session that most needs you, then the last viewed, else says so", async (t) => {
   const h = await hub(t);
   const open = async (cookie) => {
@@ -235,6 +268,14 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
     request.end();
   });
   assert.equal(forged, 403);
+});
+
+test("a round URL with a malformed escape is a bad request", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  for (const route of ["r", "preview"])
+    assert.equal((await a.request(`${a.base}/${route}/%E0%A4%A`)).code, 400);
 });
 
 test("explicit feedback is retryable, remains unread until read, and blocks premature publication", async (t) => {
@@ -363,4 +404,50 @@ test("the browser can read sent feedback without agent-only paths", async (t) =>
   assert.deepEqual(submission.groups.choices, {});
   const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
   assert.equal(invalid.code, 400);
+});
+
+// macOS reaches /tmp/… also as /private/tmp/…, so an agent can name one
+// session by two paths.
+test("a session reached through a symbolic link is the same session", async (t) => {
+  const h = await hub(t);
+  const real = path.join(h.home, "real");
+  await fs.mkdir(real);
+  const link = path.join(h.home, "link");
+  await fs.symlink(real, link);
+  const box = await h.inbox();
+  const first = await h.register(path.join(link, "session"), box.target);
+  const { token } = JSON.parse(
+    await fs.readFile(path.join(link, "session", "connection.json"), "utf8"),
+  );
+  const second = await h.register(path.join(real, "session"), box.target);
+  assert.equal(second.body.sessionId, first.body.sessionId);
+  assert.equal(second.body.sessionDir, first.body.sessionDir);
+  const agreed = await buildPage(path.join(real, "source.json"), {
+    ...planData(),
+    page: {
+      id: "agreed",
+      title: "Agreed so far",
+      agreements: [],
+      task: { title: "The task", html: "<p>What the plan builds.</p>" },
+    },
+  });
+  const { sessionId } = first.body;
+  const published = await fetch(
+    `${h.server.origin}/agent/${sessionId}/action`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "publish",
+        sessionId,
+        agent: box.agent,
+        html: agreed,
+        pages: [{ id: "overview", title: "Overview" }],
+      }),
+    },
+  );
+  assert.equal(published.status, 200, (await published.json()).error);
 });

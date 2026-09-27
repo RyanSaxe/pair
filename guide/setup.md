@@ -1,10 +1,10 @@
 # Check the environment
 
-pair requires Node 20 or newer and has no dependencies. `pair start` checks what
-a session needs and refuses with the reason: Node too old, the hub port taken by
-another program, storage it cannot write, or a sandbox that blocks the hub. If
-Node is unavailable or too old, explain the requirement and ask how the user
-wants to provide it.
+pair requires Node 20.1.0 or newer and has no dependencies. `pair start`
+checks what a session needs and refuses with the reason: Node too old, the hub
+port taken by another program, storage it cannot write, or a sandbox that
+blocks the hub. If Node is unavailable or too old, explain the requirement and
+ask how the user wants to provide it.
 
 When `pair start` or another command fails, run `pair check`. It checks each
 part on its own: that session storage is writable, that a local HTTP endpoint
@@ -72,8 +72,12 @@ agent takes the session over with.
 
 The agent whose wake target `pair start` records holds the session. The hub
 knows it by the inbox socket, the thread ID or the session ID. Every command
-sends the identity of the agent that runs it, and the hub refuses a command
-from any agent but the holder.
+sends the identity of the agent that runs it, and the hub refuses every
+command but `pair status` from any agent but the holder. `pair status` also
+runs from a plain terminal, where it sends no identity, while the hub that
+serves the session runs. When that hub has exited, `pair status` starts a new
+hub and registers the session with it, which needs an agent's identity, so it
+fails from a plain terminal.
 
 ### The hub
 
@@ -98,9 +102,9 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
   `submitted`, `working`, `saved` or `complete`), `openRound` while a round's
   pages are arriving, `paused`, `wake`, `holder`: the agent that holds the
   session and when it registered, and `formerHolders`: the agents it was
-  taken from that have not run a command since. The holder's `pair status`
-  prints it without any agent's socket or thread, and with `handoff`, the
-  line that hands the session to another agent.
+  taken from that have not run a command other than `pair status` since.
+  `pair status` prints it without any agent's socket or thread, and with
+  `handoff`, the line that hands the session to another agent.
 - `sessions/<dir>/connection.json` holds the session ID, the hub's origin,
   the agent token and the wake target. The directory name is not the
   session ID.
@@ -108,6 +112,3 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
   images, `pages/<round>/` with the published page records,
   `src/<round>/<page-id>/` with each page's source, `rounds/` with the
   built rounds, and `acceptance.json` after acceptance.
-- `guide/<hash>/` holds the copy of this guide that `next` lines name, with
-  every link an absolute path. Each version of the guide gets its own copy in
-  each installation.

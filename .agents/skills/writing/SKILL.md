@@ -89,7 +89,7 @@ the docs.
 | Agreed       | The first page of every round, with the task and the decisions settled so far.                                                                         |
 | offer        | `plan` or `finish`, set in Agreed's source, which the reviewer accepts in the Finish your review dialog.                                               |
 | frame        | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                   |
-| holder       | The agent that last ran `pair start` on a session. The hub wakes only the holder and refuses other agents' commands.                                   |
+| holder       | The agent that last ran `pair start` on a session. The hub wakes only the holder and refuses every command but `pair status` from other agents.        |
 | reviewer     | The person who reads a round's pages in the browser and sends feedback.                                                                                |
 | agent CLI    | Claude Code, Codex or Copilot CLI, each with a folder under `adapters/`.                                                                               |
 | handoff line | The line that another agent runs to take a session over.                                                                                               |
@@ -101,15 +101,17 @@ does next.
 
 - Write each step as an instruction to the agent: "Run `pair ack` first when
   the hub wakes you."
-- Give the whole command with its arguments. A prompt names a file by its
-  absolute path, as the guide's copy does.
+- Give the whole command with its arguments. A prompt names a guide file by
+  the `pair guide` command that prints it, and any other file by its absolute
+  path.
 - Put a condition before the action it controls: "When `pair start` refuses,
   run `pair check`."
 - State each rule in one file, and link to that file from the others.
 - Link guide files to each other and to `src/components/` with relative
-  Markdown links, such as `[round.md](round.md)`. `src/shared/guide.mjs`
-  rewrites each link to an absolute path in the agent's copy, and it skips a
-  target that contains a space or a parenthesis.
+  Markdown links, such as `[round.md](round.md)`. `pair guide` prints each
+  link to another guide file as the command that prints it, and each other
+  link with an absolute path, and it skips a target that contains a space or a
+  parenthesis.
 - Leave out what the agent does not need in order to act, such as how the hub
   stores state, why a design was chosen, or how pair got here. That goes in
   `docs/`.

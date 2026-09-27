@@ -4,7 +4,7 @@ import path from "node:path";
 import { attach } from "../hub/client.mjs";
 import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
-import { guideFile } from "../shared/guide.mjs";
+import { guideCommand } from "../shared/guide.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, json, read, requireValue } from "../shared/util.mjs";
@@ -59,13 +59,31 @@ const actions = {
   },
   complete: async () => ({}),
 };
-export const sessionCommands = ["start", "hub", ...Object.keys(actions)];
+// The options each command takes. A misspelt option is refused, so a
+// command never runs without a value it was given.
+const commandOptions = {
+  hub: [],
+  start: ["session-dir"],
+  status: ["session-dir"],
+  read: ["session-dir", "id"],
+  ack: ["session-dir", "note"],
+  progress: ["session-dir", "start"],
+  pause: ["session-dir", "reason"],
+  publish: ["session-dir", "file", "pages", "source"],
+  complete: ["session-dir"],
+};
+export const sessionCommands = Object.keys(commandOptions);
 function argumentsFrom(argv) {
   const [command, ...rest] = argv;
+  const known = commandOptions[command];
   const options = {};
   for (let i = 0; i < rest.length; i++) {
     requireValue(rest[i].startsWith("--"), "Options must use --name value");
     const key = rest[i].slice(2);
+    requireValue(
+      known.includes(key),
+      `--${key} is not an option of pair ${command}, which takes ${known.length ? known.map((name) => `--${name}`).join(", ") : "none"}`,
+    );
     requireValue(
       rest[i + 1] && !rest[i + 1].startsWith("--"),
       `Missing value for --${key}`,
@@ -88,7 +106,17 @@ export async function main(argv) {
   }
   let directory =
     options["session-dir"] && path.resolve(options["session-dir"]);
-  const wake = detectWake();
+  // status only reads, so it runs without an agent, as from a plain
+  // terminal, unless the session has to register with a new hub. It still
+  // names the agent when there is one, because a hub that runs older code
+  // answers status only for the holder.
+  let wake = null;
+  try {
+    wake = detectWake();
+  } catch (error) {
+    if (command !== "status") throw error;
+  }
+  const register = () => attach(directory, config, (wake ||= detectWake()));
   if (command === "start") {
     const resuming = Boolean(directory);
     directory ||= path.join(config.sessions, crypto.randomUUID());
@@ -100,13 +128,19 @@ export async function main(argv) {
           started.next ||
           (resuming
             ? `Run: pair ack --session-dir ${directory}`
-            : `When the first round is ready, publish it as ${await guideFile("round.md", config.root)} describes, from "Publish the round".`),
+            : `Run ${guideCommand("round.md")} and follow its "Publish the round" section when the first round is ready.`),
       }),
     );
   }
   requireValue(directory, "Every operation requires --session-dir PATH");
+  // Only pair start creates a session, so a mistyped path fails here instead
+  // of starting a session outside sessions/ that no hub loads again.
+  requireValue(
+    await exists(path.join(directory, "status.json")),
+    `No pair session at ${directory}. Check the path, or create a session with pair start.`,
+  );
   const connectionFile = path.join(directory, "connection.json");
-  if (!(await exists(connectionFile))) await attach(directory, config, wake);
+  if (!(await exists(connectionFile))) await register();
   let connection = await read(connectionFile);
   const checkConnection = () =>
     requireValue(
@@ -114,12 +148,9 @@ export async function main(argv) {
       "Invalid connection origin",
     );
   checkConnection();
-  // Every command names the agent that runs it, and the hub takes commands
-  // only from the session's holder.
-  const agent = identify(wake);
   async function request(data, retry = true) {
     const reattach = async () => {
-      await attach(directory, config, wake);
+      await register();
       connection = await read(connectionFile);
       checkConnection();
       return request(data, false);
@@ -137,7 +168,9 @@ export async function main(argv) {
           body: JSON.stringify({
             ...data,
             sessionId: connection.sessionId,
-            agent,
+            // The hub takes every command but status only from the
+            // session's holder.
+            agent: wake && identify(wake),
           }),
           signal: AbortSignal.timeout(15000),
         },
