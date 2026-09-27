@@ -38,13 +38,19 @@ holder and refuses a command from any other agent. A subagent runs commands
 in its parent's environment, so it works as its parent.
 
 Any agent in any harness takes a session over with its handoff line. The
-Feedback card shows it after a failed wake:
+holder says it in chat after a Save for later, the accepted banner shows it
+then, and the Feedback card shows it after a failed wake:
 
 ```text
 Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
 ```
 
-The new holder follows the `next` line that `pair start` prints.
+The new holder follows the `next` line that `pair start` prints. The holder
+running `pair start` again changes nothing, because it already holds the
+session. On a saved plan, that holds only until `pair read` returns the Save.
+From then on, `pair start` on the session builds the plan, whichever agent runs
+it, the holder included, and its `next` line says to read the acceptance and
+build the plan.
 
 After a takeover, the previous holder's next command fails, `pair start`
 included, with "Another agent took this session over at 14:02. Stop working on
@@ -94,15 +100,21 @@ accepting it, and it may include `guidance` of up to 4,000 characters. The
 `next` line of `pair read` names the offer's guide file, which says what each
 action asks of you.
 
+Accepting a plan keeps the session. Start implementation goes on to the build
+round. Save for later saves the session: the holder says the handoff line
+that `pair read` prints in chat and ends its turn, and the line builds the plan
+in whichever agent runs it later.
+`pair complete` ends the session once the agent has done the action the reader
+accepted work with, and it refuses after a plan's acceptance.
+
 ```sh
 pair complete --session-dir PATH
 ```
 
-`pair complete` returns `nextAction`, which is the chosen action, `planPath`,
-and any `guidance` and `groups`. `planPath` is the accepted round to open in
-a browser. The same pages, as HTML fragments with their prototypes, are in
-the session's `src/<round>/<page-id>/` and are the faster way for an agent to
-read them. Do not infer implementation permission
-from feedback, a recommendation or an acknowledgement. Leave accepted rounds and
-the acceptance record unchanged. A later change requires a new round and a new
-review.
+`acceptance.json` in the session directory records the acceptance, with the
+accepted round's built file in `path` to open in a browser. The same pages, as
+HTML fragments with their prototypes, are in the session's
+`src/<round>/<page-id>/` and are the faster way for an agent to read them. Do
+not infer implementation permission from feedback, a recommendation or an
+acknowledgement. Leave accepted rounds and the acceptance record unchanged. A
+later change requires a new round and a new review.

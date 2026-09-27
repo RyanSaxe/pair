@@ -946,7 +946,9 @@ test("a plan can be reopened, and only the current round's offer is accepted", a
   assert.equal((await a.feedback(acceptance)).code, 200);
   await a.action("read");
   assert.equal(
-    (await a.action("complete")).body.planPath,
+    JSON.parse(
+      await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
+    ).path,
     path.join(a.directory, "rounds/example.3.html"),
   );
   assert.equal(
@@ -1608,22 +1610,25 @@ for (const [id, offer] of Object.entries(offers))
       assert.match(ack, guide);
       const read = (await a.action("read")).body;
       assert.deepEqual(read.event.payload.groups.notes, [note]);
+      // The next line names the offer's guide file, and a saved round also
+      // gives the handoff line the holder says before it ends its turn.
       const [, named, file] = read.next.match(
-        /^Follow the (\S+) action in (\S+)\.$/,
+        action.after === "saved"
+          ? /^Round 1 is saved for later, as the (\S+) action in (\S+) describes\. Say this line in chat, then end your turn: /
+          : /^Follow the (\S+) action in (\S+)\.$/,
       );
       assert.equal(named, action.id);
       assert.match(file, guide);
       assert.ok(path.isAbsolute(file) && (await exists(file)));
-      const complete = (await a.action("complete")).body;
-      assert.equal(complete.nextAction, action.id);
-      assert.equal(complete.guidance, guidance.guidance);
-      assert.deepEqual(complete.groups.notes, [note]);
+      if (action.after === "saved")
+        assert.ok(read.next.endsWith(`: ${read.status.handoff}`));
       const record = JSON.parse(
         await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
       );
       assert.equal(record.offer, id);
       assert.equal(record.action, action.id);
-      assert.deepEqual(record.groups, complete.groups);
+      assert.equal(record.guidance, guidance.guidance);
+      assert.deepEqual(record.groups.notes, [note]);
       assert.equal(
         record.sha256,
         crypto
@@ -1631,8 +1636,23 @@ for (const [id, offer] of Object.entries(offers))
           .update(await fs.readFile(record.path))
           .digest("hex"),
       );
-      assert.deepEqual((await a.request("/api/sessions")).body.sessions, []);
-      assert.equal((await a.publish(planData("2", id))).code, 409);
+      // Only accepted work completes. A plan's acceptance keeps the session:
+      // it is saved, or the agent builds it in the next round.
+      const complete = await a.action("complete");
+      const sessions = () =>
+        a.request("/api/sessions").then(({ body }) => body.sessions);
+      if (action.after === "complete") {
+        assert.equal(complete.code, 200);
+        assert.deepEqual(await sessions(), []);
+        assert.equal((await a.publish(planData("2", id))).code, 409);
+      } else {
+        assert.equal(complete.code, 409);
+        assert.match(complete.body.error, /keeps the session/);
+        assert.deepEqual(
+          (await sessions()).map((item) => item.stage),
+          [action.after === "saved" ? "saved" : "working"],
+        );
+      }
     });
 
 test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
@@ -1694,12 +1714,10 @@ test("guidance goes only with its action, is trimmed and bounded, and is saved o
     read.body.event.payload.guidance,
     "Start with the drawing question.",
   );
-  const complete = (await a.action("complete")).body;
-  assert.equal(complete.guidance, "Start with the drawing question.");
   const record = JSON.parse(
     await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
   );
-  assert.equal(record.guidance, complete.guidance);
+  assert.equal(record.guidance, "Start with the drawing question.");
 });
 
 test("unread feedback blocks an acceptance", async (t) => {
@@ -1722,8 +1740,6 @@ test("an acceptance with nothing drafted records no comments", async (t) => {
   });
   assert.equal((await a.feedback(acceptance)).code, 200);
   await a.action("read");
-  const complete = (await a.action("complete")).body;
-  assert.equal(complete.groups, undefined);
   const record = JSON.parse(
     await fs.readFile(path.join(a.directory, "acceptance.json"), "utf8"),
   );
@@ -1798,6 +1814,68 @@ test("start hands the session to its agent, and only the holder works on it and 
   assert.equal((await a.action("ack", { agent: second })).code, 409);
 });
 
+test("Start implementation goes on to a build round the reviewer follows", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData("1", "plan"));
+  const accept = a.event("accept", "1", { offer: "plan", action: "implement" });
+  assert.equal((await a.feedback(accept)).code, 200);
+  // The frame shows the agent's progress from the acceptance until the build
+  // round is complete, in every browser.
+  assert.equal((await a.status()).body.latestSubmissionRound, "1");
+  assert.match((await a.action("read")).body.next, /^Follow the implement/);
+  const build = {
+    ...planData("2"),
+    pages: [
+      { id: "step-1", title: "Step 1", html: "<p>Built.</p>" },
+      { id: "pr", title: "Pull request", html: "<p>The description.</p>" },
+    ],
+  };
+  assert.equal((await a.publish(build)).code, 200);
+  const status = (await a.status()).body;
+  assert.equal(status.latestSubmissionRound, "1");
+  assert.equal(status.current.round, "2");
+  assert.equal(status.stage, "updated");
+});
+
+test("the holder's start resumes an unread Save, and builds the plan once it is read", async (t) => {
+  const h = await hub(t);
+  const a = await h.session("holder");
+  await a.publish(planData("1", "plan"));
+  const save = a.event("accept", "1", { offer: "plan", action: "save" });
+  assert.equal((await a.feedback(save)).code, 200);
+  const start = () =>
+    a.request(
+      "/agent/register",
+      {
+        sessionDir: a.directory,
+        wake: { harness: "codex", thread: "thread-holder" },
+        start: true,
+      },
+      { authorization: `Bearer ${h.record.secret}` },
+    );
+  // A holder whose turn was interrupted before it read the Save runs start
+  // again, reads the Save and says the handoff line.
+  const resumed = await start();
+  assert.equal(resumed.code, 200);
+  assert.equal((await a.status()).body.stage, "saved");
+  const read = (await a.action("read")).body;
+  assert.equal(read.event.payload.action, "save");
+  assert.match(read.next, /^Round 1 is saved for later, as the save action/);
+  // The same agent given the line later, such as a new conversation in the
+  // same Claude Code process, builds the plan.
+  const built = await start();
+  assert.match(built.body.next, /^Round 1 was saved for later, and you now/);
+  const status = (await a.status()).body;
+  assert.equal(status.stage, "working");
+  assert.equal(status.latestSubmissionRound, "1");
+  assert.equal(status.takeover, null);
+  assert.match(
+    (await a.action("ack")).body.next,
+    /^Round 1 was saved for later, and you are building it now\. Build it as the implement action in \S+\/plan\.md describes\.$/,
+  );
+});
+
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-idle-"));
   const port = 30000 + Math.floor(Math.random() * 20000);
@@ -1836,6 +1914,106 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   assert.match(
     await fs.readFile(config.hubLog, "utf8"),
     /no live sessions; exiting/,
+  );
+});
+
+test("a saved plan outlives its hub until another agent takes it over", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-handoff-"));
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  const env = {
+    XDG_STATE_HOME: home,
+    PAIR_HUB_PORT: String(port),
+    PAIR_HUB_IDLE_SECONDS: "1",
+  };
+  const agent = async (name) => {
+    await fs.mkdir(path.join(home, name));
+    return pairCli(path.join(home, name), env);
+  };
+  const one = await agent("one");
+  const two = await agent("two");
+  t.after(async () => {
+    await killHub(one.config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  const saved = JSON.parse(await one.run("start"));
+  const run = (cli, ...args) =>
+    cli.run(...args, "--session-dir", saved.sessionDir);
+  const plan = { name: "example", round: "1", offer: "plan", title: "Plan" };
+  const files = {
+    agreed: {
+      id: "agreed",
+      title: "Agreed so far",
+      agreements: [],
+      task: { title: "The task", html: "<p>What the plan builds.</p>" },
+    },
+    overview: { id: "overview", title: "Overview", html: "<p>Build it.</p>" },
+  };
+  for (const [id, page] of Object.entries(files))
+    await fs.writeFile(
+      path.join(home, `${id}.html`),
+      await buildPage(path.join(home, "source.json"), { ...plan, page }),
+    );
+  await fs.writeFile(
+    path.join(home, "pages.json"),
+    JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
+  );
+  await run(
+    one,
+    "publish",
+    "--file",
+    path.join(home, "agreed.html"),
+    "--pages",
+    path.join(home, "pages.json"),
+  );
+  await run(one, "publish", "--file", path.join(home, "overview.html"));
+  const hubRecord = JSON.parse(await fs.readFile(one.config.hubFile, "utf8"));
+  const origin = `http://127.0.0.1:${port}`;
+  const accepted = await fetch(`${origin}/s/${saved.sessionId}/api/feedback`, {
+    method: "POST",
+    headers: { Origin: origin, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...plan,
+      sessionId: saved.sessionId,
+      id: crypto.randomUUID(),
+      intent: "accept",
+      action: "save",
+      groups: {},
+      text: "Save it",
+    }),
+  });
+  assert.equal(accepted.status, 200);
+  // A saved session is not live, so the hub exits with only it left.
+  assert.equal(await waitUntil(() => !alive(hubRecord.pid), 5000), true);
+  // A new hub loads it from disk at the URL it had.
+  const fresh = JSON.parse(await two.run("start"));
+  const listed = await fetch(`${origin}/api/sessions`).then((response) =>
+    response.json(),
+  );
+  assert.deepEqual(
+    listed.sessions.map(({ url, stage }) => [url, stage]),
+    [[`/s/${saved.sessionId}/`, "saved"]],
+  );
+  assert.equal(fresh.url, `${origin}/s/${fresh.sessionId}/`);
+  // Another agent takes it over with the handoff line and is sent to build it.
+  const handoff = JSON.parse(await run(one, "status")).handoff;
+  assert.equal(
+    handoff,
+    `Take over pair session ${saved.sessionDir}: run pair start --session-dir ${saved.sessionDir} and follow what it prints.`,
+  );
+  const took = JSON.parse(await run(two, "start"));
+  assert.equal(took.url, saved.url);
+  assert.match(
+    took.next,
+    new RegExp(
+      `^Round 1 was saved for later, and you now build it\\. Read \\S+/guide/offers/plan\\.md, then run: pair read --session-dir ${saved.sessionDir}\\. .* its action stays save\\. Build the plan as the implement action describes\\.$`,
+    ),
+  );
+  const status = JSON.parse(await run(two, "status"));
+  assert.equal(status.stage, "working");
+  assert.equal(status.latestSubmissionRound, "1");
+  await assert.rejects(
+    run(one, "ack"),
+    /Another agent took this session over at \d\d:\d\d\. Stop working on it\./,
   );
 });
 

@@ -871,9 +871,6 @@ select {
   margin: 10px 0 16px;
   overflow-wrap: anywhere;
 }
-.accepted code {
-  font-size: 11px;
-}
 .handoff {
   display: flex;
   align-items: flex-start;

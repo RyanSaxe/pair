@@ -41,8 +41,10 @@ Run `pair read`. It returns the submission as `event.payload` and marks it read.
 Its `intent` is `feedback-only` for feedback and `accept` for an
 acceptance, and its `groups` hold the choices, answers and notes. Also read
 anything the user said in the chat since the last round. An acceptance
-follows the Acceptance section of [session.md](session.md), and no pages are
-published after it.
+follows its offer's guide file, which the `next` line of `pair read` names.
+After a Start implementation acceptance, publish the build round's Agreed
+and page list as below instead of running `pair complete`, and
+[offers/plan.md](offers/plan.md) says what the build round holds.
 
 - `groups.alignUnflagged: true` means the reviewer agrees with what the
   pages stated that no note challenges: a proposed design, wording or plan.

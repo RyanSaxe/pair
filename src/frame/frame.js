@@ -2024,10 +2024,22 @@ const showingWaiting = () =>
 const viewKey = () => (showingWaiting() ? `${plan.round} waiting` : plan.round);
 const pastAvailable = () => Boolean(pastRound && views.has(pastRound));
 function status() {
-  const stage = !connected ? "disconnected" : remote?.stage || "ready";
-  const complete = stage === "complete" && remote?.accepted;
-  $("accepted").hidden = !complete;
-  if (complete) {
+  // The hub exits once no session is live, so a tab keeps the stage it last
+  // saw: a saved or accepted round keeps its banner while the hub is gone.
+  const saved = remote?.stage === "saved";
+  const complete = remote?.stage === "complete" && remote?.accepted;
+  $("accepted").hidden = !saved && !complete;
+  // A saved round waits for an agent to build it, so the banner gives the
+  // line that hands it over.
+  if (saved) {
+    const { round, offer } = remote.current;
+    const chosen = offers[offer].accept.actions.find(
+      (item) => item.after === "saved",
+    );
+    const text = `Round ${round} accepted: ${chosen.label}.`;
+    if ($("accepted").firstChild?.textContent !== text)
+      $("accepted").replaceChildren(text, handoffLine(remote.handoff));
+  } else if (complete) {
     const { round, offer, action, path } = remote.accepted;
     const chosen = offers[offer].accept.actions.find(
       (item) => item.id === action,
@@ -2122,6 +2134,7 @@ function stateWords(entry) {
   if (entry.needsYou)
     return entry.offer ? "Ready to accept" : "Waiting for you";
   if (entry.paused) return "Paused";
+  if (entry.stage === "saved") return "Saved";
   if (entry.openRound)
     return `Working · ${entry.openRound.ready} pages readable`;
   if (["submitted", "working"].includes(entry.stage))
@@ -2834,6 +2847,7 @@ async function acceptOffer(action) {
   finishBusy(true);
   try {
     await send(state.acceptance);
+    markItemsSent(state, state.acceptance.id);
     save();
     $("finish-dialog").close();
   } catch (error) {
