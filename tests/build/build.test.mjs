@@ -301,6 +301,24 @@ test("a link names no page unless an id equals its fragment", () => {
   );
 });
 
+test("a checklist box is refused for the checked attribute, not for the word in a label", async () => {
+  const checklist = (input) =>
+    page(
+      `<fieldset data-multiselect="s" data-label="S"><label>${input} A</label></fieldset>`,
+    );
+  await assert.doesNotReject(
+    assemble(
+      checklist(
+        '<input type="checkbox" data-value="a" data-label="Types checked by tsc">',
+      ),
+    ),
+  );
+  await refused(
+    checklist('<input type="checkbox" data-value="a" data-label="A" checked>'),
+    /^page "p": checklist "s" has a checked box\. Start every box unchecked\.$/m,
+  );
+});
+
 test("well-formed controls, anchors and blocks pass", async () => {
   const html = await assemble(
     page(

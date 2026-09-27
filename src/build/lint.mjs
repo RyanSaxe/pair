@@ -127,11 +127,13 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         );
       if (kind === "data-question" && !/<textarea\b/i.test(part))
         list.push(`${at}: question "${id}" has no textarea`);
-      // A box the author checked would read as the reviewer's choice.
+      // A box the author checked would read as the reviewer's choice. The
+      // quoted values go first, so a label with the word checked in it is
+      // not read as the attribute.
       if (
         kind === "data-multiselect" &&
         (part.match(/<input\b[^>]*>/gi) || []).some((input) =>
-          /\schecked(?=[\s=/>])/i.test(input),
+          /\schecked(?=[\s=/>])/i.test(input.replace(/"[^"]*"|'[^']*'/g, '""')),
         )
       )
         list.push(
