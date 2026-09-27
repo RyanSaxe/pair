@@ -5,27 +5,28 @@
   --z-sidebar: 5;
   --z-header: 6;
   --z-selection: 40;
-  --ground: #f6f6f8;
-  --panel: #ffffff;
-  --line: #e3e4e8;
-  --line-strong: #cfd1d7;
-  --ink: #17191c;
-  --muted: #6b7079;
-  --accent: #3457d5;
-  --accent-ink: #ffffff;
-  --accent-soft: #eef1fc;
-  --attention: #b45309;
-  --attention-bg: #fff4e5;
-  --attention-border: #e0a35a;
-  --ok: #1f7a45;
-  --ok-bg: #e6f5ec;
-  --ok-border: #6fbf8c;
-  --danger: #a12622;
-  --danger-bg: #fff0ee;
-  --danger-border: #d98a86;
-  --code: #f1f2f4;
-  --mark: #fff3bf;
-  --shadow: 0 10px 30px #0002, 0 1px 3px #0001;
+  --ground: light-dark(#f6f6f8, #121417);
+  --panel: light-dark(#ffffff, #1a1d22);
+  --line: light-dark(#e3e4e8, #2a2e35);
+  --line-strong: light-dark(#cfd1d7, #3a3f48);
+  --ink: light-dark(#17191c, #e7e9ec);
+  --muted: light-dark(#6b7079, #9aa1ab);
+  --accent: light-dark(#3457d5, #8fa5ff);
+  --accent-ink: light-dark(#ffffff, #0d1330);
+  --accent-soft: light-dark(#eef1fc, #1e2740);
+  --attention: light-dark(#b45309, #f0b25f);
+  --attention-bg: light-dark(#fff4e5, #3a2b14);
+  --attention-border: light-dark(#e0a35a, #7a5a2a);
+  --ok: light-dark(#1f7a45, #7fd39a);
+  --ok-bg: light-dark(#e6f5ec, #173023);
+  --ok-border: light-dark(#6fbf8c, #2f6b45);
+  --danger: light-dark(#a12622, #ffaaa4);
+  --danger-bg: light-dark(#fff0ee, #402321);
+  --danger-border: light-dark(#d98a86, #8a4a45);
+  --code: light-dark(#f1f2f4, #15181c);
+  --mark: light-dark(#fff3bf, #4a3f14);
+  --shadow:
+    0 10px 30px light-dark(#0002, #0006), 0 1px 3px light-dark(#0001, #0004);
   font:
     14px/1.55 -apple-system,
     BlinkMacSystemFont,
@@ -36,53 +37,13 @@
   background: var(--ground);
   color: var(--ink);
 }
+/* Each colour token holds its light and its dark value, and color-scheme
+   picks one: the system's, unless the reader chose a theme. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground: #121417;
-    --panel: #1a1d22;
-    --line: #2a2e35;
-    --line-strong: #3a3f48;
-    --ink: #e7e9ec;
-    --muted: #9aa1ab;
-    --accent: #8fa5ff;
-    --accent-ink: #0d1330;
-    --accent-soft: #1e2740;
-    --attention: #f0b25f;
-    --attention-bg: #3a2b14;
-    --attention-border: #7a5a2a;
-    --ok: #7fd39a;
-    --ok-bg: #173023;
-    --ok-border: #2f6b45;
-    --danger: #ffaaa4;
-    --danger-bg: #402321;
-    --danger-border: #8a4a45;
-    --code: #15181c;
-    --mark: #4a3f14;
-    --shadow: 0 10px 30px #0006, 0 1px 3px #0004;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #121417;
-  --panel: #1a1d22;
-  --line: #2a2e35;
-  --line-strong: #3a3f48;
-  --ink: #e7e9ec;
-  --muted: #9aa1ab;
-  --accent: #8fa5ff;
-  --accent-ink: #0d1330;
-  --accent-soft: #1e2740;
-  --attention: #f0b25f;
-  --attention-bg: #3a2b14;
-  --attention-border: #7a5a2a;
-  --ok: #7fd39a;
-  --ok-bg: #173023;
-  --ok-border: #2f6b45;
-  --danger: #ffaaa4;
-  --danger-bg: #402321;
-  --danger-border: #8a4a45;
-  --code: #15181c;
-  --mark: #4a3f14;
-  --shadow: 0 10px 30px #0006, 0 1px 3px #0004;
 }

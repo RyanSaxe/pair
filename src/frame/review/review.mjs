@@ -66,17 +66,29 @@ function contextLink(topic, target, text = "View") {
   };
   return link;
 }
+// What a reader sees of one item, drafted or sent: its label, or the
+// caller's word when it has none, and its text, with a drawing worded the
+// way the caller words it.
+export function itemSummary(kind, item, { label, drawing } = {}) {
+  const own = kind === "note" ? item.anchor : item.label;
+  return {
+    label: label === undefined ? own : own || label,
+    text:
+      kind === "choice" || kind === "list"
+        ? choiceText(item)
+        : kind === "answer" && item.kind === "drawing"
+          ? drawing?.(item)
+          : item.text,
+  };
+}
 function itemCard({ kind, key, item }) {
+  const summary = itemSummary(kind, item);
   const box = document.createElement("div");
   box.className = "feedback-item" + (item.sentIn ? " sent" : "");
   const body = document.createElement("div");
   const title = document.createElement("h3");
   title.textContent =
-    kind === "note"
-      ? item.anchor
-      : kind === "answer"
-        ? `Answer · ${item.label}`
-        : item.label;
+    kind === "answer" ? `Answer · ${summary.label}` : summary.label;
   // A note on a block that names nothing has no heading to show, and an
   // empty h3 draws a blank line above the note's own words.
   title.hidden = kind === "note" && !item.anchor;
@@ -98,8 +110,7 @@ function itemCard({ kind, key, item }) {
     body.append(image);
   } else {
     const text = document.createElement("p");
-    text.textContent =
-      kind === "choice" || kind === "list" ? choiceText(item) : item.text;
+    text.textContent = summary.text;
     body.append(text);
   }
   /* What the reviewer attached, where they check what they are about to
@@ -251,20 +262,20 @@ function sentEntries(submission) {
   return [
     ...(groups.notes || []).map((note) => ({
       topic: note.topic,
-      label: note.anchor || "Comment",
-      text: note.text,
+      ...itemSummary("note", note, { label: "Comment" }),
       quote: note.quote,
       images: (note.attachments || []).map((item) => item.id),
     })),
     ...Object.values(groups.choices || {}).map((choice) => ({
       topic: choice.topic,
-      label: choice.label || "Choice",
-      text: choiceText(choice),
+      ...itemSummary("choice", choice, { label: "Choice" }),
     })),
     ...Object.values(groups.answers || {}).map((answer) => ({
       topic: answer.topic,
-      label: answer.label || "Answer",
-      text: answer.kind === "drawing" ? "Drawing attached" : answer.text,
+      ...itemSummary("answer", answer, {
+        label: "Answer",
+        drawing: () => "Drawing attached",
+      }),
       images: answer.kind === "drawing" ? [answer.previewId] : [],
     })),
   ];

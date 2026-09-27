@@ -1,5 +1,5 @@
 import { persist, save, state } from "#frame/app/store.mjs";
-import { $ } from "#frame/app/util.mjs";
+import { $, controlKey } from "#frame/app/util.mjs";
 import { editable, feedbackEditable, page, plan } from "#frame/app/view.mjs";
 
 let answerTimer;
@@ -38,7 +38,7 @@ export function initializeChecklists() {
     for (const group of template.content.querySelectorAll(
       "[data-multiselect]",
     )) {
-      const id = topic.id + "/" + group.dataset.multiselect;
+      const id = controlKey(topic.id, group.dataset.multiselect);
       const previous = state.choices[id];
       state.choices[id] = {
         ...checklist(group, topic.id, previous),
@@ -54,7 +54,7 @@ export function restoreChoices() {
     button.setAttribute(
       "aria-pressed",
       String(
-        state.choices[page.id + "/" + group.dataset.choice]?.value ===
+        state.choices[controlKey(page.id, group.dataset.choice)]?.value ===
           button.dataset.value,
       ),
     );
@@ -63,7 +63,8 @@ export function restoreChoices() {
     .querySelectorAll('[data-multiselect] input[type="checkbox"][data-value]')
     .forEach((input) => {
       const group = input.closest("[data-multiselect]");
-      const choice = state.choices[page.id + "/" + group.dataset.multiselect];
+      const choice =
+        state.choices[controlKey(page.id, group.dataset.multiselect)];
       input.checked =
         choice?.options.find((option) => option.value === input.dataset.value)
           ?.checked ?? input.defaultChecked;
@@ -72,7 +73,7 @@ export function restoreChoices() {
 export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
-    const key = page.id + "/" + group.dataset.question;
+    const key = controlKey(page.id, group.dataset.question);
     area.value = state.drafts?.[key] ?? state.answers[key]?.text ?? "";
     area.readOnly = !editable;
   });
@@ -85,7 +86,7 @@ export function installControls() {
     );
     if (!input) return;
     const group = input.closest("[data-multiselect]");
-    state.choices[page.id + "/" + group.dataset.multiselect] = {
+    state.choices[controlKey(page.id, group.dataset.multiselect)] = {
       ...checklist(group, page.id),
       touched: true,
     };
@@ -96,7 +97,7 @@ export function installControls() {
     const area = event.target.closest("[data-question] textarea");
     if (!area || !$("page-content").contains(area)) return;
     const group = area.closest("[data-question]");
-    const key = page.id + "/" + group.dataset.question;
+    const key = controlKey(page.id, group.dataset.question);
     state.drafts ||= {};
     if (area.value.trim()) state.drafts[key] = area.value;
     else delete state.drafts[key];
@@ -106,7 +107,7 @@ export function installControls() {
 }
 export function recordAnswer(id, text, label, target) {
   if (!feedbackEditable()) return;
-  const key = page.id + "/" + id;
+  const key = controlKey(page.id, id);
   if (text.trim())
     state.answers[key] = {
       topic: page.id,
@@ -119,5 +120,5 @@ export function recordAnswer(id, text, label, target) {
   save();
 }
 export function drawingAnswer(id) {
-  return state.answers[`${page.id}/${id}`];
+  return state.answers[controlKey(page.id, id)];
 }

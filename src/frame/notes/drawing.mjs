@@ -1,5 +1,5 @@
 import { save, state } from "#frame/app/store.mjs";
-import { $, uuid } from "#frame/app/util.mjs";
+import { $, controlKey, uuid } from "#frame/app/util.mjs";
 import {
   base,
   feedbackEditable,
@@ -25,7 +25,7 @@ function closeDrawing() {
 }
 export async function openDrawing(id, label, target, onSaved) {
   if (!feedbackEditable() || !online) return;
-  const key = `${page.id}/${id}`;
+  const key = controlKey(page.id, id);
   const previous = state.answers[key];
   let scene = null;
   if (previous?.kind === "drawing") {

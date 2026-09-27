@@ -91,8 +91,16 @@ export const libraries = {
 };
 const scripts = new Map();
 let diffsTask;
-export const color = (name) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// A token's colour in the theme on screen. A token holds both themes'
+// values in light-dark(), which only an element's style resolves.
+export function color(name) {
+  const probe = document.createElement("i");
+  probe.style.color = `var(${name})`;
+  document.body.append(probe);
+  const value = getComputedStyle(probe).color;
+  probe.remove();
+  return value;
+}
 const chartPalette = () =>
   ["--accent", "--attention", "--ok", "--danger", "--muted"].map(color);
 export function script(url, integrity, css = false) {

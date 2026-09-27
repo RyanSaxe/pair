@@ -11,6 +11,13 @@ export function uuid() {
   const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0"));
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
+// The key a page's choice, checklist or question is kept under in a draft.
+export const controlKey = (topic, id) => `${topic}/${id}`;
+export const hubUnreachable = "The hub is unreachable. Try again shortly.";
+// A request the hub never answered rejects with a TypeError; any other
+// error carries the hub's own reason.
+export const unreachable = (error, message = hubUnreachable) =>
+  error instanceof TypeError ? message : error.message;
 export const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
 export const plural = (count, word) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;

@@ -70,13 +70,20 @@ export function setRemote(status) {
 export let connected = false;
 export let lastSubmission = null;
 let lastSubmissionLoadedId = null;
+// The submission sent on a round, or on the latest round when none is
+// named. Undefined when the hub could not say.
+async function fetchSubmission(round = null) {
+  const response = await fetch(
+    round
+      ? `${base}/api/submission?round=${encodeURIComponent(round)}`
+      : `${base}/api/submission`,
+  );
+  return response.ok ? (await response.json()).submission : undefined;
+}
 async function loadPastSubmission(round) {
   if (sentByRound.has(round) || lastSubmission?.round === round) return;
-  const response = await fetch(
-    `${base}/api/submission?round=${encodeURIComponent(round)}`,
-  );
-  if (!response.ok) return;
-  const { submission } = await response.json();
+  const submission = await fetchSubmission(round);
+  if (submission === undefined) return;
   sentByRound.set(round, submission);
   const onScreen =
     selectedTab === "past" && displayedRound === round && plan.round === round;
@@ -92,13 +99,10 @@ export async function loadSubmission() {
   const key =
     mode === "readonly" ? `round:${plan.round}` : remote?.latestSubmissionId;
   if (!key || key === lastSubmissionLoadedId) return;
-  const route =
-    mode === "readonly"
-      ? `${base}/api/submission?round=${encodeURIComponent(plan.round)}`
-      : `${base}/api/submission`;
-  const response = await fetch(route);
-  if (!response.ok) return;
-  const { submission } = await response.json();
+  const submission = await fetchSubmission(
+    mode === "readonly" ? plan.round : null,
+  );
+  if (submission === undefined) return;
   if (mode !== "readonly" && remote?.latestSubmissionId !== key) return;
   if (mode !== "readonly" && submission && submission.id !== key) return;
   lastSubmission = submission;
@@ -254,6 +258,27 @@ function emptyView(round, { name, offer, title }) {
   views.set(round, view);
   return view;
 }
+// Fetches a round's page list into the view viewFor gives, and loads its
+// Agreed. A round whose Agreed fails to load keeps the page list it had.
+async function loadPageSet(round, viewFor, failure) {
+  const response = await fetch(
+    `${base}/api/page-set?round=${encodeURIComponent(round)}`,
+  );
+  if (!response.ok) throw Error(failure);
+  const manifest = await response.json();
+  const view = viewFor();
+  const previous = pageSets.get(round);
+  pageSets.set(round, manifest);
+  reconcilePages(view, manifest);
+  try {
+    await loadPageRecord(round, "agreed");
+  } catch (error) {
+    if (previous) pageSets.set(round, previous);
+    else pageSets.delete(round);
+    throw error;
+  }
+  return manifest;
+}
 async function syncPageSet() {
   const round = remote?.current?.round;
   if (!round || !remote.pageSetGeneration) return;
@@ -261,26 +286,16 @@ async function syncPageSet() {
   const previous = pageSets.get(round);
   if (previous?.generation === remote.pageSetGeneration) return;
   pageSetLoading = (async () => {
-    const response = await fetch(
-      `${base}/api/page-set?round=${encodeURIComponent(round)}`,
-    );
-    if (!response.ok) throw Error("Could not load page list.");
-    const manifest = await response.json();
-    const view = views.get(round) || emptyView(round, remote.current);
     const wasReady = new Set(
       previous?.pages
         .filter((item) => item.state === "ready")
         .map((item) => item.id),
     );
-    pageSets.set(round, manifest);
-    reconcilePages(view, manifest);
-    try {
-      await loadPageRecord(round, "agreed");
-    } catch (error) {
-      if (previous) pageSets.set(round, previous);
-      else pageSets.delete(round);
-      throw error;
-    }
+    const manifest = await loadPageSet(
+      round,
+      () => views.get(round) || emptyView(round, remote.current),
+      "Could not load page list.",
+    );
     if (
       selectedTab === "current" &&
       plan.round === round &&
@@ -316,24 +331,21 @@ function loadPastView(round) {
   if (views.has(round)) return Promise.resolve(true);
   if (pastLoads.has(round)) return pastLoads.get(round);
   const task = (async () => {
-    const response = await fetch(
-      `${base}/api/page-set?round=${encodeURIComponent(round)}`,
-    );
-    if (!response.ok) throw Error("Could not load that round's pages.");
-    const manifest = await response.json();
-    const entry = remote?.rounds?.find((item) => item.round === round);
-    const view = emptyView(round, {
-      name: entry?.name || remote.current.name,
-      offer: (entry || remote.current).offer,
-      title: entry?.title || remote.current.title,
-    });
-    pageSets.set(round, manifest);
-    reconcilePages(view, manifest);
     try {
-      await loadPageRecord(round, "agreed");
+      await loadPageSet(
+        round,
+        () => {
+          const entry = remote?.rounds?.find((item) => item.round === round);
+          return emptyView(round, {
+            name: entry?.name || remote.current.name,
+            offer: (entry || remote.current).offer,
+            title: entry?.title || remote.current.title,
+          });
+        },
+        "Could not load that round's pages.",
+      );
     } catch (error) {
       views.delete(round);
-      pageSets.delete(round);
       throw error;
     }
     updateNavigation();

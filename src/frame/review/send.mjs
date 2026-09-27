@@ -10,7 +10,7 @@ import {
   submissionGroups,
   unsentItems,
 } from "#frame/app/store.mjs";
-import { $, uuid } from "#frame/app/util.mjs";
+import { $, hubUnreachable, unreachable, uuid } from "#frame/app/util.mjs";
 import {
   base,
   current,
@@ -27,8 +27,7 @@ import {
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { show } from "#frame/pages/pages.mjs";
-import { choiceText } from "#frame/review/choices.mjs";
-import { review } from "#frame/review/review.mjs";
+import { itemSummary, review } from "#frame/review/review.mjs";
 import {
   connected,
   loadPageRecord,
@@ -70,29 +69,32 @@ function itemLines(extraNotes = []) {
   const untouched = Object.values(state.choices).filter(
     (choice) => choice.kind === "multiple" && !choice.sentIn && !choice.touched,
   );
-  for (const choice of [...Object.values(choices), ...untouched])
-    lines.push("", `${choice.label}: ${choiceText(choice)}`);
-  for (const answer of Object.values(answers))
+  for (const choice of [...Object.values(choices), ...untouched]) {
+    const { label, text } = itemSummary("choice", choice);
+    lines.push("", `${label}: ${text}`);
+  }
+  for (const answer of Object.values(answers)) {
+    const { label, text } = itemSummary("answer", answer, {
+      drawing: (item) =>
+        `Drawing scene ${item.sceneId}; PNG preview ${item.previewId}`,
+    });
+    lines.push("", `${label}`, text);
+  }
+  for (const note of notes) {
+    const { label, text } = itemSummary("note", note, {
+      label: pages.find((item) => item.id === note.topic)?.title || "Overall",
+    });
     lines.push(
       "",
-      `${answer.label}`,
-      answer.kind === "drawing"
-        ? `Drawing scene ${answer.sceneId}; PNG preview ${answer.previewId}`
-        : answer.text,
-    );
-  for (const note of notes)
-    lines.push(
-      "",
-      note.anchor ||
-        pages.find((item) => item.id === note.topic)?.title ||
-        "Overall",
+      label,
       ...(note.quote ? ["Selected passage: " + note.quote] : []),
-      note.text,
+      text,
       /* The bytes stay in the session directory, so the text names the file
          rather than carrying it. An export the reviewer mails on says the
          same, which is the only way the paths travel with it. */
       ...(note.attachments || []).map((item) => `Image: ${item.path}`),
     );
+  }
   return lines;
 }
 function envelope(intent, text, extra = {}) {
@@ -108,7 +110,7 @@ function envelope(intent, text, extra = {}) {
   };
 }
 async function send(event) {
-  if (!connected) throw Error("The hub is unreachable. Try again shortly.");
+  if (!connected) throw Error(hubUnreachable);
   const response = await fetch(`${base}/api/feedback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -177,9 +179,10 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     }
     submissionError = submittedCurrent()
       ? ""
-      : error instanceof TypeError
-        ? "Could not reach the hub. Your comments are saved here. Try Send feedback again."
-        : error.message;
+      : unreachable(
+          error,
+          "Could not reach the hub. Your comments are saved here. Try Send feedback again.",
+        );
     switchTab("current", null, { showPage: false });
     show(origin.page);
     scroller().scrollTo(0, origin.top);
@@ -339,10 +342,6 @@ export function installSend() {
     }
   };
 }
-const unreachable = (error) =>
-  error instanceof TypeError
-    ? "The hub is unreachable. Try again shortly."
-    : error.message;
 async function acceptOffer(action) {
   const guidance =
     action.id === offers[plan.offer].accept.guidance.action

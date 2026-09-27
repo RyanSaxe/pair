@@ -1,5 +1,5 @@
 import { state } from "#frame/app/store.mjs";
-import { $, normalize, plural } from "#frame/app/util.mjs";
+import { $, controlKey, normalize, plural } from "#frame/app/util.mjs";
 import {
   agreedTask,
   agreements,
@@ -30,15 +30,15 @@ export function indexPage(topic) {
   template.innerHTML = topic.html;
   choiceTargets(template.content, topic.id);
   for (const group of template.content.querySelectorAll("[data-choice]"))
-    known.choices.add(`${topic.id}/${group.dataset.choice}`);
+    known.choices.add(controlKey(topic.id, group.dataset.choice));
   for (const group of template.content.querySelectorAll("[data-multiselect]"))
-    known.lists.add(`${topic.id}/${group.dataset.multiselect}`);
+    known.lists.add(controlKey(topic.id, group.dataset.multiselect));
   for (const group of template.content.querySelectorAll("[data-question]"))
-    known.questions.add(`${topic.id}/${group.dataset.question}`);
+    known.questions.add(controlKey(topic.id, group.dataset.question));
   for (const group of template.content.querySelectorAll(
     "[data-drawing-question]",
   ))
-    known.questions.add(`${topic.id}/${group.dataset.drawingQuestion}`);
+    known.questions.add(controlKey(topic.id, group.dataset.drawingQuestion));
   known.text.set(topic.id, normalize(template.content.textContent));
 }
 export function rebuildKnown() {

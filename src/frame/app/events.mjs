@@ -1,5 +1,5 @@
 import { save, state } from "#frame/app/store.mjs";
-import { $ } from "#frame/app/util.mjs";
+import { $, controlKey } from "#frame/app/util.mjs";
 import {
   editable,
   feedbackEditable,
@@ -24,6 +24,13 @@ import { switchTab } from "#frame/sync/rounds.mjs";
 import { sessionOrder, toggleSidecar } from "#frame/sync/sessions.mjs";
 
 export function installEvents() {
+  for (const head of document.querySelectorAll("dialog .dialog-head")) {
+    const close = $("close-button").content.firstElementChild.cloneNode(true);
+    close.dataset.close = head.closest("dialog").id;
+    if (head.dataset.closeLabel)
+      close.setAttribute("aria-label", head.dataset.closeLabel);
+    head.append(close);
+  }
   // A click inside an embedded frame never reaches this document, but it does
   // move focus, so menus close on blur as well as on outside clicks.
   window.addEventListener("blur", closeMenus);
@@ -65,7 +72,7 @@ export function installEvents() {
     const choice = event.target.closest("[data-choice] [data-value]");
     if (choice && $("page-content").contains(choice)) {
       const group = choice.closest("[data-choice]"),
-        id = page.id + "/" + group.dataset.choice;
+        id = controlKey(page.id, group.dataset.choice);
       if (state.choices[id]?.value === choice.dataset.value)
         delete state.choices[id];
       else
