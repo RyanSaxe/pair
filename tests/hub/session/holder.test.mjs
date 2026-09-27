@@ -34,7 +34,7 @@ test("start hands the session to its agent, and only the holder works on it and 
   // An agent that never held it hears who has held it since when, and how
   // to take it over, not that anyone took it over.
   assert.equal(
-    (await a.action("status", { agent: three.agent })).body.error,
+    (await a.action("ack", { agent: three.agent })).body.error,
     `Another agent has held this session since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
   );
   // Another agent's start takes it over, and the reviewer's card says so.
@@ -56,7 +56,6 @@ test("start hands the session to its agent, and only the holder works on it and 
   for (const refused of [
     await a.action("ack"),
     await a.action("publish", { html: "" }),
-    await register(one, false),
   ]) {
     assert.equal(refused.code, 409);
     assert.match(refused.body.error, /^Another agent has held this session/);
@@ -73,6 +72,28 @@ test("start hands the session to its agent, and only the holder works on it and 
   assert.equal((await register(one, true)).code, 200);
   assert.equal((await a.action("read")).code, 200);
   assert.equal((await a.action("ack", { agent: two.agent })).code, 409);
+});
+
+// A former holder, or a plain terminal with no agent, can read the status,
+// and the former holder still hears of the takeover on its next command.
+test("status answers any agent or none, and keeps the takeover notice", async (t) => {
+  const h = await hub(t);
+  const two = await h.inbox();
+  const a = await h.session();
+  await a.publish(planData());
+  const took = await h.register(a.directory, two.target, { start: true });
+  assert.equal(took.code, 200);
+  // A command registers before it runs when the hub has exited since, as
+  // after 15 minutes with no live session.
+  const { holder } = (await a.status()).body;
+  const again = await h.register(a.directory, a.inbox.target);
+  assert.equal(again.code, 200, again.body.error);
+  assert.deepEqual((await a.status()).body.holder, holder);
+  assert.equal((await a.action("status")).code, 200);
+  assert.equal((await a.action("status", { agent: undefined })).code, 200);
+  const lost = await a.action("ack");
+  assert.equal(lost.code, 409);
+  assert.match(lost.body.error, /^Another agent took this session over at /);
 });
 
 test("a saved plan outlives its hub until another agent takes it over", async (t) => {

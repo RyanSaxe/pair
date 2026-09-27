@@ -72,8 +72,12 @@ agent takes the session over with.
 
 The agent whose wake target `pair start` records holds the session. The hub
 knows it by the inbox socket, the thread ID or the session ID. Every command
-sends the identity of the agent that runs it, and the hub refuses a command
-from any agent but the holder.
+sends the identity of the agent that runs it, and the hub refuses every
+command but `pair status` from any agent but the holder. `pair status` also
+runs from a plain terminal, where it sends no identity, while the hub that
+serves the session runs. When that hub has exited, `pair status` starts a new
+hub and registers the session with it, which needs an agent's identity, so it
+fails from a plain terminal.
 
 ### The hub
 
@@ -98,9 +102,9 @@ Everything lives under `$XDG_STATE_HOME/pair/`, or
   `submitted`, `working`, `saved` or `complete`), `openRound` while a round's
   pages are arriving, `paused`, `wake`, `holder`: the agent that holds the
   session and when it registered, and `formerHolders`: the agents it was
-  taken from that have not run a command since. The holder's `pair status`
-  prints it without any agent's socket or thread, and with `handoff`, the
-  line that hands the session to another agent.
+  taken from that have not run a command other than `pair status` since.
+  `pair status` prints it without any agent's socket or thread, and with
+  `handoff`, the line that hands the session to another agent.
 - `sessions/<dir>/connection.json` holds the session ID, the hub's origin,
   the agent token and the wake target. The directory name is not the
   session ID.

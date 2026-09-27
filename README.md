@@ -140,12 +140,13 @@ decides, the first adapter whose first variable is set claims it.
 ## Holders and handoff
 
 One agent holds a session: the one that last ran `pair start` on it. The hub
-wakes only that agent and refuses a command from any other. The next command
-of an agent the session was taken from, `pair start` included, fails with the
-time it lost the session. Every command sends the identity of the agent that
-runs it, so a subagent works as its parent. Another agent takes a session
-over with its handoff line, which the browser shows with Copy after Save for
-later and after a failed wake:
+wakes only that agent and refuses every command but `pair status` from any
+other. After a takeover, the former holder's first command other than
+`pair status`, `pair start` included, fails with the time it lost the
+session. Every command sends the identity of the agent that runs it, so a
+subagent works as its parent. Another agent takes a session over with its
+handoff line, which the browser shows with Copy after Save for later and
+after a failed wake:
 
 ```text
 Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.

@@ -216,22 +216,26 @@ export function agent(session) {
       "Wrong session",
       409,
     );
-    await requireHolder(data.agent);
+    // status only reads, so any agent, or none, may run it.
+    if (data.action !== "status") await requireHolder(data.agent);
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
-  // other registration, such as a command reattaching to a new hub, comes
-  // from the holder. start on a saved round builds it, unless the holder
-  // has yet to read the Save: that start resumes an interrupted turn, which
-  // reads the Save and says the handoff line. Once the Save is read, nothing
-  // tells a resumed turn from a request to build, so start builds the plan in
-  // any agent, the holder included, such as a new conversation in the same
-  // Claude Code process.
+  // other registration, such as a command reattaching to a new hub, changes
+  // nothing when it comes from an agent other than the holder. start on a
+  // saved round builds it, unless the holder has yet to read the Save: that
+  // start resumes an interrupted turn, which reads the Save and says the
+  // handoff line. Once the Save is read, nothing tells a resumed turn from a
+  // request to build, so start builds the plan in any agent, the holder
+  // included, such as a new conversation in the same Claude Code process.
   async function hold(target, start) {
     const agent = identify(target);
     const held = session.state.holder;
     const same = sameAgent(held, agent);
+    // act() then answers or refuses the command, so a former holder's pair
+    // status keeps its takeover notice.
+    if (!start && held && !same) return null;
     const unread = (await pending()).length > 0;
     await requireHolder(agent, start);
     await atomic(session.wakeFile, target);

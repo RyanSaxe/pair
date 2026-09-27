@@ -106,7 +106,17 @@ export async function main(argv) {
   }
   let directory =
     options["session-dir"] && path.resolve(options["session-dir"]);
-  const wake = detectWake();
+  // status only reads, so it runs without an agent, as from a plain
+  // terminal, unless the session has to register with a new hub. It still
+  // names the agent when there is one, because a hub that runs older code
+  // answers status only for the holder.
+  let wake = null;
+  try {
+    wake = detectWake();
+  } catch (error) {
+    if (command !== "status") throw error;
+  }
+  const register = () => attach(directory, config, (wake ||= detectWake()));
   if (command === "start") {
     const resuming = Boolean(directory);
     directory ||= path.join(config.sessions, crypto.randomUUID());
@@ -130,7 +140,7 @@ export async function main(argv) {
     `No pair session at ${directory}. Check the path, or create a session with pair start.`,
   );
   const connectionFile = path.join(directory, "connection.json");
-  if (!(await exists(connectionFile))) await attach(directory, config, wake);
+  if (!(await exists(connectionFile))) await register();
   let connection = await read(connectionFile);
   const checkConnection = () =>
     requireValue(
@@ -138,12 +148,9 @@ export async function main(argv) {
       "Invalid connection origin",
     );
   checkConnection();
-  // Every command names the agent that runs it, and the hub takes commands
-  // only from the session's holder.
-  const agent = identify(wake);
   async function request(data, retry = true) {
     const reattach = async () => {
-      await attach(directory, config, wake);
+      await register();
       connection = await read(connectionFile);
       checkConnection();
       return request(data, false);
@@ -161,7 +168,9 @@ export async function main(argv) {
           body: JSON.stringify({
             ...data,
             sessionId: connection.sessionId,
-            agent,
+            // The hub takes every command but status only from the
+            // session's holder.
+            agent: wake && identify(wake),
           }),
           signal: AbortSignal.timeout(15000),
         },

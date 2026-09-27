@@ -150,17 +150,19 @@ export async function startHub(config = settings()) {
         const next = await session.exclusive(() =>
           session.hold(data.wake, data.start === true),
         );
+        // The wake target stays the holder's when another agent registers.
+        const wake = { harness: session.state.wake.harness };
         await atomic(path.join(directory, "connection.json"), {
           sessionId: session.id,
           origin,
           token: session.token,
-          wake: { harness: data.wake.harness },
+          wake,
         });
         return reply(200, {
           sessionId: session.id,
           sessionDir: directory,
           url: origin + session.base + "/",
-          wake: { harness: data.wake.harness },
+          wake,
           ...(hostOrigin ? { hostUrl: hostOrigin + session.base + "/" } : {}),
           ...(next ? { next } : {}),
         });
