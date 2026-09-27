@@ -59,13 +59,31 @@ const actions = {
   },
   complete: async () => ({}),
 };
-export const sessionCommands = ["start", "hub", ...Object.keys(actions)];
+// The options each command takes. A misspelt option is refused, so a
+// command never runs without a value it was given.
+const commandOptions = {
+  hub: [],
+  start: ["session-dir"],
+  status: ["session-dir"],
+  read: ["session-dir", "id"],
+  ack: ["session-dir", "note"],
+  progress: ["session-dir", "start"],
+  pause: ["session-dir", "reason"],
+  publish: ["session-dir", "file", "pages", "source"],
+  complete: ["session-dir"],
+};
+export const sessionCommands = Object.keys(commandOptions);
 function argumentsFrom(argv) {
   const [command, ...rest] = argv;
+  const known = commandOptions[command];
   const options = {};
   for (let i = 0; i < rest.length; i++) {
     requireValue(rest[i].startsWith("--"), "Options must use --name value");
     const key = rest[i].slice(2);
+    requireValue(
+      known.includes(key),
+      `--${key} is not an option of pair ${command}, which takes ${known.length ? known.map((name) => `--${name}`).join(", ") : "none"}`,
+    );
     requireValue(
       rest[i + 1] && !rest[i + 1].startsWith("--"),
       `Missing value for --${key}`,

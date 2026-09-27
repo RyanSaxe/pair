@@ -129,3 +129,27 @@ test("a session command refuses a directory that holds no session", async (t) =>
   });
   assert.equal(await exists(missing), false);
 });
+
+test("a command refuses an option it does not take and changes nothing", async (t) => {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-options-"));
+  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(scratch, { recursive: true, force: true });
+  });
+  const { sessionDir } = JSON.parse(await run("start"));
+  await run("ack", "--session-dir", sessionDir, "--note", "Reading");
+  await assert.rejects(
+    run("ack", "--session-dir", sessionDir, "--nte", "x"),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.equal(
+        error.stderr,
+        "pair: --nte is not an option of pair ack, which takes --session-dir, --note\n",
+      );
+      return true;
+    },
+  );
+  const status = JSON.parse(await run("status", "--session-dir", sessionDir));
+  assert.equal(status.report.note, "Reading");
+});
