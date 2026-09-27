@@ -417,7 +417,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.match(read.body.next, /publish Agreed with pair publish --pages/);
   const published = await a.publish(planData("2"));
   assert.equal(published.body.roundComplete, true);
-  assert.match(published.body.next, /^The round is with the reviewer\./);
+  assert.match(published.body.next, /^Round 2 is published\./);
 });
 
 test("page progress cannot start before Agreed for the next round", async (t) => {

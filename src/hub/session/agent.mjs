@@ -57,16 +57,16 @@ export function agent(session) {
         .map((slot) =>
           slot.state === "active" ? `${slot.id} (started)` : slot.id,
         );
-      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every 5 minutes.`;
+      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every five minutes.`;
     }
     if (session.state.stage === "working")
       return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;
-    return "The round is with the reviewer. Say in chat what changed if you have not, then end the turn. The hub wakes you when they submit.";
+    return `Round ${session.state.current.round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
   }
   // Runs after the submission is saved, outside the browser's request, so a
   // slow or failing harness never delays the reviewer's Sent session.state.
   async function wakeAgent(round) {
-    const line = `pair: feedback arrived on session ${directory} (Round ${round}). Run first: ${command("ack")}. It prints the next step.`;
+    const line = `pair: the reviewer submitted round ${round} of session ${directory}. Run first: ${command("ack")}. It prints the next step.`;
     let last;
     try {
       await wakeRunner(session.wake, line);
@@ -110,7 +110,7 @@ export function agent(session) {
     )
       requireValue(
         false,
-        `Another agent has held this session since ${clock(session.state.holder.at)}. Stop working on it unless the user asks you to take it over with: ${command("start")}`,
+        `Another agent has been this session's holder since ${clock(session.state.holder.at)}. Stop working on it unless the user asks you to take it over with: ${command("start")}`,
         409,
       );
   }
@@ -195,7 +195,7 @@ export function agent(session) {
     if (action.after !== "complete")
       requireValue(
         false,
-        `${action.label} keeps the session, so it does not complete. ${await nextStep()}`,
+        `${action.label} keeps the session open, so pair complete refuses. ${await nextStep()}`,
         409,
       );
     await transition({ stage: "complete" });

@@ -207,7 +207,10 @@ for (const [id, offer] of Object.entries(offers))
         assert.equal((await a.publish(planData("2", id))).code, 409);
       } else {
         assert.equal(complete.code, 409);
-        assert.match(complete.body.error, /keeps the session/);
+        assert.match(
+          complete.body.error,
+          /keeps the session open, so pair complete refuses\./,
+        );
         assert.deepEqual(
           (await sessions()).map((item) => item.stage),
           [action.after === "saved" ? "saved" : "working"],

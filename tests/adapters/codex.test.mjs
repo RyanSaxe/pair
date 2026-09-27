@@ -67,7 +67,7 @@ if (process.env.PAIR_TEST_FAIL) {
     { mode: 0o755 },
   );
   const target = { harness: "codex", thread: "thread-1" };
-  const line = "pair: feedback arrived on session /s (Round 1).";
+  const line = "pair: the reviewer submitted round 1 of session /s.";
   await wakeRunner(target, line);
   assert.deepEqual(JSON.parse(await fs.readFile(log, "utf8")), [
     "queue",
