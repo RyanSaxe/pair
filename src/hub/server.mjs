@@ -44,12 +44,24 @@ export async function startHub(config = settings()) {
     allowedHosts = new Set();
   const log = (message) =>
     (config.log || console.log)(`${timestamp()} ${message}`);
+  // A session directory can be reached by more than one path, such as
+  // /tmp/… and /private/tmp/… on macOS. The hub keys a session by the real
+  // path of its parent and its own name, because a new session's directory
+  // does not exist yet when it registers.
+  const canonical = async (directory) =>
+    path.join(
+      await fs
+        .realpath(path.dirname(directory))
+        .catch(() => path.dirname(directory)),
+      path.basename(directory),
+    );
   async function adopt(directory) {
-    let session = byDirectory.get(directory);
+    const known = await canonical(directory);
+    let session = byDirectory.get(known);
     if (!session) {
       session = await loadSession(directory, config, origin);
       registry.set(session.id, session);
-      byDirectory.set(directory, session);
+      byDirectory.set(known, session);
     }
     return session;
   }
@@ -145,8 +157,10 @@ export async function startHub(config = settings()) {
             Object.hasOwn(adapters, data.wake.harness),
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
-        const directory = path.resolve(data.sessionDir);
-        const session = await register(() => adopt(directory));
+        const session = await register(() =>
+          adopt(path.resolve(data.sessionDir)),
+        );
+        const { directory } = session;
         const next = await session.exclusive(() =>
           session.hold(data.wake, data.start === true),
         );
