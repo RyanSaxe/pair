@@ -46,6 +46,7 @@ import {
   show,
   updateNavigation,
 } from "#frame/pages/pages.mjs";
+import { refreshSideWork } from "#frame/pages/side-work.mjs";
 import {
   renderSentFeedback,
   review,
@@ -461,5 +462,6 @@ export async function poll() {
   renderRounds();
   updateNavigation();
   renderRound();
+  refreshSideWork();
   review();
 }

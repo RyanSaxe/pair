@@ -50,6 +50,7 @@ const stylesheets = [
   "sync/activity.css",
   "review/review.css",
   "pages/agreed.css",
+  "pages/side-work.css",
   "pages/diagram.css",
   "app/dialogs.css",
   "app/modes.css",

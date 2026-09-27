@@ -10,6 +10,7 @@ import {
   pages,
 } from "#frame/app/view.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
+import { sideWorkSection } from "#frame/pages/side-work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
 /* Agreed */
@@ -262,7 +263,7 @@ export function renderAgreements() {
     empty.textContent = agreedTask
       ? "No decisions recorded yet."
       : "No agreements recorded yet.";
-    root.append(empty);
+    root.append(empty, sideWorkSection());
     enhance(root);
     return;
   }
@@ -279,5 +280,6 @@ export function renderAgreements() {
     for (const entry of retired) details.append(agreementCard(entry));
     root.append(details);
   }
+  root.append(sideWorkSection());
   enhance(root);
 }
