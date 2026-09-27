@@ -175,6 +175,13 @@ export function rounds(session) {
       rounds,
       accepted: null,
     });
+    // The hub served the open round from the live file while its pages
+    // arrived, and serves the complete file from now on.
+    if (complete)
+      await fs.rm(
+        path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
+        { force: true },
+      );
     return {
       status: view(),
       url: origin + current.url,
@@ -302,27 +309,37 @@ export function rounds(session) {
       .createHash("sha256")
       .update(recordBytes)
       .digest("hex");
-    if (page.id === "agreed") {
-      set.agreed = recordPath;
-      set.agreedVersion = version;
-      // The round keeps the frame it started with, so an update to
-      // pair mid-round cannot mix two frames in one built file.
-      set.bundlePath = path.join(
-        recordDir,
-        `frame.${crypto.randomUUID()}.json`,
-      );
-      await fs.writeFile(set.bundlePath, json(await frameBundle()), {
-        mode: 0o600,
-        flag: "wx",
-      });
-    } else {
-      const slot = set.pages.find((item) => item.id === page.id);
-      slot.recordPath = recordPath;
-      slot.state = "ready";
-      slot.version = version;
-      set.generation++;
+    let result;
+    try {
+      if (page.id === "agreed") {
+        set.agreed = recordPath;
+        set.agreedVersion = version;
+        // The round keeps the frame it started with, so an update to
+        // pair mid-round cannot mix two frames in one built file.
+        set.bundlePath = path.join(
+          recordDir,
+          `frame.${crypto.randomUUID()}.json`,
+        );
+        await fs.writeFile(set.bundlePath, json(await frameBundle()), {
+          mode: 0o600,
+          flag: "wx",
+        });
+      } else {
+        const slot = set.pages.find((item) => item.id === page.id);
+        slot.recordPath = recordPath;
+        slot.state = "ready";
+        slot.version = version;
+        set.generation++;
+      }
+      result = await commitPageRound(set, source);
+    } catch (error) {
+      // A publish that fails leaves the round's files as they were, so no
+      // record or frame of a page that never published stays behind.
+      await fs.rm(recordPath, { force: true });
+      if (page.id === "agreed" && set.bundlePath)
+        await fs.rm(set.bundlePath, { force: true });
+      throw error;
     }
-    const result = await commitPageRound(set, source);
     return {
       ...result,
       page: {
