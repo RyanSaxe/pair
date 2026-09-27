@@ -22,8 +22,7 @@ export function activityModel({
   const read = Boolean(latest) && remote.lastAcknowledgedId === latest;
   const received =
     read || (Boolean(latest) && remote.lastReceivedId === latest);
-  // The agent's last report, and the note it gave with ack. State saved
-  // before reports existed has only acknowledgedAt and updatedAt.
+  // The agent's last report, and the note it gave with ack.
   const reportAt = remote?.report?.at;
   const note = remote?.report?.note;
   const failed = remote?.wake?.last?.ok === false;
@@ -95,18 +94,20 @@ export function activityModel({
       at: reportAt,
       late: late(reportAt),
     };
-  else if (!slots.length) {
-    const at = reportAt || remote.acknowledgedAt;
+  else if (!slots.length)
     footer = {
       mark: "active",
       text: read ? "Agent read your feedback" : "Agent received your feedback",
-      at,
-      late: late(at),
+      at: reportAt,
+      late: late(reportAt),
     };
-  } else {
-    const at = reportAt || remote.updatedAt;
-    footer = { mark: "active", text: "Last report", at, late: late(at) };
-  }
+  else
+    footer = {
+      mark: "active",
+      text: "Last report",
+      at: reportAt,
+      late: late(reportAt),
+    };
   // Until the page list exists, the bar is one track that moves while the
   // agent works on the feedback.
   const track = slots.length
@@ -139,8 +140,7 @@ export function roundModel({ remote, now = Date.now() }) {
   const ready = 1 + round.pages.filter((item) => item.state === "ready").length;
   if (ready === total) return null;
   if (remote.paused) return { text: "Agent paused", late: true };
-  const reported = remote.report?.at || remote.updatedAt;
-  const minutes = Math.floor((now - Date.parse(reported)) / 60000);
+  const minutes = Math.floor((now - Date.parse(remote.report?.at)) / 60000);
   if (minutes >= 5) return { text: `No report for ${minutes} min`, late: true };
   return { text: `${ready} of ${total} ready`, late: false };
 }

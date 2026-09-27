@@ -28,9 +28,6 @@ test("alignment defaults on, preserves a changed value, and travels with feedbac
   fresh.alignUnflagged = false;
   assert.equal(submissionGroups(fresh).alignUnflagged, false);
   assert.equal(loadDraft(fresh, "2").alignUnflagged, false);
-  const older = { ...fresh };
-  delete older.alignUnflagged;
-  assert.equal(loadDraft(older, "2").alignUnflagged, true);
 });
 
 test("an untouched checklist does not count", () => {

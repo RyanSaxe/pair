@@ -30,14 +30,7 @@ export function emptyDraft(round) {
 export function loadDraft(saved, round) {
   if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
     return emptyDraft(round);
-  const draft = {
-    ...emptyDraft(round),
-    ...saved,
-    alignUnflagged:
-      typeof saved.alignUnflagged === "boolean" ? saved.alignUnflagged : true,
-    answers: record(saved.answers) ? saved.answers : {},
-    noteDrafts: record(saved.noteDrafts) ? saved.noteDrafts : {},
-  };
+  const draft = { ...emptyDraft(round), ...saved };
   if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
