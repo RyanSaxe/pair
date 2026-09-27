@@ -115,14 +115,16 @@ pair never writes this file on its own.
 ## Adapters
 
 pair wakes Claude Code, Codex and Copilot CLI, each through its folder under
-`adapters/`. A `wake.mjs` exports the CLI's `name`, such as `Codex`, and
-three functions:
+`adapters/`. A `wake.mjs` exports the CLI's `name`, such as `Codex`, the
+`command` its executable is called, the `variables` it gives the commands it
+runs, the `unwakeable` message for a session without all of them, and three
+functions:
 
-- `detect(env, tools)` returns the wake target for its agent CLI, or `null`
-  when the environment belongs to another CLI. `tools.ancestor` is the
-  ancestor process being asked about, or `null` when `pair start` asks about
-  the environment variables alone. It throws when the environment is its CLI's
-  but the session cannot be woken.
+- `detect(env, tools)` returns the wake target for its agent CLI, once the
+  CLI has claimed the environment and every one of its `variables` is set.
+  `tools.ancestor` is the ancestor process being asked about, or `null` when
+  `pair start` asks about the environment variables alone. It throws when
+  the session still cannot be woken.
 - `identity(target)` returns the part of a wake target that tells one session
   of the CLI from another: the inbox socket, the thread ID or the session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
@@ -130,9 +132,10 @@ three functions:
   its error output.
 
 `src/hub/wake.mjs` lists the adapters. `pair start` asks every adapter about
-each ancestor process, nearest first, so the agent CLI that ran the command
+each ancestor process, nearest first, and the CLI whose `command` the
+ancestor runs claims the environment, so the agent CLI that ran the command
 wins over an outer one whose variables it inherited. When no ancestor
-decides, the first adapter whose variables are set decides.
+decides, the first adapter whose first variable is set claims it.
 
 ## Holders and handoff
 

@@ -49,6 +49,10 @@ function copilotSdk(env) {
 
 // Copilot exports the session ID to the commands it runs, and listens for
 // the SDK only when it was started with --ui-server.
+export const command = "copilot";
+export const variables = ["COPILOT_AGENT_SESSION_ID"];
+export const unwakeable =
+  "this Copilot session exports no COPILOT_AGENT_SESSION_ID, so it cannot be woken.";
 export function detect(
   env,
   {
@@ -57,13 +61,7 @@ export function detect(
     copilotSdk: findSdk = copilotSdk,
   },
 ) {
-  if (ancestor ? ancestor.command !== "copilot" : !env.COPILOT_AGENT_SESSION_ID)
-    return null;
   const sessionId = env.COPILOT_AGENT_SESSION_ID;
-  if (!sessionId)
-    throw new Error(
-      "this Copilot session exports no COPILOT_AGENT_SESSION_ID, so it cannot be woken.",
-    );
   const port = ancestor ? portOf(ancestor.pid) : null;
   if (!port)
     throw new Error(

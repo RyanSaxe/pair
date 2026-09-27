@@ -36,11 +36,19 @@ function ancestors(pid = process.ppid) {
   }
   return chain;
 }
+// An agent CLI claims the environment when it is the ancestor asked about
+// or, asked about the variables alone, when its first variable is set. Its
+// session can be woken only with every one of its variables.
 export function detectWake(env = process.env, tools = { ancestors }) {
   for (const ancestor of [...tools.ancestors(), null])
     for (const adapter of Object.values(adapters)) {
-      const target = adapter.detect(env, { ...tools, ancestor });
-      if (target) return target;
+      const claimed = ancestor
+        ? ancestor.command === adapter.command
+        : Boolean(env[adapter.variables[0]]);
+      if (!claimed) continue;
+      if (!adapter.variables.every((name) => env[name]))
+        throw new Error(adapter.unwakeable);
+      return adapter.detect(env, { ...tools, ancestor });
     }
   requireValue(
     false,
