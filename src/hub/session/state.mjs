@@ -26,6 +26,8 @@ export async function loadSession(directory, config, origin) {
         current: null,
         acknowledged: [],
         accepted: null,
+        // Round 1 starts with the pair start that creates the session.
+        roundStartedAt: timestamp(),
         updatedAt: timestamp(),
       };
   requireValue(
@@ -84,6 +86,7 @@ export async function loadSession(directory, config, origin) {
     };
     await atomic(path.join(directory, "feedback", payload.id + ".json"), event);
     events.push(event);
+    return event;
   }
   async function pending() {
     return events

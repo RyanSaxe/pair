@@ -74,7 +74,7 @@ export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
     const key = controlKey(page.id, group.dataset.question);
-    area.value = state.drafts?.[key] ?? state.answers[key]?.text ?? "";
+    area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
     area.readOnly = !editable;
   });
 }
@@ -98,7 +98,6 @@ export function installControls() {
     if (!area || !$("page-content").contains(area)) return;
     const group = area.closest("[data-question]");
     const key = controlKey(page.id, group.dataset.question);
-    state.drafts ||= {};
     if (area.value.trim()) state.drafts[key] = area.value;
     else delete state.drafts[key];
     clearTimeout(answerTimer);

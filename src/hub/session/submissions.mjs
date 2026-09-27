@@ -194,7 +194,7 @@ export function submissions(session) {
       "Finish every listed page before submitting feedback",
       409,
     );
-    await session.saveEvent(data);
+    const event = await session.saveEvent(data);
     const after = data.intent === "accept" ? actionOf(data).after : null;
     await transition({
       stage:
@@ -210,6 +210,8 @@ export function submissions(session) {
         data.intent === "feedback-only" || after === "round"
           ? data.round
           : null,
+      // Every browser counts the agent's running time from this.
+      roundStartedAt: event.receivedAt,
       wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       accepted: null,
       takeover: null,

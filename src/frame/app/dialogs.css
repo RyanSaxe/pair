@@ -64,6 +64,11 @@ dialog::backdrop {
   margin: 0 0 14px;
   font-size: 16px;
 }
+/* A head lays its heading out centered beside the close button, so the
+   heading takes no margin there. */
+.dialog .dialog-head h2 {
+  margin: 0;
+}
 .dialog .actions {
   display: flex;
   justify-content: space-between;
@@ -74,12 +79,12 @@ dialog::backdrop {
 .dialog-head h2:focus-visible {
   outline: 0;
 }
-.rev-list {
+.dialog-list {
   display: grid;
   gap: 1px;
   margin: 0 -8px;
 }
-.rev-row {
+.dialog-row {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) auto;
   gap: 10px;
@@ -89,19 +94,19 @@ dialog::backdrop {
   border-radius: 6px;
   font-size: 13px;
 }
-.rev-row.current {
+.dialog-row.current {
   background: var(--ground);
   font-weight: 600;
 }
-.rev-row .tick {
+.dialog-row .tick {
   color: var(--accent);
 }
-.rev-row small {
+.dialog-row small {
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 400;
 }
-.rev-plan {
+.dialog-detail {
   margin: -6px 0 10px;
   color: var(--muted);
   font-size: 12px;
@@ -179,7 +184,9 @@ dialog::backdrop {
   border-top: 1px solid var(--line);
   font-size: 13.5px;
 }
-.settings-row:first-of-type {
+/* The first row follows the head, which :first-of-type would count as the
+   dialog's first div. */
+.dialog-head + .settings-row {
   border-top: 0;
   padding-top: 0;
 }

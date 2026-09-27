@@ -48,6 +48,15 @@ that beats page CSS and the frame's stylesheets, so a component sets its own
 type and spacing without fighting a frame selector. Use the design tokens in
 [frame.md](../../guide/frame.md).
 
+The builder also scopes component CSS to `#page-content`, so a selector
+that starts at `:root` or `html` never matches. Follow the theme with
+`light-dark()`, which reads the `color-scheme` that the frame sets.
+
+At the top of a page the frame sets the space around a component's root, 14px
+above and 22px below. A root that sets its own margin elsewhere gives it up
+there with `:scope > ROOT { margin: revert-layer; }`, as the code and formula
+components do.
+
 A component that holds authored content gives it a slot, and the frame
 supplies the space around it. The slot zeroes the outer margin of its first
 and last child, so a `<pre>`, a `<div>`, a figure and a table all sit the

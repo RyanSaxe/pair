@@ -260,6 +260,7 @@ export function agent(session) {
       Object.assign(patch, report(), {
         stage: "working",
         latestSubmissionRound: session.state.current.round,
+        roundStartedAt: timestamp(),
         wake: { harness: target.harness, last: null },
       });
     await transition(patch);

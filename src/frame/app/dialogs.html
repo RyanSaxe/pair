@@ -89,15 +89,25 @@
   <div class="dialog-head">
     <h2 id="finish-title" tabindex="-1" autofocus>Finish your review</h2>
   </div>
-  <p class="rev-plan" id="finish-detail"></p>
-  <div class="rev-list" role="radiogroup" aria-label="Decision">
-    <button class="rev-row" type="button" role="radio" data-decision="accept">
+  <p class="dialog-detail" id="finish-detail"></p>
+  <div class="dialog-list" role="radiogroup" aria-label="Decision">
+    <button
+      class="dialog-row"
+      type="button"
+      role="radio"
+      data-decision="accept"
+    >
       <span class="tick"></span
       ><span
         ><span id="accept-label"></span><br /><small id="accept-hint"></small
       ></span>
     </button>
-    <button class="rev-row" type="button" role="radio" data-decision="changes">
+    <button
+      class="dialog-row"
+      type="button"
+      role="radio"
+      data-decision="changes"
+    >
       <span class="tick"></span
       ><span>Request changes<br /><small id="changes-hint"></small></span>
     </button>
@@ -121,8 +131,8 @@
     </div>
     <div id="finish-changes" inert>
       <p class="small">
-        Requesting changes sends your comments to the waiting agent. Nothing is
-        accepted, and the plan stays open.
+        Requesting changes sends your comments to the waiting agent, and nothing
+        is accepted.
       </p>
       <label for="request-comment" id="request-comment-label"
         >Overall comment</label
@@ -147,8 +157,8 @@
   <div class="dialog-head">
     <h2 id="round-title" tabindex="-1" autofocus>Rounds</h2>
   </div>
-  <p class="rev-plan" id="round-plan"></p>
-  <div class="rev-list" id="round-list"></div>
+  <p class="dialog-detail" id="round-plan"></p>
+  <div class="dialog-list" id="round-list"></div>
 </dialog>
 <dialog class="dialog keys" id="keys-dialog" aria-labelledby="keys-title">
   <div class="dialog-head">

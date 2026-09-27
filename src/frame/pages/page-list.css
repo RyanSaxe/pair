@@ -39,11 +39,6 @@
   margin-left: auto;
   font-size: 12.5px;
 }
-/* `.dialog h2` gives every dialog heading a bottom margin, which would lift
-   Pages above the status and the close button beside it. */
-#pages-dialog .dialog-head h2 {
-  margin-bottom: 0;
-}
 .pages-slot nav {
   display: block;
   padding: 0;

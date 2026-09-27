@@ -19,6 +19,8 @@ export function emptyDraft(round) {
     notes: [],
     choices: {},
     answers: {},
+    // The text typed into each question, before and after its Answer.
+    drafts: {},
     noteDrafts: {},
     submitted: null,
     pending: null,
@@ -91,11 +93,15 @@ export function submissionGroups(draft) {
 }
 
 // An acceptance sends the drafted items too, so none of them carries over
-// to the next round's draft.
+// to the next round's draft. A sent answer's typed text goes with it, so the
+// next round's question starts empty.
 export function markItemsSent(draft, id) {
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
-  for (const answer of Object.values(draft.answers)) answer.sentIn ||= id;
+  for (const [key, answer] of Object.entries(draft.answers)) {
+    answer.sentIn ||= id;
+    delete draft.drafts[key];
+  }
 }
 
 export function markSent(draft, id, at) {

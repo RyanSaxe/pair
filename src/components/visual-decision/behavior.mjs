@@ -3,13 +3,15 @@
 // Three columns at the reading width are about 260px; narrow material such
 // as mocks fits, wide material does not and asks for tabs instead.
 const minimumColumn = 240;
-function initialize(section, { planUI }) {
+function initialize(section, { page, planUI }) {
   const options = Array.from(
     section.querySelectorAll(":scope > .visual-option[data-value]"),
   );
   if (!options.length) return;
   const prefs = planUI.prefs;
-  const key = `visual-decision:${section.id || section.dataset.choice}`;
+  // Keyed by page as well, so the same decision ID on two pages keeps two
+  // layouts.
+  const key = `visual-decision:${page.id}/${section.id || section.dataset.choice}`;
   const head = document.createElement("div");
   head.className = "vd-head";
   const heading = section.querySelector(":scope > h3");

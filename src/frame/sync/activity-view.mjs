@@ -1,4 +1,3 @@
-import { state } from "#frame/app/store.mjs";
 import { since } from "#frame/app/time.mjs";
 import { $, recently } from "#frame/app/util.mjs";
 import {
@@ -7,6 +6,7 @@ import {
   editable,
   mode,
   page,
+  pastRound,
   plan,
   session,
   submittedRound,
@@ -23,7 +23,6 @@ import {
   roundModel,
 } from "#frame/sync/activity.mjs";
 import {
-  lastSubmission,
   pageSets,
   pageStatus,
   remote,
@@ -48,7 +47,8 @@ export function renderActivity() {
     return;
   }
   // The agent's progress shows at the top of Current's Agreed, from the send
-  // to the round's last page. The left tab shows only what was sent on it.
+  // or the round's Agreed to its last page. The left tab shows only what was
+  // sent on it.
   const past = selectedTab === "past";
   $("sent-feedback").hidden = !past;
   if (past) renderSentFeedback();
@@ -61,7 +61,7 @@ export function renderActivity() {
     onAgreed && !visible && roundFinished()
       ? finishedLine({
           publishedAt: remote.current.publishedAt,
-          receivedAt: lastSubmission.receivedAt,
+          receivedAt: remote.roundStartedAt,
         })
       : null;
   $("finished-line").hidden = !finished;
@@ -78,8 +78,12 @@ export function renderActivity() {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  const sentAt = lastSubmission?.receivedAt || state.submitted?.at;
-  $("activity-elapsed").textContent = running && sentAt ? since(sentAt) : "";
+  // The hub records when the agent's round started: the send, the
+  // acceptance, the pair start that builds a saved plan, or for round 1 the
+  // pair start that created the session.
+  const startedAt = remote?.roundStartedAt;
+  $("activity-elapsed").textContent =
+    running && startedAt ? since(startedAt) : "";
   $("activity-title").textContent = model.title;
   $("activity-summary").textContent = model.summary;
   const signature = JSON.stringify([
@@ -144,10 +148,12 @@ export function renderActivity() {
     handoff.append(handoffLine(remote.handoff));
 }
 // Every page of a past round, its Feedback page included, names the
-// round. Current never has the strip.
+// round. Current never has the strip. A tab click leaves the page on screen,
+// so the strip shows whenever that page belongs to the earlier round,
+// whichever tab is chosen.
 export function renderHistory() {
   const old = mode === "readonly";
-  const past = selectedTab === "past";
+  const past = editable && displayedRound === pastRound;
   const strip = $("history-strip");
   strip.hidden = !(old || past);
   if (strip.hidden) return;
@@ -155,7 +161,7 @@ export function renderHistory() {
   if (old && session.closed) label.textContent = "This plan is closed";
   else {
     const name = document.createElement("b");
-    name.textContent = `Round ${plan.round}`;
+    name.textContent = `Round ${old ? plan.round : pastRound}`;
     label.replaceChildren(name);
     if (past || shownSubmission()) {
       const meta = document.createElement("span");

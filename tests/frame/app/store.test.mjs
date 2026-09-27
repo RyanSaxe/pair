@@ -202,3 +202,19 @@ test("drafts carry unsent items across rounds and drop what was sent", () => {
   assert.deepEqual(loadDraft(null, "3"), emptyDraft("3"));
   assert.deepEqual(loadDraft({ notes: "bad" }, "3"), emptyDraft("3"));
 });
+
+test("a sent answer's typed text does not carry into the next round", () => {
+  const draft = emptyDraft("1");
+  draft.answers["plan/why"] = {
+    topic: "plan",
+    label: "Why",
+    text: "Because.",
+    round: "1",
+  };
+  draft.drafts = { "plan/why": "Because.", "plan/later": "Half an answer" };
+  markSent(draft, "sub-1", "2026-09-27T00:00:00Z");
+  const next = loadDraft(JSON.parse(JSON.stringify(draft)), "2");
+  // The next round's question with the same ID starts empty, and text that
+  // was never answered is still there to finish.
+  assert.deepEqual(next.drafts, { "plan/later": "Half an answer" });
+});

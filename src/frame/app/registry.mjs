@@ -59,6 +59,8 @@ export function createPlanUI() {
   return {
     answer: recordAnswer,
     drawing: drawingAnswer,
+    // Whether the draft has an answer for a question on this page.
+    answered: (id) => Boolean(drawingAnswer(id)),
     draw: openDrawing,
     chart,
     define,
