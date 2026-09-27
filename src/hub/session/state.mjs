@@ -12,6 +12,7 @@ import {
 } from "../../shared/util.mjs";
 import { agent } from "./agent.mjs";
 import { rounds } from "./rounds.mjs";
+import { sideWork } from "./side-work.mjs";
 import { submissions } from "./submissions.mjs";
 import { uploads } from "./uploads.mjs";
 
@@ -135,6 +136,7 @@ export async function loadSession(directory, config, origin) {
     submissions(session),
     agent(session),
     rounds(session),
+    await sideWork(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -160,6 +162,7 @@ export async function loadSession(directory, config, origin) {
       wake: state.wake || null,
       paused: state.paused || null,
       needsYou: needsYou(),
+      sideWork: session.sideWorkItems(),
     };
   }
   async function latestFeedback(requestedRound) {
@@ -250,6 +253,8 @@ export async function loadSession(directory, config, origin) {
     readScene: session.readScene,
     removeUpload: session.removeUpload,
     dismiss: session.dismiss,
+    startSideWork: session.startSideWork,
+    dropSideWork: session.dropSideWork,
     act: session.act,
     view,
     latestFeedback,

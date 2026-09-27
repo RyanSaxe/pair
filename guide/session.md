@@ -34,9 +34,9 @@ and rounds in place.
 ## Taking over
 
 The agent that runs `pair start` is the session's holder. The hub sends wake
-messages only to the holder and refuses every command but `pair status` from
-any other agent. A subagent runs commands in its parent's environment, so the
-hub treats it as its parent.
+messages only to the holder and refuses every command but `pair status` and
+`pair side-work` from any other agent. A subagent runs commands in its
+parent's environment, so the hub treats it as its parent.
 
 Any agent in any harness becomes the holder by running the command in the
 session's handoff line:
@@ -50,10 +50,11 @@ Then follow the `next` line that `pair start` prints. When the holder runs
 
 An agent that is not the holder gets one of two refusals:
 
-- A former holder's first command other than `pair status` after the
-  takeover, `pair start` included, fails with "Another agent took this
-  session over at 14:02. Stop working on it." Stop, and tell the user.
-- Every other command but `pair status` fails with the time the holder took
+- A former holder's first command other than `pair status` or
+  `pair side-work` after the takeover, `pair start` included, fails with
+  "Another agent took this session over at 14:02. Stop working on it." Stop,
+  and tell the user.
+- Every other command but those two fails with the time the holder took
   the session and the `pair start` command that takes it over. Run that
   command only when the user asks you to.
 

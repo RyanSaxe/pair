@@ -29,15 +29,16 @@ A session's holder is the agent that last ran `pair start` on it. The hub
 identifies the holder by part of its wake target: the inbox socket, the
 thread ID or the session ID. Every command sends the identity of the agent
 that runs it, so a subagent works as its parent. The hub wakes only the
-holder and refuses every command but `pair status` from any other agent.
-After a takeover, the former holder's first command other than
-`pair status`, `pair start` included, fails with the time it lost the
-session.
+holder and refuses every command but `pair status` and `pair side-work`
+from any other agent, because an agent the holder briefs can do side work.
+After a takeover, the former holder's first command other than those two,
+`pair start` included, fails with the time it lost the session.
 
-`pair status` also runs from a plain terminal, where it sends no identity,
-while the hub that serves the session runs. When that hub has exited,
-`pair status` starts a new hub and registers the session with it, which
-needs an agent's identity, so it fails from a plain terminal.
+`pair status` and `pair side-work` also run from a plain terminal, or from
+an agent the hub cannot wake, where they send no identity, while the hub
+that serves the session runs. When that hub has exited, they start a new hub
+and register the session with it, which needs an agent's identity, so they
+fail from a plain terminal.
 
 Another agent takes a session over with its handoff line, which the browser
 shows with Copy after Save for later and after a failed wake:
@@ -45,6 +46,23 @@ shows with Copy after Save for later and after a failed wake:
 ```text
 Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
 ```
+
+## Side work
+
+The agent records work that turns up outside the session's task with
+`pair side-work add`, and the frame lists it on Agreed after the decisions.
+When you press Start in parallel on an item, the hub wakes the holder once
+with a message that asks for the work in a separate git worktree, on its own
+branch from the session's branch, ending in a pull request into that branch.
+The guide tells the agent to use the repository's default branch when the
+session has no branch of its own there. The agent reports Working, Pull
+request with its link, and Done with `pair side-work update`, and the frame
+shows each change within 1.5 seconds. The hub accepts an update to the item's
+next state, or to its current state to correct the link, so an item is Done
+only after it has a pull request. When the wake fails, the item returns to
+Recorded and reads "Could not reach the agent to start this. Try again." You
+can drop an item at any state before Done, and the frame folds Done and
+dropped items under Finished.
 
 ## The hub
 
@@ -77,17 +95,19 @@ pair stores everything under `$XDG_STATE_HOME/pair/`, or
   `submitted`, `working`, `saved` or `complete`), `openRound` while a
   round's pages are arriving, `paused`, `wake`, `holder`, the session's
   holder and when it registered, and `formerHolders`, the agents it was
-  taken from that have not run a command other than `pair status` since.
-  `pair status` prints this file without `formerHolders` or any agent's
-  socket or thread, and adds `handoff`, the line another agent runs to take
-  the session over.
+  taken from that have not run a command other than `pair status` or
+  `pair side-work` since. `pair status` prints this file without
+  `formerHolders` or any agent's socket or thread, and adds `handoff`, the
+  line another agent runs to take the session over, and `sideWork`, the
+  session's side-work items.
 - `sessions/<dir>/connection.json` contains the session ID, the hub's
   origin, the agent token and the wake target. The directory name is not
   the session ID.
 - The same directory contains `feedback/`, `uploads/` with the reviewer's
   images, `pages/<round>/` with the published page records,
   `src/<round>/<page-id>/` with each page's source, `rounds/` with the
-  built rounds, and `acceptance.json` after acceptance.
+  built rounds, `side-work/` with one file for each side-work item, and
+  `acceptance.json` after acceptance.
 
 The hub accepts an image attached to a note in PNG, JPEG, GIF or WebP, which
 it identifies by the file's first bytes rather than its name or

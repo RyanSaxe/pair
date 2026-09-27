@@ -160,6 +160,7 @@ function itemCard({ kind, key, item }) {
           item.id,
           item.agreementId,
           item.target,
+          item.sideWorkId,
         ),
       );
       action("Remove", () => {

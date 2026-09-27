@@ -264,6 +264,7 @@ export function openNote(
   id = null,
   entryId = null,
   target = null,
+  sideWorkId = null,
 ) {
   if (!feedbackEditable()) return;
   clearHighlight("plan-note");
@@ -272,6 +273,7 @@ export function openNote(
     anchor,
     quote,
     ...(entryId ? { agreementId: entryId } : {}),
+    ...(sideWorkId ? { sideWorkId } : {}),
     ...(target ? { target } : {}),
   };
   editing = id;

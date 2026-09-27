@@ -110,3 +110,37 @@ A published page cannot change in this round. `pair build` is the
 publication check: it lists every structural problem and writes nothing on
 failure. Open a page in a browser only when it has CSS or a script you wrote
 and you cannot judge it from the source.
+
+## Side work
+
+Record side work when a comment or your own work turns up something outside
+the task, and when the reviewer asks for it in a note. Do not add it to the
+task.
+
+```sh
+pair side-work add --title "Delete visual-review" --text "The skill is deprecated but still installed." --source "From the conversation"
+```
+
+The title names the work in a few words, the text says what it is and why in
+a sentence or two, and the source says where it came from, such as the
+reviewer's note or the command that showed it. The frame lists each item on
+Agreed after the decisions, where the reviewer can comment on it, drop it or
+start it in parallel. A note on an item has the item's ID in `sideWorkId`,
+and `pair status` lists every item under `sideWork`.
+
+When the reviewer presses Start in parallel, the hub sends you a wake message
+that names the item. Do the work as the message says. When the session has no
+branch of its own in the repository the work changes, branch from that
+repository's default branch and open the pull request into it. Report each
+change, in this order:
+
+```sh
+pair side-work update ID --state working
+pair side-work update ID --state pr --url https://github.com/OWNER/REPO/pull/N
+pair side-work update ID --state done
+```
+
+Run `--state done` once the pull request merges. The hub takes
+`pair side-work` from any agent, so an agent you brief can report its own
+progress. If `pair side-work update` fails because the reviewer dropped the
+item, stop working on it.

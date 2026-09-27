@@ -278,6 +278,24 @@ export async function startHub(config = settings()) {
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.dismiss()));
         }
+        // Start in parallel and Drop on a side-work item.
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "side-work" &&
+          rest.length === 4 &&
+          ["start", "drop"].includes(rest[3])
+        ) {
+          const id = decodeURIComponent(rest[2]);
+          return reply(
+            200,
+            await session.exclusive(() =>
+              rest[3] === "start"
+                ? session.startSideWork(id)
+                : session.dropSideWork(id),
+            ),
+          );
+        }
         /* This route writes bytes, so it also caps the size and the count,
            decides the type from the leading bytes rather than a header, and
            names the file itself. */
