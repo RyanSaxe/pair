@@ -365,7 +365,7 @@ test("an unfinished round resumes after the hub restarts", async (t) => {
       buildPage(path.join(localDir, "source.json"), {
         name: "restart",
         round: "1",
-        offer: "plan",
+        ...(page.id === "agreed" ? { offer: "plan" } : {}),
         title: "Restart",
         page,
       });

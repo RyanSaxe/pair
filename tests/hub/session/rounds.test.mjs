@@ -35,7 +35,7 @@ async function session(t) {
     buildPage(path.join(directory, "source.json"), {
       name: "page-test",
       round,
-      offer: "plan",
+      ...(id === "agreed" ? { offer: "plan" } : {}),
       title: "Page test",
       page: {
         id,
@@ -137,6 +137,20 @@ test("Agreed and all page names become visible in one publication", async (t) =>
       })
     ).status,
     409,
+  );
+  // The hub takes the round's offer from Agreed and refuses a page that
+  // names one.
+  const offered = await act({
+    action: "publish",
+    html: (await page("1", "overview", "Overview", "<p>x</p>")).replace(
+      'id="page-data">{',
+      'id="page-data">{"offer":"plan",',
+    ),
+  });
+  assert.equal(offered.status, 400);
+  assert.equal(
+    offered.body.error,
+    "page \"overview\" names an offer. Only Agreed's source names the round's offer.",
   );
 });
 
@@ -403,7 +417,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.match(read.body.next, /publish Agreed with pair publish --pages/);
   const published = await a.publish(planData("2"));
   assert.equal(published.body.roundComplete, true);
-  assert.match(published.body.next, /^The round is with the reviewer\./);
+  assert.match(published.body.next, /^Round 2 is published\./);
 });
 
 test("page progress cannot start before Agreed for the next round", async (t) => {

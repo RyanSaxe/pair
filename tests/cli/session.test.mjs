@@ -70,26 +70,37 @@ test("the CLI builds and publishes each page with its own saved source", async (
   assert.equal(acked.status.report.note, "Writing the overview page");
   const overviewSource = path.join(root, "overview-source");
   await fs.mkdir(overviewSource);
-  await fs.writeFile(
-    path.join(overviewSource, "overview.json"),
-    JSON.stringify({
-      name: "cli",
-      round: "1",
-      offer: "plan",
-      title: "CLI plan",
-      page: { id: "overview", title: "Overview", file: "overview.html" },
-    }),
-  );
+  const overview = {
+    name: "cli",
+    round: "1",
+    title: "CLI plan",
+    page: { id: "overview", title: "Overview", file: "overview.html" },
+  };
+  const overviewJson = path.join(overviewSource, "overview.json");
   await fs.writeFile(
     path.join(overviewSource, "overview.html"),
     "<p>Ready by CLI</p>",
   );
   const overviewHtml = path.join(root, "overview-built.html");
-  await command([
-    "build",
-    path.join(overviewSource, "overview.json"),
-    overviewHtml,
-  ]);
+  // Only Agreed's source names the round's offer.
+  await fs.writeFile(
+    overviewJson,
+    JSON.stringify({ ...overview, offer: "plan" }),
+  );
+  await assert.rejects(
+    command(["build", overviewJson, overviewHtml]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.equal(
+        error.stderr,
+        `pair: page "overview" names an offer. Only Agreed's source names the round's offer.\n`,
+      );
+      return true;
+    },
+  );
+  assert.equal(await exists(overviewHtml), false);
+  await fs.writeFile(overviewJson, JSON.stringify(overview));
+  await command(["build", overviewJson, overviewHtml]);
   await command([
     "publish",
     "--session-dir",
@@ -106,7 +117,11 @@ test("the CLI builds and publishes each page with its own saved source", async (
     ),
     /Ready by CLI/,
   );
-  assert.equal((await registered.status()).body.rounds.length, 1);
+  // The round takes its offer from Agreed.
+  assert.deepEqual(
+    (await registered.status()).body.rounds.map((item) => item.offer),
+    ["plan"],
+  );
 });
 
 // A mistyped path would otherwise start a session outside sessions/, which

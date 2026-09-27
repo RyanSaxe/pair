@@ -267,10 +267,10 @@ export function rounds(session) {
         409,
       );
       set = structuredClone(session.state.openRound);
+      // The round's offer comes from Agreed, and validPage refuses one on
+      // any other page.
       requireValue(
-        ["name", "round", "offer", "title"].every(
-          (key) => record[key] === set[key],
-        ),
+        ["name", "round", "title"].every((key) => record[key] === set[key]),
         "Page does not match this round",
         409,
       );

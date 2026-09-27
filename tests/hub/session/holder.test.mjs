@@ -35,7 +35,7 @@ test("start hands the session to its agent, and only the holder works on it and 
   // to take it over, not that anyone took it over.
   assert.equal(
     (await a.action("ack", { agent: three.agent })).body.error,
-    `Another agent has held this session since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
+    `Another agent has been this session's holder since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
   );
   // Another agent's start takes it over, and the reviewer's card says so.
   await sleep(5);
@@ -58,7 +58,10 @@ test("start hands the session to its agent, and only the holder works on it and 
     await a.action("publish", { html: "" }),
   ]) {
     assert.equal(refused.code, 409);
-    assert.match(refused.body.error, /^Another agent has held this session/);
+    assert.match(
+      refused.body.error,
+      /^Another agent has been this session's holder/,
+    );
   }
   assert.deepEqual((await a.status()).body.holder, holder);
   assert.equal((await a.action("ack", { agent: two.agent })).code, 200);
@@ -117,7 +120,7 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   const saved = JSON.parse(await one.run("start"));
   const run = (cli, ...args) =>
     cli.run(...args, "--session-dir", saved.sessionDir);
-  const plan = { name: "example", round: "1", offer: "plan", title: "Plan" };
+  const plan = { name: "example", round: "1", title: "Plan" };
   const files = {
     agreed: {
       id: "agreed",
@@ -130,7 +133,11 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   for (const [id, page] of Object.entries(files))
     await fs.writeFile(
       path.join(home, `${id}.html`),
-      await buildPage(path.join(home, "source.json"), { ...plan, page }),
+      await buildPage(path.join(home, "source.json"), {
+        ...plan,
+        ...(id === "agreed" ? { offer: "plan" } : {}),
+        page,
+      }),
     );
   await fs.writeFile(
     path.join(home, "pages.json"),
@@ -155,6 +162,7 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
       sessionId: saved.sessionId,
       id: crypto.randomUUID(),
       intent: "accept",
+      offer: "plan",
       action: "save",
       groups: {},
       text: "Save it",

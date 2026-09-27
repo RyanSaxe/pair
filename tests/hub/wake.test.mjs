@@ -37,7 +37,7 @@ test("a submission wakes the holder with the line that names the session", async
         type: "user",
         message: {
           role: "user",
-          content: `pair: feedback arrived on session ${a.directory} (Round 1). Run first: pair ack --session-dir ${a.directory}. It prints the next step.`,
+          content: `pair: the reviewer submitted round 1 of session ${a.directory}. Run first: pair ack --session-dir ${a.directory}. It prints the next step.`,
         },
       },
     },

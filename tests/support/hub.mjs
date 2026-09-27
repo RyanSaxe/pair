@@ -203,7 +203,7 @@ export async function hub(t, extra = {}) {
         buildPage(path.join(directory, "source.json"), {
           name: data.name,
           round: data.round,
-          offer: data.offer,
+          ...(page.id === "agreed" ? { offer: data.offer } : {}),
           title: data.title,
           page,
         });

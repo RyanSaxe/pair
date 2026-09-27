@@ -39,7 +39,7 @@ test("a Copilot wake resumes the session and enqueues the line", async (t) => {
   const sdk = path.join(directory, "index.mjs");
   await fs.writeFile(sdk, sdkSource(log));
   const target = { harness: "copilot", sessionId: "s-1", port: 4321, sdk };
-  const line = "pair: feedback arrived on session /s (Round 1).";
+  const line = "pair: the reviewer submitted round 1 of session /s.";
   const calls = [
     [
       "client",
