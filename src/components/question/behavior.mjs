@@ -36,6 +36,13 @@ planUI.define("question", {
       show(false);
       area.focus();
     };
-    if (planUI.prefs.get(key) && area.value.trim()) show(true);
+    // The card shows as answered only while the draft has an answer for the
+    // question. A new round's draft has no answer that was sent.
+    if (
+      planUI.prefs.get(key) &&
+      planUI.answered(card.dataset.question) &&
+      area.value.trim()
+    )
+      show(true);
   },
 });
