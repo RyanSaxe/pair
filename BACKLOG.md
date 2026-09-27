@@ -163,14 +163,6 @@ answers between its current steps with `pair reply`, and the reply appears
 under the note's block without a new round. Today a question about a page
 waits for the round's feedback and costs a full round.
 
-### Side work
-
-Work that turns up during a session but is not its task is listed on
-Agreed. The reviewer can start an item in parallel, and the agent does it
-on its own branch in a separate worktree, opens a pull request into the
-session's branch, and reports each state until it merges. Today such work
-either joins the session's task or stays in the chat.
-
 ### Notification center
 
 The bell opens a notification center instead of the Live sessions list.

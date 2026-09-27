@@ -89,7 +89,7 @@ the docs.
 | Agreed       | The first page of every round, with the task and the decisions settled so far.                                                                         |
 | offer        | `plan` or `finish`, set in Agreed's source, which the reviewer accepts in the Finish your review dialog.                                               |
 | frame        | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                   |
-| holder       | The agent that last ran `pair start` on a session. The hub wakes only the holder and refuses every command but `pair status` from other agents.        |
+| holder       | The agent that last ran `pair start` on a session. The hub wakes only the holder, and other agents can run only `pair status` and `pair side-work`.    |
 | reviewer     | The person who reads a round's pages in the browser and sends feedback.                                                                                |
 | agent CLI    | Claude Code, Codex or Copilot CLI, each with a folder under `adapters/`.                                                                               |
 | handoff line | The line that another agent runs to take a session over.                                                                                               |
