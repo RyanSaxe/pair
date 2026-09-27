@@ -144,8 +144,17 @@ export function commentOnTarget() {
     openNote(page.id, page.title, selected, null, null, selectedTarget);
   else if (chosen) {
     /* No quote: the note is about the block, and a quote would be searched
-       for in the page and highlighted, marking the block's opening words. */
-    openNote(page.id, blockHeading(chosen), "", null, null, chosen.id);
+       for in the page and highlighted, marking the block's opening words.
+       A figure the frame drew around a block has no ID of its own, so the
+       note takes the ID of the block inside it. */
+    openNote(
+      page.id,
+      blockHeading(chosen),
+      "",
+      null,
+      null,
+      chosen.id || chosen.querySelector("[id]")?.id || null,
+    );
   } else openNote(page.id, page.title);
   chooseBlock(null);
 }
