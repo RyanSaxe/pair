@@ -1,7 +1,8 @@
 # Writing
 
-The reviewer uses a plan page to decide what to build. Put the facts, choices,
-reasons and consequences on the page. Remove commentary about the page itself.
+The reviewer reads a page to understand code, to decide what to build or to
+judge built work. Put the facts, choices, reasons and consequences on the
+page. Remove commentary about the page itself.
 
 Most context is short: one line of consequence under an option, a caption, a
 heading or a row in a checklist. The reviewer decides from those lines, so
@@ -12,7 +13,7 @@ reviewer may ask for clarification instead of making the decision.
 
 Name the actor. Use `is`, `has` or `contains` when one of those words states
 the fact plainly. Otherwise use a specific verb. Do not make an abstract idea
-carry out an action when the system, agent or user does it.
+carry out an action when the system, the agent or the reviewer does it.
 
 | Avoid                                       | Write                                                              |
 | ------------------------------------------- | ------------------------------------------------------------------ |
@@ -41,14 +42,22 @@ write "The body contains the request payload."
 Use a decision heading for the question the reviewer must answer.
 
 Write so a stranger to the project can repeat any sentence back as a fact
-about the plan.
+about the plan or the code the page explains.
 
 Say each thing once. Do not open a section by restating its heading.
 
 ## Avoid these
 
 Personification: "The schema wants a migration before the deploy." Write
-"the deploy fails unless the migration runs first."
+"the deploy fails unless the migration runs first." When a file, a page or a
+field holds, carries, knows or wants something, the reader has to work out
+what actually happens and who does it.
+
+A fragment in place of a claim: "One hub, many sessions." Write "one hub
+process serves every live session."
+
+Inverted word order or an aphorism: "Anything the plan does not show, they
+do not know." Write "they know only what the plan shows."
 
 Metaphor: "The cache is the beating heart of the request path." Write "every
 request reads the cache before it reads the database."
@@ -72,9 +81,9 @@ Cut the sentence. The reviewer can see the table.
 
 Fluff: "The trade-off here is real, and it is structural." Delete a sentence
 if removing its project names and numbers leaves a generic sentence. Keep it
-when those names and numbers carry the meaning. Check the last sentence of a
-section, the first sentence under a heading and each option's consequence
-first. Those positions often collect filler.
+when its meaning depends on those names and numbers. Check the last sentence
+of a section, the first sentence under a heading and each option's
+consequence first, because filler is most common there.
 
 Em dashes: use a period or a comma.
 

@@ -2,13 +2,16 @@
 
 ## Pages
 
-Start a page with its decision or material. Do not add a lede or rationale
-before it. Give each option one line of consequence. Delete any sentence
-that could sit unchanged on another plan.
+Start a page with its subject. A page of decisions starts with the first
+decision or the material it needs. A page that explains, or that shows built
+work, starts with the code, the diagram or the change itself. Do not add a
+lede or rationale before it. Give each option one line of consequence.
+Delete any sentence that could appear unchanged in another plan.
 
-People judge a plan by looking. Show the subject and write only what the
-page cannot show. Choose the component by what the reviewer must see. The
-[component index](components.md) says what each one is for.
+People judge a plan and understand code by looking. Show the subject and
+write only what the page cannot show. Choose the component by what the
+reviewer must see. The [component index](components.md) says what each one
+is for.
 
 Three signs that a page is missing its visual:
 
@@ -16,9 +19,9 @@ Three signs that a page is missing its visual:
   layout, a flow, a structure or code, and they are plain decision rows.
   Use a visual decision with a figure in each option.
 - The reviewer must judge a change to existing wording, code or an
-  interface, and the page describes the change instead of showing the before
-  and after. Use the before-after component, not a code block marked as a
-  diff.
+  interface, and the page describes the change or lists the edits in a
+  checklist instead of showing the before and after. Use the before-after
+  component with the whole file, not a code block marked as a diff.
 - A paragraph describes a layout, a flow or an interface that a mock, a
   diagram or the code itself would show.
 
@@ -28,10 +31,10 @@ option is a different plan, not a different label. Do not invent an
 alternative when only one way is credible.
 
 Resolve routine details from the project and the settled requirements
-instead of asking. The user can comment on any text or component without
-being asked, so do not add a question that asks what the user thinks of a
-proposal. Use a question when the user has context the plan cannot get from
-the project, and put it next to the proposal it affects.
+instead of asking. The reviewer can comment on any text or component without
+being asked, so do not add a question that asks what the reviewer thinks of
+a proposal. Use a question when the reviewer has context the plan cannot get
+from the project, and put it next to the proposal it affects.
 
 Use hierarchy and color to direct attention. When color marks something, say
 the same thing in the text. Add no decorative cards, labels, tags or pills
@@ -45,29 +48,31 @@ than it needs. Too much, and the reviewer skims, so decisions get made
 without being judged. Put the decisions that matter most now in the same
 round, together with the decisions they depend on, and leave for later
 what depends on answers not yet given. Some plans take two rounds and others
-ten. A page holds one coherent topic and may hold several related decisions.
-Agreed is the only running context, so add no overview or summary page.
+ten. A page is about one coherent topic and may contain several related
+decisions. Agreed is the only running context, so add no overview or
+summary page.
 
 A choice or question the reviewer did not answer stays open, even one with a
 recommended option, whatever `groups.alignUnflagged` says. Do not repeat an
 open decision's unchanged page. Return to it with new evidence, a changed
-proposal or a sharper question. When the user asks you to decide, decide,
-record the decision on Agreed and continue. When a proposal changes, show
-it against the version the reviewer saw. If two rounds in a row resolve
-nothing, put what remains on one page with a recommendation for each item.
+proposal or a sharper question. When the reviewer asks you to decide, or
+asks for the complete plan while a choice is still open, decide. Take the
+recommended option unless the reviewer chose another in a note. Record the
+decision on Agreed and continue. When a proposal changes, show it against
+the version the reviewer saw. If two rounds in a row resolve nothing, put
+what remains on one page with a recommendation for each item.
 
 ## The final plan
 
 An engineer or agent who saw none of the rounds and none of the
-conversation implements the plan. Anything the plan does not show, they do
-not know. Present it when nothing in the task or the work is left to
-decide.
+conversation implements the plan. They know only what the plan shows.
+Present it when nothing in the task or the work is left to decide.
 
 Build the plan from Agreed and from everything the conversation and the
 feedback settled. Organize it the way the work is best understood, usually
 an overview of the outcome and how the parts relate, then pages an
-implementer can work from. Each page states the behavior it produces, the
-interfaces it depends on and how to verify it.
+implementer can work from. Each page states the behavior its part of the
+work produces, the interfaces it depends on and how to verify it.
 
 Reuse the approved material instead of drawing it again or describing it.
 Copy the mock, the prototype, the diagram, the code or the wording from its
