@@ -1,6 +1,9 @@
 # Architecture
 
-![What runs where: your agent CLI, the pair hub on your machine, and your browser](../assets/architecture.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+  <img alt="What runs where: your agent CLI, the pair hub on your machine, and your browser" src="../assets/architecture-light.svg">
+</picture>
 
 Your agent runs `pair` commands in its own shell. They go to the **hub**, one
 process on your machine that serves every live session to your browser and

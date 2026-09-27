@@ -4,7 +4,10 @@ A session is one piece of work you do with your agent: planning a change,
 building it, or understanding something. It lives at one URL, and each round
 appears in the same tab.
 
-![A session: you ask, then work through rounds until something is understood, a plan is accepted, or the work is accepted](../assets/session.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/session-dark.svg">
+  <img alt="A session: you ask, then work through rounds until something is understood, a plan is accepted, or the work is accepted" src="../assets/session-light.svg">
+</picture>
 
 ## A round
 

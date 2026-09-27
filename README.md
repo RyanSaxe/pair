@@ -1,72 +1,84 @@
-# pair
+<h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img alt="pair" src="assets/logo-light.svg">
+</picture>
+</h1>
 
-![A pair plan page with two checkout mocks side by side and the recommended one chosen](assets/plan.png)
+## Pair programming, now that your agent writes the code.
 
-pair is a local web application where you and a coding agent plan, build and
-review code together. The agent publishes a round of pages with mocks,
-diagrams, code and diffs, and sets out each open question as options. You
-choose, comment on any block or passage, and send your feedback. The agent
-reads it and publishes the next round. When you accept the plan, the same
-session builds it, publishes a page as each part is done, and ends with a page
-that is the pull request description. A session can also explain code or a
-change to you in the same kind of pages.
-
-The name comes from pair programming, in which one programmer writes the code
-while the other reviews each line and steers the work. pair is pair programming
-in a new form for the age when AI writes most of the code: the agent writes the
-code, and you steer and review it from the browser.
+When an agent writes most of the code, the hard part is thinking the work
+through with it: what to build, how it should work, and whether you
+understand what it did. `pair` gives the two of you one place to do that. The
+agent lays its thinking out as pages, with mocks, diagrams, code and diffs.
+You choose between its options, comment on anything, and ask questions that
+it answers right away. Each round it brings everything together in new
+pages, until you have a plan you trust, a build you understand, or an answer
+you can explain.
 
 **It runs on your machine, inside the agent CLI you already use.**
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/pair-dark.png">
+  <img alt="pair planning its own threads: code with a line selected, a side-by-side choice of where an answer appears, and a thread the agent answered, beside a phone showing the next round arriving" src="assets/pair-light.png">
+</picture>
+
 ## Get started
 
-pair needs Node 20.1.0 or newer.
+`pair` needs Node 20.1.0 or newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
 npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 ```
 
-If the installer asks which agents to install to, select every agent CLI you
-use. Then, in your project, invoke the pair skill with the task:
+Then, in your project, invoke the `pair` skill with what you want to work on:
 
 > plan retrying a charge when the payment gateway times out
 
-The agent opens the session in your browser, and each time you send feedback,
-pair wakes the agent in the same conversation. [Install](docs/install.md) says
-what each agent CLI needs first.
+> help me understand how this service handles retries
+
+The agent opens the session in your browser.
+[Sessions and rounds](docs/concepts/sessions-and-rounds.md) explains what
+happens there, and [Install](docs/getting-started/install.md) says what each
+agent CLI needs first.
 
 ## How it works
 
-```mermaid
-flowchart LR
-  agent["Agent CLI"] -->|"pair publish"| hub["pair hub"]
-  hub -->|"pages"| browser["Browser"]
-  browser -->|"Send feedback"| hub
-  hub -->|"wake"| agent
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/session-dark.svg">
+  <img alt="A session: you ask, then work through rounds until something is understood, a plan is accepted, or the work is accepted" src="docs/assets/session-light.svg">
+</picture>
 
-The agent runs `pair` commands in its own shell. The hub serves every session's
-pages on `127.0.0.1:4747` and keeps them under `~/.local/state/pair/`. When you
-send feedback, the hub sends a message into the agent's running conversation.
+A session is a series of rounds. In each round the agent publishes pages and
+you respond: choose, comment, send feedback, or start a thread for an answer
+right away. A session that explains something can go round as long as you
+like. When a plan is complete you accept it, and the same session builds it,
+one page per part, until you accept the work.
 
-![A side-by-side diff of src/payments/client.ts on a plan page](assets/diff.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
+  <img alt="What runs where: your agent CLI, the pair hub on your machine, and your browser" src="docs/assets/architecture-light.svg">
+</picture>
 
-A page shows a change to code as a diff, side by side or unified.
+Your agent runs `pair` commands in its own shell. The `pair` hub, on your
+machine, serves the pages to your browser and wakes the agent when you
+respond. [Concepts](docs/concepts/) explains each part in more depth.
 
 ## Documentation
 
-- [Install](docs/install.md) covers what each agent CLI needs, updating, and a
-  skill already named pair.
-- [How it works](docs/how-it-works.md) explains waking, holders and handoff,
-  the hub and what pair keeps on disk.
-- [Commands](docs/commands.md) lists every `pair` command and environment
-  variable.
-- [Troubleshooting](docs/troubleshooting.md) covers an agent CLI that asks to
-  approve every `pair` command.
+- [Getting started](docs/getting-started/) installs `pair` and runs a first
+  session.
+- [Concepts](docs/concepts/) explains sessions, rounds, pages, Agreed and the
+  hub.
+- [Guides](docs/guides/) covers planning, understanding code, building and
+  handing a session over.
+- [Reference](docs/reference/) lists every command and setting, and what the
+  agent reads.
+- [Troubleshooting](docs/troubleshooting.md) covers the problems people hit.
 
-To change pair, start at [Contributing](docs/contributing/README.md).
-[BACKLOG.md](BACKLOG.md) lists work planned for pair but not started.
+To change `pair`, start at [Contributing](docs/contributing/README.md).
+[BACKLOG.md](BACKLOG.md) lists work planned but not started.
 
 ## License
 
