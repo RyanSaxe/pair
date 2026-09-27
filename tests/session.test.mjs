@@ -2067,8 +2067,25 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
 });
 
 const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
-// The agent reads the guide file a next line names, then the files it links,
-// and never resolves a path itself.
+const guideFiles = (await fs.readdir(path.join(root, "guide"))).filter((file) =>
+  file.endsWith(".md"),
+);
+// The agent reads a guide text, then the files it links, and never resolves a
+// path itself. Returns the files it read.
+async function followGuide(text, from, read = new Set()) {
+  const prose = text.replace(markdownLink, "");
+  for (const name of guideFiles)
+    assert(!prose.includes(name), `${from} names ${name} without a link`);
+  for (const [, target] of text.matchAll(markdownLink)) {
+    assert(path.isAbsolute(target), `${from} links ${target}`);
+    assert(await exists(target), `${from} links ${target}`);
+    if (target.endsWith(".md") && !read.has(target)) {
+      read.add(target);
+      await followGuide(await fs.readFile(target, "utf8"), target, read);
+    }
+  }
+  return read;
+}
 test("the guide the next lines name links every file by its absolute path", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
   const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
@@ -2084,25 +2101,29 @@ test("the guide the next lines name links every file by its absolute path", asyn
   const roundGuide = named(started.next);
   assert.equal(path.basename(roundGuide), "round.md");
   assert.equal(named(acked.next), roundGuide);
-  const guideFiles = (await fs.readdir(path.join(root, "guide"))).filter(
-    (file) => file.endsWith(".md"),
+  const read = await followGuide(
+    await fs.readFile(roundGuide, "utf8"),
+    roundGuide,
   );
-  const read = new Set();
-  async function follow(file) {
-    if (read.has(file)) return;
-    read.add(file);
-    const text = await fs.readFile(file, "utf8");
-    const prose = text.replace(markdownLink, "");
-    for (const name of guideFiles)
-      assert(!prose.includes(name), `${file} names ${name} without a link`);
-    for (const [, target] of text.matchAll(markdownLink)) {
-      assert(path.isAbsolute(target), `${file} links ${target}`);
-      assert(await exists(target), `${file} links ${target}`);
-      if (target.endsWith(".md")) await follow(target);
-    }
-  }
-  await follow(roundGuide);
-  assert(read.size > 1, "round.md links other guide files");
+  assert(read.size > 0, "round.md links other guide files");
+});
+
+// The skill tells the agent to run pair guide, so what it prints is where
+// every session starts.
+test("pair guide prints guide/pair.md with every link an absolute path", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const { run } = await pairCli(home);
+  const printed = await run("guide");
+  const withoutTargets = (markdown) =>
+    markdown.replaceAll(/\]\([^()\s]+\)/g, "]()");
+  assert.equal(
+    withoutTargets(printed),
+    withoutTargets(
+      await fs.readFile(path.join(root, "guide", "pair.md"), "utf8"),
+    ),
+  );
+  await followGuide(printed, "pair guide");
 });
 
 // Two installations of one version can share a state directory, such as a

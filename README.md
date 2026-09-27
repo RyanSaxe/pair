@@ -3,8 +3,9 @@
 pair is a local application where you and an agent work together in the
 browser. The agent publishes pages in rounds. You read them, choose options
 and comment on anything, and when you send feedback, the hub wakes the agent
-to start the next round. A session can plan a change, and the pages show
-mocks, diagrams, code and diffs so you judge by looking.
+to start the next round. A session can plan a change, build an accepted plan
+or help you understand something, and the pages show mocks, diagrams, code
+and diffs so you judge by looking.
 
 ## Run it from a checkout
 
@@ -25,23 +26,24 @@ variables, including `PAIR_HUB_PORT`, and what pair keeps on disk.
 
 ## Commands
 
-| Command                                            | What it does                                                                                         |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names guide files by their absolute path. |
-| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.            |
-| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                    |
-| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                       |
-| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                  |
+| Command                                            | What it does                                                                                               |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `pair guide`                                       | Print the agent's instructions, `guide/pair.md`, with each link an absolute path. The skill runs it first. |
+| `pair start`, `ack`, `read`, `publish`, `progress` | Run a round through the hub. Each prints the next step and names guide files by their absolute path.       |
+| `pair status`, `pause`, `complete`                 | Print the session's state, pause it, or end it once the action for accepted work is done.                  |
+| `pair build SOURCE.json OUTPUT.html`               | Build a page from its source, or list every structural problem and write nothing.                          |
+| `pair diff BEFORE AFTER OUTPUT.json`               | Write the input for the before-after component from two files.                                             |
+| `pair check`, `pair check --codex-rules`           | Check storage, loopback and the hub port, or write the Codex allow rule for `pair`.                        |
 
 ## Layout
 
-| Path           | What it holds                                                                                   |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| `src/`         | The `pair` command, the hub, the page builder, and the browser frame with its components.       |
-| `guide/`       | What the agent reads while it works: `round.md` for each round, and the contracts it builds to. |
-| `skills/pair/` | The skill an agent CLI loads.                                                                   |
-| `adapters/`    | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session.        |
-| `tests/`       | The test suites, and a fixture page with every component.                                       |
+| Path           | What it holds                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `src/`         | The `pair` command, the hub, the page builder, and the browser frame with its components.                        |
+| `guide/`       | What the agent reads while it works: `pair.md` first, `round.md` for each round, and the contracts it builds to. |
+| `skills/pair/` | The skill an agent CLI loads. It tells the agent to run `pair guide`.                                            |
+| `adapters/`    | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session.                         |
+| `tests/`       | The test suites, and a fixture page with every component.                                                        |
 
 ## Adapters
 
