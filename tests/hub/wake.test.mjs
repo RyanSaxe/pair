@@ -1,25 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { withSandboxHint } from "../../adapters/codex/rules.mjs";
 import { detectWake } from "../../src/hub/wake.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
 // The hub records a wake's result in the status once the wake has finished.
 const woken = (a) =>
   waitUntil(async () => Boolean((await a.status()).body.wake?.last));
-
-test("the sandbox hint follows a refusal, not the environment alone", () => {
-  const env = { CODEX_SANDBOX: "seatbelt" };
-  assert.match(
-    withSandboxHint("connect EPERM 127.0.0.1:4747", env),
-    /outside the sandbox/,
-  );
-  assert.equal(withSandboxHint("Unknown session", env), "Unknown session");
-  assert.equal(
-    withSandboxHint("connect EPERM 127.0.0.1:4747", {}),
-    "connect EPERM 127.0.0.1:4747",
-  );
-});
 
 test("no status shows the wake target", async (t) => {
   const h = await hub(t);

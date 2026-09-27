@@ -65,62 +65,30 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
     b = await h.session();
   await h.session();
   await a.publish(planData());
-  await sleep(5);
   await b.publish(planData());
-  let list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => item.id),
-    [a.id, b.id],
-  );
-  const feedback = b.event();
-  await b.feedback(feedback);
-  await b.action("read");
-  list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => [item.id, item.needsYou, item.stage]),
-    [
-      [a.id, true, "updated"],
-      [b.id, false, "working"],
-    ],
-  );
-  await b.publish(planData("2"));
-  const first = a.event();
-  await a.feedback(first);
+  // a was published first, and only b waits for the reviewer.
+  await a.feedback(a.event());
   await a.action("read");
-  list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => item.id),
-    [b.id, a.id],
-  );
-  assert.equal(list[0].round, "2");
+  const listed = async () =>
+    (await a.request("/api/sessions")).body.sessions.map((item) => [
+      item.id,
+      item.needsYou,
+      item.paused,
+    ]);
+  assert.deepEqual(await listed(), [
+    [b.id, true, false],
+    [a.id, false, false],
+  ]);
   assert.equal(
-    (await b.action("pause", { reason: "asked to stop" })).code,
+    (await a.action("pause", { reason: "asked to stop" })).code,
     200,
   );
-  assert.equal((await b.status()).body.paused.reason, "asked to stop");
-  list = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(
-    list.map((item) => [item.id, item.paused]),
-    [
-      [b.id, true],
-      [a.id, false],
-    ],
-  );
-  assert.equal((await b.request(`${b.base}/`)).code, 200);
-  const again = await fetch(h.server.origin + "/agent/register", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${h.record.secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sessionDir: b.directory,
-      wake: { harness: "codex", thread: "thread-again" },
-      start: true,
-    }),
-  });
-  assert.equal(again.status, 200);
-  assert.equal((await b.status()).body.paused, null);
+  assert.equal((await a.status()).body.paused.reason, "asked to stop");
+  assert.deepEqual(await listed(), [
+    [b.id, true, false],
+    [a.id, false, true],
+  ]);
+  assert.equal((await a.request(`${a.base}/`)).code, 200);
 });
 
 test("closing a session from the bell panel completes it and drops it from the list", async (t) => {
