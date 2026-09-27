@@ -25,7 +25,6 @@ import {
 import { assemble, build, buildPage } from "../src/build.mjs";
 import {
   readPlanData,
-  detectWake,
   pageData,
   settings,
   startHub,
@@ -49,20 +48,25 @@ const alive = (pid) => {
     return error.code !== "ESRCH";
   }
 };
-// The helper detects the nearest agent process before environment variables.
-// Give both supported agent paths dummy targets so a test wake cannot reach
-// a real session, including when this suite runs under Codex.
-function cliEnv(home, extra = {}) {
+// pair takes its wake target from the nearest agent CLI among its ancestors.
+// These commands run under a process named claude whose inbox socket nobody
+// listens on, so a test wake reaches no real session, and the suite passes
+// the same way under Claude Code, Codex, Copilot CLI or none of them.
+async function pairCli(home, extra = {}) {
+  const relay =
+    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
+  const claude = path.join(home, "claude");
+  await fs.symlink(process.execPath, claude);
   const env = {
     ...process.env,
     XDG_STATE_HOME: home,
     CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
     CLAUDE_CODE_MESSAGING_TOKEN: "test",
-    CODEX_THREAD_ID: "pair-test-thread",
     ...extra,
   };
-  delete env.COPILOT_AGENT_SESSION_ID;
-  return env;
+  const run = async (...args) =>
+    (await exec(claude, ["-e", relay, pair, ...args], { env })).stdout;
+  return { config: settings(env), run };
 }
 async function waitUntil(check, ms = 5000) {
   const deadline = Date.now() + ms;
@@ -1664,43 +1668,30 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   const port = 30000 + Math.floor(Math.random() * 20000);
   // Each new hub starts with no live session and waits this long for start
   // to register one, which can take over 300ms on a busy machine.
-  const env = cliEnv(home, {
+  const { config, run } = await pairCli(home, {
     PAIR_HUB_PORT: String(port),
     PAIR_HUB_IDLE_SECONDS: "1",
   });
-  const config = settings(env);
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const first = JSON.parse(
-    (await exec(process.execPath, [pair, "start"], { env })).stdout,
-  );
+  const first = JSON.parse(await run("start"));
   assert.equal(first.url, `http://127.0.0.1:${port}/s/${first.sessionId}/`);
   assert(first.sessionDir.startsWith(config.sessions));
   // The printed wake names the harness and carries none of the token or
   // thread it wakes with.
-  assert.deepEqual(first.wake, { harness: detectWake(env).harness });
+  assert.deepEqual(first.wake, { harness: "claude-code" });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.equal(record.port, port);
   assert.equal(record.version, version);
   // A session stays live until it completes or pauses, so the hub exits only
   // once this one is paused.
-  await exec(
-    process.execPath,
-    [pair, "pause", "--session-dir", first.sessionDir, "--reason", "idle"],
-    { env },
-  );
+  await run("pause", "--session-dir", first.sessionDir, "--reason", "idle");
   assert.equal(await waitUntil(() => !alive(record.pid), 5000), true);
   assert.equal(await exists(config.hubFile), false);
   const second = JSON.parse(
-    (
-      await exec(
-        process.execPath,
-        [pair, "start", "--session-dir", first.sessionDir],
-        { env },
-      )
-    ).stdout,
+    await run("start", "--session-dir", first.sessionDir),
   );
   assert.equal(second.sessionId, first.sessionId);
   assert.equal(second.url, first.url);
@@ -1716,8 +1707,9 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
 test("start waits for a new hub to load the saved sessions", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-saved-"));
   const port = 30000 + Math.floor(Math.random() * 20000);
-  const env = cliEnv(home, { PAIR_HUB_PORT: String(port) });
-  const config = settings(env);
+  const { config, run } = await pairCli(home, {
+    PAIR_HUB_PORT: String(port),
+  });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
@@ -1742,10 +1734,7 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
       );
     }),
   );
-  const start = () =>
-    exec(process.execPath, [pair, "start"], { env }).then(({ stdout }) =>
-      JSON.parse(stdout),
-    );
+  const start = async () => JSON.parse(await run("start"));
   // The first start spawns the hub. The second arrives while it loads.
   const first = start();
   assert.equal(
@@ -1859,8 +1848,7 @@ test("a moved session still serves its current and earlier rounds", async (t) =>
 
 test("start replaces a stale hub record, and helper commands reattach after a crash without losing the queue", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-stale-"));
-  const env = cliEnv(home, { PAIR_HUB_PORT: "0" });
-  const config = settings(env);
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
@@ -1879,9 +1867,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
       secret: "stale",
     }),
   );
-  const started = JSON.parse(
-    (await exec(process.execPath, [pair, "start"], { env })).stdout,
-  );
+  const started = JSON.parse(await run("start"));
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(record.pid, dead.pid);
   assert.notEqual(record.port, 1);
@@ -1893,13 +1879,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
     title: "Example work",
   };
   const command = (...args) =>
-    exec(
-      process.execPath,
-      [pair, ...args, "--session-dir", started.sessionDir],
-      {
-        env,
-      },
-    );
+    run(...args, "--session-dir", started.sessionDir);
   const agreedFile = path.join(home, "agreed.html");
   await fs.writeFile(
     agreedFile,
@@ -1946,15 +1926,7 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   assert.equal(receipt.status, 200);
   process.kill(record.pid, "SIGKILL");
   assert.equal(await waitUntil(() => !alive(record.pid)), true);
-  const output = JSON.parse(
-    (
-      await exec(
-        process.execPath,
-        [pair, "read", "--session-dir", started.sessionDir],
-        { env },
-      )
-    ).stdout,
-  );
+  const output = JSON.parse(await command("read"));
   assert.deepEqual(output.event.payload, event);
   const next = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(next.pid, record.pid);
