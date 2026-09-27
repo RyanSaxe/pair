@@ -66,7 +66,7 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         ? "Allow notifications in your browser's site settings."
         : failed
           ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a round or final plan is ready in any session.";
+          : "Alerts when a round is ready in any session.";
   }
   function enable() {
     write("enabledAt", String(Date.now()));
