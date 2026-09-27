@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   activityModel,
+  agentNotice,
   finishedLine,
   roundModel,
 } from "../src/frame/activity.mjs";
@@ -234,4 +235,48 @@ test("the finished line says when the round finished and how long it took", () =
     }),
     null,
   );
+});
+
+test("the card names the agent that took the session over, and when", () => {
+  const at = "2026-01-01T00:09:00Z";
+  const clock = [new Date(at).getHours(), new Date(at).getMinutes()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
+  const model = run({
+    current: { round: "1" },
+    ...read,
+    takeover: { name: "Codex", at },
+  });
+  assert.equal(model.summary, `Feedback saved · Codex took over at ${clock}`);
+  assert.equal(
+    run({ current: { round: "1" }, ...read }).summary,
+    "Feedback saved",
+  );
+});
+
+test("the card shows outside a running round what the reviewer must know", () => {
+  // Another agent took the session over while the round is with the reviewer.
+  const takeover = { name: "Codex", at: "2026-01-01T00:09:00Z" };
+  assert.equal(agentNotice({ stage: "ready", takeover }), true);
+  // On a round nothing was sent on yet, it says when the pages finished.
+  const first = run(
+    {
+      stage: "ready",
+      takeover,
+      current: { round: "1", publishedAt: takeover.at },
+    },
+    {
+      submittedRound: null,
+      currentSet: {
+        pages: currentSet.pages.map((item) => ({ ...item, state: "ready" })),
+      },
+    },
+  );
+  assert.equal(first.footer.text, "Finished");
+  // Accepting finished work woke no one: the card stays until the agent
+  // completes the session, and a failed wake from a finished round is gone.
+  const failed = { wake: { last: { ok: false } } };
+  assert.equal(agentNotice({ ...failed, stage: "submitted" }), true);
+  assert.equal(agentNotice({ ...failed, stage: "complete" }), false);
+  assert.equal(agentNotice({ ...failed, stage: "updated" }), false);
 });

@@ -46,13 +46,16 @@ variables, including `PAIR_HUB_PORT`, and what pair keeps on disk.
 ## Adapters
 
 pair wakes Claude Code, Codex and Copilot CLI, each through its folder under
-`adapters/`. A `wake.mjs` exports two functions:
+`adapters/`. A `wake.mjs` exports the CLI's `name`, such as `Codex`, and
+three functions:
 
 - `detect(env, tools)` returns the wake target for its agent CLI, or `null`
   when the environment belongs to another CLI. `tools.ancestor` is the
   ancestor process being asked about, or `null` when `pair start` asks about
   the environment variables alone. It throws when the environment is its CLI's
   but the session cannot be woken.
+- `identity(target)` returns the part of a wake target that tells one session
+  of the CLI from another: the inbox socket, the thread ID or the session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
   throws with the reason. `run(file, args)` runs a program and rejects with
   its error output.
@@ -61,6 +64,20 @@ pair wakes Claude Code, Codex and Copilot CLI, each through its folder under
 each ancestor process, nearest first, so the agent CLI that ran the command
 wins over an outer one whose variables it inherited. When no ancestor
 decides, the first adapter whose variables are set decides.
+
+## Holders and handoff
+
+One agent holds a session: the one that last ran `pair start` on it. The hub
+wakes only that agent and refuses a command from any other. The next command
+of an agent the session was taken from, `pair start` included, fails with the
+time it lost the session. Every command sends the identity of the agent that
+runs it, so a subagent works as its parent. Another agent takes a session
+over with its handoff line, which the Feedback card shows with Copy after a
+failed wake:
+
+```text
+Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
+```
 
 ## Offers
 

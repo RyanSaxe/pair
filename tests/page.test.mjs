@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { after, before, test } from "node:test";
 import { buildPage } from "../src/build.mjs";
 import { pageData, settings, startHub } from "../src/session.mjs";
+import { pairCli } from "./pair-cli.mjs";
 
 let hub, home, directory, sessionId, token;
-const exec = promisify(execFile);
 const post = async (route, body, headers = {}) => {
   const response = await fetch(hub.origin + route, {
     method: "POST",
@@ -19,10 +16,12 @@ const post = async (route, body, headers = {}) => {
   });
   return { status: response.status, body: await response.json() };
 };
+// Every session in this file is registered with this Codex thread.
+const agent = { harness: "codex", id: "test" };
 const act = (body) =>
   post(
     `/agent/${sessionId}/action`,
-    { ...body, sessionId },
+    { ...body, sessionId, agent },
     { authorization: `Bearer ${token}` },
   );
 const status = async () =>
@@ -376,11 +375,14 @@ test("the CLI builds and publishes each page with its own saved source", async (
   const root = path.join(home, "cli");
   await fs.mkdir(root);
   const session = path.join(root, "session");
+  // The CLI reads its hub from the state directory, so it gets this test's
+  // own, and it runs as the agent that registers the session.
+  const cli = await pairCli(root, { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" });
   const registered = await post(
     "/agent/register",
     {
       sessionDir: session,
-      wake: { harness: "codex", thread: "test" },
+      wake: { harness: "claude-code", socket: cli.agent.id, token: "test" },
     },
     { authorization: `Bearer ${hub.secret}` },
   );
@@ -392,6 +394,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     {
       action: "publish",
       sessionId: registered.body.sessionId,
+      agent: cli.agent,
       html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
     },
     { authorization: `Bearer ${tokenForSession}` },
@@ -424,6 +427,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     {
       action: "publish",
       sessionId: registered.body.sessionId,
+      agent: cli.agent,
       html: badAgreed,
     },
     { authorization: `Bearer ${tokenForSession}` },
@@ -446,6 +450,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     {
       action: "publish",
       sessionId: registered.body.sessionId,
+      agent: cli.agent,
       html: goodAgreed,
       source: "/elsewhere/source",
     },
@@ -460,12 +465,7 @@ test("the CLI builds and publishes each page with its own saved source", async (
     ).current,
     null,
   );
-  const cli = fileURLToPath(new URL("../src/cli.mjs", import.meta.url));
-  // The CLI reads its hub from the state directory, so it gets this test's own.
-  const command = (args) =>
-    exec(process.execPath, [cli, ...args], {
-      env: { ...process.env, XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" },
-    });
+  const command = (args) => cli.run(...args);
   const agreedSource = path.join(root, "agreed-source");
   await fs.mkdir(agreedSource);
   await fs.writeFile(
@@ -502,15 +502,13 @@ test("the CLI builds and publishes each page with its own saved source", async (
     agreedSource,
   ]);
   const acked = JSON.parse(
-    (
-      await command([
-        "ack",
-        "--note",
-        "Writing the overview page",
-        "--session-dir",
-        session,
-      ])
-    ).stdout,
+    await command([
+      "ack",
+      "--note",
+      "Writing the overview page",
+      "--session-dir",
+      session,
+    ]),
   );
   assert.equal(acked.status.report.note, "Writing the overview page");
   const overviewSource = path.join(root, "overview-source");
@@ -597,7 +595,7 @@ test("an unfinished round resumes after the hub restarts", async () => {
     const action = (payload) =>
       call(`/agent/${id}/action`, {
         auth: secret,
-        payload: { ...payload, sessionId: id },
+        payload: { ...payload, sessionId: id, agent },
       });
     const build = (page) =>
       buildPage(path.join(localDir, "source.json"), {

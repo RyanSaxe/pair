@@ -31,6 +31,31 @@ with the URL quoted) and give the link in chat, with `hostUrl` beside it when
 available. Do not open another tab on later rounds. The open tab shows new pages
 and rounds in place.
 
+## Taking over
+
+The agent that runs `pair start` holds the session. The hub wakes only the
+holder and refuses a command from any other agent. A subagent runs commands
+in its parent's environment, so it works as its parent.
+
+Any agent in any harness takes a session over with its handoff line. The
+Feedback card shows it after a failed wake:
+
+```text
+Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
+```
+
+The new holder follows the `next` line that `pair start` prints.
+
+After a takeover, the previous holder's next command fails, `pair start`
+included, with "Another agent took this session over at 14:02. Stop working on
+it." Stop working on the session and tell the user.
+
+Any other command from an agent that does not hold the session, the previous
+holder's later commands included, is refused with the time the holder took it
+and the `pair start` command that takes it over. Run that command only when
+the user asks you to. Claude Code tells its sessions apart by process, so a
+conversation resumed after Claude Code restarts does not hold the session.
+
 ## Resuming
 
 If a turn is interrupted, the next turn runs `pair ack` before doing anything

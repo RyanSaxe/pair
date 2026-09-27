@@ -6,6 +6,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = fileURLToPath(import.meta.url);
 
+export const name = "Copilot CLI";
+
+// The port changes when Copilot restarts, and the session ID does not.
+export const identity = (target) => target.sessionId;
+
 function listeningPort(pid) {
   try {
     const out = execFileSync(

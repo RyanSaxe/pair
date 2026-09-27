@@ -1392,7 +1392,8 @@ function renderActivity() {
   if (past) renderSentFeedback();
   const onAgreed =
     !past && displayedRound === viewKey() && page.id === "agreed";
-  const visible = onAgreed && (submissionInFlight || roundRunning());
+  const running = submissionInFlight || roundRunning();
+  const visible = onAgreed && (running || agentNotice(remote));
   $("agent-activity").hidden = !visible;
   const finished =
     onAgreed && !visible && roundFinished()
@@ -1416,7 +1417,7 @@ function renderActivity() {
   });
   const { slots, stopped } = model;
   const sentAt = lastSubmission?.receivedAt || state.submitted?.at;
-  $("activity-elapsed").textContent = sentAt ? since(sentAt) : "";
+  $("activity-elapsed").textContent = running && sentAt ? since(sentAt) : "";
   $("activity-title").textContent = model.title;
   $("activity-summary").textContent = model.summary;
   const signature = JSON.stringify([
@@ -1474,6 +1475,11 @@ function renderActivity() {
     ? `${footer.text}${footer.note ? " ·" : ""} ${recently(footer.at).replaceAll(" ", " ")}`
     : footer.text;
   report.classList.toggle("late", Boolean(footer.late));
+  // When the wake fails, another agent can take the session over.
+  const handoff = $("activity-handoff");
+  handoff.hidden = !model.failed;
+  if (model.failed && !handoff.firstChild)
+    handoff.append(handoffLine(remote.handoff));
 }
 // The round the reader's last send started runs from the send until its last
 // page is published, and then Agreed says when it finished.
@@ -3260,6 +3266,18 @@ function copyButton(read) {
     }
   };
   return button;
+}
+// The line another agent runs to take the session over, with Copy.
+function handoffLine(line) {
+  const row = document.createElement("div");
+  row.className = "handoff";
+  const code = document.createElement("code");
+  code.textContent = line;
+  row.append(
+    code,
+    copyButton(() => line),
+  );
+  return row;
 }
 /* A JSON array in a data attribute, for the components that take one:
    data-notes on a code block, data-terms on a formula. */

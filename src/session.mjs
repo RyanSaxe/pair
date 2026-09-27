@@ -256,6 +256,13 @@ function offerFor(id) {
     ? offers[id]
     : null;
 }
+// The holder is the agent the hub wakes, named the way its adapter tells
+// one session of its agent CLI from another.
+const identify = (target) => ({
+  harness: target.harness,
+  id: adapters[target.harness].identity(target),
+});
+const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // A round that makes an offer opens on the page the offer names, such as a
 // plan's overview.
 function requireFirstPage(offer, id) {
@@ -542,6 +549,8 @@ async function loadSession(directory, config, origin) {
     };
   }
   const command = (name) => `pair ${name} --session-dir ${directory}`;
+  // Any agent in any harness takes the session over with this line.
+  const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
   // Each agent command is a report, and the reviewer sees when the last one
   // came. Only ack carries a note, so any other report clears the last one.
   const report = (note = null) => ({ report: { at: timestamp(), note } });
@@ -818,6 +827,7 @@ async function loadSession(directory, config, origin) {
         data.intent === "feedback-only" ? data.round : null,
       wake: state.wake ? { ...state.wake, last: null } : null,
       accepted: null,
+      takeover: null,
     });
     if (wake && !state.paused)
       setTimeout(() => exclusive(() => wakeAgent(data.round)), 0);
@@ -1149,8 +1159,36 @@ async function loadSession(directory, config, origin) {
     set.generation++;
     return commitPageRound(set);
   }
+  // The next command of an agent the session was taken from fails, start
+  // included, so it stops instead of publishing over its successor. After
+  // that it is told, like any agent that does not hold the session, how to
+  // take the session over, which it does only when the user asks.
+  async function requireHolder(agent, start = false) {
+    const clock = (at) => new Date(at).toTimeString().slice(0, 5);
+    const former = (state.formerHolders || []).find((item) =>
+      sameAgent(item, agent),
+    );
+    if (former) {
+      await transition({
+        formerHolders: state.formerHolders.filter((item) => item !== former),
+      });
+      requireValue(
+        false,
+        `Another agent took this session over at ${clock(former.until)}. Stop working on it.`,
+        409,
+      );
+    }
+    if (!start && state.holder && !sameAgent(state.holder, agent))
+      requireValue(
+        false,
+        `Another agent has held this session since ${clock(state.holder.at)}. Stop working on it unless the user asks you to take it over with: ${command("start")}`,
+        409,
+      );
+  }
   async function act(data) {
     requireValue(data.sessionId === state.sessionId, "Wrong session", 409);
+    await requireHolder(data.agent);
+    if (data.action === "status") return { status: view() };
     if (data.action === "read") {
       // With an id, read returns that submission again and changes nothing,
       // for a turn that resumes after an interruption.
@@ -1257,9 +1295,13 @@ async function loadSession(directory, config, origin) {
     requireValue(false, "Unknown agent action");
   }
   function view() {
-    const { roundPages, ...visible } = state;
+    const { roundPages, holder, formerHolders, ...visible } = state;
     return {
       ...visible,
+      // The holder's identity is a socket path or a thread ID, which stays
+      // out of the browser like the rest of the wake target.
+      holder: holder ? { harness: holder.harness, at: holder.at } : null,
+      handoff,
       ...(state.openRound
         ? {
             openRound: {
@@ -1348,13 +1390,34 @@ async function loadSession(directory, config, origin) {
       url: base + "/",
     };
   }
-  async function setWake(target) {
+  // pair start makes its agent the holder, the one agent the hub wakes. Any
+  // other registration, such as a command reattaching to a new hub, comes
+  // from the holder.
+  async function hold(target, start) {
+    const agent = identify(target);
+    const held = state.holder;
+    const same = sameAgent(held, agent);
+    await requireHolder(agent, start);
     await atomic(wakeFile, target);
     wake = target;
-    await transition({
+    const patch = {
       wake: { harness: target.harness, last: state.wake?.last || null },
       paused: null,
-    });
+    };
+    if (!same) {
+      patch.holder = { ...agent, at: timestamp() };
+      // The reviewer's card says who took over, until they next submit.
+      if (held)
+        Object.assign(patch, report(), {
+          takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
+          wake: { harness: target.harness, last: null },
+          formerHolders: [
+            ...(state.formerHolders || []),
+            { harness: held.harness, id: held.id, until: patch.holder.at },
+          ],
+        });
+    }
+    await transition(patch);
   }
   function roundEntry(round) {
     const entry = (state.rounds || []).find((item) => item.round === round);
@@ -1446,7 +1509,7 @@ async function loadSession(directory, config, origin) {
     latestFeedback,
     listing,
     active,
-    setWake,
+    hold,
     roundEntry,
     pageSet,
     pageRecord,
@@ -1667,7 +1730,9 @@ export async function startHub(config = settings()) {
         );
         const directory = path.resolve(data.sessionDir);
         const session = await register(() => adopt(directory));
-        await session.exclusive(() => session.setWake(data.wake));
+        await session.exclusive(() =>
+          session.hold(data.wake, data.start === true),
+        );
         await atomic(path.join(directory, "connection.json"), {
           sessionId: session.id,
           origin,
@@ -2062,11 +2127,7 @@ export async function ensureHub(config = settings()) {
   }
   return { ...info, origin: `http://127.0.0.1:${info.port}` };
 }
-export async function attach(
-  directory,
-  config = settings(),
-  wake = detectWake(),
-) {
+export async function attach(directory, config, wake, start = false) {
   const hub = await ensureHub(config);
   const record = await readRecord(config);
   requireValue(
@@ -2079,7 +2140,7 @@ export async function attach(
       authorization: `Bearer ${record.secret}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ sessionDir: directory, wake }),
+    body: JSON.stringify({ sessionDir: directory, wake, start }),
     signal: AbortSignal.timeout(15000),
   });
   const result = await response.json();
@@ -2147,12 +2208,13 @@ export async function main(argv) {
   }
   let directory =
     options["session-dir"] && path.resolve(options["session-dir"]);
+  const wake = detectWake();
   if (command === "start") {
     const resuming = Boolean(directory);
     directory ||= path.join(config.sessions, crypto.randomUUID());
     return console.log(
       json({
-        ...(await attach(directory, config)),
+        ...(await attach(directory, config, wake, true)),
         next: resuming
           ? `Run: pair ack --session-dir ${directory}`
           : `When the first round is ready, publish it as ${await guideFile("round.md", config.root)} describes, from "Publish the round".`,
@@ -2161,7 +2223,7 @@ export async function main(argv) {
   }
   requireValue(directory, "Every operation requires --session-dir PATH");
   const connectionFile = path.join(directory, "connection.json");
-  if (!(await exists(connectionFile))) await attach(directory, config);
+  if (!(await exists(connectionFile))) await attach(directory, config, wake);
   let connection = await read(connectionFile);
   const checkConnection = () =>
     requireValue(
@@ -2169,31 +2231,34 @@ export async function main(argv) {
       "Invalid connection origin",
     );
   checkConnection();
-  async function request(route, data, retry = true) {
+  // Every command names the agent that runs it, and the hub takes commands
+  // only from the session's holder.
+  const agent = identify(wake);
+  async function request(data, retry = true) {
     const reattach = async () => {
-      await attach(directory, config);
+      await attach(directory, config, wake);
       connection = await read(connectionFile);
       checkConnection();
-      return request(route, data, false);
+      return request(data, false);
     };
     let response;
     try {
-      response = await fetch(connection.origin + route(connection.sessionId), {
-        method: data ? "POST" : "GET",
-        headers: {
-          authorization: `Bearer ${connection.token}`,
-          ...(data ? { "Content-Type": "application/json" } : {}),
+      response = await fetch(
+        `${connection.origin}/agent/${connection.sessionId}/action`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${connection.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...data,
+            sessionId: connection.sessionId,
+            agent,
+          }),
+          signal: AbortSignal.timeout(15000),
         },
-        ...(data
-          ? {
-              body: JSON.stringify({
-                ...data,
-                sessionId: connection.sessionId,
-              }),
-            }
-          : {}),
-        signal: AbortSignal.timeout(15000),
-      });
+      );
     } catch (error) {
       if (retry && error.name === "TypeError") return reattach();
       throw error;
@@ -2213,9 +2278,9 @@ export async function main(argv) {
     );
     return result;
   }
-  if (command === "status")
-    return console.log(json(await request((id) => `/s/${id}/api/status`)));
   const action = { action: command };
+  if (command === "status")
+    return console.log(json((await request(action)).status));
   if (command === "read") action.id = options.id;
   if (command === "ack") action.note = options.note;
   if (command === "pause") action.reason = options.reason;
@@ -2242,7 +2307,7 @@ export async function main(argv) {
     }
   }
   try {
-    console.log(json(await request((id) => `/agent/${id}/action`, action)));
+    console.log(json(await request(action)));
   } catch (error) {
     if (kept) await fs.rm(kept, { recursive: true, force: true });
     throw error;

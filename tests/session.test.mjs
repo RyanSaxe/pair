@@ -32,6 +32,7 @@ import {
   startHub,
   version,
 } from "../src/session.mjs";
+import { pairCli } from "./pair-cli.mjs";
 
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -50,26 +51,6 @@ const alive = (pid) => {
     return error.code !== "ESRCH";
   }
 };
-// pair takes its wake target from the nearest agent CLI among its ancestors.
-// These commands run under a process named claude whose inbox socket nobody
-// listens on, so a test wake reaches no real session, and the suite passes
-// the same way under Claude Code, Codex, Copilot CLI or none of them.
-async function pairCli(home, extra = {}, cli = pair) {
-  const relay =
-    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
-  const claude = path.join(home, "claude");
-  await fs.symlink(process.execPath, claude);
-  const env = {
-    ...process.env,
-    XDG_STATE_HOME: home,
-    CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
-    CLAUDE_CODE_MESSAGING_TOKEN: "test",
-    ...extra,
-  };
-  const run = async (...args) =>
-    (await exec(claude, ["-e", relay, cli, ...args], { env })).stdout;
-  return { config: settings(env), run };
-}
 async function waitUntil(check, ms = 5000) {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -455,7 +436,15 @@ function planData(round = "1", offer, name = "example") {
 async function hub(t, extra = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-hub-"));
   const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
-  const config = { ...settings(env), log() {}, async wake() {} };
+  // The wake targets the hub woke, in order.
+  const wakes = [];
+  const config = {
+    ...settings(env),
+    log() {},
+    async wake(target) {
+      wakes.push(target);
+    },
+  };
   const server = await startHub(config);
   t.after(async () => {
     await server.close();
@@ -463,7 +452,13 @@ async function hub(t, extra = {}) {
     await fs.rm(home, { recursive: true, force: true });
   });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
-  async function session(name = crypto.randomUUID()) {
+  // A session is registered by a Codex thread, or by the agent a pairCli
+  // runs as, so that the command can work on it.
+  async function session(name = crypto.randomUUID(), cli = null) {
+    const wake = cli
+      ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
+      : { harness: "codex", thread: `thread-${name}` };
+    const agent = cli ? cli.agent : { harness: "codex", id: wake.thread };
     const directory = path.join(config.sessions, name);
     const registered = await fetch(server.origin + "/agent/register", {
       method: "POST",
@@ -471,10 +466,7 @@ async function hub(t, extra = {}) {
         authorization: `Bearer ${record.secret}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        sessionDir: directory,
-        wake: { harness: "codex", thread: `thread-${name}` },
-      }),
+      body: JSON.stringify({ sessionDir: directory, wake }),
     });
     const info = await registered.json();
     assert.equal(registered.status, 200, info.error);
@@ -505,7 +497,7 @@ async function hub(t, extra = {}) {
       return { code: response.status, body, headers: response.headers };
     };
     const action = (action, data = {}) =>
-      request(`/agent/${id}/action`, { action, sessionId: id, ...data });
+      request(`/agent/${id}/action`, { action, sessionId: id, agent, ...data });
     // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
     const publish = async (data) => {
@@ -564,6 +556,7 @@ async function hub(t, extra = {}) {
     config,
     server,
     record,
+    wakes,
     session,
   };
 }
@@ -1236,6 +1229,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
     body: JSON.stringify({
       sessionDir: b.directory,
       wake: { harness: "codex", thread: "thread-again" },
+      start: true,
     }),
   });
   assert.equal(again.status, 200);
@@ -1390,7 +1384,8 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
 
 test("explicit feedback is retryable, remains unread until read, and blocks premature publication", async (t) => {
   const h = await hub(t);
-  const a = await h.session();
+  const agent = await pairCli(h.home, { PAIR_HUB_PORT: "0" });
+  const a = await h.session(undefined, agent);
   await a.publish(planData());
   const event = a.event();
   const receipt = await a.feedback(event);
@@ -1400,15 +1395,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal((await a.feedback({ ...event, text: "Changed" })).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const cli = async (...args) =>
-    JSON.parse(
-      (
-        await exec(
-          process.execPath,
-          [pair, "read", "--session-dir", a.directory, ...args],
-          { env: h.env },
-        )
-      ).stdout,
-    );
+    JSON.parse(await agent.run("read", "--session-dir", a.directory, ...args));
   const output = await cli();
   assert.deepEqual(output.event.payload, event);
   assert.equal(output.status.stage, "working");
@@ -1429,13 +1416,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal((await a.feedback(a.event())).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const status = JSON.parse(
-    (
-      await exec(
-        process.execPath,
-        [pair, "status", "--session-dir", a.directory],
-        { env: h.env },
-      )
-    ).stdout,
+    await agent.run("status", "--session-dir", a.directory),
   );
   assert.equal(status.current.round, "2");
 });
@@ -1749,6 +1730,74 @@ test("an acceptance with nothing drafted records no comments", async (t) => {
   assert.equal(record.groups, undefined);
 });
 
+test("start hands the session to its agent, and only the holder works on it and is woken", async (t) => {
+  const h = await hub(t);
+  const a = await h.session("first");
+  await a.publish(planData());
+  const register = (thread, start) =>
+    a.request(
+      "/agent/register",
+      {
+        sessionDir: a.directory,
+        wake: { harness: "codex", thread },
+        ...(start ? { start } : {}),
+      },
+      { authorization: `Bearer ${h.record.secret}` },
+    );
+  const clock = (iso) =>
+    [new Date(iso).getHours(), new Date(iso).getMinutes()]
+      .map((part) => String(part).padStart(2, "0"))
+      .join(":");
+  // The holder running start again, after an interrupted turn, keeps it.
+  const first = (await a.status()).body.holder;
+  assert.equal((await register("thread-first", true)).code, 200);
+  assert.deepEqual((await a.status()).body.holder, first);
+  // An agent that never held it hears who has held it since when, and how
+  // to take it over, not that anyone took it over.
+  const third = { harness: "codex", id: "thread-third" };
+  assert.equal(
+    (await a.action("status", { agent: third })).body.error,
+    `Another agent has held this session since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
+  );
+  // Another agent's start takes it over, and the reviewer's card says so.
+  await sleep(5);
+  assert.equal((await register("thread-second", true)).code, 200);
+  const { holder, takeover } = (await a.status()).body;
+  assert.equal(holder.harness, "codex");
+  assert.notEqual(holder.at, first.at);
+  assert.deepEqual(takeover, { name: "Codex", at: holder.at });
+  // The first agent's next command, start included, is refused with the time
+  // it lost the session, so it stops instead of taking the session back.
+  const lost = await register("thread-first", true);
+  assert.equal(lost.code, 409);
+  assert.equal(
+    lost.body.error,
+    `Another agent took this session over at ${clock(holder.at)}. Stop working on it.`,
+  );
+  // After that it is refused as any agent that does not hold the session.
+  for (const refused of [
+    await a.action("ack"),
+    await a.action("publish", { html: "" }),
+    await register("thread-first", false),
+  ]) {
+    assert.equal(refused.code, 409);
+    assert.match(refused.body.error, /^Another agent has held this session/);
+  }
+  assert.deepEqual((await a.status()).body.holder, holder);
+  const second = { harness: "codex", id: "thread-second" };
+  assert.equal((await a.action("ack", { agent: second })).code, 200);
+  // Only the holder is woken, and the card's takeover line lasts until the
+  // reviewer sends again.
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal(await waitUntil(() => h.wakes.length === 1), true);
+  assert.deepEqual(h.wakes, [{ harness: "codex", thread: "thread-second" }]);
+  assert.equal((await a.status()).body.takeover, null);
+  // The handoff line hands the session back to the first agent.
+  assert.equal((await register("thread-first", true)).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.action("ack", { agent: second })).code, 409);
+});
+
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-idle-"));
   const port = 30000 + Math.floor(Math.random() * 20000);
@@ -2000,6 +2049,7 @@ test("a moved session still serves its current and earlier rounds", async (t) =>
     body: JSON.stringify({
       sessionDir: moved,
       wake: { harness: "codex", thread: "thread-moved" },
+      start: true,
     }),
   });
   assert.equal(registered.status, 200);
