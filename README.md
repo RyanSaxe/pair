@@ -9,9 +9,9 @@ and diffs so you judge by looking.
 
 ## Install
 
-pair needs Node 20 or newer. npm installs the application, and the `skills`
-installer puts the skill where your agent CLI finds it. pair has no install
-command of its own.
+pair needs Node 20.1.0 or newer. npm installs the application, and the
+`skills` installer puts the skill where your agent CLI finds it. pair has no
+install command of its own.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -56,7 +56,7 @@ without asking.
 
 ## Run it from a checkout
 
-pair needs Node 20 or newer and has no dependencies. In a clone of this
+pair needs Node 20.1.0 or newer and has no dependencies. In a clone of this
 repository, `npm link` puts the `pair` command on your path, running the
 checkout, so an edit takes effect at the next command:
 

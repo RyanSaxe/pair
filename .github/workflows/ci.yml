@@ -10,8 +10,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The oldest Node pair supports, and the current LTS.
-        node: [20, 24]
+        # The oldest Node pair supports, the latest Node 20, and the current
+        # LTS.
+        node: [20.1.0, 20, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

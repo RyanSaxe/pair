@@ -33,10 +33,17 @@ export const version = ["src", "adapters"]
 
 const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
+// The oldest Node pair supports, from engines.node in package.json.
+const oldestNode = JSON.parse(
+  readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+).engines.node.replace(">=", "");
 export function requireNode() {
+  const parts = (release) => release.split(".").map(Number);
+  const [running, oldest] = [parts(process.versions.node), parts(oldestNode)];
+  const differs = running.findIndex((part, index) => part !== oldest[index]);
   requireValue(
-    Number(process.versions.node.split(".")[0]) >= 20,
-    "Node 20 or newer is required",
+    differs === -1 || running[differs] > oldest[differs],
+    `Node ${oldestNode} or newer is required`,
   );
 }
 export function settings(env = process.env) {
