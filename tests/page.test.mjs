@@ -3,8 +3,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
-import { buildPage } from "../src/build.mjs";
-import { pageData, settings, startHub } from "../src/session.mjs";
+import { buildPage } from "../src/cli/build.mjs";
+import { startHub } from "../src/hub/server.mjs";
+import { pageData } from "../src/shared/records.mjs";
+import { settings } from "../src/shared/settings.mjs";
 import { pairCli } from "./pair-cli.mjs";
 
 let hub, home, directory, sessionId, token;

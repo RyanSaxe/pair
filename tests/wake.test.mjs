@@ -4,13 +4,11 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
-import { buildPage } from "../src/build.mjs";
-import {
-  detectWake,
-  settings,
-  startHub,
-  withSandboxHint,
-} from "../src/session.mjs";
+import { withSandboxHint } from "../adapters/codex/rules.mjs";
+import { buildPage } from "../src/cli/build.mjs";
+import { startHub } from "../src/hub/server.mjs";
+import { detectWake } from "../src/hub/wake.mjs";
+import { settings } from "../src/shared/settings.mjs";
 
 let hub, home, sessionId, sessionDir, token;
 const wakes = [];

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
-import { main as build } from "./build.mjs";
-import { main as check } from "./check.mjs";
-import { main as diff } from "./components/before-after/diff.mjs";
-import { guideFile } from "./guide.mjs";
-import { main as session, settings, withSandboxHint } from "./session.mjs";
+import { withSandboxHint } from "../adapters/codex/rules.mjs";
+import { main as build } from "./cli/build.mjs";
+import { main as check } from "./cli/check.mjs";
+import { main as diff } from "./cli/diff.mjs";
+import { main as session } from "./cli/session.mjs";
+import { guideFile } from "./shared/guide.mjs";
+import { settings } from "./shared/settings.mjs";
 
 const usage = `Usage: pair guide
        pair start [--session-dir PATH]

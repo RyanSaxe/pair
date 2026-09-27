@@ -129,7 +129,7 @@ three functions:
   throws with the reason. `run(file, args)` runs a program and rejects with
   its error output.
 
-`src/session.mjs` lists the adapters. `pair start` asks every adapter about
+`src/hub/wake.mjs` lists the adapters. `pair start` asks every adapter about
 each ancestor process, nearest first, so the agent CLI that ran the command
 wins over an outer one whose variables it inherited. When no ancestor
 decides, the first adapter whose variables are set decides.
@@ -152,7 +152,7 @@ Take over pair session PATH: run pair start --session-dir PATH and follow what i
 
 A round can carry an offer, which the reviewer accepts in the Finish your
 review dialog: `plan` on a complete plan and `finish` on complete work the
-agent built. Each entry in `src/offers.mjs` gives the dialog's Accept row and
+agent built. Each entry in `src/shared/offers.mjs` gives the dialog's Accept row and
 the hint under Request changes, the page a round must open on when it names
 one, and a guide file under `guide/offers/` that tells the agent what each
 action asks. Each action's `after` says what the session does once the

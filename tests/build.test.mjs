@@ -3,7 +3,8 @@ import { test } from "node:test";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { assemble, buildPage } from "../src/build.mjs";
+import { assemble } from "../src/build/assemble.mjs";
+import { buildPage } from "../src/cli/build.mjs";
 
 const data = {
   name: "t",
@@ -278,7 +279,7 @@ test("the build's language list is the one for the Shiki the frame loads", async
   );
   const list = JSON.parse(
     await fs.readFile(
-      new URL("../src/shiki-languages.json", import.meta.url),
+      new URL("../src/build/shiki-languages.json", import.meta.url),
       "utf8",
     ),
   );

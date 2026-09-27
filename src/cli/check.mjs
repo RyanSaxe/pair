@@ -3,34 +3,16 @@ import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { componentDirectories, userComponents } from "./build.mjs";
-import { hubInfo, readRecord, settings } from "./session.mjs";
+import {
+  codexHome,
+  rulesFile,
+  rulesPresent,
+  writeRules,
+} from "../../adapters/codex/rules.mjs";
+import { componentDirectories, userComponents } from "../build/components.mjs";
+import { hubInfo, readRecord } from "../hub/client.mjs";
+import { settings } from "../shared/settings.mjs";
 
-// Codex runs shell commands in a sandbox with no sockets and no writes
-// outside the workspace. An allow rule for pair, in a file of pair's own,
-// runs its commands outside the sandbox without a prompt.
-const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
-const rulesFile = path.join(codexHome, "rules", "pair.rules");
-const rules =
-  'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n';
-const rulesPresent = () =>
-  fs
-    .readFile(rulesFile, "utf8")
-    .then((text) => text === rules)
-    .catch(() => false);
-async function writeRules() {
-  try {
-    await fs.mkdir(path.dirname(rulesFile), { recursive: true });
-    await fs.writeFile(rulesFile, rules, { mode: 0o600 });
-  } catch (error) {
-    throw error.code === "EPERM" && process.env.CODEX_SANDBOX
-      ? new Error(
-          `writing ${rulesFile} is itself outside the sandbox: run this command escalated, once`,
-        )
-      : error;
-  }
-  console.log(JSON.stringify({ rules: rulesFile, written: true }, null, 2));
-}
 const listen = (instance, port) =>
   new Promise((resolve, reject) => {
     instance.once("error", reject);
@@ -65,7 +47,6 @@ async function componentReport() {
     shipped: found.length - yours.length,
   };
 }
-
 export async function main([argument]) {
   if (argument === "--codex-rules") return writeRules();
   const codex =

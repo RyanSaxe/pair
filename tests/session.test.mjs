@@ -8,7 +8,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { compareFiles } from "../src/components/before-after/diff.mjs";
+import { compareFiles } from "../src/cli/diff.mjs";
 import {
   createReviewAlerts,
   reviewAlert,
@@ -22,16 +22,13 @@ import {
   submissionGroups,
   unsentItems,
 } from "../src/frame/draft.mjs";
-import { assemble, build, buildPage } from "../src/build.mjs";
+import { assemble } from "../src/build/assemble.mjs";
+import { build, buildPage } from "../src/cli/build.mjs";
 import { renderFinish } from "../src/frame/finish.mjs";
-import { offers } from "../src/offers.mjs";
-import {
-  readPlanData,
-  pageData,
-  settings,
-  startHub,
-  version,
-} from "../src/session.mjs";
+import { offers } from "../src/shared/offers.mjs";
+import { startHub } from "../src/hub/server.mjs";
+import { pageData, readPlanData } from "../src/shared/records.mjs";
+import { settings, version } from "../src/shared/settings.mjs";
 import { pairCli } from "./pair-cli.mjs";
 
 const exec = promisify(execFile);

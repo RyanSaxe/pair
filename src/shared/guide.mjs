@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { offers } from "./offers.mjs";
 
-const packageRoot = fileURLToPath(new URL("..", import.meta.url));
+const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
 const markdownLink = /\]\(([^()\s]+)\)/g;
 const exists = (file) =>
   fs.access(file).then(
