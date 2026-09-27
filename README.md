@@ -169,8 +169,11 @@ new offer is one entry there and one guide file.
 ```sh
 node --test
 npx prettier@3.9.6 --check .
+npx eslint@10.11.0 .
 ```
 
-CI runs both on every push and pull request. The fixture under `tests/fixture/`
-is a page with every component, and its [README](tests/fixture/README.md) says
-how to build it and what to check in it.
+CI runs all three on every push and pull request. ESLint fails a JavaScript
+file over 1000 lines, and CI also lists each one over 500, the size a file
+aims for. The fixture under `tests/fixture/` is a page with every component,
+and its [README](tests/fixture/README.md) says how to build it and what to
+check in it.
