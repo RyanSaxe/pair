@@ -189,6 +189,16 @@ export async function startHub(config = settings()) {
       if (parts[0] === "s" && parts[1]) {
         const session = registry.get(parts[1]);
         requireValue(session, "Unknown session", 404);
+        /* The hub is a local review tool. It binds 127.0.0.1 unless the
+           operator sets PAIR_HUB_HOST, and browser routes carry no token by
+           design (see session.md), so the same-origin check is what stands
+           between a page in another tab and this session. */
+        if (method !== "GET")
+          requireValue(
+            req.headers.origin === `http://${req.headers.host}`,
+            "Unauthorized source",
+            403,
+          );
         const rest = parts.slice(2);
         const round = () => decodeURIComponent(rest[1]);
         if (method === "GET" && parts.length === 2)
@@ -260,26 +270,12 @@ export async function startHub(config = settings()) {
             ),
           });
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
-          requireValue(
-            req.headers.origin === `http://${req.headers.host}`,
-            "Unauthorized source",
-            403,
-          );
           return reply(200, await session.exclusive(() => session.dismiss()));
         }
-        /* The hub is a local review tool. It binds 127.0.0.1 unless the
-           operator sets PAIR_HUB_HOST, and browser routes carry no
-           token by design (see session.md), so the same-origin check is what
-           stands between a page in another tab and this session. This route
-           writes bytes, so it also caps the size and the count, decides the
-           type from the leading bytes rather than a header, and names the
-           file itself. */
+        /* This route writes bytes, so it also caps the size and the count,
+           decides the type from the leading bytes rather than a header, and
+           names the file itself. */
         if (method === "POST" && rest[0] === "api" && rest[1] === "upload") {
-          requireValue(
-            req.headers.origin === `http://${req.headers.host}`,
-            "Unauthorized source",
-            403,
-          );
           const bytes = await readBytes(req, uploadBytes);
           return reply(
             201,
@@ -292,11 +288,6 @@ export async function startHub(config = settings()) {
           rest[1] === "drawing-scene" &&
           rest.length === 2
         ) {
-          requireValue(
-            req.headers.origin === `http://${req.headers.host}`,
-            "Unauthorized source",
-            403,
-          );
           const bytes = await readBytes(req, uploadBytes);
           return reply(
             201,
@@ -329,22 +320,12 @@ export async function startHub(config = settings()) {
           rest[1] === "upload" &&
           rest.length === 3
         ) {
-          requireValue(
-            req.headers.origin === `http://${req.headers.host}`,
-            "Unauthorized source",
-            403,
-          );
           return reply(
             200,
             await session.exclusive(() => session.removeUpload(rest[2])),
           );
         }
         if (method === "POST" && rest[0] === "api" && rest[1] === "feedback") {
-          requireValue(
-            req.headers.origin === `http://${req.headers.host}`,
-            "Unauthorized source",
-            403,
-          );
           const data = await readBody(req, 250_000);
           return reply(
             200,
