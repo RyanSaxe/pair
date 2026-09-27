@@ -31,7 +31,7 @@ export const version = ["src", "adapters"]
   .digest("hex")
   .slice(0, 12);
 
-export const stateHome = (env = process.env) =>
+const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
 export function requireNode() {
   requireValue(

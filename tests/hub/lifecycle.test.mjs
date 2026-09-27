@@ -48,6 +48,19 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
+test("pair check tests the state directory the hub writes to", async (t) => {
+  const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-check-state-"));
+  t.after(() => fs.rm(state, { recursive: true, force: true }));
+  const report = JSON.parse(
+    (
+      await exec(process.execPath, [pair, "check"], {
+        env: { ...process.env, XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
+      })
+    ).stdout,
+  );
+  assert.equal(report.storage, path.join(state, "pair"));
+});
+
 test("a session closed with feedback unread stays closed after the hub restarts", async (t) => {
   const h = await hub(t);
   const a = await h.session();
