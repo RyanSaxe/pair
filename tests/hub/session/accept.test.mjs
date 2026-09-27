@@ -317,20 +317,11 @@ test("Start implementation goes on to a build round the reviewer follows", async
 
 test("the holder's start resumes an unread Save, and builds the plan once it is read", async (t) => {
   const h = await hub(t);
-  const a = await h.session("holder");
+  const a = await h.session();
   await a.publish(planData("1", "plan"));
   const save = a.event("accept", "1", { offer: "plan", action: "save" });
   assert.equal((await a.feedback(save)).code, 200);
-  const start = () =>
-    a.request(
-      "/agent/register",
-      {
-        sessionDir: a.directory,
-        wake: { harness: "codex", thread: "thread-holder" },
-        start: true,
-      },
-      { authorization: `Bearer ${h.record.secret}` },
-    );
+  const start = () => h.register(a.directory, a.inbox.target, { start: true });
   // A holder whose turn was interrupted before it read the Save runs start
   // again, reads the Save and says the handoff line.
   const resumed = await start();

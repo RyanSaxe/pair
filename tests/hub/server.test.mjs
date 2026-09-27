@@ -8,12 +8,11 @@ import { readPlanData } from "../../src/shared/records.mjs";
 import {
   exists,
   hub,
+  pairCli,
   planData,
   sessionConfig,
   sleep,
 } from "../support/hub.mjs";
-import { pairCli } from "../support/pair-cli.mjs";
-import { sessionId, hub as wakeHub } from "../support/wake-hub.mjs";
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
   const h = await hub(t);
@@ -273,7 +272,7 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
 test("explicit feedback is retryable, remains unread until read, and blocks premature publication", async (t) => {
   const h = await hub(t);
   const agent = await pairCli(h.home, { PAIR_HUB_PORT: "0" });
-  const a = await h.session(undefined, agent);
+  const a = await h.session({ cli: agent });
   await a.publish(planData());
   const event = a.event();
   const receipt = await a.feedback(event);
@@ -292,6 +291,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   const again = await cli("--id", event.id);
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
+  assert.equal((await a.action("read", { id: "nope" })).code, 404);
   const original = await fs.readFile(
     path.join(a.directory, "rounds/example.1.html"),
     "utf8",
@@ -375,16 +375,20 @@ test("the hub refuses to open a session interactive-plan created", async (t) => 
   assert.deepEqual(await fs.readdir(directory), ["status.json"]);
 });
 
-test("the browser can read sent feedback without agent-only paths", async () => {
-  const submission = await (
-    await fetch(`${wakeHub.origin}/s/${sessionId}/api/submission?round=1`)
-  ).json();
-  assert.equal(submission.submission.id, "evt1");
-  assert.equal(submission.submission.round, "1");
-  assert.deepEqual(submission.submission.groups.notes, []);
-  assert.deepEqual(submission.submission.groups.choices, {});
-  const invalid = await fetch(
-    `${wakeHub.origin}/s/${sessionId}/api/submission?round=..%2Fsecret`,
-  );
-  assert.equal(invalid.status, 400);
+test("the browser can read sent feedback without agent-only paths", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const feedback = a.event("feedback-only", "1", {
+    groups: { choices: {}, notes: [] },
+  });
+  assert.equal((await a.feedback(feedback)).code, 200);
+  const { submission } = (await a.request(`${a.base}/api/submission?round=1`))
+    .body;
+  assert.equal(submission.id, feedback.id);
+  assert.equal(submission.round, "1");
+  assert.deepEqual(submission.groups.notes, []);
+  assert.deepEqual(submission.groups.choices, {});
+  const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
+  assert.equal(invalid.code, 400);
 });

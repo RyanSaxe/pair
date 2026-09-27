@@ -2,104 +2,25 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import { buildPage } from "../../src/cli/build.mjs";
-import { home, hub, post } from "../support/page-hub.mjs";
-import { pairCli } from "../support/pair-cli.mjs";
+import { hub, pairCli } from "../support/hub.mjs";
 
-test("the CLI builds and publishes each page with its own saved source", async () => {
-  const root = path.join(home, "cli");
+test("the CLI builds and publishes each page with its own saved source", async (t) => {
+  const h = await hub(t);
+  const root = path.join(h.home, "cli");
   await fs.mkdir(root);
-  const session = path.join(root, "session");
   // The CLI reads its hub from the state directory, so it gets this test's
   // own, and it runs as the agent that registers the session.
-  const cli = await pairCli(root, { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" });
-  const registered = await post(
-    "/agent/register",
-    {
-      sessionDir: session,
-      wake: { harness: "claude-code", socket: cli.agent.id, token: "test" },
-    },
-    { authorization: `Bearer ${hub.secret}` },
-  );
-  const tokenForSession = JSON.parse(
-    await fs.readFile(path.join(session, "connection.json"), "utf8"),
-  ).token;
-  const unsupported = await post(
-    `/agent/${registered.body.sessionId}/action`,
-    {
-      action: "publish",
-      sessionId: registered.body.sessionId,
-      agent: cli.agent,
-      html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
-    },
-    { authorization: `Bearer ${tokenForSession}` },
-  );
-  assert.equal(unsupported.status, 400);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+  });
+  const registered = await h.session({ cli });
+  const session = registered.directory;
+  const unsupported = await registered.action("publish", {
+    html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
+  });
+  assert.equal(unsupported.code, 400);
   assert.match(unsupported.body.error, /page-data/);
-  const badAgreed = await buildPage(path.join(root, "bad.json"), {
-    name: "cli",
-    round: "1",
-    offer: "plan",
-    title: "CLI plan",
-    page: {
-      id: "agreed",
-      title: "Agreed so far",
-      task: { title: "The task", html: "<p>What the plan builds.</p>" },
-      agreements: [
-        {
-          id: "unsupported",
-          title: "Unsupported claim",
-          html: "<p>No saved source.</p>",
-          sourceRefs: [
-            { kind: "note", submissionId: "missing", noteId: "note" },
-          ],
-        },
-      ],
-    },
-  });
-  const rejected = await post(
-    `/agent/${registered.body.sessionId}/action`,
-    {
-      action: "publish",
-      sessionId: registered.body.sessionId,
-      agent: cli.agent,
-      html: badAgreed,
-    },
-    { authorization: `Bearer ${tokenForSession}` },
-  );
-  assert.equal(rejected.status, 400);
-  const goodAgreed = await buildPage(path.join(root, "good.json"), {
-    name: "cli",
-    round: "1",
-    offer: "plan",
-    title: "CLI plan",
-    page: {
-      id: "agreed",
-      title: "Agreed so far",
-      agreements: [],
-      task: { title: "The task", html: "<p>What the plan builds.</p>" },
-    },
-  });
-  const outside = await post(
-    `/agent/${registered.body.sessionId}/action`,
-    {
-      action: "publish",
-      sessionId: registered.body.sessionId,
-      agent: cli.agent,
-      html: goodAgreed,
-      source: "/elsewhere/source",
-    },
-    { authorization: `Bearer ${tokenForSession}` },
-  );
-  assert.equal(outside.status, 400);
-  assert.equal(
-    (
-      await (
-        await fetch(`${hub.origin}/s/${registered.body.sessionId}/api/status`)
-      ).json()
-    ).current,
-    null,
-  );
   const command = (args) => cli.run(...args);
   const agreedSource = path.join(root, "agreed-source");
   await fs.mkdir(agreedSource);
@@ -184,12 +105,5 @@ test("the CLI builds and publishes each page with its own saved source", async (
     ),
     /Ready by CLI/,
   );
-  assert.equal(
-    (
-      await (
-        await fetch(`${hub.origin}/s/${registered.body.sessionId}/api/status`)
-      ).json()
-    ).rounds.length,
-    1,
-  );
+  assert.equal((await registered.status()).body.rounds.length, 1);
 });

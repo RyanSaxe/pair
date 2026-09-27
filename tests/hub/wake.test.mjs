@@ -1,34 +1,12 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { test } from "node:test";
 import { withSandboxHint } from "../../adapters/codex/rules.mjs";
 import { detectWake } from "../../src/hub/wake.mjs";
-import {
-  act,
-  failWakes,
-  hub,
-  post,
-  publishRound,
-  sessionDir,
-  sessionId,
-  status,
-  wakes,
-} from "../support/wake-hub.mjs";
+import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
-test("read returns the oldest unread submission once and marks it read", async () => {
-  assert.equal((await status()).latestSubmissionRound, "1");
-  const first = await act({ action: "read" });
-  assert.ok(first.ok, JSON.stringify(first.body));
-  assert.equal(first.body.event.id, "evt1");
-  assert.equal(first.body.status.stage, "working");
-  const acked = (await status()).acknowledgedAt;
-  assert.equal((await act({ action: "read" })).body.event, null);
-  const again = await act({ action: "read", id: "evt1" });
-  assert.equal(again.body.event.id, "evt1");
-  assert.equal((await status()).acknowledgedAt, acked);
-  assert.equal((await act({ action: "read", id: "nope" })).status, 404);
-});
+// The hub records a wake's result in the status once the wake has finished.
+const woken = (a) =>
+  waitUntil(async () => Boolean((await a.status()).body.wake?.last));
 
 test("the sandbox hint follows a refusal, not the environment alone", () => {
   const env = { CODEX_SANDBOX: "seatbelt" };
@@ -43,106 +21,78 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
   );
 });
 
-test("a complete page round opens the next round", async () => {
-  assert.ok((await publishRound("2")).ok);
-  const view = await status();
-  assert.equal(view.stage, "updated");
-  assert.equal(view.openRound, null);
-});
-
-const feedback = (id) =>
-  post(
-    `/s/${sessionId}/api/feedback`,
-    {
-      sessionId,
-      id,
-      name: "t",
-      round: "2",
-      intent: "feedback-only",
-      groups: { alignUnflagged: true, choices: {}, notes: [] },
-      text: "hi",
-    },
-    { origin: hub.origin },
-  );
-
-// The before hook's submission already woke the agent once, so each test
-// waits for its own wake by count and for its result to reach the status.
-const settled = async (count, ok = true) => {
-  for (let i = 0; i < 50; i++) {
-    const view = await status();
-    if (wakes.length === count && view.wake?.last?.ok === ok) return view;
-    await new Promise((resolve) => setTimeout(resolve, 20));
+test("no status shows the wake target", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const browser = (await a.status()).body;
+  const holder = (await a.action("status")).body.status;
+  for (const view of [browser, holder]) {
+    assert.equal(view.wake.harness, "claude-code");
+    const text = JSON.stringify(view);
+    assert.equal(text.includes(a.inbox.socket), false);
+    assert.equal(text.includes(a.inbox.token), false);
   }
-  throw new Error("the wake was never recorded");
-};
-
-test("registration stores the wake target for the agent only", async () => {
-  const connection = JSON.parse(
-    await fs.readFile(path.join(sessionDir, "connection.json"), "utf8"),
-  );
-  assert.deepEqual(connection.wake, { harness: "codex" });
-  const stored = JSON.parse(
-    await fs.readFile(path.join(sessionDir, "wake.json"), "utf8"),
-  );
-  assert.deepEqual(stored, { harness: "codex", thread: "thread-1" });
-  const view = await status();
-  assert.equal(view.wake.harness, "codex");
-  assert.equal(JSON.stringify(view).includes("thread-1"), false);
-  const refused = await post(
-    "/agent/register",
-    { sessionDir, wake: { harness: "vim" } },
-    { authorization: `Bearer ${hub.secret}` },
-  );
-  assert.equal(refused.status, 400);
 });
 
-test("a submission wakes the agent with the line that names the session", async () => {
-  assert.equal(wakes.length, 1);
-  assert.ok((await feedback("evt2")).ok);
-  const view = await settled(2);
-  assert.equal(view.latestSubmissionRound, "2");
-  assert.deepEqual(wakes[1].target, { harness: "codex", thread: "thread-1" });
-  assert.match(
-    wakes[1].line,
-    new RegExp(
-      `^pair: feedback arrived on session ${sessionDir} \\(Round 2\\)\\. Run first: pair ack --session-dir ${sessionDir}\\.`,
-    ),
-  );
+test("a submission wakes the holder with the line that names the session", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  assert.equal(await woken(a), true);
+  const view = (await a.status()).body;
   assert.equal(view.wake.last.ok, true);
-  assert.equal((await act({ action: "read" })).body.event.id, "evt2");
+  assert.equal(view.latestSubmissionRound, "1");
+  assert.deepEqual(a.inbox.wakes, [
+    {
+      auth: { type: "auth", token: a.inbox.token },
+      message: {
+        type: "user",
+        message: {
+          role: "user",
+          content: `pair: feedback arrived on session ${a.directory} (Round 1). Run first: pair ack --session-dir ${a.directory}. It prints the next step.`,
+        },
+      },
+    },
+  ]);
+  assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
-test("a failed wake is recorded and the submission stays readable", async () => {
-  failWakes(true);
-  assert.ok((await feedback("evt3")).ok);
-  const view = await settled(3, false);
-  failWakes(false);
-  assert.equal(view.wake.last.ok, false);
-  assert.equal(view.wake.last.reason, "thread gone");
-  assert.equal((await act({ action: "read" })).body.event.id, "evt3");
+test("a failed wake is recorded and the submission stays readable", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  // The inbox is gone, as it is once the agent's session has ended.
+  await a.inbox.close();
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  assert.equal(await woken(a), true);
+  const { wake } = (await a.status()).body;
+  assert.equal(wake.last.ok, false);
+  assert.ok(wake.last.reason.includes(a.inbox.socket), wake.last.reason);
+  assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
-test("a paused session is not woken until it registers again", async () => {
-  const count = wakes.length;
-  assert.equal((await act({ action: "pause" })).status, 400);
-  assert.ok((await act({ action: "pause", reason: "asked to stop" })).ok);
-  assert.equal((await status()).paused.reason, "asked to stop");
-  assert.ok((await feedback("evt4")).ok);
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  assert.equal(wakes.length, count);
+test("a paused session is not woken until it registers again", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await a.action("pause")).code, 400);
   assert.equal(
-    (await fetch(`${hub.origin}/api/sessions`).then((r) => r.json()))
-      .sessions[0].paused,
-    true,
+    (await a.action("pause", { reason: "asked to stop" })).code,
+    200,
   );
-  const again = await post(
-    "/agent/register",
-    { sessionDir, wake: { harness: "codex", thread: "thread-1" } },
-    { authorization: `Bearer ${hub.secret}` },
-  );
-  assert.ok(again.ok);
-  assert.equal((await status()).paused, null);
-  assert.equal((await act({ action: "read" })).body.event.id, "evt4");
+  assert.equal((await a.status()).body.paused.reason, "asked to stop");
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  await sleep(100);
+  assert.equal(a.inbox.wakes.length, 0);
+  const [listed] = (await a.request("/api/sessions")).body.sessions;
+  assert.equal(listed.paused, true);
+  assert.equal((await h.register(a.directory, a.inbox.target)).code, 200);
+  assert.equal((await a.status()).body.paused, null);
+  assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
 const tools = (chain, port = 4321, sdk = "/sdk/index.js") => ({

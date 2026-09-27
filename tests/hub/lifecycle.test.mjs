@@ -12,13 +12,14 @@ import {
   alive,
   exec,
   exists,
+  freePort,
   hub,
   killHub,
   pair,
+  pairCli,
+  task,
   waitUntil,
 } from "../support/hub.mjs";
-import { agent, home } from "../support/page-hub.mjs";
-import { pairCli } from "../support/pair-cli.mjs";
 
 test("capability check tests storage, loopback, and the hub port, then cleans up", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "plan-check-"));
@@ -48,7 +49,7 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
 
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "plan-idle-"));
-  const port = 30000 + Math.floor(Math.random() * 20000);
+  const port = await freePort();
   // Each new hub starts with no live session and waits this long for start
   // to register one, which can take over 300ms on a busy machine.
   const { config, run } = await pairCli(home, {
@@ -89,7 +90,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
 
 test("start waits for a new hub to load the saved sessions", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-saved-"));
-  const port = 30000 + Math.floor(Math.random() * 20000);
+  const port = await freePort();
   const { config, run } = await pairCli(home, {
     PAIR_HUB_PORT: String(port),
   });
@@ -252,14 +253,15 @@ test("start replaces a stale hub record, and helper commands reattach after a cr
   assert.equal(connection.origin, `http://127.0.0.1:${next.port}`);
 });
 
-test("an unfinished round resumes after the hub restarts", async () => {
+test("an unfinished round resumes after the hub restarts", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
   const config = {
-    ...settings({
-      XDG_STATE_HOME: path.join(home, "restart"),
-      PAIR_HUB_PORT: "0",
-    }),
+    ...settings({ XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" }),
     log() {},
   };
+  // This test publishes and never submits, so the hub wakes no one.
+  const agent = { harness: "codex", id: "test" };
   let localHub = await startHub(config);
   const localDir = path.join(config.sessions, "session");
   const call = async (action, body) => {
@@ -305,7 +307,7 @@ test("an unfinished round resumes after the hub restarts", async () => {
           html: await build({
             id: "agreed",
             title: "Agreed",
-            task: { title: "The task", html: "<p>What the plan builds.</p>" },
+            task,
             agreements: [],
           }),
           pages: [

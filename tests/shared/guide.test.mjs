@@ -3,8 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { exists, killHub, root } from "../support/hub.mjs";
-import { pairCli } from "../support/pair-cli.mjs";
+import { exists, killHub, pairCli, root } from "../support/hub.mjs";
 
 const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
 

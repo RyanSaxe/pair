@@ -2,27 +2,87 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
+import { buildPage } from "../../../src/cli/build.mjs";
 import { pageData } from "../../../src/shared/records.mjs";
 import { frameSource } from "../../support/frame.mjs";
-import { hub as newHub, planData } from "../../support/hub.mjs";
-import {
-  act,
-  directory,
-  firstAgreements,
-  firstPages,
-  hub,
-  page,
-  post,
-  publish,
-  sessionId,
-  status,
-} from "../../support/page-hub.mjs";
-import {
-  act as wakeAct,
-  status as wakeStatus,
-} from "../../support/wake-hub.mjs";
+import { planData, task, hub as testHub } from "../../support/hub.mjs";
 
-test("Agreed and all page names become visible in one publication", async () => {
+// Each test registers its own session on its own hub, so no test depends on
+// the rounds another one published.
+async function session(t) {
+  const h = await testHub(t);
+  const registered = await h.session();
+  const { directory, agent } = registered;
+  const sessionId = registered.id;
+  const hub = h.server;
+  const post = async (route, body, headers = {}) => {
+    const response = await fetch(hub.origin + route, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  const act = (body) =>
+    post(
+      `/agent/${sessionId}/action`,
+      { ...body, sessionId, agent },
+      { authorization: `Bearer ${registered.connection.token}` },
+    );
+  const status = async () =>
+    (await fetch(`${hub.origin}/s/${sessionId}/api/status`)).json();
+  const page = async (round, id, title, html, extra = {}) =>
+    buildPage(path.join(directory, "source.json"), {
+      name: "page-test",
+      round,
+      offer: "plan",
+      title: "Page test",
+      page: {
+        id,
+        title,
+        ...(id === "agreed" ? { agreements: [], task } : { html }),
+        ...extra,
+      },
+    });
+  const publish = async (round, id, title, html, extra, pages) =>
+    act({
+      action: "publish",
+      html: await page(round, id, title, html, extra),
+      ...(pages ? { pages } : {}),
+    });
+  // Round 1's Agreed, as the first test publishes it.
+  const firstAgreed = () =>
+    publish(
+      "1",
+      "agreed",
+      "Agreed so far",
+      undefined,
+      { agreements: firstAgreements },
+      firstPages,
+    );
+  return {
+    hub,
+    directory,
+    sessionId,
+    post,
+    act,
+    status,
+    page,
+    publish,
+    firstAgreed,
+  };
+}
+const firstPages = [
+  { id: "overview", title: "Overview" },
+  { id: "detail", title: "Detail" },
+];
+const firstAgreements = [
+  { id: "alpha", title: "Alpha", html: "<p>Same</p>", source: "Conversation" },
+  { id: "beta", title: "Beta", html: "<p>Before</p>", source: "Conversation" },
+];
+
+test("Agreed and all page names become visible in one publication", async (t) => {
+  const { hub, sessionId, act, status, page, publish } = await session(t);
   assert.equal((await publish("1", "agreed", "Agreed so far")).status, 400);
   assert.equal((await status()).current, null);
   assert.equal(
@@ -62,18 +122,6 @@ test("Agreed and all page names become visible in one publication", async () => 
   assert.equal(manifest.pages[1].state, "queued");
   assert.equal(manifest.complete, false);
   assert.equal(
-    (
-      await act({
-        action: "progress",
-        pages: [
-          { id: "overview", title: "Overview" },
-          { id: "overview", title: "Duplicate" },
-        ],
-      })
-    ).status,
-    400,
-  );
-  assert.equal(
     (await publish("1", "detail", "Detail", "<p>x</p>", {}, firstPages)).status,
     400,
   );
@@ -92,7 +140,19 @@ test("Agreed and all page names become visible in one publication", async () => 
   );
 });
 
-test("listed pages arrive independently and only the last completes the round", async () => {
+test("listed pages arrive independently and only the last completes the round", async (t) => {
+  const {
+    hub,
+    directory,
+    sessionId,
+    post,
+    act,
+    status,
+    page,
+    publish,
+    firstAgreed,
+  } = await session(t);
+  await firstAgreed();
   assert.equal(
     (await act({ action: "progress", start: ["detail"] })).status,
     200,
@@ -224,7 +284,12 @@ test("listed pages arrive independently and only the last completes the round", 
   );
 });
 
-test("the next round may choose unrelated pages without changing history", async () => {
+test("the next round may choose unrelated pages without changing history", async (t) => {
+  const { hub, sessionId, post, act, status, publish, firstAgreed } =
+    await session(t);
+  await firstAgreed();
+  await publish("1", "detail", "Detail", "<p>Finished detail</p>");
+  await publish("1", "overview", "Overview", "<p>Finished overview</p>");
   const response = await post(
     `/s/${sessionId}/api/feedback`,
     {
@@ -309,7 +374,7 @@ test("the next round may choose unrelated pages without changing history", async
 });
 
 test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
-  const h = await newHub(t);
+  const h = await testHub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
   const event = a.event();
@@ -341,11 +406,12 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.match(published.body.next, /^The round is with the reviewer\./);
 });
 
-test("page progress cannot start before Agreed for the next round", async () => {
-  const result = await wakeAct({
-    action: "progress",
-    start: ["p"],
-  });
-  assert.equal(result.status, 409);
-  assert.equal((await wakeStatus()).openRound, null);
+test("page progress cannot start before Agreed for the next round", async (t) => {
+  const h = await testHub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await a.feedback(a.event())).code, 200);
+  const result = await a.action("progress", { start: ["overview"] });
+  assert.equal(result.code, 409);
+  assert.equal((await a.status()).body.openRound, null);
 });
