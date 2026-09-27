@@ -1,34 +1,50 @@
 const $ = (id) => document.getElementById(id);
-let plan = JSON.parse($("plan-data").textContent);
-const session = JSON.parse($("session-config").textContent);
-const base = typeof session.base === "string" ? session.base : "";
-const online =
-  Boolean(session.sessionId) && /^https?:$/.test(location.protocol);
-/* A closed session reads like an older round: nothing can be sent from
-   it. The strip below the header says which of the two it is. */
-const mode = session.preview
-  ? "preview"
-  : session.readonly || session.closed
-    ? "readonly"
-    : "live";
-const editable = mode === "live";
-// A read-only round keeps a Feedback page that lists what was sent on it.
-const hasFeedbackPage = editable || mode === "readonly";
-document.documentElement.dataset.mode = mode;
-const query = new URL(location.href).searchParams;
-let agreements = plan.agreements || [];
-let agreedTask = plan.task || null;
-let pages = [{ id: "agreed", title: "Agreed so far", html: "" }, ...plan.pages];
+// The session this page belongs to and what it allows, read from the page
+// before anything renders.
+let session, base, online, mode, editable, hasFeedbackPage, query;
+// Browser storage is kept per session, and the draft per plan as well.
+let storageKey, placeKey, prefsPrefix;
+function useSession(config, name, url) {
+  session = config;
+  base = typeof session.base === "string" ? session.base : "";
+  online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
+  /* A closed session reads like an older round: nothing can be sent from
+     it. The strip below the header says which of the two it is. */
+  mode = session.preview
+    ? "preview"
+    : session.readonly || session.closed
+      ? "readonly"
+      : "live";
+  editable = mode === "live";
+  // A read-only round keeps a Feedback page that lists what was sent on it.
+  hasFeedbackPage = editable || mode === "readonly";
+  query = url.searchParams;
+  storageKey = `pair:${session.sessionId || "offline"}:${name}`;
+  placeKey = `pair:place:${session.sessionId || "offline"}`;
+  prefsPrefix = `pair:prefs:${session.sessionId || "offline"}:`;
+}
+// The round on screen: its plan, Agreed's entries and task, and its pages.
+let plan, agreements, agreedTask, pages;
+function useView(view) {
+  plan = view.plan;
+  agreements = view.agreements;
+  agreedTask = view.task || null;
+  pages = view.pages;
+}
 let selectedTab = "current";
 // The last round this reader submitted, which keeps Current disabled until
 // the next one arrives, and the past round the left tab shows.
 let submittedRound = null;
 let pastRound = null;
+function setSubmittedRound(round) {
+  submittedRound = round;
+}
+function setPastRound(round) {
+  pastRound = round;
+}
 // What was sent on each past round the left tab has shown.
 const sentByRound = new Map();
-const views = new Map([
-  [plan.round, { plan, agreements, task: agreedTask, pages }],
-]);
+const views = new Map();
 const pageSets = new Map();
 const recordLoads = new Map();
 let pageSetLoading = null;
@@ -53,49 +69,68 @@ function recently(value) {
   return ms < 60000 ? `${Math.round(ms / 1000)} s ago` : ago(value);
 }
 
-const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+let systemTheme;
 let preferredTheme = null;
-try {
-  if (/^https?:$/.test(location.protocol)) {
-    const value = document.cookie
-      .split("; ")
-      .find((item) => item.startsWith("pair-theme="))
-      ?.split("=")[1];
-    if (["light", "dark"].includes(value)) preferredTheme = value;
-  }
-} catch {
-  /* Theme changes remain available without storage. */
-}
-let activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
-
-const storageKey = `pair:${session.sessionId || "offline"}:${plan.name}`;
-const placeKey = `pair:place:${session.sessionId || "offline"}`;
-const prefsPrefix = `pair:prefs:${session.sessionId || "offline"}:`;
-let state = emptyDraft(plan.round);
-if (editable)
+let activeTheme;
+function installRenderers() {
+  systemTheme = matchMedia("(prefers-color-scheme: dark)");
   try {
-    state = loadDraft(JSON.parse(localStorage.getItem(storageKey)), plan.round);
+    if (/^https?:$/.test(location.protocol)) {
+      const value = document.cookie
+        .split("; ")
+        .find((item) => item.startsWith("pair-theme="))
+        ?.split("=")[1];
+      if (["light", "dark"].includes(value)) preferredTheme = value;
+    }
+  } catch {
+    /* Theme changes remain available without storage. */
+  }
+  activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
+  $("settings").onclick = () => $("settings-dialog").showModal();
+  $("theme").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-theme]");
+    if (!button) return;
+    preferredTheme =
+      button.dataset.theme === "system" ? null : button.dataset.theme;
+    activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
+    try {
+      if (/^https?:$/.test(location.protocol))
+        document.cookie = `pair-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
+    } catch {
+      /* Keep the explicit choice in memory when cookies are blocked. */
+    }
+    theme();
+  });
+  systemTheme.addEventListener("change", () => {
+    if (preferredTheme) return;
+    activeTheme = systemTheme.matches ? "dark" : "light";
+    theme();
+  });
+}
+
+let state;
+function setState(draft) {
+  state = draft;
+}
+// The draft this browser saved for Current, carried over to the round.
+function savedDraft(round) {
+  try {
+    return loadDraft(JSON.parse(localStorage.getItem(storageKey)), round);
   } catch {
     /* The in-memory draft and export remain usable. */
+    return emptyDraft(round);
   }
-let placeStore = { tab: "current", past: null, places: {} };
-try {
-  placeStore = readPlaces(JSON.parse(localStorage.getItem(placeKey)));
-} catch {
-  /* Every round then opens at its first page. */
 }
-const places = placeStore.places;
-if (editable) pastRound = placeStore.past;
-// A reload after a send opens Current waiting for the next round, with the
-// sent round in the left tab.
-if (editable && state.submitted?.round === plan.round) {
-  submittedRound = plan.round;
-  pastRound = plan.round;
-  const view = waitingView(plan.round);
-  plan = view.plan;
-  pages = view.pages;
-  agreements = view.agreements;
-  agreedTask = view.task;
+let places = {};
+function loadPlaces() {
+  let placeStore = { tab: "current", past: null, places: {} };
+  try {
+    placeStore = readPlaces(JSON.parse(localStorage.getItem(placeKey)));
+  } catch {
+    /* Every round then opens at its first page. */
+  }
+  places = placeStore.places;
+  return placeStore;
 }
 const known = {
   choices: new Set(),
@@ -129,7 +164,6 @@ function rebuildKnown() {
   ))
     indexPage(topic);
 }
-rebuildKnown();
 function stale(kind, key, item) {
   if (kind === "note") {
     if (item.topic === "overall") return false;
@@ -153,23 +187,32 @@ function stale(kind, key, item) {
   return !known.choices.has(key);
 }
 
-let page = pages[0],
-  displayedRound = plan.round,
-  remote = null,
-  connected = false,
-  sessions = [],
-  sessionOrder = [],
-  editing = null,
-  noteContext = null,
-  selected = "",
-  selectedTarget = null,
-  submissionError = "",
-  submissionInFlight = false,
-  lastSubmission = null,
-  lastSubmissionLoadedId = null,
-  noteDraftKey = "",
-  renderedFeedback = null,
-  answerTimer;
+let page;
+function setPage(next) {
+  page = next;
+}
+let displayedRound;
+let remote = null;
+function setRemote(status) {
+  remote = status;
+}
+let connected = false;
+let sessions = [];
+let sessionOrder = [];
+let editing = null;
+let noteContext = null;
+let noteDraftKey = "";
+let selected = "";
+let selectedTarget = null;
+let submissionError = "";
+let submissionInFlight = false;
+let lastSubmission = null;
+let lastSubmissionLoadedId = null;
+let renderedFeedback = null;
+function setRenderedFeedback(value) {
+  renderedFeedback = value;
+}
+let answerTimer;
 const charts = new Map();
 const diffs = new Map();
 // In-flight renderers, so a page re-render can restore the scroll position
@@ -195,12 +238,15 @@ const feedbackEditable = () =>
   selectedTab === "current" &&
   !submissionInFlight &&
   !submittedCurrent();
-const reviewAlerts = createReviewAlerts({
-  window,
-  button: $("notifications"),
-  sessionId: session.sessionId,
-  open: (href) => location.assign(new URL(href, location.href).href),
-});
+let reviewAlerts;
+function installSessions() {
+  reviewAlerts = createReviewAlerts({
+    window,
+    button: $("notifications"),
+    sessionId: session.sessionId,
+    open: (href) => location.assign(new URL(href, location.href).href),
+  });
+}
 const prefs = {
   get(key) {
     try {
@@ -321,7 +367,6 @@ function rememberHeight() {
   if (restoring?.round === displayedRound && restoring.page === pageId) return;
   heights.set(`${displayedRound}:${pageId}`, shownBody().offsetHeight);
 }
-document.addEventListener("scroll", rememberHeight, true);
 function endRestore() {
   restoring = null;
   $("page-content").style.minHeight = "";
@@ -356,7 +401,10 @@ function settleScroll() {
     if ($("reading").hidden || !page.pending) endRestore();
   });
 }
-document.addEventListener("scroll", rememberPlace, true);
+function installPlaces() {
+  document.addEventListener("scroll", rememberHeight, true);
+  document.addEventListener("scroll", rememberPlace, true);
+}
 function visiblePageId() {
   if (displayedRound !== viewKey()) return null;
   return $("reading").hidden ? "feedback" : page.id;
@@ -378,7 +426,7 @@ function show(
   $("feedback").hidden = !feedback;
   if (!feedback) {
     clearHighlight("plan-note");
-    page = pages.find((item) => item.id === id) || pages[0];
+    setPage(pages.find((item) => item.id === id) || pages[0]);
     if (page.status === "ready" && page.pending)
       void loadPageRecord(plan.round, page.id).catch(() => {});
     disposeRenderers();
@@ -597,26 +645,46 @@ function showTip(event) {
   tip.style.left = `${Math.min(event.pageX + 14, innerWidth - width - 12)}px`;
   tip.style.top = `${event.pageY + 18}px`;
 }
-$("page-content").addEventListener("mousemove", showTip);
-$("page-content").addEventListener("mouseleave", () => {
-  $("note-tip").hidden = true;
-  tipNotes = "";
-});
-$("page-content").addEventListener("click", (event) => {
-  if (!editable || event.target.closest("button, a, input, textarea, summary"))
-    return;
-  const notes = notesAt(event.clientX, event.clientY);
-  if (notes.length === 1)
-    openNote(
-      notes[0].topic,
-      notes[0].anchor,
-      notes[0].quote,
-      notes[0].id,
-      notes[0].agreementId,
-      notes[0].target,
-    );
-  else if (notes.length > 1) show("feedback");
-});
+function installNotes() {
+  rebuildKnown();
+  $("page-content").addEventListener("mousemove", showTip);
+  $("page-content").addEventListener("mouseleave", () => {
+    $("note-tip").hidden = true;
+    tipNotes = "";
+  });
+  $("page-content").addEventListener("click", (event) => {
+    if (
+      !editable ||
+      event.target.closest("button, a, input, textarea, summary")
+    )
+      return;
+    const notes = notesAt(event.clientX, event.clientY);
+    if (notes.length === 1)
+      openNote(
+        notes[0].topic,
+        notes[0].anchor,
+        notes[0].quote,
+        notes[0].id,
+        notes[0].agreementId,
+        notes[0].target,
+      );
+    else if (notes.length > 1) show("feedback");
+  });
+  /* Rebuild the range after a close has finished any page replacement. */
+  $("note-dialog").addEventListener("close", () => {
+    requestAnimationFrame(() => {
+      if (
+        !$("note-dialog").open &&
+        !$("reading").hidden &&
+        page.id !== "agreed"
+      )
+        markNotes();
+    });
+  });
+  /* A tab switch, an image, or a new window width moves the block under the
+     bar, and each of those changes the page's own size. */
+  new ResizeObserver(placeMarks).observe($("page-content"));
+}
 
 function openNote(
   topic,
@@ -646,10 +714,11 @@ function openNote(
     state.noteDrafts?.[noteDraftKey] ??
     (id ? state.notes.find((note) => note.id === id).text : "");
   settleNoteImages();
-  noteImages = id
-    ? [...(state.notes.find((note) => note.id === id)?.attachments || [])]
-    : [];
-  noteImagesAtOpen = noteImages.map((item) => item.id);
+  setNoteImages(
+    id
+      ? [...(state.notes.find((note) => note.id === id)?.attachments || [])]
+      : [],
+  );
   drawNoteImages();
   imageError("");
   $("note-title").textContent = id ? "Edit note" : "Add note";
@@ -660,13 +729,6 @@ function openNote(
   $("note-text").focus();
   $("quote").hidden = true;
 }
-/* Rebuild the range after a close has finished any page replacement. */
-$("note-dialog").addEventListener("close", () => {
-  requestAnimationFrame(() => {
-    if (!$("note-dialog").open && !$("reading").hidden && page.id !== "agreed")
-      markNotes();
-  });
-});
 
 /* Agreed */
 function agreementLabel(entry) {
@@ -1307,7 +1369,7 @@ function badge(count) {
 /* On a narrow screen the page list is a dialog, like every other panel.
    The one navigation element moves between the sidebar and the dialog, so
    the current page and the counts live in a single place. */
-const narrow = matchMedia("(max-width: 720px)");
+let narrow;
 function placeNavigation() {
   const target = narrow.matches ? $("pages-slot") : $("sidebar-slot");
   if ($("navigation").parentElement !== target) target.append($("navigation"));
@@ -1682,7 +1744,7 @@ async function send(event) {
   if (!response.ok) throw Error(result.error);
   if (result.status.sessionId !== session.sessionId)
     throw Error("Session identity mismatch.");
-  remote = result.status;
+  setRemote(result.status);
   return result;
 }
 
@@ -1705,10 +1767,7 @@ async function loadPageRecord(round, id) {
     if (id === "agreed") {
       view.agreements = record.page.agreements;
       view.task = record.page.task || null;
-      if (plan.round === round && !showingWaiting()) {
-        agreements = view.agreements;
-        agreedTask = view.task;
-      }
+      if (plan.round === round && !showingWaiting()) useView(view);
     } else {
       let setup = null;
       if (record.page.jsText) {
@@ -1806,7 +1865,7 @@ function reconcilePages(view, manifest) {
     view.pages.find((item) => item.id === slot.id),
   );
   view.plan.pages = view.pages.filter((item) => item.id !== "agreed");
-  if (plan.round === view.plan.round && !showingWaiting()) pages = view.pages;
+  if (plan.round === view.plan.round && !showingWaiting()) useView(view);
 }
 // A round this reader has not loaded, which its page set then fills in.
 function emptyView(round, { name, offer, title }) {
@@ -1916,7 +1975,7 @@ async function openPast(round, { pageId = null, targetId = null } = {}) {
     location.assign(`${base}/r/${encodeURIComponent(round)}`);
     return;
   }
-  pastRound = round;
+  setPastRound(round);
   if (pageId) places[round] = { page: pageId, top: 0 };
   switchTab("past", targetId, { showPage: true });
 }
@@ -1925,14 +1984,7 @@ async function openPast(round, { pageId = null, targetId = null } = {}) {
 function currentDraft() {
   const view = views.get(remote?.current?.round);
   if (view?.draft) return view.draft;
-  try {
-    return loadDraft(
-      JSON.parse(localStorage.getItem(storageKey)),
-      remote.current.round,
-    );
-  } catch {
-    return emptyDraft(remote.current.round);
-  }
+  return savedDraft(remote.current.round);
 }
 // Each tab reopens its round at the page and scroll position the reader
 // left, or at Agreed on a first visit.
@@ -1948,27 +2000,19 @@ function switchTab(tab, targetId = null, { showPage = true } = {}) {
       : views.get(round);
   views.get(plan.round).draft = state;
   selectedTab = tab;
-  plan = view.plan;
+  useView(view);
   document.title = plan.title;
-  agreements = view.agreements;
-  agreedTask = view.task || null;
-  pages = view.pages;
-  let saved = null;
-  try {
-    saved = JSON.parse(localStorage.getItem(storageKey));
-  } catch {
-    /* The in-memory draft and export remain available. */
-  }
   // The waiting view has no draft of its own; it holds the sent round's.
-  state =
+  setState(
     views.get(round).draft ||
-    (tab === "past" ? sentDraft(round) : loadDraft(saved, round));
+      (tab === "past" ? sentDraft(round) : savedDraft(round)),
+  );
   rebuildKnown();
   if (tab === "current") initializeChecklists();
-  renderedFeedback = null;
+  setRenderedFeedback(null);
   updateNavigation(true);
   if (showPage) {
-    page = pages[0];
+    setPage(pages[0]);
     const place = view.waiting
       ? null
       : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
@@ -2065,8 +2109,8 @@ async function poll() {
     remote = result;
     connected = true;
     if (editable && !submittedRound)
-      submittedRound = state.submitted?.round || remote.latestSubmissionRound;
-    if (editable && !pastRound) pastRound = submittedRound || null;
+      setSubmittedRound(state.submitted?.round || remote.latestSubmissionRound);
+    if (editable && !pastRound) setPastRound(submittedRound || null);
     // A read-only page stays on its own round. A failed page-set fetch is
     // retried on the next poll and does not mean the hub is unreachable.
     if (editable) {
@@ -2076,9 +2120,9 @@ async function poll() {
     // Current's round was sent, here or in another browser: the left tab
     // takes it, and Current waits for the next round.
     if (waiting() && !submissionInFlight) {
-      submittedRound = remote.current.round;
+      setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
-        pastRound = submittedRound;
+        setPastRound(submittedRound);
         switchTab("current");
       }
     }
@@ -2476,6 +2520,10 @@ function restoreAnswers() {
 let noteImages = [];
 let noteImagesAtOpen = [];
 let noteImagesSaved = false;
+function setNoteImages(images) {
+  noteImages = images;
+  noteImagesAtOpen = images.map((item) => item.id);
+}
 const imageTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 function drawNoteImages() {
   const box = $("note-images");
@@ -2551,76 +2599,63 @@ function settleNoteImages() {
   noteImagesAtOpen = [];
   noteImagesSaved = false;
 }
-$("note-image-pick").onclick = () => $("note-image-input").click();
-$("note-image-input").onchange = (event) => {
-  attach(event.target.files);
-  event.target.value = "";
-};
-$("note-dialog").addEventListener("paste", (event) => {
-  const files = [...event.clipboardData.items]
-    .filter((item) => item.kind === "file")
-    .map((item) => item.getAsFile())
-    .filter(Boolean);
-  if (!files.length) return;
-  event.preventDefault();
-  attach(files);
-});
-for (const type of ["dragover", "dragenter"])
-  $("note-dialog").addEventListener(type, (event) => {
-    event.preventDefault();
-    $("note-dialog").classList.add("dropping");
-  });
-for (const type of ["dragleave", "drop"])
-  $("note-dialog").addEventListener(type, (event) => {
-    event.preventDefault();
-    if (type === "dragleave" && $("note-dialog").contains(event.relatedTarget))
-      return;
-    $("note-dialog").classList.remove("dropping");
-    if (type === "drop") attach(event.dataTransfer.files);
-  });
 
-$("note-form").onsubmit = (event) => {
-  event.preventDefault();
-  if (!feedbackEditable()) return;
-  const text = $("note-text").value.trim();
-  if (!text) return;
-  const note = {
-    ...noteContext,
-    id: editing || uuid(),
-    text,
-    round: plan.round,
-    ...(noteImages.length ? { attachments: noteImages } : {}),
+function installNoteDialog() {
+  $("note-image-pick").onclick = () => $("note-image-input").click();
+  $("note-image-input").onchange = (event) => {
+    attach(event.target.files);
+    event.target.value = "";
   };
-  if (editing)
-    state.notes = state.notes.map((item) =>
-      item.id === editing ? note : item,
-    );
-  else state.notes.push(note);
-  if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
-  noteImagesSaved = true;
-  save();
-  $("note-dialog").close();
-  if (note.topic === page.id && !$("reading").hidden)
-    show(page.id, null, { keepScroll: true });
-};
-$("align-unflagged").onchange = (event) => {
-  if (!feedbackEditable()) return;
-  state.alignUnflagged = event.target.checked;
-  save();
-};
-$("submit").onclick = () => {
-  if (selectedTab === "past") {
-    // Current's round was already sent, so the button opens its Feedback.
-    if (!currentAvailable()) {
-      places[submittedRound] = { page: "feedback", top: 0 };
-      void openPast(submittedRound);
-      return;
-    }
-    switchTab("current");
-  }
-  if (plan.offer) openFinish();
-  else void sendFeedback();
-};
+  $("note-dialog").addEventListener("paste", (event) => {
+    const files = [...event.clipboardData.items]
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (!files.length) return;
+    event.preventDefault();
+    attach(files);
+  });
+  for (const type of ["dragover", "dragenter"])
+    $("note-dialog").addEventListener(type, (event) => {
+      event.preventDefault();
+      $("note-dialog").classList.add("dropping");
+    });
+  for (const type of ["dragleave", "drop"])
+    $("note-dialog").addEventListener(type, (event) => {
+      event.preventDefault();
+      if (
+        type === "dragleave" &&
+        $("note-dialog").contains(event.relatedTarget)
+      )
+        return;
+      $("note-dialog").classList.remove("dropping");
+      if (type === "drop") attach(event.dataTransfer.files);
+    });
+  $("note-form").onsubmit = (event) => {
+    event.preventDefault();
+    if (!feedbackEditable()) return;
+    const text = $("note-text").value.trim();
+    if (!text) return;
+    const note = {
+      ...noteContext,
+      id: editing || uuid(),
+      text,
+      round: plan.round,
+      ...(noteImages.length ? { attachments: noteImages } : {}),
+    };
+    if (editing)
+      state.notes = state.notes.map((item) =>
+        item.id === editing ? note : item,
+      );
+    else state.notes.push(note);
+    if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
+    noteImagesSaved = true;
+    save();
+    $("note-dialog").close();
+    if (note.topic === page.id && !$("reading").hidden)
+      show(page.id, null, { keepScroll: true });
+  };
+}
 // Sends Current's draft, with the overall comment typed in the Finish review
 // dialog when there is one, and leaves Current waiting on Agreed for the next
 // round. From the header, Agreed shows the send while it is in flight and
@@ -2664,8 +2699,8 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     delete state.requestCommentId;
     markSent(state, result.id, new Date().toISOString());
     submissionInFlight = false;
-    submittedRound = plan.round;
-    pastRound = plan.round;
+    setSubmittedRound(plan.round);
+    setPastRound(plan.round);
     if (fromDialog) switchTab("current");
     save();
     void loadSubmission().catch(() => {});
@@ -2686,27 +2721,6 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     review();
   }
 }
-$("save-error-dismiss").onclick = () => {
-  submissionError = "";
-  review();
-};
-$("export").onclick = () => {
-  const groups = submissionGroups(state);
-  const event =
-    (state.pending?.snapshot === JSON.stringify(groups) &&
-      state.pending.event) ||
-    envelope("feedback-only", feedbackText(), { groups });
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(event, null, 2)], {
-      type: "application/json",
-    }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${plan.name}-${plan.round}-feedback.json`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-};
 /* Finish review: on a round with an offer the reader accepts it or requests
    changes, and whatever they drafted goes with either decision. */
 const commentsDrafted = () => {
@@ -2775,50 +2789,91 @@ function finishBusy(busy) {
   if (busy) $("request-changes").disabled = true;
   else requestable();
 }
-for (const row of document.querySelectorAll("[data-decision]")) {
-  row.onclick = () => chooseDecision(row.dataset.decision);
-  row.onkeydown = (event) => {
-    if (!/^Arrow(Up|Down|Left|Right)$/.test(event.key)) return;
-    event.preventDefault();
-    const next = row.dataset.decision === "accept" ? "changes" : "accept";
-    chooseDecision(next);
-    document.querySelector(`[data-decision="${next}"]`).focus();
+function installSend() {
+  $("align-unflagged").onchange = (event) => {
+    if (!feedbackEditable()) return;
+    state.alignUnflagged = event.target.checked;
+    save();
+  };
+  $("submit").onclick = () => {
+    if (selectedTab === "past") {
+      // Current's round was already sent, so the button opens its Feedback.
+      if (!currentAvailable()) {
+        places[submittedRound] = { page: "feedback", top: 0 };
+        void openPast(submittedRound);
+        return;
+      }
+      switchTab("current");
+    }
+    if (plan.offer) openFinish();
+    else void sendFeedback();
+  };
+  $("save-error-dismiss").onclick = () => {
+    submissionError = "";
+    review();
+  };
+  $("export").onclick = () => {
+    const groups = submissionGroups(state);
+    const event =
+      (state.pending?.snapshot === JSON.stringify(groups) &&
+        state.pending.event) ||
+      envelope("feedback-only", feedbackText(), { groups });
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(event, null, 2)], {
+        type: "application/json",
+      }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${plan.name}-${plan.round}-feedback.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+  for (const row of document.querySelectorAll("[data-decision]")) {
+    row.onclick = () => chooseDecision(row.dataset.decision);
+    row.onkeydown = (event) => {
+      if (!/^Arrow(Up|Down|Left|Right)$/.test(event.key)) return;
+      event.preventDefault();
+      const next = row.dataset.decision === "accept" ? "changes" : "accept";
+      chooseDecision(next);
+      document.querySelector(`[data-decision="${next}"]`).focus();
+    };
+  }
+  $("accept-guidance").oninput = (event) => {
+    state.acceptGuidance = event.target.value;
+    persist();
+  };
+  $("request-comment").oninput = (event) => {
+    state.requestComment = event.target.value;
+    persist();
+    requestable();
+  };
+  $("request-changes").onclick = async () => {
+    const text = $("request-comment").value.trim();
+    // The id is kept until the send succeeds, so a retry sends the same note.
+    if (text) state.requestCommentId ||= uuid();
+    const comment = text
+      ? {
+          topic: "overall",
+          anchor: "Overall feedback",
+          quote: "",
+          id: state.requestCommentId,
+          text,
+          round: plan.round,
+        }
+      : null;
+    finishError("");
+    finishBusy(true);
+    try {
+      await sendFeedback({ comment, fromDialog: true });
+      $("finish-dialog").close();
+    } catch (error) {
+      finishError(unreachable(error));
+    } finally {
+      finishBusy(false);
+    }
   };
 }
-$("accept-guidance").oninput = (event) => {
-  state.acceptGuidance = event.target.value;
-  persist();
-};
-$("request-comment").oninput = (event) => {
-  state.requestComment = event.target.value;
-  persist();
-  requestable();
-};
-$("request-changes").onclick = async () => {
-  const text = $("request-comment").value.trim();
-  // The id is kept until the send succeeds, so a retry sends the same note.
-  if (text) state.requestCommentId ||= uuid();
-  const comment = text
-    ? {
-        topic: "overall",
-        anchor: "Overall feedback",
-        quote: "",
-        id: state.requestCommentId,
-        text,
-        round: plan.round,
-      }
-    : null;
-  finishError("");
-  finishBusy(true);
-  try {
-    await sendFeedback({ comment, fromDialog: true });
-    $("finish-dialog").close();
-  } catch (error) {
-    finishError(unreachable(error));
-  } finally {
-    finishBusy(false);
-  }
-};
 const unreachable = (error) =>
   error instanceof TypeError
     ? "The hub is unreachable. Try again shortly."
@@ -2856,95 +2911,33 @@ async function acceptOffer(action) {
     finishBusy(false);
   }
 }
-// A click inside an embedded frame never reaches this document, but it does
-// move focus, so menus close on blur as well as on outside clicks.
-window.addEventListener("blur", closeMenus);
-document.addEventListener("click", (event) => {
-  const close = event.target.closest("[data-close]");
-  if (close) {
-    if (close.dataset.close === "note-dialog") settleNoteImages();
-    $(close.dataset.close).close();
-  }
-  const tab = event.target.closest("button[data-tab]");
-  if (tab) {
-    switchTab(tab.dataset.tab, null, { showPage: false });
-    return;
-  }
-  const navigation = event.target.closest("[data-page]");
-  if (navigation) {
-    event.preventDefault();
-    show(navigation.dataset.page);
-  }
-  if (event.target.closest("#round")) {
-    toggleRoundMenu();
-    return;
-  }
-  if (event.target.closest("#bell")) {
-    toggleSidecar();
-    return;
-  }
-  if (event.target.closest("#sidecar-close")) {
-    toggleSidecar(false);
-    return;
-  }
-  if (!feedbackEditable()) return;
-  const comment = event.target.closest("[data-comment]");
-  if (comment && $("page-content").contains(comment))
-    openNote(
-      page.id,
-      comment.dataset.comment || page.title,
-      "",
-      null,
-      null,
-      comment.closest("[id]")?.id || null,
+function installControls() {
+  document.addEventListener("change", (event) => {
+    if (!feedbackEditable()) return;
+    const input = event.target.closest(
+      '[data-multiselect] input[type="checkbox"][data-value]',
     );
-  const choice = event.target.closest("[data-choice] [data-value]");
-  if (choice && $("page-content").contains(choice)) {
-    const group = choice.closest("[data-choice]"),
-      id = page.id + "/" + group.dataset.choice;
-    if (state.choices[id]?.value === choice.dataset.value)
-      delete state.choices[id];
-    else
-      state.choices[id] = {
-        topic: page.id,
-        label: group.dataset.label || group.dataset.choice,
-        value: choice.dataset.value,
-        valueLabel:
-          choice.dataset.label ||
-          choice.textContent.trim() ||
-          choice.dataset.value,
-        target: group.id,
-        round: plan.round,
-      };
-    restoreChoices();
+    if (!input) return;
+    const group = input.closest("[data-multiselect]");
+    state.choices[page.id + "/" + group.dataset.multiselect] = {
+      ...checklist(group, page.id),
+      touched: true,
+    };
     save();
-  }
-});
-document.addEventListener("change", (event) => {
-  if (!feedbackEditable()) return;
-  const input = event.target.closest(
-    '[data-multiselect] input[type="checkbox"][data-value]',
-  );
-  if (!input) return;
-  const group = input.closest("[data-multiselect]");
-  state.choices[page.id + "/" + group.dataset.multiselect] = {
-    ...checklist(group, page.id),
-    touched: true,
-  };
-  save();
-});
-document.addEventListener("input", (event) => {
-  if (!feedbackEditable()) return;
-  const area = event.target.closest("[data-question] textarea");
-  if (!area || !$("page-content").contains(area)) return;
-  const group = area.closest("[data-question]");
-  const key = page.id + "/" + group.dataset.question;
-  state.drafts ||= {};
-  if (area.value.trim()) state.drafts[key] = area.value;
-  else delete state.drafts[key];
-  clearTimeout(answerTimer);
-  answerTimer = setTimeout(save, 300);
-});
+  });
+  document.addEventListener("input", (event) => {
+    if (!feedbackEditable()) return;
+    const area = event.target.closest("[data-question] textarea");
+    if (!area || !$("page-content").contains(area)) return;
+    const group = area.closest("[data-question]");
+    const key = page.id + "/" + group.dataset.question;
+    state.drafts ||= {};
+    if (area.value.trim()) state.drafts[key] = area.value;
+    else delete state.drafts[key];
+    clearTimeout(answerTimer);
+    answerTimer = setTimeout(save, 300);
+  });
+}
 /* One button, three meanings: the selection, the block you chose, or the
    page. Nothing is drawn on a block except the bar marking the chosen one. */
 let chosen = null;
@@ -2993,9 +2986,6 @@ function placeMarks() {
   placeBar();
   placeNoteBars();
 }
-/* A tab switch, an image, or a new window width moves the block under the
-   bar, and each of those changes the page's own size. */
-new ResizeObserver(placeMarks).observe($("page-content"));
 /* The button names what kind of thing it will comment on; the note itself
    still records the block's own heading. */
 function blockKind(block) {
@@ -3035,28 +3025,6 @@ function commentTarget() {
   else if (chosen) button.textContent = `Comment on ${blockKind(chosen)}`;
   else button.textContent = "Comment on this page";
 }
-document.addEventListener("selectionchange", () => {
-  const selection = getSelection(),
-    parent = selection?.anchorNode?.parentElement;
-  selected = parent?.closest("#page-content")
-    ? selection?.toString().trim() || ""
-    : "";
-  selectedTarget = parent?.closest("#page-content [id]")?.id || null;
-  commentTarget();
-});
-/* A control does its own job, a block becomes the target, and anything else
-   clears it. A drag is a selection, so it never reaches here as a press. */
-$("page-content").addEventListener("click", (event) => {
-  if (!feedbackEditable() || page.pending) return;
-  if (
-    event.target.closest("button, a, input, label, select, textarea, summary")
-  )
-    return;
-  if (getSelection()?.toString().trim()) return;
-  const block = event.target.closest("#page-content > *");
-  // A paragraph, a heading or a list is commented on by selecting its words.
-  chooseBlock(block && !blockSkip.has(block.tagName) ? block : null);
-});
 /* The control and the c key comment on the same thing, so they share the
    one function that decides what that is. */
 function commentOnTarget() {
@@ -3070,124 +3038,194 @@ function commentOnTarget() {
   } else openNote(page.id, page.title);
   chooseBlock(null);
 }
-$("quote").onpointerdown = (event) => event.preventDefault();
-$("quote").onclick = commentOnTarget;
-$("overall-note").onclick = () => openNote("overall", "Overall feedback");
-$("note-text").oninput = () => {
-  (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
-  persist();
-};
-for (const dialog of document.querySelectorAll("dialog")) {
-  dialog.addEventListener("click", (event) => {
-    if (event.target !== dialog) return;
-    const bounds = dialog.getBoundingClientRect();
+function installBlocks() {
+  document.addEventListener("selectionchange", () => {
+    const selection = getSelection(),
+      parent = selection?.anchorNode?.parentElement;
+    selected = parent?.closest("#page-content")
+      ? selection?.toString().trim() || ""
+      : "";
+    selectedTarget = parent?.closest("#page-content [id]")?.id || null;
+    commentTarget();
+  });
+  /* A control does its own job, a block becomes the target, and anything else
+     clears it. A drag is a selection, so it never reaches here as a press. */
+  $("page-content").addEventListener("click", (event) => {
+    if (!feedbackEditable() || page.pending) return;
     if (
-      event.clientX < bounds.left ||
-      event.clientX > bounds.right ||
-      event.clientY < bounds.top ||
-      event.clientY > bounds.bottom
+      event.target.closest("button, a, input, label, select, textarea, summary")
     )
-      dialog.close();
+      return;
+    if (getSelection()?.toString().trim()) return;
+    const block = event.target.closest("#page-content > *");
+    // A paragraph, a heading or a list is commented on by selecting its words.
+    chooseBlock(block && !blockSkip.has(block.tagName) ? block : null);
+  });
+  $("quote").onpointerdown = (event) => event.preventDefault();
+  $("quote").onclick = commentOnTarget;
+  $("overall-note").onclick = () => openNote("overall", "Overall feedback");
+  $("note-text").oninput = () => {
+    (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
+    persist();
+  };
+}
+
+function installEvents() {
+  // A click inside an embedded frame never reaches this document, but it does
+  // move focus, so menus close on blur as well as on outside clicks.
+  window.addEventListener("blur", closeMenus);
+  document.addEventListener("click", (event) => {
+    const close = event.target.closest("[data-close]");
+    if (close) {
+      if (close.dataset.close === "note-dialog") settleNoteImages();
+      $(close.dataset.close).close();
+    }
+    const tab = event.target.closest("button[data-tab]");
+    if (tab) {
+      switchTab(tab.dataset.tab, null, { showPage: false });
+      return;
+    }
+    const navigation = event.target.closest("[data-page]");
+    if (navigation) {
+      event.preventDefault();
+      show(navigation.dataset.page);
+    }
+    if (event.target.closest("#round")) {
+      toggleRoundMenu();
+      return;
+    }
+    if (event.target.closest("#bell")) {
+      toggleSidecar();
+      return;
+    }
+    if (event.target.closest("#sidecar-close")) {
+      toggleSidecar(false);
+      return;
+    }
+    if (!feedbackEditable()) return;
+    const comment = event.target.closest("[data-comment]");
+    if (comment && $("page-content").contains(comment))
+      openNote(
+        page.id,
+        comment.dataset.comment || page.title,
+        "",
+        null,
+        null,
+        comment.closest("[id]")?.id || null,
+      );
+    const choice = event.target.closest("[data-choice] [data-value]");
+    if (choice && $("page-content").contains(choice)) {
+      const group = choice.closest("[data-choice]"),
+        id = page.id + "/" + group.dataset.choice;
+      if (state.choices[id]?.value === choice.dataset.value)
+        delete state.choices[id];
+      else
+        state.choices[id] = {
+          topic: page.id,
+          label: group.dataset.label || group.dataset.choice,
+          value: choice.dataset.value,
+          valueLabel:
+            choice.dataset.label ||
+            choice.textContent.trim() ||
+            choice.dataset.value,
+          target: group.id,
+          round: plan.round,
+        };
+      restoreChoices();
+      save();
+    }
+  });
+  for (const dialog of document.querySelectorAll("dialog")) {
+    dialog.addEventListener("click", (event) => {
+      if (event.target !== dialog) return;
+      const bounds = dialog.getBoundingClientRect();
+      if (
+        event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom
+      )
+        dialog.close();
+    });
+  }
+  /* Keys */
+  document.addEventListener("keydown", (event) => {
+    /* Textareas keep Enter for newlines. Shift+Enter is the explicit submit
+       gesture for the two text actions a reviewer otherwise has to click. */
+    if (
+      event.key === "Enter" &&
+      event.shiftKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      feedbackEditable()
+    ) {
+      const area = event.target.closest("textarea");
+      const answer = area
+        ?.closest("[data-question]")
+        ?.querySelector("[data-answer]");
+      if (answer && !answer.disabled) {
+        event.preventDefault();
+        answer.click();
+        return;
+      }
+      if (area === $("note-text") && area.value.trim()) {
+        event.preventDefault();
+        $("note-form").requestSubmit();
+        return;
+      }
+    }
+    if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
+      return;
+    if (event.key === "Escape") {
+      closeMenus();
+      return;
+    }
+    if (event.target.closest("input, textarea, select, [contenteditable]"))
+      return;
+    if (document.querySelector("dialog[open]")) return;
+    const key = event.key;
+    if (key === "?") $("keys-dialog").showModal();
+    else if (/^[1-9]$/.test(key)) {
+      const entry = sessionOrder[Number(key) - 1];
+      if (entry && entry.id !== session.sessionId) location.assign(entry.url);
+    } else if (key === "]" || key === "[") {
+      const order = pages.map((item) => item.id);
+      const index = order.indexOf($("feedback").hidden ? page.id : "feedback");
+      const next = order[index + (key === "]" ? 1 : -1)];
+      if (next) show(next);
+    } else if (key === "j" || key === "k") {
+      /* The same blocks a click can choose, so the keys reach the comment
+         control's target. Tab still steps through the controls inside one. */
+      const blocks = [...$("page-content").children].filter(
+        (block) => !blockSkip.has(block.tagName) && block.offsetParent,
+      );
+      if (!blocks.length) return;
+      const index = blocks.indexOf(chosen);
+      const next =
+        blocks[
+          index < 0
+            ? key === "j"
+              ? 0
+              : blocks.length - 1
+            : (index + (key === "j" ? 1 : -1) + blocks.length) % blocks.length
+        ];
+      // chooseBlock toggles, so landing on the current block would clear it.
+      if (next !== chosen) chooseBlock(next);
+      next.tabIndex = -1;
+      next.focus({ preventScroll: true });
+      next.scrollIntoView({ block: "center" });
+    } else if (key === "c" && feedbackEditable() && !$("reading").hidden)
+      commentOnTarget();
+    else if (key === "r" && editable) show("feedback");
+    else if (key === "s" && editable) {
+      if ($("submit").disabled) return;
+      $("submit").focus();
+    } else if (key === "a") show("agreed");
+    else return;
+    event.preventDefault();
   });
 }
-$("settings").onclick = () => $("settings-dialog").showModal();
-$("theme").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-theme]");
-  if (!button) return;
-  preferredTheme =
-    button.dataset.theme === "system" ? null : button.dataset.theme;
-  activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
-  try {
-    if (/^https?:$/.test(location.protocol))
-      document.cookie = `pair-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
-  } catch {
-    /* Keep the explicit choice in memory when cookies are blocked. */
-  }
-  theme();
-});
-systemTheme.addEventListener("change", () => {
-  if (preferredTheme) return;
-  activeTheme = systemTheme.matches ? "dark" : "light";
-  theme();
-});
-
-/* Keys */
-document.addEventListener("keydown", (event) => {
-  /* Textareas keep Enter for newlines. Shift+Enter is the explicit submit
-     gesture for the two text actions a reviewer otherwise has to click. */
-  if (
-    event.key === "Enter" &&
-    event.shiftKey &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.altKey &&
-    feedbackEditable()
-  ) {
-    const area = event.target.closest("textarea");
-    const answer = area
-      ?.closest("[data-question]")
-      ?.querySelector("[data-answer]");
-    if (answer && !answer.disabled) {
-      event.preventDefault();
-      answer.click();
-      return;
-    }
-    if (area === $("note-text") && area.value.trim()) {
-      event.preventDefault();
-      $("note-form").requestSubmit();
-      return;
-    }
-  }
-  if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
-    return;
-  if (event.key === "Escape") {
-    closeMenus();
-    return;
-  }
-  if (event.target.closest("input, textarea, select, [contenteditable]"))
-    return;
-  if (document.querySelector("dialog[open]")) return;
-  const key = event.key;
-  if (key === "?") $("keys-dialog").showModal();
-  else if (/^[1-9]$/.test(key)) {
-    const entry = sessionOrder[Number(key) - 1];
-    if (entry && entry.id !== session.sessionId) location.assign(entry.url);
-  } else if (key === "]" || key === "[") {
-    const order = pages.map((item) => item.id);
-    const index = order.indexOf($("feedback").hidden ? page.id : "feedback");
-    const next = order[index + (key === "]" ? 1 : -1)];
-    if (next) show(next);
-  } else if (key === "j" || key === "k") {
-    /* The same blocks a click can choose, so the keys reach the comment
-       control's target. Tab still steps through the controls inside one. */
-    const blocks = [...$("page-content").children].filter(
-      (block) => !blockSkip.has(block.tagName) && block.offsetParent,
-    );
-    if (!blocks.length) return;
-    const index = blocks.indexOf(chosen);
-    const next =
-      blocks[
-        index < 0
-          ? key === "j"
-            ? 0
-            : blocks.length - 1
-          : (index + (key === "j" ? 1 : -1) + blocks.length) % blocks.length
-      ];
-    // chooseBlock toggles, so landing on the current block would clear it.
-    if (next !== chosen) chooseBlock(next);
-    next.tabIndex = -1;
-    next.focus({ preventScroll: true });
-    next.scrollIntoView({ block: "center" });
-  } else if (key === "c" && feedbackEditable() && !$("reading").hidden)
-    commentOnTarget();
-  else if (key === "r" && editable) show("feedback");
-  else if (key === "s" && editable) {
-    if ($("submit").disabled) return;
-    $("submit").focus();
-  } else if (key === "a") show("agreed");
-  else return;
-  event.preventDefault();
-});
 
 /* Renderers and figures */
 const libraries = {
@@ -3414,9 +3452,11 @@ function enhance(root) {
     }
   }
 }
-new ResizeObserver(() => {
-  for (const instance of charts.values()) instance.resize();
-}).observe($("page-content"));
+function installRegistry() {
+  new ResizeObserver(() => {
+    for (const instance of charts.values()) instance.resize();
+  }).observe($("page-content"));
+}
 let activeDrawing = null;
 function drawingError(message) {
   $("drawing-error").textContent = message;
@@ -3460,99 +3500,103 @@ async function openDrawing(id, label, target, onSaved) {
   ).replace("__DRAWING_NONCE__", JSON.stringify(nonce));
   $("drawing-dialog").showModal();
 }
-$("drawing-cancel").onclick = closeDrawing;
-$("drawing-dialog").addEventListener("close", resetDrawing);
-$("drawing-save").onclick = () => {
-  if (!activeDrawing) return;
-  $("drawing-save").disabled = true;
-  $("drawing-frame").contentWindow.postMessage(
-    { type: "save", nonce: activeDrawing.nonce },
-    "*",
-  );
-};
-addEventListener("message", async (event) => {
-  const drawing = activeDrawing;
-  if (
-    !drawing ||
-    event.source !== $("drawing-frame").contentWindow ||
-    event.data?.nonce !== drawing.nonce
-  )
-    return;
-  if (event.data.type === "ready") {
-    clearTimeout(drawing.loadingTimer);
-    drawing.loadingTimer = null;
-    $("drawing-save").disabled = false;
-    event.source.postMessage(
-      { type: "init", nonce: drawing.nonce, scene: drawing.scene },
+function installDrawing() {
+  $("drawing-cancel").onclick = closeDrawing;
+  $("drawing-dialog").addEventListener("close", resetDrawing);
+  $("drawing-save").onclick = () => {
+    if (!activeDrawing) return;
+    $("drawing-save").disabled = true;
+    $("drawing-frame").contentWindow.postMessage(
+      { type: "save", nonce: activeDrawing.nonce },
       "*",
     );
-  } else if (event.data.type === "error") {
-    drawingError(event.data.message || "Could not save the drawing.");
-  } else if (event.data.type === "saved") {
-    try {
-      const [sceneResponse, previewResponse] = await Promise.all([
-        fetch(`${base}/api/drawing-scene`, {
-          method: "POST",
-          body: JSON.stringify(event.data.scene),
-        }),
-        fetch(`${base}/api/upload`, { method: "POST", body: event.data.png }),
-      ]);
-      if (!sceneResponse.ok || !previewResponse.ok)
-        throw new Error("Could not upload the drawing. Please try again.");
-      const [scene, preview] = await Promise.all([
-        sceneResponse.json(),
-        previewResponse.json(),
-      ]);
-      if (activeDrawing !== drawing) return;
-      const answer = {
-        topic: drawing.topic,
-        label: drawing.label,
-        kind: "drawing",
-        round: plan.round,
-        sceneId: scene.id,
-        previewId: preview.id,
-        target: drawing.target,
-      };
-      state.answers[drawing.key] = answer;
-      save();
-      drawing.onSaved(answer);
-      closeDrawing();
-    } catch (error) {
-      drawingError(error.message || "Could not save the drawing.");
+  };
+  addEventListener("message", async (event) => {
+    const drawing = activeDrawing;
+    if (
+      !drawing ||
+      event.source !== $("drawing-frame").contentWindow ||
+      event.data?.nonce !== drawing.nonce
+    )
+      return;
+    if (event.data.type === "ready") {
+      clearTimeout(drawing.loadingTimer);
+      drawing.loadingTimer = null;
+      $("drawing-save").disabled = false;
+      event.source.postMessage(
+        { type: "init", nonce: drawing.nonce, scene: drawing.scene },
+        "*",
+      );
+    } else if (event.data.type === "error") {
+      drawingError(event.data.message || "Could not save the drawing.");
+    } else if (event.data.type === "saved") {
+      try {
+        const [sceneResponse, previewResponse] = await Promise.all([
+          fetch(`${base}/api/drawing-scene`, {
+            method: "POST",
+            body: JSON.stringify(event.data.scene),
+          }),
+          fetch(`${base}/api/upload`, { method: "POST", body: event.data.png }),
+        ]);
+        if (!sceneResponse.ok || !previewResponse.ok)
+          throw new Error("Could not upload the drawing. Please try again.");
+        const [scene, preview] = await Promise.all([
+          sceneResponse.json(),
+          previewResponse.json(),
+        ]);
+        if (activeDrawing !== drawing) return;
+        const answer = {
+          topic: drawing.topic,
+          label: drawing.label,
+          kind: "drawing",
+          round: plan.round,
+          sceneId: scene.id,
+          previewId: preview.id,
+          target: drawing.target,
+        };
+        state.answers[drawing.key] = answer;
+        save();
+        drawing.onSaved(answer);
+        closeDrawing();
+      } catch (error) {
+        drawingError(error.message || "Could not save the drawing.");
+      }
     }
-  }
-});
-window.planUI = {
-  answer(id, text, label, target) {
-    if (!feedbackEditable()) return;
-    const key = page.id + "/" + id;
-    if (text.trim())
-      state.answers[key] = {
-        topic: page.id,
-        label: label || id,
-        text,
-        target,
-        round: plan.round,
-      };
-    else delete state.answers[key];
-    save();
-  },
-  drawing(id) {
-    return state.answers[`${page.id}/${id}`];
-  },
-  draw: openDrawing,
-  chart,
-  define,
-  diff,
-  comment: (anchor, quote = "") => openNote(page.id, anchor, quote),
-  enhance,
-  prefs,
-  mode,
-  page: null,
-};
+  });
+}
+function recordAnswer(id, text, label, target) {
+  if (!feedbackEditable()) return;
+  const key = page.id + "/" + id;
+  if (text.trim())
+    state.answers[key] = {
+      topic: page.id,
+      label: label || id,
+      text,
+      target,
+      round: plan.round,
+    };
+  else delete state.answers[key];
+  save();
+}
+function drawingAnswer(id) {
+  return state.answers[`${page.id}/${id}`];
+}
+function createPlanUI() {
+  return {
+    answer: recordAnswer,
+    drawing: drawingAnswer,
+    draw: openDrawing,
+    chart,
+    define,
+    diff,
+    comment: (anchor, quote = "") => openNote(page.id, anchor, quote),
+    enhance,
+    prefs,
+    mode,
+    page: null,
+  };
+}
 
-/* Start */
-document.title = plan.title;
 // Agreed so far reads before the pages, Review or Feedback after them, each
 // behind a separator, and the drawer shows the same list as the sidebar.
 function separator() {
@@ -3593,26 +3637,7 @@ function addPageButton(item) {
   }
   $("page-list").append(button);
 }
-const tabs = document.createElement("div");
-tabs.className = "page-tabs";
-tabs.setAttribute("role", "tablist");
-tabs.setAttribute("aria-label", "Page versions");
-// The left tab holds the past round on screen, so the tabs read in time
-// order.
-for (const tab of ["past", "current"]) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.id = `${tab}-tab`;
-  button.dataset.tab = tab;
-  button.setAttribute("role", "tab");
-  button.textContent = tab === "current" ? "Current" : "Previous";
-  tabs.append(button);
-}
-// A read-only page shows one round, so there is nothing to switch to.
-tabs.hidden = !editable;
-const pageList = document.createElement("div");
-pageList.id = "page-list";
-$("navigation").append(tabs, pageList);
+let pageList;
 function updateNavigation(force = false) {
   const currentSet = pageSets.get(remote?.current?.round);
   const readyPages = currentAvailable()
@@ -3678,11 +3703,6 @@ function updateNavigation(force = false) {
       button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
 }
-updateNavigation(true);
-$("menu-button").addEventListener("click", () =>
-  $("pages-dialog").open ? closeDrawer() : openDrawer(),
-);
-$("feedback-pages").addEventListener("click", openDrawer);
 let arrivalTimer;
 let arrivalPage = null;
 function hideArrival() {
@@ -3704,12 +3724,88 @@ function announceArrivals(previousReady) {
   $("page-arrival").hidden = false;
   arrivalTimer = setTimeout(hideArrival, 5500);
 }
-$("page-arrival-view").addEventListener("click", () => {
-  hideArrival();
-  if (arrivalPage) show(arrivalPage);
-  else openDrawer();
+function installPages() {
+  displayedRound = plan.round;
+  narrow = matchMedia("(max-width: 720px)");
+  const tabs = document.createElement("div");
+  tabs.className = "page-tabs";
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Page versions");
+  // The left tab holds the past round on screen, so the tabs read in time
+  // order.
+  for (const tab of ["past", "current"]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = `${tab}-tab`;
+    button.dataset.tab = tab;
+    button.setAttribute("role", "tab");
+    button.textContent = tab === "current" ? "Current" : "Previous";
+    tabs.append(button);
+  }
+  // A read-only page shows one round, so there is nothing to switch to.
+  tabs.hidden = !editable;
+  pageList = document.createElement("div");
+  pageList.id = "page-list";
+  $("navigation").append(tabs, pageList);
+  updateNavigation(true);
+  $("menu-button").addEventListener("click", () =>
+    $("pages-dialog").open ? closeDrawer() : openDrawer(),
+  );
+  $("feedback-pages").addEventListener("click", openDrawer);
+  $("page-arrival-view").addEventListener("click", () => {
+    hideArrival();
+    if (arrivalPage) show(arrivalPage);
+    else openDrawer();
+  });
+  $("page-arrival-dismiss").addEventListener("click", hideArrival);
+}
+
+/* Start */
+const planData = JSON.parse($("plan-data").textContent);
+useSession(
+  JSON.parse($("session-config").textContent),
+  planData.name,
+  new URL(location.href),
+);
+document.documentElement.dataset.mode = mode;
+useView({
+  plan: planData,
+  agreements: planData.agreements || [],
+  task: planData.task || null,
+  pages: [
+    { id: "agreed", title: "Agreed so far", html: "" },
+    ...planData.pages,
+  ],
 });
-$("page-arrival-dismiss").addEventListener("click", hideArrival);
+views.set(plan.round, { plan, agreements, task: agreedTask, pages });
+setState(editable ? savedDraft(plan.round) : emptyDraft(plan.round));
+const placeStore = loadPlaces();
+if (editable) setPastRound(placeStore.past);
+// A reload after a send opens Current waiting for the next round, with the
+// sent round in the left tab.
+if (editable && state.submitted?.round === plan.round) {
+  setSubmittedRound(plan.round);
+  setPastRound(plan.round);
+  useView(waitingView(plan.round));
+}
+setPage(pages[0]);
+// Handlers for the same event run in the order they were added, so the
+// parts install in this order: the note click on #page-content, for one,
+// runs before the click that chooses a block.
+installRenderers();
+installNotes();
+installSessions();
+installPlaces();
+installPages();
+installNoteDialog();
+installSend();
+installEvents();
+installControls();
+installBlocks();
+installRegistry();
+installDrawing();
+window.planUI = createPlanUI();
+document.title = plan.title;
 narrow.addEventListener("change", placeNavigation);
 placeNavigation();
 if (editable) initializeChecklists();
