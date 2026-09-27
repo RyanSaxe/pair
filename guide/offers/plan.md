@@ -24,7 +24,8 @@ plan and nothing else.
    as [round.md](../round.md) describes, with Agreed as
    [agreements.md](../agreements.md) says for a build round. List one page
    per step of the plan unless another structure explains the work better.
-   The last page is the pull request description.
+   The last page is the pull request description. Agreed and every page
+   carry `"offer": "finish"`, although the work is not done yet.
 3. Commit on a branch as the project's instructions say, and open no pull
    request.
 4. Publish each page when its part of the work is done. The page shows what
@@ -32,9 +33,8 @@ plan and nothing else.
    the plan does not settle something, make the choice the plan's intent
    points to, build it, and say on the page what you chose and why.
 5. Write the last page as the pull request description: what the work is,
-   why it matters, how to review it and what was done to trust it. A build
-   round whose work is complete carries `"offer": "finish"`, and the finish
-   offer's Open a PR uses this page as the pull request's body.
+   why it matters, how to review it and what was done to trust it. The
+   finish offer's Open a PR uses this page as the pull request's body.
 
 ## Save for later
 
