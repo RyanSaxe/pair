@@ -48,7 +48,8 @@ export function renderActivity() {
     return;
   }
   // The agent's progress shows at the top of Current's Agreed, from the send
-  // to the round's last page. The left tab shows only what was sent on it.
+  // or the round's Agreed to its last page. The left tab shows only what was
+  // sent on it.
   const past = selectedTab === "past";
   $("sent-feedback").hidden = !past;
   if (past) renderSentFeedback();

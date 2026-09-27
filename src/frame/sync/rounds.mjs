@@ -115,12 +115,10 @@ export async function loadSubmission() {
   }
   renderSentFeedback();
 }
-// The round the reader's last send started runs from the send until its last
-// page is published, and then Agreed says when it finished.
+// A round runs from the reader's send, and while any round's pages are
+// still being published, round 1 and a build from the handoff line included.
 export const roundRunning = () =>
-  Boolean(submittedRound) &&
-  (waiting() ||
-    Boolean(remote?.openRound && remote.current?.round !== submittedRound));
+  (Boolean(submittedRound) && waiting()) || Boolean(remote?.openRound);
 export const roundFinished = () =>
   Boolean(submittedRound) &&
   Boolean(remote?.current) &&
