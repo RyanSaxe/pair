@@ -148,6 +148,21 @@ const actions = {
     state,
     url,
   }),
+  // Without --text or --file, reply marks the thread read and prints it.
+  reply: async (options) => {
+    requireValue(options.note, "reply takes --note ID");
+    requireValue(
+      !(options.text && options.file),
+      "reply takes --text or --file, not both",
+    );
+    return {
+      note: options.note,
+      ...(options.text ? { text: options.text } : {}),
+      ...(options.file
+        ? { html: await fs.readFile(path.resolve(options.file), "utf8") }
+        : {}),
+    };
+  },
 };
 // The options each command takes. A misspelt option is refused, so a
 // command never runs without a value it was given.
@@ -166,6 +181,7 @@ const commandOptions = {
     add: ["session-dir", "title", "text", "source"],
     update: ["session-dir", "state", "url"],
   },
+  reply: ["session-dir", "note", "text", "file"],
 };
 const sideWorkUsage = `pair side-work takes add or update:
   pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
@@ -331,7 +347,12 @@ export async function main(argv) {
   const action = { action: command, ...(await actions[command](options)) };
   try {
     const result = await request(action);
-    console.log(json(command === "status" ? result.status : result));
+    // reply prints the thread and its instructions as text.
+    console.log(
+      command === "reply"
+        ? result.text
+        : json(command === "status" ? result.status : result),
+    );
   } catch (error) {
     // Side work's source is text for the reviewer, not a kept directory.
     if (command !== "publish" || !action.source) throw error;

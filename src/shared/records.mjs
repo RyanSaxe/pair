@@ -66,13 +66,20 @@ function validPlan(data) {
         for (const ref of entry.sourceRefs) {
           requireValue(
             ref &&
-              ["note", "choice", "answer", "conversation"].includes(ref.kind),
+              ["note", "choice", "answer", "conversation", "thread"].includes(
+                ref.kind,
+              ),
             "Invalid source reference kind",
           );
           if (ref.kind === "conversation")
             requireValue(
               typeof ref.text === "string" && ref.text.trim(),
               "Conversation source requires text",
+            );
+          else if (ref.kind === "thread")
+            requireValue(
+              idPattern.test(ref.threadId || ""),
+              "Thread source requires threadId",
             );
           else {
             requireValue(

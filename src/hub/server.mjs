@@ -257,7 +257,7 @@ export async function startHub(config = settings()) {
           });
         }
         if (method === "GET" && rest[0] === "api" && rest[1] === "status")
-          return reply(200, session.view());
+          return reply(200, session.browserView());
         if (method === "GET" && rest[0] === "api" && rest[1] === "page-set")
           return reply(200, session.pageSet(url.searchParams.get("round")));
         if (method === "GET" && rest[0] === "api" && rest[1] === "page")
@@ -347,6 +347,33 @@ export async function startHub(config = settings()) {
           return reply(
             200,
             await session.exclusive(() => session.removeUpload(rest[2])),
+          );
+        }
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "threads" &&
+          rest.length === 2
+        ) {
+          const data = await readBody(req, 250_000);
+          return reply(
+            201,
+            await session.exclusive(() => session.startThread(data)),
+          );
+        }
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "threads" &&
+          rest[3] === "messages" &&
+          rest.length === 4
+        ) {
+          const data = await readBody(req, 250_000);
+          return reply(
+            201,
+            await session.exclusive(() =>
+              session.addThreadMessage(decodeURIComponent(rest[2]), data),
+            ),
           );
         }
         if (method === "POST" && rest[0] === "api" && rest[1] === "feedback") {

@@ -32,7 +32,8 @@ import {
 } from "#frame/notes/controls.mjs";
 import { installDrawing } from "#frame/notes/drawing.mjs";
 import { installNoteDialog } from "#frame/notes/note-dialog.mjs";
-import { findText, highlight, installNotes } from "#frame/notes/notes.mjs";
+import { findQuote, highlight, installNotes } from "#frame/notes/notes.mjs";
+import { installThreads } from "#frame/notes/threads.mjs";
 import {
   installPages,
   narrow,
@@ -84,6 +85,7 @@ installSessions();
 installPlaces();
 installPages();
 installNoteDialog();
+installThreads();
 installSend();
 installEvents();
 installControls();
@@ -119,7 +121,11 @@ function start() {
     });
   });
   if (mode === "preview" && query.get("quote")) {
-    const range = findText($("page-content"), query.get("quote"));
+    const range = findQuote(
+      query.get("quote"),
+      query.get("target"),
+      Number(query.get("occurrence")) || 1,
+    );
     if (range) {
       highlight("plan-preview", [range]);
       range.startContainer.parentElement?.scrollIntoView({ block: "center" });

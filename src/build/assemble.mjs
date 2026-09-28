@@ -49,6 +49,7 @@ const stylesheets = [
   "pages/reading.css",
   "sync/activity.css",
   "review/review.css",
+  "notes/threads.css",
   "pages/agreed.css",
   "pages/side-work.css",
   "pages/diagram.css",

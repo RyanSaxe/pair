@@ -39,16 +39,16 @@ same name under `tests/`:
   command starts it when none is running, and it exits after 15 minutes with
   no live session. It wakes the holder, the agent that last ran `pair start`
   on a session. `src/hub/session/` has one session's state and actions: its
-  rounds, its holder, the reviewer's submissions and uploads, and its side
-  work.
+  rounds, its holder, the reviewer's submissions and uploads, its threads
+  and its side work.
 - The builder, `src/build/`, turns a page source into a page. `problems()`
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.
 - The frame, `src/frame/`, runs in the browser. `app/` starts it and keeps the
   state every other part reads, `pages/` shows the pages and Agreed, `notes/`
-  has the code for the reviewer's notes, choices, answers and drawings,
-  `review/` is the Review page and sending, and `sync/` reads rounds,
-  sessions, activity and notifications from the hub.
+  has the code for the reviewer's notes, threads, choices, answers and
+  drawings, `review/` is the Review page and sending, and `sync/` reads
+  rounds, sessions, activity and notifications from the hub.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.

@@ -1,10 +1,19 @@
 import { state } from "#frame/app/store.mjs";
-import { $, controlKey, normalize, plural } from "#frame/app/util.mjs";
+import {
+  $,
+  controlKey,
+  normalize,
+  occurrenceAt,
+  occurrenceIndex,
+  plural,
+} from "#frame/app/util.mjs";
 import {
   agreedTask,
   agreements,
   editable,
   feedbackEditable,
+  noteEditable,
+  online,
   page,
   pages,
   showingWaiting,
@@ -77,16 +86,16 @@ export let editing = null;
 export let noteContext = null;
 export let noteDraftKey = "";
 
-/* Notes on the text */
-export function findText(root, needle) {
-  const target = normalize(needle);
-  if (!target) return null;
+/* Notes on the text. A quote is the page's own text, so a thread card that
+   repeats it is never where it is found. The text has each run of whitespace
+   as one space, and map has the node and offset of every other character. */
+function pageText(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const map = [];
   let text = "",
     pendingSpace = false;
   for (let node; (node = walker.nextNode());) {
-    if (node.parentElement?.closest("script, style")) continue;
+    if (node.parentElement?.closest("script, style, pair-thread")) continue;
     const data = node.data;
     for (let index = 0; index < data.length; index++) {
       if (/\s/.test(data[index])) {
@@ -102,7 +111,13 @@ export function findText(root, needle) {
       map.push({ node, offset: index });
     }
   }
-  const index = text.indexOf(target);
+  return { text, map };
+}
+export function findText(root, needle, occurrence = 1) {
+  const target = normalize(needle);
+  if (!target) return null;
+  const { text, map } = pageText(root);
+  const index = occurrenceIndex(text, target, occurrence);
   if (index < 0) return null;
   const start = map[index];
   const end = map[index + target.length - 1];
@@ -111,6 +126,31 @@ export function findText(root, needle) {
   range.setStart(start.node, start.offset);
   range.setEnd(end.node, end.offset + 1);
   return range;
+}
+const quoteBlock = (target) =>
+  target && document.getElementById(target)?.closest("#page-content > *");
+// Which appearance of the selected words in the note's block the selection
+// starts at.
+export function selectedOccurrence(selection, quote, target) {
+  const block = quoteBlock(target);
+  if (!block || !selection?.rangeCount) return 1;
+  const range = selection.getRangeAt(0);
+  const { text, map } = pageText(block);
+  const start = map.findIndex(
+    (point) => point && range.comparePoint(point.node, point.offset) >= 0,
+  );
+  return occurrenceAt(text, normalize(quote), start);
+}
+// Selected words are looked for first in the block the note names, at the
+// appearance the reviewer selected, so a phrase the page repeats is marked
+// where it was selected. A note with no occurrence is on the first, and so
+// is one whose block no longer has that many.
+export function findQuote(quote, target, occurrence = 1) {
+  const block = quoteBlock(target);
+  return (
+    (block && (findText(block, quote, occurrence) || findText(block, quote))) ||
+    findText($("page-content"), quote)
+  );
 }
 export function clearHighlight(name) {
   /* Safari can keep custom-highlight paint stale when nearby text changes. */
@@ -141,7 +181,7 @@ export function markNotes() {
   noteRanges = [];
   for (const note of notes) {
     if (!note.quote) continue;
-    const range = findText($("page-content"), note.quote);
+    const range = findQuote(note.quote, note.target, note.occurrence);
     if (!range || range.startContainer.parentElement?.closest(richContent))
       continue;
     noteRanges.push({ note, range });
@@ -238,6 +278,8 @@ export function installNotes() {
         notes[0].id,
         notes[0].agreementId,
         notes[0].target,
+        notes[0].sideWorkId,
+        notes[0].occurrence,
       );
     else if (notes.length > 1) show("feedback");
   });
@@ -265,8 +307,12 @@ export function openNote(
   entryId = null,
   target = null,
   sideWorkId = null,
+  occurrence = 1,
 ) {
-  if (!feedbackEditable()) return;
+  // After the round's feedback is sent, only a new note on a page opens,
+  // and it can only start a thread.
+  const feedback = feedbackEditable();
+  if (!noteEditable() || (!feedback && (id || topic === "overall"))) return;
   clearHighlight("plan-note");
   noteContext = {
     topic,
@@ -275,6 +321,7 @@ export function openNote(
     ...(entryId ? { agreementId: entryId } : {}),
     ...(sideWorkId ? { sideWorkId } : {}),
     ...(target ? { target } : {}),
+    ...(occurrence > 1 ? { occurrence } : {}),
   };
   editing = id;
   noteDraftKey = JSON.stringify([topic, anchor, quote, id, entryId]);
@@ -295,9 +342,10 @@ export function openNote(
   drawNoteImages();
   imageError("");
   $("note-title").textContent = id ? "Edit note" : "Add note";
-  $("note-form").querySelector('[type="submit"]').textContent = id
-    ? "Save changes"
-    : "Add to feedback";
+  $("note-save-label").textContent = id ? "Save changes" : "Add to feedback";
+  // A new note on a page can start a thread, when a hub can take it.
+  $("note-thread").hidden = Boolean(id) || topic === "overall" || !online;
+  $("note-save").hidden = !feedback;
   $("note-dialog").showModal();
   $("note-text").focus();
   $("quote").hidden = true;

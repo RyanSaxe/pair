@@ -1,7 +1,11 @@
 import { persist, state } from "#frame/app/store.mjs";
 import { $, normalize } from "#frame/app/util.mjs";
-import { editable, feedbackEditable, page } from "#frame/app/view.mjs";
-import { noteDraftKey, openNote } from "#frame/notes/notes.mjs";
+import { editable, noteEditable, page } from "#frame/app/view.mjs";
+import {
+  noteDraftKey,
+  openNote,
+  selectedOccurrence,
+} from "#frame/notes/notes.mjs";
 
 let selected = "";
 let selectedTarget = null;
@@ -23,6 +27,8 @@ export const blockSkip = new Set([
   "SCRIPT",
   "STYLE",
   "TEMPLATE",
+  // A thread's card sits between blocks and is not one.
+  "PAIR-THREAD",
 ]);
 // The nearest heading before the block, which is how a reader would say
 // where it is. A page cannot repeat its own title in one, the build refuses
@@ -74,10 +80,13 @@ function blockName(block) {
   return name.length > 60 ? name.slice(0, 57) + "…" : name;
 }
 
-// A note on a block carries the block's ID so Feedback can jump back to it.
+/* A note on a block carries the block's ID so Feedback can jump back to it.
+   A paragraph, heading or list gets one too, so a note or thread on words
+   selected in it records that block, even when an earlier block has the
+   same words. */
 export function blockTargets(root, topic) {
   [...root.children].forEach((block, index) => {
-    if (!blockSkip.has(block.tagName)) block.id ||= `block-${topic}-${index}`;
+    block.id ||= `block-${topic}-${index}`;
   });
 }
 /* One button, three meanings: the selection, the block you chose, or the
@@ -127,7 +136,7 @@ export function commentTarget() {
   const usable = editable && !page.pending && !$("reading").hidden;
   button.hidden = !usable;
   if (!usable) return;
-  button.disabled = !feedbackEditable();
+  button.disabled = !noteEditable();
   if (button.disabled) {
     button.textContent = "Comments sent";
     return;
@@ -139,13 +148,31 @@ export function commentTarget() {
 /* The control and the c key comment on the same thing, so they share the
    one function that decides what that is. */
 export function commentOnTarget() {
-  if (!feedbackEditable() || page.pending) return;
+  if (!noteEditable() || page.pending) return;
   if (selected.length > 3)
-    openNote(page.id, page.title, selected, null, null, selectedTarget);
+    openNote(
+      page.id,
+      page.title,
+      selected,
+      null,
+      null,
+      selectedTarget,
+      null,
+      selectedOccurrence(getSelection(), selected, selectedTarget),
+    );
   else if (chosen) {
     /* No quote: the note is about the block, and a quote would be searched
-       for in the page and highlighted, marking the block's opening words. */
-    openNote(page.id, blockHeading(chosen), "", null, null, chosen.id);
+       for in the page and highlighted, marking the block's opening words.
+       A figure the frame drew around a block has no ID of its own, so the
+       note takes the ID of the block inside it. */
+    openNote(
+      page.id,
+      blockHeading(chosen),
+      "",
+      null,
+      null,
+      chosen.id || chosen.querySelector("[id]")?.id || null,
+    );
   } else openNote(page.id, page.title);
   chooseBlock(null);
 }
@@ -153,16 +180,17 @@ export function installBlocks() {
   document.addEventListener("selectionchange", () => {
     const selection = getSelection(),
       parent = selection?.anchorNode?.parentElement;
-    selected = parent?.closest("#page-content")
-      ? selection?.toString().trim() || ""
-      : "";
+    selected =
+      parent?.closest("#page-content") && !parent.closest("pair-thread")
+        ? selection?.toString().trim() || ""
+        : "";
     selectedTarget = parent?.closest("#page-content [id]")?.id || null;
     commentTarget();
   });
   /* A control does its own job, a block becomes the target, and anything else
      clears it. A drag is a selection, so it never reaches here as a press. */
   $("page-content").addEventListener("click", (event) => {
-    if (!feedbackEditable() || page.pending) return;
+    if (!noteEditable() || page.pending) return;
     if (
       event.target.closest("button, a, input, label, select, textarea, summary")
     )

@@ -39,6 +39,7 @@ import {
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
 import {
   announceArrivals,
   displayedRound,
@@ -448,6 +449,7 @@ export async function poll() {
       });
     }
     void loadSubmission().catch(() => {});
+    placeThreads();
     if (
       state.pending?.event?.id === remote.latestSubmissionId &&
       remote.latestSubmissionRound === plan.round &&

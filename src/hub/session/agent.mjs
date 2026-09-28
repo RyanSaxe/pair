@@ -213,6 +213,7 @@ export function agent(session) {
     publish: (data) => session.publishPage(data.html, data.source, data.pages),
     complete,
     "side-work": (data) => session.recordSideWork(data),
+    reply: (data) => session.reply(data),
   };
   async function act(data) {
     requireValue(

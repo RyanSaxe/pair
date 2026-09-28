@@ -15,8 +15,7 @@ export function heldItems(groups) {
 }
 // What the reviewer sends: feedback and acceptances.
 export function submissions(session) {
-  const { directory, transition, pending, sameRound, exclusive, view } =
-    session;
+  const { directory, transition, pending, sameRound, exclusive } = session;
   function withDrawingPaths(event) {
     const answers = event.payload.groups?.answers;
     if (
@@ -176,7 +175,7 @@ export function submissions(session) {
         "Submission ID already has different content",
         409,
       );
-      return { id: data.id, saved: true, status: view() };
+      return { id: data.id, saved: true, status: session.browserView() };
     }
     requireValue(
       sameRound(data),
@@ -225,7 +224,7 @@ export function submissions(session) {
     });
     if (session.wake && !session.state.paused)
       setTimeout(() => exclusive(() => session.wakeAgent(data.round)), 0);
-    return { id: data.id, saved: true, status: view() };
+    return { id: data.id, saved: true, status: session.browserView() };
   }
   return { withDrawingPaths, submit };
 }

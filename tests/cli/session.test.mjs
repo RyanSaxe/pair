@@ -4,7 +4,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { exists, hub, killHub, pairCli } from "../support/hub.mjs";
+import { exists, hub, killHub, pairCli, planData } from "../support/hub.mjs";
 
 test("the CLI builds and publishes each page with its own saved source", async (t) => {
   const h = await hub(t);
@@ -595,4 +595,62 @@ test("a read-only directory with a link inside the source is kept", async (t) =>
   );
   const kept = path.join(sessionDir, "src", "1", "agreed");
   assert.equal(await fs.readlink(path.join(kept, "latest.md")), "notes.md");
+});
+
+test("pair reply prints a thread and posts a reply, and pair status leaves threads out", async (t) => {
+  const h = await hub(t);
+  const root = path.join(h.home, "cli");
+  await fs.mkdir(root);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+  });
+  const session = await h.session({ cli });
+  assert.equal((await session.publish(planData())).code, 200);
+  const id = "question-1";
+  const started = await session.request(`${session.base}/api/threads`, {
+    id,
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Why one result per input?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const reply = (...args) =>
+    cli.run("reply", "--session-dir", session.directory, "--note", id, ...args);
+  const printed = await reply();
+  assert.match(
+    printed,
+    new RegExp(
+      `^Thread ${id} on "Overview" \\(session ${session.directory}, round 1\\)\n  You, \\d\\d:\\d\\d: Why one result per input\\?\n\n`,
+    ),
+  );
+  assert.match(await reply("--text", "So a retry can skip it."), /^Posted/);
+  const file = path.join(root, "reply.html");
+  await fs.writeFile(file, '<pre data-language="text">1 in, 1 out</pre>');
+  assert.match(await reply("--file", file), /^Posted/);
+  await assert.rejects(reply("--text", "x", "--file", file), (error) => {
+    assert.equal(
+      error.stderr,
+      "pair: reply takes --text or --file, not both\n",
+    );
+    return true;
+  });
+  const { threads } = (await session.status()).body;
+  assert.deepEqual(threads[0].messages.slice(1), [
+    {
+      from: "agent",
+      at: threads[0].messages[1].at,
+      text: "So a retry can skip it.",
+    },
+    {
+      from: "agent",
+      at: threads[0].messages[2].at,
+      html: '<pre data-language="text">1 in, 1 out</pre>',
+    },
+  ]);
+  const status = JSON.parse(
+    await cli.run("status", "--session-dir", session.directory),
+  );
+  assert.equal(status.threads, undefined);
 });

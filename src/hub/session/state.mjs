@@ -14,6 +14,7 @@ import { agent } from "./agent.mjs";
 import { rounds } from "./rounds.mjs";
 import { sideWork } from "./side-work.mjs";
 import { submissions } from "./submissions.mjs";
+import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
 export async function loadSession(directory, config, origin) {
@@ -41,7 +42,7 @@ export async function loadSession(directory, config, origin) {
     !state.current || typeof state.current.round === "string",
     `${directory} is not a pair session, so pair does not open it. Start a new session.`,
   );
-  for (const child of ["rounds", "feedback", "uploads", "scenes"])
+  for (const child of ["rounds", "feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
       mode: 0o700,
@@ -124,7 +125,9 @@ export async function loadSession(directory, config, origin) {
     pending,
     sameRound,
     view,
+    browserView,
     wakeFile,
+    threadRecords: await readThreads(directory),
     wake: (await exists(wakeFile)) ? await read(wakeFile) : null,
     get state() {
       return state;
@@ -137,6 +140,7 @@ export async function loadSession(directory, config, origin) {
     agent(session),
     rounds(session),
     await sideWork(session),
+    threads(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -164,6 +168,11 @@ export async function loadSession(directory, config, origin) {
       needsYou: needsYou(),
       sideWork: session.sideWorkItems(),
     };
+  }
+  // The browser draws every thread's card from its status. An agent reads a
+  // thread with pair reply, so its commands print the status without them.
+  function browserView() {
+    return { ...view(), threads: session.threadView() };
   }
   async function latestFeedback(requestedRound) {
     requireValue(
@@ -255,8 +264,10 @@ export async function loadSession(directory, config, origin) {
     dismiss: session.dismiss,
     startSideWork: session.startSideWork,
     dropSideWork: session.dropSideWork,
+    startThread: session.startThread,
+    addThreadMessage: session.addThreadMessage,
     act: session.act,
-    view,
+    browserView,
     latestFeedback,
     listing,
     active,

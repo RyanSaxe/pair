@@ -8,7 +8,7 @@ import { guideText } from "./shared/guide.mjs";
 
 const usage = `Usage: pair guide [FILE]
        pair start [--session-dir PATH]
-       pair ack|read|publish|progress|pause|complete|status --session-dir PATH [options]
+       pair ack|read|publish|progress|pause|complete|status|reply --session-dir PATH [options]
        pair side-work add|update --session-dir PATH [options]
        pair build SOURCE.json OUTPUT.html
        pair diff BEFORE AFTER OUTPUT.json

@@ -64,6 +64,17 @@ export const feedbackEditable = () =>
   selectedTab === "current" &&
   !submissionInFlight &&
   !submittedCurrent();
+// Whether a new note can open. Once a round's feedback is sent, a note on
+// it can still start a thread, because the agent answers threads while it
+// prepares the next round or builds. The hub takes threads on its current
+// round only, until the session is complete.
+export const noteEditable = () =>
+  feedbackEditable() ||
+  (editable &&
+    online &&
+    remote?.stage !== "complete" &&
+    remote?.current?.name === plan.name &&
+    remote?.current?.round === plan.round);
 export const currentAvailable = () =>
   Boolean(
     remote?.current &&

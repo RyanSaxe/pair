@@ -161,6 +161,7 @@ function itemCard({ kind, key, item }) {
           item.agreementId,
           item.target,
           item.sideWorkId,
+          item.occurrence,
         ),
       );
       action("Remove", () => {
