@@ -23,8 +23,8 @@
 :root[data-mode="preview"] .content {
   padding: 18px 28px 40px;
 }
-:root[data-mode="preview"] h1 {
-  font-size: 17px;
+:root[data-mode="preview"] {
+  --text-h1: 17px;
 }
 :root[data-mode="readonly"] #submit,
 :root[data-mode="readonly"] #quote,

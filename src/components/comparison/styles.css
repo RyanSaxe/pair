@@ -43,11 +43,11 @@
 }
 .comparison-option h2 {
   margin: 0 0 4px;
-  font-size: 15px;
+  font-size: var(--text-h2);
 }
 .comparison-option > header p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--text-label);
   color: var(--muted);
 }
 .comparison-content {

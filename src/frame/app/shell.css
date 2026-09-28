@@ -105,7 +105,7 @@ main {
   border-radius: 999px;
   background: var(--line-strong);
   color: var(--ink);
-  font-size: 10.5px;
+  font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -143,7 +143,7 @@ main {
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 10.5px;
+  font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -166,7 +166,7 @@ main {
   background: var(--danger-bg);
   color: var(--danger);
   box-shadow: var(--shadow);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .save-error button {
   margin-left: auto;
@@ -187,12 +187,12 @@ main {
   border-bottom: 1px solid var(--line);
   background: var(--accent-soft);
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .history-strip button {
   margin-left: auto;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   white-space: nowrap;
 }
 #round.older {
@@ -200,7 +200,7 @@ main {
   background: var(--accent-soft);
 }
 #history-label b {
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 #history-label .meta {
   color: var(--muted);

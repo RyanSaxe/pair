@@ -9,12 +9,12 @@ pair-thread {
   border-radius: 10px;
   background: var(--panel);
   color: var(--ink);
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: var(--text-label);
+  line-height: var(--leading-ui);
 }
 #page-content pair-thread p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--text-label);
 }
 pair-thread[collapsed] {
   padding-block: 7px;
@@ -27,7 +27,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   justify-content: space-between;
   gap: 10px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-meta);
 }
 .thread-messages {
   display: grid;
@@ -46,8 +46,8 @@ pair-thread[collapsed] > :not(.thread-head) {
   border: 1px solid var(--line-strong);
   border-radius: 50%;
   background: var(--ground);
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--text-caps);
+  font-weight: var(--weight-strong);
 }
 .thread-avatar.agent {
   border-color: transparent;
@@ -60,12 +60,12 @@ pair-thread[collapsed] > :not(.thread-head) {
   min-width: 0;
 }
 #page-content .thread-name {
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-strong);
 }
 #page-content .thread-meta {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-tiny);
   font-weight: 400;
 }
 .thread-text {
@@ -109,8 +109,8 @@ pair-thread[collapsed] > :not(.thread-head) {
 }
 .thread-more {
   justify-self: start;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-strong);
 }
 .thread-sent {
   position: relative;
@@ -143,7 +143,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   border-radius: 8px;
   background: var(--accent-soft);
   color: var(--ink);
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   line-height: 1.4;
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
   visibility: hidden;
@@ -166,7 +166,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   align-items: center;
   gap: 6px;
   color: var(--accent);
-  font-size: 11px;
+  font-size: var(--text-tiny);
 }
 .thread-working::before {
   content: "";
@@ -188,7 +188,7 @@ pair-thread[collapsed] > :not(.thread-head) {
 }
 #page-content .thread-bad {
   color: var(--danger);
-  font-size: 11.5px;
+  font-size: var(--text-meta);
 }
 .thread-status {
   display: grid;
@@ -211,7 +211,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   resize: none;
   field-sizing: content;
   background: var(--ground);
-  font-size: 12.5px;
+  font-size: var(--text-label);
 }
 .thread-reply kbd {
   min-width: 0;
@@ -219,7 +219,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   border: 0;
   background: none;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-tiny);
   opacity: 0.8;
 }
 @media (pointer: coarse) {

@@ -175,7 +175,7 @@ dialog::backdrop {
   border: 0;
   background: none;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-tiny);
   opacity: 0.8;
 }
 @media (pointer: coarse), (max-width: 400px) {

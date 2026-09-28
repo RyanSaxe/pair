@@ -23,11 +23,11 @@
 }
 .draft-head span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .sent-card small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-tiny);
 }
 .sent-card {
   padding: 10px 0;
@@ -43,7 +43,7 @@
   padding-left: 9px;
   border-left: 2px solid var(--line-strong);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .sent-images {
   display: flex;
@@ -69,8 +69,8 @@
   padding: 12px 0;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--line);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: var(--text-card);
+  font-weight: var(--weight-strong);
   cursor: pointer;
 }
 .alignment-switch input {
@@ -125,8 +125,8 @@
 }
 .group-head h2 {
   margin: 0;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-tiny);
+  font-weight: var(--weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -141,22 +141,22 @@
 }
 .feedback-item h3 {
   margin: 0;
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: var(--text-card);
+  font-weight: var(--weight-strong);
 }
 .feedback-item h3 .tag {
   margin-left: 6px;
 }
 .feedback-item p {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: var(--text-ui);
   white-space: pre-wrap;
 }
 .feedback-item blockquote {
   margin: 6px 0 2px;
 }
 .feedback-item .context-link {
-  font-size: 12px;
+  font-size: var(--text-small);
   display: inline-block;
   margin-top: 4px;
 }
@@ -169,7 +169,7 @@
 }
 .feedback-item-actions .btn {
   padding: 3px 6px;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .feedback-item.sent {
   opacity: 0.7;

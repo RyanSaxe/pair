@@ -5,7 +5,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -37,7 +37,7 @@
 }
 .dialog-head .round-status {
   margin-left: auto;
-  font-size: 12.5px;
+  font-size: var(--text-label);
 }
 .pages-slot nav {
   display: block;
@@ -65,7 +65,7 @@
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  font-size: 11px;
+  font-size: var(--text-tiny);
   font-weight: 700;
 }
 .pages-slot nav .page-tabs button[aria-selected="true"] {
@@ -87,7 +87,7 @@
   padding: 6px 9px;
   border-radius: 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-ui);
 }
 #page-list button > span:first-child {
   min-width: 0;
@@ -98,7 +98,7 @@
 }
 #page-list button[aria-current="page"] {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   background: var(--accent-soft);
 }
 #page-list button.pending > span:first-child {

@@ -114,7 +114,7 @@
   background: var(--panel);
   box-shadow: var(--shadow);
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--text-label);
   line-height: 1.5;
   white-space: normal;
 }
@@ -122,8 +122,8 @@
   display: block;
   margin-bottom: 2px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-tiny);
+  font-weight: var(--weight-strong);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }

@@ -124,21 +124,6 @@ A compile step changes how every part of pair runs:
 
 ## Frame
 
-### Type tokens on pages and components
-
-Every dialog takes its type sizes, weights, line heights, paragraph and
-field spacing and link style from the tokens in `src/frame/app/tokens.css`,
-and so do the frame's buttons, small text and section labels. The reading
-pages, Agreed, the Review page and the components still set about a hundred
-font sizes of their own, 14 different ones from 9.5px to 22px, and their own
-link style. Map each of those rules to a token, or add one where no token
-fits, so one change to a token changes every surface.
-
-Measure each surface's computed values in a browser before changing a rule,
-because the frame's `p` rules can outrank a page's CSS, so the stylesheets
-do not show what renders. Check every fixture page in the light and dark
-themes, at a wide window and at 375px, before and after the change.
-
 ### Page performance
 
 A long page opens with a visible lag. Measure where the time goes before

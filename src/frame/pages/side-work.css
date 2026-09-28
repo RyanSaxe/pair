@@ -13,7 +13,7 @@
 }
 .side-work-item h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 .side-work-item h2 .tag {
   margin-left: 6px;
@@ -23,11 +23,11 @@
 }
 .side-work-source {
   margin-top: 2px;
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   color: var(--muted);
 }
 .side-work-error {
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   color: var(--danger);
 }
 .side-work-actions {
@@ -44,11 +44,11 @@
 }
 .side-work-actions .btn {
   padding: 2px 8px;
-  font-size: 11.5px;
+  font-size: var(--text-meta);
 }
 .side-work-finished > summary {
   cursor: pointer;
   margin: 2px 0 10px;
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   color: var(--muted);
 }

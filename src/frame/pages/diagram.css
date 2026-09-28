@@ -39,7 +39,7 @@
   ry: 12px;
 }
 :is([data-diagram], .lightbox) .cluster .nodeLabel {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
 }
 :is([data-diagram], .lightbox) .flowchart-link,
@@ -51,7 +51,7 @@
   stroke: var(--line-strong) !important;
 }
 :is([data-diagram], .lightbox) .edgeLabel p {
-  font-size: 10px;
+  font-size: var(--text-micro);
   color: var(--muted);
   background: var(--panel) !important;
 }

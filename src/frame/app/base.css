@@ -38,7 +38,7 @@ p {
   margin: 0 0 var(--space-paragraph);
 }
 h1 {
-  font-size: 22px;
+  font-size: var(--text-h1);
   line-height: 1.25;
   letter-spacing: -0.3px;
   font-weight: 650;
@@ -49,13 +49,13 @@ h1:focus {
   outline: 0;
 }
 h2 {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--text-h2);
+  font-weight: var(--weight-strong);
   margin: 28px 0 10px;
 }
 h3 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-strong);
   margin: 0 0 8px;
 }
 ul,
@@ -97,8 +97,8 @@ kbd {
 }
 .tag {
   display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-tiny);
+  font-weight: var(--weight-strong);
   line-height: 1.5;
   color: var(--accent);
   background: var(--accent-soft);
@@ -215,7 +215,7 @@ blockquote {
   border-left: 2px solid var(--line-strong);
   padding-left: 12px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--text-label);
 }
 /* Reading elements */
 pre {
@@ -250,7 +250,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin: 16px 0;
-  font-size: 13px;
+  font-size: var(--text-ui);
 }
 th,
 td {
@@ -260,8 +260,8 @@ td {
   padding: 8px 10px;
 }
 th {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-tiny);
+  font-weight: var(--weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -272,7 +272,7 @@ svg {
 }
 .renderer-error {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 /* Question component's answer field and other frame-owned inputs */
 textarea {

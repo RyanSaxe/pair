@@ -13,12 +13,12 @@
 }
 .question > h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.4;
 }
 .question-why {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--text-label);
   color: var(--muted);
 }
 .question textarea {
@@ -36,7 +36,7 @@
   padding: 9px 11px;
   border-radius: 8px;
   background: var(--ground);
-  font-size: 13.5px;
+  font-size: var(--text-card);
   white-space: pre-wrap;
 }
 .answer-actions {

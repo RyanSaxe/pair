@@ -1,6 +1,6 @@
 .decision > h3 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-strong);
   margin: 0 0 10px;
 }
 .decision-option {
@@ -40,10 +40,10 @@
   grid-column: 2;
 }
 .decision-option > b {
-  font-size: 13.5px;
+  font-size: var(--text-card);
 }
 .decision-option > p {
   margin: 2px 0 0;
-  font-size: 12.5px;
+  font-size: var(--text-label);
   color: var(--muted);
 }
