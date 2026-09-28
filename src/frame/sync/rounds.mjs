@@ -41,7 +41,6 @@ import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import {
-  announceArrivals,
   displayedRound,
   pageIndicator,
   show,
@@ -287,11 +286,6 @@ async function syncPageSet() {
   const previous = pageSets.get(round);
   if (previous?.generation === remote.pageSetGeneration) return;
   pageSetLoading = (async () => {
-    const wasReady = new Set(
-      previous?.pages
-        .filter((item) => item.state === "ready")
-        .map((item) => item.id),
-    );
     const manifest = await loadPageSet(
       round,
       () => views.get(round) || emptyView(round, remote.current),
@@ -317,7 +311,6 @@ async function syncPageSet() {
             );
         }
       }
-      announceArrivals([...wasReady]);
     } else updateNavigation();
   })().finally(() => {
     pageSetLoading = null;

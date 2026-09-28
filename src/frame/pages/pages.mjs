@@ -66,7 +66,6 @@ export function show(
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
   displayedRound = viewKey();
-  hideArrival();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
   if (!resuming) endRestore();
   const top = scroller().scrollTop;
@@ -328,27 +327,6 @@ export function updateNavigation(force = false) {
       button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
 }
-let arrivalTimer;
-let arrivalPage = null;
-function hideArrival() {
-  clearTimeout(arrivalTimer);
-  $("page-arrival").hidden = true;
-}
-export function announceArrivals(previousReady) {
-  if (!narrow.matches) return;
-  const seen = new Set(previousReady);
-  const arrived = pages.filter(
-    (item) => item.id !== "agreed" && !item.pending && !seen.has(item.id),
-  );
-  if (!arrived.length) return;
-  arrivalPage = arrived.length === 1 ? arrived[0].id : null;
-  $("page-arrival-text").textContent = arrivalPage
-    ? `${arrived[0].title} is ready`
-    : `${plural(arrived.length, "page")} are ready`;
-  $("page-arrival-view").textContent = arrivalPage ? "View" : "Pages";
-  $("page-arrival").hidden = false;
-  arrivalTimer = setTimeout(hideArrival, 5500);
-}
 export function installPages() {
   displayedRound = plan.round;
   narrow = matchMedia("(max-width: 720px)");
@@ -377,10 +355,4 @@ export function installPages() {
     $("pages-dialog").open ? closeDrawer() : openDrawer(),
   );
   $("feedback-pages").addEventListener("click", openDrawer);
-  $("page-arrival-view").addEventListener("click", () => {
-    hideArrival();
-    if (arrivalPage) show(arrivalPage);
-    else openDrawer();
-  });
-  $("page-arrival-dismiss").addEventListener("click", hideArrival);
 }

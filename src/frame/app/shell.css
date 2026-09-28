@@ -151,28 +151,6 @@ main {
 .icon-btn.menu.need {
   color: var(--accent);
 }
-.page-arrival {
-  position: absolute;
-  z-index: var(--z-header);
-  top: 64px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: calc(100% - 32px);
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  font-size: 12px;
-}
-.page-arrival button {
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-weight: 650;
-}
 .save-error {
   position: fixed;
   z-index: var(--z-header);
@@ -246,12 +224,6 @@ main {
   main {
     overflow: visible;
     min-height: 100%;
-  }
-  .page-arrival {
-    top: 60px;
-    right: 12px;
-    left: 12px;
-    max-width: none;
   }
   table {
     display: block;
