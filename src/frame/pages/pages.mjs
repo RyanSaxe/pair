@@ -147,7 +147,9 @@ export function show(
   review();
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
-// details around it.
+// details around it. A figure above the element moves it when the figure
+// renders, so the element is centered again once the page's renderers
+// finish, while the address still names it.
 export function reveal(targetId) {
   const target = targetId && $(targetId);
   if (!target || !$("page-content").contains(target)) return;
@@ -156,6 +158,11 @@ export function reveal(targetId) {
   if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: "center" });
+  Promise.allSettled([...renders]).then(() => {
+    const named = new URL(location.href).searchParams.get("target");
+    if (target.isConnected && named === targetId)
+      target.scrollIntoView({ block: "center" });
+  });
 }
 export function badge(count) {
   const row = $("review-row");
