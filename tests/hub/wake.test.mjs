@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
@@ -124,10 +125,34 @@ test("the nearest harness ancestor decides the wake target", () => {
     detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 2, command: "sh" }])),
     { harness: "codex", thread: "t" },
   );
+  assert.deepEqual(
+    detectWake(
+      { PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock", PAIR_PI_SESSION: "p" },
+      tools([{ pid: 3, command: "pi" }]),
+    ),
+    { harness: "pi", socket: "/tmp/pair-1/wake.sock", session: "p" },
+  );
 });
 
+const extension = fileURLToPath(
+  new URL("../../adapters/pi/extension.js", import.meta.url),
+);
+
 test("start refuses without a wake path and says what to do", () => {
-  assert.throws(() => detectWake({}, tools([])), /no wake path/);
+  assert.throws(() => detectWake({}, tools([])), {
+    message:
+      "no wake path. This needs Claude Code, Codex, Copilot or pi, and none of their session variables is set.",
+  });
+  // pi without pair's extension, found as an ancestor or, with no agent CLI
+  // among the ancestors, by its first variable.
+  const pi = {
+    message: `this pi session runs without pair's extension, so it cannot be woken. Run \`pi install ${extension}\`, restart pi with \`pi --continue\`, and run \`pair start\` again.`,
+  };
+  assert.throws(() => detectWake({}, tools([{ pid: 3, command: "pi" }])), pi);
+  assert.throws(
+    () => detectWake({ PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock" }, tools([])),
+    pi,
+  );
   assert.throws(
     () =>
       detectWake(
