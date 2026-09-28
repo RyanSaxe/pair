@@ -1,5 +1,5 @@
 import { ago } from "#frame/app/time.mjs";
-import { $, plural } from "#frame/app/util.mjs";
+import { $ } from "#frame/app/util.mjs";
 import { page, pages, plan, session } from "#frame/app/view.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import {
@@ -7,32 +7,20 @@ import {
   eventTarget,
   eventTitle,
 } from "#frame/sync/notifications.mjs";
-import {
-  lineButton,
-  redraw,
-  sessionLine,
-  showSessions,
-  stateWords,
-} from "#frame/sync/sessions.mjs";
+import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
-/* The notification center. Waiting for you lists the other sessions whose
-   round waits for the reviewer's submission. New and Earlier list what
-   happened in every session, newest first, from the last 50 events the hub
-   keeps for each. Which events this browser has seen, opened and cleared
+/* The notification center. New and Earlier list what happened in every
+   session, newest first, from the last 50 events the hub keeps for each. Which events this browser has seen, opened and cleared
    stays in its storage for the hub, so every tab on the hub shares it and
    each browser keeps its own. */
 
-// The bell's number counts the waiting sessions and the events not yet
-// seen. Its tone is "need" while a session waits and "news" when only
-// events are new.
-export function bellNumber(waiting, events, memory) {
+// The bell's number counts the events not yet seen. The sessions button
+// shows the sessions that wait for you.
+export function bellNumber(events, memory) {
   const unseen = events.filter(
     (event) => !memory.seen.has(event.id) && !memory.cleared.has(event.id),
   ).length;
-  return {
-    count: waiting + unseen,
-    tone: waiting ? "need" : unseen ? "news" : "",
-  };
+  return { count: unseen, tone: unseen ? "news" : "" };
 }
 
 const prefix = "pair:center:";
@@ -159,33 +147,27 @@ export function renderCenter(sessions, fromHub) {
     );
     known = memory();
   }
-  const others = sessions.filter((entry) => entry.id !== session.sessionId);
-  const waiting = others.filter((entry) => entry.needsYou);
-  const { count, tone } = bellNumber(waiting.length, events, known);
+  const waiting = sessions.filter(
+    (entry) => entry.id !== session.sessionId && entry.needsYou,
+  ).length;
+  const { count, tone } = bellNumber(events, known);
   const bell = $("bell");
   // The bell shows while the hub lists a live session, this tab's own
-  // included, so n and Live sessions work with one session.
+  // included, so n works with one session.
   bell.hidden = !sessions.length;
-  bell.classList.toggle("need", tone === "need");
   bell.classList.toggle("news", tone === "news");
   $("bell-count").hidden = !count;
   $("bell-count").textContent = String(count);
-  const unseen = count - waiting.length;
   bell.setAttribute(
     "aria-label",
-    count
-      ? `Notifications: ${[
-          waiting.length &&
-            `${plural(waiting.length, "session")} waiting for you`,
-          unseen && `${unseen} new`,
-        ]
-          .filter(Boolean)
-          .join(", ")}`
-      : "Notifications",
+    count ? `Notifications: ${count} new` : "Notifications",
   );
-  document.title = (count ? `(${count}) ` : "") + plan.title;
+  // The tab's title counts what needs you: the sessions waiting and the
+  // bell's number.
+  const titled = waiting + count;
+  document.title = (titled ? `(${titled}) ` : "") + plan.title;
   if (bell.hidden && $("center-dialog").open) $("center-dialog").close();
-  drawCenter(waiting, known);
+  drawCenter(known);
 }
 
 function section(label, lines, clear) {
@@ -222,26 +204,12 @@ function eventLine(event, known) {
     ],
   });
 }
-function drawCenter(waiting, known) {
+function drawCenter(known) {
   if (!$("center-dialog").open) return;
   const newer = events.filter((event) => fresh?.has(event.id));
   const earlier = events.filter((event) => !fresh?.has(event.id));
   const ids = (list) => list.map(({ id }) => id);
   const parts = [
-    ...section(
-      "Waiting for you",
-      waiting.map((entry) =>
-        sessionLine({
-          key: `open:${entry.id}`,
-          title: entry.title,
-          state: stateWords(entry),
-          words: ` · round ${entry.round} · ${ago(entry.updatedAt)}`,
-          tint: "need",
-          open: () => location.assign(entry.url),
-          icons: [],
-        }),
-      ),
-    ),
     ...section(
       "New",
       newer.map((event) => eventLine(event, known)),
@@ -260,7 +228,6 @@ function drawCenter(waiting, known) {
     parts.push(empty);
   }
   redraw($("center-list"), parts);
-  $("center-all").textContent = `All live sessions (${latest.length})`;
 }
 function clear(ids) {
   mark("cleared", ids);
@@ -299,7 +266,6 @@ export function installCenter() {
   $("center-dialog").addEventListener("close", () => {
     fresh = null;
   });
-  $("center-all").onclick = showSessions;
   // Another tab on the hub saw, opened or cleared something.
   window.addEventListener("storage", (event) => {
     if (event.key?.startsWith(prefix)) renderCenter(latest, false);

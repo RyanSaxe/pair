@@ -125,8 +125,10 @@ main {
   background: var(--accent);
   color: var(--accent-ink);
 }
+/* The sessions button, first in the header at every width. Its badge
+   counts the live sessions: grey, orange while another session needs you,
+   and blue while one has pages you have not opened. */
 .icon-btn.menu {
-  display: none;
   position: relative;
 }
 .icon-btn.menu svg {
@@ -141,15 +143,26 @@ main {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--line-strong);
+  color: var(--ink);
   font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
 }
 .icon-btn.menu.need {
+  color: var(--attention);
+}
+.icon-btn.menu.need b {
+  background: var(--attention);
+  color: var(--attention-ink);
+}
+.icon-btn.menu.news {
   color: var(--accent);
+}
+.icon-btn.menu.news b {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .save-error {
   position: fixed;
@@ -211,9 +224,6 @@ main {
   .app-body {
     display: block;
     overflow-y: auto;
-  }
-  .icon-btn.menu {
-    display: inline-flex;
   }
   .sidebar {
     display: none;

@@ -23,8 +23,7 @@
     <span class="small">Press <kbd>?</kbd> for the list</span>
   </div>
 </dialog>
-<!-- The bell opens the notification center, and its last line opens Live
-     sessions. The frame draws both lists. -->
+<!-- The bell opens the notification center. The frame draws its list. -->
 <dialog
   class="dialog sessions"
   id="center-dialog"
@@ -34,22 +33,17 @@
     <h2 id="center-title" tabindex="-1" autofocus>Notifications</h2>
   </div>
   <div id="center-list"></div>
-  <p class="center-foot">
-    <button class="link-btn" id="center-all" type="button">
-      All live sessions
-    </button>
-  </p>
 </dialog>
-<dialog
-  class="dialog sessions"
-  id="sessions-dialog"
-  aria-labelledby="sessions-title"
->
-  <div class="dialog-head">
-    <h2 id="sessions-title" tabindex="-1" autofocus>Live sessions</h2>
+<!-- The first header button opens the session list under it above 720px.
+     At 720px and below the same rows follow Pages in the menu sheet. The
+     frame draws both lists. -->
+<div class="pop" id="sessions-pop" popover aria-labelledby="sessions-title">
+  <div class="side-label">
+    <span id="sessions-title">Sessions</span
+    ><span class="pop-count" id="sessions-waiting"></span>
   </div>
-  <div class="session-list" id="sidecar-list"></div>
-</dialog>
+  <div class="sess-list" id="sessions-list"></div>
+</div>
 <dialog class="dialog note" id="note-dialog" aria-labelledby="note-title">
   <form id="note-form">
     <div class="dialog-head" data-close-label="Close note">
@@ -211,10 +205,14 @@
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
   </div>
   <dl class="key-list">
+    <dt><kbd>g</kbd></dt>
+    <dd>Open the session list</dd>
+    <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+    <dd>Open a session by its number in the session list</dd>
+    <dt><kbd>w</kbd></dt>
+    <dd>Open the next session waiting for you</dd>
     <dt><kbd>n</kbd></dt>
     <dd>Open notifications</dd>
-    <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
-    <dd>Jump to a session, in the order of Live sessions</dd>
     <dt><kbd>]</kbd> <kbd>[</kbd></dt>
     <dd>Next and previous page</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt>
@@ -243,6 +241,11 @@
     ></span>
   </div>
   <div class="pages-slot" id="pages-slot"></div>
+  <div class="side-label" id="sheet-sessions-label" hidden>
+    <span>Sessions</span
+    ><span class="pop-count" id="sheet-sessions-waiting"></span>
+  </div>
+  <div class="sess-list" id="sheet-sessions"></div>
 </dialog>
 <dialog
   class="lightbox"

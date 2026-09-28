@@ -14,13 +14,15 @@
   <body>
     <div class="app" id="app">
       <header class="frame-header" id="frame-header">
+        <!-- Above 720px this button opens the session list, and at 720px
+             and below it opens the menu sheet with Pages, then Sessions. -->
         <button
           class="icon-btn menu"
           id="menu-button"
           type="button"
-          aria-label="Pages"
-          aria-controls="pages-dialog"
+          aria-label="Sessions"
           aria-expanded="false"
+          popovertarget="sessions-pop"
         >
           <svg
             viewBox="0 0 24 24"
@@ -34,7 +36,7 @@
             <rect x="2.5" y="2.5" width="19" height="19" rx="3.5" />
             <path d="M7 9h10M7 13h10M7 17h6" />
           </svg>
-          <b id="page-count" aria-hidden="true" hidden></b>
+          <b id="sessions-count" aria-hidden="true" hidden></b>
         </button>
         <button
           class="icon-btn"

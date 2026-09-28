@@ -8,9 +8,8 @@ import {
   settleScroll,
 } from "#frame/app/places.mjs";
 import { enhance } from "#frame/app/registry.mjs";
-import { $, plural } from "#frame/app/util.mjs";
+import { $ } from "#frame/app/util.mjs";
 import {
-  currentAvailable,
   currentShown,
   editable,
   hasFeedbackPage,
@@ -43,10 +42,8 @@ import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
   loadPageRecord,
-  pageSets,
   pageStatus,
   pendingState,
-  remote,
   selectedTab,
 } from "#frame/sync/rounds.mjs";
 
@@ -267,19 +264,6 @@ function addPageButton(item) {
 }
 let pageList;
 export function updateNavigation(force = false) {
-  const currentSet = pageSets.get(remote?.current?.round);
-  const readyPages = currentAvailable()
-    ? currentSet?.pages.filter((item) => item.state === "ready").length || 0
-    : selectedTab === "current"
-      ? pages.filter((item) => !item.pending).length
-      : 0;
-  $("page-count").hidden = !readyPages;
-  $("page-count").textContent = readyPages;
-  $("menu-button").classList.toggle("need", readyPages > 0);
-  $("menu-button").setAttribute(
-    "aria-label",
-    `Pages, ${plural(readyPages, "current page")} ready to read`,
-  );
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
   $("past-tab").textContent = pastRound ? `Round ${pastRound}` : "Previous";
@@ -355,8 +339,13 @@ export function installPages() {
   pageList.id = "page-list";
   $("navigation").append(tabs, pageList);
   updateNavigation(true);
-  $("menu-button").addEventListener("click", () =>
-    $("pages-dialog").open ? closeDrawer() : openDrawer(),
-  );
+  // Above 720px the button opens the session list through its
+  // popovertarget. At 720px and below it opens this drawer instead.
+  $("menu-button").addEventListener("click", (event) => {
+    if (!narrow.matches) return;
+    event.preventDefault();
+    if ($("pages-dialog").open) closeDrawer();
+    else openDrawer();
+  });
   $("feedback-pages").addEventListener("click", openDrawer);
 }
