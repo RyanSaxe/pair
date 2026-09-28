@@ -125,7 +125,7 @@ test("the hub lists when each session started, and a new hub keeps it", async (t
   );
 });
 
-test("closing a session from Live sessions completes it and drops it from the list", async (t) => {
+test("closing a session from the session list completes it and drops it from the list", async (t) => {
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
@@ -161,7 +161,7 @@ test("closing a session from Live sessions completes it and drops it from the li
 });
 
 // A tab opened before the session closed can still send, after ✕ on its
-// line in Live sessions or after pair complete.
+// line in the session list or after pair complete.
 test("a closed session refuses feedback and wakes no agent", async (t) => {
   const h = await hub(t);
   const dismissed = await h.session();
