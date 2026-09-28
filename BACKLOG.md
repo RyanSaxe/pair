@@ -126,12 +126,26 @@ A compile step changes how every part of pair runs:
 
 ### Page performance
 
-A long page opens with a visible lag. Measure where the time goes before
-changing anything, with a browser's performance profile of a long page from a
-real session and of the test fixture: parsing the built HTML, loading the
-frame's modules from their `data:` URLs, rendering the figures and diffs, and
-the frame's setup of each block for notes and choices. Fix the largest cost,
-then measure the same pages again.
+The frame draws a page before it renders the page's figures, and then
+renders them one at a time, nearest to the view first. Two costs remain.
+Both were measured on a phone profile: 390×844, 6x CPU, and a 4G link of
+150 ms latency and 9 Mbps down.
+
+The frame downloads each library from esm.sh or jsDelivr the first time a page
+needs it. esm.sh builds `@pierre/diffs@1.4.2?bundle` with its own copy of
+Shiki and every grammar and theme, 2.6 MB compressed, and the code component
+loads a second Shiki. A reader who scrolls straight to a page's first diff
+waits 3.4 s from the tap, most of it for the bundle, and a code block on
+screen shows plain text for 0.8 s while Shiki downloads. Serving the libraries
+locally, with one Shiki for code blocks and diffs, is part of "Libraries from
+npm instead of CDNs".
+
+@pierre/diffs sets up its highlighter for a page's JavaScript diffs in one
+chain of promise callbacks, which the browser runs as one task. On a page
+with 14 diffs, the task takes 1.7 s. Touch scrolling continues during it,
+and a tap waits until it ends. @pierre/diffs 1.4.2 ships worker pool code,
+such as `dist/react/WorkerPoolContext.js`, and highlighting in a worker
+would take the task off the main thread.
 
 ## Features
 
