@@ -166,7 +166,13 @@ test("listed pages arrive independently and only the last completes the round", 
     publish,
     firstAgreed,
   } = await session(t);
+  // The hub lists the round's readable pages as each one publishes.
+  const readyPages = async () =>
+    (await (await fetch(`${hub.origin}/api/sessions`)).json()).sessions.find(
+      (item) => item.id === sessionId,
+    ).readyPages;
   await firstAgreed();
+  assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
   assert.equal(
     (await act({ action: "progress", start: ["detail"] })).status,
     200,
@@ -196,6 +202,10 @@ test("listed pages arrive independently and only the last completes the round", 
   );
   assert.equal(detail.status, 200, JSON.stringify(detail.body));
   assert.equal(detail.body.roundComplete, false);
+  assert.deepEqual(await readyPages(), {
+    round: "1",
+    ids: ["agreed", "detail"],
+  });
   const immutable = await fs.readFile(detail.body.page.recordPath, "utf8");
   assert.doesNotMatch(
     await (await fetch(`${hub.origin}/s/${sessionId}/`)).text(),
@@ -268,6 +278,10 @@ test("listed pages arrive independently and only the last completes the round", 
   );
   assert.equal(overview.status, 200, JSON.stringify(overview.body));
   assert.equal(overview.body.roundComplete, true);
+  assert.deepEqual(await readyPages(), {
+    round: "1",
+    ids: ["agreed", "overview", "detail"],
+  });
   assert.equal((await status()).rounds.length, 1);
   assert.equal((await status()).openRound, null);
   assert.equal((await status()).needsYou, true);

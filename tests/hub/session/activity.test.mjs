@@ -13,7 +13,7 @@ const listedEvents = async (origin, id) =>
 // What each event says, without the ID and time the hub gives it.
 const described = (events) => events.map(({ id, at, ...rest }) => rest);
 
-test("a published page, a reply and side work's pull request each add one event, which a new hub keeps", async (t) => {
+test("a reply and side work's pull request each add one event, a published page adds none, and a new hub keeps them", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
@@ -57,8 +57,6 @@ test("a published page, a reply and side work's pull request each add one event,
   const events = await listedEvents(h.server.origin, a.id);
   assert.equal(events.at(-1).id, announced.id);
   assert.deepEqual(described(events), [
-    { kind: "page", name: "Agreed so far", round: "1", page: "agreed" },
-    { kind: "page", name: "Overview", round: "1", page: "overview" },
     {
       kind: "reply",
       name: "Overview",
@@ -75,7 +73,7 @@ test("a published page, a reply and side work's pull request each add one event,
       target: "side-work-1",
     },
   ]);
-  assert.equal(new Set(events.map((event) => event.id)).size, 4);
+  assert.equal(new Set(events.map((event) => event.id)).size, 2);
   assert.ok(events.every((event) => Date.parse(event.at)));
   assert.deepEqual(
     JSON.parse(
@@ -105,7 +103,6 @@ test("a session keeps its last 50 events", async (t) => {
     await a.action("reply", { note: thread, text: `Reply ${index}` });
   const events = await listedEvents(h.server.origin, a.id);
   assert.equal(events.length, 50);
-  // The two page events were the oldest, so they went first.
   assert.deepEqual(
     events.map((event) => event.kind),
     Array(50).fill("reply"),

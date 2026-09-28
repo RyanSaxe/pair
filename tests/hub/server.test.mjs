@@ -5,6 +5,7 @@ import http from "node:http";
 import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
+import { startHub } from "../../src/hub/server.mjs";
 import { readPlanData } from "../../src/shared/records.mjs";
 import {
   exists,
@@ -91,6 +92,37 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
     [a.id, false, true],
   ]);
   assert.equal((await a.request(`${a.base}/`)).code, 200);
+});
+
+test("the hub lists when each session started, and a new hub keeps it", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  const startedAt = async (origin) =>
+    (await (await fetch(`${origin}/api/sessions`)).json()).sessions.find(
+      (item) => item.id === a.id,
+    ).startedAt;
+  const first = await startedAt(h.server.origin);
+  assert.ok(Date.parse(first));
+  await h.server.close();
+  const next = await startHub(h.config);
+  assert.equal(await startedAt(next.origin), first);
+  // A session saved before startedAt existed takes its directory's
+  // creation time instead.
+  await next.close();
+  const file = path.join(a.directory, "status.json");
+  const { startedAt: dropped, ...older } = JSON.parse(
+    await fs.readFile(file, "utf8"),
+  );
+  assert.equal(dropped, first);
+  await fs.writeFile(file, JSON.stringify(older));
+  const last = await startHub(h.config);
+  t.after(last.close);
+  const filled = await startedAt(last.origin);
+  assert.ok(
+    Math.abs(Date.parse(filled) - Date.parse(first)) < 60_000,
+    `${filled} is not close to ${first}`,
+  );
 });
 
 test("closing a session from Live sessions completes it and drops it from the list", async (t) => {

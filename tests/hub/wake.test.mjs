@@ -30,6 +30,8 @@ test("a submission wakes the holder with the line that names the session", async
   assert.equal(await woken(a), true);
   const view = (await a.status()).body;
   assert.equal(view.wake.last.ok, true);
+  const listed = (await a.request("/api/sessions")).body.sessions;
+  assert.equal(listed.find((item) => item.id === a.id).wakeFailed, false);
   assert.equal(view.latestSubmissionRound, "1");
   assert.deepEqual(a.inbox.wakes, [
     {
@@ -58,6 +60,9 @@ test("a failed wake is recorded and the submission stays readable", async (t) =>
   const { wake } = (await a.status()).body;
   assert.equal(wake.last.ok, false);
   assert.ok(wake.last.reason.includes(a.inbox.socket), wake.last.reason);
+  // Every tab's session list shows the failure.
+  const listed = (await a.request("/api/sessions")).body.sessions;
+  assert.equal(listed.find((item) => item.id === a.id).wakeFailed, true);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
