@@ -38,7 +38,7 @@ import {
   markNotes,
   placeMarks,
 } from "#frame/notes/notes.mjs";
-import { renderAgreements } from "#frame/pages/agreed.mjs";
+import { renderAgreements, showAgreedTab } from "#frame/pages/agreed.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -148,10 +148,12 @@ export function show(
   review();
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
-// details around it.
+// details around it and the Agreed tab that holds it.
 export function reveal(targetId) {
   const target = targetId && $(targetId);
   if (!target || !$("page-content").contains(target)) return;
+  const panel = target.closest(".agreed-panel");
+  if (panel) showAgreedTab(panel.id);
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
   if (!target.hasAttribute("tabindex")) target.tabIndex = -1;

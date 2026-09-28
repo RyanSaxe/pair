@@ -1,9 +1,9 @@
 import { state } from "#frame/app/store.mjs";
 import { $, plural, unreachable } from "#frame/app/util.mjs";
-import { base, editable } from "#frame/app/view.mjs";
+import { base, editable, mode, online } from "#frame/app/view.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
-import { tag } from "#frame/pages/agreed.mjs";
+import { refreshAgreedTabs, tag } from "#frame/pages/agreed.mjs";
 import { openStart } from "#frame/pages/start-dialog.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
@@ -19,6 +19,10 @@ const labels = {
   moved: ["Moved", "muted"],
 };
 const finished = (item) => ["done", "dropped", "moved"].includes(item.state);
+export const sideWorkItems = () =>
+  online && mode !== "preview" ? remote?.sideWork || [] : [];
+export const openCount = (items) =>
+  items.filter((item) => !finished(item)).length;
 // A Start or Drop the hub refused, shown on its item until the item's state
 // changes.
 const failures = new Map();
@@ -182,19 +186,14 @@ function itemCard(item) {
 }
 // Open items in the order the agent added them, then Finished, folded.
 export function sideWorkSection() {
-  const items = remote?.sideWork || [];
+  const items = sideWorkItems();
   rendered = JSON.stringify(items);
   const section = document.createElement("div");
   section.id = "side-work";
+  section.className = "agreed-panel";
   section.hidden = !items.length;
   if (!items.length) return section;
-  const label = document.createElement("p");
-  label.className = "agreed-label";
-  label.textContent = "Side work";
-  section.append(
-    label,
-    ...items.filter((item) => !finished(item)).map(itemCard),
-  );
+  section.append(...items.filter((item) => !finished(item)).map(itemCard));
   const done = items.filter(finished);
   if (done.length) {
     const fold = document.createElement("details");
@@ -212,10 +211,7 @@ export function sideWorkSection() {
 // thread cards under its items again, and keeps focus where it was.
 export function refreshSideWork(force = false) {
   const section = $("side-work");
-  if (
-    !section ||
-    (!force && JSON.stringify(remote?.sideWork || []) === rendered)
-  )
+  if (!section || (!force && JSON.stringify(sideWorkItems()) === rendered))
     return;
   const focused = section.contains(document.activeElement)
     ? document.activeElement
@@ -226,6 +222,7 @@ export function refreshSideWork(force = false) {
   // The thread cards are the same elements in the new list, so a Reply
   // field in one gets its focus back.
   placeThreads();
+  refreshAgreedTabs();
   if (focused?.isConnected) focused.focus({ preventScroll: true });
   else if (card)
     $(card)

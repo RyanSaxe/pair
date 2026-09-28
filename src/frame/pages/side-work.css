@@ -1,8 +1,4 @@
-/* Side work, after the decisions on Agreed. Each item is a decision card
-   from agreed.css. */
-#side-work {
-  margin-top: 18px;
-}
+/* Side work cards use the same styles as decision cards. */
 .side-work-error {
   margin-top: 4px;
   font-size: var(--text-meta);

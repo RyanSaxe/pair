@@ -34,8 +34,8 @@ The line under your message says where the thread is:
 ## Side work
 
 When something outside the task turns up, the agent records it instead of
-adding it to the task. You can also ask for side work in a comment. Each
-item is listed on Agreed, after the decisions.
+adding it to the task. You can also ask for side work in a comment. The frame
+lists each item in Agreed's Side work tab.
 
 | Button  | What it does                                                                                                                                                                                                                       |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

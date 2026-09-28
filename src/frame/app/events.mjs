@@ -14,6 +14,7 @@ import {
   chooseBlock,
   chosen,
   commentOnTarget,
+  pageBlocks,
 } from "#frame/notes/blocks.mjs";
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
@@ -161,7 +162,7 @@ export function installEvents() {
     } else if (key === "j" || key === "k") {
       /* The same blocks a click can choose, so the keys reach the comment
          control's target. Tab still steps through the controls inside one. */
-      const blocks = [...$("page-content").children].filter(
+      const blocks = pageBlocks().filter(
         (block) => !blockSkip.has(block.tagName) && block.offsetParent,
       );
       if (!blocks.length) return;
