@@ -59,10 +59,6 @@ export function installEvents() {
       toggleRoundMenu();
       return;
     }
-    if (event.target.closest("#bell")) {
-      toggleCenter();
-      return;
-    }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");
     if (comment && $("page-content").contains(comment))

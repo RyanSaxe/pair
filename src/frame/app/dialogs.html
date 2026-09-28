@@ -23,17 +23,17 @@
     <span class="small">Press <kbd>?</kbd> for the list</span>
   </div>
 </dialog>
-<!-- The bell opens the notification center. The frame draws its list. -->
-<dialog
-  class="dialog sessions"
-  id="center-dialog"
-  aria-labelledby="center-title"
->
-  <div class="dialog-head">
-    <h2 id="center-title" tabindex="-1" autofocus>Notifications</h2>
+<!-- The bell opens its list under it. The frame draws the lines. -->
+<div class="pop" id="center-pop" popover aria-labelledby="center-title">
+  <div class="side-label">
+    <span id="center-title">Notifications</span
+    ><button class="link-btn" id="center-clear-all" type="button" hidden>
+      Clear all
+    </button>
   </div>
-  <div id="center-list"></div>
-</dialog>
+  <div class="session-list" id="center-list"></div>
+  <p class="pop-empty" id="center-empty">No notifications.</p>
+</div>
 <!-- The first header button opens the session list under it above 720px.
      At 720px and below the same rows follow Pages in the menu sheet. The
      frame draws both lists. -->

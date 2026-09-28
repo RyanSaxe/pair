@@ -173,10 +173,9 @@ export function lineButton(key, label, content, onclick, tip = null) {
   button.onclick = () => onclick(button);
   return button;
 }
-/* One line of the notification center: a row with a title and a words
-   line, whose tint says what it is, then its icon buttons, each in a fixed
-   column under the dialog's own ✕. An empty slot keeps a later button in
-   its column. */
+/* One line of the bell's list: a row with a title and a words line, then
+   its icon buttons, each in a fixed column. An empty slot keeps a later
+   button in its column. */
 export function sessionLine({ key, title, state, words, tint, open, icons }) {
   const line = document.createElement("div");
   line.className = `session-line ${tint}`.trim();

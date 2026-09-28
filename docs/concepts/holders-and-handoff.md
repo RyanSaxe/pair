@@ -14,7 +14,7 @@ Take over pair session PATH: run pair start --session-dir PATH and follow what i
 ```
 
 The page shows it with a Copy button after **Save for later** and after a
-failed wake, and Live sessions has **Copy handoff line** on each session. You
+failed wake, and the session list has **Copy handoff line** on each session. You
 might also hand over to carry on in a new conversation.
 
 ## What other agents can run

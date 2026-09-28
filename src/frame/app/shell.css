@@ -117,14 +117,6 @@ main {
   background: var(--attention);
   color: var(--attention-ink);
 }
-/* Only events are new: blue, as this tab and new events are. */
-.bell.news {
-  color: var(--accent);
-}
-.bell.news b {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
 /* The sessions button, first in the header at every width. Its badge
    counts the live sessions: grey, orange while another session needs you,
    and blue while one has pages you have not opened. */

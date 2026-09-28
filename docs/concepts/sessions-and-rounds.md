@@ -42,22 +42,26 @@ link to where it was agreed. Comment on anything there that is wrong.
 | Revisiting        | Your feedback reopened it.          |
 | No longer applies | Folded at the end, with the reason. |
 
-## Notifications
+## Sessions and notifications
 
-The bell in the header, or <kbd>n</kbd>, opens the notification center.
+The first button in the header, or <kbd>g</kbd>, opens the session list: every
+live session in the order it started, with **Copy handoff line** and ✕ to
+close one for good. At 720px and below, the same button opens Pages, then
+Sessions.
 
-| Section         | Shows                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| Waiting for you | Other sessions whose round waits for your feedback.                                                     |
-| New, Earlier    | Every session's events, newest first: a page published, a reply in a thread, side work at Pull request. |
+- The button's number counts the live sessions. It is orange when another
+  session waits for you or its agent could not be woken, blue when another
+  session has pages you have not opened, and grey otherwise.
+- <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
+  waiting for you.
+- **New** marks each page of a round that you have not opened.
 
-- The bell's number counts waiting sessions and unseen events. It is red
-  while a session waits and blue when only events are new, and the tab's
-  title shows it too.
-- **All live sessions**, at the foot of the center, lists every session,
-  with **Copy handoff line** and ✕ to close one.
-- With notifications on in Settings, you also get a system notification for
-  each event, unless its session is open in the tab you are using.
+The bell, or <kbd>n</kbd>, lists agent replies and side-work pull requests from
+every session. A line leaves when you click it or its ✕, and **Clear all**
+empties the list. The bell's orange number is the number of lines. With
+notifications on in Settings, you also get a system notification when a
+session starts waiting, when an agent cannot be woken, and for each new line
+in the bell, unless its session is open in the tab you are using.
 
 ## Feedback
 

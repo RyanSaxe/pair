@@ -284,10 +284,8 @@ dialog::backdrop {
   color: var(--ink);
   font-weight: var(--weight-strong);
 }
-/* The notification center and Live sessions share these lines. A tint says
-   what a line is: warm for a session waiting for you, blue for this tab and
-   for an event not yet opened. Hover darkens the whole line, icons included,
-   and the icon under the pointer once more. */
+/* The bell's lines. Hover darkens the whole line, icons included, and the
+   icon under the pointer once more. */
 .session-list {
   display: grid;
   gap: 4px;
@@ -320,35 +318,16 @@ dialog::backdrop {
   font-style: normal;
   font-weight: var(--weight-strong);
 }
-.session-row.need .words em {
-  color: var(--attention);
-}
-.session-row.current .words em {
-  color: var(--ink);
-}
-.session-row.done .title {
-  font-weight: 500;
-  color: var(--muted);
-}
 /* A row and its icon buttons. */
 .session-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
   gap: 4px;
-  /* The list bleeds 8px so a line's tint is wider than its text. The icon
-     columns are not part of that, and the last lines up with the dialog's
-     own close instead. */
+  /* The list bleeds 8px so a line's hover is wider than its text. */
   padding-right: 8px;
   border-radius: 8px;
-}
-.session-line.need {
-  background: var(--attention-bg);
-}
-.session-line.current,
-.session-line.new {
-  background: var(--accent-soft);
 }
 @media (hover: hover) {
   .session-line:hover::before {
@@ -398,30 +377,23 @@ dialog::backdrop {
 .icon-btn:is(:hover, :focus-visible, .tipped) > .line-tip {
   visibility: visible;
 }
-/* The center's section labels take the sidebar's Pages heading style,
-   and each section starts 16px above its label. */
+/* A dialog's section labels take the sidebar's Pages heading style, and
+   each section starts 16px above its label. */
 .dialog .side-label {
   padding: 16px 2px 6px;
-}
-#center-list > .side-label:first-child {
-  padding-top: 0;
 }
 .side-label .link-btn {
   text-transform: none;
   letter-spacing: 0;
   font-size: var(--text-meta);
 }
-.session-line[data-closing] {
-  opacity: 0.45;
-  pointer-events: none;
-}
 @media (max-width: 720px) {
   .dialog {
     width: 92vw;
   }
 }
-/* The session list opens under the sessions button, in the top layer, at
-   the place the frame sets when it opens. */
+/* The session list and the bell's list open under their buttons, in the
+   top layer, at the place the frame sets when each opens. */
 .pop {
   position: fixed;
   inset: auto;
@@ -440,6 +412,11 @@ dialog::backdrop {
 }
 .pop .side-label {
   padding: 10px 2px 6px;
+}
+.pop-empty {
+  margin: 4px 2px 6px;
+  font-size: var(--text-meta);
+  color: var(--muted);
 }
 .pop-count {
   font-size: var(--text-meta);
