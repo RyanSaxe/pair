@@ -132,6 +132,16 @@ test("the nearest harness ancestor decides the wake target", () => {
     ),
     { harness: "pi", socket: "/tmp/pair-1/wake.sock", session: "p" },
   );
+  assert.deepEqual(
+    detectWake(
+      {
+        PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock",
+        PAIR_OPENCODE_SESSION: "ses_1",
+      },
+      tools([{ pid: 3, command: "opencode" }]),
+    ),
+    { harness: "opencode", socket: "/tmp/pair-2/wake.sock", session: "ses_1" },
+  );
 });
 
 const extension = fileURLToPath(
@@ -141,7 +151,7 @@ const extension = fileURLToPath(
 test("start refuses without a wake path and says what to do", () => {
   assert.throws(() => detectWake({}, tools([])), {
     message:
-      "no wake path. This needs Claude Code, Codex, Copilot or pi, and none of their session variables is set.",
+      "no wake path. This needs Claude Code, Codex, Copilot, pi or opencode, and none of their session variables is set.",
   });
   // pi without pair's extension, found as an ancestor or, with no agent CLI
   // among the ancestors, by its first variable.
@@ -152,6 +162,15 @@ test("start refuses without a wake path and says what to do", () => {
   assert.throws(
     () => detectWake({ PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock" }, tools([])),
     pi,
+  );
+  // tests/adapters/opencode.test.mjs checks the config file the line names.
+  assert.throws(
+    () =>
+      detectWake(
+        { PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock" },
+        tools([{ pid: 3, command: "opencode" }]),
+      ),
+    /^Error: this opencode session runs without pair's plugin/,
   );
   assert.throws(
     () =>
