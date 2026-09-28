@@ -52,8 +52,8 @@
   justify-content: space-between;
   gap: 8px;
   padding: 14px 16px 4px;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--text-caps);
+  font-weight: var(--weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);

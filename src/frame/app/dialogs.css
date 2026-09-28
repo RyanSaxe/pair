@@ -24,6 +24,36 @@ dialog::backdrop {
   padding: 22px 24px;
   border-radius: 10px;
   box-shadow: var(--shadow);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+}
+/* A dialog's text has no paragraph margin, so each dialog spaces its
+   lines itself. :where keeps this below any rule that names a class. */
+:where(.dialog) p {
+  margin: 0;
+}
+/* A field's label, the field and the line under it sit close together,
+   and the label starts a group. */
+.dialog label {
+  display: block;
+  margin-top: var(--space-label);
+  font-size: var(--text-label);
+  font-weight: var(--weight-strong);
+}
+.dialog textarea {
+  min-height: var(--field-height);
+  margin: var(--space-field) 0;
+}
+/* A dialog's links are accent colored at the link weight, and underlined
+   only under the pointer. */
+.dialog :is(a, .link-btn) {
+  font-weight: var(--link-weight);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .dialog a:hover {
+    text-decoration: underline;
+  }
 }
 .drawing-dialog {
   width: 100vw;
@@ -62,7 +92,7 @@ dialog::backdrop {
 }
 .dialog h2 {
   margin: 0 0 14px;
-  font-size: 16px;
+  font-size: var(--text-title);
 }
 /* A head lays its heading out centered beside the close button, so the
    heading takes no margin there. */
@@ -92,31 +122,29 @@ dialog::backdrop {
   width: 100%;
   padding: 8px 10px;
   border-radius: 6px;
-  font-size: 13px;
 }
 .dialog-row.current {
   background: var(--ground);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 .dialog-row .tick {
   color: var(--accent);
 }
 .dialog-row small {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   font-weight: 400;
 }
 .dialog-detail {
   margin: -6px 0 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .key-list {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px 16px;
   margin: 0;
-  font-size: 13px;
 }
 .key-list dt {
   white-space: nowrap;
@@ -159,8 +187,10 @@ dialog::backdrop {
   position: relative;
 }
 /* The image button sits inside the text field, in room the field's own
-   padding leaves at its foot. */
+   padding leaves at its foot, so the note's field is taller than a
+   dialog's other fields. */
 .note-field textarea {
+  min-height: 120px;
   padding-bottom: 40px;
 }
 .note-image-pick {
@@ -184,7 +214,7 @@ dialog::backdrop {
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel) 45%, transparent);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 /* Dialogs share one treatment; a long body scrolls inside. */
 .dialog {
@@ -210,6 +240,11 @@ dialog::backdrop {
 .dialog.note #note-anchor {
   margin: 0 0 6px;
 }
+/* The line that says what goes with the decision stands apart from the rows
+   above it and the note below. */
+#finish-drafted {
+  margin: 10px 0 12px;
+}
 .settings-row {
   display: flex;
   justify-content: space-between;
@@ -217,7 +252,6 @@ dialog::backdrop {
   gap: 12px;
   padding: 10px 0;
   border-top: 1px solid var(--line);
-  font-size: 13.5px;
 }
 /* The first row follows the head, which :first-of-type would count as the
    dialog's first div. */
@@ -227,7 +261,7 @@ dialog::backdrop {
 }
 .settings-row .btn {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .segmented {
   display: inline-flex;
@@ -239,7 +273,7 @@ dialog::backdrop {
   padding: 4px 10px;
   border-left: 1px solid var(--line-strong);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .segmented button:first-child {
   border-left: 0;
@@ -247,7 +281,7 @@ dialog::backdrop {
 .segmented button[aria-checked="true"] {
   background: var(--accent-soft);
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 .session-list {
   display: grid;
@@ -274,15 +308,15 @@ dialog::backdrop {
   background: var(--accent-soft);
 }
 .session-row .title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-ui);
+  font-weight: var(--weight-strong);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .session-row .words {
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -290,7 +324,7 @@ dialog::backdrop {
 }
 .session-row .words em {
   font-style: normal;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 .session-row.need .words em {
   color: var(--attention);

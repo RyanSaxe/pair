@@ -35,7 +35,7 @@ a {
   text-underline-offset: 3px;
 }
 p {
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-paragraph);
 }
 h1 {
   font-size: 22px;
@@ -70,7 +70,7 @@ li {
   color: var(--muted);
 }
 .small {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .row {
   display: flex;
@@ -147,7 +147,7 @@ kbd {
   border-radius: 7px;
   background: var(--panel);
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--text-label);
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
@@ -286,7 +286,7 @@ textarea {
   padding: 10px 12px;
   background: var(--panel);
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-ui);
 }
 :where(main, .sidebar, .pages-slot nav, .app-body) {
   scrollbar-width: thin;

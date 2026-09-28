@@ -124,26 +124,20 @@ A compile step changes how every part of pair runs:
 
 ## Frame
 
-### Visual pass
+### Type tokens on pages and components
 
-Give the frame one look through tokens for type size, weight, line height,
-paragraph and field spacing, and link style, which every dialog and component
-uses. Today each surface sets its own rules. The Finish your review dialog
-draws body text at 14px with line height 1.55, a 14px margin under each
-paragraph, field labels at 14px and weight 400, a guidance field at least
-120px tall, and underlined links. The dialog's design uses 13px text, no
-paragraph margin, field labels at 12.5px and weight 600, a 64px guidance
-field, and accent-colored links at weight 600 with no underline. The designs
-for the other dialogs use 12.5px text at line height 1.45.
+Every dialog takes its type sizes, weights, line heights, paragraph and
+field spacing and link style from the tokens in `src/frame/app/tokens.css`,
+and so do the frame's buttons, small text and section labels. The reading
+pages, Agreed, the Review page and the components still set about a hundred
+font sizes of their own, 14 different ones from 9.5px to 22px, and their own
+link style. Map each of those rules to a token, or add one where no token
+fits, so one change to a token changes every surface.
 
-Measure each surface's computed values in a browser before setting the
-tokens, because the frame's `p` rules can outrank a page's CSS, so the
-stylesheets do not show what renders. Check every fixture page and every
-dialog in the light and dark themes, at a wide window and at 375px, before
-and after the change.
-
-Build the visual pass together with the notification center under Features,
-because building the notification center changes the same dialogs and rows.
+Measure each surface's computed values in a browser before changing a rule,
+because the frame's `p` rules can outrank a page's CSS, so the stylesheets
+do not show what renders. Check every fixture page in the light and dark
+themes, at a wide window and at 375px, before and after the change.
 
 ### Page performance
 
