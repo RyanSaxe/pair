@@ -49,15 +49,9 @@ Take over pair session PATH: run pair start --session-dir PATH and follow what i
 Then follow the `next` line that `pair start` prints. When the holder runs
 `pair start` again, it stays the holder.
 
-An agent that is not the holder gets one of two refusals:
-
-- A former holder's first command other than `pair status` or
-  `pair side-work` after the takeover, `pair start` included, fails with
-  "Another agent took this session over at 14:02. Stop working on it." Stop,
-  and tell the user.
-- Every other command but those two fails with the time the holder took
-  the session and the `pair start` command that takes it over. Run that
-  command only when the user asks you to.
+When a command fails because another agent is the session's holder, stop
+working on the session and tell the user. Run the `pair start` command from
+the refusal only when the user asks you to take the session over.
 
 pair tells Claude Code agents apart by their inbox socket, and each Claude
 Code process has its own. A conversation resumed after Claude Code restarts
