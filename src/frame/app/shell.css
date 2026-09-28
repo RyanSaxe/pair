@@ -115,7 +115,7 @@ main {
 }
 .bell.need b {
   background: var(--attention);
-  color: #fff;
+  color: var(--attention-ink);
 }
 /* Only events are new: blue, as this tab and new events are. */
 .bell.news {

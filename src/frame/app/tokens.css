@@ -15,6 +15,7 @@
   --accent-ink: light-dark(#ffffff, #0d1330);
   --accent-soft: light-dark(#eef1fc, #1e2740);
   --attention: light-dark(#b45309, #f0b25f);
+  --attention-ink: light-dark(#ffffff, #1a1d22);
   --attention-bg: light-dark(#fff4e5, #3a2b14);
   --attention-border: light-dark(#e0a35a, #7a5a2a);
   --ok: light-dark(#1f7a45, #7fd39a);

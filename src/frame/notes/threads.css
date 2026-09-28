@@ -218,9 +218,10 @@ pair-thread[collapsed] > :not(.thread-head) {
   padding: 0;
   border: 0;
   background: none;
+  color: inherit;
   font: inherit;
   font-size: var(--text-tiny);
-  opacity: 0.8;
+  opacity: 0.9;
 }
 @media (pointer: coarse) {
   .thread-reply kbd {
