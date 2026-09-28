@@ -1,9 +1,10 @@
 /* A thread: a card under the block its note is on, in the frame's card
    style. The #page-content prefix outranks the page's own p rule. */
 pair-thread {
+  position: relative;
   display: grid;
   gap: 8px;
-  margin: 0 0 22px;
+  margin: 0 0 22px 22px;
   padding: 10px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -16,6 +17,32 @@ pair-thread {
   margin: 0;
   font-size: var(--text-label);
 }
+/* The cards under a block are indented, and one accent line runs from the
+   block past each card to its head. A block, or a card, keeps the next
+   card 8px below it, so the line meets both. The card's data-thread makes
+   the rule outrank the frame's margin for a component or a figure. */
+#page-content :has(+ pair-thread[data-thread]) {
+  margin-bottom: 8px;
+}
+pair-thread::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -18px;
+  width: 12px;
+  height: 27px;
+  border-bottom: 2px solid var(--accent);
+  border-left: 2px solid var(--accent);
+  border-bottom-left-radius: 7px;
+}
+pair-thread:has(+ pair-thread)::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: -11px;
+  left: -18px;
+  border-left: 2px solid var(--accent);
+}
 pair-thread[collapsed] {
   padding-block: 7px;
 }
@@ -25,9 +52,37 @@ pair-thread[collapsed] > :not(.thread-head) {
 .thread-head {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 10px;
   color: var(--muted);
   font-size: var(--text-meta);
+}
+/* A long head wraps, so a narrow card still says what the thread is on. */
+.thread-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.thread-title b {
+  color: var(--ink);
+  font-weight: var(--weight-strong);
+}
+.thread-fold {
+  flex: none;
+}
+/* The words a thread is on, marked as the page marks a note's, and cut at
+   two lines. */
+.thread-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.thread-quote span {
+  padding: 1px 2px;
+  border-radius: 3px;
+  background: var(--mark);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .thread-messages {
   display: grid;
