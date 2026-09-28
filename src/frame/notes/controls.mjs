@@ -31,6 +31,7 @@ function checklist(group, topic, previous) {
   };
 }
 export function initializeChecklists() {
+  const before = JSON.stringify(state.choices);
   for (const topic of plan.pages.filter((item) => !item.pending)) {
     const template = document.createElement("template");
     template.innerHTML = topic.html;
@@ -46,7 +47,9 @@ export function initializeChecklists() {
       };
     }
   }
-  persist();
+  // Saving an unchanged draft would write this tab's copy over one that
+  // another tab saved since, such as the copy that marks a send.
+  if (JSON.stringify(state.choices) !== before) persist();
 }
 export function restoreChoices() {
   document.querySelectorAll("[data-choice] [data-value]").forEach((button) => {
