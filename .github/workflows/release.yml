@@ -1,0 +1,44 @@
+name: release
+
+# A merge into main publishes the next version to npm. Work lands on
+# develop, and a pull request from develop into main is a release. The
+# merged pull request's label picks the version: major or minor, patch by
+# default, and skip-release publishes nothing. npm keeps the versions, so
+# package.json in the repository stays at 0.0.0-development and main never
+# needs a commit from this workflow.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # the release tag and the GitHub release
+  id-token: write # npm trusted publishing, which adds provenance
+  pull-requests: read # the merged pull request's labels
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: node --test
+      - id: next
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/next-version.mjs "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+      - if: steps.next.outputs.version
+        run: npm version "${{ steps.next.outputs.version }}" --no-git-tag-version
+      - if: steps.next.outputs.version
+        run: npm publish
+      - if: steps.next.outputs.version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.next.outputs.version }}
+        run: gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
