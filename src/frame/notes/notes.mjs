@@ -85,6 +85,7 @@ export function stale(kind, key, item) {
 export let editing = null;
 export let noteContext = null;
 export let noteDraftKey = "";
+let opener = null;
 
 /* Notes on the text. A quote is the page's own text, so a thread card that
    repeats it is never where it is found. The text has each run of whitespace
@@ -294,6 +295,25 @@ export function installNotes() {
         markNotes();
     });
   });
+  /* Closing puts focus back on the control that opened the note. The
+     browser does that itself, but not to a control that was redrawn: a save
+     redraws the page, which focuses its heading, or Review's list, and a
+     poll can redraw side work. Focus then goes to the redrawn element that
+     held the control, found by its ID: the block, card or Review item the
+     note is on. */
+  $("note-dialog").addEventListener("close", () => {
+    const shown = (element) =>
+      element?.isConnected && element.checkVisibility();
+    if (shown(opener)) {
+      opener.focus({ preventScroll: true });
+      return;
+    }
+    const home = opener?.closest("[id]");
+    const block = home && $(home.id);
+    if (!shown(block)) return;
+    if (!block.hasAttribute("tabindex")) block.tabIndex = -1;
+    block.focus({ preventScroll: true });
+  });
   /* A tab switch, an image, or a new window width moves the block under the
      bar, and each of those changes the page's own size. */
   new ResizeObserver(placeMarks).observe($("page-content"));
@@ -346,6 +366,7 @@ export function openNote(
   // A new note on a page can start a thread, when a hub can take it.
   $("note-thread").hidden = Boolean(id) || topic === "overall" || !online;
   $("note-save").hidden = !feedback;
+  opener = document.activeElement;
   $("note-dialog").showModal();
   $("note-text").focus();
   $("quote").hidden = true;
