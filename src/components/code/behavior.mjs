@@ -127,6 +127,8 @@ async function renderCode(element) {
   try {
     shikiTask ||= import(libraries.shiki);
     const { codeToHtml } = await shikiTask;
+    // A task of its own for each block, as renderDiff does for a diff.
+    await new Promise((resolve) => setTimeout(resolve));
     const html = await codeToHtml(source, {
       lang: element.dataset.language,
       themes: syntaxThemes,

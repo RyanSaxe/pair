@@ -256,6 +256,10 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
   }
   diffsTask ||= import(libraries.diffs);
   const { FileDiff, parsePatchFiles } = await diffsTask;
+  // Once the library has loaded, the await above resumes in a microtask,
+  // and the browser paints only after every microtask has run. Waiting for
+  // a task gives each diff a task of its own, so the page paints first.
+  await new Promise((resolve) => setTimeout(resolve));
   if (!element.isConnected) return null;
   let viewer = diffs.get(element);
   if (viewer) {
