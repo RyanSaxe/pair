@@ -63,9 +63,9 @@ check and say so.
 
 ### Screenshots
 
-The README's two screenshots, `assets/plan.png` and `assets/diff.png`, were
-taken by hand, so a change to the frame's look leaves them out of date, and
-the pages under `docs/` have none. A committed script,
+The README's screenshot, `assets/pair-light.png` and `assets/pair-dark.png`,
+was taken once by a script that is not in the repository, so a change to the
+frame's look leaves it out of date, and the pages under `docs/` have none. A committed script,
 `scripts/screenshots.mjs` run as `npm run screenshots`, would start a hub on a
 free port with its state in a temporary directory, publish a demo round
 committed beside the script, and write each screenshot to `assets/` in the
@@ -150,5 +150,5 @@ published as `@ryansaxe/pair-opencode`.
 `"private": true` in `package.json` makes `npm publish` refuse, and
 `npx skills add RyanSaxe/pair` needs the repository to be public. To release,
 remove `"private": true`, make `RyanSaxe/pair` public, and run `npm publish`.
-Then run the install and update commands in `docs/install.md` with `HOME` set
-to an empty directory. `LICENSE` and `"license": "MIT"` are already in place.
+Then run the install and update commands in
+`docs/getting-started/install.md` with `HOME` set to an empty directory. `LICENSE` and `"license": "MIT"` are already in place.
