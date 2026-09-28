@@ -3,6 +3,15 @@
   "version": "0.0.0-development",
   "description": "Work with an agent in the browser: plan a change, build it, and explain it.",
   "license": "MIT",
+  "author": "Ryan Saxe",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyanSaxe/pair.git"
+  },
+  "homepage": "https://github.com/RyanSaxe/pair#readme",
+  "bugs": {
+    "url": "https://github.com/RyanSaxe/pair/issues"
+  },
   "type": "module",
   "bin": {
     "pair": "src/cli.mjs"
