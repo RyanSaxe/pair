@@ -49,3 +49,25 @@ file over 1000 lines, and CI also lists each one over 500, the size a file
 aims for. The fixture under `tests/fixture/` is a page with every component,
 and its [README](../../tests/fixture/README.md) says how to build it and what
 to check in it.
+
+## Releasing
+
+Every merge into `main` publishes a new version of `@ryansaxe/pair` to npm.
+
+- Pull requests go to `develop`, the default branch. Nothing publishes from it,
+  so iterate there.
+- A pull request from `develop` into `main` is a release. `main` takes only
+  pull requests whose checks pass.
+- When it merges, the release workflow runs the tests, publishes the next
+  version with npm's trusted publishing, and creates the `v` tag and GitHub
+  release with generated notes.
+
+| Label on the pull request into `main` | Version           |
+| ------------------------------------- | ----------------- |
+| none                                  | 0.1.4 → 0.1.5     |
+| `minor`                               | 0.1.4 → 0.2.0     |
+| `major`                               | 0.1.4 → 1.0.0     |
+| `skip-release`                        | nothing published |
+
+npm holds the versions, so `package.json` in the repository stays at
+`0.0.0-development`, and the workflow never commits to `main`.

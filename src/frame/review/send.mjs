@@ -294,13 +294,19 @@ function finishError(message) {
   $("finish-error").hidden = !message;
   $("finish-error").textContent = message;
 }
+// Sending disables the pressed button, and Chromium then moves focus out of
+// the dialog. When the hub refuses and the dialog stays open with its error,
+// focus comes back to that button.
+let pressed = null;
 function finishBusy(busy) {
+  if (busy) pressed = document.activeElement;
   for (const button of document.querySelectorAll(
     "#accept-actions button, [data-decision]",
   ))
     button.disabled = busy;
   if (busy) $("request-changes").disabled = true;
   else requestable();
+  if (!busy && $("finish-dialog").open) pressed?.focus();
 }
 export function installSend() {
   $("align-unflagged").onchange = (event) => {
@@ -414,6 +420,14 @@ async function acceptOffer(action) {
     markItemsSent(state, state.acceptance.id);
     save();
     $("finish-dialog").close();
+    // Finish review, where the browser would return focus, is disabled once
+    // the round is accepted. Focus goes to the banner when the acceptance
+    // shows one, and otherwise to the heading of the page on screen, as a
+    // page change does.
+    (!$("accepted").hidden
+      ? $("accepted")
+      : $($("reading").hidden ? "feedback-title" : "page-title")
+    ).focus();
   } catch (error) {
     finishError(unreachable(error));
   } finally {
