@@ -100,22 +100,19 @@ function watchCodeScroll(element) {
   new ResizeObserver(update).observe(box);
   update();
 }
-/* Line numbers, the focused range and the notes, once Shiki has written its
-   lines. Every part is optional and a block with none of the attributes is
-   the block the skill always had. */
+/* Line numbers, the focused ranges and the notes, once Shiki has written
+   its lines. Every part is optional and a block with none of the attributes
+   is the block the skill always had. */
 function decorateCode(element) {
   const lines = [...element.querySelectorAll(".shiki code .line")];
   if (!lines.length) return;
-  const [from, to] = (element.dataset.lines || "")
-    .split("-")
-    .map((value) => Number(value));
-  if (from)
-    lines.forEach((line, index) =>
-      line.classList.toggle(
-        "in-focus",
-        index + 1 >= from && index + 1 <= (to || from),
-      ),
-    );
+  const ranges = lineRanges(element.dataset.lines ?? "") ?? [];
+  lines.forEach((line, index) =>
+    line.classList.toggle(
+      "in-focus",
+      ranges.some(([from, to]) => index + 1 >= from && index + 1 <= to),
+    ),
+  );
   for (const note of readData(element.dataset.notes))
     addNote(element, lines, note);
   watchCodeScroll(element);
