@@ -27,10 +27,10 @@ function linkText(url) {
   const pull = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/.exec(url);
   return pull ? `${pull[1]}#${pull[2]}` : url;
 }
-function button(text, action, onclick, tone = "") {
+function button(text, action, className, onclick) {
   const element = document.createElement("button");
   element.type = "button";
-  element.className = `btn ${tone}`.trim();
+  element.className = className;
   element.dataset.action = action;
   element.textContent = text;
   element.onclick = () => onclick(element);
@@ -52,12 +52,23 @@ async function send(item, action, element) {
   }
   refreshSideWork(true);
 }
+// Drop and Comment are links, as on a decision card, and Start in parallel
+// is the one button.
 function actions(item, card) {
   const row = document.createElement("div");
-  row.className = "side-work-actions";
-  const left = document.createElement("span");
-  left.append(
-    button("Comment", "comment", () =>
+  row.className = "actions";
+  if (!finished(item)) {
+    const dot = document.createElement("span");
+    dot.textContent = "·";
+    row.append(
+      button("Drop", "drop", "link-btn", (element) =>
+        send(item, "drop", element),
+      ),
+      dot,
+    );
+  }
+  row.append(
+    button("Comment", "comment", "link-btn", () =>
       openNote(
         "agreed",
         `Side work: ${item.title}`,
@@ -69,27 +80,21 @@ function actions(item, card) {
       ),
     ),
   );
-  if (!finished(item))
-    left.append(
-      button("Drop", "drop", (element) => send(item, "drop", element)),
-    );
-  row.append(left);
-  // Start in parallel sits alone on the right, away from Drop.
   if (item.state === "recorded")
     row.append(
-      button(
-        "Start in parallel",
-        "start",
-        (element) => send(item, "start", element),
-        "primary",
+      button("Start in parallel", "start", "btn primary", (element) =>
+        send(item, "start", element),
       ),
     );
   return row;
 }
+// Built as a decision card is, so side work reads as part of Agreed.
 function itemCard(item) {
   const card = document.createElement("section");
-  card.className = "side-work-item";
+  card.className = "agreement-card";
   card.id = `side-work-${item.id}`;
+  const body = document.createElement("div");
+  body.className = "agreement-body";
   const title = document.createElement("h2");
   title.textContent = item.title;
   if (labels[item.state]) title.append(tag(...labels[item.state]));
@@ -97,9 +102,10 @@ function itemCard(item) {
   if (notes.length) title.append(tag(plural(notes.length, "note"), "muted"));
   const text = document.createElement("p");
   text.textContent = item.text;
-  // The frame sizes every p on a page, so the smaller lines are divs.
-  const source = document.createElement("div");
-  source.className = "side-work-source";
+  body.append(title, text);
+  const strip = document.createElement("div");
+  strip.className = "agreement-source";
+  const source = document.createElement("span");
   source.textContent = item.source;
   if (item.url) {
     const link = document.createElement("a");
@@ -113,21 +119,23 @@ function itemCard(item) {
       item.state === "pr" ? ", open" : item.state === "done" ? ", merged" : "",
     );
   }
-  card.append(title, text, source);
   const failure = failures.get(item.id);
   const problem =
     (failure?.state === item.state && failure.text) ||
     (item.state === "recorded" && item.wake?.ok === false
       ? "Could not reach the agent to start this. Try again."
       : "");
+  // The frame sizes every p on a page, so the error line is a div.
   if (problem) {
     const line = document.createElement("div");
     line.className = "side-work-error";
     line.setAttribute("role", "alert");
     line.textContent = problem;
-    card.append(line);
+    body.append(line);
   }
-  if (editable) card.append(actions(item, card));
+  strip.append(source);
+  if (editable) strip.append(actions(item, card));
+  card.append(body, strip);
   return card;
 }
 // Open items in the order the agent added them, then Finished, folded.
@@ -170,7 +178,7 @@ export function refreshSideWork(force = false) {
   const focused = section.contains(document.activeElement)
     ? document.activeElement
     : null;
-  const card = focused?.closest(".side-work-item")?.id;
+  const card = focused?.closest(".agreement-card")?.id;
   const action = focused?.dataset.action;
   section.replaceWith(sideWorkSection());
   if (card)
