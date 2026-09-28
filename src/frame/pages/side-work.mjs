@@ -37,6 +37,7 @@ function button(text, action, className, onclick) {
   return element;
 }
 async function send(item, action, element) {
+  const card = element.closest(".agreement-card")?.id;
   element.disabled = true;
   try {
     const response = await fetch(
@@ -51,6 +52,15 @@ async function send(item, action, element) {
     failures.set(item.id, { state: item.state, text: unreachable(error) });
   }
   refreshSideWork(true);
+  // Disabling the pressed button sent focus to the page. It comes back to
+  // the same button, to the card's Comment once that button is gone, or to
+  // the Finished fold when the card has folded away.
+  const again = [
+    $(card)?.querySelector(`[data-action="${action}"]`),
+    $(card)?.querySelector('[data-action="comment"]'),
+    $("side-work")?.querySelector(".side-work-finished > summary"),
+  ].find((target) => target?.offsetParent);
+  again?.focus({ preventScroll: true });
 }
 // Drop and Comment are links, as on a decision card, and Start in parallel
 // is the one button.
