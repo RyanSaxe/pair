@@ -10,6 +10,7 @@ import {
 import { enhance } from "#frame/app/registry.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
+  current,
   currentShown,
   editable,
   hasFeedbackPage,
@@ -18,6 +19,7 @@ import {
   pastAvailable,
   pastRound,
   plan,
+  session,
   setPage,
   showingWaiting,
   submittedCurrent,
@@ -39,6 +41,7 @@ import {
 import { renderAgreements } from "#frame/pages/agreed.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
+import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
 import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
   loadPageRecord,
@@ -141,6 +144,7 @@ export function show(
   if (!feedback) reveal(targetId);
   $("quote").hidden = true;
   if (!inPlace) closeMenus();
+  updateNavigation();
   review();
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
@@ -263,6 +267,20 @@ function addPageButton(item) {
   $("page-list").append(button);
 }
 let pageList;
+/* New marks each ready page of the live current round that this browser
+   has not opened, and the ready page on screen counts as opened. Returns
+   the opened pages, or null where no page is marked. */
+function newMarks() {
+  if (!editable || !current() || showingWaiting()) return null;
+  const onScreen = pages.find((item) => item.id === visiblePageId());
+  if (
+    onScreen &&
+    pageStatus(onScreen) === "complete" &&
+    markOpened(session.sessionId, plan.round, onScreen.id)
+  )
+    window.dispatchEvent(new CustomEvent("pair:opened"));
+  return openedPages();
+}
 export function updateNavigation(force = false) {
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
@@ -296,18 +314,31 @@ export function updateNavigation(force = false) {
     pageList.dataset.round = plan.round;
     pageList.dataset.tab = selectedTab;
   }
+  const opened = newMarks();
   for (const item of pages) {
     const button = [...pageList.querySelectorAll("[data-page]")].find(
       (node) => node.dataset.page === item.id,
     );
     if (!button) continue;
-    button.classList.toggle("pending", pageStatus(item) !== "complete");
+    const complete = pageStatus(item) === "complete";
+    button.classList.toggle("pending", !complete);
     const old = button.querySelector(".page-activity");
     const next = pageIndicator(pageStatus(item));
     if (old?.className !== next.className) old?.replaceWith(next);
+    const fresh =
+      complete &&
+      Boolean(opened) &&
+      !opened.has(pageKey(session.sessionId, plan.round, item.id));
+    const mark = button.querySelector(".page-new");
+    if (fresh && !mark) {
+      const label = document.createElement("span");
+      label.className = "page-new";
+      label.textContent = "New";
+      button.querySelector(".page-activity").before(label);
+    } else if (!fresh) mark?.remove();
     button.setAttribute(
       "aria-label",
-      `${item.title}, ${pageStatus(item) === "complete" ? "ready" : item.working ? "working" : "queued"}`,
+      `${item.title}, ${complete ? (fresh ? "ready, not opened yet" : "ready") : item.working ? "working" : "queued"}`,
     );
   }
   for (const button of pageList.querySelectorAll("[data-page]"))

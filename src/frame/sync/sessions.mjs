@@ -5,6 +5,12 @@ import { mode, online, session } from "#frame/app/view.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
 import { installCenter, renderCenter } from "#frame/sync/center.mjs";
 import { createReviewAlerts } from "#frame/sync/notifications.mjs";
+import {
+  countUnopened,
+  isOpenedChange,
+  openedPages,
+  syncOpened,
+} from "#frame/sync/opened.mjs";
 import { connected, remote } from "#frame/sync/rounds.mjs";
 
 let sessions = [];
@@ -32,6 +38,11 @@ export function installSessions() {
   });
   $("sessions-pop").addEventListener("beforetoggle", (event) => {
     if (event.newState === "open") placeSessions();
+  });
+  // This tab or another one on the hub opened a page.
+  window.addEventListener("pair:opened", renderSessions);
+  window.addEventListener("storage", (event) => {
+    if (isOpenedChange(event)) renderSessions();
   });
 }
 export function status() {
@@ -86,6 +97,7 @@ export async function pollSessions() {
     sessions = [];
   }
   sessionOrder = byStart(sessions);
+  if (fromHub) syncOpened(sessions);
   renderSessions();
   renderCenter(sessions, fromHub);
   void reviewAlerts.update(sessions);
@@ -214,7 +226,7 @@ const closing = new Map();
 /* One session's row: its number, title and short status, then Copy
    handoff line and Close in two fixed columns. This tab's row has no
    Close. */
-function sessionRow(entry, index) {
+function sessionRow(entry, index, unopened) {
   const current = entry.id === session.sessionId;
   const line = document.createElement("div");
   line.className = `sess-line${current ? " current" : ""}`;
@@ -235,7 +247,7 @@ function sessionRow(entry, index) {
     ? { text: closing.get(entry.id), tone: "quiet" }
     : current
       ? null
-      : rowStatus(entry);
+      : rowStatus(entry, unopened);
   if (shown?.tone === "working") {
     const dot = document.createElement("span");
     dot.className = "working";
@@ -288,14 +300,20 @@ function renderSessions() {
   ).length;
   for (const id of ["sessions-waiting", "sheet-sessions-waiting"])
     $(id).textContent = waiting ? `${waiting} waiting` : "";
-  redraw($("sessions-list"), sessionOrder.map(sessionRow));
-  redraw($("sheet-sessions"), sessionOrder.map(sessionRow));
+  const opened = openedPages();
+  const unopened = (entry) => countUnopened(entry, opened);
+  const rows = () =>
+    sessionOrder.map((entry, index) =>
+      sessionRow(entry, index, unopened(entry)),
+    );
+  redraw($("sessions-list"), rows());
+  redraw($("sheet-sessions"), rows());
   $("sheet-sessions-label").hidden = !sessionOrder.length;
   const menu = $("menu-button");
   const { count, tone } = sessionsBadge(
     sessionOrder,
     session.sessionId,
-    () => 0,
+    unopened,
     narrow.matches,
   );
   menu.classList.toggle("need", tone === "need");
