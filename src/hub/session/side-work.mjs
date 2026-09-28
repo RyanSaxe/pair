@@ -126,14 +126,22 @@ export async function sideWork(session) {
       "pair side-work takes add or update",
     );
     const item = await (data.change === "add" ? add(data) : update(data));
-    return { sessionId: session.state.sessionId, item };
+    return {
+      sessionId: session.state.sessionId,
+      item,
+      ...(item.state === "pr"
+        ? {
+            next: `Run pair side-work update ${item.id} --state done --session-dir ${directory} after the pull request is merged.`,
+          }
+        : {}),
+    };
   }
   // Runs after the reviewer's request is answered, as the wake after a
   // submission does. When the wake fails, the item is Recorded again, so
   // the reviewer can start it again.
   async function wakeFor(id) {
     const item = find(id);
-    const line = `pair: side work "${item.title}" was started in parallel on session ${directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. Report each change with pair side-work update ${item.id}, then go back to what you were doing.`;
+    const line = `pair: side work "${item.title}" was started in parallel on session ${directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. When the session has no branch of its own in the repository you change, branch from that repository's default branch and open the pull request into it. Report each change with pair side-work update ${item.id}, then go back to what you were doing.`;
     let wake;
     try {
       requireValue(session.wake, "The session has no agent to wake");

@@ -70,16 +70,9 @@ match everything agreed after it was shown. An approved mock is shown in the
 plan, not described. [quality.md](quality.md) says how to carry approved
 material into the plan, including material that was approved only in part.
 
-The user accepts the plan with one of two actions:
-
-- Start implementation: the holder, the agent that ran `pair start` on the
-  session, builds the plan in the session's next round, as
-  [offers/plan.md](offers/plan.md) describes.
-- Save for later: the plan stays accepted in the session. The holder says
-  the handoff line in chat and ends its turn. Any agent that later runs the
-  line's command becomes the holder and builds the plan.
-
-Follow the chosen action and the project's permissions. Do not change an
+The user accepts the plan with Start implementation or Save for later. When
+the user accepts it, follow the section of [offers/plan.md](offers/plan.md)
+for the chosen action, and the project's permissions. Do not change an
 accepted plan.
 
 ## Files
