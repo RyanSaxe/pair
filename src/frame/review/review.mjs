@@ -86,6 +86,9 @@ function itemCard({ kind, key, item }) {
   const summary = itemSummary(kind, item);
   const box = document.createElement("div");
   box.className = "feedback-item" + (item.sentIn ? " sent" : "");
+  // The same ID each time the list is drawn, so closing a note opened here
+  // can put focus back on the item.
+  box.id = `feedback-${kind}-${key}`;
   const body = document.createElement("div");
   const title = document.createElement("h3");
   title.textContent =
