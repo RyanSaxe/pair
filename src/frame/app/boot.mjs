@@ -38,6 +38,7 @@ import {
   installPages,
   narrow,
   placeNavigation,
+  reveal,
   show,
 } from "#frame/pages/pages.mjs";
 import { installRenderers, theme } from "#frame/pages/renderers.mjs";
@@ -108,11 +109,15 @@ function start() {
     ...pages.map((item) => item.id),
     ...(editable ? ["feedback"] : []),
   ]);
-  const opened = location.hash.slice(1) || query.get("target");
-  show(location.hash.slice(1) || place?.page || "", query.get("target"), {
+  const target = query.get("target");
+  const opened = location.hash.slice(1) || target;
+  show(location.hash.slice(1) || place?.page || "", target, {
     keepScroll: false,
     push: false,
   });
+  // A notification of a reply names its thread's card, which the first
+  // poll places, so the page scrolls to the card after that poll.
+  const placedLater = target && !$(target);
   if (place?.top && !opened) restoreScroll(place.top);
   window.addEventListener("popstate", () => {
     const url = new URL(location.href);
@@ -132,8 +137,13 @@ function start() {
     }
   }
   if (online && mode !== "preview") {
-    // A reload returns to the past round that was on screen.
     poll().then(() => {
+      if (
+        placedLater &&
+        new URL(location.href).searchParams.get("target") === target
+      )
+        reveal(target);
+      // A reload returns to the past round that was on screen.
       if (editable && placeStore.tab === "past" && selectedTab === "current")
         if (placeStore.past) void openPast(placeStore.past);
     });

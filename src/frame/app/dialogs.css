@@ -24,6 +24,36 @@ dialog::backdrop {
   padding: 22px 24px;
   border-radius: 10px;
   box-shadow: var(--shadow);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+}
+/* A dialog's text has no paragraph margin, so each dialog spaces its
+   lines itself. :where keeps this below any rule that names a class. */
+:where(.dialog) p {
+  margin: 0;
+}
+/* A field's label, the field and the line under it sit close together,
+   and the label starts a group. */
+.dialog label {
+  display: block;
+  margin-top: var(--space-label);
+  font-size: var(--text-label);
+  font-weight: var(--weight-strong);
+}
+.dialog textarea {
+  min-height: var(--field-height);
+  margin: var(--space-field) 0;
+}
+/* A dialog's links are accent colored at the link weight, and underlined
+   only under the pointer. */
+.dialog :is(a, .link-btn) {
+  font-weight: var(--link-weight);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .dialog a:hover {
+    text-decoration: underline;
+  }
 }
 .drawing-dialog {
   width: 100vw;
@@ -62,7 +92,7 @@ dialog::backdrop {
 }
 .dialog h2 {
   margin: 0 0 14px;
-  font-size: 16px;
+  font-size: var(--text-title);
 }
 /* A head lays its heading out centered beside the close button, so the
    heading takes no margin there. */
@@ -92,31 +122,29 @@ dialog::backdrop {
   width: 100%;
   padding: 8px 10px;
   border-radius: 6px;
-  font-size: 13px;
 }
 .dialog-row.current {
   background: var(--ground);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 .dialog-row .tick {
   color: var(--accent);
 }
 .dialog-row small {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   font-weight: 400;
 }
 .dialog-detail {
   margin: -6px 0 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .key-list {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px 16px;
   margin: 0;
-  font-size: 13px;
 }
 .key-list dt {
   white-space: nowrap;
@@ -147,7 +175,7 @@ dialog::backdrop {
   border: 0;
   background: none;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-tiny);
   opacity: 0.8;
 }
 @media (pointer: coarse), (max-width: 400px) {
@@ -159,8 +187,10 @@ dialog::backdrop {
   position: relative;
 }
 /* The image button sits inside the text field, in room the field's own
-   padding leaves at its foot. */
+   padding leaves at its foot, so the note's field is taller than a
+   dialog's other fields. */
 .note-field textarea {
+  min-height: 120px;
   padding-bottom: 40px;
 }
 .note-image-pick {
@@ -184,7 +214,7 @@ dialog::backdrop {
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel) 45%, transparent);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 /* Dialogs share one treatment; a long body scrolls inside. */
 .dialog {
@@ -210,6 +240,11 @@ dialog::backdrop {
 .dialog.note #note-anchor {
   margin: 0 0 6px;
 }
+/* The line that says what goes with the decision stands apart from the rows
+   above it and the note below. */
+#finish-drafted {
+  margin: 10px 0 12px;
+}
 .settings-row {
   display: flex;
   justify-content: space-between;
@@ -217,7 +252,6 @@ dialog::backdrop {
   gap: 12px;
   padding: 10px 0;
   border-top: 1px solid var(--line);
-  font-size: 13.5px;
 }
 /* The first row follows the head, which :first-of-type would count as the
    dialog's first div. */
@@ -227,7 +261,7 @@ dialog::backdrop {
 }
 .settings-row .btn {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .segmented {
   display: inline-flex;
@@ -239,7 +273,7 @@ dialog::backdrop {
   padding: 4px 10px;
   border-left: 1px solid var(--line-strong);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .segmented button:first-child {
   border-left: 0;
@@ -247,15 +281,16 @@ dialog::backdrop {
 .segmented button[aria-checked="true"] {
   background: var(--accent-soft);
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
+/* The notification center and Live sessions share these lines. A tint says
+   what a line is: warm for a session waiting for you, blue for this tab and
+   for an event not yet opened. Hover darkens the whole line, icons included,
+   and the icon under the pointer once more. */
 .session-list {
   display: grid;
-  gap: 1px;
+  gap: 4px;
   margin: 0 -8px;
-}
-.session-list .session-gap {
-  height: 6px;
 }
 .session-row {
   display: grid;
@@ -265,24 +300,16 @@ dialog::backdrop {
   border-radius: 8px;
   text-align: left;
 }
-@media (hover: hover) {
-  .session-row:hover {
-    background: var(--ground);
-  }
-}
-.session-row.current {
-  background: var(--accent-soft);
-}
 .session-row .title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-ui);
+  font-weight: var(--weight-strong);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .session-row .words {
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -290,7 +317,7 @@ dialog::backdrop {
 }
 .session-row .words em {
   font-style: normal;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 .session-row.need .words em {
   color: var(--attention);
@@ -302,16 +329,90 @@ dialog::backdrop {
   font-weight: 500;
   color: var(--muted);
 }
-/* A session row and the control that closes that session. */
+/* A row and its icon buttons. */
 .session-line {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
   align-items: center;
   gap: 4px;
-  /* The list bleeds 8px so a row's background is wider than its text. The
-     control in the trailing column is not part of that, and lines up with
-     the dialog's own close instead. */
+  /* The list bleeds 8px so a line's tint is wider than its text. The icon
+     columns are not part of that, and the last lines up with the dialog's
+     own close instead. */
   padding-right: 8px;
+  border-radius: 8px;
+}
+.session-line.need {
+  background: var(--attention-bg);
+}
+.session-line.current,
+.session-line.new {
+  background: var(--accent-soft);
+}
+@media (hover: hover) {
+  .session-line:hover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ink);
+    opacity: 0.04;
+    pointer-events: none;
+  }
+  .session-line .icon-btn:hover {
+    background: var(--line);
+  }
+}
+.session-line .icon-btn {
+  position: relative;
+}
+/* A tooltip has the soft accent ground and ink text, a small shadow
+   instead of a border, and an arrow at the icon that opened it. It opens
+   above the icon, so the last line's stays inside the dialog. */
+.line-tip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 2;
+  width: max-content;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  visibility: hidden;
+}
+.line-tip::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent-soft);
+  transform: rotate(45deg);
+}
+.icon-btn:is(:hover, :focus-visible, .tipped) > .line-tip {
+  visibility: visible;
+}
+/* The center's section labels take the sidebar's Pages heading style,
+   and each section starts 16px above its label. */
+.dialog .side-label {
+  padding: 16px 2px 6px;
+}
+#center-list > .side-label:first-child {
+  padding-top: 0;
+}
+.side-label .link-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--text-meta);
+}
+.center-foot {
+  margin: 16px 0 0;
+  padding-left: 2px;
 }
 .session-line[data-closing] {
   opacity: 0.45;

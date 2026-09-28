@@ -80,7 +80,7 @@ The docs would then show more of pair:
 - A selected passage with the note dialog open, quoting it.
 - The progress card on Agreed while a round's pages arrive, with the round's
   running time.
-- The notification center, once it exists.
+- The notification center with a session waiting and new events.
 
 `files` in `package.json` lists only `src`, `guide`, `adapters` and `skills`,
 so the npm package includes neither `assets/` nor `scripts/`.
@@ -124,27 +124,6 @@ A compile step changes how every part of pair runs:
 
 ## Frame
 
-### Visual pass
-
-Give the frame one look through tokens for type size, weight, line height,
-paragraph and field spacing, and link style, which every dialog and component
-uses. Today each surface sets its own rules. The Finish your review dialog
-draws body text at 14px with line height 1.55, a 14px margin under each
-paragraph, field labels at 14px and weight 400, a guidance field at least
-120px tall, and underlined links. The dialog's design uses 13px text, no
-paragraph margin, field labels at 12.5px and weight 600, a 64px guidance
-field, and accent-colored links at weight 600 with no underline. The designs
-for the other dialogs use 12.5px text at line height 1.45.
-
-Measure each surface's computed values in a browser before setting the
-tokens, because the frame's `p` rules can outrank a page's CSS, so the
-stylesheets do not show what renders. Check every fixture page and every
-dialog in the light and dark themes, at a wide window and at 375px, before
-and after the change.
-
-Build the visual pass together with the notification center under Features,
-because building the notification center changes the same dialogs and rows.
-
 ### Page performance
 
 A long page opens with a visible lag. Measure where the time goes before
@@ -155,16 +134,6 @@ the frame's setup of each block for notes and choices. Fix the largest cost,
 then measure the same pages again.
 
 ## Features
-
-### Notification center
-
-The bell opens a notification center instead of the Live sessions list.
-The center shows the sessions waiting for the reviewer, then the events not
-yet seen in every session: a page arrived, the agent replied to a thread,
-side work opened a pull request. Live sessions opens from the center and
-gains Copy handoff line for a session whose agent is gone. The center comes
-after threads and side work, because it lists their events. The frame's
-visual pass is built together with it.
 
 ### pi and opencode adapters
 

@@ -7,8 +7,8 @@
 }
 .vd-head h3 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-strong);
 }
 .vd-layout {
   display: inline-flex;
@@ -19,7 +19,7 @@
 }
 .vd-layout button {
   padding: 4px 9px;
-  font-size: 11.5px;
+  font-size: var(--text-meta);
   color: var(--muted);
 }
 .vd-layout button + button {
@@ -28,7 +28,7 @@
 .vd-layout button.current {
   background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 .vd-columns {
   display: grid;
@@ -58,8 +58,8 @@
   align-items: center;
   gap: 8px;
   padding: 8px 10px 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-ui);
+  font-weight: var(--weight-strong);
   width: 100%;
 }
 .vd-pick::before {
@@ -77,7 +77,7 @@
 .visual-option > p {
   margin: 0;
   padding: 0 10px;
-  font-size: 12.5px;
+  font-size: var(--text-label);
   color: var(--muted);
 }
 /* An option with no figure ends under its line: the third row and its gap
@@ -115,7 +115,7 @@
   min-width: 0;
   padding: 8px 10px;
   box-shadow: inset 0 -2px 0 transparent;
-  font-size: 13px;
+  font-size: var(--text-ui);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -123,7 +123,7 @@
 }
 .vd-tablist button[aria-selected="true"] {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 .vd-tablist button.chosen::before {

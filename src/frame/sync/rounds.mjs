@@ -41,7 +41,6 @@ import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import {
-  announceArrivals,
   displayedRound,
   pageIndicator,
   show,
@@ -189,11 +188,16 @@ export async function loadPageRecord(round, id) {
       page.id === id &&
       !$("reading").hidden
     ) {
+      // The page on screen was a placeholder, so the target in the address,
+      // such as a notification's, is reached now.
+      const target = new URL(location.href).searchParams.get("target");
       const top = scroller().scrollTop;
       const focused = document.activeElement;
-      show(id, null, { keepScroll: true, push: false });
-      if (focused?.isConnected) focused.focus({ preventScroll: true });
-      if (!restoring) scroller().scrollTo(0, top);
+      show(id, target, { keepScroll: true, push: false });
+      if (!(target && $(target))) {
+        if (focused?.isConnected) focused.focus({ preventScroll: true });
+        if (!restoring) scroller().scrollTo(0, top);
+      }
     }
     return record;
   })().catch((error) => {
@@ -287,11 +291,6 @@ async function syncPageSet() {
   const previous = pageSets.get(round);
   if (previous?.generation === remote.pageSetGeneration) return;
   pageSetLoading = (async () => {
-    const wasReady = new Set(
-      previous?.pages
-        .filter((item) => item.state === "ready")
-        .map((item) => item.id),
-    );
     const manifest = await loadPageSet(
       round,
       () => views.get(round) || emptyView(round, remote.current),
@@ -317,7 +316,6 @@ async function syncPageSet() {
             );
         }
       }
-      announceArrivals([...wasReady]);
     } else updateNavigation();
   })().finally(() => {
     pageSetLoading = null;

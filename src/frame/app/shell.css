@@ -52,8 +52,8 @@
   justify-content: space-between;
   gap: 8px;
   padding: 14px 16px 4px;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--text-caps);
+  font-weight: var(--weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -105,7 +105,7 @@ main {
   border-radius: 999px;
   background: var(--line-strong);
   color: var(--ink);
-  font-size: 10.5px;
+  font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -116,6 +116,14 @@ main {
 .bell.need b {
   background: var(--attention);
   color: #fff;
+}
+/* Only events are new: blue, as this tab and new events are. */
+.bell.news {
+  color: var(--accent);
+}
+.bell.news b {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .icon-btn.menu {
   display: none;
@@ -135,35 +143,13 @@ main {
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 10.5px;
+  font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
 }
 .icon-btn.menu.need {
   color: var(--accent);
-}
-.page-arrival {
-  position: absolute;
-  z-index: var(--z-header);
-  top: 64px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: calc(100% - 32px);
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  font-size: 12px;
-}
-.page-arrival button {
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font-weight: 650;
 }
 .save-error {
   position: fixed;
@@ -180,7 +166,7 @@ main {
   background: var(--danger-bg);
   color: var(--danger);
   box-shadow: var(--shadow);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .save-error button {
   margin-left: auto;
@@ -201,12 +187,12 @@ main {
   border-bottom: 1px solid var(--line);
   background: var(--accent-soft);
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .history-strip button {
   margin-left: auto;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   white-space: nowrap;
 }
 #round.older {
@@ -214,7 +200,7 @@ main {
   background: var(--accent-soft);
 }
 #history-label b {
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 #history-label .meta {
   color: var(--muted);
@@ -238,12 +224,6 @@ main {
   main {
     overflow: visible;
     min-height: 100%;
-  }
-  .page-arrival {
-    top: 60px;
-    right: 12px;
-    left: 12px;
-    max-width: none;
   }
   table {
     display: block;

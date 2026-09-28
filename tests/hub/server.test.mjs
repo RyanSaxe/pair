@@ -93,7 +93,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.equal((await a.request(`${a.base}/`)).code, 200);
 });
 
-test("closing a session from the bell panel completes it and drops it from the list", async (t) => {
+test("closing a session from Live sessions completes it and drops it from the list", async (t) => {
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
@@ -128,8 +128,8 @@ test("closing a session from the bell panel completes it and drops it from the l
   });
 });
 
-// A tab opened before the session closed can still send, after the bell
-// panel's Close session or after pair complete.
+// A tab opened before the session closed can still send, after ✕ on its
+// line in Live sessions or after pair complete.
 test("a closed session refuses feedback and wakes no agent", async (t) => {
   const h = await hub(t);
   const dismissed = await h.session();

@@ -1,3 +1,26 @@
+// What an event in a session says, in the notification center and in its
+// alert.
+export function eventTitle(event) {
+  if (event.kind === "page") return `${event.name} is ready`;
+  if (event.kind === "reply") return `Agent replied on ${event.name}`;
+  const pull = /\/pull\/(\d+)/.exec(event.url || "");
+  return `Side work opened ${pull ? `pull request #${pull[1]}` : "a pull request"}`;
+}
+// The element an event opens at: a reply's thread card, whose ID this is,
+// or the block the event names.
+export const eventTarget = (event) =>
+  event.thread ? `thread-${event.thread}` : event.target;
+// Where an event happened: its page and target, in the round it happened
+// in. A round the session has moved on from opens read-only.
+export function eventHref(entry, event) {
+  const round =
+    event.round && event.round !== entry.round
+      ? `r/${encodeURIComponent(event.round)}`
+      : "";
+  const at = eventTarget(event);
+  const target = at ? `?target=${encodeURIComponent(at)}` : "";
+  return `${entry.url}${round}${target}#${encodeURIComponent(event.page)}`;
+}
 export function reviewAlert(entry) {
   if (!entry?.needsYou || !entry.id || !entry.round) return null;
   return {
@@ -9,10 +32,29 @@ export function reviewAlert(entry) {
     createdAt: entry.publishedAt,
   };
 }
+// A page of a round that waits for the reviewer is covered by the round's
+// own alert, so the page that completed it is never announced as well.
+export function eventAlert(entry, event) {
+  return {
+    id: `event:${event.id}`,
+    sessionId: entry.id,
+    title: eventTitle(event),
+    body: entry.title || "",
+    url: eventHref(entry, event),
+    createdAt: event.at,
+    covered:
+      event.kind === "page" && entry.needsYou && event.round === entry.round,
+  };
+}
+const alertsFor = (entry) =>
+  [
+    reviewAlert(entry),
+    ...(entry?.events || []).map((event) => eventAlert(entry, event)),
+  ].filter(Boolean);
 
 // One permission and one enabled switch for the hub origin. Alerts are keyed
-// per session and round so several tabs never announce the same event, and
-// the session shown in the focused tab is never announced.
+// per session and round, or per event, so several tabs never announce the
+// same thing, and the session shown in the focused tab is never announced.
 export function createReviewAlerts({ window: host, button, sessionId, open }) {
   const prefix = "pair:alerts:";
   const memory = new Map();
@@ -66,14 +108,11 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         ? "Allow notifications in your browser's site settings."
         : failed
           ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a round is ready in any session.";
+          : "Alerts when a round or a page is ready, the agent replies, or side work opens a pull request, in any session.";
   }
   function enable() {
     write("enabledAt", String(Date.now()));
-    for (const entry of latest) {
-      const alert = reviewAlert(entry);
-      if (alert) write(alert.id, "handled");
-    }
+    for (const alert of latest.flatMap(alertsFor)) write(alert.id, "handled");
     write("enabled", "yes");
   }
   async function update(entries = latest) {
@@ -87,10 +126,10 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         enable();
       if (permission() !== "granted" || read("enabled") !== "yes" || failed)
         return;
-      for (const entry of latest) {
-        const alert = reviewAlert(entry);
-        if (!alert || read(alert.id)) continue;
+      for (const alert of latest.flatMap(alertsFor)) {
+        if (read(alert.id)) continue;
         if (
+          alert.covered ||
           read("focused") === alert.sessionId ||
           (alert.createdAt &&
             Date.parse(alert.createdAt) <= Number(read("enabledAt")))

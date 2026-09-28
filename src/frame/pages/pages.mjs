@@ -66,7 +66,6 @@ export function show(
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
   displayedRound = viewKey();
-  hideArrival();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
   if (!resuming) endRestore();
   const top = scroller().scrollTop;
@@ -142,17 +141,21 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  const target = targetId && $(targetId);
-  if (!feedback && target && $("page-content").contains(target)) {
-    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
-      if (ancestor.tagName === "DETAILS") ancestor.open = true;
-    if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
-    target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "center" });
-  }
+  if (!feedback) reveal(targetId);
   $("quote").hidden = true;
   if (!inPlace) closeMenus();
   review();
+}
+// Scrolls to an element of the page on screen and focuses it, opening any
+// details around it.
+export function reveal(targetId) {
+  const target = targetId && $(targetId);
+  if (!target || !$("page-content").contains(target)) return;
+  for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
+    if (ancestor.tagName === "DETAILS") ancestor.open = true;
+  if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "center" });
 }
 export function badge(count) {
   const row = $("review-row");
@@ -328,27 +331,6 @@ export function updateNavigation(force = false) {
       button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
 }
-let arrivalTimer;
-let arrivalPage = null;
-function hideArrival() {
-  clearTimeout(arrivalTimer);
-  $("page-arrival").hidden = true;
-}
-export function announceArrivals(previousReady) {
-  if (!narrow.matches) return;
-  const seen = new Set(previousReady);
-  const arrived = pages.filter(
-    (item) => item.id !== "agreed" && !item.pending && !seen.has(item.id),
-  );
-  if (!arrived.length) return;
-  arrivalPage = arrived.length === 1 ? arrived[0].id : null;
-  $("page-arrival-text").textContent = arrivalPage
-    ? `${arrived[0].title} is ready`
-    : `${plural(arrived.length, "page")} are ready`;
-  $("page-arrival-view").textContent = arrivalPage ? "View" : "Pages";
-  $("page-arrival").hidden = false;
-  arrivalTimer = setTimeout(hideArrival, 5500);
-}
 export function installPages() {
   displayedRound = plan.round;
   narrow = matchMedia("(max-width: 720px)");
@@ -377,10 +359,4 @@ export function installPages() {
     $("pages-dialog").open ? closeDrawer() : openDrawer(),
   );
   $("feedback-pages").addEventListener("click", openDrawer);
-  $("page-arrival-view").addEventListener("click", () => {
-    hideArrival();
-    if (arrivalPage) show(arrivalPage);
-    else openDrawer();
-  });
-  $("page-arrival-dismiss").addEventListener("click", hideArrival);
 }

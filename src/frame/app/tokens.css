@@ -27,8 +27,32 @@
   --mark: light-dark(#fff3bf, #4a3f14);
   --shadow:
     0 10px 30px light-dark(#0002, #0006), 0 1px 3px light-dark(#0001, #0004);
+  /* Type and spacing. A page reads at the body size, and every dialog and
+     the controls around a page use the smaller sizes, as the mocks do.
+     Every text size in the frame and the components is one of these; an
+     icon's glyph and the 16px an iOS field needs keep their own sizes. */
+  --text-h1: 22px;
+  --text-title: 16px;
+  --text-h2: 15px;
+  --text-body: 14px;
+  --leading-body: 1.55;
+  --text-card: 13.5px;
+  --text-ui: 13px;
+  --leading-ui: 1.45;
+  --text-label: 12.5px;
+  --text-small: 12px;
+  --text-meta: 11.5px;
+  --text-tiny: 11px;
+  --text-caps: 10.5px;
+  --text-micro: 10px;
+  --weight-strong: 600;
+  --link-weight: 600;
+  --space-paragraph: 14px;
+  --space-label: 12px;
+  --space-field: 6px;
+  --field-height: 64px;
   font:
-    14px/1.55 -apple-system,
+    var(--text-body) / var(--leading-body) -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     Helvetica,

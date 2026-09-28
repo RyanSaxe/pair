@@ -21,7 +21,8 @@ import { openNote } from "#frame/notes/notes.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
-import { sessionOrder, toggleSidecar } from "#frame/sync/sessions.mjs";
+import { toggleCenter } from "#frame/sync/center.mjs";
+import { sessionOrder } from "#frame/sync/sessions.mjs";
 
 export function installEvents() {
   for (const head of document.querySelectorAll("dialog .dialog-head")) {
@@ -55,7 +56,7 @@ export function installEvents() {
       return;
     }
     if (event.target.closest("#bell")) {
-      toggleSidecar();
+      toggleCenter();
       return;
     }
     if (!feedbackEditable()) return;
@@ -142,6 +143,7 @@ export function installEvents() {
     if (document.querySelector("dialog[open]")) return;
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
+    else if (key === "n") toggleCenter(true);
     else if (/^[1-9]$/.test(key)) {
       const entry = sessionOrder[Number(key) - 1];
       if (entry && entry.id !== session.sessionId) location.assign(entry.url);

@@ -193,3 +193,73 @@ test("denied, unavailable, and failed notifications disable the control", async 
   assert.equal(a.button.disabled, true);
   assert.match(a.button.title, /delivery failed/);
 });
+
+test("each event in another session alerts once and opens where it happened", async () => {
+  const a = alertFixture({ permission: "granted" });
+  await a.alerts.update([]);
+  const at = later();
+  const entry = a.entry("s2", "2", {
+    needsYou: false,
+    events: [
+      {
+        id: "e1",
+        kind: "reply",
+        name: "Overview",
+        round: "2",
+        page: "overview",
+        target: "failure",
+        thread: "t1",
+        at,
+      },
+      {
+        id: "e2",
+        kind: "side-work",
+        name: "Delete visual-review",
+        url: "https://github.com/RyanSaxe/pair/pull/12",
+        page: "agreed",
+        target: "side-work-1",
+        at,
+      },
+      {
+        id: "e3",
+        kind: "page",
+        name: "Offers",
+        round: "1",
+        page: "offers",
+        at,
+      },
+    ],
+  });
+  await a.alerts.update([entry]);
+  await a.alerts.update([entry]);
+  assert.deepEqual(
+    a.sent.map((item) => [item.title, item.options.body]),
+    [
+      ["Agent replied on Overview", "Plan s2"],
+      ["Side work opened pull request #12", "Plan s2"],
+      ["Offers is ready", "Plan s2"],
+    ],
+  );
+  for (const item of a.sent) item.onclick();
+  // A reply opens at its thread's card, not at the block the thread is on,
+  // and a page in a round the session has moved on from opens read-only.
+  assert.deepEqual(a.opened, [
+    "/s/s2/?target=thread-t1#overview",
+    "/s/s2/?target=side-work-1#agreed",
+    "/s/s2/r/1#offers",
+  ]);
+  // The page that completes a round waiting for the reviewer is announced
+  // by the round's alert alone, before and after the reviewer submits.
+  const complete = a.entry("s3", "4", {
+    publishedAt: later(),
+    events: [
+      { id: "e4", kind: "page", name: "Summary", round: "4", page: "summary" },
+    ].map((event) => ({ ...event, at: later() })),
+  });
+  await a.alerts.update([complete]);
+  await a.alerts.update([{ ...complete, needsYou: false }]);
+  assert.deepEqual(
+    a.sent.slice(3).map((item) => item.title),
+    ["Round 4 is ready"],
+  );
+});
