@@ -117,6 +117,14 @@ main {
   background: var(--attention);
   color: #fff;
 }
+/* Only events are new: blue, as this tab and new events are. */
+.bell.news {
+  color: var(--accent);
+}
+.bell.news b {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
 .icon-btn.menu {
   display: none;
   position: relative;

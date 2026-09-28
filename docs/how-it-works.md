@@ -46,8 +46,10 @@ that serves the session runs. When that hub has exited, they start a new hub
 and register the session with it, which needs an agent's identity, so they
 fail from a plain terminal.
 
-Another agent takes a session over with its handoff line, which the browser
-shows with Copy after Save for later and after a failed wake:
+Another agent takes a session over with its handoff line. The frame copies
+the line when you press Copy handoff line on the session's line in Live
+sessions, and shows it with Copy after Save for later and after a failed
+wake:
 
 ```text
 Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
@@ -69,6 +71,32 @@ only after it has a pull request. When the wake fails, the item returns to
 Recorded and reads "Could not reach the agent to start this. Try again." You
 can drop an item at any state before Done, and the frame folds Done and
 dropped items under Finished.
+
+## Notifications
+
+The frame opens the notification center when you press the bell in the
+header or <kbd>n</kbd>. Waiting for you shows the other sessions whose round
+waits for your submission, and the frame removes a session from it when you
+submit that round or close the session. New and Earlier show the events of
+every session, newest first: a page published, a reply the agent posted in a
+thread, and side work that reached Pull request. The hub keeps each
+session's last 50 events in `activity.json` and returns them with the
+session list at `/api/sessions`, which every tab reads every 5 seconds. A
+tab leaves out its own session's pages, because its Pages list shows them.
+
+The bell's number counts the waiting sessions and the events you have not
+seen. It is red while a session waits and blue when only events are new, and
+the tab's title starts with the same number. The frame marks the center's
+events seen when you open it, and tints each event until you open that
+event. The browser stores which events you have seen, opened and cleared in
+its storage for the hub's address, so every tab on that address shares them
+and another browser keeps its own.
+
+The All live sessions link at the foot of the center opens Live sessions.
+Each line there has Copy handoff line, and every line but the tab's own has
+✕, which closes that session. With notifications turned on in Settings, the
+browser also shows each event, and each round that waits for you, as a
+system notification, unless its session is open in the focused tab.
 
 ## The hub
 
@@ -113,7 +141,9 @@ pair stores everything under `$XDG_STATE_HOME/pair/`, or
   images, `pages/<round>/` with the published page records,
   `src/<round>/<page-id>/` with each page's source, `rounds/` with the
   built rounds, `threads/` with one file per thread, `side-work/` with one
-  file for each side-work item, and `acceptance.json` after acceptance.
+  file for each side-work item, `activity.json` with the session's last 50
+  events for the notification center, and `acceptance.json` after
+  acceptance.
 
 The hub accepts an image attached to a note in PNG, JPEG, GIF or WebP, which
 it identifies by the file's first bytes rather than its name or

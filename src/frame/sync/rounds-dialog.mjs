@@ -16,7 +16,7 @@ import {
   selectedTab,
   switchTab,
 } from "#frame/sync/rounds.mjs";
-import { toggleSidecar } from "#frame/sync/sessions.mjs";
+import { toggleCenter } from "#frame/sync/center.mjs";
 
 let renderedRounds = "";
 export function renderRounds() {
@@ -100,6 +100,7 @@ export function closeMenus() {
   window.dispatchEvent(new CustomEvent("plan:dismiss"));
   closeDrawer();
   toggleRoundMenu(false);
-  toggleSidecar(false);
+  toggleCenter(false);
+  if ($("sessions-dialog").open) $("sessions-dialog").close();
   if ($("settings-dialog").open) $("settings-dialog").close();
 }

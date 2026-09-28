@@ -93,7 +93,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.equal((await a.request(`${a.base}/`)).code, 200);
 });
 
-test("closing a session from the bell panel completes it and drops it from the list", async (t) => {
+test("closing a session from Live sessions completes it and drops it from the list", async (t) => {
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();

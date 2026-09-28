@@ -23,6 +23,23 @@
     <span class="small">Press <kbd>?</kbd> for the list</span>
   </div>
 </dialog>
+<!-- The bell opens the notification center, and its last line opens Live
+     sessions. The frame draws both lists. -->
+<dialog
+  class="dialog sessions"
+  id="center-dialog"
+  aria-labelledby="center-title"
+>
+  <div class="dialog-head">
+    <h2 id="center-title" tabindex="-1" autofocus>Notifications</h2>
+  </div>
+  <div id="center-list"></div>
+  <p class="center-foot">
+    <button class="link-btn" id="center-all" type="button">
+      All live sessions
+    </button>
+  </p>
+</dialog>
 <dialog
   class="dialog sessions"
   id="sessions-dialog"
@@ -194,8 +211,10 @@
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
   </div>
   <dl class="key-list">
+    <dt><kbd>n</kbd></dt>
+    <dd>Open notifications</dd>
     <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
-    <dd>Jump to a session, in the order of the bell panel</dd>
+    <dd>Jump to a session, in the order of Live sessions</dd>
     <dt><kbd>]</kbd> <kbd>[</kbd></dt>
     <dd>Next and previous page</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt>

@@ -1,4 +1,4 @@
-import { $ } from "#frame/app/util.mjs";
+import { $, copyText } from "#frame/app/util.mjs";
 
 let systemTheme;
 let preferredTheme = null;
@@ -170,14 +170,8 @@ export function copyButton(read) {
   button.className = "btn";
   button.textContent = "Copy";
   button.onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(read());
-      button.textContent = "Copied";
-      setTimeout(() => (button.textContent = "Copy"), 1500);
-    } catch {
-      button.textContent = "Copy failed";
-      setTimeout(() => (button.textContent = "Copy"), 1500);
-    }
+    button.textContent = (await copyText(read())) ? "Copied" : "Copy failed";
+    setTimeout(() => (button.textContent = "Copy"), 1500);
   };
   return button;
 }

@@ -80,7 +80,7 @@ The docs would then show more of pair:
 - A selected passage with the note dialog open, quoting it.
 - The progress card on Agreed while a round's pages arrive, with the round's
   running time.
-- The notification center, once it exists.
+- The notification center with a session waiting and new events.
 
 `files` in `package.json` lists only `src`, `guide`, `adapters` and `skills`,
 so the npm package includes neither `assets/` nor `scripts/`.
@@ -149,16 +149,6 @@ the frame's setup of each block for notes and choices. Fix the largest cost,
 then measure the same pages again.
 
 ## Features
-
-### Notification center
-
-The bell opens a notification center instead of the Live sessions list.
-The center shows the sessions waiting for the reviewer, then the events not
-yet seen in every session: a page arrived, the agent replied to a thread,
-side work opened a pull request. Live sessions opens from the center and
-gains Copy handoff line for a session whose agent is gone. The center comes
-after threads and side work, because it lists their events. The frame's
-visual pass is built together with it.
 
 ### pi and opencode adapters
 

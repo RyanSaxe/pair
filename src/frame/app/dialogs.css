@@ -283,13 +283,14 @@ dialog::backdrop {
   color: var(--ink);
   font-weight: var(--weight-strong);
 }
+/* The notification center and Live sessions share these lines. A tint says
+   what a line is: warm for a session waiting for you, blue for this tab and
+   for an event not yet opened. Hover darkens the whole line, icons included,
+   and the icon under the pointer once more. */
 .session-list {
   display: grid;
-  gap: 1px;
+  gap: 4px;
   margin: 0 -8px;
-}
-.session-list .session-gap {
-  height: 6px;
 }
 .session-row {
   display: grid;
@@ -298,14 +299,6 @@ dialog::backdrop {
   padding: 8px 10px;
   border-radius: 8px;
   text-align: left;
-}
-@media (hover: hover) {
-  .session-row:hover {
-    background: var(--ground);
-  }
-}
-.session-row.current {
-  background: var(--accent-soft);
 }
 .session-row .title {
   font-size: var(--text-ui);
@@ -336,16 +329,90 @@ dialog::backdrop {
   font-weight: 500;
   color: var(--muted);
 }
-/* A session row and the control that closes that session. */
+/* A row and its icon buttons. */
 .session-line {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
   align-items: center;
   gap: 4px;
-  /* The list bleeds 8px so a row's background is wider than its text. The
-     control in the trailing column is not part of that, and lines up with
-     the dialog's own close instead. */
+  /* The list bleeds 8px so a line's tint is wider than its text. The icon
+     columns are not part of that, and the last lines up with the dialog's
+     own close instead. */
   padding-right: 8px;
+  border-radius: 8px;
+}
+.session-line.need {
+  background: var(--attention-bg);
+}
+.session-line.current,
+.session-line.new {
+  background: var(--accent-soft);
+}
+@media (hover: hover) {
+  .session-line:hover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ink);
+    opacity: 0.04;
+    pointer-events: none;
+  }
+  .session-line .icon-btn:hover {
+    background: var(--line);
+  }
+}
+.session-line .icon-btn {
+  position: relative;
+}
+/* A tooltip has the soft accent ground and ink text, a small shadow
+   instead of a border, and an arrow at the icon that opened it. It opens
+   above the icon, so the last line's stays inside the dialog. */
+.line-tip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 2;
+  width: max-content;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-meta);
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  visibility: hidden;
+}
+.line-tip::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent-soft);
+  transform: rotate(45deg);
+}
+.icon-btn:is(:hover, :focus-visible, .tipped) > .line-tip {
+  visibility: visible;
+}
+/* The center's section labels take the sidebar's Pages heading style,
+   and each section starts 16px above its label. */
+.dialog .side-label {
+  padding: 16px 2px 6px;
+}
+#center-list > .side-label:first-child {
+  padding-top: 0;
+}
+.side-label .link-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--text-meta);
+}
+.center-foot {
+  margin: 16px 0 0;
+  padding-left: 2px;
 }
 .session-line[data-closing] {
   opacity: 0.45;
