@@ -369,13 +369,18 @@ function drawCard(entry, thread, part, folded) {
     Boolean(thread.error) ||
     !["replied", "failed"].includes(thread.state);
 }
-// The block a thread is on: the side-work item its note named, since the
-// items share one Side work block, the top-level block that holds its
-// target or its quote, or none, which puts the card at the end of the page.
+// The decision or side-work item a note named, the top-level block that
+// holds its target or quote, or none, which puts the card at the end.
 function blockOf(root, thread) {
   const top = (node) => {
     let at = node?.nodeType === 1 ? node : node?.parentElement;
-    while (at && at.parentElement !== root) at = at.parentElement;
+    while (
+      at &&
+      at.parentElement !== root &&
+      !at.classList.contains("agreement-card") &&
+      !at.parentElement?.matches(".agreed-panel")
+    )
+      at = at.parentElement;
     return at && at.localName !== "pair-thread" ? at : null;
   };
   const target = thread.target && document.getElementById(thread.target);
