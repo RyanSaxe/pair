@@ -4,7 +4,8 @@ import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { wakeRunner } from "../wake.mjs";
 
 // The states an agent moves an item to, in order. The reviewer starts and
-// drops it.
+// drops it. The agent of a new session that plans a recorded item moves it
+// there instead, which finishes it here.
 const agentStates = ["working", "pr", "done"];
 const limits = { title: 80, text: 400, source: 120 };
 function words(data, name) {
@@ -14,6 +15,16 @@ function words(data, name) {
     `pair side-work add takes --${name}, text of at most ${limits[name]} characters`,
   );
   return value;
+}
+// The reviewer's message with Start in parallel, at most 4,000 characters
+// as Finish your review's guidance is. The wake line ends with it, and the
+// item keeps it, so pair status and the card on Agreed show it.
+function message(data) {
+  if (data?.message === undefined) return "";
+  requireValue(typeof data.message === "string", "A message must be text");
+  const text = data.message.trim();
+  requireValue(text.length <= 4000, "The message exceeds 4,000 characters");
+  return text;
 }
 function link(url) {
   requireValue(
@@ -66,11 +77,36 @@ export async function sideWork(session) {
       updatedAt: now,
     });
   }
+  // A recorded item moves to the new session that plans it, and repeating
+  // moved lets the agent correct the link.
+  async function move(item, data) {
+    requireValue(
+      item.state !== "dropped",
+      `The reviewer dropped side work ${item.id}. Stop working on it.`,
+      409,
+    );
+    requireValue(
+      ["recorded", "moved"].includes(item.state),
+      `Side work ${item.id} was started in parallel, so it cannot move to a new session.`,
+      409,
+    );
+    requireValue(
+      data.url !== undefined,
+      "--state moved takes --url with the new session's URL, which pair start prints",
+    );
+    return change(item, { state: "moved", url: link(data.url) });
+  }
   async function update(data) {
     const item = find(String(data.id));
     requireValue(
-      agentStates.includes(data.state),
-      "pair side-work update takes --state working, pr or done",
+      [...agentStates, "moved"].includes(data.state),
+      "pair side-work update takes --state working, pr, done or moved",
+    );
+    if (data.state === "moved") return move(item, data);
+    requireValue(
+      item.state !== "moved",
+      `Side work ${item.id} moved to a new session, so it takes no other state.`,
+      409,
     );
     requireValue(
       item.state !== "recorded",
@@ -141,7 +177,10 @@ export async function sideWork(session) {
   // the reviewer can start it again.
   async function wakeFor(id) {
     const item = find(id);
-    const line = `pair: side work "${item.title}" was started in parallel on session ${directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. When the session has no branch of its own in the repository you change, branch from that repository's default branch and open the pull request into it. Report each change with pair side-work update ${item.id}, then go back to what you were doing.`;
+    const note = item.message
+      ? `\n\nThe reviewer's message. Where it differs from the item's text, follow it, and give it word for word to any agent you brief:\n${item.message}`
+      : "";
+    const line = `pair: side work "${item.title}" was started in parallel on session ${directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. When the session has no branch of its own in the repository you change, branch from that repository's default branch and open the pull request into it. Report each change with pair side-work update ${item.id}, then go back to what you were doing.${note}`;
     let wake;
     try {
       requireValue(session.wake, "The session has no agent to wake");
@@ -162,17 +201,26 @@ export async function sideWork(session) {
       "This session is closed",
       409,
     );
-  async function startSideWork(id) {
+  // A start after a failed wake replaces the earlier message, or removes it
+  // when the reviewer cleared the box.
+  async function startSideWork(id, data) {
     open();
     const item = find(id);
     requireValue(
       item.state === "recorded",
       item.state === "dropped"
         ? `Side work ${id} was dropped`
-        : `Side work ${id} was already started`,
+        : item.state === "moved"
+          ? `Side work ${id} moved to a new session`
+          : `Side work ${id} was already started`,
       409,
     );
-    await change(item, { state: "started", wake: null });
+    const text = message(data);
+    await change(item, {
+      state: "started",
+      wake: null,
+      message: text || undefined,
+    });
     setTimeout(() => exclusive(() => wakeFor(id)), 0);
     return listed();
   }

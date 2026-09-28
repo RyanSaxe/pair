@@ -37,12 +37,13 @@ When something outside the task turns up, the agent records it instead of
 adding it to the task. You can also ask for side work in a comment. Each
 item is listed on Agreed, after the decisions.
 
-| Button            | What it does                                                              |
-| ----------------- | ------------------------------------------------------------------------- |
-| Start in parallel | The agent does the work now, on its own branch, ending in a pull request. |
-| Drop              | Sets the item aside. Not offered once the item is Done.                   |
-| Comment           | Adds a comment on the item to your feedback.                              |
+| Button  | What it does                                                                                                                                                                                                                       |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start   | Opens a popup with an optional message to the agent. **Start in parallel** has the agent do the work now, on its own branch, ending in a pull request. **Copy prompt** copies a prompt that plans the item in a new agent session. |
+| Drop    | Sets the item aside. Not offered once the item is Done or Moved.                                                                                                                                                                   |
+| Comment | Adds a comment on the item to your feedback.                                                                                                                                                                                       |
 
 An item moves through **Recorded → Started → Working → Pull request → Done**,
-and Agreed shows each change as it happens. Done and dropped items fold
-under **Finished**.
+and Agreed shows each change as it happens. An item you plan in a new session
+goes from **Recorded** to **Moved** once that session starts, with a link to
+it. Done, dropped and moved items fold under **Finished**.

@@ -179,7 +179,11 @@ export async function loadSession(directory, config, origin) {
   // The browser draws every thread's card from its status. An agent reads a
   // thread with pair reply, so its commands print the status without them.
   function browserView() {
-    return { ...view(), threads: session.threadView() };
+    return {
+      ...view(),
+      sessionDir: directory,
+      threads: session.threadView(),
+    };
   }
   async function latestFeedback(requestedRound) {
     requireValue(
