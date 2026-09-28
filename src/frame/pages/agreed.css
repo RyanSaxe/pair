@@ -6,8 +6,11 @@
   margin-bottom: 12px;
   background: var(--panel);
 }
+/* reading.css sizes every p and li on a page with #page-content p, and an ID
+   outranks a class, so each rule here that sizes Agreed's paragraphs and list
+   items names #page-content too. */
 /* The task opens Agreed, above the decisions. */
-.agreed-label {
+#page-content .agreed-label {
   margin: 4px 0 8px;
   font-size: var(--text-caps);
   font-weight: var(--weight-strong);
@@ -26,7 +29,7 @@
   margin-bottom: 6px;
   font-size: var(--text-h2);
 }
-.task-card .agreement-body p {
+#page-content .task-card .agreement-body :is(p, li) {
   font-size: var(--text-card);
 }
 .agreement-body {
@@ -41,6 +44,8 @@
 }
 .agreement-body p {
   margin: 4px 0 0;
+}
+#page-content .agreement-body :is(p, li) {
   font-size: var(--text-ui);
 }
 .agreement-source {
@@ -75,6 +80,9 @@
 .agreement-sources .record .small {
   display: block;
   margin-bottom: 2px;
+}
+#page-content .agreement-sources p {
+  font-size: inherit;
 }
 .agreement-sources blockquote {
   margin: 4px 0;
