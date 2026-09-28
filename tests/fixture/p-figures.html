@@ -19,6 +19,12 @@
 <div data-language="typescript" data-file="src/charge.ts" data-lines="1-3" data-caption="A range that covers every line lights the block and dims nothing.">export async function charge(request: ChargeRequest) {
   return breaker.run(() =&gt; client.charge(request));
 }</div>
+<div data-language="typescript" data-file="src/breaker.ts" data-lines="1-2, 5" data-caption="Two ranges, 1-2 and 5, are lit, and lines 3, 4 and 6 are dimmed.">recordFailure() {
+  this.failures += 1;
+  if (this.failures &lt; this.options.threshold) return;
+  this.openedAt = Date.now();
+  this.emit("open");
+}</div>
 <div data-language="typescript" data-file="src/charge.ts" data-caption="One line wider than the column: the block scrolls and the fade says there is more to the right.">if (this.isOpen()) throw new PaymentError({ code: "breaker_open", retryAfter: this.options.cooldown, attempted: request.id });</div>
 <h2>Math: named terms</h2>
 <div data-math data-terms='[{"symbol":"t","meaning":"Per-call timeout on the gateway","value":"8 s"},{"symbol":"k","meaning":"Failures that open the breaker","value":"5"}]'>W = \textcolor{#1d4ed8}{t}\left(\textcolor{#a16207}{k} + \dfrac{d}{c}\right)</div>

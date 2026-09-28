@@ -96,6 +96,7 @@ const componentNames = [
   "failed",
   "figure",
   "libraries",
+  "lineRanges",
   "linkButton",
   "online",
   "page",

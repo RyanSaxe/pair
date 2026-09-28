@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { lineRanges } from "../shared/lines.mjs";
 
 const attribute = (tag, name) => {
   const match = tag.match(new RegExp(`\\s${name}=(?:"([^"]*)"|'([^']*)')`));
@@ -28,6 +29,14 @@ function closestLanguage(name) {
     )
     .sort((a, b) => b.length - a.length)[0];
 }
+/* The lines the frame renders from a code block's source. The HTML parser
+   drops a newline right after <pre>, and the frame trims one more newline
+   at each end before Shiki splits the lines. */
+const renderedLines = (name, source) =>
+  source
+    .replace(name.toLowerCase() === "pre" ? /^\n{1,2}/ : /^\n/, "")
+    .replace(/\n[ \t]*$/, "")
+    .split("\n").length;
 /** A "#" link names a page of the round, Agreed, Feedback, or an element
  * on its own page. */
 export function linkProblems(html, at, targets) {
@@ -169,6 +178,26 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       )
         list.push(
           `${at}: a diff input is not JSON with before, after and patch`,
+        );
+    }
+    for (const [, name, tag, source] of html.matchAll(
+      /<(pre|div)\b([^>]*\sdata-lines(?=[\s=>])[^>]*)>([\s\S]*?)<\/\1>/gi,
+    )) {
+      const value = attribute(tag, "data-lines") ?? "";
+      const ranges = lineRanges(value);
+      if (!ranges) {
+        list.push(
+          `${at}: data-lines "${value}" is not a list of lines. Write lines and ranges counted from 1, such as "7", "3-4" or "3-4, 9".`,
+        );
+        continue;
+      }
+      // Line numbers count from the block's first line, so a line past its
+      // end is usually the file's own line number.
+      const last = Math.max(...ranges.map(([, to]) => to));
+      const count = renderedLines(name, source);
+      if (last > count)
+        list.push(
+          `${at}: data-lines "${value}" names line ${last}, and the block has ${count} line${count === 1 ? "" : "s"}. Count from the block's first line, and put the file's line numbers in data-caption.`,
         );
     }
   }

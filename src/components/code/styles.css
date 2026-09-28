@@ -61,12 +61,14 @@
   text-align: right;
   opacity: 0.75;
 }
-/* The named range is lit and the rest is dimmed until the pointer or the
-   keyboard asks for it. There is no control to press. */
+/* The named lines are lit and the rest is dimmed until the pointer or the
+   keyboard asks for it. There is no control to press. A block with no lit
+   line dims nothing, so a value that names no line of the block leaves it
+   readable. :where() keeps the specificity of the hover rule below it. */
 [data-language][data-lines] .shiki .line {
   transition: opacity 0.12s ease;
 }
-[data-language][data-lines] .shiki .line:not(.in-focus) {
+[data-language][data-lines]:where(:has(.in-focus)) .shiki .line:not(.in-focus) {
   opacity: 0.38;
 }
 [data-language][data-lines]:hover .shiki .line,

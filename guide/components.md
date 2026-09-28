@@ -38,12 +38,12 @@ name that is not a Shiki language ID and suggests the nearest one.
 and a Copy button. `data-caption` on code, a diagram or a chart adds a
 caption line, and `data-title` on a chart adds a header.
 
-| Attribute    | On                | What it does                                                                                                                       |
-| ------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| data-lines   | `[data-language]` | `"3-4"` or `"7"`. Numbers the lines, lights the range, and dims the rest until the pointer or the keyboard is on the block.        |
-| data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                |
-| data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. A speech bubble in the gutter of each named line, opening the note in a popover. Needs no range.     |
-| data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, in the order the colours appear. |
+| Attribute    | On                | What it does                                                                                                                                  |
+| ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| data-lines   | `[data-language]` | `"7"`, `"3-4"` or `"3-4, 9"`. Numbers the lines, lights the named lines, and dims the rest until the pointer or the keyboard is on the block. |
+| data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                           |
+| data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. A speech bubble in the gutter of each named line, opening the note in a popover. Needs no range.                |
+| data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, in the order the colours appear.            |
 
 Line numbers count from the block's first line, so name a quoted excerpt's
 real range in `data-caption`, such as `Lines 611-621`.
