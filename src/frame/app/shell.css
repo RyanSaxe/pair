@@ -103,8 +103,8 @@ main {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--line-strong);
-  color: var(--ink);
+  background: var(--muted);
+  color: var(--panel);
   font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
@@ -135,8 +135,8 @@ main {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--line-strong);
-  color: var(--ink);
+  background: var(--muted);
+  color: var(--panel);
   font-size: var(--text-caps);
   font-weight: 700;
   line-height: 16px;
