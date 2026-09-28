@@ -1,13 +1,35 @@
+/* The dialog itself does not scroll. Its close button stays at the top, and
+   .lightbox-view scrolls the diagram under it. */
 .lightbox {
   width: fit-content;
   max-width: min(96vw, 1600px);
   max-height: 92vh;
   margin: auto;
-  padding: 12px;
+  padding: 8px 12px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
+  overflow: hidden;
+}
+.lightbox[open] {
+  display: flex;
+  flex-direction: column;
+}
+.lightbox .dialog-head {
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+.lightbox-view {
+  min-height: 0;
   overflow: auto;
+}
+/* On a phone the dialog leaves 24px at each side and 48px above and below,
+   room for a tap outside it that closes it. */
+@media (max-width: 720px) {
+  .lightbox {
+    max-width: calc(100vw - 48px);
+    max-height: calc(100dvh - 96px);
+  }
 }
 .lightbox svg {
   display: block;

@@ -90,15 +90,49 @@ function renderDiagrams(root) {
     renderDiagram(element);
   return diagramSequence;
 }
-// Any rendered diagram opens full size; the dialog closes on Escape or a
-// click outside like the other dialogs.
+// Any rendered diagram opens full size; the dialog closes on Escape, on its
+// close button or on a click outside, like the other dialogs.
 $("page-content").addEventListener("click", (event) => {
   const svg = event.target.closest("[data-diagram] svg");
   if (!svg || event.target.closest("a, .node.linked")) return;
   openLightbox(svg);
 });
+/* assemble.mjs scopes the component styles and the page's own styles to
+   #page-content, so openLightbox() moves the dialog into it, and the close
+   handler moves it back. A page render replaces the children of
+   #page-content, so the module keeps its own reference to the dialog
+   instead of looking it up by id on each open. */
+const lightbox = $("diagram-dialog");
+const lightboxHome = lightbox.parentElement;
+function returnLightboxHome() {
+  lightboxHome.append(lightbox);
+}
+lightbox.addEventListener("close", () => {
+  if (!lightbox.open) returnLightboxHome();
+});
+/* withAncestors() wraps the copy in empty boxes that repeat the classes of
+   the diagram's ancestors up to #page-content, so a rule such as
+   .change-content .node.added still matches the copy. Each box has
+   display: contents, so no ancestor's layout rules draw a box. */
+function withAncestors(svg, clone) {
+  let copy = clone;
+  const root = $("page-content");
+  for (let node = svg.parentElement; node && node !== root;) {
+    const box = document.createElement("div");
+    box.className = node.className;
+    box.style.display = "contents";
+    box.append(copy);
+    copy = box;
+    node = node.parentElement;
+  }
+  return copy;
+}
 function openLightbox(svg) {
-  const dialog = $("diagram-dialog");
+  const dialog = lightbox;
+  const close = () => {
+    returnLightboxHome();
+    dialog.close();
+  };
   dialog.style.setProperty(
     "--diagram-width",
     svg.closest("[data-diagram]").style.getPropertyValue("--diagram-width"),
@@ -108,15 +142,25 @@ function openLightbox(svg) {
     node.removeAttribute("tabindex");
     node.removeAttribute("role");
   }
-  dialog.replaceChildren(clone);
+  dialog
+    .querySelector(".lightbox-view")
+    .replaceChildren(withAncestors(svg, clone));
+  /* The frame's note and comment handlers on #page-content would treat a
+     click or a pointer move in the dialog as one on the page. */
+  dialog.onmousemove = (event) => event.stopPropagation();
   dialog.onclick = (event) => {
+    event.stopPropagation();
+    if (event.target === dialog) return close();
+    if (event.target.closest("[data-close]")) return close();
     const id = event.target
       .closest(".node.linked")
       ?.id.match(/^flowchart-(.+)-\d+$/)?.[1];
     if (!id) return;
-    dialog.close();
+    close();
     show(id);
   };
+  $("page-content").append(dialog);
+  if (dialog.open) dialog.close();
   dialog.showModal();
 }
 /* Mermaid bakes the theme into the SVG it writes, so a theme change
