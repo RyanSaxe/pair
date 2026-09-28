@@ -142,13 +142,3 @@ so pair works with five agent CLIs. Neither CLI lets another process send a
 message into a running session, so each adapter includes a listener on a
 Unix socket: a pi extension in `@ryansaxe/pair`, and an opencode plugin
 published as `@ryansaxe/pair-opencode`.
-
-## Release
-
-### First public release
-
-`"private": true` in `package.json` makes `npm publish` refuse, and
-`npx skills add RyanSaxe/pair` needs the repository to be public. To release,
-remove `"private": true`, make `RyanSaxe/pair` public, and run `npm publish`.
-Then run the install and update commands in
-`docs/getting-started/install.md` with `HOME` set to an empty directory. `LICENSE` and `"license": "MIT"` are already in place.
