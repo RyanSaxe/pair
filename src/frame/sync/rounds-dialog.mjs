@@ -17,6 +17,7 @@ import {
   switchTab,
 } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
+import { toggleSessions } from "#frame/sync/sessions.mjs";
 
 let renderedRounds = "";
 export function renderRounds() {
@@ -101,6 +102,6 @@ export function closeMenus() {
   closeDrawer();
   toggleRoundMenu(false);
   toggleCenter(false);
-  if ($("sessions-dialog").open) $("sessions-dialog").close();
+  toggleSessions(false);
   if ($("settings-dialog").open) $("settings-dialog").close();
 }

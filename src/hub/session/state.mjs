@@ -29,6 +29,7 @@ export async function loadSession(directory, config, origin) {
         current: null,
         acknowledged: [],
         accepted: null,
+        startedAt: timestamp(),
         // Round 1 starts with the pair start that creates the session.
         roundStartedAt: timestamp(),
         updatedAt: timestamp(),
@@ -43,6 +44,10 @@ export async function loadSession(directory, config, origin) {
     !state.current || typeof state.current.round === "string",
     `${directory} is not a pair session, so pair does not open it. Start a new session.`,
   );
+  // The session list numbers sessions in the order they started. A session
+  // from before startedAt existed takes its directory's creation time, which
+  // no later write changes.
+  state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
   for (const child of ["rounds", "feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
@@ -223,11 +228,13 @@ export async function loadSession(directory, config, origin) {
   }
   function listing() {
     if (!state.current) return null;
+    const { round } = state.current;
+    const set = state.roundPages?.[round];
     return {
       id: state.sessionId,
       title: state.current.title,
       offer: state.current.offer,
-      round: state.current.round,
+      round,
       stage: state.stage,
       needsYou: needsYou(),
       ...(state.openRound
@@ -240,7 +247,22 @@ export async function loadSession(directory, config, origin) {
             },
           }
         : {}),
+      // The current round's readable pages, so each tab can count the ones
+      // its browser has not opened.
+      readyPages: {
+        round,
+        ids: set
+          ? [
+              "agreed",
+              ...set.pages
+                .filter((slot) => slot.recordPath)
+                .map(({ id }) => id),
+            ]
+          : [],
+      },
+      wakeFailed: state.wake?.last?.ok === false,
       paused: Boolean(state.paused),
+      startedAt: state.startedAt,
       publishedAt: state.current.publishedAt,
       updatedAt: state.updatedAt,
       url: base + "/",

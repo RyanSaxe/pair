@@ -17,7 +17,7 @@ wakes the agent when you respond.
   session, and the next `pair start` starts a new one on the same port.
 - A new hub loads every session from disk, so each keeps its URL.
 - Every tab reads the session list every 5 seconds, with each session's
-  latest events for the notification center.
+  latest events for the bell.
 - When `pair start` finds a hub running other code, it uses it and logs the
   mismatch. The hub is replaced the next time no session is live.
 - The root URL, `http://127.0.0.1:4747/` by default, opens the session
@@ -76,7 +76,7 @@ sessions/<dir>/      the directory name is not the session ID
   scenes/            editable shapes of drawing answers
   threads/           one file per thread
   side-work/         one file per side-work item
-  activity.json      the last 50 events, for the notification center
+  activity.json      the last 50 events, for the bell
   acceptance.json    after you accept
 ```
 

@@ -1,7 +1,5 @@
-// What an event in a session says, in the notification center and in its
-// alert.
+// What an event in a session says, in the bell and in its alert.
 export function eventTitle(event) {
-  if (event.kind === "page") return `${event.name} is ready`;
   if (event.kind === "reply") return `Agent replied on ${event.name}`;
   const pull = /\/pull\/(\d+)/.exec(event.url || "");
   return `Side work opened ${pull ? `pull request #${pull[1]}` : "a pull request"}`;
@@ -32,8 +30,17 @@ export function reviewAlert(entry) {
     createdAt: entry.publishedAt,
   };
 }
-// A page of a round that waits for the reviewer is covered by the round's
-// own alert, so the page that completed it is never announced as well.
+// A session whose agent the hub could not wake, once per round.
+export function wakeAlert(entry) {
+  if (!entry?.wakeFailed || !entry.id || !entry.round) return null;
+  return {
+    id: `wake:${entry.id}:${entry.round}`,
+    sessionId: entry.id,
+    title: "Could not wake the agent",
+    body: entry.title || "",
+    url: entry.url,
+  };
+}
 export function eventAlert(entry, event) {
   return {
     id: `event:${event.id}`,
@@ -42,14 +49,17 @@ export function eventAlert(entry, event) {
     body: entry.title || "",
     url: eventHref(entry, event),
     createdAt: event.at,
-    covered:
-      event.kind === "page" && entry.needsYou && event.round === entry.round,
   };
 }
+// Alerts announce what the sessions button turns orange for and each line
+// of the bell. A page publishing announces nothing.
 const alertsFor = (entry) =>
   [
     reviewAlert(entry),
-    ...(entry?.events || []).map((event) => eventAlert(entry, event)),
+    wakeAlert(entry),
+    ...(entry?.events || [])
+      .filter((event) => ["reply", "side-work"].includes(event.kind))
+      .map((event) => eventAlert(entry, event)),
   ].filter(Boolean);
 
 // One permission and one enabled switch for the hub origin. Alerts are keyed
@@ -108,7 +118,7 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         ? "Allow notifications in your browser's site settings."
         : failed
           ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a round or a page is ready, the agent replies, or side work opens a pull request, in any session.";
+          : "Alerts when a session waits for you, an agent cannot be woken, an agent replies, or side work opens a pull request, in any session.";
   }
   function enable() {
     write("enabledAt", String(Date.now()));
@@ -129,7 +139,6 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
       for (const alert of latest.flatMap(alertsFor)) {
         if (read(alert.id)) continue;
         if (
-          alert.covered ||
           read("focused") === alert.sessionId ||
           (alert.createdAt &&
             Date.parse(alert.createdAt) <= Number(read("enabledAt")))

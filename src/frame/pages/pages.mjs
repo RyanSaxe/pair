@@ -8,9 +8,9 @@ import {
   settleScroll,
 } from "#frame/app/places.mjs";
 import { enhance } from "#frame/app/registry.mjs";
-import { $, plural } from "#frame/app/util.mjs";
+import { $ } from "#frame/app/util.mjs";
 import {
-  currentAvailable,
+  current,
   currentShown,
   editable,
   hasFeedbackPage,
@@ -19,6 +19,7 @@ import {
   pastAvailable,
   pastRound,
   plan,
+  session,
   setPage,
   showingWaiting,
   submittedCurrent,
@@ -40,13 +41,12 @@ import {
 import { renderAgreements } from "#frame/pages/agreed.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
+import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
 import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
   loadPageRecord,
-  pageSets,
   pageStatus,
   pendingState,
-  remote,
   selectedTab,
 } from "#frame/sync/rounds.mjs";
 
@@ -144,6 +144,7 @@ export function show(
   if (!feedback) reveal(targetId);
   $("quote").hidden = true;
   if (!inPlace) closeMenus();
+  updateNavigation();
   review();
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
@@ -266,20 +267,21 @@ function addPageButton(item) {
   $("page-list").append(button);
 }
 let pageList;
+/* New marks each ready page of the live current round that this browser
+   has not opened, and the ready page on screen counts as opened. Returns
+   the opened pages, or null where no page is marked. */
+function newMarks() {
+  if (!editable || !current() || showingWaiting()) return null;
+  const onScreen = pages.find((item) => item.id === visiblePageId());
+  if (
+    onScreen &&
+    pageStatus(onScreen) === "complete" &&
+    markOpened(session.sessionId, plan.round, onScreen.id)
+  )
+    window.dispatchEvent(new CustomEvent("pair:opened"));
+  return openedPages();
+}
 export function updateNavigation(force = false) {
-  const currentSet = pageSets.get(remote?.current?.round);
-  const readyPages = currentAvailable()
-    ? currentSet?.pages.filter((item) => item.state === "ready").length || 0
-    : selectedTab === "current"
-      ? pages.filter((item) => !item.pending).length
-      : 0;
-  $("page-count").hidden = !readyPages;
-  $("page-count").textContent = readyPages;
-  $("menu-button").classList.toggle("need", readyPages > 0);
-  $("menu-button").setAttribute(
-    "aria-label",
-    `Pages, ${plural(readyPages, "current page")} ready to read`,
-  );
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
   $("past-tab").textContent = pastRound ? `Round ${pastRound}` : "Previous";
@@ -312,18 +314,31 @@ export function updateNavigation(force = false) {
     pageList.dataset.round = plan.round;
     pageList.dataset.tab = selectedTab;
   }
+  const opened = newMarks();
   for (const item of pages) {
     const button = [...pageList.querySelectorAll("[data-page]")].find(
       (node) => node.dataset.page === item.id,
     );
     if (!button) continue;
-    button.classList.toggle("pending", pageStatus(item) !== "complete");
+    const complete = pageStatus(item) === "complete";
+    button.classList.toggle("pending", !complete);
     const old = button.querySelector(".page-activity");
     const next = pageIndicator(pageStatus(item));
     if (old?.className !== next.className) old?.replaceWith(next);
+    const fresh =
+      complete &&
+      Boolean(opened) &&
+      !opened.has(pageKey(session.sessionId, plan.round, item.id));
+    const mark = button.querySelector(".page-new");
+    if (fresh && !mark) {
+      const label = document.createElement("span");
+      label.className = "page-new";
+      label.textContent = "New";
+      button.querySelector(".page-activity").before(label);
+    } else if (!fresh) mark?.remove();
     button.setAttribute(
       "aria-label",
-      `${item.title}, ${pageStatus(item) === "complete" ? "ready" : item.working ? "working" : "queued"}`,
+      `${item.title}, ${complete ? (fresh ? "ready, not opened yet" : "ready") : item.working ? "working" : "queued"}`,
     );
   }
   for (const button of pageList.querySelectorAll("[data-page]"))
@@ -355,8 +370,13 @@ export function installPages() {
   pageList.id = "page-list";
   $("navigation").append(tabs, pageList);
   updateNavigation(true);
-  $("menu-button").addEventListener("click", () =>
-    $("pages-dialog").open ? closeDrawer() : openDrawer(),
-  );
+  // Above 720px the button opens the session list through its
+  // popovertarget. At 720px and below it opens this drawer instead.
+  $("menu-button").addEventListener("click", (event) => {
+    if (!narrow.matches) return;
+    event.preventDefault();
+    if ($("pages-dialog").open) closeDrawer();
+    else openDrawer();
+  });
   $("feedback-pages").addEventListener("click", openDrawer);
 }
