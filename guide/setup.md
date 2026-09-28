@@ -31,6 +31,7 @@ to other sessions and to the hub on the fixed port.
 - Claude Code: nothing in auto mode. Otherwise allow the `pair` command in
   the permission settings.
 - Copilot CLI: nothing beyond the allow flags the session already needs.
+- pi and opencode: nothing beyond the allow flags the session already needs.
 
 ## A submission that did not wake you
 

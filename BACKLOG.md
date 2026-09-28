@@ -132,13 +132,3 @@ real session and of the test fixture: parsing the built HTML, loading the
 frame's modules from their `data:` URLs, rendering the figures and diffs, and
 the frame's setup of each block for notes and choices. Fix the largest cost,
 then measure the same pages again.
-
-## Features
-
-### pi and opencode adapters
-
-Add adapters that let the hub wake a pi session and an opencode session,
-so pair works with five agent CLIs. Neither CLI lets another process send a
-message into a running session, so each adapter includes a listener on a
-Unix socket: a pi extension in `@ryansaxe/pair`, and an opencode plugin
-published as `@ryansaxe/pair-opencode`.

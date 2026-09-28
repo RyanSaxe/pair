@@ -56,7 +56,9 @@ same name under `tests/`:
   command, the hub, the builder and the frame import, such as the offer
   registry in `src/shared/offers.mjs`.
 - The adapters, `adapters/`, have one folder per agent CLI. Each folder's
-  `wake.mjs` finds a running session of that CLI and wakes it.
+  `wake.mjs` finds a running session of that CLI and wakes it. For a CLI
+  that takes no message from another process, the folder also contains the
+  code that runs inside the CLI and listens for the hub's wake on a socket.
 - The guide, `guide/`, is what the agent reads while it runs a session.
   `pair guide` prints `guide/pair.md`.
 - The installed skill, `skills/pair/`, contains the instruction to run

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
@@ -124,10 +125,53 @@ test("the nearest harness ancestor decides the wake target", () => {
     detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 2, command: "sh" }])),
     { harness: "codex", thread: "t" },
   );
+  assert.deepEqual(
+    detectWake(
+      { PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock", PAIR_PI_SESSION: "p" },
+      tools([{ pid: 3, command: "pi" }]),
+    ),
+    { harness: "pi", socket: "/tmp/pair-1/wake.sock", session: "p" },
+  );
+  assert.deepEqual(
+    detectWake(
+      {
+        PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock",
+        PAIR_OPENCODE_SESSION: "ses_1",
+      },
+      tools([{ pid: 3, command: "opencode" }]),
+    ),
+    { harness: "opencode", socket: "/tmp/pair-2/wake.sock", session: "ses_1" },
+  );
 });
 
+const extension = fileURLToPath(
+  new URL("../../adapters/pi/extension.js", import.meta.url),
+);
+
 test("start refuses without a wake path and says what to do", () => {
-  assert.throws(() => detectWake({}, tools([])), /no wake path/);
+  assert.throws(() => detectWake({}, tools([])), {
+    message:
+      "no wake path. This needs Claude Code, Codex, Copilot, pi or opencode, and none of their session variables is set.",
+  });
+  // pi without pair's extension, found as an ancestor or, with no agent CLI
+  // among the ancestors, by its first variable.
+  const pi = {
+    message: `this pi session runs without pair's extension, so it cannot be woken. Run \`pi install ${extension}\`, restart pi with \`pi --continue\`, and run \`pair start\` again.`,
+  };
+  assert.throws(() => detectWake({}, tools([{ pid: 3, command: "pi" }])), pi);
+  assert.throws(
+    () => detectWake({ PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock" }, tools([])),
+    pi,
+  );
+  // tests/adapters/opencode.test.mjs checks the config file the line names.
+  assert.throws(
+    () =>
+      detectWake(
+        { PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock" },
+        tools([{ pid: 3, command: "opencode" }]),
+      ),
+    /^Error: this opencode session runs without pair's plugin/,
+  );
   assert.throws(
     () =>
       detectWake(
