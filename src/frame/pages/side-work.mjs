@@ -2,6 +2,7 @@ import { state } from "#frame/app/store.mjs";
 import { $, plural, unreachable } from "#frame/app/util.mjs";
 import { base, editable } from "#frame/app/view.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
 import { tag } from "#frame/pages/agreed.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
@@ -176,8 +177,8 @@ export function sideWorkSection() {
   }
   return section;
 }
-// Replaces the list on Agreed when the hub's items changed, and keeps the
-// focused button where it was.
+// Replaces the list on Agreed when the hub's items changed, places the
+// thread cards under its items again, and keeps focus where it was.
 export function refreshSideWork(force = false) {
   const section = $("side-work");
   if (
@@ -191,7 +192,11 @@ export function refreshSideWork(force = false) {
   const card = focused?.closest(".agreement-card")?.id;
   const action = focused?.dataset.action;
   section.replaceWith(sideWorkSection());
-  if (card)
+  // The thread cards are the same elements in the new list, so a Reply
+  // field in one gets its focus back.
+  placeThreads();
+  if (focused?.isConnected) focused.focus({ preventScroll: true });
+  else if (card)
     $(card)
       ?.querySelector(`[data-action="${action}"]`)
       ?.focus({ preventScroll: true });

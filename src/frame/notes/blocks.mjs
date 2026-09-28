@@ -196,7 +196,10 @@ export function installBlocks() {
     )
       return;
     if (getSelection()?.toString().trim()) return;
-    const block = event.target.closest("#page-content > *");
+    // A thread's card is no block, even where it sits inside Side work.
+    const block =
+      !event.target.closest("pair-thread") &&
+      event.target.closest("#page-content > *");
     // A paragraph, a heading or a list is commented on by selecting its words.
     chooseBlock(block && !blockSkip.has(block.tagName) ? block : null);
   });
