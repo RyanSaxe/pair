@@ -45,7 +45,12 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
-import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
+import {
+  installDraftSync,
+  openPast,
+  poll,
+  selectedTab,
+} from "#frame/sync/rounds.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 
 /* Start */
@@ -93,6 +98,7 @@ installControls();
 installBlocks();
 installRegistry();
 installDrawing();
+installDraftSync();
 window.planUI = createPlanUI();
 document.title = plan.title;
 narrow.addEventListener("change", placeNavigation);

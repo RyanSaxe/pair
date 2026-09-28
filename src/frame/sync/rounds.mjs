@@ -13,6 +13,7 @@ import {
   savedDraft,
   setState,
   state,
+  storedDraft,
 } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -31,6 +32,7 @@ import {
   setPastRound,
   setSubmittedRound,
   showingWaiting,
+  storageKey,
   submittedRound,
   useView,
   views,
@@ -409,6 +411,28 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();
+}
+// Every tab of a session saves its draft under one key. When another tab
+// saves the draft for the round this tab holds, this tab takes it over, so
+// it never saves its older copy back, such as one from before a send.
+export function installDraftSync() {
+  if (!editable) return;
+  window.addEventListener("storage", (event) => {
+    if (event.key !== storageKey) return;
+    const past = selectedTab === "past";
+    const view = past ? views.get(remote?.current?.round) : null;
+    const held = past ? view?.draft : state;
+    const draft = held && storedDraft(event.newValue, held.round);
+    if (!draft) return;
+    if (past) {
+      view.draft = draft;
+      return;
+    }
+    setState(draft);
+    if (!$("reading").hidden)
+      show(page.id, null, { keepScroll: true, push: false, inPlace: true });
+    review();
+  });
 }
 export async function poll() {
   try {
