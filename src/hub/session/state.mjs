@@ -10,6 +10,7 @@ import {
   serializer,
   timestamp,
 } from "../../shared/util.mjs";
+import { activity } from "./activity.mjs";
 import { agent } from "./agent.mjs";
 import { rounds } from "./rounds.mjs";
 import { sideWork } from "./side-work.mjs";
@@ -141,6 +142,7 @@ export async function loadSession(directory, config, origin) {
     rounds(session),
     await sideWork(session),
     threads(session),
+    await activity(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -242,6 +244,8 @@ export async function loadSession(directory, config, origin) {
       publishedAt: state.current.publishedAt,
       updatedAt: state.updatedAt,
       url: base + "/",
+      handoff: session.handoff,
+      events: session.activityItems(),
     };
   }
   return {

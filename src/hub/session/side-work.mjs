@@ -96,7 +96,27 @@ export async function sideWork(session) {
       data.state !== "pr" || url,
       "--state pr takes --url with the pull request's link",
     );
-    return change(item, { state: data.state, ...(url ? { url } : {}) });
+    const changed = await change(item, {
+      state: data.state,
+      ...(url ? { url } : {}),
+    });
+    // The notification center announces the pull request once, and a
+    // corrected link changes that announcement.
+    const target = `side-work-${item.id}`;
+    if (data.state === "pr" && item.state !== "pr")
+      await session.addActivity({
+        kind: "side-work",
+        name: item.title,
+        url,
+        page: "agreed",
+        target,
+      });
+    else if (data.state === "pr" && url !== item.url)
+      await session.reviseActivity(
+        (event) => event.kind === "side-work" && event.target === target,
+        { url },
+      );
+    return changed;
   }
   // pair side-work, from any agent: the holder, or an agent it briefed to do
   // the work.

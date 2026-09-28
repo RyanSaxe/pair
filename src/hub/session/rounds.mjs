@@ -379,6 +379,12 @@ export function rounds(session) {
         await fs.rm(set.bundlePath, { force: true });
       throw error;
     }
+    await session.addActivity({
+      kind: "page",
+      name: page.title,
+      round: record.round,
+      page: page.id,
+    });
     return {
       ...result,
       page: {

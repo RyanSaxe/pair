@@ -263,6 +263,14 @@ export function threads(session) {
     });
     thread.state = "replied";
     await saveThread(thread);
+    await session.addActivity({
+      kind: "reply",
+      name: thread.page,
+      round: thread.round,
+      page: thread.topic,
+      ...(thread.target ? { target: thread.target } : {}),
+      thread: thread.id,
+    });
     await session.transition(session.report());
     return {
       status: session.view(),
