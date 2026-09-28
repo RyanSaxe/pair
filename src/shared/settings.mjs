@@ -54,6 +54,17 @@ export function settings(env = process.env) {
     Number.isInteger(port) && port >= 0 && port <= 65535,
     "PAIR_HUB_PORT must be a port number",
   );
+  requireValue(
+    [undefined, "on", "off"].includes(env.PAIR_WAKE),
+    "PAIR_WAKE must be on or off",
+  );
+  // The hub that serves the user's own sessions always wakes their agents,
+  // so wakes can be off only on a hub with a state directory of its own.
+  requireValue(
+    env.PAIR_WAKE !== "off" ||
+      root !== path.join(os.homedir(), ".local", "state", "pair"),
+    "PAIR_WAKE=off is only for a scratch hub. Give it its own XDG_STATE_HOME.",
+  );
   const seconds = (name, fallback) => {
     if (env[name] === undefined) return fallback;
     const value = Number(env[name]);
@@ -72,5 +83,6 @@ export function settings(env = process.env) {
     port,
     host: env.PAIR_HUB_HOST || null,
     idleMs: seconds("PAIR_HUB_IDLE_SECONDS", 900) * 1000,
+    wake: env.PAIR_WAKE !== "off",
   };
 }

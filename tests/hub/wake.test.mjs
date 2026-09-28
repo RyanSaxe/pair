@@ -48,6 +48,16 @@ test("a submission wakes the holder with the line that names the session", async
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
+test("a hub with PAIR_WAKE=off records the wake as sent and sends nothing", async (t) => {
+  const h = await hub(t, { PAIR_WAKE: "off" });
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal(await woken(a), true);
+  assert.equal((await a.status()).body.wake.last.ok, true);
+  assert.deepEqual(a.inbox.wakes, []);
+});
+
 test("a failed wake is recorded and the submission stays readable", async (t) => {
   const h = await hub(t);
   const a = await h.session();

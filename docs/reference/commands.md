@@ -19,13 +19,14 @@ instead of the state directory.
 
 ## Environment variables
 
-All three are optional.
+All four are optional.
 
-| Variable                | Default | Meaning                                                                                   |
-| ----------------------- | ------- | ----------------------------------------------------------------------------------------- |
-| `PAIR_HUB_PORT`         | 4747    | The hub's fixed port on 127.0.0.1. With `0`, the OS assigns a free port, as the tests do. |
-| `PAIR_HUB_HOST`         | unset   | An extra address to bind, such as a Tailscale IP, to review on a phone.                   |
-| `PAIR_HUB_IDLE_SECONDS` | 900     | Time with no live session after which the hub exits.                                      |
+| Variable                | Default | Meaning                                                                                                               |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `PAIR_HUB_PORT`         | 4747    | The hub's fixed port on 127.0.0.1. With `0`, the OS assigns a free port, as the tests do.                             |
+| `PAIR_HUB_HOST`         | unset   | An extra address to bind, such as a Tailscale IP, to review on a phone.                                               |
+| `PAIR_HUB_IDLE_SECONDS` | 900     | Time with no live session after which the hub exits.                                                                  |
+| `PAIR_WAKE`             | on      | With `off`, the hub writes each wake line to its log instead of sending it. Refused with the default state directory. |
 
 Browser routes are unauthenticated, which is why the extra address is opt
 in. Agent routes require the session's bearer token on every address.

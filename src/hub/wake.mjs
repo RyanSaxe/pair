@@ -71,6 +71,14 @@ function run(file, args) {
     });
   });
 }
-export function wakeRunner(target, line) {
+// A hub started with PAIR_WAKE=off, such as a scratch hub for checking the
+// frame, writes each wake line to its log instead of sending it, so the
+// agent that started the hub is not woken for every test submission. The
+// hub passes its config, and a caller with none gets wakes on.
+export async function wakeRunner(target, line, { wake = true, log } = {}) {
+  if (!wake) {
+    (log || console.log)(`wake off, not sent: ${line}`);
+    return;
+  }
   return adapters[target.harness].wake(target, line, run);
 }

@@ -137,7 +137,7 @@ export async function sideWork(session) {
     let wake;
     try {
       requireValue(session.wake, "The session has no agent to wake");
-      await wakeRunner(session.wake, line);
+      await wakeRunner(session.wake, line, session.config);
       wake = { at: timestamp(), ok: true };
     } catch (error) {
       wake = { at: timestamp(), ok: false, reason: error.message };
