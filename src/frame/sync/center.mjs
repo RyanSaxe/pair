@@ -79,29 +79,49 @@ let events = [];
 // opened, and any that arrive while it stays open.
 let fresh = null;
 
+// The share of a box's height inside the reading area, from 0 to 1. A box
+// with no height, such as a row in a collapsed card, has none inside.
+export function shareInView(box, area) {
+  if (!box?.height) return 0;
+  const inside =
+    Math.min(box.bottom, area.bottom) - Math.max(box.top, area.top);
+  return Math.max(0, inside) / box.height;
+}
+
 // This tab's own events already show where they happened: its pages in
 // the Pages list, a reply on its thread's card, side work on Agreed. A
 // page's event never shows here, and counts as seen while the tab is in
-// view. A reply or side work counts as seen and opened once its card or
-// item is in the reading area's view.
-function inView(element) {
-  if (!element) return false;
-  const box = element.getBoundingClientRect();
+// view. A reply or side work counts as seen and opened only while the
+// reviewer can look at it: the window has focus, no modal dialog covers
+// the page, and at least half of the reply's row, or any part of the side
+// work's item, is in the reading area.
+function readingArea() {
   const area = document.querySelector("main").getBoundingClientRect();
-  return (
-    box.bottom > Math.max(area.top, 0) &&
-    box.top < Math.min(area.bottom, innerHeight)
+  return {
+    top: Math.max(area.top, 0),
+    bottom: Math.min(area.bottom, innerHeight),
+  };
+}
+// A reply shows as the newest agent message in its thread's card.
+function replyRow(event) {
+  const avatars = $(eventTarget(event))?.querySelectorAll(
+    ".thread-avatar.agent",
   );
+  return [...(avatars || [])].at(-1)?.closest(".thread-message");
 }
 function onScreen(event) {
   if ($("reading").hidden) return false;
-  if (event.kind === "reply") return inView($(eventTarget(event)));
-  return page.id === "agreed" && inView($(event.target));
+  const share = (element) =>
+    shareInView(element?.getBoundingClientRect(), readingArea());
+  if (event.kind === "reply") return share(replyRow(event)) >= 0.5;
+  return page.id === "agreed" && share($(event.target)) > 0;
 }
 function ownEvents(entry) {
   const listed = entry.events.filter((event) => event.kind !== "page");
   if (document.visibilityState === "visible") {
-    const shown = listed.filter(onScreen).map(({ id }) => id);
+    const looking =
+      document.hasFocus() && !document.querySelector("dialog:modal");
+    const shown = looking ? listed.filter(onScreen).map(({ id }) => id) : [];
     mark("seen", [
       ...entry.events
         .filter((event) => event.kind === "page")

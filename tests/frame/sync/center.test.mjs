@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bellNumber } from "../../../src/frame/sync/center.mjs";
+import { bellNumber, shareInView } from "../../../src/frame/sync/center.mjs";
 
 test("the bell counts waiting sessions and unseen events, red while one waits and blue when only events are new", () => {
   const events = ["a", "b", "c"].map((id) => ({ id }));
@@ -21,4 +21,24 @@ test("the bell counts waiting sessions and unseen events, red while one waits an
   ];
   for (const [waiting, list, known, expected] of cases)
     assert.deepEqual(bellNumber(waiting, list, known), expected);
+});
+
+test("an element's share of the reading area is the part of its height between the area's top and bottom", () => {
+  const area = { top: 60, bottom: 900 };
+  const box = (top, height) => ({ top, bottom: top + height, height });
+  const cases = [
+    [box(100, 100), 1],
+    // Cut by the bottom of the window, as a reply below the fold is.
+    [box(850, 100), 0.5],
+    [box(875, 100), 0.25],
+    // Cut by the top of the reading area.
+    [box(10, 100), 0.5],
+    [box(950, 100), 0],
+    [box(-200, 100), 0],
+    // A row inside a collapsed card has no height, and a missing row no box.
+    [box(0, 0), 0],
+    [undefined, 0],
+  ];
+  for (const [rect, share] of cases)
+    assert.equal(shareInView(rect, area), share, JSON.stringify(rect));
 });
