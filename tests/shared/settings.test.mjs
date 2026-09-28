@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
+import { settings } from "../../src/shared/settings.mjs";
 import { exec, root } from "../support/hub.mjs";
 
 // A hub restarts on newer code only when its version changes, and the hub
@@ -30,4 +31,21 @@ test("the hub version changes when any file the hub runs changes", async (t) => 
   const before = await version();
   await fs.appendFile(path.join(copy, "src/build/lint.mjs"), "\n// edited\n");
   assert.notEqual(await version(), before);
+});
+
+test("PAIR_WAKE=off turns wakes off only with a state directory of its own", () => {
+  const home = path.join(os.tmpdir(), "pair-scratch-state");
+  assert.equal(settings({}).wake, true);
+  assert.equal(
+    settings({ XDG_STATE_HOME: home, PAIR_WAKE: "off" }).wake,
+    false,
+  );
+  assert.throws(
+    () => settings({ XDG_STATE_HOME: home, PAIR_WAKE: "maybe" }),
+    /PAIR_WAKE must be on or off/,
+  );
+  assert.throws(
+    () => settings({ PAIR_WAKE: "off" }),
+    /PAIR_WAKE=off is only for a scratch hub/,
+  );
 });

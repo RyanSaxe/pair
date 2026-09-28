@@ -154,19 +154,23 @@ Check every fixture page in the light and dark themes, at a wide window and at
 
 For anything that talks to the hub, such as sending feedback, the progress
 card, rounds, sessions or notifications, run a scratch hub. Give every command
-the same new state directory and a free port from 4880 to 4899:
+the same new state directory, a free port from 4880 to 4899 and
+`PAIR_WAKE=off`:
 
 ```sh
 state=$(mktemp -d)
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 node src/cli.mjs check
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start
+XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
+XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start
 ```
 
 `check` must report the hub port as `free`. `start` prints the session's
 `sessionDir` and `url`. Build and publish a round in that session as
-`guide/round.md` describes, open the URL, and use the change. When you send
-feedback there, the hub wakes the agent that ran `start` with a line that names
-the scratch session directory. Finish with
+`guide/round.md` describes, open the URL, and use the change. With
+`PAIR_WAKE=off` the hub sends no wake message when you send feedback, start a
+thread or press Start in parallel. It saves the submission, thread
+message or start as usual and writes the line it would have sent to
+`$state/pair/hub/hub.log`. Leave `PAIR_WAKE` unset only to check a change to
+the wake itself, and then the hub wakes the agent that ran `start`. Finish with
 `node src/cli.mjs pause --session-dir DIR` under the same variables, and the
 hub exits 60 seconds later.
 
