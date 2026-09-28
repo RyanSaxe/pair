@@ -296,6 +296,8 @@ function statusLine(thread) {
 function buildCard(id) {
   const card = element("pair-thread", "thread");
   card.dataset.thread = id;
+  // A notification of a reply opens the page at this ID.
+  card.id = `thread-${id}`;
   const head = element("div", "thread-head");
   const title = element("span", "thread-title");
   const fold = element("button", "link-btn thread-fold");

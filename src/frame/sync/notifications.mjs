@@ -6,16 +6,19 @@ export function eventTitle(event) {
   const pull = /\/pull\/(\d+)/.exec(event.url || "");
   return `Side work opened ${pull ? `pull request #${pull[1]}` : "a pull request"}`;
 }
-// Where an event happened: its page and block, in the round it happened in.
-// A round the session has moved on from opens read-only.
+// The element an event opens at: a reply's thread card, whose ID this is,
+// or the block the event names.
+export const eventTarget = (event) =>
+  event.thread ? `thread-${event.thread}` : event.target;
+// Where an event happened: its page and target, in the round it happened
+// in. A round the session has moved on from opens read-only.
 export function eventHref(entry, event) {
   const round =
     event.round && event.round !== entry.round
       ? `r/${encodeURIComponent(event.round)}`
       : "";
-  const target = event.target
-    ? `?target=${encodeURIComponent(event.target)}`
-    : "";
+  const at = eventTarget(event);
+  const target = at ? `?target=${encodeURIComponent(at)}` : "";
   return `${entry.url}${round}${target}#${encodeURIComponent(event.page)}`;
 }
 export function reviewAlert(entry) {

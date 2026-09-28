@@ -241,9 +241,10 @@ test("each event in another session alerts once and opens where it happened", as
     ],
   );
   for (const item of a.sent) item.onclick();
-  // A page in a round the session has moved on from opens read-only.
+  // A reply opens at its thread's card, not at the block the thread is on,
+  // and a page in a round the session has moved on from opens read-only.
   assert.deepEqual(a.opened, [
-    "/s/s2/?target=failure#overview",
+    "/s/s2/?target=thread-t1#overview",
     "/s/s2/?target=side-work-1#agreed",
     "/s/s2/r/1#offers",
   ]);

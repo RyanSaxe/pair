@@ -2,7 +2,11 @@ import { ago } from "#frame/app/time.mjs";
 import { $, plural } from "#frame/app/util.mjs";
 import { page, pages, plan, session } from "#frame/app/view.mjs";
 import { show } from "#frame/pages/pages.mjs";
-import { eventHref, eventTitle } from "#frame/sync/notifications.mjs";
+import {
+  eventHref,
+  eventTarget,
+  eventTitle,
+} from "#frame/sync/notifications.mjs";
 import {
   lineButton,
   redraw,
@@ -91,12 +95,7 @@ function inView(element) {
 }
 function onScreen(event) {
   if ($("reading").hidden) return false;
-  if (event.kind === "reply")
-    return inView(
-      [...$("page-content").querySelectorAll("pair-thread")].find(
-        (card) => card.dataset.thread === event.thread,
-      ),
-    );
+  if (event.kind === "reply") return inView($(eventTarget(event)));
   return page.id === "agreed" && inView($(event.target));
 }
 function ownEvents(entry) {
@@ -144,7 +143,9 @@ export function renderCenter(sessions, fromHub) {
   const waiting = others.filter((entry) => entry.needsYou);
   const { count, tone } = bellNumber(waiting.length, events, known);
   const bell = $("bell");
-  bell.hidden = !others.length && !events.length;
+  // The bell shows while the hub lists a live session, this tab's own
+  // included, so n and Live sessions work with one session.
+  bell.hidden = !sessions.length;
   bell.classList.toggle("need", tone === "need");
   bell.classList.toggle("news", tone === "news");
   $("bell-count").hidden = !count;
@@ -255,7 +256,7 @@ function openEvent(event) {
     event.entry.id === session.sessionId &&
     (!event.round || event.round === plan.round) &&
     pages.some((item) => item.id === event.page);
-  if (here) show(event.page, event.target || null);
+  if (here) show(event.page, eventTarget(event) || null);
   else location.assign(eventHref(event.entry, event));
 }
 export function toggleCenter(open = !$("center-dialog").open) {

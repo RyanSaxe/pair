@@ -141,17 +141,21 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  const target = targetId && $(targetId);
-  if (!feedback && target && $("page-content").contains(target)) {
-    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
-      if (ancestor.tagName === "DETAILS") ancestor.open = true;
-    if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
-    target.focus({ preventScroll: true });
-    target.scrollIntoView({ block: "center" });
-  }
+  if (!feedback) reveal(targetId);
   $("quote").hidden = true;
   if (!inPlace) closeMenus();
   review();
+}
+// Scrolls to an element of the page on screen and focuses it, opening any
+// details around it.
+export function reveal(targetId) {
+  const target = targetId && $(targetId);
+  if (!target || !$("page-content").contains(target)) return;
+  for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
+    if (ancestor.tagName === "DETAILS") ancestor.open = true;
+  if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "center" });
 }
 export function badge(count) {
   const row = $("review-row");
