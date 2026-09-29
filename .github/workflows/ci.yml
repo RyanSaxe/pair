@@ -31,6 +31,30 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: node --test
 
+  # The browser tests drive the runner image's Google Chrome.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run test:browser
+
+  # Every figure in the test fixture, in the light and dark themes. A figure
+  # whose library loads from esm.sh or jsDelivr fails this job while that CDN
+  # is down.
+  figures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run test:figures
+
   format:
     runs-on: ubuntu-latest
     steps:

@@ -6,24 +6,6 @@ entry removes it from this file.
 
 ## Tooling
 
-### Browser tests
-
-`npm test` runs in Node, so nothing tests the frame's behavior in a
-browser. Playwright as a devDependency, which the screenshot script below
-also needs, lets CI open built pages in Chromium, and it adds nothing to
-`npm install -g`, because npm skips a package's devDependencies. The first
-tests:
-
-- The Finish your review dialog, built with each offer.
-- A note's highlight on its block after moving to another page and back.
-- Every key the frame binds.
-- Every figure in the test fixture renders, in the light and dark themes.
-  Until the libraries install from npm, this test fails whenever esm.sh or
-  jsdelivr is down.
-
-Each CI run downloads Chrome Headless Shell, 114 MiB on Linux, unless CI
-caches it.
-
 ### Screenshots
 
 The README's screenshot, `assets/pair-light.png` and `assets/pair-dark.png`,
