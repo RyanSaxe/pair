@@ -38,14 +38,23 @@ and publish each page as soon as it is complete, whether you or a subagent
 wrote it. You answer for every page, so check a subagent's results before
 they reach the reviewer.
 
-Tell each subagent what to do, where to start and what earlier rounds
-already found, so that it does no more than the round needs and does not
-repeat earlier work. Have it put its results in your work directory, with
-their sources and anything it could not settle.
+When some work will take much longer than the rest, keep it off this
+round's pages, because the reviewer cannot send feedback until every page
+has published. Run it in the background as a hedge. When the next round
+starts, decide with the feedback whether its results become a page, change a
+page, or only inform your own work. Most of the work is done by then, so
+adapting it takes little time.
 
-Report on subagents as on your own work, including when each one starts and
-finishes. If one is still running when the round's last page is ready,
-publish the page, end your turn, and use its results in the next round.
+Tell each subagent what to do, where to start and what earlier rounds
+already found, so that it does not repeat their work. Give it a rough
+estimate of how long the work should take and the session directory, so
+that it reports its own progress with `pair ack --note` and says when it
+expects to take longer. Have it put its results in your work directory,
+with their sources and anything it could not settle.
+
+Send a progress note when each subagent starts and when it finishes. If one
+is still running when the round's last page is ready, publish the page and
+end your turn.
 
 ## Tell the reviewer what you are doing
 
@@ -109,10 +118,11 @@ before changing Agreed.
 1. Plan the round: the decisions that matter most now, in coherent pages
    the reviewer can work through in one sitting, the most consequential
    first. The page list cannot change after Agreed publishes, so decide now
-   what work each page needs, and start the work that would delay a page
-   before you publish Agreed. Write the pages that follow Agreed to
-   `pages.json` as `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A
-   settled topic leaves the list, and an unchanged page is not repeated.
+   what work each page needs. Start slow work before you publish Agreed, and
+   plan the pages around it as Subagents describes. Write the pages that
+   follow Agreed to `pages.json` as
+   `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A settled topic
+   leaves the list, and an unchanged page is not repeated.
 2. Decide whether the round has an offer, which lets the reviewer accept
    it. Name the offer in Agreed's source only, because `pair build` refuses
    any other page whose source names one. An offer is optional, and a round
