@@ -273,9 +273,15 @@ test("a failed wake returns the item to Recorded, and a new hub keeps it", async
   // The next hub reads the item back from the session directory.
   await h.server.close();
   const next = await startHub(h.config);
-  t.after(next.close);
-  const status = await fetch(`${next.origin}${a.base}/api/status`);
-  assert.deepEqual((await status.json()).sideWork, [failed]);
+  let closed = false;
+  const closeNext = async () => {
+    if (!closed) await next.close();
+    closed = true;
+  };
+  t.after(closeNext);
+  const sideWork = async () =>
+    (await (await fetch(`${next.origin}${a.base}/api/status`)).json()).sideWork;
+  assert.deepEqual(await sideWork(), [failed]);
   const retry = await fetch(`${next.origin}${a.base}/api/side-work/1/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: next.origin },
@@ -283,4 +289,10 @@ test("a failed wake returns the item to Recorded, and a new hub keeps it", async
   });
   assert.equal(retry.status, 200);
   assert.equal((await retry.json()).sideWork[0].message, undefined);
+  // The retry's wake fails after the response and writes the item again.
+  // A write that lands while hub(t)'s cleanup removes the session directory
+  // fails that cleanup, and this hub's timer then keeps the file running,
+  // so the test waits for the write before it closes the hub.
+  assert.equal(await waitUntil(async () => (await sideWork())[0].wake), true);
+  await closeNext();
 });
