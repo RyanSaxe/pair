@@ -257,7 +257,7 @@ export async function main(argv) {
           started.next ||
           (resuming
             ? `Run: pair ack --session-dir ${directory}`
-            : `Run ${guideCommand("round.md")} and follow its "Publish the round" section when the first round is ready.`),
+            : `Run ${guideCommand("round.md")} and read all it prints before you plan the first round, starting with Required in every round.`),
       }),
     );
   }

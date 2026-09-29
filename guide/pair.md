@@ -77,8 +77,9 @@ accepted plan.
 
 ## Files
 
-- [round.md](round.md): the sequence for each round. The hub's wake message
-  names `pair ack`, whose `next` line names this file.
+- [round.md](round.md): the sequence for each round, the first included.
+  Read it before the first round. After each submission, the `next` line of
+  `pair ack` names it.
 - [quality.md](quality.md): what makes a page and a plan good. Read it
   before the first round.
 - [writing.md](writing.md): the rules every sentence follows.

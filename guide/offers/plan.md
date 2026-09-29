@@ -30,9 +30,9 @@ nothing else.
    step, run `pair progress --start ID` with the ID of the page that shows
    it, so the reviewer sees which step you are building, not only which page
    you are writing. For steps you build at the same time, run
-   `--start "a|b"`. Report with `pair ack --note "…"` whenever the work
-   changes and at least every five minutes, as [round.md](../round.md)
-   describes.
+   `--start "a|b"`. Report with `pair ack --note "…" --page ID` whenever
+   the work changes and at least every five minutes, as
+   [round.md](../round.md) describes.
 4. Commit on a branch as the project's instructions say, and open no pull
    request.
 5. When a step is done and checked, publish its page before you start the
