@@ -43,7 +43,14 @@ export async function openDrawing(id, label, target, onSaved) {
         "The drawing editor did not load. Check your connection and try again.",
       );
   }, 20000);
-  $("drawing-title").textContent = label;
+  // The header shows the card's question and its reason, and the short
+  // label when the card has no heading.
+  const card = target && document.getElementById(target);
+  const question = card?.querySelector(":scope > h3")?.textContent.trim();
+  const reason = card?.querySelector(":scope > h3 + p")?.textContent.trim();
+  $("drawing-title").textContent = question || label;
+  $("drawing-detail").textContent = reason || "";
+  $("drawing-detail").hidden = !reason;
   drawingError("");
   $("drawing-save").disabled = true;
   $("drawing-frame").srcdoc = JSON.parse(
