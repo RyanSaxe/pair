@@ -10,7 +10,8 @@ const markdownLink = /\[([^\]]*)\]\(([^()\s]+)\)/g;
 export const guideCommand = (name) => `pair guide ${name}`;
 
 // The files pair guide prints, by the name it takes: the path under guide/,
-// and components/README.md for the components README.
+// written with / on every platform, and components/README.md for the
+// components README.
 async function documents() {
   const names = new Map();
   for (const file of await fs.readdir(path.join(packageRoot, "guide")))
@@ -18,7 +19,7 @@ async function documents() {
       names.set(file, path.join(packageRoot, "guide", file));
   for (const offer of Object.values(offers))
     names.set(
-      path.relative("guide", offer.guide),
+      path.posix.relative("guide", offer.guide),
       path.join(packageRoot, offer.guide),
     );
   names.set(

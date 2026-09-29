@@ -38,7 +38,8 @@ test("file comparison preserves exact sources and produces an applicable Git pat
   assert.deepEqual(JSON.parse(await fs.readFile(output, "utf8")), result);
   const patchPath = path.join(directory, "change.patch");
   await fs.writeFile(patchPath, result.patch);
-  await exec("git", ["apply", patchPath], {
+  // Git for Windows turns on core.autocrlf, which would write CRLF.
+  await exec("git", ["-c", "core.autocrlf=false", "apply", patchPath], {
     cwd: path.dirname(beforePath),
     env: withoutGit,
   });

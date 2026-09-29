@@ -29,7 +29,8 @@ export function agent(session) {
       : {};
   // A line that points at a guide file names the command that prints it.
   const guide = guideCommand;
-  const offerGuide = (id) => guide(path.relative("guide", offers[id].guide));
+  const offerGuide = (id) =>
+    guide(path.posix.relative("guide", offers[id].guide));
   const actionAfter = (offer, after) =>
     offers[offer].accept.actions.find((item) => item.after === after);
   // Every agent command prints the step after it, so an agent that lost its

@@ -31,8 +31,11 @@ function ancestors(pid = process.ppid) {
   for (let current = pid; current > 1;) {
     let line;
     try {
+      // ps writes its own error when it cannot run, as Git's ps on Windows
+      // does for -o, so its stderr stays out of the command's output.
       line = execFileSync("ps", ["-o", "ppid=,comm=", "-p", String(current)], {
         encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
       }).trim();
     } catch {
       break;

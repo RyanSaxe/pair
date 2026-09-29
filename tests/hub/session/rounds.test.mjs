@@ -279,7 +279,9 @@ test("listed pages arrive independently and only the last completes the round", 
       "Overview",
       "<p>Finished overview</p>",
     );
-    assert.equal(writeFailure.status, 500);
+    // Windows reports a path through a file as missing, which the hub
+    // answers with 404, where other systems report it as not a directory.
+    assert.equal(writeFailure.status, process.platform === "win32" ? 404 : 500);
     assert.equal(
       (await status()).current.sha256,
       detail.body.status.current.sha256,

@@ -45,38 +45,47 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
 // The hub wakes a Codex session by running codex queue. The stand-in codex
 // first on PATH records its arguments, and fails as codex does when it
 // cannot queue the message.
-test("a Codex wake queues the line on the session's thread", async (t) => {
-  const bin = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
-  const searched = process.env.PATH;
-  process.env.PATH = bin + path.delimiter + searched;
-  t.after(() => {
-    process.env.PATH = searched;
-    delete process.env.PAIR_TEST_FAIL;
-    return fs.rm(bin, { recursive: true, force: true });
-  });
-  const log = path.join(bin, "arguments.json");
-  await fs.writeFile(
-    path.join(bin, "codex"),
-    `#!${process.execPath}
+// npm installs Codex on Windows as codex.cmd, which the adapter's execFile
+// cannot run without a shell, so a Codex wake does not work there yet.
+test(
+  "a Codex wake queues the line on the session's thread",
+  {
+    skip:
+      process.platform === "win32" && "a Codex wake needs codex.cmd support",
+  },
+  async (t) => {
+    const bin = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
+    const searched = process.env.PATH;
+    process.env.PATH = bin + path.delimiter + searched;
+    t.after(() => {
+      process.env.PATH = searched;
+      delete process.env.PAIR_TEST_FAIL;
+      return fs.rm(bin, { recursive: true, force: true });
+    });
+    const log = path.join(bin, "arguments.json");
+    await fs.writeFile(
+      path.join(bin, "codex"),
+      `#!${process.execPath}
 require("node:fs").writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));
 if (process.env.PAIR_TEST_FAIL) {
   console.error("thread gone");
   process.exit(1);
 }
 `,
-    { mode: 0o755 },
-  );
-  const target = { harness: "codex", thread: "thread-1" };
-  const line = "pair: the reviewer submitted round 1 of session /s.";
-  await wakeRunner(target, line);
-  assert.deepEqual(JSON.parse(await fs.readFile(log, "utf8")), [
-    "queue",
-    "--thread",
-    "thread-1",
-    "--message",
-    line,
-  ]);
-  // The hub records this message as the wake's reason.
-  process.env.PAIR_TEST_FAIL = "1";
-  await assert.rejects(wakeRunner(target, line), /^Error: thread gone$/);
-});
+      { mode: 0o755 },
+    );
+    const target = { harness: "codex", thread: "thread-1" };
+    const line = "pair: the reviewer submitted round 1 of session /s.";
+    await wakeRunner(target, line);
+    assert.deepEqual(JSON.parse(await fs.readFile(log, "utf8")), [
+      "queue",
+      "--thread",
+      "thread-1",
+      "--message",
+      line,
+    ]);
+    // The hub records this message as the wake's reason.
+    process.env.PAIR_TEST_FAIL = "1";
+    await assert.rejects(wakeRunner(target, line), /^Error: thread gone$/);
+  },
+);

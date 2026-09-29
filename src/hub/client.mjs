@@ -52,6 +52,7 @@ function hubRunning(pid) {
   try {
     command = execFileSync("ps", ["-o", "command=", "-p", String(pid)], {
       encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch {
     return true;

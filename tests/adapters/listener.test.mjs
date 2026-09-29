@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { listen, send } from "../../adapters/listener.mjs";
@@ -46,13 +47,17 @@ ready();`,
   const socket = await new Promise((resolve) =>
     cli.stdout.once("data", (chunk) => resolve(String(chunk).trim())),
   );
-  t.after(() =>
-    fs.rmSync(path.dirname(socket), { recursive: true, force: true }),
-  );
+  // On Windows the socket is a named pipe, which closes with the process,
+  // and the listener's directory is named after it in the temp directory.
+  const windows = process.platform === "win32";
+  const directory = windows
+    ? path.join(os.tmpdir(), path.basename(socket))
+    : path.dirname(socket);
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   cli.kill("SIGKILL");
   await new Promise((resolve) => cli.once("exit", resolve));
-  assert.equal(fs.existsSync(socket), true);
+  assert.equal(fs.existsSync(socket), !windows);
   await assert.rejects(send(socket, { text: "hello" }), {
-    message: `the agent CLI has exited (ECONNREFUSED ${socket})`,
+    message: `the agent CLI has exited (${windows ? "ENOENT" : "ECONNREFUSED"} ${socket})`,
   });
 });

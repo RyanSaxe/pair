@@ -298,29 +298,34 @@ test("start replaces an idle hub that runs other code", async (t) => {
 
 // Inside Codex's sandbox no command reaches the hub, which still runs, and a
 // start there must leave the record for the commands outside it.
-test("start keeps the record of a hub that runs but does not answer", async (t) => {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-stopped-"));
-  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
-  await run("start");
-  const record = await fs.readFile(config.hubFile, "utf8");
-  const { pid, port } = JSON.parse(record);
-  process.kill(pid, "SIGSTOP");
-  t.after(async () => {
-    process.kill(pid, "SIGCONT");
-    process.kill(pid, "SIGTERM");
-    await waitUntil(() => !alive(pid));
-    await killHub(config);
-    await fs.rm(home, { recursive: true, force: true });
-  });
-  await assert.rejects(run("start"), ({ stderr }) => {
-    assert.equal(
-      stderr,
-      `pair: The hub (pid ${pid}) runs but does not answer on port ${port}\n`,
-    );
-    return true;
-  });
-  assert.equal(await fs.readFile(config.hubFile, "utf8"), record);
-});
+test(
+  "start keeps the record of a hub that runs but does not answer",
+  // The test stops the hub with SIGSTOP, which Windows does not have.
+  { skip: process.platform === "win32" && "Windows has no SIGSTOP" },
+  async (t) => {
+    const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-stopped-"));
+    const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+    await run("start");
+    const record = await fs.readFile(config.hubFile, "utf8");
+    const { pid, port } = JSON.parse(record);
+    process.kill(pid, "SIGSTOP");
+    t.after(async () => {
+      process.kill(pid, "SIGCONT");
+      process.kill(pid, "SIGTERM");
+      await waitUntil(() => !alive(pid));
+      await killHub(config);
+      await fs.rm(home, { recursive: true, force: true });
+    });
+    await assert.rejects(run("start"), ({ stderr }) => {
+      assert.equal(
+        stderr,
+        `pair: The hub (pid ${pid}) runs but does not answer on port ${port}\n`,
+      );
+      return true;
+    });
+    assert.equal(await fs.readFile(config.hubFile, "utf8"), record);
+  },
+);
 
 test("an unfinished round resumes after the hub restarts", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));

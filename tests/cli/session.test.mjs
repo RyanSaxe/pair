@@ -4,7 +4,14 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { exists, hub, killHub, pairCli, planData } from "../support/hub.mjs";
+import {
+  exists,
+  hub,
+  killHub,
+  literal,
+  pairCli,
+  planData,
+} from "../support/hub.mjs";
 
 test("the CLI builds and publishes each page with its own saved source", async (t) => {
   const h = await hub(t);
@@ -454,8 +461,9 @@ test("a publish whose answer is cut off keeps the source the hub recorded", asyn
 });
 
 test("a publish whose copy fails reports the copy's own error, and can be retried", async (t) => {
-  // Root reads any file, so the copy would not fail.
-  if (process.getuid?.() === 0) return t.skip();
+  // Root reads any file, and on Windows a mode cannot keep a file from being
+  // read, so the copy would not fail.
+  if (process.platform === "win32" || process.getuid?.() === 0) return t.skip();
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
   const locked = path.join(agreed.source, "a-locked");
   await fs.mkdir(locked);
@@ -632,7 +640,7 @@ test("pair reply prints a thread and posts a reply, and pair status leaves threa
   assert.match(
     printed,
     new RegExp(
-      `^Thread ${id} on "Overview" \\(session ${session.directory}, round 1\\)\n  You, \\d\\d:\\d\\d: Why one result per input\\?\n\n`,
+      `^Thread ${id} on "Overview" \\(session ${literal(session.directory)}, round 1\\)\n  You, \\d\\d:\\d\\d: Why one result per input\\?\n\n`,
     ),
   );
   assert.match(await reply("--text", "So a retry can skip it."), /^Posted/);
