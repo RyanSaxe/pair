@@ -270,6 +270,8 @@ export function threads(session) {
       page: thread.topic,
       ...(thread.target ? { target: thread.target } : {}),
       thread: thread.id,
+      // The reply's place in the thread, so a notification opens the reply.
+      message: thread.messages.length - 1,
     });
     await session.transition(session.report());
     return {

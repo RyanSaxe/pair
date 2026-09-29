@@ -64,6 +64,7 @@ test("a reply and side work's pull request each add one event, a published page 
       page: "overview",
       target: "failure",
       thread,
+      message: 1,
     },
     {
       kind: "side-work",

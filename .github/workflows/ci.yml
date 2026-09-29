@@ -6,13 +6,20 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # The oldest Node pair supports, the latest Node 20, and the current
         # LTS.
         node: [20.1.0, 20, 24]
+        # macOS limits socket paths to 104 bytes and puts temporary
+        # directories under long /var/folders paths, so the suite runs there
+        # too, on the current LTS.
+        include:
+          - os: macos-latest
+            node: 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

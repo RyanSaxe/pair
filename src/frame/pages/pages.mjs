@@ -156,6 +156,10 @@ export function reveal(targetId) {
   if (panel) showAgreedTab(panel.id);
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
+  // A collapsed thread card shows only its head, so a reply inside it has no
+  // box to scroll to until the card expands, as its Expand button does.
+  const card = target.closest("pair-thread[collapsed]");
+  if (card) card.querySelector(".thread-fold").click();
   if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: "center" });

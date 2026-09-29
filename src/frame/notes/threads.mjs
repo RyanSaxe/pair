@@ -206,6 +206,9 @@ function images(message) {
 function messageRow(thread, message, index) {
   const agent = message.from === "agent";
   const row = element("div", "thread-message");
+  // A notification of a reply opens the page at this ID. Messages are only
+  // ever added at the end, so an index names the same message every time.
+  row.id = `thread-${thread.id}-${index}`;
   const avatar = element("span", "thread-avatar", agent ? "A" : "Y");
   avatar.classList.toggle("agent", agent);
   avatar.setAttribute("aria-hidden", "true");
@@ -286,7 +289,8 @@ function statusLine(thread) {
 function buildCard(id) {
   const card = element("pair-thread", "thread");
   card.dataset.thread = id;
-  // A notification of a reply opens the page at this ID.
+  // A notification of a reply from before replies named their message opens
+  // the page at this ID.
   card.id = `thread-${id}`;
   const head = element("div", "thread-head");
   const title = element("span", "thread-title");

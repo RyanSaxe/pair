@@ -202,6 +202,17 @@ test("each reply and pull request in another session alerts once and opens where
   const entry = a.entry("s2", "2", {
     needsYou: false,
     events: [
+      // A reply event from before replies named their message.
+      {
+        id: "e0",
+        kind: "reply",
+        name: "Overview",
+        round: "2",
+        page: "overview",
+        target: "failure",
+        thread: "t0",
+        at,
+      },
       {
         id: "e1",
         kind: "reply",
@@ -210,6 +221,7 @@ test("each reply and pull request in another session alerts once and opens where
         page: "overview",
         target: "failure",
         thread: "t1",
+        message: 1,
         at,
       },
       {
@@ -237,13 +249,16 @@ test("each reply and pull request in another session alerts once and opens where
     a.sent.map((item) => [item.title, item.options.body]),
     [
       ["Agent replied on Overview", "Plan s2"],
+      ["Agent replied on Overview", "Plan s2"],
       ["Side work opened pull request #12", "Plan s2"],
     ],
   );
   for (const item of a.sent) item.onclick();
-  // A reply opens at its thread's card, not at the block the thread is on.
+  // A reply opens at the reply itself, and an event from before replies
+  // named their message opens at its thread's card.
   assert.deepEqual(a.opened, [
-    "/s/s2/?target=thread-t1#overview",
+    "/s/s2/?target=thread-t0#overview",
+    "/s/s2/?target=thread-t1-1#overview",
     "/s/s2/?target=side-work-1#agreed",
   ]);
   // The page that completes a round waiting for the reviewer is announced
@@ -257,7 +272,7 @@ test("each reply and pull request in another session alerts once and opens where
   await a.alerts.update([complete]);
   await a.alerts.update([{ ...complete, needsYou: false }]);
   assert.deepEqual(
-    a.sent.slice(2).map((item) => item.title),
+    a.sent.slice(3).map((item) => item.title),
     ["Round 4 is ready"],
   );
 });

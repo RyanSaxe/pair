@@ -4,10 +4,14 @@ export function eventTitle(event) {
   const pull = /\/pull\/(\d+)/.exec(event.url || "");
   return `Side work opened ${pull ? `pull request #${pull[1]}` : "a pull request"}`;
 }
-// The element an event opens at: a reply's thread card, whose ID this is,
-// or the block the event names.
-export const eventTarget = (event) =>
-  event.thread ? `thread-${event.thread}` : event.target;
+// The element an event opens at: the reply itself, the thread card for a
+// reply event from before replies named their message, or the block the
+// event names.
+export function eventTarget(event) {
+  if (!event.thread) return event.target;
+  const card = `thread-${event.thread}`;
+  return event.message === undefined ? card : `${card}-${event.message}`;
+}
 // Where an event happened: its page and target, in the round it happened
 // in. A round the session has moved on from opens read-only.
 export function eventHref(entry, event) {
