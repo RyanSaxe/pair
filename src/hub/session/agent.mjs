@@ -56,7 +56,7 @@ export function agent(session) {
     if (session.state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!session.state.current)
-      return `When the first round is ready, publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps.`;
+      return `When you know the first round's pages, publish Agreed with pair publish --pages within minutes, before you start work on any page. ${guide("round.md")} prints the steps.`;
     if (session.state.openRound) {
       const left = session.state.openRound.pages
         .filter((slot) => !slot.recordPath)
@@ -67,10 +67,10 @@ export function agent(session) {
         session.state.current.offer === "finish"
           ? "before you start the step that page shows, run pair publish when the step is done and checked"
           : "as you begin a page, run pair publish as soon as it builds";
-      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID ${steps}, and report with pair ack --note at least every five minutes.`;
+      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID ${steps}, and report on each page in progress with pair ack --note "…" --page ID at least every five minutes.`;
     }
     if (session.state.stage === "working")
-      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;
+      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages within minutes, before you start work on any page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;
     return `Round ${session.state.current.round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
   }
   // Runs after the submission is saved, outside the browser's request, so a
