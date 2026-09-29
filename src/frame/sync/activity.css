@@ -84,6 +84,7 @@ button.activity-page {
   background: none;
   color: inherit;
   font: inherit;
+  font-size: var(--text-small);
   text-align: left;
   cursor: pointer;
 }
