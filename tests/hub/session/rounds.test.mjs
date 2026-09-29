@@ -154,6 +154,23 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
 });
 
+test("a build round's next line has the agent mark a step before building it", async (t) => {
+  const { directory, act } = await session(t);
+  const html = await buildPage(path.join(directory, "source.json"), {
+    name: "page-test",
+    round: "1",
+    offer: "finish",
+    title: "Page test",
+    page: { id: "agreed", title: "Agreed so far", agreements: [], task },
+  });
+  const result = await act({ action: "publish", html, pages: firstPages });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.match(
+    result.body.next,
+    /pair progress --start ID before you start the step that page shows/,
+  );
+});
+
 test("listed pages arrive independently and only the last completes the round", async (t) => {
   const {
     hub,
