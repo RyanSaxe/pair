@@ -1,24 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bellNumber } from "../../../src/frame/sync/center.mjs";
+import { bellLines, settleCleared } from "../../../src/frame/sync/center.mjs";
 
-test("the bell counts waiting sessions and unseen events, red while one waits and blue when only events are new", () => {
-  const events = ["a", "b", "c"].map((id) => ({ id }));
-  const memory = (seen = [], cleared = []) => ({
-    seen: new Set(seen),
-    cleared: new Set(cleared),
-  });
-  const cases = [
-    [0, [], memory(), { count: 0, tone: "" }],
-    [1, [], memory(), { count: 1, tone: "need" }],
-    [1, events.slice(0, 2), memory(), { count: 3, tone: "need" }],
-    [0, events.slice(0, 2), memory(), { count: 2, tone: "news" }],
-    [0, events, memory(["a", "b", "c"]), { count: 0, tone: "" }],
-    [2, events, memory(["a", "b", "c"]), { count: 2, tone: "need" }],
-    // A cleared event never counts, seen or not.
-    [0, events, memory(["a"], ["b"]), { count: 1, tone: "news" }],
-    [0, events, memory([], ["a", "b", "c"]), { count: 0, tone: "" }],
+const event = (id, kind, at) => ({ id, kind, at });
+
+test("the bell lists every session's replies and pull requests, newest first, without page events or removed lines", () => {
+  const sessions = [
+    {
+      id: "a",
+      events: [
+        event("r1", "reply", "2026-09-28T10:00:00Z"),
+        event("p1", "page", "2026-09-28T10:05:00Z"),
+      ],
+    },
+    { id: "b", events: [event("w1", "side-work", "2026-09-28T10:10:00Z")] },
   ];
-  for (const [waiting, list, known, expected] of cases)
-    assert.deepEqual(bellNumber(waiting, list, known), expected);
+  assert.deepEqual(
+    bellLines(sessions, new Set()).map(({ id, entry }) => [id, entry.id]),
+    [
+      ["w1", "b"],
+      ["r1", "a"],
+    ],
+  );
+  assert.deepEqual(
+    bellLines(sessions, new Set(["w1"])).map(({ id }) => id),
+    ["r1"],
+  );
+});
+
+test("a browser with no record starts with an empty bell, and later forgets IDs the hub dropped", () => {
+  assert.deepEqual([...settleCleared(["r1", "w1"], null)], ["r1", "w1"]);
+  assert.deepEqual([...settleCleared(["r2"], new Set(["r1", "r2"]))], ["r2"]);
 });

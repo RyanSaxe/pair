@@ -23,33 +23,27 @@
     <span class="small">Press <kbd>?</kbd> for the list</span>
   </div>
 </dialog>
-<!-- The bell opens the notification center, and its last line opens Live
-     sessions. The frame draws both lists. -->
-<dialog
-  class="dialog sessions"
-  id="center-dialog"
-  aria-labelledby="center-title"
->
-  <div class="dialog-head">
-    <h2 id="center-title" tabindex="-1" autofocus>Notifications</h2>
-  </div>
-  <div id="center-list"></div>
-  <p class="center-foot">
-    <button class="link-btn" id="center-all" type="button">
-      All live sessions
+<!-- The bell opens its list under it. The frame draws the lines. -->
+<div class="pop" id="center-pop" popover aria-labelledby="center-title">
+  <div class="side-label">
+    <span id="center-title">Notifications</span
+    ><button class="link-btn" id="center-clear-all" type="button" hidden>
+      Clear all
     </button>
-  </p>
-</dialog>
-<dialog
-  class="dialog sessions"
-  id="sessions-dialog"
-  aria-labelledby="sessions-title"
->
-  <div class="dialog-head">
-    <h2 id="sessions-title" tabindex="-1" autofocus>Live sessions</h2>
   </div>
-  <div class="session-list" id="sidecar-list"></div>
-</dialog>
+  <div class="session-list" id="center-list"></div>
+  <p class="pop-empty" id="center-empty">No notifications.</p>
+</div>
+<!-- The first header button opens the session list under it above 720px.
+     At 720px and below the same rows follow Pages in the menu sheet. The
+     frame draws both lists. -->
+<div class="pop" id="sessions-pop" popover aria-labelledby="sessions-title">
+  <div class="side-label">
+    <span id="sessions-title">Sessions</span
+    ><span class="pop-count" id="sessions-waiting"></span>
+  </div>
+  <div class="sess-list" id="sessions-list"></div>
+</div>
 <dialog class="dialog note" id="note-dialog" aria-labelledby="note-title">
   <form id="note-form">
     <div class="dialog-head" data-close-label="Close note">
@@ -199,6 +193,39 @@
     </div>
   </div>
 </dialog>
+<!-- Start on a recorded side-work item. Its buttons, key hints and sizes are
+     the note dialog's: Copy prompt takes the platform's send key as Start a
+     thread does, and Start in parallel takes Shift+Enter as Add to feedback
+     does. The frame fills in the item's title and the send key. -->
+<dialog class="dialog" id="start-dialog" aria-labelledby="start-title">
+  <div class="dialog-head">
+    <h2 id="start-title">Start side work</h2>
+  </div>
+  <p class="small" id="start-item"></p>
+  <label for="start-message">Message to the agent, optional</label>
+  <textarea
+    id="start-message"
+    maxlength="4000"
+    aria-describedby="start-message-detail"
+  ></textarea>
+  <p class="small" id="start-message-detail">
+    Sent with Start in parallel, and included in the copied prompt.
+  </p>
+  <p class="small" id="start-error" role="status" hidden></p>
+  <div class="note-actions">
+    <button class="btn" type="button" id="start-copy">
+      <span id="start-copy-label">Copy prompt</span> <kbd data-send-key></kbd>
+    </button>
+    <button
+      class="btn primary"
+      type="button"
+      id="start-send"
+      aria-keyshortcuts="Shift+Enter"
+    >
+      Start in parallel <kbd>⇧ ↵</kbd>
+    </button>
+  </div>
+</dialog>
 <dialog class="dialog" id="round-dialog" aria-labelledby="round-title">
   <div class="dialog-head">
     <h2 id="round-title" tabindex="-1" autofocus>Rounds</h2>
@@ -211,10 +238,14 @@
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
   </div>
   <dl class="key-list">
+    <dt><kbd>g</kbd></dt>
+    <dd>Open the session list</dd>
+    <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+    <dd>Open a session by its number in the session list</dd>
+    <dt><kbd>w</kbd></dt>
+    <dd>Open the next session waiting for you</dd>
     <dt><kbd>n</kbd></dt>
     <dd>Open notifications</dd>
-    <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
-    <dd>Jump to a session, in the order of Live sessions</dd>
     <dt><kbd>]</kbd> <kbd>[</kbd></dt>
     <dd>Next and previous page</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt>
@@ -226,9 +257,15 @@
     <dt><kbd>s</kbd></dt>
     <dd>Focus Send feedback or Finish review; Enter sends or opens it</dd>
     <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
-    <dd>Answer a question or add feedback from its textarea</dd>
+    <dd>
+      Answer a question, add feedback, or start side work in parallel from its
+      textarea
+    </dd>
     <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
-    <dd>Start a thread from a note, or send a reply in a thread</dd>
+    <dd>
+      Start a thread from a note, send a reply in a thread, or copy a side-work
+      prompt
+    </dd>
     <dt><kbd>a</kbd></dt>
     <dd>Open Agreed</dd>
     <dt><kbd>Esc</kbd></dt>
@@ -243,9 +280,13 @@
     ></span>
   </div>
   <div class="pages-slot" id="pages-slot"></div>
+  <div class="side-label" id="sheet-sessions-label" hidden>
+    <span>Sessions</span
+    ><span class="pop-count" id="sheet-sessions-waiting"></span>
+  </div>
+  <div class="sess-list" id="sheet-sessions"></div>
 </dialog>
-<dialog
-  class="lightbox"
-  id="diagram-dialog"
-  aria-label="Diagram, full size"
-></dialog>
+<dialog class="lightbox" id="diagram-dialog" aria-label="Diagram, full size">
+  <div class="dialog-head"></div>
+  <div class="lightbox-view"></div>
+</dialog>

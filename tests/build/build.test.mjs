@@ -287,6 +287,18 @@ test("the build refuses each structural problem and names it", async () => {
     page(`<div data-prototype="ghost"></div>`),
     /^page "p": prototype "ghost" does not exist$/m,
   );
+  for (const value of ["3;7", "9-3", "0", "abc", ""])
+    await refused(
+      page(`<pre data-language="ts" data-lines="${value}">a\nb</pre>`),
+      new RegExp(
+        `^page "p": data-lines "${value}" is not a list of lines\\. Write lines and ranges counted from 1, such as "7", "3-4" or "3-4, 9"\\.$`,
+        "m",
+      ),
+    );
+  await refused(
+    page(`<pre data-language="ts" data-lines="611-621">\na\nb\n</pre>`),
+    /^page "p": data-lines "611-621" names line 621, and the block has 2 lines\. Count from the block's first line, and put the file's line numbers in data-caption\.$/m,
+  );
 });
 
 // A fragment is matched as text, so one with regular expression syntax in it
@@ -325,6 +337,7 @@ test("well-formed controls, anchors and blocks pass", async () => {
       decision(option() + option("b")) +
         `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
         `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
+        `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +
         `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
         `<div data-prototype="demo"></div>` +
         `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>`,

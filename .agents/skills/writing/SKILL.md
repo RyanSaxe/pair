@@ -91,7 +91,7 @@ the docs.
 | frame        | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                   |
 | holder       | The agent that last ran `pair start` on a session. The hub wakes only the holder, and other agents can run only `pair status` and `pair side-work`.    |
 | reviewer     | The person who reads a round's pages in the browser and sends feedback.                                                                                |
-| agent CLI    | Claude Code, Codex or Copilot CLI, each with a folder under `adapters/`.                                                                               |
+| agent CLI    | Claude Code, Codex, Copilot CLI, pi or opencode, each with a folder under `adapters/`.                                                                 |
 | handoff line | The line that another agent runs to take a session over.                                                                                               |
 
 ## Instructions for the agent

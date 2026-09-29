@@ -110,6 +110,17 @@
 #page-list button .page-activity {
   flex: none;
 }
+/* A ready page of the current round that this browser has not opened. */
+#page-list button .page-new {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-caps);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+}
 #page-list button .page-activity:not(.active) {
   display: none;
 }

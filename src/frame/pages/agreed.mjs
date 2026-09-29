@@ -8,9 +8,14 @@ import {
   editable,
   online,
   pages,
+  plan,
 } from "#frame/app/view.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { sideWorkSection } from "#frame/pages/side-work.mjs";
+import {
+  openCount,
+  sideWorkItems,
+  sideWorkSection,
+} from "#frame/pages/side-work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
 /* Agreed */
@@ -255,33 +260,187 @@ function agreedLabel(text) {
   label.textContent = text;
   return label;
 }
+const decisionsPanel = "agreed-decisions";
+const sideWorkPanel = "side-work";
+const tabsByRound = new Map();
+
+function tabCount(count) {
+  const number = document.createElement("span");
+  number.className = "agreed-tab-count";
+  number.textContent = count ? String(count) : "";
+  number.hidden = !count;
+  return number;
+}
+function defaultAgreedTab(items) {
+  return !agreements.length && items.length ? sideWorkPanel : decisionsPanel;
+}
+function agreedTabs() {
+  const items = sideWorkItems();
+  const activeCount = agreements.filter(
+    (entry) => entry.state !== "retired",
+  ).length;
+  const tabs = document.createElement("div");
+  tabs.id = "agreed-tabs";
+  tabs.className = "vd-tablist agreed-tabs";
+
+  if (!items.length) {
+    tabs.classList.add("agreed-tabs-plain");
+    const label = document.createElement("span");
+    label.className = "agreed-tab-label";
+    label.textContent = "Decisions";
+    label.tabIndex = -1;
+    tabs.append(label, tabCount(activeCount));
+    return tabs;
+  }
+
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Agreed");
+  for (const [panel, label, count] of [
+    [decisionsPanel, "Decisions", activeCount],
+    [sideWorkPanel, "Side work", openCount(items)],
+  ]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = `agreed-tab-${panel === decisionsPanel ? "decisions" : "side-work"}`;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-controls", panel);
+    button.setAttribute("aria-selected", "false");
+    button.tabIndex = -1;
+    const title = document.createElement("span");
+    title.className = "agreed-tab-label";
+    title.textContent = label;
+    button.append(title, tabCount(count));
+    tabs.append(button);
+  }
+  tabs.addEventListener("click", (event) => {
+    const tab = event.target.closest('[role="tab"]');
+    if (tab && tabs.contains(tab))
+      showAgreedTab(tab.getAttribute("aria-controls"));
+  });
+  tabs.addEventListener("keydown", (event) => {
+    const list = [...tabs.querySelectorAll('[role="tab"]')];
+    const index = list.indexOf(event.target.closest('[role="tab"]'));
+    if (index < 0) return;
+    let next;
+    if (event.key === "ArrowLeft")
+      next = (index - 1 + list.length) % list.length;
+    if (event.key === "ArrowRight") next = (index + 1) % list.length;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = list.length - 1;
+    if (next === undefined) return;
+    event.preventDefault();
+    list[next].focus();
+    showAgreedTab(list[next].getAttribute("aria-controls"));
+  });
+  return tabs;
+}
+export function showAgreedTab(panelId) {
+  const root = $("page-content");
+  const panels = [...root.querySelectorAll(":scope > .agreed-panel")];
+  if (!panels.some((panel) => panel.id === panelId)) return;
+  const tabs = [...($("agreed-tabs")?.querySelectorAll('[role="tab"]') || [])];
+  if (!tabs.length) {
+    if (panelId !== decisionsPanel) return;
+    for (const panel of panels) {
+      panel.hidden = panel.id !== decisionsPanel;
+      panel.removeAttribute("role");
+      panel.removeAttribute("aria-labelledby");
+    }
+    return;
+  }
+  if (!tabs.some((tab) => tab.getAttribute("aria-controls") === panelId))
+    return;
+  for (const panel of panels) {
+    panel.hidden = panel.id !== panelId;
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute(
+      "aria-labelledby",
+      `agreed-tab-${panel.id === decisionsPanel ? "decisions" : "side-work"}`,
+    );
+  }
+  for (const tab of tabs) {
+    const selected = tab.getAttribute("aria-controls") === panelId;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
+  tabsByRound.set(plan.round, panelId);
+}
+export function refreshAgreedTabs() {
+  const tabs = $("agreed-tabs");
+  if (!tabs) return;
+  const items = sideWorkItems();
+  const hadSideWorkTab = Boolean($("agreed-tab-side-work"));
+  const hasSideWorkTab = items.length > 0;
+  const selectedPanel = tabs
+    .querySelector('[role="tab"][aria-selected="true"]')
+    ?.getAttribute("aria-controls");
+  const focusInTabs = tabs.contains(document.activeElement);
+  const focusedPanel = document.activeElement?.getAttribute("aria-controls");
+
+  if (hadSideWorkTab !== hasSideWorkTab) {
+    const replacement = agreedTabs();
+    tabs.replaceWith(replacement);
+    const panelId = hasSideWorkTab
+      ? selectedPanel || tabsByRound.get(plan.round) || defaultAgreedTab(items)
+      : decisionsPanel;
+    showAgreedTab(panelId);
+    if (focusInTabs) {
+      const focusId = hasSideWorkTab ? focusedPanel || panelId : decisionsPanel;
+      const target = [...replacement.querySelectorAll('[role="tab"]')].find(
+        (tab) => tab.getAttribute("aria-controls") === focusId,
+      );
+      (target || replacement.querySelector(".agreed-tab-label"))?.focus({
+        preventScroll: true,
+      });
+    }
+    return;
+  }
+
+  if (hasSideWorkTab) {
+    const number = tabs.querySelector(
+      "#agreed-tab-side-work .agreed-tab-count",
+    );
+    const count = openCount(items);
+    number.textContent = count ? String(count) : "";
+    number.hidden = !count;
+    showAgreedTab(
+      selectedPanel || tabsByRound.get(plan.round) || defaultAgreedTab(items),
+    );
+  } else showAgreedTab(decisionsPanel);
+}
 export function renderAgreements() {
   const root = $("page-content");
   root.replaceChildren();
   if (agreedTask) root.append(agreedLabel("The task"), taskCard());
+  const decisions = document.createElement("div");
+  decisions.id = decisionsPanel;
+  decisions.className = "agreed-panel";
   if (!agreements.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
     empty.textContent = agreedTask
       ? "No decisions recorded yet."
       : "No agreements recorded yet.";
-    root.append(empty, sideWorkSection());
-    enhance(root);
-    return;
+    decisions.append(empty);
+  } else {
+    const active = agreements.filter((entry) => entry.state !== "retired");
+    const retired = agreements.filter((entry) => entry.state === "retired");
+    for (const entry of active) decisions.append(agreementCard(entry));
+    if (retired.length) {
+      const details = document.createElement("details");
+      details.className = "agreement-retired";
+      const summary = document.createElement("summary");
+      summary.textContent = `No longer applies · ${retired.length}`;
+      details.append(summary);
+      for (const entry of retired) details.append(agreementCard(entry));
+      decisions.append(details);
+    }
   }
-  if (agreedTask) root.append(agreedLabel("Decisions"));
-  const active = agreements.filter((entry) => entry.state !== "retired");
-  const retired = agreements.filter((entry) => entry.state === "retired");
-  for (const entry of active) root.append(agreementCard(entry));
-  if (retired.length) {
-    const details = document.createElement("details");
-    details.className = "agreement-retired";
-    const summary = document.createElement("summary");
-    summary.textContent = `No longer applies · ${retired.length}`;
-    details.append(summary);
-    for (const entry of retired) details.append(agreementCard(entry));
-    root.append(details);
-  }
-  root.append(sideWorkSection());
+  const sideWork = sideWorkSection();
+  root.append(agreedTabs(), decisions, sideWork);
+  const items = sideWorkItems();
+  showAgreedTab(
+    (items.length && tabsByRound.get(plan.round)) || defaultAgreedTab(items),
+  );
   enhance(root);
 }

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createReviewAlerts,
   reviewAlert,
+  wakeAlert,
 } from "../../../src/frame/sync/notifications.mjs";
 
 function alertFixture({
@@ -194,7 +195,7 @@ test("denied, unavailable, and failed notifications disable the control", async 
   assert.match(a.button.title, /delivery failed/);
 });
 
-test("each event in another session alerts once and opens where it happened", async () => {
+test("each reply and pull request in another session alerts once and opens where it happened, and a page does not alert", async () => {
   const a = alertFixture({ permission: "granted" });
   await a.alerts.update([]);
   const at = later();
@@ -237,16 +238,13 @@ test("each event in another session alerts once and opens where it happened", as
     [
       ["Agent replied on Overview", "Plan s2"],
       ["Side work opened pull request #12", "Plan s2"],
-      ["Offers is ready", "Plan s2"],
     ],
   );
   for (const item of a.sent) item.onclick();
-  // A reply opens at its thread's card, not at the block the thread is on,
-  // and a page in a round the session has moved on from opens read-only.
+  // A reply opens at its thread's card, not at the block the thread is on.
   assert.deepEqual(a.opened, [
     "/s/s2/?target=thread-t1#overview",
     "/s/s2/?target=side-work-1#agreed",
-    "/s/s2/r/1#offers",
   ]);
   // The page that completes a round waiting for the reviewer is announced
   // by the round's alert alone, before and after the reviewer submits.
@@ -259,7 +257,28 @@ test("each event in another session alerts once and opens where it happened", as
   await a.alerts.update([complete]);
   await a.alerts.update([{ ...complete, needsYou: false }]);
   assert.deepEqual(
-    a.sent.slice(3).map((item) => item.title),
+    a.sent.slice(2).map((item) => item.title),
     ["Round 4 is ready"],
+  );
+});
+
+test("a session whose agent the hub could not wake alerts once per round", async () => {
+  const a = alertFixture({ permission: "granted" });
+  await a.alerts.update([]);
+  const failed = a.entry("s2", "3", { needsYou: false, wakeFailed: true });
+  assert.deepEqual(wakeAlert(failed), {
+    id: "wake:s2:3",
+    sessionId: "s2",
+    title: "Could not wake the agent",
+    body: "Plan s2",
+    url: "/s/s2/",
+  });
+  assert.equal(wakeAlert({ ...failed, wakeFailed: false }), null);
+  await a.alerts.update([failed]);
+  await a.alerts.update([failed]);
+  await a.alerts.update([{ ...failed, round: "4" }]);
+  assert.deepEqual(
+    a.sent.map((item) => item.title),
+    ["Could not wake the agent", "Could not wake the agent"],
   );
 });

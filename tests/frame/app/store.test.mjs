@@ -6,6 +6,7 @@ import {
   emptyDraft,
   loadDraft,
   markSent,
+  storedDraft,
   submissionGroups,
   unsentItems,
 } from "../../../src/frame/app/store.mjs";
@@ -217,4 +218,17 @@ test("a sent answer's typed text does not carry into the next round", () => {
   // The next round's question with the same ID starts empty, and text that
   // was never answered is still there to finish.
   assert.deepEqual(next.drafts, { "plan/later": "Half an answer" });
+});
+
+test("a tab takes over only a draft saved for the round it holds", () => {
+  const draft = emptyDraft("2");
+  draft.choices["p/pick"] = { value: "a", round: "2" };
+  markSent(draft, "s1", "2026-09-28T16:00:00.000Z");
+  const saved = JSON.stringify(draft);
+  const taken = storedDraft(saved, "2");
+  assert.equal(taken.choices["p/pick"].sentIn, "s1");
+  assert.equal(taken.submitted.id, "s1");
+  assert.equal(storedDraft(saved, "3"), null);
+  assert.equal(storedDraft(null, "2"), null);
+  assert.equal(storedDraft("not json", "2"), null);
 });

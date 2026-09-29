@@ -89,6 +89,15 @@ export function blockTargets(root, topic) {
     block.id ||= `block-${topic}-${index}`;
   });
 }
+export function pageBlocks() {
+  return [...$("page-content").children].flatMap((block) =>
+    block.classList.contains("agreed-tabs")
+      ? []
+      : block.classList.contains("agreed-panel")
+        ? [...block.children]
+        : [block],
+  );
+}
 /* One button, three meanings: the selection, the block you chose, or the
    page. Nothing is drawn on a block except the bar marking the chosen one. */
 export let chosen = null;
@@ -196,7 +205,10 @@ export function installBlocks() {
     )
       return;
     if (getSelection()?.toString().trim()) return;
-    const block = event.target.closest("#page-content > *");
+    // A thread's card is no block, even where it sits inside Side work.
+    const block =
+      !event.target.closest("pair-thread, .agreed-tabs") &&
+      event.target.closest(".agreed-panel > *, #page-content > *");
     // A paragraph, a heading or a list is commented on by selecting its words.
     chooseBlock(block && !blockSkip.has(block.tagName) ? block : null);
   });

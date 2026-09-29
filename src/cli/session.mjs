@@ -185,7 +185,7 @@ const commandOptions = {
 };
 const sideWorkUsage = `pair side-work takes add or update:
   pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
-  pair side-work update ID --session-dir PATH --state working|pr|done [--url URL]`;
+  pair side-work update ID --session-dir PATH --state working|pr|done|moved [--url URL]`;
 export const sessionCommands = Object.keys(commandOptions);
 function argumentsFrom(argv) {
   const [command, ...rest] = argv;

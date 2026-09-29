@@ -174,9 +174,10 @@ dialog::backdrop {
   padding: 0;
   border: 0;
   background: none;
+  color: inherit;
   font: inherit;
   font-size: var(--text-tiny);
-  opacity: 0.8;
+  opacity: 0.9;
 }
 @media (pointer: coarse), (max-width: 400px) {
   .note-actions kbd {
@@ -237,8 +238,13 @@ dialog::backdrop {
 .decide-sections > [inert] {
   visibility: hidden;
 }
-.dialog.note #note-anchor {
+.dialog.note #note-anchor,
+#start-item {
   margin: 0 0 6px;
+}
+/* The message box is the note's height, without room for an image button. */
+#start-message {
+  min-height: 120px;
 }
 /* The line that says what goes with the decision stands apart from the rows
    above it and the note below. */
@@ -283,10 +289,8 @@ dialog::backdrop {
   color: var(--ink);
   font-weight: var(--weight-strong);
 }
-/* The notification center and Live sessions share these lines. A tint says
-   what a line is: warm for a session waiting for you, blue for this tab and
-   for an event not yet opened. Hover darkens the whole line, icons included,
-   and the icon under the pointer once more. */
+/* The bell's lines. Hover darkens the whole line, icons included, and the
+   icon under the pointer once more. */
 .session-list {
   display: grid;
   gap: 4px;
@@ -319,35 +323,16 @@ dialog::backdrop {
   font-style: normal;
   font-weight: var(--weight-strong);
 }
-.session-row.need .words em {
-  color: var(--attention);
-}
-.session-row.current .words em {
-  color: var(--ink);
-}
-.session-row.done .title {
-  font-weight: 500;
-  color: var(--muted);
-}
 /* A row and its icon buttons. */
 .session-line {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
   gap: 4px;
-  /* The list bleeds 8px so a line's tint is wider than its text. The icon
-     columns are not part of that, and the last lines up with the dialog's
-     own close instead. */
+  /* The list bleeds 8px so a line's hover is wider than its text. */
   padding-right: 8px;
   border-radius: 8px;
-}
-.session-line.need {
-  background: var(--attention-bg);
-}
-.session-line.current,
-.session-line.new {
-  background: var(--accent-soft);
 }
 @media (hover: hover) {
   .session-line:hover::before {
@@ -397,29 +382,159 @@ dialog::backdrop {
 .icon-btn:is(:hover, :focus-visible, .tipped) > .line-tip {
   visibility: visible;
 }
-/* The center's section labels take the sidebar's Pages heading style,
-   and each section starts 16px above its label. */
+/* A dialog's section labels take the sidebar's Pages heading style, and
+   each section starts 16px above its label. */
 .dialog .side-label {
   padding: 16px 2px 6px;
-}
-#center-list > .side-label:first-child {
-  padding-top: 0;
 }
 .side-label .link-btn {
   text-transform: none;
   letter-spacing: 0;
   font-size: var(--text-meta);
 }
-.center-foot {
-  margin: 16px 0 0;
-  padding-left: 2px;
-}
-.session-line[data-closing] {
-  opacity: 0.45;
-  pointer-events: none;
-}
 @media (max-width: 720px) {
   .dialog {
     width: 92vw;
   }
+}
+/* The session list and the bell's list open under their buttons, in the
+   top layer, at the place the frame sets when each opens. */
+.pop {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(340px, calc(100vw - 16px));
+  max-height: min(70dvh, 560px);
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+}
+.pop .side-label {
+  padding: 10px 2px 6px;
+}
+.pop-empty {
+  margin: 4px 2px 6px;
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+.pop-count {
+  font-size: var(--text-meta);
+  font-weight: var(--weight-strong);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--attention);
+}
+/* A session's row: its number, title and status, then Copy and Close in
+   two fixed columns. */
+.sess-list {
+  display: grid;
+  gap: 2px;
+  margin: 0 -4px;
+}
+.sess-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px 24px;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+  border-radius: 6px;
+}
+.sess-line.current {
+  background: var(--accent-soft);
+}
+.sess-line[data-closing] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .sess-line:hover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--ink);
+    opacity: 0.04;
+    pointer-events: none;
+  }
+  .sess-line .icon-btn:hover {
+    background: var(--line);
+  }
+}
+.sess-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 4px 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--ink);
+  font-size: var(--text-ui);
+}
+.sess-row .n {
+  font-size: var(--text-tiny);
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sess-row .t {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sess-line.current .sess-row .t {
+  font-weight: var(--weight-strong);
+}
+.sess-line .icon-btn {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.sess-line .icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+/* A row's short status: warm when a round waits for you, blue for new
+   pages, muted text when paused or saved, and a breathing dot while the
+   agent works. */
+.pill {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: var(--text-caps);
+  font-weight: var(--weight-strong);
+  line-height: 16px;
+  white-space: nowrap;
+}
+.pill.need {
+  background: var(--attention-bg);
+  color: var(--attention);
+}
+.pill.news {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pill.quiet {
+  padding: 0;
+  font-weight: 500;
+  color: var(--muted);
+}
+.sess-row .working {
+  justify-self: end;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: page-breathe 2s ease-in-out infinite;
 }

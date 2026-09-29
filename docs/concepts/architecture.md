@@ -17,7 +17,7 @@ wakes the agent when you respond.
   session, and the next `pair start` starts a new one on the same port.
 - A new hub loads every session from disk, so each keeps its URL.
 - Every tab reads the session list every 5 seconds, with each session's
-  latest events for the notification center.
+  latest events for the bell.
 - When `pair start` finds a hub running other code, it uses it and logs the
   mismatch. The hub is replaced the next time no session is live.
 - The root URL, `http://127.0.0.1:4747/` by default, opens the session
@@ -29,14 +29,25 @@ wakes the agent when you respond.
 `pair start` records how to wake the agent that ran it. When it finds no
 way, it refuses and prints what to do.
 
-| Agent CLI   | Recorded                                                         | Wake                                                       |
-| ----------- | ---------------------------------------------------------------- | ---------------------------------------------------------- |
-| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN` | A message over the inbox socket.                           |
-| Codex       | `CODEX_THREAD_ID`                                                | `codex queue --thread ID --message TEXT`                   |
-| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on       | The SDK inside Copilot CLI sends the message as `enqueue`. |
+| Agent CLI   | Recorded                                                               | Wake                                                                                                            |
+| ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | A message over the inbox socket.                                                                                |
+| Codex       | `CODEX_THREAD_ID`                                                      | `codex queue --thread ID --message TEXT`                                                                        |
+| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | The SDK inside Copilot CLI sends the message as `enqueue`.                                                      |
+| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | A JSON line over the extension's socket. pi queues the message as a follow-up.                                  |
+| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | A JSON line over the plugin's socket. The plugin sends the message with `promptAsync` once the session is idle. |
 
 Copilot CLI listens only when started with `--ui-server`. Without it,
 `pair start` refuses and prints `copilot --ui-server --resume <session id>`.
+
+pi and opencode take a message from the hub only through pair's extension
+and plugin, which you register once. When pi runs without the extension, or
+opencode without the plugin, `pair start` refuses and prints the
+`pi install` command, or the plugin's path and the opencode config file to
+add it to. `wake.last.ok` is `true` once pi or the plugin has taken
+the message, which can be before the agent's turn starts. When pi or opencode
+has exited, the wake fails with `the agent CLI has exited (ENOENT …)` after a
+clean exit, or `(ECONNREFUSED …)` after the CLI was killed.
 
 `pair status` shows the last wake under `wake.last`. When a wake fails, the
 progress card says "Could not wake the agent. Send a message in chat." and
@@ -65,7 +76,7 @@ sessions/<dir>/      the directory name is not the session ID
   scenes/            editable shapes of drawing answers
   threads/           one file per thread
   side-work/         one file per side-work item
-  activity.json      the last 50 events, for the notification center
+  activity.json      the last 50 events, for the bell
   acceptance.json    after you accept
 ```
 

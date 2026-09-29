@@ -14,15 +14,20 @@ import {
   chooseBlock,
   chosen,
   commentOnTarget,
+  pageBlocks,
 } from "#frame/notes/blocks.mjs";
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { pageOrder, show } from "#frame/pages/pages.mjs";
+import { narrow, pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
-import { sessionOrder } from "#frame/sync/sessions.mjs";
+import {
+  nextWaiting,
+  sessionOrder,
+  toggleSessions,
+} from "#frame/sync/sessions.mjs";
 
 export function installEvents() {
   for (const head of document.querySelectorAll("dialog .dialog-head")) {
@@ -53,10 +58,6 @@ export function installEvents() {
     }
     if (event.target.closest("#round")) {
       toggleRoundMenu();
-      return;
-    }
-    if (event.target.closest("#bell")) {
-      toggleCenter();
       return;
     }
     if (!feedbackEditable()) return;
@@ -144,7 +145,13 @@ export function installEvents() {
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
     else if (key === "n") toggleCenter(true);
-    else if (/^[1-9]$/.test(key)) {
+    else if (key === "g") {
+      if (narrow.matches) $("menu-button").click();
+      else toggleSessions(undefined, true);
+    } else if (key === "w") {
+      const entry = nextWaiting(sessionOrder, session.sessionId);
+      if (entry) location.assign(entry.url);
+    } else if (/^[1-9]$/.test(key)) {
       const entry = sessionOrder[Number(key) - 1];
       if (entry && entry.id !== session.sessionId) location.assign(entry.url);
     } else if (key === "]" || key === "[") {
@@ -155,7 +162,7 @@ export function installEvents() {
     } else if (key === "j" || key === "k") {
       /* The same blocks a click can choose, so the keys reach the comment
          control's target. Tab still steps through the controls inside one. */
-      const blocks = [...$("page-content").children].filter(
+      const blocks = pageBlocks().filter(
         (block) => !blockSkip.has(block.tagName) && block.offsetParent,
       );
       if (!blocks.length) return;

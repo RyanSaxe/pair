@@ -12,6 +12,7 @@ export { $, uuid } from "#frame/app/util.mjs";
 export { base, online, page, pages, plan } from "#frame/app/view.mjs";
 export { linkButton } from "#frame/pages/agreed.mjs";
 export { show } from "#frame/pages/pages.mjs";
+export { lineRanges } from "#shared/lines.mjs";
 export {
   color,
   copyButton,

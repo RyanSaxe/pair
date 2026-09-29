@@ -1,8 +1,10 @@
 import { state } from "#frame/app/store.mjs";
 import { $, plural, unreachable } from "#frame/app/util.mjs";
-import { base, editable } from "#frame/app/view.mjs";
+import { base, editable, mode, online } from "#frame/app/view.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { tag } from "#frame/pages/agreed.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
+import { refreshAgreedTabs, tag } from "#frame/pages/agreed.mjs";
+import { openStart } from "#frame/pages/start-dialog.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
 /* Side work: what turned up during the session outside its task. The hub
@@ -14,8 +16,13 @@ const labels = {
   pr: ["Pull request", ""],
   done: ["Done", "ok"],
   dropped: ["Dropped", "muted"],
+  moved: ["Moved", "muted"],
 };
-const finished = (item) => ["done", "dropped"].includes(item.state);
+const finished = (item) => ["done", "dropped", "moved"].includes(item.state);
+export const sideWorkItems = () =>
+  online && mode !== "preview" ? remote?.sideWork || [] : [];
+export const openCount = (items) =>
+  items.filter((item) => !finished(item)).length;
 // A Start or Drop the hub refused, shown on its item until the item's state
 // changes.
 const failures = new Map();
@@ -36,6 +43,26 @@ function button(text, action, className, onclick) {
   element.onclick = () => onclick(element);
   return element;
 }
+// Shows the hub's answer to a Drop or a Start, or the Drop the hub refused.
+function answered(item, result, error) {
+  if (error)
+    failures.set(item.id, { state: item.state, text: unreachable(error) });
+  else {
+    failures.delete(item.id);
+    remote.sideWork = result.sideWork;
+  }
+  refreshSideWork(true);
+}
+// The same button, the card's Comment once that button is gone, or the
+// Finished fold when the card has folded away.
+function refocus(card, action) {
+  const again = [
+    $(card)?.querySelector(`[data-action="${action}"]`),
+    $(card)?.querySelector('[data-action="comment"]'),
+    $("side-work")?.querySelector(".side-work-finished > summary"),
+  ].find((target) => target?.offsetParent);
+  again?.focus({ preventScroll: true });
+}
 async function send(item, action, element) {
   const card = element.closest(".agreement-card")?.id;
   element.disabled = true;
@@ -46,24 +73,15 @@ async function send(item, action, element) {
     );
     const result = await response.json();
     if (!response.ok) throw Error(result.error || "The hub refused.");
-    failures.delete(item.id);
-    remote.sideWork = result.sideWork;
+    answered(item, result);
   } catch (error) {
-    failures.set(item.id, { state: item.state, text: unreachable(error) });
+    answered(item, null, error);
   }
-  refreshSideWork(true);
-  // Disabling the pressed button sent focus to the page. It comes back to
-  // the same button, to the card's Comment once that button is gone, or to
-  // the Finished fold when the card has folded away.
-  const again = [
-    $(card)?.querySelector(`[data-action="${action}"]`),
-    $(card)?.querySelector('[data-action="comment"]'),
-    $("side-work")?.querySelector(".side-work-finished > summary"),
-  ].find((target) => target?.offsetParent);
-  again?.focus({ preventScroll: true });
+  // Disabling the pressed button sent focus to the page.
+  refocus(card, action);
 }
-// Drop and Comment are links, as on a decision card, and Start in parallel
-// is the one button.
+// Drop and Comment are links, as on a decision card, and Start, which opens
+// the Start popup, is the one button.
 function actions(item, card) {
   const row = document.createElement("div");
   row.className = "actions";
@@ -92,8 +110,11 @@ function actions(item, card) {
   );
   if (item.state === "recorded")
     row.append(
-      button("Start in parallel", "start", "btn primary", (element) =>
-        send(item, "start", element),
+      button("Start", "start", "btn primary", () =>
+        openStart(item, (result) => {
+          answered(item, result);
+          refocus(card.id, "start");
+        }),
       ),
     );
   return row;
@@ -113,6 +134,16 @@ function itemCard(item) {
   const text = document.createElement("p");
   text.textContent = item.text;
   body.append(title, text);
+  // The reviewer's message from Start in parallel.
+  if (item.message) {
+    const label = document.createElement("div");
+    label.className = "side-work-message-label";
+    label.textContent = "Your message";
+    const quote = document.createElement("blockquote");
+    quote.className = "side-work-message";
+    quote.textContent = item.message;
+    body.append(label, quote);
+  }
   const strip = document.createElement("div");
   strip.className = "agreement-source";
   const source = document.createElement("span");
@@ -120,9 +151,14 @@ function itemCard(item) {
   if (item.url) {
     const link = document.createElement("a");
     link.href = item.url;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = linkText(item.url);
+    // A moved item links to its new session on this hub, which opens in
+    // this tab as Live sessions does.
+    if (item.state === "moved") link.textContent = "new session";
+    else {
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = linkText(item.url);
+    }
     source.append(
       " · ",
       link,
@@ -150,19 +186,14 @@ function itemCard(item) {
 }
 // Open items in the order the agent added them, then Finished, folded.
 export function sideWorkSection() {
-  const items = remote?.sideWork || [];
+  const items = sideWorkItems();
   rendered = JSON.stringify(items);
   const section = document.createElement("div");
   section.id = "side-work";
+  section.className = "agreed-panel";
   section.hidden = !items.length;
   if (!items.length) return section;
-  const label = document.createElement("p");
-  label.className = "agreed-label";
-  label.textContent = "Side work";
-  section.append(
-    label,
-    ...items.filter((item) => !finished(item)).map(itemCard),
-  );
+  section.append(...items.filter((item) => !finished(item)).map(itemCard));
   const done = items.filter(finished);
   if (done.length) {
     const fold = document.createElement("details");
@@ -176,14 +207,11 @@ export function sideWorkSection() {
   }
   return section;
 }
-// Replaces the list on Agreed when the hub's items changed, and keeps the
-// focused button where it was.
+// Replaces the list on Agreed when the hub's items changed, places the
+// thread cards under its items again, and keeps focus where it was.
 export function refreshSideWork(force = false) {
   const section = $("side-work");
-  if (
-    !section ||
-    (!force && JSON.stringify(remote?.sideWork || []) === rendered)
-  )
+  if (!section || (!force && JSON.stringify(sideWorkItems()) === rendered))
     return;
   const focused = section.contains(document.activeElement)
     ? document.activeElement
@@ -191,7 +219,12 @@ export function refreshSideWork(force = false) {
   const card = focused?.closest(".agreement-card")?.id;
   const action = focused?.dataset.action;
   section.replaceWith(sideWorkSection());
-  if (card)
+  // The thread cards are the same elements in the new list, so a Reply
+  // field in one gets its focus back.
+  placeThreads();
+  refreshAgreedTabs();
+  if (focused?.isConnected) focused.focus({ preventScroll: true });
+  else if (card)
     $(card)
       ?.querySelector(`[data-action="${action}"]`)
       ?.focus({ preventScroll: true });

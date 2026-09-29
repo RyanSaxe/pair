@@ -287,11 +287,13 @@ export async function startHub(config = settings()) {
           ["start", "drop"].includes(rest[3])
         ) {
           const id = decodeURIComponent(rest[2]);
+          // Start carries the reviewer's optional message.
+          const data = rest[3] === "start" ? await readBody(req, 50_000) : null;
           return reply(
             200,
             await session.exclusive(() =>
               rest[3] === "start"
-                ? session.startSideWork(id)
+                ? session.startSideWork(id, data)
                 : session.dropSideWork(id),
             ),
           );

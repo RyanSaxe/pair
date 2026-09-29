@@ -45,7 +45,12 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
-import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
+import {
+  installDraftSync,
+  openPast,
+  poll,
+  selectedTab,
+} from "#frame/sync/rounds.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 
 /* Start */
@@ -93,6 +98,7 @@ installControls();
 installBlocks();
 installRegistry();
 installDrawing();
+installDraftSync();
 window.planUI = createPlanUI();
 document.title = plan.title;
 narrow.addEventListener("change", placeNavigation);
@@ -146,10 +152,12 @@ function start() {
       // A reload returns to the past round that was on screen.
       if (editable && placeStore.tab === "past" && selectedTab === "current")
         if (placeStore.past) void openPast(placeStore.past);
+      // The first status poll placed the thread cards, so the bell's first
+      // count sees a reply already on screen.
+      pollSessions();
+      setInterval(pollSessions, 5000);
     });
     setInterval(poll, 1500);
-    pollSessions();
-    setInterval(pollSessions, 5000);
   } else review();
 }
 /* A module runs once the document is parsed, so readyState is "interactive"

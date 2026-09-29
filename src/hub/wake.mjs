@@ -3,12 +3,20 @@ import path from "node:path";
 import * as claudeCode from "../../adapters/claude-code/wake.mjs";
 import * as codex from "../../adapters/codex/wake.mjs";
 import * as copilot from "../../adapters/copilot/wake.mjs";
+import * as opencode from "../../adapters/opencode/wake.mjs";
+import * as pi from "../../adapters/pi/wake.mjs";
 import { requireValue } from "../shared/util.mjs";
 
 // Each agent CLI wakes through its adapter, keyed by the harness name a wake
 // target carries. With no agent CLI among the ancestors, the first adapter
 // whose variables are set decides, in this order.
-export const adapters = { copilot, codex, "claude-code": claudeCode };
+export const adapters = {
+  copilot,
+  codex,
+  "claude-code": claudeCode,
+  pi,
+  opencode,
+};
 // The holder is the agent the hub wakes, named the way its adapter tells
 // one session of its agent CLI from another.
 export const identify = (target) => ({
@@ -52,7 +60,7 @@ export function detectWake(env = process.env, tools = { ancestors }) {
     }
   requireValue(
     false,
-    "no wake path. This needs Claude Code, Codex, or Copilot, and none of their session variables is set.",
+    "no wake path. This needs Claude Code, Codex, Copilot, pi or opencode, and none of their session variables is set.",
   );
 }
 function run(file, args) {
@@ -63,6 +71,14 @@ function run(file, args) {
     });
   });
 }
-export function wakeRunner(target, line) {
+// A hub started with PAIR_WAKE=off, such as a scratch hub for checking the
+// frame, writes each wake line to its log instead of sending it, so the
+// agent that started the hub is not woken for every test submission. The
+// hub passes its config, and a caller with none gets wakes on.
+export async function wakeRunner(target, line, { wake = true, log } = {}) {
+  if (!wake) {
+    (log || console.log)(`wake off, not sent: ${line}`);
+    return;
+  }
   return adapters[target.harness].wake(target, line, run);
 }

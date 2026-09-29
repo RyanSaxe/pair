@@ -1,19 +1,25 @@
-/* Side work, after the decisions on Agreed. Each item is a decision card
-   from agreed.css. */
-#side-work {
-  margin-top: 18px;
-}
+/* Side work cards use the same styles as decision cards. */
 .side-work-error {
   margin-top: 4px;
   font-size: var(--text-meta);
   color: var(--danger);
 }
-/* Start in parallel, after the footer's links */
+/* Start, after the footer's links */
 #side-work .agreement-source .btn {
   margin-left: 8px;
   padding: 2px 10px;
   border-radius: 6px;
   font-size: var(--text-meta);
+}
+/* The reviewer's message from Start in parallel, under the item's text */
+.side-work-message-label {
+  margin-top: 8px;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+.side-work-message {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
 }
 .side-work-finished > summary {
   cursor: pointer;

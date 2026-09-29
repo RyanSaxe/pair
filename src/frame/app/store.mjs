@@ -125,6 +125,16 @@ export function savedDraft(round) {
     return emptyDraft(round);
   }
 }
+// The draft another tab of the session saved, when it is for the round this
+// tab holds. A draft for another round is not this tab's to take over.
+export function storedDraft(value, round) {
+  try {
+    const saved = JSON.parse(value);
+    return saved?.round === round ? loadDraft(saved, round) : null;
+  } catch {
+    return null;
+  }
+}
 export const prefs = {
   get(key) {
     try {

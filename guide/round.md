@@ -38,20 +38,10 @@ with `pair progress` and `pair ack` itself.
 
 The reviewer can send a note to you at once as a thread, and the hub sends
 you a wake message for each message in it, whether or not you are working.
-Answer it between your current steps without dropping your work. Run
-`pair reply --note ID`, which marks the thread read and prints it with the
-paths of its images. Post the answer with
-`pair reply --note ID --text "…"`, or with `--file reply.html` for an HTML
-fragment written like a page, which the hub checks with the page rules. A
-reply can contain text, code, diffs, diagrams, charts, formulas and a
-prototype of the thread's round. It cannot contain a decision, checklist or
-question, because the reviewer answers those with Send feedback, or with
-Finish review on a round with an offer. When the answer needs more than a
-few blocks or a decision, say in the reply what you will show, and put it on
-a page in the next round. When the thread asks for a change to the work you
-are doing now, say in the reply what you will change, and change it. Then
-go back to what you were doing. A thread that settles a decision is a
-source on Agreed, as [agreements.md](agreements.md) describes.
+Run the `pair reply` command in the wake message. `pair reply` prints the
+thread and how to answer it. When the reviewer settles a decision in a
+thread, cite the thread as the decision's source on Agreed, as
+[agreements.md](agreements.md) describes.
 
 ## Read the feedback
 
@@ -148,24 +138,13 @@ pair side-work add --title "Delete visual-review" --text "The skill is deprecate
 
 The title names the work in a few words, the text says what it is and why in
 a sentence or two, and the source says where it came from, such as the
-reviewer's note or the command that showed it. The frame lists each item on
-Agreed after the decisions, where the reviewer can comment on it, drop it or
+reviewer's note or the command that showed it. The frame lists each item in
+Agreed's Side work tab, where the reviewer can comment on it, drop it or
 start it in parallel. A note on an item has the item's ID in `sideWorkId`,
 and `pair status` lists every item under `sideWork`.
 
 When the reviewer presses Start in parallel, the hub sends you a wake message
-that names the item. Do the work as the message says. When the session has no
-branch of its own in the repository the work changes, branch from that
-repository's default branch and open the pull request into it. Report each
-change, in this order:
-
-```sh
-pair side-work update ID --state working
-pair side-work update ID --state pr --url https://github.com/OWNER/REPO/pull/N
-pair side-work update ID --state done
-```
-
-Run `--state done` once the pull request merges. The hub takes
+with the steps for the item. Follow them, and report each change with the
+`pair side-work update` command in the message. The hub takes
 `pair side-work` from any agent, so an agent you brief can report its own
-progress. If `pair side-work update` fails because the reviewer dropped the
-item, stop working on it.
+progress.

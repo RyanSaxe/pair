@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
@@ -29,6 +30,8 @@ test("a submission wakes the holder with the line that names the session", async
   assert.equal(await woken(a), true);
   const view = (await a.status()).body;
   assert.equal(view.wake.last.ok, true);
+  const listed = (await a.request("/api/sessions")).body.sessions;
+  assert.equal(listed.find((item) => item.id === a.id).wakeFailed, false);
   assert.equal(view.latestSubmissionRound, "1");
   assert.deepEqual(a.inbox.wakes, [
     {
@@ -45,6 +48,16 @@ test("a submission wakes the holder with the line that names the session", async
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
+test("a hub with PAIR_WAKE=off records the wake as sent and sends nothing", async (t) => {
+  const h = await hub(t, { PAIR_WAKE: "off" });
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal(await woken(a), true);
+  assert.equal((await a.status()).body.wake.last.ok, true);
+  assert.deepEqual(a.inbox.wakes, []);
+});
+
 test("a failed wake is recorded and the submission stays readable", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -57,6 +70,9 @@ test("a failed wake is recorded and the submission stays readable", async (t) =>
   const { wake } = (await a.status()).body;
   assert.equal(wake.last.ok, false);
   assert.ok(wake.last.reason.includes(a.inbox.socket), wake.last.reason);
+  // Every tab's session list shows the failure.
+  const listed = (await a.request("/api/sessions")).body.sessions;
+  assert.equal(listed.find((item) => item.id === a.id).wakeFailed, true);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
@@ -124,10 +140,53 @@ test("the nearest harness ancestor decides the wake target", () => {
     detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 2, command: "sh" }])),
     { harness: "codex", thread: "t" },
   );
+  assert.deepEqual(
+    detectWake(
+      { PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock", PAIR_PI_SESSION: "p" },
+      tools([{ pid: 3, command: "pi" }]),
+    ),
+    { harness: "pi", socket: "/tmp/pair-1/wake.sock", session: "p" },
+  );
+  assert.deepEqual(
+    detectWake(
+      {
+        PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock",
+        PAIR_OPENCODE_SESSION: "ses_1",
+      },
+      tools([{ pid: 3, command: "opencode" }]),
+    ),
+    { harness: "opencode", socket: "/tmp/pair-2/wake.sock", session: "ses_1" },
+  );
 });
 
+const extension = fileURLToPath(
+  new URL("../../adapters/pi/extension.js", import.meta.url),
+);
+
 test("start refuses without a wake path and says what to do", () => {
-  assert.throws(() => detectWake({}, tools([])), /no wake path/);
+  assert.throws(() => detectWake({}, tools([])), {
+    message:
+      "no wake path. This needs Claude Code, Codex, Copilot, pi or opencode, and none of their session variables is set.",
+  });
+  // pi without pair's extension, found as an ancestor or, with no agent CLI
+  // among the ancestors, by its first variable.
+  const pi = {
+    message: `this pi session runs without pair's extension, so it cannot be woken. Run \`pi install ${extension}\`, restart pi with \`pi --continue\`, and run \`pair start\` again.`,
+  };
+  assert.throws(() => detectWake({}, tools([{ pid: 3, command: "pi" }])), pi);
+  assert.throws(
+    () => detectWake({ PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock" }, tools([])),
+    pi,
+  );
+  // tests/adapters/opencode.test.mjs checks the config file the line names.
+  assert.throws(
+    () =>
+      detectWake(
+        { PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock" },
+        tools([{ pid: 3, command: "opencode" }]),
+      ),
+    /^Error: this opencode session runs without pair's plugin/,
+  );
   assert.throws(
     () =>
       detectWake(
