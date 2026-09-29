@@ -105,6 +105,9 @@ async function keepSource(sessionDir, source, html) {
     await relinkInside(partial, [...new Set([from, given])]);
     // A read-only directory cannot be renamed on macOS.
     await fs.chmod(partial, ((await fs.stat(partial)).mode & 0o777) | 0o700);
+    // Windows cannot rename a directory onto another, even an empty one, so
+    // the empty target that claims the page goes first there.
+    if (process.platform === "win32") await fs.rmdir(target);
     await fs.rename(partial, target);
   } catch (error) {
     await removeCopy(partial).catch(() => {});
