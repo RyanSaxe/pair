@@ -1,0 +1,17 @@
+<p>
+  The hub wakes the agent once for each message you send, after your browser
+  has its answer.
+</p>
+
+<pre
+  data-language="js"
+  data-file="src/hub/session/threads.mjs · lines 91–97"
+  data-lines="3-4"
+>
+try {
+  requireValue(session.wake, "The session has no holder to wake");
+  await wakeRunner(session.wake, line);
+  wake = { at: timestamp(), ok: true };
+} catch (error) {
+  wake = { at: timestamp(), ok: false, reason: error.message };
+}</pre>

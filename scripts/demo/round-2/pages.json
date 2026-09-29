@@ -1,0 +1,32 @@
+{
+  "pages": [
+    {
+      "id": "where-a-reply-appears",
+      "title": "Where a reply appears",
+      "file": "where-a-reply-appears.html",
+      "css": "where-a-reply-appears.css"
+    },
+    {
+      "id": "waking-the-agent",
+      "title": "Waking the agent",
+      "file": "waking-the-agent.html"
+    },
+    { "id": "pair-reply", "title": "pair reply", "file": "pair-reply.html" }
+  ],
+  "agreements": [
+    {
+      "id": "start",
+      "title": "Start a thread from the note dialog",
+      "html": "<p>Start a thread sits beside Add to feedback in the note dialog.</p>",
+      "change": "new",
+      "source": { "round": "1", "choice": "start" }
+    },
+    {
+      "id": "fragments",
+      "title": "A reply is a page fragment",
+      "html": "<p>It can hold code, diffs and diagrams, and never a decision or a question.</p>",
+      "change": "new",
+      "source": { "round": "1", "note": true }
+    }
+  ]
+}

@@ -10,6 +10,11 @@ Write a comment, then press **Start a thread** (<kbd>⌘</kbd>
 **Add to feedback**. The comment goes to the agent at once, and its reply
 appears in a card under the block or the side-work item you commented on.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
+  <img alt="The note dialog quoting a selected line of code, with Add to feedback and Start a thread" src="../assets/note-dialog-light.png">
+</picture>
+
 The first line of a card shows what the thread is on. For a comment on a
 block, it shows the block's name. For words you selected, it shows the table
 row, line of code, option or checklist item that contains them, and the card

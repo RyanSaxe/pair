@@ -1,2 +1,5 @@
 # Fixture pages carry Mermaid and JSON as text, and reflowing them breaks both.
 tests/fixture/*.html
+# The demo pages contain Mermaid text and a paragraph that npm run screenshots
+# selects, and reflowing breaks both.
+scripts/demo/**/*.html
