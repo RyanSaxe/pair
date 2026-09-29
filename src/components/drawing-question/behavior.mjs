@@ -10,7 +10,8 @@ planUI.define("drawing-question", {
       image.hidden = !answer;
       if (answer)
         image.src = `${base}/api/upload/${encodeURIComponent(answer.previewId)}`;
-      button.textContent = answer ? "Edit drawing" : "Draw answer";
+      button.textContent = answer ? "Edit drawing" : "Draw your answer";
+      card.toggleAttribute("data-drawn", Boolean(answer));
     };
     show(planUI.drawing(id));
     button.disabled = planUI.mode !== "live" || !online;
