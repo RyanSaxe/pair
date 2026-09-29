@@ -34,7 +34,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "test:browser": "node --test tests/browser/*.browser.mjs"
+    "test:browser": "node --test tests/browser/*.browser.mjs",
+    "test:figures": "node --test tests/browser/figures.mjs"
   },
   "devDependencies": {
     "playwright-core": "1.63.0"
