@@ -20,6 +20,7 @@ import {
   setPage,
   setPastRound,
   setSubmittedRound,
+  showingWaiting,
   useSession,
   useView,
   views,
@@ -111,13 +112,19 @@ renderRounds();
    plan's script is a module of its own, so both run while the document is
    still loading and both are done by DOMContentLoaded. */
 function start() {
-  const place = placeIn(plan.round, [
-    ...pages.map((item) => item.id),
-    ...(editable ? ["feedback"] : []),
-  ]);
+  // The waiting view carries the sent round's number, so the place saved
+  // under that number is the sent round's, not the waiting view's. Like
+  // switchTab(), the waiting view opens at Agreed.
+  const place = showingWaiting()
+    ? null
+    : placeIn(plan.round, [
+        ...pages.map((item) => item.id),
+        ...(editable ? ["feedback"] : []),
+      ]);
   const target = query.get("target");
-  const opened = location.hash.slice(1) || target;
-  show(location.hash.slice(1) || place?.page || "", target, {
+  const asked = location.hash.slice(1);
+  const opened = asked || target;
+  show(asked || place?.page || "", target, {
     keepScroll: false,
     push: false,
   });
@@ -149,8 +156,21 @@ function start() {
         new URL(location.href).searchParams.get("target") === target
       )
         reveal(target);
-      // A reload returns to the past round that was on screen.
-      if (editable && placeStore.tab === "past" && selectedTab === "current")
+      // A notification's link names its target. While Current waits, the
+      // sent round's pages show only under Previous, so the link opens
+      // there. A reload without a target returns to the past round that was
+      // on screen.
+      if (target && showingWaiting())
+        void openPast(plan.round, {
+          pageId: asked || "agreed",
+          targetId: target,
+        });
+      else if (
+        editable &&
+        !target &&
+        placeStore.tab === "past" &&
+        selectedTab === "current"
+      )
         if (placeStore.past) void openPast(placeStore.past);
       // The first status poll placed the thread cards, so the bell's first
       // count sees a reply already on screen.
