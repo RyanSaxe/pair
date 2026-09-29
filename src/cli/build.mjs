@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { assemble, pageScripts, pageStyles } from "../build/assemble.mjs";
+import { sizeImages } from "../build/image-size.mjs";
 import { problems } from "../build/lint.mjs";
 import { pagePlan, validPage } from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
@@ -15,6 +16,9 @@ export async function buildPage(source, input) {
     throw new Error("Use file or html for a page, not both");
   const page = { ...rawPage };
   if (page.file) page.html = await read(page.file);
+  if (page.html) page.html = sizeImages(page.html);
+  if (page.task?.html)
+    page.task = { ...page.task, html: sizeImages(page.task.html) };
   delete page.file;
   if (page.css) page.cssText = await read(page.css);
   if (page.js) page.jsText = await read(page.js);
@@ -33,7 +37,12 @@ export async function buildPage(source, input) {
       page.agreements.map(async ({ file, ...entry }) => {
         if (file && entry.html !== undefined)
           throw new Error("Use file or html for an agreement, not both");
-        return { ...entry, ...(file ? { html: await read(file) } : {}) };
+        const agreement = {
+          ...entry,
+          ...(file ? { html: await read(file) } : {}),
+        };
+        if (agreement.html) agreement.html = sizeImages(agreement.html);
+        return agreement;
       }),
     );
   const record = validPage({ ...outer, page });
