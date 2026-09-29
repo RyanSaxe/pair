@@ -17,8 +17,10 @@ const labels = {
   done: ["Done", "ok"],
   dropped: ["Dropped", "muted"],
   moved: ["Moved", "muted"],
+  planned: ["In the plan", "muted"],
 };
-const finished = (item) => ["done", "dropped", "moved"].includes(item.state);
+const finished = (item) =>
+  ["done", "dropped", "moved", "planned"].includes(item.state);
 export const sideWorkItems = () =>
   online && mode !== "preview" ? remote?.sideWork || [] : [];
 export const openCount = (items) =>

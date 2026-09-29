@@ -2,8 +2,8 @@
 
 ## Run it from a checkout
 
-pair needs Node 20.1.0 or newer and has no dependencies. In a clone of this
-repository, `npm link` puts the `pair` command on your path, running the
+pair needs Node 20.1.0 or newer and has no runtime dependencies. In a clone of
+this repository, `npm link` puts the `pair` command on your path, running the
 checkout, so an edit takes effect at the next command:
 
 ```sh
@@ -28,9 +28,10 @@ disk.
 | `guide/`          | What the agent reads while it works: `pair.md` first, `round.md` for each round, and the contracts it builds to. |
 | `skills/pair/`    | The skill an agent CLI loads. Its one instruction is to run `pair guide`.                                        |
 | `adapters/`       | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session.                         |
-| `tests/`          | The test suites, and a fixture page with every component.                                                        |
+| `tests/`          | The test suites, the browser tests in `tests/browser/`, and a fixture page with every component.                 |
 | `docs/`           | These pages.                                                                                                     |
-| `assets/`         | The README's screenshots.                                                                                        |
+| `assets/`         | The README's screenshots, which `npm run screenshots` writes.                                                    |
+| `scripts/`        | The script `npm run screenshots` runs, and the demo session it stages.                                           |
 | `.agents/skills/` | The skills an agent reads when it changes pair. npm and `npx skills add` leave them out.                         |
 
 [AGENTS.md](../../AGENTS.md) names the modules inside `src/` and the rules an
@@ -42,13 +43,28 @@ agent follows when it changes them.
 node --test
 npx prettier@3.9.6 --check .
 npx eslint@10.11.0 .
+npm run test:browser
 ```
 
-CI runs all three on every push and pull request. ESLint fails a JavaScript
+CI runs all four on every push and pull request. ESLint fails a JavaScript
 file over 1000 lines, and CI also lists each one over 500, the size a file
 aims for. The fixture under `tests/fixture/` is a page with every component,
 and its [README](../../tests/fixture/README.md) says how to build it and what
 to check in it.
+
+The browser tests open built pages in the installed Google Chrome through
+`playwright-core`, a devDependency. `npm install -g` skips devDependencies, so
+an installed `pair` has no `playwright-core`. Run `npm ci` once in a checkout
+before the first run.
+
+`npm run test:figures` checks that every figure in the fixture renders. CI
+runs it in a separate `figures` job, because a figure whose library loads from
+esm.sh or jsDelivr fails the test while that CDN is down.
+
+`npm run screenshots` writes the README's and the docs' PNGs from a demo
+session, in Google Chrome through the same `playwright-core`. It runs on
+macOS, because the frame's text is the system font. Commit the PNGs it
+rewrites, because CI takes no screenshots.
 
 ## Releasing
 

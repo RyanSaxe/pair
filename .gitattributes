@@ -1,0 +1,3 @@
+# Checkouts keep LF on every platform, as Prettier writes, so Git for
+# Windows does not turn the guide and the fixtures into CRLF.
+* text=auto eol=lf

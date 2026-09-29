@@ -39,7 +39,11 @@ function renderDiagram(element) {
             clusterBorder: color("--line"),
             fontFamily: "ui-sans-serif, system-ui, sans-serif",
           },
-          layout: "elk",
+          // ELK cannot lay out a mind map, so a mind map keeps Mermaid's own
+          // layout.
+          layout: /^\s*mindmap\b/.test(element.dataset.source)
+            ? undefined
+            : "elk",
           flowchart: {
             nodeSpacing: 28,
             rankSpacing: 38,

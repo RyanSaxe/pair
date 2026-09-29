@@ -6,6 +6,11 @@ for each part of the work.
 
 ## Follow the build
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/progress-card-dark.png">
+  <img alt="The progress card: 2 of 4 pages ready, the page in progress with when it last changed, the agent's background work, and Message the agent" src="../assets/progress-card-light.png" width="390">
+</picture>
+
 - The build round's Agreed shows the task and a progress card: each page as
   Ready, Working or Queued, and the agent's latest note.
 - Each page is published once its part is done and checked, so you can read

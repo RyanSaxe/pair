@@ -21,6 +21,10 @@ export const root = path.resolve(
 
 export const pair = path.join(root, "src/cli.mjs");
 
+// Text to match exactly inside a regular expression, such as a Windows path,
+// whose backslashes would otherwise read as escapes.
+export const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const exists = (file) =>
@@ -96,11 +100,13 @@ export function planData(round = "1", offer, name = "example") {
 // After close, the next wake fails as a wake to a finished session does.
 export async function inbox(t, home) {
   // A socket path must stay under 104 bytes on macOS, so it sits in the
-  // hub's home rather than in a session directory.
-  const socket = path.join(
-    home,
-    `${crypto.randomBytes(4).toString("hex")}.sock`,
-  );
+  // hub's home rather than in a session directory. Windows has no socket
+  // files, so there it is a named pipe.
+  const name = crypto.randomBytes(4).toString("hex");
+  const socket =
+    process.platform === "win32"
+      ? `\\\\.\\pipe\\pair-inbox-${name}`
+      : path.join(home, `${name}.sock`);
   const token = crypto.randomUUID();
   const wakes = [];
   const server = net.createServer((client) => {
@@ -269,7 +275,11 @@ export async function hub(t, extra = {}) {
 export async function pairCli(home, extra = {}, cli = pair) {
   const relay =
     'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
-  const claude = path.join(home, "claude");
+  // Windows runs only a file with an executable extension.
+  const claude = path.join(
+    home,
+    process.platform === "win32" ? "claude.exe" : "claude",
+  );
   await fs.symlink(process.execPath, claude);
   const env = {
     ...process.env,

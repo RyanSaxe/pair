@@ -63,6 +63,11 @@ notifications on in Settings, you also get a system notification when a
 session starts waiting, when an agent cannot be woken, and for each new line
 in the bell, unless its session is open in the tab you are using.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
+  <img alt="The bell's list with an agent's reply, and the session button in orange because another session waits for you" src="../assets/bell-light.png">
+</picture>
+
 ## Feedback
 
 - Everything you do is a draft in your browser until you send it.

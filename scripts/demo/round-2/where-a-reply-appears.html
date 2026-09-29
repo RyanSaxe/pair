@@ -1,0 +1,93 @@
+<div data-diagram>
+flowchart LR
+  ask["You ask on a block"] --> hub["The hub wakes the agent"] --> reply["The reply appears"]
+</div>
+
+<pre
+  data-language="js"
+  data-file="src/frame/notes/threads.mjs · lines 377–386"
+  data-lines="7-10"
+>
+function blockOf(root, thread) {
+  const top = (node) =&gt; {
+    let at = node?.nodeType === 1 ? node : node?.parentElement;
+    while (at &amp;&amp; at.parentElement !== root) at = at.parentElement;
+    return at &amp;&amp; at.localName !== "pair-thread" ? at : null;
+  };
+  const named = thread.target &amp;&amp; top(document.getElementById(thread.target));
+  if (named) return named;
+  const range = thread.quote &amp;&amp; findText(root, thread.quote);
+  return (range &amp;&amp; top(range.startContainer)) || null;</pre>
+
+<section
+  class="visual-decision"
+  data-choice="answer"
+  data-label="Where the answer appears"
+>
+  <h3>Where does the agent's answer appear?</h3>
+  <article class="visual-option" data-value="under" data-label="Under the block">
+    <header>Under the block <span class="tag">Recommended</span></header>
+    <p>The answer sits next to your question.</p>
+    <figure>
+      <svg
+        class="mock"
+        viewBox="0 0 220 40"
+        role="img"
+        aria-label="A page with the reply card directly under the block that was asked about."
+      >
+        <rect class="sheet" x="1" y="1" width="218" height="38" rx="4" />
+        <rect class="blk" x="12" y="6" width="196" height="9" rx="2.5" />
+        <rect class="bar" x="7" y="6" width="2" height="9" rx="1" />
+        <g class="card">
+          <rect x="20" y="18" width="188" height="10" rx="2.5" />
+          <text x="28" y="23">reply</text>
+        </g>
+        <rect class="ln" x="12" y="32" width="150" height="3" rx="1.5" />
+      </svg>
+    </figure>
+  </article>
+  <article class="visual-option" data-value="panel" data-label="Side panel">
+    <header>In a side panel</header>
+    <p>The page narrows to make room for it.</p>
+    <figure>
+      <svg
+        class="mock"
+        viewBox="0 0 220 40"
+        role="img"
+        aria-label="A page with the reply card in a panel to the right of the text."
+      >
+        <rect class="sheet" x="1" y="1" width="218" height="38" rx="4" />
+        <rect class="blk" x="12" y="6" width="126" height="9" rx="2.5" />
+        <rect class="bar" x="7" y="6" width="2" height="9" rx="1" />
+        <rect class="ln" x="12" y="21" width="116" height="3" rx="1.5" />
+        <rect class="ln" x="12" y="29" width="96" height="3" rx="1.5" />
+        <rect class="panel" x="148" y="5" width="64" height="30" rx="3" />
+        <g class="card">
+          <rect x="153" y="9" width="54" height="10" rx="2.5" />
+          <text x="160" y="14">reply</text>
+        </g>
+      </svg>
+    </figure>
+  </article>
+  <article class="visual-option" data-value="end" data-label="Page end">
+    <header>At the end of the page</header>
+    <p>You scroll away from the block to read it.</p>
+    <figure>
+      <svg
+        class="mock"
+        viewBox="0 0 220 40"
+        role="img"
+        aria-label="A page with the reply card after the last block."
+      >
+        <rect class="sheet" x="1" y="1" width="218" height="38" rx="4" />
+        <rect class="blk" x="12" y="6" width="196" height="9" rx="2.5" />
+        <rect class="bar" x="7" y="6" width="2" height="9" rx="1" />
+        <rect class="ln" x="12" y="19" width="150" height="3" rx="1.5" />
+        <g class="card">
+          <rect x="20" y="26" width="188" height="10" rx="2.5" />
+          <text x="28" y="31">reply</text>
+        </g>
+      </svg>
+    </figure>
+  </article>
+</section>

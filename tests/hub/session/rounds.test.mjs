@@ -106,6 +106,7 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
   assert.match(result.body.next, /^Pages still to publish: overview, detail\./);
+  assert.match(result.body.next, /pair ack --note "…" --page ID/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
@@ -278,7 +279,9 @@ test("listed pages arrive independently and only the last completes the round", 
       "Overview",
       "<p>Finished overview</p>",
     );
-    assert.equal(writeFailure.status, 500);
+    // Windows reports a path through a file as missing, which the hub
+    // answers with 404, where other systems report it as not a directory.
+    assert.equal(writeFailure.status, process.platform === "win32" ? 404 : 500);
     assert.equal(
       (await status()).current.sha256,
       detail.body.status.current.sha256,

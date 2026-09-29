@@ -5,7 +5,8 @@ import { wakeRunner } from "../wake.mjs";
 
 // The states an agent moves an item to, in order. The reviewer starts and
 // drops it. The agent of a new session that plans a recorded item moves it
-// there instead, which finishes it here.
+// there instead, and the agent of this session marks a recorded item planned
+// when the reviewer asks for it in this session's plan. Both finish it here.
 const agentStates = ["working", "pr", "done"];
 const limits = { title: 80, text: 400, source: 120 };
 function words(data, name) {
@@ -96,11 +97,26 @@ export async function sideWork(session) {
     );
     return change(item, { state: "moved", url: link(data.url) });
   }
+  async function plan(item, data) {
+    requireValue(data.url === undefined, "--state planned takes no --url");
+    requireValue(
+      item.state === "recorded",
+      `Side work ${item.id} is in state ${item.state}, and only a recorded item takes --state planned.`,
+      409,
+    );
+    return change(item, { state: "planned" });
+  }
   async function update(data) {
     const item = find(String(data.id));
     requireValue(
-      [...agentStates, "moved"].includes(data.state),
-      "pair side-work update takes --state working, pr, done or moved",
+      [...agentStates, "moved", "planned"].includes(data.state),
+      "pair side-work update takes --state working, pr, done, moved or planned",
+    );
+    if (data.state === "planned") return plan(item, data);
+    requireValue(
+      item.state !== "planned",
+      `Side work ${item.id} is in the session's plan, so it takes no other state.`,
+      409,
     );
     if (data.state === "moved") return move(item, data);
     requireValue(
@@ -212,7 +228,9 @@ export async function sideWork(session) {
         ? `Side work ${id} was dropped`
         : item.state === "moved"
           ? `Side work ${id} moved to a new session`
-          : `Side work ${id} was already started`,
+          : item.state === "planned"
+            ? `Side work ${id} is in the session's plan`
+            : `Side work ${id} was already started`,
       409,
     );
     const text = message(data);

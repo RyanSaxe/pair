@@ -22,9 +22,16 @@ planUI.define("scope-checklist", {
 
 `match` is a CSS selector. `setup` runs once for each element the selector
 finds. When `setup` throws or its promise rejects, the frame shows the error
-in the element's place and renders the rest of the page. The frame waits
-for a `setup` that returns a promise before it restores the scroll
-position.
+in the element's place and renders the rest of the page.
+
+Nothing on a page moves once it appears. A `setup` returns a promise only
+when its element's height is not final until the promise settles, as a
+diagram's is until Mermaid draws it. The frame keeps the page hidden until
+every such promise settles, for at most 10 seconds, and restores the scroll
+position after them. A component whose box is final at once returns
+nothing, so the page does not wait for it: the chart draws into a box of
+fixed height, a code block's plain source already has its highlighted
+height, and the diff reserves its height before it draws.
 
 A page renders by replacing `#page-content`, so `setup` runs again on every
 visit. Keep no state between renders. Keep a viewing preference the reviewer

@@ -2,11 +2,11 @@
 
 ## Pages
 
-Start a page with its subject. A page of decisions starts with the first
-decision or the material it needs. A page that explains, or that shows built
-work, starts with the code, the diagram or the change itself. Do not add a
-lede or rationale before it. Give each option one line of consequence.
-Delete any sentence that could appear unchanged in another plan.
+A page is about one coherent topic and may contain several related
+decisions. Start each page with its subject, such as the first decision,
+the code or the diagram, and put no introduction or rationale before it.
+Give each option one line of consequence. Delete any sentence that could
+appear unchanged in another plan.
 
 People judge a plan and understand code by looking. Show the subject and
 write only what the page cannot show. Choose the component by what the
@@ -39,28 +39,6 @@ from the project, and put it next to the proposal it affects.
 Use hierarchy and color to direct attention. When color marks something, say
 the same thing in the text. Add no decorative cards, labels, tags or pills
 that repeat nearby text.
-
-## Exploration
-
-Each round should move the plan as far as the reviewer can take it in
-one sitting. That is a balance. Too little, and planning takes more rounds
-than it needs. Too much, and the reviewer skims, so decisions get made
-without being judged. Put the decisions that matter most now in the same
-round, together with the decisions they depend on, and leave for later
-what depends on answers not yet given. Some plans take two rounds and others
-ten. A page is about one coherent topic and may contain several related
-decisions. Agreed is the only running context, so add no overview or
-summary page.
-
-A choice or question the reviewer did not answer stays open, even one with a
-recommended option, whatever `groups.alignUnflagged` says. Do not repeat an
-open decision's unchanged page. Return to it with new evidence, a changed
-proposal or a sharper question. When the reviewer asks you to decide, or
-asks for the complete plan while a choice is still open, decide. Take the
-recommended option unless the reviewer chose another in a note. Record the
-decision on Agreed and continue. When a proposal changes, show it against
-the version the reviewer saw. If two rounds in a row resolve nothing, put
-what remains on one page with a recommendation for each item.
 
 ## The final plan
 

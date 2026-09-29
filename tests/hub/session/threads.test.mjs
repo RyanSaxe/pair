@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import { hub, planData, waitUntil } from "../../support/hub.mjs";
+import { hub, literal, planData, waitUntil } from "../../support/hub.mjs";
 
 const png = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -94,7 +94,7 @@ test("pair reply marks the thread read, then posts text or a checked fragment", 
   assert.match(
     opened.body.text,
     new RegExp(
-      `^Thread ${id} on "Overview", block "Failure handling" \\(session ${a.directory}, round 1\\)\n  On the text: "A failed item"\n  You, \\d\\d:\\d\\d: What happens to a failed item\\?\n`,
+      `^Thread ${id} on "Overview", block "Failure handling" \\(session ${literal(a.directory)}, round 1\\)\n  On the text: "A failed item"\n  You, \\d\\d:\\d\\d: What happens to a failed item\\?\n`,
     ),
   );
   assert.match(opened.body.text, /--note \S+ --file reply.html\n/);

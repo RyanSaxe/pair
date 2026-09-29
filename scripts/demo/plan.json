@@ -1,0 +1,8 @@
+{
+  "name": "threads",
+  "title": "Threads",
+  "task": {
+    "title": "Answer a question right away in a thread",
+    "html": "<p>You send a note to the agent at once, and its answer appears on the page without waiting for the next round.</p>"
+  }
+}

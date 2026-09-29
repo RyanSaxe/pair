@@ -33,6 +33,12 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:browser": "node --test tests/browser/*.browser.mjs",
+    "test:figures": "node --test tests/browser/figures.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
   }
 }

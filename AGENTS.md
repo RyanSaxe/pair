@@ -98,15 +98,27 @@ while pair has none.
 
 ## Checks
 
-CI runs these three on every push and pull request, and a change passes when
-all three pass. Use a Node version that `engines.node` in `package.json`
+CI runs these four on every push and pull request, and a change passes when
+all four pass. Use a Node version that `engines.node` in `package.json`
 allows.
 
 ```sh
 node --test
 npx --yes prettier@3.9.6 --check .
 npx --yes eslint@10.11.0 .
+npm run test:browser
 ```
+
+`npm run test:browser` opens built pages in the installed Google Chrome
+through `playwright-core`. Run `npm ci` once in a checkout to install it.
+Without Google Chrome, a browser test skips with "Google Chrome is not
+installed". When the `CI` environment variable is set, as it is in GitHub
+Actions, the test fails instead of skipping.
+
+`npm run test:figures` checks that every figure in the test fixture renders in
+the light and dark themes. CI runs it in its own `figures` job, because a
+figure whose library loads from esm.sh or jsDelivr fails the test while that
+CDN is down.
 
 Run one file with `node --test tests/hub/server.test.mjs`, and format a file
 with `npx --yes prettier@3.9.6 --write PATH`. Prettier skips
@@ -137,10 +149,19 @@ A test that creates a repository also checks, before it writes anything, that
 the repository git ended up in is the one it just created. Without both, a
 suite run from `git rebase -x` runs git against this repository.
 
+The browser tests are in `tests/browser/`. `npm run test:browser` runs each
+file named `NAME.browser.mjs`, and `npm run test:figures` runs `figures.mjs`.
+No file there matches the default patterns of `node --test`, such as
+`*.test.mjs`, so `node --test` runs none of them and passes with no install.
+In `tests/support/browser.mjs`, `launch()` starts Chrome, and
+`open(t, url, options)` opens a page and closes Chrome when the test ends.
+
 ## Checking the frame in a browser
 
-No test checks how the frame renders or behaves, so open a frame or component
-change in a browser before calling it done.
+The browser tests check what the frame does, such as Finish your review, a
+note's highlight and the keys, and that every fixture figure renders. No test
+checks how a page looks, so open a frame or component change in a browser
+before calling it done.
 
 For a component or the way a page renders, build the fixture and open the file:
 
@@ -178,3 +199,10 @@ Never use port 4747 or the default state directory, `~/.local/state/pair`.
 They belong to the person using pair on this machine: a session started there
 shows in their Live sessions, and a hub started there from your checkout serves
 their sessions with your code.
+
+When a change alters what the README's or the docs' screenshots show, run
+`npm run screenshots` on macOS and commit the PNGs it rewrites. The script
+starts its own hub on a port the system assigns, with its state in a
+temporary directory, and takes each screenshot in the installed Google
+Chrome. The frame's text is the system font, so the script refuses to run on
+another system, where lines would break in other places.

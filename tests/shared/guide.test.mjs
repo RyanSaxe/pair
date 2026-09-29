@@ -87,7 +87,9 @@ test("pair guide prints guide/pair.md and every guide file, and writes nothing",
   // offers/finish.md, which no guide link reaches.
   const files = (
     await fs.readdir(path.join(root, "guide"), { recursive: true })
-  ).filter((file) => file.endsWith(".md"));
+  )
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => file.split(path.sep).join("/"));
   assert.deepEqual(names, [...files, "components/README.md"].sort());
   const reached = new Set();
   for (const name of names)

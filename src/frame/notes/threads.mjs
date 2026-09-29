@@ -475,7 +475,11 @@ export function installThreads() {
   for (const key of document.querySelectorAll("[data-send-modifier]"))
     key.textContent = modifier();
   // A page render replaces the page's content, so its cards are drawn anew.
+  // Progress cards are outside #page-content, so the render leaves them in
+  // place. Remove every drawn card, or placeProgress() adds a second card for
+  // the same thread.
   window.addEventListener("plan:page", () => {
+    for (const { card } of cards.values()) card.remove();
     cards.clear();
     placeThreads();
   });

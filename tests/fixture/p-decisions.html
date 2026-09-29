@@ -6,11 +6,12 @@
   <button class="decision-option" type="button" data-value="queue" data-label="Queue and confirm later"><b>Queue and confirm later</b><p>The order completes before the charge; refunds and declined cards become a separate reconciliation job.</p></button>
 </section>
 <section class="drawing-question" data-drawing-question="boundary" data-label="System boundary" data-kind="drawing question">
-  <span class="tag">Drawing question</span>
   <h3>Where should the circuit breaker sit?</h3>
-  <p>Sketch the services and the failure boundary so we can review the placement.</p>
-  <img class="drawing-preview" alt="Saved drawing" hidden>
-  <button class="btn primary" type="button" data-draw>Draw answer</button>
+  <p class="question-why">Sketch the services and the failure boundary so we can review the placement.</p>
+  <div class="drawing-stage">
+    <div class="drawing-canvas"><img class="drawing-preview" alt="Saved drawing" hidden></div>
+    <button class="btn" type="button" data-draw>Draw your answer</button>
+  </div>
   <p class="renderer-error" data-drawing-error role="status" hidden></p>
 </section>
 <section class="visual-decision" data-choice="topology" data-label="Service topology">
@@ -55,7 +56,6 @@ app.post("/charge", async (req, res) =&gt; {
   <article class="visual-option" data-value="row" data-label="Status row"><header>Status row</header><p>Names every breaker; takes a line each.</p><figure><div style="padding:10px 14px;font-size:12.5px"><div>gateway <b style="color:var(--ok)">closed</b></div><div>ledger <b style="color:var(--attention)">half-open</b></div></div></figure></article>
 </section>
 <section class="question" data-question="threshold" data-label="Breaker threshold" data-state="open">
-  <span class="tag">Question</span>
   <h3>How many consecutive failures should open the breaker?</h3>
   <p class="question-why">The number sets how long a gateway outage keeps failing checkouts before the fast error kicks in.</p>
   <textarea rows="2" placeholder="Type your answer…" aria-label="Your answer"></textarea>

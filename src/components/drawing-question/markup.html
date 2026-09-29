@@ -4,10 +4,13 @@
   data-label="Short label for the drawing"
   data-kind="drawing question"
 >
-  <span class="tag">Drawing question</span>
   <h3>What should the reviewer draw?</h3>
-  <p>Why the drawing will help the agent decide.</p>
-  <img class="drawing-preview" alt="Saved drawing" hidden />
-  <button class="btn primary" type="button" data-draw>Draw answer</button>
+  <p class="question-why">Why the drawing will help the agent decide.</p>
+  <div class="drawing-stage">
+    <div class="drawing-canvas">
+      <img class="drawing-preview" alt="Saved drawing" hidden />
+    </div>
+    <button class="btn" type="button" data-draw>Draw your answer</button>
+  </div>
   <p class="renderer-error" data-drawing-error role="status" hidden></p>
 </section>

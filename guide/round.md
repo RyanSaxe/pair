@@ -1,23 +1,41 @@
 # Run one round
 
+## Required in every round
+
+Follow these in every round, the first included:
+
+1. Publish Agreed and the page list within minutes of reading the feedback,
+   or of starting the first round, before you research, build or write any
+   page.
+2. From reading the feedback, or starting the first round, until the
+   round's last page publishes, report what you are doing with
+   `pair ack --note` at least every five minutes: without `--page` before
+   Agreed publishes, and with `--page ID` for each page in progress after
+   it.
+3. Publish each page as soon as it is complete. Never keep finished pages
+   back to publish them together.
+
+## Goals
+
 In every round, deliver good work quickly. Good work is correct, gives the
 reviewer what they need, and states nothing you have not checked. Quickly
 means the reviewer is reading within minutes, new pages keep arriving, and
-your latest progress note says what you are working on. When the two
-conflict, shipping beats perfection: publish sound work the reviewer can use
-now, and leave the rest for a later page or round. The final plan is the
-exception. Someone who saw none of the rounds builds from it, so neither the
-plan nor its build leaves anything for later.
+your latest progress note says what you are working on. This holds in a
+build round as much as in a planning round, because the reviewer reads each
+page while you work on the next. How much a round covers depends on its
+kind, as Kinds of rounds describes.
 
-Work in parallel to get both. Give any work that would delay the next page
-to a background subagent, and keep publishing while it runs. The Subagents
-section explains how.
+Work in parallel to get both. Give any of the round's work that would delay
+the next page to a background subagent, and keep publishing while it runs.
+The Subagents section explains how.
 
-Publish Agreed and the page names first, then each page as soon as it is
-complete. Show each subject with the visual that lets the reviewer
-understand or judge it. [quality.md](quality.md) has the detail behind these
-goals. Reread it whenever these paragraphs are not enough for a page or the
-plan.
+Show each subject with the visual that lets the reviewer understand or judge
+it. Before you write a page, look through every component you can use. The
+components pair ships are in the [component index](components.md), and the
+user's own are in `$XDG_CONFIG_HOME/pair/components/`, or in
+`~/.config/pair/components/` when `XDG_CONFIG_HOME` is not set.
+[quality.md](quality.md) has the detail behind these goals. Reread it
+whenever these paragraphs are not enough for a page or the plan.
 
 When the reviewer submits, the hub sends you a wake message that names
 `pair ack`. Every session command is `pair COMMAND --session-dir PATH`, with
@@ -25,25 +43,67 @@ the path from the wake message. `pair start`, `pair ack`, `pair read`,
 `pair progress` and `pair publish` print the next step. `pair guide`,
 `pair build` and `pair diff` take no session.
 
+## Kinds of rounds
+
+Each round is a planning round, a build round or a round that explains.
+How much it covers, whether you change the project and what its pages are
+depend on its kind. The rules above apply to every kind.
+
+In a planning round, research a decision by reading the code, running it
+or building a prototype in your work directory. Do not make the change the
+plan describes, because the reviewer has not accepted the plan, and their
+feedback can change it.
+
+Before the final plan, move the plan in each round as far as the reviewer
+can take it in one sitting. With too few decisions, planning takes more
+rounds than it needs. With too many, the reviewer skims and decides without
+judging. Put the decisions that matter most now in the round, together with
+the decisions they depend on, in coherent pages with the most
+consequential first. Shipping beats perfection in these rounds: publish
+sound pages the reviewer can use now instead of waiting to cover
+everything. Agreed is the only running context, so add no overview or
+summary page.
+
+In the last planning round, present the final plan. It describes all of
+the work in detail and leaves nothing for a later round, because an
+engineer or agent who saw none of the rounds builds from it alone.
+[quality.md](quality.md) says what it contains.
+
+The rounds in which you build an accepted plan are build rounds: the first
+after the acceptance, and each one after feedback on the build. Build every
+step of the plan, and leave nothing for a later round. The pages are the
+steps of the plan and then the pull request description, as
+[offers/plan.md](offers/plan.md) describes.
+
+In a round that explains, you help the reviewer understand code, a change
+or a topic. As before the final plan, cover what the reviewer can take in
+one sitting and leave the rest for a later round.
+
 ## Subagents
 
 A subagent runs work at the same time as you and keeps that work's detail
 out of your context. Decide how many to run and what each one does, and
-start each one as soon as you know what it will do. Starting work that a
-later round will need can spend tokens on work that the feedback makes
-unnecessary, but starting it late makes the reviewer wait.
+start each one as soon as you know what it will do. Give a subagent only
+the kind of work you do in that round: research in a planning round or a
+round that explains, and steps of the plan in a build round.
 
 Divide the work so that each page depends on as little of it as possible,
 and publish each page as soon as it is complete, whether you or a subagent
 wrote it. You answer for every page, so check a subagent's results before
 they reach the reviewer.
 
-When some work will take much longer than the rest, keep it off this
-round's pages, because the reviewer cannot send feedback until every page
-has published. Run it in the background as a hedge. When the next round
-starts, decide with the feedback whether its results become a page, change a
-page, or only inform your own work. Most of the work is done by then, so
-adapting it takes little time.
+Before the final plan, and in a round that explains, keep research that will
+take much longer than the rest off this round's pages, because the reviewer
+cannot send feedback until every page has published. Run it in the
+background as a hedge. Starting it now can spend tokens on research that
+the feedback makes unnecessary, but starting it in a later round makes the
+reviewer wait for it. When the next round starts, decide with the feedback
+whether its results become a page, change a page, or only inform your own
+work. Most of the research is done by then, so adapting it takes little
+time.
+
+A build round has no hedges, because every step of the plan is on one of
+its pages.
 
 Tell each subagent what to do, where to start and what earlier rounds
 already found, so that it does not repeat their work. Give it a rough
@@ -74,8 +134,8 @@ without `--page` shows on the card's Background row, for work that is not
 one page's, such as reading the feedback, planning the pages or a hedge for
 a later round.
 
-Report whenever the work changes, and at least every five minutes on each
-page in progress. A page's note stays until the page publishes or gets a
+Report whenever the work changes, as well as every five minutes as Required
+in every round says. A page's note stays until the page publishes or gets a
 newer one. `pair read`, `pair progress`, `pair publish` and `pair reply`
 count as reports too. A subagent that writes a page reports with
 `pair progress` and `pair ack --page` itself.
@@ -119,14 +179,22 @@ Then mark each decision settled, reopened, retired or still open. A
 recommendation is not an agreement. Read [agreements.md](agreements.md)
 before changing Agreed.
 
+A choice or question the reviewer did not answer stays open, even one with a
+recommended option, whatever `groups.alignUnflagged` says. Do not repeat an
+open decision's unchanged page. Return to it with new evidence, a changed
+proposal or a sharper question. When the reviewer asks you to decide, or
+asks for the complete plan while a choice is still open, decide. Take the
+recommended option unless the reviewer chose another in a note. Record the
+decision on Agreed and continue. When a proposal changes, show it against
+the version the reviewer saw. If two rounds in a row resolve nothing, put
+what remains on one page with a recommendation for each item.
+
 ## Publish the round
 
-1. Plan the round: the decisions that matter most now, in coherent pages
-   the reviewer can work through in one sitting, the most consequential
-   first. The page list cannot change after Agreed publishes, so decide now
-   what work each page needs. Start slow work before you publish Agreed, and
-   plan the pages around it as Subagents describes. Write the pages that
-   follow Agreed to `pages.json` as
+1. Choose the round's pages from what you already know, as Kinds of rounds
+   describes for this round's kind. Start the research or the build after
+   Agreed publishes, as Required in every round says. The page list cannot
+   change after that. Write the pages that follow Agreed to `pages.json` as
    `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A settled topic
    leaves the list, and an unchanged page is not repeated.
 2. Decide whether the round has an offer, which lets the reviewer accept
@@ -196,3 +264,7 @@ with the steps for the item. Follow them, and report each change with the
 `pair side-work update` command in the message. The hub takes
 `pair side-work` from any agent, so an agent you brief can report its own
 progress.
+
+When the reviewer asks for a side-work item in this session's plan, add the
+item to Agreed, then run
+`pair side-work update ID --state planned --session-dir PATH`.

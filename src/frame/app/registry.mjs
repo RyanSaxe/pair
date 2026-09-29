@@ -34,9 +34,14 @@ function define(name, { match, setup }) {
   registry.set(name, { match, setup });
 }
 /* One component's failure prints in place and leaves the rest of the page
-   rendered. A setup that returns a promise is tracked, so the scroll
-   position is restored only once its content has its height. */
+   rendered. A setup returns a promise when its element's height is not
+   final until the promise settles, as a diagram's is. The promise is
+   tracked, so the scroll position is restored only once the content has
+   its height, and enhance() returns a promise that settles with every such
+   setup, or null when there is none, so show() can wait for them before
+   the page appears. */
 export function enhance(root) {
+  const sizing = [];
   for (const [name, { match, setup }] of registry) {
     for (const element of root.querySelectorAll(match)) {
       if (element.dataset.ready === name) continue;
@@ -44,12 +49,13 @@ export function enhance(root) {
       try {
         const task = setup(element, { page, planUI: window.planUI });
         if (task instanceof Promise)
-          track(task).catch((error) => failed(element, error));
+          sizing.push(track(task).catch((error) => failed(element, error)));
       } catch (error) {
         failed(element, error);
       }
     }
   }
+  return sizing.length ? Promise.all(sizing) : null;
 }
 export function installRegistry() {
   new ResizeObserver(() => {

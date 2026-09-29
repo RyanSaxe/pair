@@ -105,6 +105,9 @@ async function keepSource(sessionDir, source, html) {
     await relinkInside(partial, [...new Set([from, given])]);
     // A read-only directory cannot be renamed on macOS.
     await fs.chmod(partial, ((await fs.stat(partial)).mode & 0o777) | 0o700);
+    // Windows cannot rename a directory onto another, even an empty one, so
+    // the empty target that claims the page goes first there.
+    if (process.platform === "win32") await fs.rmdir(target);
     await fs.rename(partial, target);
   } catch (error) {
     await removeCopy(partial).catch(() => {});
@@ -188,7 +191,7 @@ const commandOptions = {
 };
 const sideWorkUsage = `pair side-work takes add or update:
   pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
-  pair side-work update ID --session-dir PATH --state working|pr|done|moved [--url URL]`;
+  pair side-work update ID --session-dir PATH --state working|pr|done|moved|planned [--url URL]`;
 export const sessionCommands = Object.keys(commandOptions);
 function argumentsFrom(argv) {
   const [command, ...rest] = argv;
@@ -257,7 +260,7 @@ export async function main(argv) {
           started.next ||
           (resuming
             ? `Run: pair ack --session-dir ${directory}`
-            : `Run ${guideCommand("round.md")} and follow its "Publish the round" section when the first round is ready.`),
+            : `Run ${guideCommand("round.md")} and read all it prints before you plan the first round, starting with Required in every round.`),
       }),
     );
   }

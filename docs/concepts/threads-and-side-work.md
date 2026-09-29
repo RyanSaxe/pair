@@ -10,6 +10,11 @@ Write a comment, then press **Start a thread** (<kbd>⌘</kbd>
 **Add to feedback**. The comment goes to the agent at once, and its reply
 appears in a card under the block or the side-work item you commented on.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
+  <img alt="The note dialog quoting a selected line of code, with Add to feedback and Start a thread" src="../assets/note-dialog-light.png">
+</picture>
+
 The first line of a card shows what the thread is on. For a comment on a
 block, it shows the block's name. For words you selected, it shows the table
 row, line of code, option or checklist item that contains them, and the card
@@ -40,10 +45,12 @@ lists each item in Agreed's Side work tab.
 | Button  | What it does                                                                                                                                                                                                                       |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Start   | Opens a popup with an optional message to the agent. **Start in parallel** has the agent do the work now, on its own branch, ending in a pull request. **Copy prompt** copies a prompt that plans the item in a new agent session. |
-| Drop    | Sets the item aside. Not offered once the item is Done or Moved.                                                                                                                                                                   |
+| Drop    | Sets the item aside. Not offered once the item is Done, Moved or In the plan.                                                                                                                                                      |
 | Comment | Adds a comment on the item to your feedback.                                                                                                                                                                                       |
 
 An item moves through **Recorded → Started → Working → Pull request → Done**,
 and Agreed shows each change as it happens. An item you plan in a new session
 goes from **Recorded** to **Moved** once that session starts, with a link to
-it. Done, dropped and moved items fold under **Finished**.
+it. An item you ask for in this session's plan goes from **Recorded** to
+**In the plan** once the agent adds it to Agreed. Done, dropped, moved and
+planned items fold under **Finished**.

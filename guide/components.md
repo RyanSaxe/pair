@@ -6,12 +6,19 @@ and behavior are already in the frame, so they do not belong in the page's
 `css` or `js`. Component CSS outranks page CSS, so do not restyle a
 component. A component is as wide as the reading column.
 
+The table lists the components pair ships. The user's own components are in
+`$XDG_CONFIG_HOME/pair/components/`, or in `~/.config/pair/components/`
+when `XDG_CONFIG_HOME` is not set, and `pair check` lists their names.
+Before you choose a component, read the `markup.html` in each of those
+directories. A directory there with the same name as one of pair's
+components replaces it.
+
 | Directory                                                          | Use                                        | Content and interaction                                                                                                                                                      |
 | ------------------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [decision](../src/components/decision/markup.html)                 | Options that differ in policy or wording   | Radio-style rows. Each row is the `data-value` button with a title, an optional Recommended tag, and one line of consequence.                                                |
 | [visual-decision](../src/components/visual-decision/markup.html)   | Options that differ in something visible   | Option articles with a header, one line, and a figure. The reviewer can switch between tabs and side-by-side view.                                                           |
 | [question](../src/components/question/markup.html)                 | An open answer the agent needs             | The question, why it matters, a textarea and an Answer button. Feedback includes the answer under `groups.answers`.                                                          |
-| [drawing-question](../src/components/drawing-question/markup.html) | A spatial answer the reviewer should draw  | A full-screen drawing editor. The answer includes an editable Excalidraw scene and a PNG preview. Needs a live hub and a network connection.                                 |
+| [drawing-question](../src/components/drawing-question/markup.html) | A spatial answer the reviewer should draw  | A drawing editor that opens over the page. The answer includes an editable Excalidraw scene and a PNG preview. Needs a live hub and a network connection.                    |
 | [comparison](../src/components/comparison/markup.html)             | Two or three options with matched sections | Repeat the option article. Matching sections align across options. Selection uses the `data-choice` and `data-value` buttons.                                                |
 | [before-after](../src/components/before-after/markup.html)         | A proposed change                          | A Git diff for text or code, or a before and proposed pair for diagrams and other visuals.                                                                                   |
 | [scope-checklist](../src/components/scope-checklist/markup.html)   | Independent inclusions                     | Repeat the checkbox row with stable option IDs and readable labels.                                                                                                          |

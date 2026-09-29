@@ -55,17 +55,35 @@ dialog::backdrop {
     text-decoration: underline;
   }
 }
+/* The editor opens as a modal over the page, and fills the screen on a
+   phone, where Excalidraw's toolbar needs the width. */
 .drawing-dialog {
-  width: 100vw;
-  max-width: 100vw;
-  height: 100dvh;
-  max-height: 100dvh;
-  margin: 0;
+  width: min(880px, 94vw);
+  max-width: 94vw;
+  height: min(620px, 86dvh);
+  max-height: 86dvh;
   padding: 0;
-  border: 0;
-  border-radius: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px #0004;
   background: var(--panel);
   color: var(--ink);
+}
+@media (max-width: 600px) {
+  .drawing-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  /* The question alone, so the header leaves the drawing its height. */
+  .drawing-heading p {
+    display: none;
+  }
 }
 .drawing-dialog[open] {
   display: flex;
@@ -76,6 +94,18 @@ dialog::backdrop {
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.drawing-heading {
+  min-width: 0;
+}
+.drawing-head .spacer {
+  flex: 1;
+}
+.drawing-heading p {
+  margin: 2px 0 0;
+  font-size: var(--text-label);
+  color: var(--muted);
 }
 .drawing-head h2 {
   margin: 0;

@@ -30,11 +30,13 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
+/* The viewer's rows are 22px, the height diffHeight() counts. These sit on
+   .change-view, which diffs-container inherits, because Safari applies no
+   @scope rule to a shadow host, and pair build puts component styles in
+   @scope (#page-content). */
 .change-view {
   overflow: hidden;
   background: var(--code);
-}
-.change-view diffs-container {
   --diffs-font-size: var(--text-label);
   --diffs-line-height: 22px;
 }

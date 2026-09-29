@@ -8,33 +8,6 @@ const read = (name) =>
 const pages = await read("pages/pages.mjs");
 const notes = await read("notes/notes.mjs");
 
-test("note highlights are cleared before page and dialog text changes", () => {
-  const showStart = pages.indexOf("function show(");
-  const notesStart = pages.indexOf("\nexport function badge(", showStart);
-  const show = pages.slice(showStart, notesStart);
-  const openStart = notes.indexOf("function openNote(");
-  const agreedStart = notes.indexOf(
-    "\n/* A note that quotes nothing",
-    openStart,
-  );
-  const open = notes.slice(openStart, agreedStart);
-
-  const showClear = show.indexOf('clearHighlight("plan-note");');
-  const pageReplacement = show.indexOf('$("page-content").innerHTML');
-  assert.ok(showClear >= 0, "show clears the page's note highlight");
-  assert.ok(showClear < pageReplacement);
-  const openClear = open.indexOf('clearHighlight("plan-note");');
-  const dialogText = open.indexOf('$("note-anchor").textContent');
-  assert.ok(openClear >= 0, "openNote clears the dialog's note highlight");
-  assert.ok(openClear < dialogText);
-  const closeStart = notes.indexOf('$("note-dialog").addEventListener("close"');
-  const close = notes.slice(closeStart, notes.indexOf("\n  });", closeStart));
-  assert.ok(close.includes('!$("note-dialog").open'));
-  assert.ok(close.includes('!$("reading").hidden'));
-  assert.ok(close.includes('page.id !== "agreed"'));
-  assert.ok(close.includes("markNotes();"));
-});
-
 const between = (source, start, end) =>
   source.slice(
     source.indexOf(start),

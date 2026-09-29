@@ -14,6 +14,11 @@ and anything you already know you do or do not want.
 
 ## Each round
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/plan-phone-dark.png">
+  <img alt="A plan page on a phone, with a decision's options as tabs and the first option open" src="../assets/plan-phone-light.png" width="390">
+</picture>
+
 - **Read the task first.** It is at the top of Agreed. Everything else
   depends on it, so correct it as soon as it is wrong.
 - **Choose every option you care about.** An option marked Recommended stays

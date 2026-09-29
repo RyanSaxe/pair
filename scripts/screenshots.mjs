@@ -1,0 +1,55 @@
+// npm run screenshots: stages a demo session on a hub of its own and writes
+// the README's and the docs' PNGs from Google Chrome.
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { stage } from "./screenshots/capture.mjs";
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+
+async function main() {
+  // The frame draws text in the system font, and only macOS has San
+  // Francisco, so a run elsewhere changes the text in every PNG.
+  if (process.platform !== "darwin") {
+    console.error(
+      "npm run screenshots runs on macOS, because the frame's font is the system font.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-screenshots-"));
+  // hub() and open() from tests/support take a node:test context. They stop
+  // the hub and Chrome with its after(), and open() reports a missing Chrome
+  // with its skip().
+  const cleanups = [];
+  const t = {
+    after: (cleanup) => cleanups.push(cleanup),
+    skip: (reason) => {
+      throw new Error(reason);
+    },
+  };
+  let images, failure;
+  try {
+    images = await stage(t, scratch);
+  } catch (error) {
+    failure = error;
+  }
+  for (const cleanup of cleanups.reverse()) {
+    try {
+      await cleanup();
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+  await fs.rm(scratch, { recursive: true, force: true });
+  if (failure) throw failure;
+  for (const [file, png] of images)
+    await fs.writeFile(path.join(root, file), png);
+  console.log(`Wrote ${images.size} screenshots.`);
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});
