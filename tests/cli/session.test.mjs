@@ -218,7 +218,7 @@ test("pair side-work adds an item from any agent and names it on update", async 
     ["side-work", "update", "--session-dir", sessionDir, "--state", "working"],
     `pair side-work takes add or update:
   pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
-  pair side-work update ID --session-dir PATH --state working|pr|done|moved [--url URL]`,
+  pair side-work update ID --session-dir PATH --state working|pr|done|moved|planned [--url URL]`,
   );
   // The item reaches the hub by its ID, which refuses to move it before the
   // reviewer starts it.

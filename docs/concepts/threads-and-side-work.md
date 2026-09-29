@@ -45,10 +45,12 @@ lists each item in Agreed's Side work tab.
 | Button  | What it does                                                                                                                                                                                                                       |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Start   | Opens a popup with an optional message to the agent. **Start in parallel** has the agent do the work now, on its own branch, ending in a pull request. **Copy prompt** copies a prompt that plans the item in a new agent session. |
-| Drop    | Sets the item aside. Not offered once the item is Done or Moved.                                                                                                                                                                   |
+| Drop    | Sets the item aside. Not offered once the item is Done, Moved or In the plan.                                                                                                                                                      |
 | Comment | Adds a comment on the item to your feedback.                                                                                                                                                                                       |
 
 An item moves through **Recorded → Started → Working → Pull request → Done**,
 and Agreed shows each change as it happens. An item you plan in a new session
 goes from **Recorded** to **Moved** once that session starts, with a link to
-it. Done, dropped and moved items fold under **Finished**.
+it. An item you ask for in this session's plan goes from **Recorded** to
+**In the plan** once the agent adds it to Agreed. Done, dropped, moved and
+planned items fold under **Finished**.
