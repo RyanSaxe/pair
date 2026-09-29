@@ -19,10 +19,14 @@ jobs:
         # LTS.
         node: [20.1.0, 20, 24]
         # macOS limits socket paths to 104 bytes and puts temporary
-        # directories under long /var/folders paths, so the suite runs there
-        # too, on the current LTS.
+        # directories under long /var/folders paths, and Windows has named
+        # pipes instead of socket files and runs only files with an
+        # executable extension, so the suite runs on both too, on the current
+        # LTS.
         include:
           - os: macos-latest
+            node: 24
+          - os: windows-latest
             node: 24
     steps:
       - uses: actions/checkout@v4

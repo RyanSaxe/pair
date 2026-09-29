@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // Node resolves the #frame/… and #shared/… names through package.json, as
 // the page's import map does, so a missing export fails here. boot.mjs is
@@ -19,5 +19,6 @@ async function* modules(directory) {
 for await (const file of modules(frame)) {
   const name = path.relative(frame, file).split(path.sep).join("/");
   if (name !== "app/boot.mjs")
-    test(`frame/${name} loads without a browser`, () => import(file));
+    test(`frame/${name} loads without a browser`, () =>
+      import(pathToFileURL(file).href));
 }
