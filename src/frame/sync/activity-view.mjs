@@ -1,10 +1,11 @@
 import { since } from "#frame/app/time.mjs";
-import { $, recently } from "#frame/app/util.mjs";
+import { $ } from "#frame/app/util.mjs";
 import {
   base,
   currentShown,
   editable,
   mode,
+  noteEditable,
   page,
   pastRound,
   plan,
@@ -12,6 +13,7 @@ import {
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
 import { displayedRound, pageIndicator } from "#frame/pages/pages.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
 import { renderSentFeedback, shownSubmission } from "#frame/review/review.mjs";
@@ -21,6 +23,7 @@ import {
   agentNotice,
   finishedLine,
   roundModel,
+  rowLabel,
 } from "#frame/sync/activity.mjs";
 import {
   pageSets,
@@ -32,11 +35,42 @@ import {
   switchTab,
 } from "#frame/sync/rounds.mjs";
 
-function slotLabel(state, { stopped, failed }) {
-  if (state === "ready") return "Ready";
-  if (state !== "active") return "Queued";
-  if (!stopped) return "Working";
-  return failed ? "Stopped" : "Paused";
+// The rows the reviewer opened, by round and row, so a poll or a rebuild
+// keeps them open and a new round starts with every row closed.
+const opened = new Set();
+// The label and note of each drawn row, which every render updates in place.
+const drawn = new Map();
+// A working row with a note is a button that opens the note under it. Every
+// other row is a line of text, as before.
+function drawRow(slot, stopped, key) {
+  const noted = slot.state === "active" && !stopped && Boolean(slot.note);
+  const row = document.createElement(noted ? "button" : "div");
+  row.className = "activity-page";
+  const mark = pageIndicator(pageStatus({ status: slot.state }));
+  if (stopped) mark.classList.add("stopped");
+  const name = document.createElement("span");
+  name.textContent = slot.title;
+  const label = document.createElement("small");
+  row.append(mark, name, label);
+  if (!noted) {
+    drawn.set(key, { row, label });
+    return [row];
+  }
+  row.type = "button";
+  const note = document.createElement("div");
+  note.className = "activity-note";
+  const show = (open) => {
+    row.setAttribute("aria-expanded", String(open));
+    note.hidden = !open;
+  };
+  show(opened.has(key));
+  row.onclick = () => {
+    if (opened.has(key)) opened.delete(key);
+    else opened.add(key);
+    show(opened.has(key));
+  };
+  drawn.set(key, { row, label, note });
+  return [row, note];
 }
 export function renderActivity() {
   // A read-only round shows what was sent on it, without agent activity.
@@ -56,6 +90,7 @@ export function renderActivity() {
     !past && displayedRound === viewKey() && page.id === "agreed";
   const running = submissionInFlight || roundRunning();
   const visible = onAgreed && (running || agentNotice(remote));
+  const wasHidden = $("agent-activity").hidden;
   $("agent-activity").hidden = !visible;
   const finished =
     onAgreed && !visible && roundFinished()
@@ -70,7 +105,11 @@ export function renderActivity() {
       pageIndicator("complete"),
       document.createTextNode(finished),
     );
+  // A thread started from the card sits under it, or under the finished line
+  // once the card hides, so it moves when the card shows or hides.
+  if (wasHidden !== !visible) placeThreads();
   if (!visible) return;
+  $("activity-message").hidden = !noteEditable();
   const model = activityModel({
     remote,
     currentSet: pageSets.get(remote?.current?.round),
@@ -86,11 +125,22 @@ export function renderActivity() {
     running && startedAt ? since(startedAt) : "";
   $("activity-title").textContent = model.title;
   $("activity-summary").textContent = model.summary;
+  const { background } = model;
+  const round = remote?.openRound?.round || remote?.current?.round;
+  // A row rebuilds when a page's state changes or its first note arrives,
+  // never on a later note, so the list does not redraw on every report.
   const signature = JSON.stringify([
     stopped,
     model.failed,
     model.track,
-    slots.map(({ id, title, state }) => [id, title, state]),
+    round,
+    slots.map(({ id, title, state, note }) => [
+      id,
+      title,
+      state,
+      Boolean(note),
+    ]),
+    background && Boolean(background.note),
   ]);
   const segments = $("activity-segments");
   const rows = $("activity-pages");
@@ -98,6 +148,9 @@ export function renderActivity() {
     rows.dataset.signature = signature;
     segments.replaceChildren();
     rows.replaceChildren();
+    drawn.clear();
+    for (const key of opened)
+      if (!key.startsWith(`${round}:`)) opened.delete(key);
     if (model.track) {
       const track = document.createElement("i");
       track.className = `track ${model.track}`;
@@ -112,35 +165,31 @@ export function renderActivity() {
             ? "now"
             : "";
       segments.append(item);
-      const row = document.createElement("div");
-      row.className = "activity-page";
-      const name = document.createElement("span");
-      name.textContent = slot.title;
-      const label = document.createElement("small");
-      label.textContent = slotLabel(slot.state, model);
-      const mark = pageIndicator(pageStatus({ status: slot.state }));
-      if (stopped) mark.classList.add("stopped");
-      row.append(mark, name, label);
-      rows.append(row);
+      rows.append(...drawRow(slot, stopped, `${round}:page:${slot.id}`));
+    }
+    if (background) {
+      const divider = document.createElement("div");
+      divider.className = "activity-divider";
+      rows.append(
+        divider,
+        ...drawRow(background, stopped, `${round}:background`),
+      );
     }
   }
-  const { footer } = model;
-  const report = $("activity-report");
-  // The mark is replaced only when its state changes, so polling does not
-  // restart its breathing.
-  const mark = pageIndicator(
-    footer.mark === "stopped" ? "active" : footer.mark,
-  );
-  if (footer.mark === "stopped") mark.classList.add("stopped");
-  const old = report.querySelector(".page-activity");
-  if (old?.className !== mark.className)
-    old ? old.replaceWith(mark) : report.prepend(mark);
-  // The agent's own note stands apart from the time it was sent, and the
-  // time stays on one line when the note wraps.
-  $("activity-report-text").textContent = footer.at
-    ? `${footer.text}${footer.note ? " ·" : ""} ${recently(footer.at).replaceAll(" ", " ")}`
-    : footer.text;
-  report.classList.toggle("late", Boolean(footer.late));
+  // Each render sets the labels in place, so the times advance between
+  // rebuilds.
+  const listed = [
+    ...slots.map((slot) => [`${round}:page:${slot.id}`, slot]),
+    ...(background ? [[`${round}:background`, background]] : []),
+  ];
+  for (const [key, slot] of listed) {
+    const row = drawn.get(key);
+    if (!row) continue;
+    const label = rowLabel(slot, model);
+    row.label.textContent = label.text;
+    row.row.classList.toggle("late", Boolean(label.late));
+    if (row.note) row.note.textContent = label.note || "";
+  }
   // When the wake fails, another agent can take the session over.
   const handoff = $("activity-handoff");
   handoff.hidden = !model.failed;

@@ -9,6 +9,27 @@ export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
   return `Finished ${ago(publishedAt, now)} · took ${since(receivedAt, finished)}`;
 }
 
+// A row turns late when five minutes pass without a report on it.
+const LATE = 300000;
+const later = (a, b) =>
+  !a ? b : !b ? a : Date.parse(a) >= Date.parse(b) ? a : b;
+
+// The label on a row of the progress card: a page's state, or for a page at
+// work, how long ago it last reported. A page with no note yet counts from
+// when it started.
+export function rowLabel(slot, { stopped, failed }, now = Date.now()) {
+  if (slot.state === "ready") return { text: "Ready" };
+  if (slot.state !== "active") return { text: "Queued" };
+  if (stopped) return { text: failed ? "Stopped" : "Paused" };
+  const at = slot.note?.at || slot.startedAt;
+  if (!at) return { text: "Working" };
+  return {
+    text: ago(at, now),
+    late: now - Date.parse(at) >= LATE,
+    note: slot.note?.text || null,
+  };
+}
+
 export function activityModel({
   remote,
   currentSet,
@@ -22,9 +43,6 @@ export function activityModel({
   const read = Boolean(latest) && remote.lastAcknowledgedId === latest;
   const received =
     read || (Boolean(latest) && remote.lastReceivedId === latest);
-  // The agent's last report, and the note it gave with ack.
-  const reportAt = remote?.report?.at;
-  const note = remote?.report?.note;
   const failed = remote?.wake?.last?.ok === false;
   const paused = Boolean(remote?.paused);
   const stopped = failed || paused;
@@ -54,60 +72,45 @@ export function activityModel({
   const takeover = remote?.takeover
     ? ` · ${remote.takeover.name} took over at ${new Date(remote.takeover.at).toTimeString().slice(0, 5)}`
     : "";
+  // With no note in the footer, the summary line names why the agent
+  // stopped, and before the page list exists, that it has the feedback.
+  const reason = failed
+    ? "Could not wake the agent. Send a message in chat."
+    : paused
+      ? `Agent paused${remote.paused.reason ? `: ${remote.paused.reason}.` : "."} Send a message in chat.`
+      : null;
   const summary = inFlight
     ? "Saving your comments"
-    : (slots.length
+    : reason ||
+      (slots.length
         ? `${ready} of ${slots.length} pages ready`
-        : "Feedback saved") + takeover;
-  const late = (at) => Boolean(at) && now - Date.parse(at) >= 300000;
-  // The footer always has a mark and a line, so the card keeps its shape
-  // from the send to the last page. The frame shows `at` as a relative time.
-  let footer;
-  if (inFlight) footer = { mark: "active", text: "Saving your feedback" };
-  else if (failed)
-    footer = {
-      mark: "stopped",
-      text: "Could not wake the agent. Send a message in chat.",
-      late: true,
-    };
-  else if (paused)
-    footer = {
-      mark: "stopped",
-      text: `Agent paused${remote.paused.reason ? `: ${remote.paused.reason}.` : "."} Send a message in chat.`,
-      late: true,
-    };
-  // With nothing sent yet, such as a takeover on the first round, there is
-  // no send for the agent to report on.
-  else if (latest && !received)
-    footer = { mark: "queued", text: "No agent report yet" };
-  else if (finished)
-    footer = {
-      mark: "complete",
-      text: "Finished",
-      at: remote.current?.publishedAt,
-    };
-  else if (note)
-    footer = {
-      mark: "active",
-      text: note,
-      note: true,
-      at: reportAt,
-      late: late(reportAt),
-    };
-  else if (!slots.length)
-    footer = {
-      mark: "active",
-      text: read ? "Agent read your feedback" : "Agent received your feedback",
-      at: reportAt,
-      late: late(reportAt),
-    };
-  else
-    footer = {
-      mark: "active",
-      text: "Last report",
-      at: reportAt,
-      late: late(reportAt),
-    };
+        : received
+          ? read
+            ? "Agent read your feedback"
+            : "Agent received your feedback"
+          : "Feedback saved") + takeover;
+  // The Background row takes the notes sent without --page. It counts from
+  // the last of them, or from the start of the round before any, and it
+  // shows only while the agent is at work on a round it has received. Once
+  // Agreed publishes it shows only a note sent after that, because a note
+  // from planning the round is not background work.
+  const agreedAt = remote?.openRound?.agreedAt;
+  const noteAfterAgreed =
+    !agreedAt ||
+    (remote?.report?.noteAt &&
+      Date.parse(remote.report.noteAt) > Date.parse(agreedAt));
+  const background =
+    inFlight || (latest && !received) || finished || !remote || !noteAfterAgreed
+      ? null
+      : {
+          id: "background",
+          title: "Background",
+          state: "active",
+          startedAt: later(remote.report?.noteAt, remote.roundStartedAt),
+          note: remote.report?.note
+            ? { text: remote.report.note, at: remote.report.noteAt }
+            : null,
+        };
   // Until the page list exists, the bar is one track that moves while the
   // agent works on the feedback.
   const track = slots.length
@@ -115,7 +118,7 @@ export function activityModel({
     : inFlight || (received && !stopped)
       ? "moving"
       : "still";
-  return { slots, ready, failed, stopped, title, summary, footer, track };
+  return { slots, ready, failed, stopped, title, summary, background, track };
 }
 
 // Outside a round that a send started, the card still tells the reviewer

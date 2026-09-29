@@ -6,13 +6,24 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # main's ruleset requires the Ubuntu jobs by the names test (20.1.0),
+    # test (20) and test (24), so they keep them, and the macOS job adds its
+    # platform to its name.
+    name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.node) || format('test ({0}, {1})', matrix.os, matrix.node) }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # The oldest Node pair supports, the latest Node 20, and the current
         # LTS.
         node: [20.1.0, 20, 24]
+        # macOS limits socket paths to 104 bytes and puts temporary
+        # directories under long /var/folders paths, so the suite runs there
+        # too, on the current LTS.
+        include:
+          - os: macos-latest
+            node: 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

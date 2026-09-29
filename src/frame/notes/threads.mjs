@@ -3,7 +3,7 @@ import { prefs } from "#frame/app/store.mjs";
 import { ago } from "#frame/app/time.mjs";
 import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
 import { base, editable, page, pages, plan } from "#frame/app/view.mjs";
-import { findText } from "#frame/notes/notes.mjs";
+import { findText, placeMarks } from "#frame/notes/notes.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
@@ -206,6 +206,9 @@ function images(message) {
 function messageRow(thread, message, index) {
   const agent = message.from === "agent";
   const row = element("div", "thread-message");
+  // A notification of a reply opens the page at this ID. Messages are only
+  // ever added at the end, so an index names the same message every time.
+  row.id = `thread-${thread.id}-${index}`;
   const avatar = element("span", "thread-avatar", agent ? "A" : "Y");
   avatar.classList.toggle("agent", agent);
   avatar.setAttribute("aria-hidden", "true");
@@ -286,7 +289,8 @@ function statusLine(thread) {
 function buildCard(id) {
   const card = element("pair-thread", "thread");
   card.dataset.thread = id;
-  // A notification of a reply opens the page at this ID.
+  // A notification of a reply from before replies named their message opens
+  // the page at this ID.
   card.id = `thread-${id}`;
   const head = element("div", "thread-head");
   const title = element("span", "thread-title");
@@ -391,6 +395,29 @@ function blockOf(root, thread) {
   const range = thread.quote && findText(root, thread.quote);
   return (range && top(range.startContainer)) || null;
 }
+// A thread started from the progress card is about the work in progress.
+const onProgress = (thread) =>
+  thread.topic === "agreed" && thread.target === "agent-activity";
+// While the progress card shows, its threads sit under it, open. Once the
+// round is done and the card hides, they sit under the finished line at the
+// top of Agreed, collapsed unless the reviewer expanded one.
+function placeProgress(threads) {
+  const live = !$("agent-activity").hidden;
+  let after = live ? $("agent-activity") : $("finished-line");
+  let moved = false;
+  for (const thread of threads) {
+    if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
+    const entry = cards.get(thread.id);
+    drawCard(entry, thread, null, !live);
+    if (after.nextElementSibling !== entry.card) {
+      after.after(entry.card);
+      moved = true;
+    }
+    after = entry.card;
+  }
+  // The cards sit above the page's content, so the note bars move with it.
+  if (moved) placeMarks();
+}
 // Each card goes under its block, after the cards started there before it.
 // With four or more threads on one block, all but the two newest start
 // collapsed.
@@ -401,10 +428,11 @@ export function placeThreads() {
     .filter((item) => item.round === plan.round && item.topic === page.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const ids = new Set(list.map((item) => item.id));
-  for (const card of root.querySelectorAll("pair-thread"))
+  for (const card of $("reading").querySelectorAll("pair-thread"))
     if (!ids.has(card.dataset.thread)) card.remove();
+  placeProgress(list.filter(onProgress));
   const groups = new Map();
-  for (const thread of list) {
+  for (const thread of list.filter((item) => !onProgress(item))) {
     const block = blockOf(root, thread);
     groups.set(block, [...(groups.get(block) || []), thread]);
   }

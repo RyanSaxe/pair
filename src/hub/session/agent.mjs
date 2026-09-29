@@ -16,7 +16,13 @@ export function agent(session) {
   const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
   // Each agent command is a report, and the reviewer sees when the last one
   // came. Only ack carries a note, so any other report clears the last one.
-  const report = (note = null) => ({ report: { at: timestamp(), note } });
+  // noteAt keeps the time of the last note, which the Background row counts
+  // from, so a report without a note does not reset it.
+  const report = (note = null) => {
+    const at = timestamp();
+    const noteAt = note ? at : session.state.report?.noteAt;
+    return { report: { at, note, ...(noteAt ? { noteAt } : {}) } };
+  };
   const receive = (event) =>
     event && session.state.lastReceivedId !== event.id
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
@@ -57,7 +63,11 @@ export function agent(session) {
         .map((slot) =>
           slot.state === "active" ? `${slot.id} (started)` : slot.id,
         );
-      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every five minutes.`;
+      const steps =
+        session.state.current.offer === "finish"
+          ? "before you start the step that page shows, run pair publish when the step is done and checked"
+          : "as you begin a page, run pair publish as soon as it builds";
+      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID ${steps}, and report with pair ack --note at least every five minutes.`;
     }
     if (session.state.stage === "working")
       return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;
@@ -166,11 +176,22 @@ export function agent(session) {
         (typeof data.note === "string" && data.note.trim().length <= 80),
       "An ack note is text of at most 80 characters",
     );
+    requireValue(
+      data.page === undefined || Boolean(data.note?.trim()),
+      "ack --page takes --note",
+    );
     const [event] = await pending();
-    await transition({
-      ...report(data.note?.trim() || null),
-      ...receive(event),
-    });
+    await transition(
+      data.page === undefined
+        ? { ...report(data.note?.trim() || null), ...receive(event) }
+        : {
+            ...session.notePage(data.page, data.note.trim()),
+            // A page note is a report for the round's time. The Background
+            // row keeps its own note and the time of that note.
+            report: { ...session.state.report, at: timestamp() },
+            ...receive(event),
+          },
+    );
     return {
       status: view(),
       received: event ? { id: event.id, intent: event.payload.intent } : null,
