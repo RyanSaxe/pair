@@ -3,7 +3,15 @@ import { test } from "node:test";
 import { openCount } from "../../../src/frame/pages/side-work.mjs";
 
 test("openCount counts recorded, started, working and pull-request items", () => {
-  const items = ["recorded", "started", "working", "pr", "done", "dropped"];
+  const items = [
+    "recorded",
+    "started",
+    "working",
+    "pr",
+    "done",
+    "dropped",
+    "planned",
+  ];
   assert.equal(openCount(items.map((state) => ({ state }))), 4);
 });
 

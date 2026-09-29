@@ -1,12 +1,20 @@
 import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { pages, plan, session } from "#frame/app/view.mjs";
+import {
+  editable,
+  pages,
+  plan,
+  session,
+  showingWaiting,
+  waiting,
+} from "#frame/app/view.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import {
   eventHref,
   eventTarget,
   eventTitle,
 } from "#frame/sync/notifications.mjs";
+import { openPast, remote } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
 /* The bell lists the agent replies and side-work pull requests of every
@@ -128,15 +136,25 @@ function drawCenter() {
   );
 }
 // An event opens where it happened. In this tab's own round that is a page
-// change, and anywhere else a new address. Opening it removes its line.
+// change, in another round of this session it opens under Previous, and
+// anywhere else it is a new address. Opening it removes its line.
 function openEvent(event) {
   clear([event.id]);
   toggleCenter(false);
-  const here =
-    event.entry.id === session.sessionId &&
-    (!event.round || event.round === plan.round) &&
-    pages.some((item) => item.id === event.page);
-  if (here) show(event.page, eventTarget(event) || null);
+  const target = eventTarget(event) || null;
+  const round = event.round || plan.round;
+  const own = event.entry.id === session.sessionId;
+  if (
+    own &&
+    round === plan.round &&
+    !showingWaiting() &&
+    pages.some((item) => item.id === event.page)
+  )
+    show(event.page, target);
+  // A round other than Current's, or the sent round while Current waits,
+  // opens under Previous. A read-only page has no Previous tab.
+  else if (own && editable && (round !== remote.current.round || waiting()))
+    void openPast(round, { pageId: event.page, targetId: target });
   else location.assign(eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");

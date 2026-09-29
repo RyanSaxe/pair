@@ -264,3 +264,7 @@ with the steps for the item. Follow them, and report each change with the
 `pair side-work update` command in the message. The hub takes
 `pair side-work` from any agent, so an agent you brief can report its own
 progress.
+
+When the reviewer asks for a side-work item in this session's plan, add the
+item to Agreed, then run
+`pair side-work update ID --state planned --session-dir PATH`.

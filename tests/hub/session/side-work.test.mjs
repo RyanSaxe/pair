@@ -255,7 +255,51 @@ test("a recorded side-work item can move to a new session", async (t) => {
   assert.equal(unsupported.code, 400);
   assert.equal(
     unsupported.body.error,
-    "pair side-work update takes --state working, pr, done or moved",
+    "pair side-work update takes --state working, pr, done, moved or planned",
+  );
+});
+
+test("only a recorded side-work item can be marked planned, and it then takes no other state", async (t) => {
+  const { add, update, reviewer } = await sideWorkSession(t);
+  const added = await add();
+  const linked = await update(added.id, {
+    state: "planned",
+    url: "https://github.com/RyanSaxe/pair/pull/12",
+  });
+  assert.equal(linked.code, 400);
+  assert.equal(linked.body.error, "--state planned takes no --url");
+  const planned = await update(added.id, { state: "planned" });
+  assert.equal(planned.code, 200, planned.body.error);
+  assert.equal(planned.body.item.state, "planned");
+
+  const again = await update(added.id, { state: "planned" });
+  assert.equal(again.code, 409);
+  assert.equal(
+    again.body.error,
+    `Side work ${added.id} is in state planned, and only a recorded item takes --state planned.`,
+  );
+  for (const state of ["working", "moved"]) {
+    const refused = await update(added.id, { state });
+    assert.equal(refused.code, 409);
+    assert.equal(
+      refused.body.error,
+      `Side work ${added.id} is in the session's plan, so it takes no other state.`,
+    );
+  }
+  const start = await reviewer(added.id, "start");
+  assert.equal(start.code, 409);
+  assert.equal(
+    start.body.error,
+    `Side work ${added.id} is in the session's plan`,
+  );
+
+  const dropped = await add();
+  assert.equal((await reviewer(dropped.id, "drop")).code, 200);
+  const droppedPlan = await update(dropped.id, { state: "planned" });
+  assert.equal(droppedPlan.code, 409);
+  assert.equal(
+    droppedPlan.body.error,
+    `Side work ${dropped.id} is in state dropped, and only a recorded item takes --state planned.`,
   );
 });
 

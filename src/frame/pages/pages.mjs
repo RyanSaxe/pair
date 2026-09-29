@@ -96,7 +96,9 @@ export function show(
   const resuming = restoring?.round === displayedRound && restoring.page === id;
   if (!resuming) endRestore();
   const top = scroller().scrollTop;
-  const feedback = id === "feedback" && hasFeedbackPage;
+  // The waiting view has no Review page, because its round's feedback is
+  // sent, so a saved place or a #feedback link opens its Agreed.
+  const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
   let drawing = null;
   $("reading").hidden = feedback;
   $("feedback").hidden = !feedback;
@@ -181,7 +183,9 @@ export function show(
 // details around it and the Agreed tab that holds it.
 export function reveal(targetId) {
   const target = targetId && $(targetId);
-  if (!target || !$("page-content").contains(target)) return;
+  // A Progress thread's card is above the page content, under the progress
+  // card or the finished line.
+  if (!target || !$("reading").contains(target)) return;
   const panel = target.closest(".agreed-panel");
   if (panel) showAgreedTab(panel.id);
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)

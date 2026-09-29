@@ -93,8 +93,10 @@ async function loadPastSubmission(round) {
   const draft = onScreen ? state : views.get(round)?.draft;
   if (submission && draft && !draft.submitted) showSent(draft, submission);
   if (!onScreen) return;
+  // A reply the reader followed here stays in view through the redraw.
+  const target = new URLSearchParams(location.search).get("target");
   if (!$("reading").hidden)
-    show(page.id, null, { keepScroll: true, push: false });
+    show(page.id, target, { keepScroll: !target, push: false });
   renderSentFeedback();
   renderHistory();
 }
