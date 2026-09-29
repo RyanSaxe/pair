@@ -10,7 +10,11 @@ import path from "node:path";
 // before the answer.
 export function listen(deliver) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pair-"));
-  const socket = path.join(directory, "wake.sock");
+  // Windows has no socket files, so the socket there is a named pipe.
+  const socket =
+    process.platform === "win32"
+      ? `\\\\.\\pipe\\${path.basename(directory)}`
+      : path.join(directory, "wake.sock");
   const server = net.createServer((connection) => {
     let text = "";
     connection.setEncoding("utf8");
