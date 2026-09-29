@@ -199,3 +199,10 @@ Never use port 4747 or the default state directory, `~/.local/state/pair`.
 They belong to the person using pair on this machine: a session started there
 shows in their Live sessions, and a hub started there from your checkout serves
 their sessions with your code.
+
+When a change alters what the README's or the docs' screenshots show, run
+`npm run screenshots` on macOS and commit the PNGs it rewrites. The script
+starts its own hub on a port the system assigns, with its state in a
+temporary directory, and takes each screenshot in the installed Google
+Chrome. The frame's text is the system font, so the script refuses to run on
+another system, where lines would break in other places.

@@ -30,7 +30,8 @@ disk.
 | `adapters/`       | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session.                         |
 | `tests/`          | The test suites, the browser tests in `tests/browser/`, and a fixture page with every component.                 |
 | `docs/`           | These pages.                                                                                                     |
-| `assets/`         | The README's screenshots.                                                                                        |
+| `assets/`         | The README's screenshots, which `npm run screenshots` writes.                                                    |
+| `scripts/`        | The script `npm run screenshots` runs, and the demo session it stages.                                           |
 | `.agents/skills/` | The skills an agent reads when it changes pair. npm and `npx skills add` leave them out.                         |
 
 [AGENTS.md](../../AGENTS.md) names the modules inside `src/` and the rules an
@@ -59,6 +60,11 @@ before the first run.
 `npm run test:figures` checks that every figure in the fixture renders. CI
 runs it in a separate `figures` job, because a figure whose library loads from
 esm.sh or jsDelivr fails the test while that CDN is down.
+
+`npm run screenshots` writes the README's and the docs' PNGs from a demo
+session, in Google Chrome through the same `playwright-core`. It runs on
+macOS, because the frame's text is the system font. Commit the PNGs it
+rewrites, because CI takes no screenshots.
 
 ## Releasing
 

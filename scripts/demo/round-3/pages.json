@@ -1,0 +1,36 @@
+{
+  "pages": [
+    {
+      "id": "waking-the-agent",
+      "title": "Waking the agent",
+      "file": "../round-2/waking-the-agent.html"
+    },
+    {
+      "id": "pair-reply",
+      "title": "pair reply",
+      "file": "../round-2/pair-reply.html"
+    },
+    { "id": "tests", "title": "Tests", "file": "tests.html" }
+  ],
+  "agreements": [
+    {
+      "id": "answer",
+      "title": "The answer appears under its block",
+      "html": "<p>The reply card goes under the block you asked about. Round 2, the first mock.</p>",
+      "change": "new",
+      "source": { "round": "2", "choice": "answer" }
+    },
+    {
+      "id": "start",
+      "title": "Start a thread from the note dialog",
+      "html": "<p>Start a thread sits beside Add to feedback in the note dialog.</p>",
+      "source": { "round": "1", "choice": "start" }
+    },
+    {
+      "id": "fragments",
+      "title": "A reply is a page fragment",
+      "html": "<p>It can hold code, diffs and diagrams, and never a decision or a question.</p>",
+      "source": { "round": "1", "note": true }
+    }
+  ]
+}

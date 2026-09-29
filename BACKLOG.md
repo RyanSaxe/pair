@@ -6,30 +6,6 @@ entry removes it from this file.
 
 ## Tooling
 
-### Screenshots
-
-The README's screenshot, `assets/pair-light.png` and `assets/pair-dark.png`,
-was taken once by a script that is not in the repository, so a change to the
-frame's look leaves it out of date, and the pages under `docs/` have none. A committed script,
-`scripts/screenshots.mjs` run as `npm run screenshots`, would start a hub on a
-free port with its state in a temporary directory, publish a demo round
-committed beside the script, and write each screenshot to `assets/` in the
-light theme, 1160 CSS pixels wide at twice the pixel density. It needs
-Playwright as a devDependency, because a screenshot taken from a URL alone
-cannot select text or open a dialog. CI can run the script and report which
-screenshots a frame change alters.
-
-The docs would then show more of pair:
-
-- A plan page on a phone, 390 pixels wide, with its options as tabs.
-- A selected passage with the note dialog open, quoting it.
-- The progress card on Agreed while a round's pages arrive, with the round's
-  running time.
-- The notification center with a session waiting and new events.
-
-`files` in `package.json` lists only `src`, `guide`, `adapters` and `skills`,
-so the npm package includes neither `assets/` nor `scripts/`.
-
 ### TypeScript
 
 Move the source to `.ts` files with a compile step, as one of the last changes
