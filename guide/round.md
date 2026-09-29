@@ -1,20 +1,51 @@
-# Run one review round
+# Run one round
 
-Every round has the same goals. The reviewer should be reading within
-minutes and never reading something half done. Publish Agreed and the page
-names first, then each page once it is complete, so a thorough round
-still starts quickly. Research what this round's pages need, not
-everything the final plan will. Give the reviewer a round they can work
-through in one sitting, and show each subject with the visual that lets
-them judge it. The final plan must stand on its own for someone who saw
-none of the rounds. [quality.md](quality.md) has the detail behind these
-goals. Reread it when a page or the plan needs more than this paragraph.
+In every round, deliver good work quickly. Good work is correct, gives the
+reviewer what they need, and states nothing you have not checked. Quickly
+means the reviewer is reading within minutes, new pages keep arriving, and
+your latest progress note says what you are working on. When the two
+conflict, shipping beats perfection: publish sound work the reviewer can use
+now, and leave the rest for a later page or round. The final plan is the
+exception. Someone who saw none of the rounds builds from it, so neither the
+plan nor its build leaves anything for later.
+
+Work in parallel to get both. Give any work that would delay the next page
+to a background subagent, and keep publishing while it runs. The Subagents
+section explains how.
+
+Publish Agreed and the page names first, then each page as soon as it is
+complete. Show each subject with the visual that lets the reviewer
+understand or judge it. [quality.md](quality.md) has the detail behind these
+goals. Reread it whenever these paragraphs are not enough for a page or the
+plan.
 
 When the reviewer submits, the hub sends you a wake message that names
 `pair ack`. Every session command is `pair COMMAND --session-dir PATH`, with
 the path from the wake message. `pair start`, `pair ack`, `pair read`,
 `pair progress` and `pair publish` print the next step. `pair guide`,
 `pair build` and `pair diff` take no session.
+
+## Subagents
+
+A subagent runs work at the same time as you and keeps that work's detail
+out of your context. Decide how many to run and what each one does, and
+start each one as soon as you know what it will do. Starting work that a
+later round will need can spend tokens on work that the feedback makes
+unnecessary, but starting it late makes the reviewer wait.
+
+Divide the work so that each page depends on as little of it as possible,
+and publish each page as soon as it is complete, whether you or a subagent
+wrote it. You answer for every page, so check a subagent's results before
+they reach the reviewer.
+
+Tell each subagent what to do, where to start and what earlier rounds
+already found, so that it does no more than the round needs and does not
+repeat earlier work. Have it put its results in your work directory, with
+their sources and anything it could not settle.
+
+Report on subagents as on your own work, including when each one starts and
+finishes. If one is still running when the round's last page is ready,
+publish the page, end your turn, and use its results in the next round.
 
 ## Tell the reviewer what you are doing
 
@@ -77,9 +108,11 @@ before changing Agreed.
 
 1. Plan the round: the decisions that matter most now, in coherent pages
    the reviewer can work through in one sitting, the most consequential
-   first. Write the pages that follow Agreed to `pages.json` as
-   `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A settled topic
-   leaves the list, and an unchanged page is not repeated.
+   first. The page list cannot change after Agreed publishes, so decide now
+   what work each page needs, and start the work that would delay a page
+   before you publish Agreed. Write the pages that follow Agreed to
+   `pages.json` as `{ "pages": [{ "id": "topic", "title": "Topic" }] }`. A
+   settled topic leaves the list, and an unchanged page is not repeated.
 2. Decide whether the round has an offer, which lets the reviewer accept
    it. Name the offer in Agreed's source only, because `pair build` refuses
    any other page whose source names one. An offer is optional, and a round
@@ -102,10 +135,9 @@ before changing Agreed.
 
 4. Mark a page started as soon as work on it begins, research included:
    `pair progress --start ID`, or `--start "a|b"` for pages worked on at the
-   same time. Independent pages can be worked on in parallel, by subagents
-   where the harness has them. To revise an earlier page, copy its source
-   from the session's `src/<round>/<page-id>/` and change its `round` to
-   this one.
+   same time. Independent pages can be worked on in parallel by subagents.
+   To revise an earlier page, copy its source from the session's
+   `src/<round>/<page-id>/` and change its `round` to this one.
 5. Read each page against [quality.md](quality.md) and
    [writing.md](writing.md), then build and publish it as soon as it is
    done. Do not keep finished pages back to publish them together at the

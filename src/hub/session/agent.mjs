@@ -57,7 +57,11 @@ export function agent(session) {
         .map((slot) =>
           slot.state === "active" ? `${slot.id} (started)` : slot.id,
         );
-      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID as you begin a page, run pair publish as soon as it builds, and report with pair ack --note at least every five minutes.`;
+      const steps =
+        session.state.current.offer === "finish"
+          ? "before you start the step that page shows, run pair publish when the step is done and checked"
+          : "as you begin a page, run pair publish as soon as it builds";
+      return `Pages still to publish: ${left.join(", ")}. Run pair progress --start ID ${steps}, and report with pair ack --note at least every five minutes.`;
     }
     if (session.state.stage === "working")
       return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages before any other page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;

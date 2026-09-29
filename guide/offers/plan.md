@@ -26,14 +26,17 @@ nothing else.
    [agreements.md](../agreements.md) says for a build round. List one page
    per step of the plan unless another structure explains the work better,
    and make the pull request description the last page.
-3. Report progress as [round.md](../round.md) describes: run
-   `pair progress --start ID` as you begin each page's part of the work, and
-   `pair ack --note "…"` whenever the work changes and at least every five
-   minutes.
+3. Build the plan one step at a time. Before you change anything for a
+   step, run `pair progress --start ID` with the ID of the page that shows
+   it, so the reviewer sees which step you are building, not only which page
+   you are writing. For steps you build at the same time, run
+   `--start "a|b"`. Report with `pair ack --note "…"` whenever the work
+   changes and at least every five minutes, as [round.md](../round.md)
+   describes.
 4. Commit on a branch as the project's instructions say, and open no pull
    request.
-5. Publish each page when its part of the work is done and checked. The page
-   shows what was built and states any departure from the plan, with the
+5. When a step is done and checked, publish its page before you start the
+   next step. The page shows what was built and states any departure from the plan, with the
    reason. Do not stop to ask. When the plan does not settle something,
    decide in line with the plan's intent, build it, and say on the page what
    you decided and why.
