@@ -270,6 +270,12 @@ img,
 svg {
   max-width: 100%;
 }
+/* pair build writes each image's width and height, so the browser reserves
+   the image's box before it decodes. The ratio holds when max-width narrows
+   the image. */
+img {
+  height: auto;
+}
 .renderer-error {
   color: var(--muted);
   font-size: var(--text-small);

@@ -11,7 +11,9 @@ planUI.define("chart", {
         caption: element.dataset.caption,
         kind: "chart",
       });
-    return planUI.chart(element, options).catch((error) => {
+    // The chart draws into a box of fixed height, so the page does not wait
+    // for ECharts.
+    planUI.chart(element, options).catch((error) => {
       element.textContent = JSON.stringify(options, null, 2);
       failed(element, error);
     });

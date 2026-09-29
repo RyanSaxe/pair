@@ -51,6 +51,33 @@ import {
 } from "#frame/sync/rounds.mjs";
 
 export let displayedRound;
+/* A page whose diagrams or formulas are still drawing stays hidden, with
+   its layout kept, until they draw, so nothing on it moves once it
+   appears. A setup that never settles holds the page back for at most
+   DRAW_LIMIT_MS. Each show() takes a new generation, so an older page's
+   wait never uncovers a newer page early. */
+const DRAW_LIMIT_MS = 10000;
+let showing = 0;
+function whenDrawn(drawing, then) {
+  const generation = ++showing;
+  const content = $("page-content");
+  if (!drawing) {
+    delete content.dataset.drawing;
+    then();
+    return;
+  }
+  content.dataset.drawing = "";
+  let timer;
+  Promise.race([
+    drawing,
+    new Promise((resolve) => (timer = setTimeout(resolve, DRAW_LIMIT_MS))),
+  ]).then(() => {
+    clearTimeout(timer);
+    if (generation !== showing) return;
+    delete content.dataset.drawing;
+    then();
+  });
+}
 function visiblePageId() {
   if (displayedRound !== viewKey()) return null;
   return $("reading").hidden ? "feedback" : page.id;
@@ -70,6 +97,7 @@ export function show(
   if (!resuming) endRestore();
   const top = scroller().scrollTop;
   const feedback = id === "feedback" && hasFeedbackPage;
+  let drawing = null;
   $("reading").hidden = feedback;
   $("feedback").hidden = !feedback;
   if (!feedback) {
@@ -90,12 +118,12 @@ export function show(
       blockTargets($("page-content"), page.id);
       choiceTargets($("page-content"), page.id);
     }
-    if (page.id === "agreed" && !page.waiting) renderAgreements();
+    if (page.id === "agreed" && !page.waiting) drawing = renderAgreements();
     else if (!page.pending) {
       restoreChoices();
       restoreAnswers();
       markNotes();
-      enhance($("page-content"));
+      drawing = enhance($("page-content"));
     }
     countNotes();
     renderSentPageComments();
@@ -141,7 +169,9 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  if (!feedback) reveal(targetId);
+  whenDrawn(drawing, () => {
+    if (!feedback) reveal(targetId);
+  });
   $("quote").hidden = true;
   if (!inPlace) closeMenus();
   updateNavigation();

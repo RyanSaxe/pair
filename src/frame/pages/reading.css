@@ -23,6 +23,11 @@
   position: relative;
   container: page / inline-size;
 }
+/* show() keeps a page hidden, with its layout, until its diagrams and
+   formulas draw. */
+#page-content[data-drawing] {
+  visibility: hidden;
+}
 #page-content p,
 #page-content li {
   font-size: var(--text-body);

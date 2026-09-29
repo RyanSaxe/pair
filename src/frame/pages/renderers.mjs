@@ -49,6 +49,62 @@ export function track(task) {
   return task;
 }
 export const syntaxThemes = { light: "github-light", dark: "github-dark" };
+
+/* The height @pierre/diffs 1.4.2 gives a diff that it draws from a patch
+   alone, with overflow "scroll", as measured in Chromium and WebKit. Each
+   row is 22px, and the rows have 8px of space above and below. Before each
+   hunk that does not start at the line after the previous one stands an
+   "N unmodified lines" separator, 32px with 8px of space below it, and 8px
+   above it too after a hunk. In split view a run of removed lines and the
+   added lines after it share rows, so the run takes as many rows as its
+   longer side. "\\ No newline at end of file" takes a row, one for each
+   side it marks in unified view. renderDiff() reserves this height as
+   the viewer's min-height before the diff draws. */
+const DIFF_ROW_PX = 22;
+const DIFF_SEPARATOR_PX = 32;
+const DIFF_SPACE_PX = 8;
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+export function diffHeight(patch, diffStyle = "split") {
+  let rows = 0;
+  let space = 0;
+  let run = { "-": 0, "+": 0, marked: new Set() };
+  let previous = null;
+  // The new file's line after the previous hunk, and null before the first.
+  let next = null;
+  const endRun = () => {
+    const { marked } = run;
+    rows +=
+      diffStyle === "split"
+        ? Math.max(run["-"], run["+"]) + Math.min(marked.size, 1)
+        : run["-"] + run["+"] + marked.size;
+    run = { "-": 0, "+": 0, marked: new Set() };
+  };
+  for (const line of patch.split("\n")) {
+    const hunk = HUNK_HEADER.exec(line);
+    if (hunk) {
+      endRun();
+      const start = Number(hunk[1]);
+      const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
+      // A hunk with no new lines sits after its start line.
+      const first = count ? start : start + 1;
+      if (first > (next ?? 1))
+        space += DIFF_SEPARATOR_PX + DIFF_SPACE_PX * (next === null ? 1 : 2);
+      next = first + count;
+    } else if (next === null) continue;
+    else if (line[0] === "-" || line[0] === "+") run[line[0]] += 1;
+    else if (line[0] === " ") {
+      endRun();
+      rows += 1;
+    } else if (line[0] === "\\") {
+      if (previous === " ") rows += 1;
+      else if (previous) run.marked.add(previous);
+    }
+    previous = line[0];
+  }
+  endRun();
+  if (next !== null) space += 2 * DIFF_SPACE_PX;
+  return rows * DIFF_ROW_PX + space;
+}
 export function theme() {
   document.documentElement.dataset.theme = activeTheme;
   for (const button of $("theme").querySelectorAll("[data-theme]"))
@@ -254,8 +310,15 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
     element.textContent = "No changes.";
     return null;
   }
+  // Before the first await, so the box has the diff's height before the
+  // page paints, and keeps it: the diff draws into it and moves nothing.
+  element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
   diffsTask ||= import(libraries.diffs);
   const { FileDiff, parsePatchFiles } = await diffsTask;
+  // Once the library has loaded, the await above resumes in a microtask,
+  // and the browser paints only after every microtask has run. Waiting for
+  // a task gives each diff a task of its own, so the page paints first.
+  await new Promise((resolve) => setTimeout(resolve));
   if (!element.isConnected) return null;
   let viewer = diffs.get(element);
   if (viewer) {
@@ -273,7 +336,9 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
     diffStyle,
     lineDiffType: "word-alt",
     diffIndicators: "classic",
-    overflow: "wrap",
+    // A long line scrolls sideways instead of wrapping, so every row is one
+    // line tall and diffHeight() can count the diff's height.
+    overflow: "scroll",
     disableFileHeader: true,
   });
   element.replaceChildren();

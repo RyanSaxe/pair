@@ -442,5 +442,5 @@ export function renderAgreements() {
   showAgreedTab(
     (items.length && tabsByRound.get(plan.round)) || defaultAgreedTab(items),
   );
-  enhance(root);
+  return enhance(root);
 }
