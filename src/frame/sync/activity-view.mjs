@@ -5,6 +5,7 @@ import {
   currentShown,
   editable,
   mode,
+  noteEditable,
   page,
   pastRound,
   plan,
@@ -12,6 +13,7 @@ import {
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
 import { displayedRound, pageIndicator } from "#frame/pages/pages.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
 import { renderSentFeedback, shownSubmission } from "#frame/review/review.mjs";
@@ -88,6 +90,7 @@ export function renderActivity() {
     !past && displayedRound === viewKey() && page.id === "agreed";
   const running = submissionInFlight || roundRunning();
   const visible = onAgreed && (running || agentNotice(remote));
+  const wasHidden = $("agent-activity").hidden;
   $("agent-activity").hidden = !visible;
   const finished =
     onAgreed && !visible && roundFinished()
@@ -102,7 +105,11 @@ export function renderActivity() {
       pageIndicator("complete"),
       document.createTextNode(finished),
     );
+  // A thread started from the card sits under it, or under the finished line
+  // once the card hides, so it moves when the card shows or hides.
+  if (wasHidden !== !visible) placeThreads();
   if (!visible) return;
+  $("activity-message").hidden = !noteEditable();
   const model = activityModel({
     remote,
     currentSet: pageSets.get(remote?.current?.round),

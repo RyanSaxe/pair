@@ -7,7 +7,12 @@ import {
   page,
   plan,
 } from "#frame/app/view.mjs";
-import { editing, noteContext, noteDraftKey } from "#frame/notes/notes.mjs";
+import {
+  editing,
+  noteContext,
+  noteDraftKey,
+  openAgentMessage,
+} from "#frame/notes/notes.mjs";
 import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 
@@ -152,9 +157,12 @@ export function installNoteDialog() {
     event.preventDefault();
     $("note-thread").click();
   });
+  $("activity-message").onclick = openAgentMessage;
+  // The form's submit, which Shift+Enter also triggers, adds nothing to
+  // feedback while Add to feedback is hidden.
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
-    if (!feedbackEditable()) return;
+    if (!feedbackEditable() || $("note-save").hidden) return;
     const text = $("note-text").value.trim();
     if (!text) return;
     const note = {

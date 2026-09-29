@@ -122,6 +122,14 @@ button.activity-page[aria-expanded="true"] small::after {
   font-size: var(--text-tiny);
   overflow-wrap: anywhere;
 }
+/* The footer contains only Message the agent, on the right, below a rule. */
+.activity-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
 @media (prefers-reduced-motion: reduce) {
   .activity-segments i.now {
     animation: none;
