@@ -6,27 +6,6 @@ entry removes it from this file.
 
 ## Tooling
 
-### Libraries from npm instead of CDNs
-
-The frame loads Shiki, @pierre/diffs, Mermaid, KaTeX and ECharts from
-esm.sh and jsdelivr, and the drawing editor loads Excalidraw and React from
-esm.sh. A page opened offline, before the browser has cached them, shows
-each figure's source instead of the figure. Only KaTeX and ECharts load
-with an integrity hash. The others load through `import()`, which takes
-no hash, so a changed file on the CDN runs unchecked. `npm outdated` and
-Dependabot read `package.json`, so neither reports a newer release of a
-library whose version is pinned in a URL.
-
-Decide, library by library, whether pair installs it from npm and how a
-page then loads it. The six libraries install 356 MiB in 389 npm packages,
-or 265 MiB in 187 without Excalidraw. A browser rendering every figure in
-the test fixture loads 15.9 MiB of them, decoded.
-
-The build embeds each of the frame's modules as a `data:` URL behind an
-import map, and the browser loads them as native modules with no bundler,
-which suits a frame that takes no npm dependencies. Once the frame takes a
-library from npm, a bundler becomes the better way to build it.
-
 ### Browser tests
 
 `npm test` runs in Node, so nothing tests the frame's behavior in a
@@ -44,22 +23,6 @@ tests:
 
 Each CI run downloads Chrome Headless Shell, 114 MiB on Linux, unless CI
 caches it.
-
-### Browser checks before publishing
-
-`pair build` checks a page's markup but does not parse Mermaid, ECharts
-options or KaTeX, so a diagram, chart or formula with an error shows the
-error only when someone opens the page. A browser check, such as
-`pair check PAGE.html`, would open the built page in headless Chrome and
-list each figure that failed to render and each script error, so the agent
-fixes them before it publishes.
-
-`playwright-core` as a dependency can drive the Chrome already installed,
-which adds about 12 MiB to an install and downloads no browser. On an Apple
-M3 Max, Chrome started in 0.3 s and rendered the 25 components of the test
-fixture's Figures page in about 1 s. Playwright's own headless Chromium
-would add 192 MiB on macOS instead. A machine without Chrome would skip the
-check and say so.
 
 ### Screenshots
 
@@ -121,14 +84,3 @@ A compile step changes how every part of pair runs:
 - `node --test` runs `.ts` tests directly on Node 26.7.0, because the tests
   sit outside `node_modules`. Node 20 cannot strip types, so on Node 20 the
   tests run from the compiled output, or `engines.node` rises.
-
-## Frame
-
-### Page performance
-
-A long page opens with a visible lag. Measure where the time goes before
-changing anything, with a browser's performance profile of a long page from a
-real session and of the test fixture: parsing the built HTML, loading the
-frame's modules from their `data:` URLs, rendering the figures and diffs, and
-the frame's setup of each block for notes and choices. Fix the largest cost,
-then measure the same pages again.
