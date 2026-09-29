@@ -3,11 +3,13 @@
   border-radius: 8px;
   overflow: auto;
 }
+/* The plain source takes the highlighted block's padding and line height,
+   so a block keeps its height when Shiki replaces it. */
 [data-language]:not(:has(.shiki)) {
-  padding: 12px 14px;
+  padding: 10px 14px;
   white-space: pre;
   font:
-    12px/1.65 ui-monospace,
+    12px/20px ui-monospace,
     SFMono-Regular,
     Menlo,
     Consolas,
@@ -26,6 +28,7 @@
 }
 [data-language] .shiki code {
   display: block;
+  line-height: 20px;
   counter-reset: codeline;
 }
 /* Inline-block, never block: Shiki writes a newline after each line span,
@@ -33,9 +36,13 @@
 /* min-width, not width: the line stretches to the full width so a lit line
    is lit to the edge, and still grows past it so the block keeps scrolling
    on a line the column cannot hold. */
+/* Top-aligned, so each line is exactly one line height tall, as each line
+   of the plain source is. On the baseline, some inline-block lines are
+   taller, and a 277-line block grew 48px when Shiki highlighted it. */
 [data-language] .shiki .line {
   position: relative;
   display: inline-block;
+  vertical-align: top;
   min-width: 100%;
   /* An empty line is a box with no content, which would collapse and put
      its number on top of the next one. */
