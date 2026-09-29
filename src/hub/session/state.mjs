@@ -12,6 +12,7 @@ import {
 } from "../../shared/util.mjs";
 import { activity } from "./activity.mjs";
 import { agent } from "./agent.mjs";
+import { pageNotes } from "./page-notes.mjs";
 import { rounds } from "./rounds.mjs";
 import { sideWork } from "./side-work.mjs";
 import { submissions } from "./submissions.mjs";
@@ -145,6 +146,7 @@ export async function loadSession(directory, config, origin) {
     submissions(session),
     agent(session),
     rounds(session),
+    pageNotes(session),
     await sideWork(session),
     threads(session),
     await activity(session),
@@ -161,11 +163,15 @@ export async function loadSession(directory, config, origin) {
         ? {
             openRound: {
               round: state.openRound.round,
-              pages: state.openRound.pages.map(({ id, title, state }) => ({
-                id,
-                title,
-                state,
-              })),
+              pages: state.openRound.pages.map(
+                ({ id, title, state, startedAt, note }) => ({
+                  id,
+                  title,
+                  state,
+                  ...(startedAt ? { startedAt } : {}),
+                  ...(note ? { note } : {}),
+                }),
+              ),
             },
           }
         : {}),

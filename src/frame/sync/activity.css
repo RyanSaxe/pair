@@ -77,16 +77,36 @@
 .activity-page span:nth-child(2) {
   flex: 1;
 }
-.agent-activity .activity-report {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 11px 0 0;
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
+/* A working row with a note is a button that opens the note under it. */
+button.activity-page {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.agent-activity .activity-report.late {
+button.activity-page small::after {
+  content: " ▾";
+}
+button.activity-page[aria-expanded="true"] small::after {
+  content: " ▴";
+}
+.activity-page.late small {
   color: var(--attention);
+}
+/* The 18px mark and the row's 8px gap put the note under the page's name. */
+.activity-note {
+  margin: 0 0 4px 26px;
+  color: var(--muted);
+  font-size: var(--text-tiny);
+  overflow-wrap: anywhere;
+}
+.activity-divider {
+  height: 1px;
+  margin: 5px 0;
+  background: var(--line);
 }
 #reading > .agent-activity {
   margin-bottom: 24px;

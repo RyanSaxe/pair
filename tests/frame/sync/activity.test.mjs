@@ -5,6 +5,7 @@ import {
   agentNotice,
   finishedLine,
   roundModel,
+  rowLabel,
 } from "../../../src/frame/sync/activity.mjs";
 
 const now = Date.parse("2026-01-01T00:10:00Z");
@@ -31,14 +32,12 @@ test("feedback waits without inventing page names", () => {
   assert.equal(waiting.title, "Waiting for the agent");
   assert.deepEqual(waiting.slots, []);
   assert.equal(waiting.track, "still");
-  assert.deepEqual(waiting.footer, {
-    mark: "queued",
-    text: "No agent report yet",
-  });
+  assert.equal(waiting.summary, "Feedback saved");
+  assert.equal(waiting.background, null);
   const sending = run({ current: { round: "1" } }, { inFlight: true });
   assert.equal(sending.title, "Sending feedback");
   assert.equal(sending.track, "moving");
-  assert.equal(sending.footer.mark, "active");
+  assert.equal(sending.background, null);
   const acknowledged = run({
     current: { round: "1" },
     ...read,
@@ -47,12 +46,9 @@ test("feedback waits without inventing page names", () => {
   assert.equal(acknowledged.title, "Preparing the next round");
   assert.deepEqual(acknowledged.slots, []);
   assert.equal(acknowledged.track, "moving");
-  assert.deepEqual(acknowledged.footer, {
-    mark: "active",
-    text: "Agent read your feedback",
-    at: "2026-01-01T00:09:20Z",
-    late: false,
-  });
+  assert.equal(acknowledged.summary, "Agent read your feedback");
+  assert.equal(acknowledged.background.title, "Background");
+  assert.equal(acknowledged.background.note, null);
 });
 
 test("published page names keep their order while readiness changes", () => {
@@ -68,12 +64,7 @@ test("published page names keep their order while readiness changes", () => {
     model.slots.map((item) => item.id),
     ["agreed", "overview", "detail"],
   );
-  assert.deepEqual(model.footer, {
-    mark: "active",
-    text: "Last report",
-    at: "2026-01-01T00:09:00Z",
-    late: false,
-  });
+  assert.equal(model.background.note, null);
   const finished = run(
     {
       current: { round: "2", publishedAt: "2026-01-01T00:08:00Z" },
@@ -87,38 +78,34 @@ test("published page names keep their order while readiness changes", () => {
     },
   );
   assert.equal(finished.title, "All pages ready");
-  assert.deepEqual(finished.footer, {
-    mark: "complete",
-    text: "Finished",
-    at: "2026-01-01T00:08:00Z",
-  });
+  assert.equal(finished.background, null);
 });
 
-test("a report older than five minutes turns late and pause or wake failure wins", () => {
+test("pause or a failed wake names the reason in the summary, and the rows stop", () => {
   const remote = {
     current: { round: "2" },
     ...read,
     report: { at: "2026-01-01T00:05:00Z", note: null },
   };
-  assert.equal(
-    run(remote, { now: Date.parse("2026-01-01T00:09:59Z") }).footer.late,
-    false,
-  );
-  assert.equal(run(remote).footer.late, true);
-  assert.equal(run(remote).footer.text, "Last report");
   const paused = run({ ...remote, paused: { reason: "Waiting for input" } });
   assert.equal(paused.stopped, true);
-  assert.equal(paused.footer.mark, "stopped");
-  assert.match(
-    paused.footer.text,
-    /Waiting for input\. Send a message in chat/,
+  assert.equal(
+    paused.summary,
+    "Agent paused: Waiting for input. Send a message in chat.",
   );
+  assert.deepEqual(rowLabel(paused.slots[1], paused, now), { text: "Paused" });
   const failed = run({
     ...remote,
     wake: { last: { ok: false } },
     paused: { reason: "Waiting" },
   });
-  assert.match(failed.footer.text, /Could not wake the agent/);
+  assert.equal(
+    failed.summary,
+    "Could not wake the agent. Send a message in chat.",
+  );
+  assert.deepEqual(rowLabel(failed.background, failed, now), {
+    text: "Stopped",
+  });
   const pausedEarly = run({
     current: { round: "1" },
     ...read,
@@ -127,7 +114,7 @@ test("a report older than five minutes turns late and pause or wake failure wins
   assert.equal(pausedEarly.track, "still");
 });
 
-test("ack shows the agent has the feedback, and its note replaces the report line", () => {
+test("a note without --page goes on the Background row, which counts from it", () => {
   const received = run({
     current: { round: "1" },
     latestSubmissionId: "s2",
@@ -137,25 +124,66 @@ test("ack shows the agent has the feedback, and its note replaces the report lin
   });
   assert.equal(received.title, "Preparing the next round");
   assert.equal(received.track, "moving");
-  assert.deepEqual(received.footer, {
-    mark: "active",
-    text: "Agent received your feedback",
-    at: "2026-01-01T00:09:30Z",
+  assert.equal(received.summary, "Agent received your feedback");
+  const background = (report, extra = {}) => {
+    const model = run({ current: { round: "2" }, ...read, report, ...extra });
+    return rowLabel(model.background, model, now);
+  };
+  // A note keeps the time it was sent, so an old one still turns late, and
+  // page notes since then move only report.at.
+  assert.deepEqual(
+    background({
+      at: "2026-01-01T00:09:30Z",
+      note: "Writing the overview page",
+      noteAt: "2026-01-01T00:04:00Z",
+    }),
+    { text: "6 min ago", late: true, note: "Writing the overview page" },
+  );
+  // Before any note in this round, the row counts from the round's start,
+  // and a note from an earlier round does not count.
+  const start = { roundStartedAt: "2026-01-01T00:08:00Z" };
+  const quiet = { text: "2 min ago", late: false, note: null };
+  assert.deepEqual(
+    background({ at: "2026-01-01T00:09:00Z", note: null }, start),
+    quiet,
+  );
+  assert.deepEqual(
+    background(
+      {
+        at: "2026-01-01T00:09:00Z",
+        note: null,
+        noteAt: "2026-01-01T00:01:00Z",
+      },
+      start,
+    ),
+    quiet,
+  );
+});
+
+test("a working page's label counts from its note, or from its start, and turns late at five minutes", () => {
+  const working = { stopped: false, failed: false };
+  const at = (clock) => Date.parse(`2026-01-01T00:${clock}Z`);
+  const noted = {
+    state: "active",
+    startedAt: "2026-01-01T00:00:00Z",
+    note: { text: "Drafting", at: "2026-01-01T00:05:00Z" },
+  };
+  assert.deepEqual(rowLabel(noted, working, at("09:59")), {
+    text: "5 min ago",
     late: false,
+    note: "Drafting",
   });
-  // A note keeps the time it was sent, so an old one still turns late.
-  const noted = run({
-    current: { round: "2" },
-    ...read,
-    report: { at: "2026-01-01T00:04:00Z", note: "Writing the overview page" },
+  assert.equal(rowLabel(noted, working, at("10:00")).late, true);
+  const silent = { state: "active", startedAt: "2026-01-01T00:05:00Z" };
+  assert.deepEqual(rowLabel(silent, working, at("09:59")), {
+    text: "5 min ago",
+    late: false,
+    note: null,
   });
-  assert.deepEqual(noted.footer, {
-    mark: "active",
-    text: "Writing the overview page",
-    note: true,
-    at: "2026-01-01T00:04:00Z",
-    late: true,
-  });
+  assert.equal(rowLabel(silent, working, at("10:00")).late, true);
+  assert.deepEqual(rowLabel({ state: "active" }, working), { text: "Working" });
+  assert.deepEqual(rowLabel({ state: "ready" }, working), { text: "Ready" });
+  assert.deepEqual(rowLabel({ state: "queued" }, working), { text: "Queued" });
 });
 
 test("the round status counts pages until the last one and names a silent agent", () => {
@@ -234,10 +262,13 @@ test("the card names the agent that took the session over, and when", () => {
     ...read,
     takeover: { name: "Codex", at },
   });
-  assert.equal(model.summary, `Feedback saved · Codex took over at ${clock}`);
+  assert.equal(
+    model.summary,
+    `Agent read your feedback · Codex took over at ${clock}`,
+  );
   assert.equal(
     run({ current: { round: "1" }, ...read }).summary,
-    "Feedback saved",
+    "Agent read your feedback",
   );
 });
 
@@ -259,7 +290,8 @@ test("the card shows outside a running round what the reviewer must know", () =>
       },
     },
   );
-  assert.equal(first.footer.text, "Finished");
+  assert.equal(first.title, "All pages ready");
+  assert.equal(first.background, null);
   // Accepting finished work woke no one: the card stays until the agent
   // completes the session, and a failed wake from a finished round is gone.
   const failed = { wake: { last: { ok: false } } };

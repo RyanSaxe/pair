@@ -418,6 +418,69 @@ test("the next round may choose unrelated pages without changing history", async
   );
 });
 
+test("a page note sits on its slot until the page publishes", async (t) => {
+  const { act, publish, status } = await session(t);
+  const pages = [...firstPages, { id: "steps", title: "Steps" }];
+  const agreed = await publish(
+    "1",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    {},
+    pages,
+  );
+  assert.equal(agreed.status, 200, JSON.stringify(agreed.body));
+  assert.equal((await act({ action: "ack", note: "Reading" })).status, 200);
+  const before = (await status()).report;
+  const noted = await act({
+    action: "ack",
+    note: " Drafting ",
+    page: "detail",
+  });
+  assert.equal(noted.status, 200, JSON.stringify(noted.body));
+  const slot = () =>
+    status().then((s) =>
+      s.openRound.pages.find((item) => item.id === "detail"),
+    );
+  const drafting = await slot();
+  assert.equal(drafting.state, "active");
+  assert.ok(drafting.startedAt);
+  assert.equal(drafting.note.text, "Drafting");
+  // The page note moves the round's report time and keeps the Background note.
+  const after = (await status()).report;
+  assert.equal(after.note, "Reading");
+  assert.equal(after.noteAt, before.noteAt);
+  assert.ok(Date.parse(after.at) >= Date.parse(before.at));
+  // Another page publishing leaves the note, and this page publishing ends it.
+  await publish("1", "overview", "Overview", "<p>x</p>");
+  assert.equal((await slot()).note.text, "Drafting");
+  await publish("1", "detail", "Detail", "<p>x</p>");
+  const published = await slot();
+  assert.equal(published.state, "ready");
+  assert.equal(published.note, undefined);
+});
+
+test("a page note is refused before Agreed, on an unknown page and on a published page", async (t) => {
+  const { act, publish } = await session(t);
+  const refusal = async (data) =>
+    (await act({ action: "ack", ...data })).body.error;
+  assert.equal(
+    await refusal({ note: "Reading", page: "detail" }),
+    "Publish Agreed before a page note",
+  );
+  await publish("1", "agreed", "Agreed so far", undefined, {}, firstPages);
+  assert.equal(await refusal({ page: "detail" }), "ack --page takes --note");
+  assert.equal(
+    await refusal({ note: "Reading", page: "nope" }),
+    "Unknown page nope in round 1",
+  );
+  await publish("1", "overview", "Overview", "<p>x</p>");
+  assert.equal(
+    await refusal({ note: "Reading", page: "overview" }),
+    "Page overview is already published",
+  );
+});
+
 test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
   const h = await testHub(t);
   const a = await h.session();

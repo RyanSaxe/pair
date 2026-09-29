@@ -47,14 +47,15 @@ adapting it takes little time.
 
 Tell each subagent what to do, where to start and what earlier rounds
 already found, so that it does not repeat their work. Give it a rough
-estimate of how long the work should take and the session directory, so
-that it reports its own progress with `pair ack --note` and says when it
-expects to take longer. Have it put its results in your work directory,
+estimate of how long the work should take, the session directory and the ID
+of the page it works on, so that it reports its own progress with
+`pair ack --note "…" --page ID`, or without `--page` for a hedge, and says
+when it expects to take longer. Have it put its results in your work directory,
 with their sources and anything it could not settle.
 
-Send a progress note when each subagent starts and when it finishes. If one
-is still running when the round's last page is ready, publish the page and
-end your turn.
+When a subagent starts or finishes, say so in a note on its page, or on the
+Background row for a hedge. If one is still running when the round's last
+page is ready, publish the page and end your turn.
 
 ## Tell the reviewer what you are doing
 
@@ -65,14 +66,19 @@ From the first round on, run `pair ack --note "…"` whenever you start
 something the reviewer would want to know about, such as reading their
 feedback, checking the code a page depends on, planning the pages, writing a
 page or waiting for subagents. Write the note for the reviewer, in 80
-characters or fewer. `pair progress --start` shows which page you are on,
-and a note says what you are doing on it:
-`pair ack --note "Adding last month's CI failures to the retry page"`.
+characters or fewer. `pair progress --start` shows which page you are on.
+Add `--page ID` to a note about one page's work, and the note shows on that
+page's row of the progress card:
+`pair ack --note "Adding last month's CI failures" --page retry`. A note
+without `--page` shows on the card's Background row, for work that is not
+one page's, such as reading the feedback, planning the pages or a hedge for
+a later round.
 
-Report whenever the work changes, and at least every five minutes.
-`pair read`, `pair progress`, `pair publish` and `pair reply` are reports
-too, and each clears the last note. A subagent that writes a page reports
-with `pair progress` and `pair ack` itself.
+Report whenever the work changes, and at least every five minutes on each
+page in progress. A page's note stays until the page publishes or gets a
+newer one. `pair read`, `pair progress`, `pair publish` and `pair reply`
+count as reports too. A subagent that writes a page reports with
+`pair progress` and `pair ack --page` itself.
 
 ## Answer a thread
 

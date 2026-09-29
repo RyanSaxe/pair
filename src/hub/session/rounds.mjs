@@ -367,6 +367,7 @@ export function rounds(session) {
         const slot = set.pages.find((item) => item.id === page.id);
         slot.recordPath = recordPath;
         slot.state = "ready";
+        delete slot.note;
         slot.version = version;
         set.generation++;
       }
@@ -408,6 +409,7 @@ export function rounds(session) {
         409,
       );
       slot.state = "active";
+      slot.startedAt ??= timestamp();
     }
     set.generation++;
     return commitPageRound(set);
