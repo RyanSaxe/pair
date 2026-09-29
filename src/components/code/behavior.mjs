@@ -158,6 +158,8 @@ planUI.define("code", {
         kind: "code",
       });
     }
-    return renderCode(element);
+    // The plain source already has the highlighted block's height, so the
+    // page does not wait for Shiki.
+    void renderCode(element);
   },
 });
