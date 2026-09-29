@@ -6,6 +6,10 @@ on:
 
 jobs:
   test:
+    # main's ruleset requires the Ubuntu jobs by the names test (20.1.0),
+    # test (20) and test (24), so they keep them, and the macOS job adds its
+    # platform to its name.
+    name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.node) || format('test ({0}, {1})', matrix.os, matrix.node) }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
