@@ -161,7 +161,17 @@ test("a command refuses an option it does not take and changes nothing", async (
       assert.equal(error.code, 1);
       assert.equal(
         error.stderr,
-        "pair: --nte is not an option of pair ack, which takes --session-dir, --note\n",
+        "pair: --nte is not an option of pair ack, which takes --session-dir, --note, --page\n",
+      );
+      return true;
+    },
+  );
+  await assert.rejects(
+    run("status", "--session-dir", sessionDir, "--page", "overview"),
+    (error) => {
+      assert.equal(
+        error.stderr,
+        "pair: --page is not an option of pair status, which takes --session-dir\n",
       );
       return true;
     },

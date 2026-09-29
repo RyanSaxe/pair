@@ -366,10 +366,27 @@ export function openNote(
   // A new note on a page can start a thread, when a hub can take it.
   $("note-thread").hidden = Boolean(id) || topic === "overall" || !online;
   $("note-save").hidden = !feedback;
+  // Every note opens the dialog in its usual form, whatever the last
+  // opening changed.
+  $("note-label").textContent = "Feedback";
+  $("note-anchor").hidden = false;
+  $("note-thread").classList.remove("primary");
   opener = document.activeElement;
   $("note-dialog").showModal();
   $("note-text").focus();
   $("quote").hidden = true;
+}
+/* The progress card's button starts a thread about the work in progress.
+   The dialog shows only Start a thread, because the message is for the
+   agent now and does not go into the round's feedback. */
+export function openAgentMessage() {
+  openNote("agreed", "Progress", "", null, null, "agent-activity");
+  if (!$("note-dialog").open) return;
+  $("note-title").textContent = "Message the agent";
+  $("note-label").textContent = "Message";
+  $("note-anchor").hidden = true;
+  $("note-save").hidden = true;
+  $("note-thread").classList.add("primary");
 }
 /* A note that quotes nothing leaves no highlight to find it by, so the block
    it belongs to keeps a quiet bar in the same padding the chosen one uses.

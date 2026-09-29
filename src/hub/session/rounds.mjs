@@ -353,6 +353,7 @@ export function rounds(session) {
       if (page.id === "agreed") {
         set.agreed = recordPath;
         set.agreedVersion = version;
+        set.agreedAt = timestamp();
         // The round keeps the frame it started with, so an update to
         // pair mid-round cannot mix two frames in one built file.
         set.bundlePath = path.join(
@@ -367,6 +368,7 @@ export function rounds(session) {
         const slot = set.pages.find((item) => item.id === page.id);
         slot.recordPath = recordPath;
         slot.state = "ready";
+        delete slot.note;
         slot.version = version;
         set.generation++;
       }
@@ -408,6 +410,7 @@ export function rounds(session) {
         409,
       );
       slot.state = "active";
+      slot.startedAt ??= timestamp();
     }
     set.generation++;
     return commitPageRound(set);

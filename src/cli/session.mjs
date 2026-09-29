@@ -118,7 +118,10 @@ async function keepSource(sessionDir, source, html) {
 const actions = {
   status: async () => ({}),
   read: async (options) => ({ id: options.id }),
-  ack: async (options) => ({ note: options.note }),
+  ack: async (options) => ({
+    note: options.note,
+    ...(options.page !== undefined ? { page: options.page } : {}),
+  }),
   progress: async (options) => {
     requireValue(options.start, "progress takes --start ID");
     return { start: options.start.split("|") };
@@ -171,7 +174,7 @@ const commandOptions = {
   start: ["session-dir"],
   status: ["session-dir"],
   read: ["session-dir", "id"],
-  ack: ["session-dir", "note"],
+  ack: ["session-dir", "note", "page"],
   progress: ["session-dir", "start"],
   pause: ["session-dir", "reason"],
   publish: ["session-dir", "file", "pages", "source"],

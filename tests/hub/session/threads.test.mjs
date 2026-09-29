@@ -136,6 +136,26 @@ test("pair reply marks the thread read, then posts text or a checked fragment", 
   assert.equal((await thread(id)).state, "replied");
 });
 
+// The progress card's Message the agent button starts its thread on Agreed,
+// which the round's page list never names.
+test("a thread starts on Agreed from the progress card, and pair reply names its block", async (t) => {
+  const { a, start, settled } = await published(t);
+  const started = await start({
+    topic: "agreed",
+    anchor: "Progress",
+    target: "agent-activity",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const { id } = started.body.thread;
+  await settled(id);
+  const opened = await a.action("reply", { note: id });
+  assert.equal(opened.code, 200, opened.body.error);
+  assert.match(
+    opened.body.text,
+    new RegExp(`^Thread ${id} on "Agreed so far", block "Progress" `),
+  );
+});
+
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {
   const { a, start, thread, settled } = await published(t);
   // The inbox is gone, as it is once the agent's session has ended.
