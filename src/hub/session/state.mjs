@@ -163,6 +163,9 @@ export async function loadSession(directory, config, origin) {
         ? {
             openRound: {
               round: state.openRound.round,
+              ...(state.openRound.agreedAt
+                ? { agreedAt: state.openRound.agreedAt }
+                : {}),
               pages: state.openRound.pages.map(
                 ({ id, title, state, startedAt, note }) => ({
                   id,

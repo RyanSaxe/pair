@@ -91,9 +91,16 @@ export function activityModel({
           : "Feedback saved") + takeover;
   // The Background row takes the notes sent without --page. It counts from
   // the last of them, or from the start of the round before any, and it
-  // shows only while the agent is at work on a round it has received.
+  // shows only while the agent is at work on a round it has received. Once
+  // Agreed publishes it shows only a note sent after that, because a note
+  // from planning the round is not background work.
+  const agreedAt = remote?.openRound?.agreedAt;
+  const noteAfterAgreed =
+    !agreedAt ||
+    (remote?.report?.noteAt &&
+      Date.parse(remote.report.noteAt) > Date.parse(agreedAt));
   const background =
-    inFlight || (latest && !received) || finished || !remote
+    inFlight || (latest && !received) || finished || !remote || !noteAfterAgreed
       ? null
       : {
           id: "background",

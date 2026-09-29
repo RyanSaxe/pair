@@ -353,6 +353,7 @@ export function rounds(session) {
       if (page.id === "agreed") {
         set.agreed = recordPath;
         set.agreedVersion = version;
+        set.agreedAt = timestamp();
         // The round keeps the frame it started with, so an update to
         // pair mid-round cannot mix two frames in one built file.
         set.bundlePath = path.join(

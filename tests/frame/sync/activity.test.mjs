@@ -158,6 +158,21 @@ test("a note without --page goes on the Background row, which counts from it", (
     ),
     quiet,
   );
+  // Once Agreed publishes, a note from planning the round makes no
+  // Background row, and a note sent after Agreed does.
+  const afterAgreed = (noteAt) =>
+    run({
+      current: { round: "2" },
+      ...read,
+      report: { at: "2026-01-01T00:09:00Z", note: "Planning", noteAt },
+      openRound: {
+        round: "2",
+        agreedAt: "2026-01-01T00:05:00Z",
+        pages: [{ id: "loop", title: "Loop", state: "active" }],
+      },
+    }).background;
+  assert.equal(afterAgreed("2026-01-01T00:04:00Z"), null);
+  assert.equal(afterAgreed("2026-01-01T00:06:00Z").note.text, "Planning");
 });
 
 test("a working page's label counts from its note, or from its start, and turns late at five minutes", () => {
