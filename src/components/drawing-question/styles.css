@@ -1,20 +1,78 @@
+/* The card matches the text question's. Before the reviewer draws, the
+   button sits on an empty canvas where the answer box would be. Afterwards
+   the drawing fills the canvas and the button moves under it. */
 .drawing-question {
   display: grid;
-  gap: 10px;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
 }
-.drawing-question h3,
-.drawing-question p {
+.drawing-question > h3 {
   margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.4;
+}
+.drawing-question > p {
+  margin: 0;
+}
+.drawing-question > .question-why {
+  font-size: var(--text-label);
+  color: var(--muted);
+}
+/* Pages published before the canvas put the tag and the button straight
+   in the card. */
+.drawing-question > .tag,
+.drawing-question > .btn {
+  justify-self: start;
+}
+.drawing-stage {
+  display: grid;
+  margin-top: 4px;
+}
+.drawing-stage > * {
+  grid-area: 1 / 1;
+}
+.drawing-canvas {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  padding: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: var(--ground);
+}
+.drawing-stage > [data-draw] {
+  place-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.drawing-stage > [data-draw]::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16v4z'/%3E%3Cpath d='m13.5 6.5 4 4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.drawing-question[data-drawn] .drawing-canvas {
+  border-style: solid;
+  border-color: var(--line);
+  background: white;
+}
+.drawing-question[data-drawn] .drawing-stage > [data-draw] {
+  grid-area: 2 / 1;
+  place-self: start;
+  margin-top: 8px;
+}
+.drawing-question[data-drawn] .drawing-stage > [data-draw]::before {
+  content: none;
 }
 .drawing-question .drawing-preview {
   display: block;
   max-width: 100%;
   max-height: 320px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: white;
-}
-.drawing-question > .tag,
-.drawing-question .btn {
-  justify-self: start;
+  border-radius: 6px;
 }
