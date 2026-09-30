@@ -20,6 +20,10 @@ html {
 .app[data-loading] {
   visibility: hidden;
 }
+.app[data-loading] ~ #quote,
+.app[data-loading] ~ #note-tip {
+  visibility: hidden;
+}
 .frame-header {
   flex: none;
   z-index: var(--z-header);

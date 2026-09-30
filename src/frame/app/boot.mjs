@@ -174,6 +174,7 @@ function start() {
         await pollSessions();
         setInterval(pollSessions, 5000);
       } finally {
+        if (target) await placeTarget(target);
         $("app").removeAttribute("data-loading");
         if (
           target &&
@@ -188,6 +189,31 @@ function start() {
     review();
     $("app").removeAttribute("data-loading");
   }
+}
+/* A notification's target can arrive with the page record after status and
+   thread sync. Put it in view before the hidden frame's first paint, while a
+   stale link can still release the frame after a bounded wait. */
+function placeTarget(target) {
+  const deadline = performance.now() + 10000;
+  return new Promise((resolve) => {
+    const check = () => {
+      if (new URL(location.href).searchParams.get("target") !== target) {
+        resolve();
+        return;
+      }
+      const element = $(target);
+      if (
+        element &&
+        $("reading").contains(element) &&
+        !$("page-content").hasAttribute("data-drawing")
+      ) {
+        reveal(target);
+        resolve();
+      } else if (performance.now() >= deadline) resolve();
+      else requestAnimationFrame(check);
+    };
+    check();
+  });
 }
 /* A module runs once the document is parsed, so readyState is "interactive"
    by this line and DOMContentLoaded is still ahead. That event is the point
