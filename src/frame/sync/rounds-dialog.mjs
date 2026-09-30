@@ -11,6 +11,7 @@ import { chooseBlock } from "#frame/notes/blocks.mjs";
 import { closeDrawer, displayedRound } from "#frame/pages/pages.mjs";
 import { renderHistory } from "#frame/sync/activity-view.mjs";
 import {
+  cancelPendingRoundNavigation,
   openPast,
   remote,
   selectedTab,
@@ -69,6 +70,7 @@ export function renderRounds() {
     // page has no tabs, so it opens the round's own page.
     row.onclick = () => {
       toggleRoundMenu(false);
+      cancelPendingRoundNavigation();
       if (here) return;
       if (mode !== "live")
         location.assign(

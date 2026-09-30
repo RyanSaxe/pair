@@ -248,6 +248,17 @@ test("the submit control is settled on first paint across navigation", async (t)
   for (const action of ["ack", "read"])
     assert.equal((await first.session.action(action)).code, 200);
   await first.publish("2", navigationRound("2", "First session", "first"));
+  const roundTwoFeedback = await first.session.feedback(
+    first.session.event("feedback-only", "2", { name: "first" }),
+  );
+  assert.equal(
+    roundTwoFeedback.code,
+    200,
+    JSON.stringify(roundTwoFeedback.body),
+  );
+  for (const action of ["ack", "read"])
+    assert.equal((await first.session.action(action)).code, 200);
+  await first.publish("3", navigationRound("3", "First session", "first"));
   await page.goto(first.url("r/1"));
   await assertFirstSubmit(page, {
     visible: false,
@@ -255,6 +266,12 @@ test("the submit control is settled on first paint across navigation", async (t)
     text: "Feedback",
     class: "btn header-submit",
   });
+  await page.evaluate((sessionId) => {
+    localStorage.setItem(
+      `pair:place:${sessionId}`,
+      JSON.stringify({ tab: "current", past: "1", places: {} }),
+    );
+  }, first.session.id);
   await page.locator("#history-return").click();
   await page.waitForURL(new RegExp(`${first.session.id}/$`));
   await assertFirstSubmit(page, ready);
@@ -263,33 +280,22 @@ test("the submit control is settled on first paint across navigation", async (t)
     id: document.querySelector("#page-content").dataset.pageId,
     round: document.querySelector("#page-content").dataset.round,
   }));
-  await assertStableSubmit(
-    page,
-    ready,
-    () => page.locator("#past-tab").click(),
-    () => page.locator('#past-tab[aria-selected="true"]').waitFor(),
-  );
-  assert.deepEqual(
-    await page.evaluate(() => ({
-      id: document.querySelector("#page-content").dataset.pageId,
-      round: document.querySelector("#page-content").dataset.round,
-    })),
-    pageBeforeTabs,
-  );
-  await assertStableSubmit(
-    page,
-    ready,
-    () => page.locator("#current-tab").click(),
-    () => page.locator('#current-tab[aria-selected="true"]').waitFor(),
-  );
-  assert.deepEqual(
-    await page.evaluate(() => ({
-      id: document.querySelector("#page-content").dataset.pageId,
-      round: document.querySelector("#page-content").dataset.round,
-    })),
-    pageBeforeTabs,
-  );
-
+  let releaseRoundOne;
+  let startRoundOne;
+  const roundOneRequest = new Promise((resolve) => {
+    startRoundOne = resolve;
+  });
+  const holdRoundOne = new Promise((resolve) => {
+    releaseRoundOne = resolve;
+  });
+  await page.route("**/api/submission**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("round") === "1") {
+      startRoundOne();
+      await holdRoundOne;
+    }
+    await route.continue();
+  });
   const pastButton = sentButton(false, "Send feedback");
   await page.evaluate(() => {
     window.__historyReturnTrace = [];
@@ -316,19 +322,60 @@ test("the submit control is settled on first paint across navigation", async (t)
   });
   await assertStableSubmit(
     page,
+    ready,
+    async () => {
+      await page.locator("#past-tab").click();
+      await roundOneRequest;
+      await page.locator("#current-tab").click();
+    },
+    () => page.locator('#current-tab[aria-selected="true"]').waitFor(),
+  );
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      id: document.querySelector("#page-content").dataset.pageId,
+      round: document.querySelector("#page-content").dataset.round,
+    })),
+    pageBeforeTabs,
+  );
+  await assertStableSubmit(
+    page,
     pastButton,
     async () => {
       await page.locator("#round").click();
-      await page
+      const roundTwo = page
         .locator("#round-list .dialog-row")
-        .filter({ hasText: "Round 1" })
-        .click();
+        .filter({ hasText: "Round 2" });
+      const menuState = await page.evaluate(() => ({
+        pageRound: document.querySelector("#page-content").dataset.round,
+        selectedPast: document
+          .querySelector("#past-tab")
+          .getAttribute("aria-selected"),
+      }));
+      assert.equal(
+        await roundTwo.evaluate((row) => row.classList.contains("current")),
+        false,
+        `Round 2 was already marked current: ${JSON.stringify(menuState)}`,
+      );
+      await roundTwo.click();
     },
-    async () => {
-      await roundIsShown(page, "1");
-      await page.waitForTimeout(1700);
-    },
+    () => roundIsShown(page, "2"),
   );
+  const roundOneResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname.endsWith("/api/submission") &&
+      url.searchParams.get("round") === "1"
+    );
+  });
+  releaseRoundOne();
+  await roundOneResponse;
+  await sleep(100);
+  assert.equal(
+    await page.locator("#past-tab").textContent(),
+    "Round 2",
+    "a slower Previous-tab load overrode the newer round selection",
+  );
+  await page.waitForTimeout(1700);
   const returnStates = await page.evaluate(() => {
     clearInterval(window.__sampleHistoryReturn);
     return window.__historyReturnTrace;
@@ -349,7 +396,7 @@ test("the submit control is settled on first paint across navigation", async (t)
     () => page.locator("#history-return").click(),
     () =>
       page.waitForFunction(
-        () => document.querySelector("#page-content").dataset.round === "2",
+        () => document.querySelector("#page-content").dataset.round === "3",
       ),
   );
 });

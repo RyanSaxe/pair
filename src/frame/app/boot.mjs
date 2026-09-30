@@ -6,7 +6,13 @@ import {
   restoreScroll,
 } from "#frame/app/places.mjs";
 import { createPlanUI, installRegistry } from "#frame/app/registry.mjs";
-import { emptyDraft, savedDraft, setState, state } from "#frame/app/store.mjs";
+import {
+  emptyDraft,
+  savedDraft,
+  setState,
+  state,
+  storedDraft,
+} from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
   agreedTask,
@@ -14,6 +20,7 @@ import {
   editable,
   mode,
   online,
+  page,
   pages,
   plan,
   query,
@@ -21,6 +28,7 @@ import {
   setPastRound,
   setSubmittedRound,
   showingWaiting,
+  storageKey,
   useSession,
   useView,
   views,
@@ -46,13 +54,35 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
-import {
-  installDraftSync,
-  openPast,
-  poll,
-  selectedTab,
-} from "#frame/sync/rounds.mjs";
+import { openPast, poll, remote, selectedTab } from "#frame/sync/rounds.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
+
+// Every tab saves one draft key. A tab takes over a draft another tab saved
+// for the round it holds, so it cannot overwrite newer work.
+function installDraftSync() {
+  if (!editable) return;
+  window.addEventListener("storage", (event) => {
+    if (event.key !== storageKey) return;
+    const past = selectedTab === "past";
+    const view = past ? views.get(remote?.current?.round) : null;
+    const held = past ? view?.draft : state;
+    const draft = held && storedDraft(event.newValue, held.round);
+    if (!draft) return;
+    if (past) {
+      view.draft = draft;
+      return;
+    }
+    setState(draft);
+    if (!$("reading").hidden)
+      show(page.id, null, {
+        keepScroll: true,
+        push: false,
+        inPlace: true,
+        supersede: false,
+      });
+    review();
+  });
+}
 
 /* Start */
 const planData = JSON.parse($("plan-data").textContent);

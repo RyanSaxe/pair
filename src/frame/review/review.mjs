@@ -2,6 +2,7 @@ import {
   draftedWords,
   emptyDraft,
   save,
+  savedDraft,
   state,
   unsentItems,
 } from "#frame/app/store.mjs";
@@ -42,7 +43,6 @@ import {
 import { renderActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import {
   connected,
-  currentDraft,
   lastSubmission,
   remote,
   selectedTab,
@@ -51,6 +51,10 @@ import {
 import { status } from "#frame/sync/sessions.mjs";
 
 let renderedFeedback = null;
+function currentDraft() {
+  const round = remote.current.round;
+  return views.get(round)?.draft || savedDraft(round);
+}
 export function setRenderedFeedback(value) {
   renderedFeedback = value;
 }

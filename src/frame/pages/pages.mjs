@@ -44,6 +44,7 @@ import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
 import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
+  cancelPendingRoundNavigation,
   loadPageRecord,
   pageStatus,
   pendingState,
@@ -90,8 +91,9 @@ function visiblePageId() {
 export function show(
   id,
   targetId = null,
-  { keepScroll = false, push = true, inPlace = false } = {},
+  { keepScroll = false, push = true, inPlace = false, supersede = true } = {},
 ) {
+  if (supersede) cancelPendingRoundNavigation();
   displayedRound = viewKey();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
   if (!resuming) endRestore();

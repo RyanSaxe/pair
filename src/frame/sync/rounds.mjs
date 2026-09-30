@@ -13,7 +13,6 @@ import {
   savedDraft,
   setState,
   state,
-  storedDraft,
 } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -32,7 +31,6 @@ import {
   setPastRound,
   setSubmittedRound,
   showingWaiting,
-  storageKey,
   submittedRound,
   useView,
   views,
@@ -61,6 +59,10 @@ import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
 import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
 
 export let selectedTab = "current";
+let navigationIntent = 0;
+export function cancelPendingRoundNavigation() {
+  navigationIntent += 1;
+}
 // What was sent on each past round the left tab has shown.
 export const sentByRound = new Map();
 export const pageSets = new Map();
@@ -96,7 +98,11 @@ async function loadPastSubmission(round) {
   // A reply the reader followed here stays in view through the redraw.
   const target = new URLSearchParams(location.search).get("target");
   if (!$("reading").hidden)
-    show(page.id, target, { keepScroll: !target, push: false });
+    show(page.id, target, {
+      keepScroll: !target,
+      push: false,
+      supersede: false,
+    });
   renderSentFeedback();
   renderHistory();
 }
@@ -116,7 +122,11 @@ export async function loadSubmission() {
   if (mode === "readonly" && submission) {
     showSent(state, submission);
     if (!$("reading").hidden)
-      show(page.id, null, { keepScroll: true, push: false });
+      show(page.id, null, {
+        keepScroll: true,
+        push: false,
+        supersede: false,
+      });
   }
   renderSentFeedback();
 }
@@ -197,7 +207,11 @@ export async function loadPageRecord(round, id) {
       const target = new URL(location.href).searchParams.get("target");
       const top = scroller().scrollTop;
       const focused = document.activeElement;
-      show(id, target, { keepScroll: true, push: false });
+      show(id, target, {
+        keepScroll: true,
+        push: false,
+        supersede: false,
+      });
       if (!(target && $(target))) {
         if (focused?.isConnected) focused.focus({ preventScroll: true });
         if (!restoring) scroller().scrollTo(0, top);
@@ -365,26 +379,28 @@ export async function openPast(
   round,
   { pageId = null, targetId = null, showPage = true } = {},
 ) {
+  const intent = ++navigationIntent;
   const loaded = await loadPastView(round).catch(() => false);
+  if (intent !== navigationIntent) return false;
   if (!loaded) {
     location.assign(`${base}/r/${encodeURIComponent(round)}`);
-    return;
+    return false;
   }
   await loadPastSubmission(round).catch(() => {});
+  if (intent !== navigationIntent) return false;
   setPastRound(round);
   if (pageId) places[round] = { page: pageId, top: 0 };
-  switchTab("past", targetId, { showPage });
-}
-// Current's draft while a past round is on screen: the one set aside when
-// the reader left Current, or the saved one.
-export function currentDraft() {
-  const view = views.get(remote?.current?.round);
-  if (view?.draft) return view.draft;
-  return savedDraft(remote.current.round);
+  switchTab("past", targetId, { showPage, supersede: false });
+  return true;
 }
 // Each tab reopens its round at the page and scroll position the reader
 // left, or at Agreed on a first visit.
-export function switchTab(tab, targetId = null, { showPage = true } = {}) {
+export function switchTab(
+  tab,
+  targetId = null,
+  { showPage = true, supersede = true } = {},
+) {
+  if (supersede) cancelPendingRoundNavigation();
   if (tab === "current" && !currentShown() && !submissionInFlight) return;
   if (tab === "past" && !pastAvailable()) return;
   if ($("finish-dialog").open) $("finish-dialog").close();
@@ -412,33 +428,11 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
     const place = view.waiting
       ? null
       : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
-    show(place?.page || "agreed", targetId);
+    show(place?.page || "agreed", targetId, { supersede: false });
     if (place?.top && !targetId) restoreScroll(place.top);
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();
-}
-// Every tab of a session saves its draft under one key. When another tab
-// saves the draft for the round this tab holds, this tab takes it over, so
-// it never saves its older copy back, such as one from before a send.
-export function installDraftSync() {
-  if (!editable) return;
-  window.addEventListener("storage", (event) => {
-    if (event.key !== storageKey) return;
-    const past = selectedTab === "past";
-    const view = past ? views.get(remote?.current?.round) : null;
-    const held = past ? view?.draft : state;
-    const draft = held && storedDraft(event.newValue, held.round);
-    if (!draft) return;
-    if (past) {
-      view.draft = draft;
-      return;
-    }
-    setState(draft);
-    if (!$("reading").hidden)
-      show(page.id, null, { keepScroll: true, push: false, inPlace: true });
-    review();
-  });
 }
 export async function poll() {
   try {
@@ -463,17 +457,21 @@ export async function poll() {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
-        switchTab("current");
+        switchTab("current", null, { supersede: false });
       }
     }
     // The next round's Agreed arrived while Current waited. It replaces
     // the pending Agreed without moving the reader or the scroll position.
     if (showingWaiting() && currentAvailable() && !submissionInFlight) {
-      switchTab("current", null, { showPage: false });
+      switchTab("current", null, {
+        showPage: false,
+        supersede: false,
+      });
       show($("reading").hidden ? "feedback" : "agreed", null, {
         keepScroll: true,
         push: false,
         inPlace: true,
+        supersede: false,
       });
     }
     await loadSubmission().catch(() => {});
