@@ -100,7 +100,7 @@ export async function pollSessions() {
   if (fromHub) syncOpened(sessions);
   renderSessions();
   renderCenter(sessions, fromHub);
-  void reviewAlerts.update(sessions);
+  await reviewAlerts.update(sessions);
 }
 export function stateWords(entry) {
   if (entry.needsYou)

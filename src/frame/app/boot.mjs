@@ -130,7 +130,6 @@ function start() {
   });
   // A notification of a reply names its thread's card, which the first
   // poll places, so the page scrolls to the card after that poll.
-  const placedLater = target && !$(target);
   if (place?.top && !opened) restoreScroll(place.top);
   window.addEventListener("popstate", () => {
     const url = new URL(location.href);
@@ -150,35 +149,45 @@ function start() {
     }
   }
   if (online && mode !== "preview") {
-    poll().then(() => {
-      if (
-        placedLater &&
-        new URL(location.href).searchParams.get("target") === target
-      )
-        reveal(target);
-      // A notification's link names its target. While Current waits, the
-      // sent round's pages show only under Previous, so the link opens
-      // there. A reload without a target returns to the past round that was
-      // on screen.
-      if (target && showingWaiting())
-        void openPast(plan.round, {
-          pageId: asked || "agreed",
-          targetId: target,
-        });
-      else if (
-        editable &&
-        !target &&
-        placeStore.tab === "past" &&
-        selectedTab === "current"
-      )
-        if (placeStore.past) void openPast(placeStore.past);
-      // The first status poll placed the thread cards, so the bell's first
-      // count sees a reply already on screen.
-      pollSessions();
-      setInterval(pollSessions, 5000);
-    });
-    setInterval(poll, 1500);
-  } else review();
+    void (async () => {
+      try {
+        await poll();
+        // A notification's link names its target. While Current waits, the
+        // sent round's pages show only under Previous, so the link opens
+        // there. A reload without a target returns to the past round that was
+        // on screen.
+        if (target && showingWaiting())
+          await openPast(plan.round, {
+            pageId: asked || "agreed",
+            targetId: target,
+          });
+        else if (
+          editable &&
+          !target &&
+          placeStore.tab === "past" &&
+          selectedTab === "current" &&
+          placeStore.past
+        )
+          await openPast(placeStore.past);
+        // The first status poll placed the thread cards, so the bell's first
+        // count sees a reply already on screen.
+        await pollSessions();
+        setInterval(pollSessions, 5000);
+      } finally {
+        $("app").removeAttribute("data-loading");
+        if (
+          target &&
+          new URL(location.href).searchParams.get("target") === target &&
+          $(target)
+        )
+          reveal(target);
+        setInterval(poll, 1500);
+      }
+    })();
+  } else {
+    review();
+    $("app").removeAttribute("data-loading");
+  }
 }
 /* A module runs once the document is parsed, so readyState is "interactive"
    by this line and DOMContentLoaded is still ahead. That event is the point

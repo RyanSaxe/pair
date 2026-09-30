@@ -2,6 +2,9 @@
 :root[data-mode="preview"] body {
   background: var(--ground);
 }
+:root[data-mode="preview"] {
+  overflow: auto;
+}
 :root[data-mode="preview"] .app {
   display: block;
   height: auto;

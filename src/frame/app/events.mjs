@@ -6,6 +6,7 @@ import {
   mode,
   noteEditable,
   page,
+  pastRound,
   plan,
   session,
 } from "#frame/app/view.mjs";
@@ -21,7 +22,7 @@ import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { narrow, pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
-import { switchTab } from "#frame/sync/rounds.mjs";
+import { openPast, switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
@@ -48,7 +49,9 @@ export function installEvents() {
     }
     const tab = event.target.closest("button[data-tab]");
     if (tab) {
-      switchTab(tab.dataset.tab, null, { showPage: false });
+      if (tab.dataset.tab === "past" && pastRound)
+        void openPast(pastRound, { showPage: false });
+      else switchTab(tab.dataset.tab, null, { showPage: false });
       return;
     }
     const navigation = event.target.closest("[data-page]");

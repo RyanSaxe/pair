@@ -1,4 +1,7 @@
 /* Shell */
+html {
+  overflow: hidden;
+}
 /* The whole frame, sidebar included, is capped and centered so the nav stays
    next to the text while the composition stays centered on wide screens. */
 /* 100dvh is the height you can actually see, so a short page does not
@@ -13,6 +16,9 @@
   margin: 0 auto;
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
+}
+.app[data-loading] {
+  visibility: hidden;
 }
 .frame-header {
   flex: none;

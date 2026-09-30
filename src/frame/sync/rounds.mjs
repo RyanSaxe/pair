@@ -361,15 +361,19 @@ function loadPastView(round) {
 }
 // The clock and an agreement's Open link load a past round into the left
 // tab. When its pages cannot load, it opens on its own read-only page.
-export async function openPast(round, { pageId = null, targetId = null } = {}) {
+export async function openPast(
+  round,
+  { pageId = null, targetId = null, showPage = true } = {},
+) {
   const loaded = await loadPastView(round).catch(() => false);
   if (!loaded) {
     location.assign(`${base}/r/${encodeURIComponent(round)}`);
     return;
   }
+  await loadPastSubmission(round).catch(() => {});
   setPastRound(round);
   if (pageId) places[round] = { page: pageId, top: 0 };
-  switchTab("past", targetId, { showPage: true });
+  switchTab("past", targetId, { showPage });
 }
 // Current's draft while a past round is on screen: the one set aside when
 // the reader left Current, or the saved one.
@@ -472,7 +476,7 @@ export async function poll() {
         inPlace: true,
       });
     }
-    void loadSubmission().catch(() => {});
+    await loadSubmission().catch(() => {});
     placeThreads();
     if (
       state.pending?.event?.id === remote.latestSubmissionId &&

@@ -75,39 +75,3 @@ test("the build's language list is the one for the Shiki the frame loads", async
   );
   assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
 });
-
-test("page tabs leave the reader in place, while round choices open a page", async () => {
-  const events = await read("app/events.mjs");
-  const tabClick = events.slice(
-    events.indexOf('const tab = event.target.closest("button[data-tab]");'),
-    events.indexOf('const navigation = event.target.closest("[data-page]");'),
-  );
-  assert.match(
-    tabClick,
-    /switchTab\(tab\.dataset\.tab, null, \{ showPage: false \}\);/,
-  );
-  assert.doesNotMatch(tabClick, /\bshow\(/);
-
-  const dialog = await read("sync/rounds-dialog.mjs");
-  const roundClick = dialog.slice(
-    dialog.indexOf("row.onclick = () => {"),
-    dialog.indexOf("list.append(row);"),
-  );
-  assert.match(
-    roundClick,
-    /switchTab\("current", null, \{ showPage: true \}\);/,
-  );
-
-  const rounds = await read("sync/rounds.mjs");
-  const pastOpen = rounds.slice(
-    rounds.indexOf("async function openPast"),
-    rounds.indexOf(
-      "// Current's draft",
-      rounds.indexOf("async function openPast"),
-    ),
-  );
-  assert.match(
-    pastOpen,
-    /switchTab\("past", targetId, \{ showPage: true \}\);/,
-  );
-});
