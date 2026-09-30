@@ -7,14 +7,11 @@
 
 ## Pair programming, now that your agent writes the code.
 
-When an agent writes most of the code, the hard part is thinking the work
-through with it: what to build, how it should work, and whether you
-understand what it did. `pair` gives the two of you one place to do that. The
-agent lays its thinking out as pages, with mocks, diagrams, code and diffs.
-You choose between its options, comment on anything, and ask questions that
-it answers right away. Each round it brings everything together in new
-pages, until you have a plan you trust, a build you understand, or an answer
-you can explain.
+In pair programming, one person drives and the other navigates. With `pair`,
+your agent drives and you navigate: it puts the work in front of you as pages
+of options, mocks, diagrams and diffs, and you steer with a choice, a comment
+or a question. Back and forth, you get to a plan you trust, a build you
+understand, or an answer you can explain.
 
 **It runs on your machine, inside the agent CLI you already use.**
 
