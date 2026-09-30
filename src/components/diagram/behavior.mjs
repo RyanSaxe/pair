@@ -13,6 +13,7 @@ function renderDiagram(element) {
          attached to the body when the source does not parse, where it draws
          a full-width error graphic outside the app. */
       const id = "diagram-" + uuid();
+      let container;
       try {
         if (!element.isConnected) return;
         mermaidTask ||= (async () => {
@@ -51,7 +52,16 @@ function renderDiagram(element) {
             htmlLabels: true,
           },
         });
-        const result = await mermaid.render(id, element.dataset.source);
+        container = document.createElement("div");
+        container.setAttribute("aria-hidden", "true");
+        container.style.cssText =
+          "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none";
+        document.body.append(container);
+        const result = await mermaid.render(
+          id,
+          element.dataset.source,
+          container,
+        );
         if (!element.isConnected) return;
         element.innerHTML = result.svg;
         const width = element.querySelector("svg")?.viewBox?.baseVal?.width;
@@ -61,6 +71,7 @@ function renderDiagram(element) {
         failed(element, error);
       } finally {
         document.getElementById("d" + id)?.remove();
+        container?.remove();
       }
     });
   return diagramSequence;
