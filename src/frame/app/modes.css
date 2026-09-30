@@ -25,6 +25,8 @@
 }
 :root[data-mode="preview"] {
   --text-h1: 17px;
+  /* A preview is one page at its natural height, so the window scrolls. */
+  overflow: auto;
 }
 :root[data-mode="readonly"] #submit,
 :root[data-mode="readonly"] #quote,
