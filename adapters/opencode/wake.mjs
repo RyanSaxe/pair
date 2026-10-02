@@ -24,7 +24,7 @@ export const name = "opencode";
 // session that runs the command.
 export const command = "opencode";
 export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
-export const unwakeable = `this opencode session runs without pair's plugin, so it cannot be woken. Add "${plugin}" to "plugin" in ${globalConfig()}, restart opencode with \`opencode --continue\`, and run \`pair start\` again.`;
+export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run \`pair start\` again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket.
 export const identity = (target) => target.session;
