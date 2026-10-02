@@ -171,13 +171,15 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  whenDrawn(drawing, () => {
-    if (!feedback) reveal(targetId);
-  });
   $("quote").hidden = true;
   if (!inPlace) closeMenus();
   updateNavigation();
   review();
+  // review() places the page's thread cards, and moving a card takes focus
+  // from it, so a target is revealed after them.
+  whenDrawn(drawing, () => {
+    if (!feedback) reveal(targetId);
+  });
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
 // details around it and the Agreed tab that holds it.
