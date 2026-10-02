@@ -39,6 +39,7 @@ import {
   placeMarks,
 } from "#frame/notes/notes.mjs";
 import { renderAgreements, showAgreedTab } from "#frame/pages/agreed.mjs";
+import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -92,6 +93,7 @@ export function show(
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
+  if (!keepScroll && !inPlace) beginMove();
   displayedRound = viewKey();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
   if (!resuming) endRestore();
@@ -100,13 +102,17 @@ export function show(
   // sent, so a saved place or a #feedback link opens its Agreed.
   const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
   let drawing = null;
+  // A page whose record is still loading is shown again once it loads, and
+  // the move ends with that.
+  let loading = false;
   $("reading").hidden = feedback;
   $("feedback").hidden = !feedback;
   if (!feedback) {
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
+    loading = page.status === "ready" && page.pending && page.id !== "agreed";
     if (page.status === "ready" && page.pending)
-      void loadPageRecord(plan.round, page.id).catch(() => {});
+      void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();
     $("page-title").textContent = page.title;
     chooseBlock(null);
@@ -178,6 +184,7 @@ export function show(
   // review() places the page's thread cards, and moving a card takes focus
   // from it, so a target is revealed after them.
   whenDrawn(drawing, () => {
+    if (!loading) arrived();
     if (!feedback) reveal(targetId);
   });
 }

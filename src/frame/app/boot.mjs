@@ -42,6 +42,7 @@ import {
   reveal,
   show,
 } from "#frame/pages/pages.mjs";
+import { installProgress, releaseChrome } from "#frame/pages/progress.mjs";
 import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
@@ -91,6 +92,7 @@ installNotes();
 installSessions();
 installPlaces();
 installPages();
+installProgress();
 installNoteDialog();
 installThreads();
 installSend();
@@ -176,6 +178,8 @@ function start() {
       // count sees a reply already on screen.
       pollSessions();
       setInterval(pollSessions, 5000);
+      // A page load shows the header and sidebar once they are drawn.
+      requestAnimationFrame(() => releaseChrome());
     });
     setInterval(poll, 1500);
   } else review();
