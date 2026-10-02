@@ -6,19 +6,34 @@ Keep one work directory for the session under the system temp directory, or
 under the scratch directory your agent CLI gives you. For round N, put each
 page's source in `WORK/src/N/<page-id>/`: its JSON source and the files it
 names. Write the round's `pages.json` to `WORK/src/N/`, beside the page
-directories, and build pages to `WORK/out/N/`. In the commands, `SRC` is
-`WORK/src/N` and `OUT` is `WORK/out/N`:
+directories, and build pages to `WORK/out/N/`. `pages.json` lists the pages
+that follow Agreed, in order, as
+`{ "pages": [{ "id": "policy", "title": "Retry policy" }] }`.
+
+Build Agreed and publish it with the page list, then build and publish each
+page as soon as it is done. In the commands, `SRC` is `WORK/src/N` and `OUT`
+is `WORK/out/N`:
 
 ```sh
+pair build SRC/agreed/agreed.json OUT/agreed.html
+pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir PATH
 pair build SRC/policy/policy.json OUT/policy.html
+pair publish --file OUT/policy.html --source SRC/policy --session-dir PATH
 ```
 
-`pair build` refuses to overwrite, so build a change to a new path or delete
-the old output first. `pair publish --source SRC/policy` copies that
-directory to the session's `src/<round>/<page-id>/`, so keep built pages,
-previews and scratch files out of it. `pair publish --pages SRC/pages.json`
-reads the page list. Embed every local resource a page uses. Do not install
-packages to author a plan.
+`pair build` lists every structural problem in a source and writes nothing
+when it finds one. It refuses to overwrite, so build a change to a new path
+or delete the old output first. `pair publish --source SRC/policy` copies
+that directory to the session's `src/<round>/<page-id>/`, so keep built
+pages, previews and scratch files out of it. To revise an earlier round's
+page, copy its source from there and change its `round` to this one. Embed
+every local resource a page uses. Do not install packages to author a plan.
+
+A published page cannot change in its round. `pair publish` checks each `#`
+link on the pages after Agreed, and refuses a page whose link names neither
+a page of the round nor an element on its own page. Open a page in a browser
+only when it has CSS or a script you wrote and you cannot judge it from the
+source.
 
 In a round, you change the pages, their CSS, JavaScript and prototypes, and
 Agreed. The frame, pair's components, the `pair` command and the hub are
@@ -104,8 +119,9 @@ popovers), `--line` and `--line-strong`, `--ink`, `--muted`, `--accent`,
 `--accent-soft`, `--attention` and `--attention-bg` (needs you), `--ok` and
 `--ok-bg` (sent, accepted), `--danger` and `--danger-bg` (removed), `--code`,
 and `--mark` (noted text). Do not color preferred options green or
-alternatives red to express preference, and add a label wherever color is
-the only sign of a meaning.
+alternatives red to express preference. When color marks something, say the
+same in the text, and add no decorative cards, labels, tags or pills that
+repeat nearby text.
 
 Type is the system stack: 13px chrome, 13.5px to 15px reading, 22px page
 titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,

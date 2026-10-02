@@ -1,14 +1,5 @@
 # The finish offer
 
-Agreed names `"offer": "finish"` on the build round and on each follow-up
-round after feedback on the build. The last page of such a round is the pull
-request description. The reviewer accepts the work with Finish without a PR or
-Open a PR, and `pair read` returns the acceptance with the chosen action in
-`action`.
-
-Read the comments first. The acceptance's `groups` field contains the
-comments and choices the reviewer drafted before accepting.
-
 ## Finish without a PR
 
 The action is `finish`. The work stays committed on its branch. Run

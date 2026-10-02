@@ -5,8 +5,8 @@
 The Agreed source has a required `task`: what the plan is building towards,
 as the agent currently understands it, in a title and two or three
 sentences. Say what will exist when the work is done and why, and what is
-deliberately left out when that matters. Decisions follow it on Agreed, and
-open questions belong on pages, so neither goes in it.
+deliberately left out when that matters. Other decisions follow it on
+Agreed, and open questions belong on pages, so neither goes in it.
 
 State it in round 1 from the conversation, and revise it whenever
 feedback changes what is being built. The reviewer reads it and comments
@@ -67,18 +67,35 @@ because the agreement's Preview opens the first browser source in
 The hub orders Agreed by when each agreement last changed. Agreements whose
 `title`, `html` or `state` differ from the previous round's Agreed come
 first, and agreements that changed in the same round keep the order you
-wrote them in.
+wrote them in. The frame shows retired agreements last, in a collapsed fold
+titled No longer applies.
 
 A valid source does not make the summary correct. Read the feedback and the
 conversation before writing or changing an agreement. A note on an agreement
 has the agreement's ID in its `agreement` attribute, and the agreement changes
 only when you rewrite it.
 
-## In a build round
+## Keep Agreed short
 
-A build round's Agreed contains the task and none of the plan's decisions.
-It does not repeat or link the plan, because the reviewer opens the plan
-from the Rounds dialog. Like every page, Agreed never changes once
-published, so state a departure from the plan on the page about that work.
-A follow-up round's Agreed lists what the reviewer's comments settled, as
-in any round.
+The reviewer reads Agreed every round to catch a wrong summary, and skims a
+list too long to check. Each round, shorten Agreed without losing a
+commitment.
+
+Write each agreement as the decision stands now, and leave its history to
+its sources.
+
+Merge agreements that settle parts of one thing, so the reviewer reads each
+topic once. Keep one part's ID, and give the merged agreement every part's
+sources and every exact detail. Retire each other part with a reason that
+names the agreement it joined.
+
+When an agreement states only what is built or left out, put that in the
+task, which states both, and retire the agreement with a reason that says
+so.
+
+Retire an agreement, with a reason, when nothing left to build or decide
+depends on it. Keep a retired agreement on Agreed in the round you retire
+it, and leave it out after that.
+
+When Agreed has more than about eight agreements, look for ones to merge,
+because the reviewer checks each one every round.
