@@ -61,11 +61,12 @@ Sessions.
 
 The bell, or <kbd>n</kbd>, lists agent replies and side-work pull requests from
 every session, and each other session that starts or has a round waiting for
-you. A line leaves when you click it or its ✕, and a waiting round's line
-leaves once you send that round. **Clear all** empties the list. The bell's
-orange number is the number of lines. With notifications on in Settings, you
-also get a system notification for each new line and when an agent cannot be
-woken, unless its session is open in the tab you are using.
+you. A line leaves when you click it or its ✕, a waiting round's line leaves
+once you send that round, and a reply in a thread clears that thread's lines.
+**Clear all** empties the list. The bell's orange number is the number of
+lines. With notifications on in Settings, you also get a system notification
+for each new line and when an agent cannot be woken, unless its session is
+open in the tab you are using.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">

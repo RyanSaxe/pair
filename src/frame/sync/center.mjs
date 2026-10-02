@@ -20,9 +20,9 @@ import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
 /* The bell lists every session's starts, waiting rounds, agent replies and
    side-work pull requests, newest first, from the last 50 events the hub
-   keeps for each. A line leaves the list when you click it or its ✕, or,
-   for a waiting round, once you send that round, so the bell's number is
-   the number of lines. Which events this
+   keeps for each. A line leaves the list when you click it or its ✕, when
+   you reply in its thread, or, for a waiting round, once you send that
+   round, so the bell's number is the number of lines. Which events this
    browser removed stays in its storage for the hub, so every tab on the hub
    shares it and each browser keeps its own. A round published before the
    bell's list came keeps the notification center, which reads its own
@@ -55,6 +55,16 @@ function clear(ids) {
   for (const id of ids) cleared.add(id);
   store(cleared);
   renderCenter(latest, false);
+}
+// A reply in a thread answers the agent's replies there, so their lines go.
+export function clearThread(threadId) {
+  clear(
+    latest.flatMap((entry) =>
+      (entry.events || [])
+        .filter((event) => event.thread === threadId)
+        .map(({ id }) => id),
+    ),
+  );
 }
 /* The removed IDs after a listing from the hub. A browser with no record
    removes every listed event, so the change starts with an empty bell.
