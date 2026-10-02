@@ -318,14 +318,12 @@ test("the message tooltip follows the holder", () => {
   const steps = /between its steps/;
   const turns = /only between its turns/;
   const holders = [
-    [{ harness: "claude-code" }, steps],
-    [{ harness: "codex", steerable: true }, steps],
-    // Codex 0.160 runs its threads on the daemon unless told otherwise.
-    [{ harness: "codex" }, steps],
+    [{ harness: "opencode", steerable: true }, steps],
+    // Before its first wake, a holder has no steerable.
+    [{ harness: "pi" }, steps],
+    // codex queue and Copilot's enqueue wait for the turn to end.
     [{ harness: "codex", steerable: false }, turns],
-    [{ harness: "copilot" }, turns],
-    [{ harness: "pi" }, turns],
-    [{ harness: "opencode" }, turns],
+    [{ harness: "copilot", steerable: false }, turns],
   ];
   for (const [holder, text] of holders)
     assert.match(messageTiming(holder), text, JSON.stringify(holder));

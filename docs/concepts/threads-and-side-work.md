@@ -21,17 +21,23 @@ row, line of code, option or checklist item that contains them, and the card
 quotes the words. When a block has four or more threads, the frame collapses
 all but the two newest, and a card you expand or collapse stays that way.
 
-- Claude Code reads a thread between the steps of its turn, whatever it is
-  doing, so a reply can take a minute. Codex does too when its app-server
-  daemon runs the thread, as a plain `codex` from version 0.160 does.
-  Copilot CLI, pi, opencode and an older Codex read a thread when their turn
-  ends, so while the agent writes a round, the reply comes after the round's
-  last page. The tooltip on the ⓘ beside "Sent to the agent", and on the
-  progress card's **Message the agent**, shows which applies.
 - A reply can hold text, code, diffs and diagrams. Anything bigger, or
   anything you need to decide, comes as a page in the next round.
 - A thread does not change the round's pages, but it can settle a decision,
   which Agreed then credits to the thread.
+
+When the agent reads a thread depends on its agent CLI:
+
+| Agent CLI                                                                         | Reads a thread                                                              |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Claude Code, pi, opencode                                                         | Between the steps of its turn, after the tool call it is running            |
+| Codex whose app-server daemon runs the thread, as a plain `codex` from 0.160 does | Between the steps of its turn                                               |
+| Copilot CLI                                                                       | At once. It moves a running shell command to the background                 |
+| Any other Codex                                                                   | When its turn ends, so while it writes a round, after the round's last page |
+
+A reply can take a minute while the agent finishes a long step. The tooltip
+on the ⓘ beside "Sent to the agent", and on the progress card's **Message the
+agent**, shows which row applies.
 
 The line under your message says where the thread is:
 

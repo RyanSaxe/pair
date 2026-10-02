@@ -154,17 +154,14 @@ export function roundModel({ remote, now = Date.now() }) {
   return { text: `${ready} of ${total} ready`, late: false };
 }
 
-// When the holder reads a message the reviewer sends. Claude Code reads it
-// between the steps of a turn, and so does Codex while its app-server daemon
-// runs the thread, which the hub records as holder.steerable at each Codex
-// wake. Codex 0.160 starts the daemon by default, so a Codex holder before
-// its first wake gets the same text. Copilot CLI, pi and opencode read it
-// once the turn ends.
+// When the holder reads a message the reviewer sends. Each wake sets
+// holder.steerable, which is false only after a wake on a path where the
+// agent CLI reads the line when its turn ends: codex queue for a thread that
+// Codex's app-server daemon does not run, or Copilot's enqueue. On every
+// other path the agent CLI reads a message between the steps of a turn, and
+// a holder before its first wake gets that text too.
 export function messageTiming(holder) {
-  const afterTurn =
-    ["copilot", "pi", "opencode"].includes(holder?.harness) ||
-    (holder?.harness === "codex" && holder.steerable === false);
-  return afterTurn
+  return holder?.steerable === false
     ? "The agent reads messages only between its turns. While it writes a round, it reads this one after it publishes the round's last page."
     : "The agent reads messages between its steps, so a reply can take a minute while it is busy.";
 }
