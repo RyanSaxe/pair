@@ -1,5 +1,15 @@
+// The events the bell lists and alerts for: a session that starts, a round
+// that waits for the reviewer, an agent's reply and side work's pull
+// request. A waiting round's line lasts while that round waits.
+const listedKinds = ["session", "waiting", "reply", "side-work"];
+export const announced = (entry, event) =>
+  listedKinds.includes(event.kind) &&
+  (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
 // What an event in a session says, in the bell and in its alert.
 export function eventTitle(event) {
+  if (event.kind === "session") return `${event.agent} started a session`;
+  if (event.kind === "waiting")
+    return `Round ${event.round} is ${event.offer ? "ready to accept" : "waiting for you"}`;
   if (event.kind === "reply") return `Agent replied on ${event.name}`;
   const pull = /\/pull\/(\d+)/.exec(event.url || "");
   return `Side work opened ${pull ? `pull request #${pull[1]}` : "a pull request"}`;
@@ -13,8 +23,10 @@ export function eventTarget(event) {
   return event.message === undefined ? card : `${card}-${event.message}`;
 }
 // Where an event happened: its page and target, in the round it happened
-// in. A round the session has moved on from opens read-only.
+// in. A round the session has moved on from opens read-only. An event on no
+// page, a session's start or a waiting round, opens the session's URL.
 export function eventHref(entry, event) {
+  if (!event.page) return entry.url;
   const round =
     event.round && event.round !== entry.round
       ? `r/${encodeURIComponent(event.round)}`
@@ -22,17 +34,6 @@ export function eventHref(entry, event) {
   const at = eventTarget(event);
   const target = at ? `?target=${encodeURIComponent(at)}` : "";
   return `${entry.url}${round}${target}#${encodeURIComponent(event.page)}`;
-}
-export function reviewAlert(entry) {
-  if (!entry?.needsYou || !entry.id || !entry.round) return null;
-  return {
-    id: `round:${entry.id}:${entry.round}`,
-    sessionId: entry.id,
-    title: `Round ${entry.round} is ready${entry.offer ? " to accept" : ""}`,
-    body: entry.title || "",
-    url: entry.url,
-    createdAt: entry.publishedAt,
-  };
 }
 // A session whose agent the hub could not wake, once per round.
 export function wakeAlert(entry) {
@@ -55,14 +56,13 @@ export function eventAlert(entry, event) {
     createdAt: event.at,
   };
 }
-// Alerts announce what the sessions button turns orange for and each line
-// of the bell. A page publishing announces nothing.
+// Alerts announce each line of the bell and an agent the hub could not
+// wake.
 const alertsFor = (entry) =>
   [
-    reviewAlert(entry),
     wakeAlert(entry),
     ...(entry?.events || [])
-      .filter((event) => ["reply", "side-work"].includes(event.kind))
+      .filter((event) => announced(entry, event))
       .map((event) => eventAlert(entry, event)),
   ].filter(Boolean);
 
@@ -122,7 +122,7 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         ? "Allow notifications in your browser's site settings."
         : failed
           ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a session waits for you, an agent cannot be woken, an agent replies, or side work opens a pull request, in any session.";
+          : "Alerts when a session starts, a round waits for you, an agent cannot be woken, an agent replies, or side work opens a pull request, in any session.";
   }
   function enable() {
     write("enabledAt", String(Date.now()));

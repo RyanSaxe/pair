@@ -113,9 +113,9 @@ of the page it works on, so that it reports its own progress with
 when it expects to take longer. Have it put its results in your work directory,
 with their sources and anything it could not settle.
 
-When a subagent starts or finishes, say so in a note on its page, or on the
-Background row for a hedge. If one is still running when the round's last
-page is ready, publish the page and end your turn.
+When a subagent starts or finishes, say so in a note on its page, or in a
+note without `--page` for a hedge. If one is still running when the round's
+last page is ready, publish the page and end your turn.
 
 ## Tell the reviewer what you are doing
 
@@ -130,7 +130,7 @@ characters or fewer. `pair progress --start` shows which page you are on.
 Add `--page ID` to a note about one page's work, and the note shows on that
 page's row of the progress card:
 `pair ack --note "Adding last month's CI failures" --page retry`. A note
-without `--page` shows on the card's Background row, for work that is not
+without `--page` shows under the progress card's title, for work that is not
 one page's, such as reading the feedback, planning the pages or a hedge for
 a later round.
 

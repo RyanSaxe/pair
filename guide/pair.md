@@ -38,8 +38,9 @@ quickly with enough context. Learn what you can from the project first. Then
 ask a few specific questions about this task that the project cannot answer,
 and put the ones whose answers do not depend on each other in one message.
 Move to the browser as soon as you know enough to write the first page, and
-ask every later question there. When the first Agreed publishes, open the
-session in the user's default browser and give the link in chat.
+ask every later question there. When the first Agreed publishes, follow the
+`next` line of `pair publish`, which says whether to open the session in the
+user's browser, and give the link in chat.
 
 After the last page of a round publishes, or after `pair pause`, the turn
 ends. When the user submits feedback or an acceptance, the hub sends a wake

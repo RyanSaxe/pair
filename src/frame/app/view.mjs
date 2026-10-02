@@ -12,12 +12,15 @@ export function useSession(config, name, url) {
   base = typeof session.base === "string" ? session.base : "";
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
   /* A closed session reads like an older round: nothing can be sent from
-     it. The strip below the header says which of the two it is. */
-  mode = session.preview
-    ? "preview"
-    : session.readonly || session.closed
-      ? "readonly"
-      : "live";
+     it. The strip below the header says which of the two it is. A session
+     with nothing published shows its home view. */
+  mode = session.home
+    ? "home"
+    : session.preview
+      ? "preview"
+      : session.readonly || session.closed
+        ? "readonly"
+        : "live";
   editable = mode === "live";
   // A read-only round keeps a Feedback page that lists what was sent on it.
   hasFeedbackPage = editable || mode === "readonly";

@@ -83,6 +83,12 @@ export function settings(env = process.env) {
     port,
     host: env.PAIR_HUB_HOST || null,
     idleMs: seconds("PAIR_HUB_IDLE_SECONDS", 900) * 1000,
+    // How recently a pair tab on this machine must have polled the session
+    // list for the hub to count it as open. A hidden tab polls once a minute
+    // in Chrome 154, behind another tab or minimized, and in Safari 17 behind
+    // another tab, and the window adds 30 s to that. Safari stops polling
+    // from a minimized window, so the agent opens a second tab beside it.
+    tabWindowMs: 90_000,
     wake: env.PAIR_WAKE !== "off",
   };
 }

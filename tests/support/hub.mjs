@@ -136,10 +136,11 @@ export async function inbox(t, home) {
 
 // An in-process hub on a port the OS assigns, in a home of its own. Every
 // session registers with its own inbox, so a test sees only its own wakes.
-export async function hub(t, extra = {}) {
+// options replace settings that no environment variable sets.
+export async function hub(t, extra = {}, options = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
   const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
-  const config = { ...settings(env), log() {} };
+  const config = { ...settings(env), log() {}, ...options };
   const server = await startHub(config);
   t.after(async () => {
     await server.close();
@@ -159,15 +160,16 @@ export async function hub(t, extra = {}) {
     return { code: response.status, body: await response.json() };
   };
   // A session registered by an inbox, or by the agent a pairCli runs as,
-  // so that the command can work on it.
-  async function session({ cli, box } = {}) {
+  // so that the command can work on it. With start, it registers as pair
+  // start does.
+  async function session({ cli, box, start } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
       ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
       : mailbox.target;
     const agent = cli ? cli.agent : mailbox.agent;
     const directory = path.join(config.sessions, crypto.randomUUID());
-    const registered = await register(directory, wake);
+    const registered = await register(directory, wake, start ? { start } : {});
     assert.equal(registered.code, 200, registered.body.error);
     const info = registered.body;
     const connection = JSON.parse(

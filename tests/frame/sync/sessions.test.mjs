@@ -9,6 +9,7 @@ import {
 
 const entry = (id, fields = {}) => ({
   id,
+  round: "1",
   startedAt: `2026-09-28T1${id}`,
   ...fields,
 });
@@ -72,6 +73,8 @@ test("a row shows the first status that applies", () => {
     [{ stage: "saved" }, 0, "Saved"],
     [{ stage: "working" }, 0, "Working"],
     [{ stage: "updated", openRound: { ready: 1 } }, 0, "Working"],
+    // The agent prepares the first round of a session with nothing published.
+    [{ round: null, stage: "ready" }, 0, "Working"],
     [{ stage: "complete" }, 0, undefined],
   ];
   for (const [fields, unopened, text] of cases)

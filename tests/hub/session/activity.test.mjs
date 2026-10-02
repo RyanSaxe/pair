@@ -13,10 +13,12 @@ const listedEvents = async (origin, id) =>
 // What each event says, without the ID and time the hub gives it.
 const described = (events) => events.map(({ id, at, ...rest }) => rest);
 
-test("a reply and side work's pull request each add one event, a published page adds none, and a new hub keeps them", async (t) => {
+test("a session's start, a round that finishes, a reply and side work's pull request each add one event, and a new hub keeps them", async (t) => {
   const h = await hub(t);
-  const a = await h.session();
-  assert.equal((await a.publish(planData())).code, 200);
+  const a = await h.session({ start: true });
+  // pair start again on the session it started adds nothing.
+  await h.register(a.directory, a.inbox.target, { start: true });
+  assert.equal((await a.publish(planData("1", "plan"))).code, 200);
   const thread = crypto.randomUUID();
   const started = await a.request(`${a.base}/api/threads`, {
     id: thread,
@@ -57,6 +59,8 @@ test("a reply and side work's pull request each add one event, a published page 
   const events = await listedEvents(h.server.origin, a.id);
   assert.equal(events.at(-1).id, announced.id);
   assert.deepEqual(described(events), [
+    { kind: "session", agent: "Claude Code" },
+    { kind: "waiting", round: "1", offer: "plan" },
     {
       kind: "reply",
       name: "Overview",
@@ -74,7 +78,7 @@ test("a reply and side work's pull request each add one event, a published page 
       target: "side-work-1",
     },
   ]);
-  assert.equal(new Set(events.map((event) => event.id)).size, 2);
+  assert.equal(new Set(events.map((event) => event.id)).size, 4);
   assert.ok(events.every((event) => Date.parse(event.at)));
   assert.deepEqual(
     JSON.parse(

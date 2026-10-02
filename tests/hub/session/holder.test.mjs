@@ -177,9 +177,13 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   const listed = await fetch(`${origin}/api/sessions`).then((response) =>
     response.json(),
   );
+  // The new session is listed from its start, before it publishes.
   assert.deepEqual(
-    listed.sessions.map(({ url, stage }) => [url, stage]),
-    [[`/s/${saved.sessionId}/`, "saved"]],
+    listed.sessions.map(({ url, stage }) => [url, stage]).sort(),
+    [
+      [`/s/${fresh.sessionId}/`, "ready"],
+      [`/s/${saved.sessionId}/`, "saved"],
+    ].sort(),
   );
   assert.equal(fresh.url, `${origin}/s/${fresh.sessionId}/`);
   // Another agent takes it over with the handoff line and is sent to build it.

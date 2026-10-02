@@ -94,7 +94,8 @@ button.activity-page small::after {
 button.activity-page[aria-expanded="true"] small::after {
   content: " ▴";
 }
-.activity-page.late small {
+.activity-page.late small,
+#activity-summary .late {
   color: var(--attention);
 }
 /* The 18px mark and the row's 8px gap put the note under the page's name. */
@@ -103,11 +104,6 @@ button.activity-page[aria-expanded="true"] small::after {
   color: var(--muted);
   font-size: var(--text-tiny);
   overflow-wrap: anywhere;
-}
-.activity-divider {
-  height: 1px;
-  margin: 5px 0;
-  background: var(--line);
 }
 #reading > .agent-activity {
   margin-bottom: 24px;

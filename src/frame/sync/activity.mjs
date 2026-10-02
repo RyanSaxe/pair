@@ -9,10 +9,9 @@ export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
   return `Finished ${ago(publishedAt, now)} · took ${since(receivedAt, finished)}`;
 }
 
-// A row turns late when five minutes pass without a report on it.
+// A row or the round's note turns late when five minutes pass without a
+// report on it.
 const LATE = 300000;
-const later = (a, b) =>
-  !a ? b : !b ? a : Date.parse(a) >= Date.parse(b) ? a : b;
 
 // The label on a row of the progress card: a page's state, or for a page at
 // work, how long ago it last reported. A page with no note yet counts from
@@ -56,6 +55,9 @@ export function activityModel({
       : [];
   const ready = slots.filter((item) => item.state === "ready").length;
   const finished = slots.length > 0 && ready === slots.length;
+  // A session with nothing published shows its home view, where the agent
+  // prepares the first round.
+  const home = Boolean(remote) && !remote.current;
   const title = inFlight
     ? "Sending feedback"
     : stopped
@@ -64,16 +66,34 @@ export function activityModel({
         ? "All pages ready"
         : slots.length
           ? "Pages in progress"
-          : received
-            ? "Preparing the next round"
-            : "Waiting for the agent";
+          : home
+            ? "Preparing the first round"
+            : received
+              ? "Preparing the next round"
+              : "Waiting for the agent";
   // An agent that took the session over since the reviewer's last send is
   // named with the time it took over.
-  const takeover = remote?.takeover
-    ? ` · ${remote.takeover.name} took over at ${new Date(remote.takeover.at).toTimeString().slice(0, 5)}`
-    : "";
-  // With no note in the footer, the summary line names why the agent
-  // stopped, and before the page list exists, that it has the feedback.
+  const takeover =
+    remote?.takeover &&
+    `${remote.takeover.name} took over at ${new Date(remote.takeover.at).toTimeString().slice(0, 5)}`;
+  // A note sent without a page shows after the summary while the agent
+  // works on a round it has received, before and after Agreed. Every report
+  // without a note clears it.
+  const note =
+    inFlight ||
+    (latest && !received) ||
+    finished ||
+    stopped ||
+    !remote?.report?.note
+      ? null
+      : {
+          text: remote.report.note,
+          at: remote.report.noteAt,
+          late: now - Date.parse(remote.report.noteAt) >= LATE,
+        };
+  // The summary line names why the agent stopped, and before the page list
+  // exists, that it has the feedback. A home view with no note says where
+  // the pages will appear.
   const reason = failed
     ? "Could not wake the agent. Send a message in chat."
     : paused
@@ -82,43 +102,29 @@ export function activityModel({
   const summary = inFlight
     ? "Saving your comments"
     : reason ||
-      (slots.length
-        ? `${ready} of ${slots.length} pages ready`
-        : received
-          ? read
-            ? "Agent read your feedback"
-            : "Agent received your feedback"
-          : "Feedback saved") + takeover;
-  // The Background row takes the notes sent without --page. It counts from
-  // the last of them, or from the start of the round before any, and it
-  // shows only while the agent is at work on a round it has received. Once
-  // Agreed publishes it shows only a note sent after that, because a note
-  // from planning the round is not background work.
-  const agreedAt = remote?.openRound?.agreedAt;
-  const noteAfterAgreed =
-    !agreedAt ||
-    (remote?.report?.noteAt &&
-      Date.parse(remote.report.noteAt) > Date.parse(agreedAt));
-  const background =
-    inFlight || (latest && !received) || finished || !remote || !noteAfterAgreed
-      ? null
-      : {
-          id: "background",
-          title: "Background",
-          state: "active",
-          startedAt: later(remote.report?.noteAt, remote.roundStartedAt),
-          note: remote.report?.note
-            ? { text: remote.report.note, at: remote.report.noteAt }
-            : null,
-        };
+      [
+        slots.length
+          ? `${ready} of ${slots.length} pages ready`
+          : home
+            ? !note &&
+              "The first pages appear here when the agent publishes Agreed."
+            : received
+              ? read
+                ? "Agent read your feedback"
+                : "Agent received your feedback"
+              : "Feedback saved",
+        takeover,
+      ]
+        .filter(Boolean)
+        .join(" · ");
   // Until the page list exists, the bar is one track that moves while the
-  // agent works on the feedback.
+  // agent works on the feedback or on the first round.
   const track = slots.length
     ? null
-    : inFlight || (received && !stopped)
+    : inFlight || ((received || home) && !stopped)
       ? "moving"
       : "still";
-  return { slots, ready, failed, stopped, title, summary, background, track };
+  return { slots, ready, failed, stopped, title, summary, note, track };
 }
 
 // Outside a round that a send started, the card still tells the reviewer

@@ -108,6 +108,7 @@ export function stateWords(entry) {
   if (entry.wakeFailed) return "Could not wake the agent";
   if (entry.paused) return "Paused";
   if (entry.stage === "saved") return "Saved";
+  if (!entry.round) return "Preparing the first round";
   if (entry.openRound)
     return `Working · ${entry.openRound.ready} pages readable`;
   if (["submitted", "working"].includes(entry.stage))
@@ -115,8 +116,9 @@ export function stateWords(entry) {
   return "Live";
 }
 /* A row's one short status, the first that applies: a round waiting for
-   you, a failed wake, pages this browser has not opened, the agent at work,
-   then paused or saved. */
+   you, a failed wake, pages this browser has not opened, paused or saved,
+   then the agent at work, which a session before its first round always
+   is. */
 export function rowStatus(entry, unopened = 0) {
   if (entry.needsYou)
     return { text: entry.offer ? "Accept" : "Waiting", tone: "need" };
@@ -124,7 +126,11 @@ export function rowStatus(entry, unopened = 0) {
   if (unopened) return { text: `${unopened} new`, tone: "news" };
   if (entry.paused) return { text: "Paused", tone: "quiet" };
   if (entry.stage === "saved") return { text: "Saved", tone: "quiet" };
-  if (entry.openRound || ["submitted", "working"].includes(entry.stage))
+  if (
+    !entry.round ||
+    entry.openRound ||
+    ["submitted", "working"].includes(entry.stage)
+  )
     return { text: "Working", tone: "working" };
   return null;
 }
@@ -234,7 +240,13 @@ function sessionRow(entry, index, unopened) {
   row.type = "button";
   row.className = "sess-row";
   row.dataset.key = `open:${entry.id}`;
-  row.title = `${current ? "This tab" : stateWords(entry)} · round ${entry.round} · ${ago(entry.updatedAt)}`;
+  row.title = [
+    current ? "This tab" : stateWords(entry),
+    entry.round && `round ${entry.round}`,
+    ago(entry.updatedAt),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const number = document.createElement("span");
   number.className = "n";
   number.textContent = index + 1;
@@ -290,6 +302,10 @@ function sessionRow(entry, index, unopened) {
   );
   return line;
 }
+// At 720px and below the sessions button opens the menu sheet, with this
+// tab's Pages above the sessions. A home view has no pages, so there the
+// button opens the session list at every width.
+const opensSheet = () => narrow.matches && mode !== "home";
 /* Every session, in sessionOrder, in the popover above 720px and under
    Pages in the menu sheet at 720px and below, and the sessions button's
    badge. */
@@ -313,7 +329,7 @@ function renderSessions() {
     sessionOrder,
     session.sessionId,
     unopened,
-    narrow.matches,
+    opensSheet(),
   );
   menu.classList.toggle("need", tone === "need");
   menu.classList.toggle("news", tone === "news");
@@ -321,9 +337,9 @@ function renderSessions() {
   $("sessions-count").textContent = String(count);
   // With no hub there is no session to list, so above 720px the button has
   // nothing to open. At 720px and below it still opens Pages.
-  menu.hidden = !count && !narrow.matches;
+  menu.hidden = !count && !opensSheet();
   if (!count) toggleSessions(false);
-  const what = narrow.matches ? "Pages and sessions" : "Sessions";
+  const what = opensSheet() ? "Pages and sessions" : "Sessions";
   menu.setAttribute(
     "aria-label",
     count

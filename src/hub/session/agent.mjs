@@ -16,8 +16,9 @@ export function agent(session) {
   const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
   // Each agent command is a report, and the reviewer sees when the last one
   // came. Only ack carries a note, so any other report clears the last one.
-  // noteAt keeps the time of the last note, which the Background row counts
-  // from, so a report without a note does not reset it.
+  // noteAt keeps the time of the last note, whose age shows beside the note
+  // under the progress card's title, so a report without a note does not
+  // reset it.
   const report = (note = null) => {
     const at = timestamp();
     const noteAt = note ? at : session.state.report?.noteAt;
@@ -74,6 +75,13 @@ export function agent(session) {
       return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages within minutes, before you start work on any page. ${guide("round.md")} prints the steps. Report with pair ack --note at least every five minutes.`;
     return `Round ${session.state.current.round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
   }
+  // The first Agreed of a session says whether to open its URL. A pair tab
+  // that polled the hub recently lists the new session in its bell and
+  // session list, so the agent opens a second tab only when none did.
+  const browserLine = (url) =>
+    session.tabOpen()
+      ? `A pair tab is open in the user's browser, and its session list and bell show this session. Give the link ${url} in chat, and do not open a tab.`
+      : `Open ${url} in the user's default browser (macOS open, Windows Start-Process, Linux xdg-open, with the URL quoted), and give the link in chat.`;
   // Runs after the submission is saved, outside the browser's request, so a
   // slow or failing harness never delays the reviewer's Sent session.state.
   async function wakeAgent(round) {
@@ -187,8 +195,8 @@ export function agent(session) {
         ? { ...report(data.note?.trim() || null), ...receive(event) }
         : {
             ...session.notePage(data.page, data.note.trim()),
-            // A page note is a report for the round's time. The Background
-            // row keeps its own note and the time of that note.
+            // A page note is a report for the round's time. The note under
+            // the card's title stays, with the time it was sent.
             report: { ...session.state.report, at: timestamp() },
             ...receive(event),
           },
@@ -298,6 +306,12 @@ export function agent(session) {
         wake: { harness: target.harness, last: null },
       });
     await transition(patch);
+    // The bell of every pair tab announces the session pair start creates.
+    if (start && !held && !session.state.current)
+      await session.addActivity({
+        kind: "session",
+        agent: adapters[target.harness].name,
+      });
     return build ? buildNext(unread) : null;
   }
   // The acceptance keeps its save action, so the line says outright that
@@ -309,5 +323,14 @@ export function agent(session) {
       : `${command("read")} --id ${session.state.accepted.eventId}`;
     return `Round ${round} was saved for later, and you now build it. Run ${offerGuide(offer)} and read all it prints, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as its ${actionAfter(offer, "round").label} section describes.`;
   }
-  return { handoff, report, nextStep, wakeAgent, dismiss, act, hold };
+  return {
+    handoff,
+    report,
+    nextStep,
+    browserLine,
+    wakeAgent,
+    dismiss,
+    act,
+    hold,
+  };
 }

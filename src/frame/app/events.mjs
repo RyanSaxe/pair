@@ -146,7 +146,9 @@ export function installEvents() {
     if (key === "?") $("keys-dialog").showModal();
     else if (key === "n") toggleCenter(true);
     else if (key === "g") {
-      if (narrow.matches) $("menu-button").click();
+      // A home view has no menu sheet, so its button opens the session list
+      // at every width.
+      if (mode !== "home" && narrow.matches) $("menu-button").click();
       else toggleSessions(undefined, true);
     } else if (key === "w") {
       const entry = nextWaiting(sessionOrder, session.sessionId);
@@ -154,6 +156,9 @@ export function installEvents() {
     } else if (/^[1-9]$/.test(key)) {
       const entry = sessionOrder[Number(key) - 1];
       if (entry && entry.id !== session.sessionId) location.assign(entry.url);
+    } else if (mode === "home") {
+      // Every key below acts on a page, and a home view has none.
+      return;
     } else if (key === "]" || key === "[") {
       const order = pageOrder().map((item) => item.id);
       const index = order.indexOf($("feedback").hidden ? page.id : "feedback");

@@ -24,12 +24,13 @@ which keeps its URL. Do not create a replacement. The directory name under
 `sessions/` is not the session ID in the URL. `connection.json` in the
 directory contains the ID.
 
-On the first Agreed publication, open the URL in the operating system's default
-browser (macOS `open`, Windows PowerShell `Start-Process`, Linux `xdg-open`,
-with the URL quoted) and give the link in chat, with `hostUrl` beside it when
-`pair start` printed one. If the launch fails, say so and keep the link
-available. Do not open another tab on later rounds. The open tab shows new pages
-and rounds in place.
+When the first Agreed publishes, the `next` line of `pair publish` says
+whether to open the URL in the user's default browser or only to give the
+link, because a pair tab that is already open lists the new session. Follow
+it, and give the link in chat, with `hostUrl` beside it when `pair start`
+printed one. If the launch fails, say so and keep the link available. Do not
+open another tab on later rounds. The open tab shows new pages and rounds in
+place.
 
 ## Taking over
 

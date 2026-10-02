@@ -206,12 +206,19 @@ export function rounds(session) {
       accepted: null,
     });
     // The hub served the open round from the live file while its pages
-    // arrived, and serves the complete file from now on.
-    if (complete)
+    // arrived, and serves the complete file from now on. The round waits
+    // for the reviewer, and every pair tab's bell says so.
+    if (complete) {
       await fs.rm(
         path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
         { force: true },
       );
+      await session.addActivity({
+        kind: "waiting",
+        round: set.round,
+        offer: set.offer,
+      });
+    }
     return {
       status: view(),
       url: origin + current.url,
@@ -336,6 +343,7 @@ export function rounds(session) {
         409,
       );
     }
+    const opening = page.id === "agreed" && !session.state.current;
     const recordDir = path.join(directory, "pages", record.round);
     await fs.mkdir(recordDir, { recursive: true, mode: 0o700 });
     const recordPath = path.join(
@@ -373,6 +381,8 @@ export function rounds(session) {
         set.generation++;
       }
       result = await commitPageRound(set, source);
+      if (opening)
+        result.next = `${session.browserLine(result.url)} Then: ${result.next}`;
     } catch (error) {
       // A publish that fails leaves the round's files as they were, so no
       // record or frame of a page that never published stays behind.
