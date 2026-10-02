@@ -33,6 +33,9 @@ export const version = ["src", "adapters"]
 
 const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
+// The user's components, guide files and moment files.
+export const configRoot = (env = process.env) =>
+  path.join(env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "pair");
 const packageJson = JSON.parse(
   readFileSync(path.join(packageRoot, "package.json"), "utf8"),
 );

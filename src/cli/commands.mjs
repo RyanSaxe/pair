@@ -239,9 +239,9 @@ export const commands = {
   },
   guide: {
     group: "pages",
-    purpose: "Print a guide file",
+    purpose: "Print a guide file or a moment",
     about:
-      "Print guide/pair.md, or FILE. FILE is a guide file by its path under guide/, such as round.md or offers/plan.md, or components/README.md.",
+      "Print guide/pair.md, or FILE, then your file at the same path under ~/.config/pair/ when there is one. FILE is a Markdown file under guide/ by its path there, such as round.md or moments/read-feedback.md, or components/README.md.",
     args: [{ name: "FILE", optional: true }],
     run: guide,
   },

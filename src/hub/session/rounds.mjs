@@ -393,6 +393,7 @@ export function rounds(session) {
     }
     return {
       ...result,
+      ...session.afterPublish(result, page.id, set.offer),
       page: {
         id: page.id,
         round: record.round,

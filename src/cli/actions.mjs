@@ -28,6 +28,7 @@ export async function read(options) {
   const result = await session.request({ action: "read", id: submission });
   return {
     next: result.next,
+    moment: result.moment,
     data: [
       result.event ? feedbackText(result.event) : "No submission is waiting.",
       threadIndex(result.threads, result.threadsSince, session.directory),
@@ -46,6 +47,7 @@ async function readThread(session, id) {
   if (result.text !== undefined) return { data: result.text, json: result };
   return {
     next: result.next,
+    moment: result.moment,
     data: threadText(result.thread),
     json: result,
     sessionDir: session.directory,

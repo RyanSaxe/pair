@@ -104,6 +104,18 @@ export function agent(session) {
       ...(result.via ? { via: result.via } : {}),
     };
   }
+  // What a publish adds to its answer. It names its moment: Agreed with its
+  // offer, a page while pages remain, or the round's last page.
+  function afterPublish(result, id, offer) {
+    const agreed = id === "agreed";
+    return {
+      moment: agreed
+        ? `publish-agreed${offer ? `-${offer}` : ""}`
+        : result.roundComplete
+          ? "publish-last-page"
+          : "publish-page",
+    };
+  }
   // Runs after the submission is saved, outside the browser's request, so a
   // slow or failing harness never delays the reviewer's Sent session.state.
   async function wakeAgent(round) {
@@ -153,12 +165,20 @@ export function agent(session) {
   }
   // pair read lists each thread with a reviewer message since the
   // submission before the one it prints, or since the latest submission
-  // when none waits.
+  // when none waits, and names the moment of the submission it prints.
   function readAnswer(event, before) {
     return {
       threads: session.threadsSince(before?.receivedAt),
       threadsSince: before?.payload.round ?? null,
-      event: event ? session.withDrawingPaths(event) : null,
+      ...(event
+        ? {
+            event: session.withDrawingPaths(event),
+            moment:
+              event.payload.intent === "accept"
+                ? `read-accept-${event.payload.action}`
+                : "read-feedback",
+          }
+        : { event: null }),
     };
   }
   const submissionBefore = (sequence = Infinity) =>
@@ -309,8 +329,8 @@ export function agent(session) {
   // resumes an interrupted turn, which reads the Save and says the handoff
   // line. Once the holder has read the Save, its start builds too, such as
   // from a new conversation in the same Claude Code process. A start that
-  // creates the session names it with its title, and any other start answers
-  // with the session's next step.
+  // creates the session names it with its title and answers with the start
+  // moment, and any other start answers with the session's next step.
   async function hold(target, options = {}) {
     const start = options.start === true;
     const { created } = options;
@@ -361,7 +381,7 @@ export function agent(session) {
         kind: "session",
         agent: adapters[target.harness].name,
       });
-    if (start && created) return {};
+    if (start && created) return { moment: "start" };
     const next = build ? await buildNext(unread) : start && (await nextStep());
     return next ? { next } : {};
   }
@@ -380,6 +400,7 @@ export function agent(session) {
     nextStep,
     browserLine,
     sendWake,
+    afterPublish,
     wakeAgent,
     dismiss,
     act,

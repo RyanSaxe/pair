@@ -257,6 +257,7 @@ export async function start(options) {
       : `Run ${guideCommand("round.md")} and read all it prints before you plan the first round, starting with Required in every round.`);
   return {
     next,
+    moment: started.moment,
     data: rows([
       ["Session", started.sessionDir],
       ["URL", started.url],
@@ -296,6 +297,7 @@ export async function publish(options) {
   const { page } = result;
   return {
     next: result.next,
+    moment: result.moment,
     data: [
       `Published ${page.id} in round ${page.round}.`,
       `URL ${result.url}`,

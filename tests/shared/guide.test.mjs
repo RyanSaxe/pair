@@ -3,7 +3,17 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { exec, exists, killHub, pair, pairCli, root } from "../support/hub.mjs";
+import { offers } from "../../src/shared/offers.mjs";
+import {
+  exec,
+  exists,
+  hub,
+  killHub,
+  pair,
+  pairCli,
+  planData,
+  root,
+} from "../support/hub.mjs";
 
 const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
 const guideRun = /\(run `pair guide (\S+)`\)/g;
@@ -98,4 +108,60 @@ test("pair guide prints guide/pair.md and every guide file, and writes nothing",
       await followGuide(print, name, reached);
     }
   assert.deepEqual(await fs.readdir(state), []);
+});
+
+// Every guide file and every moment's text has an optional file of the
+// user's at the same path under $XDG_CONFIG_HOME/pair/, which prints after
+// pair's own.
+test("pair guide and a command's moment print your file after pair's", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-yours-"));
+  const config = path.join(home, "config");
+  const h = await hub(t);
+  const cli = await pairCli(home, {
+    XDG_STATE_HOME: h.home,
+    XDG_CONFIG_HOME: config,
+    PAIR_HUB_PORT: "0",
+  });
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  await fs.mkdir(path.join(config, "pair", "moments"), { recursive: true });
+  await fs.writeFile(path.join(config, "pair", "round.md"), "Your round.\n");
+  await fs.writeFile(
+    path.join(config, "pair", "moments", "read-thread.md"),
+    "Your thread rule.\n",
+  );
+  const round = await cli.run("guide", "round.md");
+  assert(round.startsWith("# "), "pair's round.md comes first");
+  assert(round.trimEnd().endsWith("Your round."), "yours follows");
+
+  const session = await h.session({ cli });
+  assert.equal((await session.publish(planData())).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "question-1",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Why?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const thread = await cli.run(
+    "read",
+    "--session-dir",
+    session.directory,
+    "--thread",
+    "question-1",
+  );
+  const own = (
+    await fs.readFile(path.join(root, "guide/moments/read-thread.md"), "utf8")
+  ).trim();
+  assert(own, "read-thread.md has text");
+  // pair's moment, then yours, both before the thread.
+  const order = [own, "Your thread rule.", "<pair_thread "].map((part) =>
+    thread.indexOf(part),
+  );
+  assert(order[0] >= 0 && order[0] < order[1] && order[1] < order[2], thread);
+
+  // The hub names each acceptance's moment by its action, so each one prints.
+  for (const offer of Object.values(offers))
+    for (const action of offer.accept.actions)
+      await cli.run("guide", `moments/read-accept-${action.id}.md`);
 });
