@@ -6,14 +6,13 @@ import path from "node:path";
 // outside the workspace. An allow rule for pair, in a file of pair's own,
 // runs its commands outside the sandbox without a prompt.
 const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
-const rulesFile = path.join(codexHome, "rules", "pair.rules");
-const rules =
+export const rulesFile = path.join(codexHome, "rules", "pair.rules");
+export const rules =
   'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n';
-const rulesPresent = () =>
-  fs
-    .readFile(rulesFile, "utf8")
-    .then((text) => text === rules)
-    .catch(() => false);
+const rulesText = () => fs.readFile(rulesFile, "utf8").catch(() => null);
+// pair start needs the file to exist. A rule the user edited passes.
+export const rulesExist = async () => (await rulesText()) !== null;
+// pair setup-codex writes the rule and returns the file's path.
 export async function writeRules() {
   try {
     await fs.mkdir(path.dirname(rulesFile), { recursive: true });
@@ -25,7 +24,7 @@ export async function writeRules() {
         )
       : error;
   }
-  console.log(JSON.stringify({ rules: rulesFile, written: true }, null, 2));
+  return rulesFile;
 }
 // pair check reports the rule wherever Codex runs or is installed.
 export async function codexReport(env = process.env) {
@@ -36,16 +35,18 @@ export async function codexReport(env = process.env) {
       () => false,
     ));
   if (!codex) return null;
+  const text = await rulesText();
   return {
     rules: rulesFile,
-    present: await rulesPresent(),
-    write: "pair check --codex-rules",
+    exists: text !== null,
+    present: text === rules,
+    write: "pair setup-codex",
   };
 }
 // Codex sets CODEX_SANDBOX for every command, bypassed or not, so only a
 // real refusal from the sandbox earns the advice.
 export const sandboxAdvice =
-  "run this command outside the sandbox (escalated), and run `pair check --codex-rules` once so an allow rule keeps Codex from asking again";
+  "run this command outside the sandbox (escalated), and run `pair setup-codex` once so an allow rule keeps Codex from asking again";
 export function withSandboxHint(message, env = process.env) {
   if (!env.CODEX_SANDBOX || !/\bEPERM\b/.test(message)) return message;
   return `${message}. The sandbox blocked it: ${sandboxAdvice}`;
@@ -55,7 +56,7 @@ export function withSandboxHint(message, env = process.env) {
 export function checkRefusal(error, env = process.env) {
   return error.code === "EPERM" && env.CODEX_SANDBOX
     ? new Error(
-        `the Codex sandbox blocks the hub's socket and its state directory. Run outside the sandbox (escalated): pair check --codex-rules, which writes ${rulesFile} so a command made only of pair calls runs without asking. Then run the check again.`,
+        `the Codex sandbox blocks the hub's socket and its state directory. Run outside the sandbox (escalated): pair setup-codex, which writes ${rulesFile} so a command made only of pair calls runs without asking. Then run the check again.`,
       )
     : error;
 }

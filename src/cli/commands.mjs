@@ -1,5 +1,5 @@
 import { main as build } from "./build.mjs";
-import { check } from "./check.mjs";
+import { check, setupCodex } from "./check.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
 import { publish, runHub, start } from "./session.mjs";
@@ -278,11 +278,21 @@ export const commands = {
     ],
     flags: {
       "codex-rules": {
-        text: "Write Codex's allow rule for pair to ~/.codex/rules/pair.rules, or the same file under CODEX_HOME, and check nothing.",
+        removed:
+          "pair check --codex-rules is replaced by pair setup-codex. It works in this release only.",
       },
       json,
     },
-    run: check,
+    run: (options) =>
+      options["codex-rules"] ? setupCodex(options) : check(options),
+  },
+  "setup-codex": {
+    group: "setup",
+    purpose: "Let Codex run pair commands outside its sandbox without asking",
+    about:
+      "Write ~/.codex/rules/pair.rules, or the same file under CODEX_HOME, so Codex runs a command made only of pair calls outside its sandbox without asking. Run it once, outside the sandbox, after the user says yes, then ask the user to restart Codex.",
+    flags: { json },
+    run: setupCodex,
   },
   hub: {
     hidden: true,

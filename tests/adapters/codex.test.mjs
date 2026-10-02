@@ -10,26 +10,42 @@ import {
   codexDaemon,
   turnInProgress,
 } from "../support/codex.mjs";
-import { exec, pair } from "../support/hub.mjs";
+import { exists, killHub, pairCli } from "../support/hub.mjs";
 
-test("the Codex rules allow pair, and check reports Codex's sandbox", async (t) => {
+// Without the allow rule, Codex asks the user to approve every pair command,
+// so pair start refuses under Codex until pair setup-codex has written it.
+test("pair start under Codex refuses until the allow rule exists, and pair setup-codex writes it", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
-  t.after(() => fs.rm(home, { recursive: true, force: true }));
-  const env = {
-    ...process.env,
-    CODEX_HOME: path.join(home, "codex"),
-    XDG_STATE_HOME: path.join(home, "state"),
-    PAIR_HUB_PORT: "0",
-  };
-  await exec(process.execPath, [pair, "check", "--codex-rules"], { env });
+  const rules = path.join(home, "codex-home", "rules", "pair.rules");
+  const codex = await pairCli(
+    home,
+    { CODEX_HOME: path.join(home, "codex-home"), PAIR_HUB_PORT: "0" },
+    { harness: "codex" },
+  );
+  t.after(async () => {
+    await killHub(codex.config);
+    await fs.rm(home, { recursive: true, force: true });
+  });
+  // The refusal names the file and the command that writes it.
+  await assert.rejects(codex.start(), (error) => {
+    assert.equal(error.code, 1);
+    for (const part of [rules, "pair setup-codex"])
+      assert(error.stderr.includes(part), error.stderr);
+    return true;
+  });
+  assert.equal(await exists(codex.config.sessions), false);
+  assert.deepEqual(JSON.parse(await codex.run("setup-codex", "--json")), {
+    rules,
+    written: true,
+  });
   assert.equal(
-    await fs.readFile(path.join(home, "codex", "rules", "pair.rules"), "utf8"),
+    await fs.readFile(rules, "utf8"),
     'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n',
   );
-  const { stdout } = await exec(process.execPath, [pair, "check", "--json"], {
-    env: { ...env, CODEX_SANDBOX: "seatbelt" },
-  });
-  assert.equal(JSON.parse(stdout).codex.present, true);
+  const started = await codex.start();
+  assert.deepEqual(started.wake, { harness: "codex" });
+  const report = JSON.parse(await codex.run("check", "--json"));
+  assert.equal(report.codex.present, true);
 });
 
 test("the sandbox hint follows a refusal, not the environment alone", () => {

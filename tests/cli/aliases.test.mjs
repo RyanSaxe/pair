@@ -81,6 +81,12 @@ test("every removed command and flag still runs and prints its replacement", asy
   assert.match(again, new RegExp(`<pair_feedback submission="${event.id}"`));
 
   const env = { ...process.env, XDG_STATE_HOME: h.home, PAIR_HUB_PORT: "0" };
+  const codexHome = path.join(h.home, "codex");
+  const rules = await exec(process.execPath, [pair, "check", "--codex-rules"], {
+    env: { ...env, CODEX_HOME: codexHome },
+  });
+  assert(rules.stderr.includes("pair setup-codex"), rules.stderr);
+  assert(await exists(path.join(codexHome, "rules", "pair.rules")));
   const state = path.join(h.home, "other-state");
   const checked = await exec(process.execPath, [pair, "check", state], {
     env,

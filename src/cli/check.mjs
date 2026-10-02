@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   checkRefusal,
   codexReport,
+  rules,
   writeRules,
 } from "../../adapters/codex/rules.mjs";
 import { hubInfo, portOpen, readRecord } from "../hub/client.mjs";
@@ -28,13 +29,15 @@ function hubLine(hub) {
   const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
   return `port ${hub.port} runs a pair hub with ${sessions}, code ${hub.version}`;
 }
-const codexLine = (codex) =>
-  `${codex.rules} ${codex.present ? "matches pair's rule" : "does not have pair's rule"}`;
+function codexLine(codex) {
+  if (codex.present) return `${codex.rules} matches pair's rule`;
+  return `${codex.rules} ${codex.exists ? "differs from pair's rule" : "is missing"}`;
+}
 
 // The checks pair start needs to pass, one line each. A check that fails
-// outright refuses with its error, and a busy hub port adds a next step.
+// outright refuses with its error. A busy hub port and a missing Codex rules
+// file each add a next step.
 export async function check(options) {
-  if (options["codex-rules"]) return writeRules();
   const codex = await codexReport();
   let directory;
   const server = http.createServer((_, response) => response.end("ready"));
@@ -69,6 +72,11 @@ export async function check(options) {
             `Set PAIR_HUB_PORT to a free port, because another program uses port ${hub.port}.`,
           ]
         : []),
+      ...(codex && !codex.exists
+        ? [
+            `Ask the user whether pair may write ${codex.rules}. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
+          ]
+        : []),
     ];
     const lines = rows([
       [
@@ -99,4 +107,13 @@ export async function check(options) {
     if (server.listening) await new Promise((resolve) => server.close(resolve));
     if (directory) await fs.rm(directory, { recursive: true, force: true });
   }
+}
+
+export async function setupCodex() {
+  const file = await writeRules();
+  return {
+    next: "Ask the user to restart Codex, which reads its rules only when it starts. After the restart, run pair start again.",
+    data: `Wrote ${file}:\n${rules.trim()}`,
+    json: { rules: file, written: true },
+  };
 }

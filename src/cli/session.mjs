@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { rulesExist, rulesFile } from "../../adapters/codex/rules.mjs";
 import { attach } from "../hub/client.mjs";
 import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
@@ -227,6 +228,11 @@ export async function openSession(options, { anyAgent = false } = {}) {
   };
 }
 
+// pair start refuses under Codex until the allow rule exists, because
+// without it Codex asks the user to approve every pair command.
+const codexRefusal = (file) =>
+  `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
+
 export async function start(options) {
   requireNode();
   const resuming = options["session-dir"] !== undefined;
@@ -242,6 +248,8 @@ export async function start(options) {
     );
   const config = settings();
   const wake = detectWake();
+  if (wake.harness === "codex" && !(await rulesExist()))
+    throw new Error(codexRefusal(rulesFile));
   const directory = resuming
     ? path.resolve(options["session-dir"])
     : path.join(config.sessions, crypto.randomUUID());
