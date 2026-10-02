@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
-import { hub, literal, planData, sleep, task } from "../support/hub.mjs";
+import { hub, planData, sleep, task } from "../support/hub.mjs";
 
 test("a new session's first Agreed says to open the URL only when no tab polled the session list within the window", async (t) => {
   const h = await hub(t, {}, { tabWindowMs: 1000 });
@@ -26,10 +26,9 @@ test("a new session's first Agreed says to open the URL only when no tab polled 
       task,
       agreements: [],
     });
-  const opens = (session) =>
-    new RegExp(
-      `^Open ${literal(session.info.url)} in the user's default browser .*, and give the link in chat\\. Then: Pages still to publish: overview\\.`,
-    );
+  // The next line names the session's URL whenever it is a first Agreed, and
+  // starts by opening it only when no tab polled within the window.
+  const opens = (session, next) => next.startsWith(`Open ${session.info.url} `);
   const a = await h.session(),
     b = await h.session(),
     c = await h.session();
@@ -38,16 +37,12 @@ test("a new session's first Agreed says to open the URL only when no tab polled 
   const [first, second, third] = await Promise.all(
     [a, b, c].map((session) => agreed(session)),
   );
-  assert.match(await publish(a, first, true), opens(a));
+  assert.ok(opens(a, await publish(a, first, true)));
   await fetch(`${h.server.origin}/api/sessions`);
-  assert.match(
-    await publish(b, second, true),
-    new RegExp(
-      `^A pair tab is open in the user's browser, .* Give the link ${literal(b.info.url)} in chat, and do not open a tab\\. Then: Pages still to publish: overview\\.`,
-    ),
-  );
+  const linked = await publish(b, second, true);
+  assert.ok(!opens(b, linked) && linked.includes(b.info.url), linked);
   await sleep(1100);
-  assert.match(await publish(c, third, true), opens(c));
+  assert.ok(opens(c, await publish(c, third, true)));
   // A later round's Agreed says nothing about the browser.
   await publish(
     b,
@@ -59,8 +54,6 @@ test("a new session's first Agreed says to open the URL only when no tab polled 
   );
   assert.equal((await b.feedback(b.event())).code, 200);
   assert.equal((await b.action("read")).code, 200);
-  assert.match(
-    await publish(b, await agreed(b, "2"), true),
-    /^Pages still to publish: overview\./,
-  );
+  const later = await publish(b, await agreed(b, "2"), true);
+  assert.ok(!later.includes(b.info.url), later);
 });

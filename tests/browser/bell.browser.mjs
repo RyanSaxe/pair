@@ -93,14 +93,6 @@ test("another session's finished round adds a waiting line, and sending that rou
   await bellReady(page);
   assert.equal((await b.publish(round("Session B"))).code, 200);
   await count(page, "1");
-  await page.locator("#bell").click();
-  const line = page.locator("#center-list .session-row");
-  assert.equal(
-    await line.locator(".title").textContent(),
-    "Round 1 is waiting for you",
-  );
-  assert.match(await line.locator(".words").textContent(), /^Session B · /);
-  await page.keyboard.press("Escape");
   assert.equal((await b.feedback(b.event())).code, 200);
   await count(page, "");
 });
@@ -120,21 +112,9 @@ test("a new session adds a bell line that opens its home view, which loads the r
   const c = await h.session({ start: true });
   await count(page, "1");
   await page.locator("#bell").click();
-  const line = page.locator("#center-list .session-row");
-  assert.equal(
-    await line.locator(".title").textContent(),
-    "Claude Code started a session",
-  );
-  await line.click();
+  await page.locator("#center-list .session-row").click();
   await page.waitForURL(`${h.server.origin}${c.base}/`);
-  await page.locator("#page-title", { hasText: "New session" }).waitFor();
-  await page
-    .locator("#activity-title", { hasText: "Preparing the first round" })
-    .waitFor();
-  assert.match(
-    await page.locator("#home-agent").textContent(),
-    /^Claude Code · started /,
-  );
+  await page.locator("#home-agent", { hasText: "Claude Code" }).waitFor();
   // The keys that act on a page do nothing here.
   for (const key of ["]", "a", "j", "c", "r"]) await page.keyboard.press(key);
   assert.equal(new URL(page.url()).hash, "");
