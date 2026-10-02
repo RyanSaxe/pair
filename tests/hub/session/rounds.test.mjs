@@ -105,7 +105,7 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
-  assert.match(result.body.next, /^Pages still to publish: overview, detail\./);
+  assert.match(result.body.next, /Pages still to publish: overview, detail\./);
   assert.match(result.body.next, /pair ack --note "…" --page ID/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);

@@ -42,7 +42,16 @@ export async function startHub(config = settings()) {
   const register = serializer();
   let origin = null,
     hostOrigin = null,
-    allowedHosts = new Set();
+    allowedHosts = new Set(),
+    localHosts = new Set();
+  // Every pair tab receives the session list, first in the page the hub
+  // serves it and then from its poll every 5 s, and no pair command requests
+  // it, so the last list the hub sent to this machine is the last poll of any
+  // pair tab on it. A tab on the PAIR_HUB_HOST address, such as a phone's,
+  // does not count, because the agent opens its tab on this machine. A new
+  // hub has no record until an open tab polls it.
+  let tabPolledAt = -Infinity;
+  const tabOpen = () => Date.now() - tabPolledAt < config.tabWindowMs;
   const log = (message) =>
     (config.log || console.log)(`${timestamp()} ${message}`);
   // A session directory can be reached by more than one path, such as
@@ -60,7 +69,7 @@ export async function startHub(config = settings()) {
     const known = await canonical(directory);
     let session = byDirectory.get(known);
     if (!session) {
-      session = await loadSession(directory, config, origin);
+      session = await loadSession(directory, config, origin, tabOpen);
       registry.set(session.id, session);
       byDirectory.set(known, session);
     }
@@ -82,6 +91,10 @@ export async function startHub(config = settings()) {
             ? Date.parse(a.publishedAt) - Date.parse(b.publishedAt)
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
+  const sessionList = (req) => {
+    if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
+    return listed();
+  };
   // Chrome can paint a page before it has parsed all of it, so a session
   // the reviewer switched to showed its bare shell, with an empty sidebar and
   // reading column, before the frame drew into it. A module in the head that
@@ -135,7 +148,7 @@ export async function startHub(config = settings()) {
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
-        return reply(200, { sessions: listed() });
+        return reply(200, { sessions: sessionList(req) });
       if (method === "GET" && url.pathname === "/") {
         const sessions = listed();
         const cookie = req.headers.cookie
@@ -239,7 +252,9 @@ export async function startHub(config = settings()) {
               closed ? { closed: true } : {},
               closed
                 ? ""
-                : firstAnswersHead(await firstAnswers(session, listed())),
+                : firstAnswersHead(
+                    await firstAnswers(session, sessionList(req)),
+                  ),
             ),
             {
               "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
@@ -432,6 +447,9 @@ export async function startHub(config = settings()) {
   }
   allowedHosts = new Set(
     [...hosts, "localhost"].map((host) => `${host}:${port}`),
+  );
+  localHosts = new Set(
+    ["127.0.0.1", "localhost"].map((host) => `${host}:${port}`),
   );
   for (const name of await fs.readdir(config.sessions)) {
     const directory = path.join(config.sessions, name);

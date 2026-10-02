@@ -19,7 +19,8 @@ import { submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
-export async function loadSession(directory, config, origin) {
+// tabOpen says whether a pair tab on this machine polled the hub recently.
+export async function loadSession(directory, config, origin, tabOpen) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
@@ -124,6 +125,7 @@ export async function loadSession(directory, config, origin) {
     directory,
     config,
     origin,
+    tabOpen,
     base,
     exclusive,
     transition,

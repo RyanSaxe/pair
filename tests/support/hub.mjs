@@ -136,10 +136,11 @@ export async function inbox(t, home) {
 
 // An in-process hub on a port the OS assigns, in a home of its own. Every
 // session registers with its own inbox, so a test sees only its own wakes.
-export async function hub(t, extra = {}) {
+// options replace settings that no environment variable sets.
+export async function hub(t, extra = {}, options = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
   const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
-  const config = { ...settings(env), log() {} };
+  const config = { ...settings(env), log() {}, ...options };
   const server = await startHub(config);
   t.after(async () => {
     await server.close();

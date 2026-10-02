@@ -18,6 +18,10 @@ wakes the agent when you respond.
 - A new hub loads every session from disk, so each keeps its URL.
 - Every tab reads the session list every 5 seconds, with each session's
   latest events for the bell.
+- The hub keeps the time of the last session-list request from this
+  machine. When a new session's first Agreed publishes, the `next` line of
+  `pair publish` tells the agent to open the URL only when no request came
+  in the last 90 seconds, and otherwise to give the link in chat.
 - When `pair start` finds a hub running other code, it uses it and logs the
   mismatch. The hub is replaced the next time no session is live.
 - The root URL, `http://127.0.0.1:4747/` by default, opens the session
