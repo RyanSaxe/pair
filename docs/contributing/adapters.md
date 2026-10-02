@@ -30,12 +30,14 @@ set. It then calls that adapter's `detect`, or refuses with the adapter's
 ## A listener inside the CLI
 
 Claude Code, Codex and Copilot CLI each accept a message from another
-process, through the inbox socket, `codex queue` and the SDK. pi and opencode
-accept none, so their adapters include code that runs inside the CLI: the pi
-extension `adapters/pi/extension.js` and the opencode plugin
-`adapters/opencode/plugin.js`. The user registers the file once. When it is
-missing, `pair start` refuses with the `unwakeable` message, which contains
-the file's absolute path and the command or config file that registers it.
+process: Claude Code through its inbox socket, Codex through `turn/steer` on
+its app-server daemon or through `codex queue`, and Copilot CLI through its
+SDK. pi and opencode accept none, so their adapters include code that runs
+inside the CLI: the pi extension `adapters/pi/extension.js` and the opencode
+plugin `adapters/opencode/plugin.js`. The user registers the file once. When
+it is missing, `pair start` refuses with the `unwakeable` message, which
+contains the file's absolute path and the command or config file that
+registers it.
 pair writes nothing into another CLI's settings.
 
 The extension and the plugin both use `adapters/listener.mjs`:

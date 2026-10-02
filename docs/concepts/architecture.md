@@ -33,13 +33,22 @@ wakes the agent when you respond.
 `pair start` records how to wake the agent that ran it. When it finds no
 way, it refuses and prints what to do.
 
-| Agent CLI   | Recorded                                                               | Wake                                                                                                            |
-| ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | A message over the inbox socket.                                                                                |
-| Codex       | `CODEX_THREAD_ID`                                                      | `codex queue --thread ID --message TEXT`                                                                        |
-| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | The SDK inside Copilot CLI sends the message as `enqueue`.                                                      |
-| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | A JSON line over the extension's socket. pi queues the message as a follow-up.                                  |
-| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | A JSON line over the plugin's socket. The plugin sends the message with `promptAsync` once the session is idle. |
+| Agent CLI   | Recorded                                                               | Wake                                                                                                              |
+| ----------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | A message over the inbox socket.                                                                                  |
+| Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | `turn/steer` over the daemon's socket into the turn in progress, or else `codex queue --thread ID --message TEXT` |
+| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | The SDK inside Copilot CLI sends the message as `enqueue`.                                                        |
+| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | A JSON line over the extension's socket. pi queues the message as a follow-up.                                    |
+| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | A JSON line over the plugin's socket. The plugin sends the message with `promptAsync` once the session is idle.   |
+
+A plain `codex` from version 0.160 runs its threads on a shared app-server
+daemon, which listens on `app-server-control/app-server-control.sock` under
+`CODEX_HOME`, or under `~/.codex`. When a turn of the thread is in progress,
+the hub connects to that socket and sends the line with `turn/steer`, and
+Codex reads it between the steps of the turn. In every other case the hub
+runs `codex queue`. When Codex is idle, it starts a turn with the line at
+once. When the daemon does not run the thread, as with a Codex older than
+0.160, Codex reads the line when its turn ends.
 
 Copilot CLI listens only when started with `--ui-server`. Without it,
 `pair start` refuses and prints `copilot --ui-server --resume <session id>`.

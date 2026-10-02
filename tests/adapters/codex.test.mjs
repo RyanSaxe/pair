@@ -5,6 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import { withSandboxHint } from "../../adapters/codex/rules.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
+import {
+  codexCommand,
+  codexDaemon,
+  turnInProgress,
+} from "../support/codex.mjs";
 import { exec, pair } from "../support/hub.mjs";
 
 test("the Codex rules allow pair, and check reports Codex's sandbox", async (t) => {
@@ -42,50 +47,83 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
   );
 });
 
-// The hub wakes a Codex session by running codex queue. The stand-in codex
-// first on PATH records its arguments, and fails as codex does when it
-// cannot queue the message.
+// The hub wakes a Codex session through the daemon of Codex 0.160, and
+// through codex queue when the daemon cannot take the line into a turn in
+// progress. The fake daemon stands in for the first, and the stand-in codex
+// for the second.
 // npm installs Codex on Windows as codex.cmd, which the adapter's execFile
 // cannot run without a shell, so a Codex wake does not work there yet.
-test(
-  "a Codex wake queues the line on the session's thread",
-  {
-    skip:
-      process.platform === "win32" && "a Codex wake needs codex.cmd support",
-  },
-  async (t) => {
-    const bin = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
-    const searched = process.env.PATH;
-    process.env.PATH = bin + path.delimiter + searched;
-    t.after(() => {
-      process.env.PATH = searched;
-      delete process.env.PAIR_TEST_FAIL;
-      return fs.rm(bin, { recursive: true, force: true });
-    });
-    const log = path.join(bin, "arguments.json");
-    await fs.writeFile(
-      path.join(bin, "codex"),
-      `#!${process.execPath}
-require("node:fs").writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));
-if (process.env.PAIR_TEST_FAIL) {
-  console.error("thread gone");
-  process.exit(1);
-}
-`,
-      { mode: 0o755 },
-    );
-    const target = { harness: "codex", thread: "thread-1" };
-    const line = "pair: the reviewer submitted round 1 of session /s.";
-    await wakeRunner(target, line);
-    assert.deepEqual(JSON.parse(await fs.readFile(log, "utf8")), [
-      "queue",
-      "--thread",
-      "thread-1",
-      "--message",
-      line,
-    ]);
-    // The hub records this message as the wake's reason.
-    process.env.PAIR_TEST_FAIL = "1";
-    await assert.rejects(wakeRunner(target, line), /^Error: thread gone$/);
-  },
-);
+const unix = {
+  skip: process.platform === "win32" && "a Codex wake needs codex.cmd support",
+};
+const thread = "thread-1";
+// A side-work line contains the reviewer's message, so a line can pass the
+// 125 bytes of a short frame.
+const line = `pair: side work "Retry" was started in parallel on session /s. ${"Do it apart from the session's own work. ".repeat(4)}`;
+const queued = ["queue", "--thread", thread, "--message", line];
+
+test("a Codex wake steers the turn in progress", unix, async (t) => {
+  const codex = await codexCommand(t);
+  const daemon = await codexDaemon(t, turnInProgress(thread, "turn-2"));
+  const result = await wakeRunner(
+    { harness: "codex", thread, socket: daemon.socket },
+    line,
+  );
+  assert.deepEqual(result, { via: "steer", steerable: true });
+  assert.deepEqual(
+    daemon.received.map((message) => message.method),
+    [
+      "initialize",
+      "initialized",
+      "thread/read",
+      "thread/turns/list",
+      "turn/steer",
+    ],
+  );
+  const [, , , turns, steer] = daemon.received;
+  assert.deepEqual(turns.params, {
+    threadId: thread,
+    limit: 1,
+    itemsView: "notLoaded",
+  });
+  assert.deepEqual(steer.params, {
+    threadId: thread,
+    expectedTurnId: "turn-2",
+    input: [{ type: "text", text: line }],
+  });
+  assert.deepEqual(await codex.runs(), []);
+});
+
+test("a Codex wake falls back to codex queue", unix, async (t) => {
+  const codex = await codexCommand(t);
+  const missing = path.join(codex.directory, "none.sock");
+  const status = (type) => ({
+    "thread/read": { thread: { id: thread, status: { type } } },
+  });
+  const cases = [
+    ["no socket", null, false],
+    ["status notLoaded", status("notLoaded"), false],
+    ["status idle", status("idle"), true],
+    [
+      "turn/steer answered with an error",
+      {
+        ...turnInProgress(thread, "turn-2"),
+        "turn/steer": { error: { code: -32600, message: "no active turn" } },
+      },
+      true,
+    ],
+  ];
+  for (const [name, answers, steerable] of cases) {
+    const socket = answers ? (await codexDaemon(t, answers)).socket : missing;
+    const result = await wakeRunner({ harness: "codex", thread, socket }, line);
+    assert.deepEqual(result, { via: "queue", steerable }, name);
+    assert.deepEqual((await codex.runs()).at(-1), queued, name);
+  }
+  assert.equal((await codex.runs()).length, cases.length);
+  // The hub records this message as the wake's reason.
+  process.env.PAIR_TEST_FAIL = "1";
+  await assert.rejects(
+    wakeRunner({ harness: "codex", thread, socket: missing }, line),
+    /^Error: thread gone$/,
+  );
+});
