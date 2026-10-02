@@ -10,7 +10,7 @@ const themes = ["light", "dark"];
 const desktop = { width: 1160, height: 760 };
 const phone = { width: 390, height: 844 };
 // A second session, whose round waits for the reviewer, turns the sessions
-// button orange.
+// button orange and adds its start and its waiting round to the bell.
 const waiting = {
   name: "waiting-session",
   round: "1",
@@ -150,14 +150,15 @@ async function load(page, url, id) {
 }
 
 // The frame learns of the second session and of the agent's reply from a
-// poll of the hub every 5 s, so a capture waits for both counts.
+// poll of the hub every 5 s, so a capture waits for both counts: the second
+// session's start and waiting round, and the reply.
 async function counted(page) {
   await until(
     page,
     "Counting the sessions and the notifications",
     () =>
       document.getElementById("sessions-count").textContent === "2" &&
-      document.getElementById("bell-count").textContent === "1",
+      document.getElementById("bell-count").textContent === "3",
   );
 }
 
@@ -300,7 +301,6 @@ export async function stage(t, scratch) {
     for (const theme of themes)
       images.set(`${name}-${theme}.png`, shots[theme]);
   };
-  await publish(await h.session(), waiting, sent);
 
   // Round 1: the reviewer chooses where a thread starts and notes what a
   // reply holds.
@@ -310,6 +310,10 @@ export async function stage(t, scratch) {
     deviceScaleFactor: 2,
   });
   await load(page, url, "overview");
+  // The bell's first poll marks every event it finds as seen, so the
+  // second session starts after it.
+  await page.locator("#bell").waitFor();
+  await publish(await h.session({ start: true }), waiting, sent);
   await page
     .locator('[data-choice="start"] [data-value="note-dialog"]')
     .click();
@@ -376,7 +380,7 @@ export async function stage(t, scratch) {
   const third = await loadRound(3);
   await publish(session, third, sent, 1);
   await act(session, "progress", { start: [third.pages[1].id] });
-  await act(session, "ack", { note: "Writing how pair reply prints a thread" });
+  await act(session, "ack", { note: "Reading your thread replies" });
   await load(page, url, "agreed");
   await page.getByText("2 of 4 pages ready").waitFor();
   await counted(page);

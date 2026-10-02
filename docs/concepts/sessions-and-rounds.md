@@ -70,7 +70,7 @@ open in the tab you are using.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
-  <img alt="The bell's list with an agent's reply, and the session button in orange because another session waits for you" src="../assets/bell-light.png">
+  <img alt="The bell's list with another session's start and waiting round and an agent's reply, and the session button in orange because that session waits for you" src="../assets/bell-light.png">
 </picture>
 
 ## Feedback
