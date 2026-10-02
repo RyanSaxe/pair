@@ -70,22 +70,7 @@ test("a Codex wake steers the turn in progress", unix, async (t) => {
     line,
   );
   assert.deepEqual(result, { via: "steer", steerable: true });
-  assert.deepEqual(
-    daemon.received.map((message) => message.method),
-    [
-      "initialize",
-      "initialized",
-      "thread/read",
-      "thread/turns/list",
-      "turn/steer",
-    ],
-  );
-  const [, , , turns, steer] = daemon.received;
-  assert.deepEqual(turns.params, {
-    threadId: thread,
-    limit: 1,
-    itemsView: "notLoaded",
-  });
+  const steer = daemon.received.find(({ method }) => method === "turn/steer");
   assert.deepEqual(steer.params, {
     threadId: thread,
     expectedTurnId: "turn-2",

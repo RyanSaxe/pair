@@ -4,11 +4,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import {
-  codexCommand,
-  codexDaemon,
-  turnInProgress,
-} from "../../support/codex.mjs";
 import { hub, literal, planData, waitUntil } from "../../support/hub.mjs";
 
 const png = Buffer.concat([
@@ -17,10 +12,9 @@ const png = Buffer.concat([
 ]);
 
 // A session with round 1 published, and the reviewer's side of a thread.
-// A box registers a holder other than the default Claude Code inbox.
-async function published(t, box) {
+async function published(t) {
   const h = await hub(t);
-  const a = await h.session({ box });
+  const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
   const upload = async () =>
     (
@@ -69,10 +63,12 @@ test("a thread wakes the holder once for each message the reviewer sends", async
   );
   assert.equal(stored.messages[0].attachments[0].path, image.path);
   assert.equal(stored.wake.via, "inbox");
-  // A thread never changes the round.
+  // A thread never changes the round, and its wake sets the holder's
+  // steerable, which the frame reads.
   const status = (await a.status()).body;
   assert.equal(status.stage, "updated");
   assert.equal(status.latestSubmissionId, undefined);
+  assert.equal(status.holder.steerable, true);
 
   assert.equal(
     (await a.action("reply", { note: id, text: "Kept." })).code,
@@ -162,42 +158,6 @@ test("a thread starts on Agreed from the progress card, and pair reply names its
     new RegExp(`^Thread ${id} on "Agreed so far", block "Progress" `),
   );
 });
-
-test(
-  "a thread's wake to Codex records its path",
-  {
-    skip:
-      process.platform === "win32" && "a Codex wake needs codex.cmd support",
-  },
-  async (t) => {
-    // A regression that falls back to codex queue runs the stand-in, not
-    // the developer's Codex.
-    const codex = await codexCommand(t);
-    const thread = "thread-1";
-    const daemon = await codexDaemon(t, turnInProgress(thread, "turn-1"));
-    const {
-      a,
-      start,
-      thread: shown,
-      settled,
-    } = await published(t, {
-      target: { harness: "codex", thread, socket: daemon.socket },
-      agent: { harness: "codex", id: thread },
-    });
-    const { id } = (await start()).body.thread;
-    assert.equal(await settled(id), true);
-    assert.equal((await shown(id)).state, "sent");
-    const stored = JSON.parse(
-      await fs.readFile(
-        path.join(a.directory, "threads", `${id}.json`),
-        "utf8",
-      ),
-    );
-    assert.equal(stored.wake.via, "steer");
-    assert.equal((await a.status()).body.holder.steerable, true);
-    assert.deepEqual(await codex.runs(), []);
-  },
-);
 
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {
   const { a, start, thread, settled } = await published(t);

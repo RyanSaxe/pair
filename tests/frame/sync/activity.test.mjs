@@ -314,17 +314,11 @@ test("the card shows outside a running round what the reviewer must know", () =>
   assert.equal(agentNotice({ ...failed, stage: "updated" }), false);
 });
 
-test("the message tooltip follows the holder", () => {
-  const steps = /between its steps/;
-  const turns = /only between its turns/;
-  const holders = [
-    [{ harness: "opencode", steerable: true }, steps],
-    // Before its first wake, a holder has no steerable.
-    [{ harness: "pi" }, steps],
-    // codex queue and Copilot's enqueue wait for the turn to end.
-    [{ harness: "codex", steerable: false }, turns],
-    [{ harness: "copilot", steerable: false }, turns],
-  ];
-  for (const [holder, text] of holders)
-    assert.match(messageTiming(holder), text, JSON.stringify(holder));
+// Before its first wake, a holder has no steerable, and a session may have
+// no holder.
+test("the message tooltip changes only for a holder whose last wake waits for the turn to end", () => {
+  const midTurn = messageTiming({ steerable: true });
+  assert.equal(messageTiming({}), midTurn);
+  assert.equal(messageTiming(null), midTurn);
+  assert.notEqual(messageTiming({ steerable: false }), midTurn);
 });
