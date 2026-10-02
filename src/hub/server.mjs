@@ -81,14 +81,25 @@ export async function startHub(config = settings()) {
             ? Date.parse(a.publishedAt) - Date.parse(b.publishedAt)
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
+  // Chrome can paint a page before it has parsed all of it, so a session
+  // the reviewer switched to showed its bare shell, with an empty sidebar and
+  // reading column, before the frame drew into it. A module in the head that
+  // blocks rendering keeps the previous page on screen until the page is
+  // parsed and its modules have run. The hub adds it as it serves the page,
+  // so rounds built before it have it too. A script with no text never runs,
+  // so it holds a comment.
+  const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
   const roundPage = async (session, entry, flags = {}) => {
     requireValue(entry, "Unknown round", 404);
     const html = await fs.readFile(entry.path, "utf8");
-    return embedConfig(html, {
-      sessionId: session.id,
-      base: session.base,
-      ...flags,
-    });
+    return embedConfig(
+      html.replace("</head>", () => renderGate + "</head>"),
+      {
+        sessionId: session.id,
+        base: session.base,
+        ...flags,
+      },
+    );
   };
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
