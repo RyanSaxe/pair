@@ -68,8 +68,8 @@ work as it now stands.
 
 ## Save for later
 
-The action is `save`, and the reviewer wants the plan built later, so do not
-implement it when the Save arrives. The next step that `pair read` prints
+The action is `save`, which means an agent builds the plan in a later turn,
+so do not implement it when the Save arrives. The next step that `pair read` prints
 contains the handoff line. Say the handoff line in chat, then end your turn.
 The plan stays accepted, with its record in the session's `acceptance.json`.
 

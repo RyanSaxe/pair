@@ -118,9 +118,7 @@ popovers), `--line` and `--line-strong`, `--ink`, `--muted`, `--accent`,
 `--accent-soft`, `--attention` and `--attention-bg` (needs you), `--ok` and
 `--ok-bg` (sent, accepted), `--danger` and `--danger-bg` (removed), `--code`,
 and `--mark` (noted text). Do not color preferred options green or
-alternatives red to express preference. When color marks something, say the
-same in the text, and add no decorative cards, labels, tags or pills that
-repeat nearby text.
+alternatives red to express preference.
 
 Type is the system stack: 13px chrome, 13.5px to 15px reading, 22px page
 titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,

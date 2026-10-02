@@ -32,11 +32,10 @@ it is wrong. Never ask the reviewer to approve it.
 
 Each agreement needs `sourceRefs` or `source`. When you decide a choice
 because the reviewer asked you to, cite their note in `sourceRefs` and say
-in `source` that you chose and why. When the reviewer's Everything else
-looks good, `everything-else-looks-good="yes"` on the submission, settled a
-proposal the page stated, name the round and submission ID in `source`,
-state that the reviewer set it, and explain why the comments did not
-challenge it.
+in `source` that you chose and why. When the reviewer agreed to a proposal
+the pages stated by sending `everything-else-looks-good="yes"`, and no note
+challenged it, name the round and the submission ID in `source` and say
+that no note challenged the proposal.
 
 Each reference has a `kind`:
 
@@ -64,31 +63,17 @@ When agreed material changes in a later round, mark the agreement
 wording first in `sourceRefs`.
 
 A valid source does not make the summary correct. Read the feedback and the
-conversation before writing or changing an agreement. A note on an agreement
-has the agreement's ID in its `agreement` attribute, and the agreement changes
-only when you rewrite it.
+conversation before writing or changing an agreement. The `<pair_note>` of
+a note on an agreement has the agreement's ID in its `agreement` attribute,
+and the agreement changes only when you rewrite it.
 
-## Keep Agreed short
+## Keep Agreed current
 
-The reviewer reads Agreed every round to catch a wrong summary, and skims a
-list too long to check. Each round, shorten Agreed without losing a
-commitment.
+Agreed should state each decision as it stands now and stay readable. When
+you update Agreed, merge agreements that have become parts of one decision,
+and retire, with a reason, each agreement that no longer stands.
 
-Write each agreement as the decision stands now, and leave its history to
-its sources.
-
-Merge agreements that settle parts of one thing, so the reviewer reads each
-topic once. Keep one part's ID, and give the merged agreement every part's
-sources and every exact detail. Retire each other part with a reason that
-names the agreement it joined.
-
-When an agreement states only what is built or left out, put that in the
-task, which states both, and retire the agreement with a reason that says
-so.
-
-Retire an agreement, with a reason, when nothing left to build or decide
-depends on it. Keep a retired agreement on Agreed in the round you retire
-it, and leave it out after that.
-
-When Agreed has more than about eight agreements, look for ones to merge,
-because the reviewer checks each one every round.
+When you merge agreements, keep one part's ID, and give the merged
+agreement every part's sources and every exact detail. Retire each other
+part with a reason that names the agreement it joined. Keep a retired
+agreement on Agreed in the round you retire it, and leave it out after that.

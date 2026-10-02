@@ -11,8 +11,9 @@ pair side-work add --title "Delete visual-review" --text "The skill is deprecate
 The title names the work in a few words, the text says what it is and why in
 a sentence or two, and the source says where it came from, such as the
 reviewer's note or the command that showed it. The reviewer can comment on
-an item, drop it or start it in parallel. A note on an item has the item's
-ID in `sideWorkId`, and `pair status` lists every item.
+an item, drop it or start it in parallel. The `<pair_note>` of a note on an
+item has the item's ID in its `side-work` attribute, and `pair status`
+lists every item.
 
 An item starts as `recorded`. Move it to another state with
 `pair side-work update ID --state STATE --session-dir PATH`:

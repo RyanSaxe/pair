@@ -17,18 +17,10 @@ Your own file at the same path under `$XDG_CONFIG_HOME/pair/`, or
 after `guide/pages.md`. Nothing there is required, and nothing replaces
 pair's text.
 
-## The core
-
-`pair guide` prints [`guide/pair.md`](../../guide/pair.md): what a session
-is, how pair's instructions reach the agent, how to start, what every round
-requires, what a round covers, what makes a page good, how to brief a
-subagent, and when to read each lookup file. A test keeps it to 1,100 words
-or fewer.
-
 ## Moments
 
 A command prints the text of the moment it names after its next step. Each
-moment is a Markdown file of at most 150 words in `guide/moments/`, and
+moment is a Markdown file in `guide/moments/`, and
 `pair guide moments/NAME.md` prints one. After `publish-agreed.md` and
 `publish-agreed-plan.md`, `pair publish` also prints the list that
 `pair components` prints.
@@ -46,21 +38,22 @@ moment is a Markdown file of at most 150 words in `guide/moments/`, and
 
 ## Lookup files
 
-| File                                                     | Command                       | The agent reads it                                                   | What it contains                                                                                                       |
-| -------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [`guide/agreements.md`](../../guide/agreements.md)       | `pair guide agreements.md`    | Before it writes Agreed                                              | The task, the fields of each decision and its sources, and how to keep Agreed short.                                   |
-| [`guide/pages.md`](../../guide/pages.md)                 | `pair guide pages.md`         | Before the session's first page                                      | Where page sources and built pages go, how to publish them, the source fields, controls, page CSS and page JavaScript. |
-| [`guide/components.md`](../../guide/components.md)       | `pair guide components.md`    | Before the session's first page                                      | How to escape a component's text, the attributes of code and figures, decisions, questions, before-after and diagrams. |
-| [`guide/writing.md`](../../guide/writing.md)             | `pair guide writing.md`       | Before the session's first page                                      | The rules every sentence on a page follows, with examples of what to avoid and what to write instead.                  |
-| [`guide/prototypes.md`](../../guide/prototypes.md)       | `pair guide prototypes.md`    | When a page has a prototype                                          | The prototype contract: a self-contained HTML document that shows an interaction working, and the frame it runs in.    |
-| [`guide/side-work.md`](../../guide/side-work.md)         | `pair guide side-work.md`     | When it records side work, or the reviewer presses Start in parallel | How to record side work, and each state an item moves through.                                                         |
-| [`guide/session.md`](../../guide/session.md)             | `pair guide session.md`       | Before it takes a session over, resumes it or pauses it              | Taking a session over, resuming and pausing it, and the acceptance record.                                             |
-| [`guide/setup.md`](../../guide/setup.md)                 | `pair guide setup.md`         | When a command fails                                                 | The Node requirement, `pair check`, each agent CLI's sandbox, and a submission that did not wake the agent.            |
-| [`guide/offers/plan.md`](../../guide/offers/plan.md)     | `pair guide offers/plan.md`   | Before the final plan, and after the reviewer accepts it             | Present the plan, Start implementation and Save for later, and how to build a saved plan.                              |
-| [`guide/offers/finish.md`](../../guide/offers/finish.md) | `pair guide offers/finish.md` | After the reviewer accepts built work                                | Finish without a PR and Open a PR, and what the agent does for each.                                                   |
+| File                                                     | Command                       | The agent reads it                                                   |
+| -------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------- |
+| [`guide/agreements.md`](../../guide/agreements.md)       | `pair guide agreements.md`    | Before it writes Agreed                                              |
+| [`guide/pages.md`](../../guide/pages.md)                 | `pair guide pages.md`         | Before the session's first page                                      |
+| [`guide/components.md`](../../guide/components.md)       | `pair guide components.md`    | Before the session's first page                                      |
+| [`guide/writing.md`](../../guide/writing.md)             | `pair guide writing.md`       | Before the session's first page                                      |
+| [`guide/prototypes.md`](../../guide/prototypes.md)       | `pair guide prototypes.md`    | When a page has a prototype                                          |
+| [`guide/side-work.md`](../../guide/side-work.md)         | `pair guide side-work.md`     | When it records side work, or the reviewer presses Start in parallel |
+| [`guide/session.md`](../../guide/session.md)             | `pair guide session.md`       | Before it takes a session over, resumes it or pauses it              |
+| [`guide/setup.md`](../../guide/setup.md)                 | `pair guide setup.md`         | When a command fails                                                 |
+| [`guide/offers/plan.md`](../../guide/offers/plan.md)     | `pair guide offers/plan.md`   | Before the final plan, and after the reviewer accepts it             |
+| [`guide/offers/finish.md`](../../guide/offers/finish.md) | `pair guide offers/finish.md` | After the reviewer accepts built work                                |
 
 `pair guide components/README.md` prints
 [`src/components/README.md`](../../src/components/README.md), which says how
-to write a component when a page needs one or the user asks to keep one, and
+to write a component when a page needs one or the user asks to keep one,
 `pair guide components/NAME/markup.html` prints a component's markup, yours
-when you have a component named NAME.
+when you have a component named NAME, and `pair guide flow.svg` prints the
+hand-drawn diagram that `guide/components.md` gives as an example.

@@ -21,14 +21,13 @@ Never suggest this to the reviewer.
 
 ## Escaping
 
-The source of a code block, the Mermaid text of a diagram and the JSON in
-the before-after component's `textarea[data-diff-input]` are HTML text, so
-write `&lt;` for each `<` and `&amp;` for each `&`. Nothing checks this. An
-unescaped `<T>` in code becomes a tag and the rest of the line disappears,
-and an unescaped `<br/>` in a Mermaid label becomes an HTML element, so the
-label renders without its line break and with no error. `>` needs no
-escaping, so `-->` and `->>` stay as written. When math is inside a JSON
-string, escape each backslash again.
+A code block, a diagram's Mermaid text and the before-after JSON in
+`textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
+`&amp;` for each `&` in them. Nothing checks this, and the browser reads an
+unescaped `<` as the start of a tag: `<T>` in code hides the rest of its
+line, and `<br/>` in a Mermaid label loses its line break, with no error.
+Leave `>` as it is, so `-->` and `->>` stay as written. In a formula inside
+a JSON string, write each backslash twice.
 
 ## Code and figures
 
