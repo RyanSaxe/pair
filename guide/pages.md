@@ -44,8 +44,7 @@ chat and plan it as work on pair.
 
 Agreed and every other page share the outer fields `name`, `round` and
 `title`. Agreed also requires a `task`, whose fields are in
-[agreements.md](agreements.md). Name the round's `offer` in Agreed's source
-only. `pair build` refuses any other page whose source names one.
+[agreements.md](agreements.md).
 
 ```json
 {
@@ -80,16 +79,16 @@ only. `pair build` refuses any other page whose source names one.
 }
 ```
 
-| Field      | Contract                                                                                                                                                                                                                                                  |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                                                                                                                                                                           |
-| round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.                                                                                                                                                                    |
-| offer      | Agreed's source only, and optional. Every other page's source names none. `plan` on a complete plan, whose first page after Agreed is `overview`. `finish` on a round in which you build the work. Without an offer, the reviewer can only send feedback. |
-| title      | The plan's title.                                                                                                                                                                                                                                         |
-| page.file  | An HTML fragment, relative to the JSON file. `page.html` may contain the fragment inline instead.                                                                                                                                                         |
-| page.css   | Optional page CSS. `pair build` scopes it to this page.                                                                                                                                                                                                   |
-| page.js    | Optional module that exports `setup(root, planUI)`.                                                                                                                                                                                                       |
-| prototypes | Optional prototypes for this page. See [prototypes.md](prototypes.md).                                                                                                                                                                                    |
+| Field      | Contract                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------- |
+| name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                    |
+| round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.             |
+| offer      | Agreed's source only, and optional: `plan` or `finish`. [pair.md](pair.md) says when to name each. |
+| title      | The plan's title.                                                                                  |
+| page.file  | An HTML fragment, relative to the JSON file. `page.html` may contain the fragment inline instead.  |
+| page.css   | Optional page CSS. `pair build` scopes it to this page.                                            |
+| page.js    | Optional module that exports `setup(root, planUI)`.                                                |
+| prototypes | Optional prototypes for this page. See [prototypes.md](prototypes.md).                             |
 
 Page IDs are unique within a round. `agreed` is only for the Agreed page,
 and `feedback` is reserved.

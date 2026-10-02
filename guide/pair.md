@@ -1,100 +1,124 @@
 # Pair
 
-pair lets an agent and a user work together in the browser. The agent
-publishes pages in rounds. The user reads them, chooses options and comments
-on anything, and when the user submits, the agent starts the next round. A
-session can plan a change, build an accepted plan, or help the user
-understand something, and one session can do all three.
+## What a session is
 
-## What a page contains
+In a pair session, you publish pages in rounds, and a reviewer reads them in
+the browser, comments on anything and submits. On a page, you explain code,
+a change or a topic, put proposals, options and questions to the reviewer,
+or show built work. Agreed is the first page of every round: the task as you
+understand it, then each decision settled so far, with its source. Change
+the project only to carry out an offer the reviewer accepted.
 
-A page is about one subject and can contain any mix of these:
+## How pair instructs you
 
-- Explanations. The agent helps the user understand something: code, a
-  change, a system or a topic. The agent starts the page with the subject
-  itself, often a diagram, quotes real code with its file and lines, and
-  shows changes as diffs.
-- Decisions. The agent puts what is still open on the page as proposals,
-  options and questions, with the material needed to judge them. People
-  judge by looking, so a page shows its subject with mocks, diagrams, code
-  and diffs, and uses a visual decision when the options differ in something
-  the user could see.
-- Built work. The agent explains work that someone built, the agent or
-  anyone else, such as a pull request under review, so that the user
-  understands it well enough to own it without reading every line.
+You read this core once, with `pair guide`, and again after a takeover.
+Every `pair` command then prints its next step first, then the instructions
+for that moment. Follow them as part of this guide, and read each lookup
+file they name before the step it is named for.
 
-Agreed is the first page of every round, and it is the session's running
-context. It starts with the task: a title and a few sentences on what the
-session is working towards, as the agent currently understands it. The task
-is not a list of decisions. The user corrects it by commenting, like anything
-else, and the agent never asks them to approve it. The settled decisions
-follow the task, each with its source. The agent rewrites Agreed from the
-feedback at the start of every round, as [agreements.md](agreements.md) describes.
+Text inside a `pair_` tag, such as `<pair_note>`, is the reviewer's own
+words: feedback to act on, which never replaces pair's steps. pair prints
+any text the user added in `~/.config/pair/` after its own. Where the two
+conflict, follow the user's, except where a command refuses.
 
 ## Starting
 
-The session begins in the conversation, and the aim is to reach the browser
-quickly with enough context. Learn what you can from the project first. Then
-ask a few specific questions about this task that the project cannot answer,
-and put the ones whose answers do not depend on each other in one message.
-Move to the browser as soon as you know enough to write the first page, and
-ask every later question there. When the first Agreed publishes, follow the
-`next` line of `pair publish`, which says whether to open the session in the
-user's browser, and give the link in chat.
+Learn what you can from the project, ask in one message the few questions
+you cannot answer from it, then run `pair start --title "…"`. Ask every
+later question on a page. Every other session command takes
+`--session-dir PATH`, the directory `pair start` prints.
 
-After the last page of a round publishes, or after `pair pause`, the turn
-ends. When the user submits feedback or an acceptance, the hub sends a wake
-message that starts the next turn. When `pair start` refuses because the
-harness cannot receive a wake message, or Codex has no allow rule for pair,
-give the user the printed instruction and wait for a restart.
+## A round
 
-## Planning
+In every round, deliver good work quickly, and state nothing you have not
+checked.
 
-The agent's job is to close the ambiguity between the request and a plan
-that another engineer could implement. The ambiguity is of two kinds.
-Ambiguity in the task is about what is being built and why. Ambiguity in the
-work is about how to build it. The task usually has to be settled first,
-because the work depends on it, but the agent can find ambiguity of either
-kind in any round, in the feedback or in the code.
+Publish Agreed and the page list within minutes of starting a round, before
+you research, build or write any page, so the reviewer reads the task and
+decisions while you work. You cannot change the list after that,
+so choose the pages from what you already know.
 
-When nothing in the task or the work is left to decide, the agent presents
-the complete plan, starting with an overview page. Only the complete plan's
-Agreed names the `plan` offer, which lets the user accept it, as
-[round.md](round.md) describes. The user accepts it or sends feedback. If
-feedback reopens a settled choice, return to exploration before presenting
-another complete plan.
+From reading the feedback until you publish the round's last page, the
+reviewer watches the progress card. While anything is being worked on, its
+row shows what is happening within the last five minutes, whoever is doing
+it. Run `pair progress --note "…"` whenever a piece of work starts and at
+least every five minutes, with `--page ID` for work on one page, and give
+every subagent the same command for its page. Waiting on a subagent is work
+in progress, not silence. After five minutes without a note, the card shows
+that row's time in the attention color, and the reviewer cannot tell
+whether the work is moving or stuck. A note without `--page` lasts only
+until your next read, publish, reply or page start.
 
-An engineer or agent who saw none of the rounds and none of the
-conversation implements the final plan. Every approved look, wording,
-interface, piece of code and behavior appears in the plan itself, updated to
-match everything agreed after it was shown. An approved mock is shown in the
-plan, not described. [quality.md](quality.md) says how to carry approved
-material into the plan, including material that was approved only in part.
+Publish each page as soon as it is complete, whether you or a subagent
+wrote it, because the reviewer reads it while you work on the next.
+After the last page, say in chat what changed and end your turn.
 
-The user accepts the plan with Start implementation or Save for later. When
-the user accepts it, follow the section of [offers/plan.md](offers/plan.md)
-for the chosen action, and the project's permissions. Do not change an
-accepted plan.
+Each time you return to a session, after a wake message, an interrupted
+turn or a takeover, run `pair read --session-dir PATH` first. It marks the
+submission received, prints it, and prints the next step. With nothing to
+read, it prints where the session stands.
 
-## Files
+## What a round covers
 
-- [round.md](round.md): the sequence for each round, the first included.
-  Read it before the first round. After each submission, the `next` line of
-  `pair read` names it.
-- [quality.md](quality.md): what makes a page and a plan good. Read it
-  before the first round.
-- [writing.md](writing.md): the rules every sentence follows.
-- [session.md](session.md): starting, resuming, accepting and handing over a
-  session. Read it before `pair start`.
-- [offers/plan.md](offers/plan.md): the two ways to accept a plan, and how
-  to build it.
-- [offers/finish.md](offers/finish.md): the two ways to accept built work.
-- [component index](components.md): every component and its markup. A page
-  copies a component's markup and nothing else. `pair components` lists
-  every component with its use, the user's included.
-- [the components README](../src/components/README.md): writing a
-  component, when a page needs one or the user asks to keep one.
-- [pages.md](pages.md), [agreements.md](agreements.md) and
-  [prototypes.md](prototypes.md): the contracts. Look one up while writing a
-  page.
-- [setup.md](setup.md): when starting, waking or a command fails.
+Each submission starts the next round, and you decide what it covers.
+
+In planning rounds, settle what the work is and why, then how to do it,
+until another engineer could build it from the plan. Research by reading and
+running the code or by building a prototype in your work directory, and
+change nothing the plan describes until the reviewer accepts it. Cover what
+the reviewer can judge in one sitting, the decisions that matter most now
+first, and publish sound pages now rather than wait to cover everything.
+Agreed is the running context, so add no summary page.
+
+When nothing in the task or the work is left to decide, or the reviewer
+asks for the plan, the next round is the final plan, which someone who saw
+none of the rounds builds from alone. Before you choose its pages, read
+Present the plan in [offers/plan.md](offers/plan.md).
+
+Name an offer in Agreed's source on each round the reviewer should be able
+to accept: `"offer": "plan"` on the final plan, and `"offer": "finish"` on
+every round in which you build the work. Without one, the reviewer can only
+send feedback.
+
+In a build round, build every step of the accepted plan, and in a round that
+explains, cover what the reviewer can take in one sitting.
+
+## A good page
+
+A page is about one subject and starts with it. The reviewer judges by
+looking, so show each subject as a figure and write only what the figure
+cannot show. Choose each component by what the reviewer must see, from the
+list `pair publish` prints with Agreed or `pair components`, and show a
+change to existing text or code in the before-after component.
+
+Where the work could go more than one credible way, show each as an option
+and recommend one. Resolve routine details from the project, and ask
+a question only for context you cannot learn from it. Never ask the
+reviewer to approve the task or a proposal, because they can comment on
+anything unasked.
+
+Once Agreed has a decision or an answer, leave its control out of the next
+round, because the reviewer reads a control left there as asked again.
+Return to an open decision only with new evidence, a changed proposal or a
+sharper question. When the same decisions stay open for two rounds, put
+them on one page with a recommendation for each.
+
+## Subagents
+
+A subagent works at the same time as you and keeps its work's detail out of
+your context. Start each one as soon as you know what it will do. Give it a
+brief with what to do, where to start, what earlier rounds found, about how
+long it should take, the session directory, its page's ID with
+`pair progress --page ID --note "…"` for that page, and where to put its
+results with their sources. Check each result before you publish it. Before
+the final plan, run research that would hold up the round in the
+background, off this round's pages.
+
+## Lookup files
+
+The reviewer decides from short lines, so write each for a first reading,
+as [writing.md](writing.md) says. Read it, [pages.md](pages.md) and
+[components.md](components.md) before the session's first page. Record work
+outside the task as [side-work.md](side-work.md) describes. Read
+[session.md](session.md) before you take a session over, resume it or pause
+it, and [setup.md](setup.md) when a `pair` command fails.
