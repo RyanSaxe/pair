@@ -4,13 +4,14 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { buildPage } from "../../src/cli/build.mjs";
 import {
   exists,
   hub,
   killHub,
-  literal,
   pairCli,
   planData,
+  task,
 } from "../support/hub.mjs";
 
 test("the CLI builds and publishes each page with its own saved source", async (t) => {
@@ -66,16 +67,17 @@ test("the CLI builds and publishes each page with its own saved source", async (
     "--source",
     agreedSource,
   ]);
-  const acked = JSON.parse(
+  const noted = JSON.parse(
     await command([
-      "ack",
+      "progress",
       "--note",
       "Writing the overview page",
       "--session-dir",
       session,
+      "--json",
     ]),
   );
-  assert.equal(acked.status.report.note, "Writing the overview page");
+  assert.equal(noted.status.report.note, "Writing the overview page");
   const overviewSource = path.join(root, "overview-source");
   await fs.mkdir(overviewSource);
   const overview = {
@@ -142,7 +144,7 @@ test("a session command refuses a directory that holds no session", async (t) =>
     await fs.rm(scratch, { recursive: true, force: true });
   });
   const missing = path.join(scratch, "no-session");
-  await assert.rejects(run("ack", "--session-dir", missing), (error) => {
+  await assert.rejects(run("read", "--session-dir", missing), (error) => {
     assert.equal(error.code, 1);
     assert.equal(
       error.stderr,
@@ -153,50 +155,45 @@ test("a session command refuses a directory that holds no session", async (t) =>
   assert.equal(await exists(missing), false);
 });
 
-test("a command refuses an option it does not take and changes nothing", async (t) => {
+// Every command reads its arguments one way, and a refusal names what is
+// wrong and the command's help, before anything reaches the hub.
+test("a command refuses an unknown flag, an extra argument, a repeated flag and a missing one, and changes nothing", async (t) => {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-options-"));
-  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(scratch, { recursive: true, force: true });
   });
-  const { sessionDir } = JSON.parse(await run("start"));
-  await run("ack", "--session-dir", sessionDir, "--note", "Reading");
-  await assert.rejects(
-    run("ack", "--session-dir", sessionDir, "--nte", "x"),
-    (error) => {
+  const { sessionDir } = await start();
+  const dir = ["--session-dir", sessionDir];
+  await run("progress", ...dir, "--note", "Reading");
+  // Each refusal names the flag or argument that is wrong.
+  for (const [args, named] of [
+    [["progress", ...dir, "--nte", "x"], "--nte"],
+    [["progress", ...dir, "overview"], "overview"],
+    [["progress", ...dir, "--note", "a", "--note", "b"], "--note"],
+    [["publish", ...dir], "--file"],
+    [["status", ...dir, "--page", "overview"], "--page"],
+  ])
+    await assert.rejects(run(...args), (error) => {
       assert.equal(error.code, 1);
-      assert.equal(
-        error.stderr,
-        "pair: --nte is not an option of pair ack, which takes --session-dir, --note, --page\n",
-      );
+      assert(error.stderr.includes(named), error.stderr);
       return true;
-    },
-  );
-  await assert.rejects(
-    run("status", "--session-dir", sessionDir, "--page", "overview"),
-    (error) => {
-      assert.equal(
-        error.stderr,
-        "pair: --page is not an option of pair status, which takes --session-dir\n",
-      );
-      return true;
-    },
-  );
-  const status = JSON.parse(await run("status", "--session-dir", sessionDir));
-  assert.equal(status.report.note, "Reading");
+    });
+  const status = () => run("status", ...dir, "--json").then(JSON.parse);
+  assert.equal((await status()).report.note, "Reading");
 });
 
 // pair side-work names its change before the options, and update names the
 // item, so a misplaced word is refused like a misspelt option.
 test("pair side-work adds an item from any agent and names it on update", async (t) => {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-side-work-"));
-  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(scratch, { recursive: true, force: true });
   });
-  const { sessionDir } = JSON.parse(await run("start"));
+  const { sessionDir } = await start();
   const add = ["side-work", "add", "--session-dir", sessionDir];
   const { item } = JSON.parse(
     await run(
@@ -207,26 +204,23 @@ test("pair side-work adds an item from any agent and names it on update", async 
       "The skill is deprecated but still installed.",
       "--source",
       "From the conversation",
+      "--json",
     ),
   );
   assert.equal(item.id, "1");
   assert.equal(item.state, "recorded");
-  const refused = async (args, stderr) =>
+  const refused = async (args, named) =>
     assert.rejects(run(...args), (error) => {
       assert.equal(error.code, 1);
-      assert.equal(error.stderr, `pair: ${stderr}\n`);
+      assert(error.stderr.includes(named), error.stderr);
       return true;
     });
-  await refused(
-    [...add, "--state", "working"],
-    "--state is not an option of pair side-work add, which takes --session-dir, --title, --text, --source",
-  );
+  await refused([...add, "--state", "working"], "--state");
   await refused(
     ["side-work", "update", "--session-dir", sessionDir, "--state", "working"],
-    `pair side-work takes add or update:
-  pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
-  pair side-work update ID --session-dir PATH --state working|pr|done|moved|planned [--url URL]`,
+    "ID",
   );
+  await refused(["side-work", "--session-dir", sessionDir], "add or update");
   // The item reaches the hub by its ID, which refuses to move it before the
   // reviewer starts it.
   await refused(
@@ -251,6 +245,7 @@ test("pair side-work adds an item from any agent and names it on update", async 
       'A hub on older code answers ack with "Unknown agent action".',
       "--source",
       "Found while restarting the hub",
+      "--json",
     ),
   );
   assert.equal(second.id, "2");
@@ -260,12 +255,12 @@ test("pair side-work adds an item from any agent and names it on update", async 
 // CLI owns, so a refused add leaves it alone.
 test("a refused pair side-work add leaves the path its source names", async (t) => {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-side-work-"));
-  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(scratch, { recursive: true, force: true });
   });
-  const { sessionDir } = JSON.parse(await run("start"));
+  const { sessionDir } = await start();
   const named = path.join(scratch, "README.md");
   await fs.writeFile(named, "kept\n");
   await assert.rejects(
@@ -281,7 +276,7 @@ test("a refused pair side-work add leaves the path its source names", async (t) 
     ),
     (error) => {
       assert.equal(error.code, 1);
-      assert.match(error.stderr, /takes --text/);
+      assert.match(error.stderr, /--text/);
       return true;
     },
   );
@@ -292,12 +287,12 @@ test("a refused pair side-work add leaves the path its source names", async (t) 
 // so a publish that fails must leave no copy, or the retry is refused.
 async function sessionWithAgreed(t) {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-source-"));
-  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(scratch, { recursive: true, force: true });
   });
-  const { sessionDir } = JSON.parse(await run("start"));
+  const { sessionDir } = await start();
   const round = { name: "cli", round: "1", title: "CLI plan" };
   const page = async (id, record, html) => {
     const source = path.join(scratch, `${id}-source`);
@@ -419,7 +414,9 @@ async function publishThroughProxy(t, answer) {
   );
   // pair status goes to the hub itself.
   await fs.writeFile(connectionFile, JSON.stringify({ ...connection, origin }));
-  const status = JSON.parse(await run("status", "--session-dir", sessionDir));
+  const status = JSON.parse(
+    await run("status", "--session-dir", sessionDir, "--json"),
+  );
   return {
     failure,
     status,
@@ -615,7 +612,7 @@ test("a read-only directory with a link inside the source is kept", async (t) =>
   assert.equal(await fs.readlink(path.join(kept, "latest.md")), "notes.md");
 });
 
-test("pair reply prints a thread and posts a reply, and pair status leaves threads out", async (t) => {
+test("pair read --thread prints the thread, and pair reply posts to it", async (t) => {
   const h = await hub(t);
   const root = path.join(h.home, "cli");
   await fs.mkdir(root);
@@ -631,29 +628,28 @@ test("pair reply prints a thread and posts a reply, and pair status leaves threa
     round: "1",
     topic: "overview",
     anchor: "Overview",
+    quote: "one result",
     text: "Why one result per input?",
   });
   assert.equal(started.code, 201, started.body.error);
-  const reply = (...args) =>
-    cli.run("reply", "--session-dir", session.directory, "--note", id, ...args);
-  const printed = await reply();
-  assert.match(
-    printed,
-    new RegExp(
-      `^Thread ${id} on "Overview" \\(session ${literal(session.directory)}, round 1\\)\n  You, \\d\\d:\\d\\d: Why one result per input\\?\n\n`,
-    ),
-  );
-  assert.match(await reply("--text", "So a retry can skip it."), /^Posted/);
+  const dir = ["--session-dir", session.directory];
+  const printed = await cli.run("read", ...dir, "--thread", id);
+  // The next step names the command that posts the answer.
+  const reply = `pair reply --session-dir ${session.directory} --thread ${id}`;
+  assert(printed.split("\n")[0].includes(reply), printed);
+  const thread = new RegExp(
+    `<pair_thread id="${id}"[^>]*>([^]*?)</pair_thread>`,
+  ).exec(printed)?.[1];
+  for (const part of ["one result", "Why one result per input?"])
+    assert(thread?.includes(part), printed);
+  const post = (...args) => cli.run("reply", ...dir, "--thread", id, ...args);
+  await post("--text", "So a retry can skip it.");
   const file = path.join(root, "reply.html");
   await fs.writeFile(file, '<pre data-language="text">1 in, 1 out</pre>');
-  assert.match(await reply("--file", file), /^Posted/);
-  await assert.rejects(reply("--text", "x", "--file", file), (error) => {
-    assert.equal(
-      error.stderr,
-      "pair: reply takes --text or --file, not both\n",
-    );
-    return true;
-  });
+  await post("--file", file);
+  // A reply takes its text or its file, and both or neither posts nothing.
+  await assert.rejects(post("--text", "x", "--file", file), { code: 1 });
+  await assert.rejects(post(), { code: 1 });
   const { threads } = (await session.status()).body;
   assert.deepEqual(threads[0].messages.slice(1), [
     {
@@ -667,8 +663,105 @@ test("pair reply prints a thread and posts a reply, and pair status leaves threa
       html: '<pre data-language="text">1 in, 1 out</pre>',
     },
   ]);
-  const status = JSON.parse(
-    await cli.run("status", "--session-dir", session.directory),
-  );
+  const status = JSON.parse(await cli.run("status", ...dir, "--json"));
   assert.equal(status.threads, undefined);
+});
+
+// Builds Agreed for round 1 with the page list given, as the agent does,
+// and returns the arguments that publish it.
+async function agreedFiles(directory, pages) {
+  const { name, round, title } = planData();
+  const file = path.join(directory, "agreed.html");
+  const list = path.join(directory, "pages.json");
+  await fs.writeFile(
+    file,
+    await buildPage(path.join(directory, "agreed.json"), {
+      name,
+      round,
+      title,
+      page: { id: "agreed", title: "Agreed so far", task, agreements: [] },
+    }),
+  );
+  await fs.writeFile(list, JSON.stringify({ pages }));
+  return ["--file", file, "--pages", list];
+}
+
+// pair start names a new session, and the hub keeps the name in the field
+// every Agreed sets to the plan's title.
+test("pair start requires --title for a new session, and the first Agreed replaces it", async (t) => {
+  const h = await hub(t);
+  const root = path.join(h.home, "cli");
+  await fs.mkdir(root);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+  });
+  const refusesTitle = (error) => {
+    assert.equal(error.code, 1);
+    assert.match(error.stderr, /--title/);
+    return true;
+  };
+  await assert.rejects(cli.run("start"), refusesTitle);
+  assert.deepEqual(await fs.readdir(h.config.sessions), []);
+  const { sessionDir, title } = await cli.start();
+  assert.equal(title, "Test");
+  const dir = ["--session-dir", sessionDir];
+  const status = async () =>
+    JSON.parse(await fs.readFile(path.join(sessionDir, "status.json"), "utf8"));
+  assert.equal((await status()).title, "Test");
+  await assert.rejects(
+    cli.run("start", ...dir, "--title", "Other"),
+    refusesTitle,
+  );
+  assert.equal((await status()).title, "Test");
+  const agreed = await agreedFiles(root, [
+    { id: "overview", title: "Overview" },
+  ]);
+  await cli.run("publish", ...dir, ...agreed);
+  assert.equal((await status()).title, planData().title);
+});
+
+test("pair progress notes the round before Agreed, and each page it names", async (t) => {
+  const h = await hub(t);
+  const root = path.join(h.home, "cli");
+  await fs.mkdir(root);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+  });
+  const { sessionDir } = await cli.start();
+  const dir = ["--session-dir", sessionDir];
+  const progress = (...args) => cli.run("progress", ...dir, ...args);
+  const state = async () =>
+    JSON.parse(await cli.run("status", ...dir, "--json"));
+  await progress("--note", "Reading");
+  assert.equal((await state()).report.note, "Reading");
+  await cli.run(
+    "publish",
+    ...dir,
+    ...(await agreedFiles(root, [
+      { id: "overview", title: "Overview" },
+      { id: "detail", title: "Detail" },
+      { id: "later", title: "Later" },
+    ])),
+  );
+  const pages = async () =>
+    Object.fromEntries(
+      (await state()).openRound.pages.map((page) => [page.id, page]),
+    );
+  // One unknown page refuses the report before any page changes.
+  await assert.rejects(
+    progress("--page", "overview", "--page", "nowhere", "--note", "Writing"),
+    /\bnowhere\b/,
+  );
+  assert.equal((await pages()).overview.state, "queued");
+  await progress("--page", "overview", "--page", "detail", "--note", "Writing");
+  const noted = await pages();
+  for (const id of ["overview", "detail"]) {
+    assert.equal(noted[id].state, "active");
+    assert.equal(noted[id].note.text, "Writing");
+  }
+  assert.equal(noted.later.state, "queued");
+  await progress("--page", "later");
+  assert.equal((await pages()).later.state, "active");
 });

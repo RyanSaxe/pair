@@ -199,7 +199,8 @@ export async function loadSession(directory, config, origin, tabOpen) {
     };
   }
   // The browser draws every thread's card from its status. An agent reads a
-  // thread with pair reply, so its commands print the status without them.
+  // thread with pair read --thread, so its commands print the status without
+  // them.
   function browserView() {
     return {
       ...view(),

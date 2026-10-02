@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import { hub, literal, planData, waitUntil } from "../../support/hub.mjs";
+import { hub, planData, waitUntil } from "../../support/hub.mjs";
 
 const png = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -55,7 +55,7 @@ test("a thread wakes the holder once for each message the reviewer sends", async
   assert.deepEqual(
     a.inbox.wakes.map((wake) => wake.message.message.content),
     [
-      `pair: a thread on "Overview", session ${a.directory}, needs an answer. Answer it between your current steps without dropping your work: run pair reply --session-dir ${a.directory} --note ${id}, which prints the thread and how to answer.`,
+      `pair: a thread on "Overview", session ${a.directory}, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer.`,
     ],
   );
   const stored = JSON.parse(
@@ -85,7 +85,9 @@ test("a thread wakes the holder once for each message the reviewer sends", async
   );
 });
 
-test("pair reply marks the thread read, then posts text or a checked fragment", async (t) => {
+// pair read --thread sends the reply action without text, and pair reply
+// sends it with text or HTML.
+test("the reply action marks the thread read, then posts text or a checked fragment", async (t) => {
   const { a, start, thread, settled } = await published(t);
   const { id } = (await start({ quote: "A failed item" })).body.thread;
   await settled(id);
@@ -94,13 +96,9 @@ test("pair reply marks the thread read, then posts text or a checked fragment", 
   const read = await thread(id);
   assert.equal(read.state, "read");
   assert.ok(read.readAt);
-  assert.match(
-    opened.body.text,
-    new RegExp(
-      `^Thread ${id} on "Overview", block "Failure handling" \\(session ${literal(a.directory)}, round 1\\)\n  On the text: "A failed item"\n  You, \\d\\d:\\d\\d: What happens to a failed item\\?\n`,
-    ),
-  );
-  assert.match(opened.body.text, /--note \S+ --file reply.html\n/);
+  assert.equal(opened.body.thread.page, "Overview");
+  assert.equal(opened.body.thread.anchor, "Failure handling");
+  assert.equal(opened.body.thread.quote, "A failed item");
 
   const refusals = [
     [
@@ -127,7 +125,6 @@ test("pair reply marks the thread read, then posts text or a checked fragment", 
     html: '<pre data-language="js">retry(item);</pre>',
   });
   assert.equal(posted.code, 200, posted.body.error);
-  assert.match(posted.body.text, /^Posted your reply in thread /);
   const replied = await thread(id);
   assert.equal(replied.state, "replied");
   assert.equal(
@@ -141,7 +138,7 @@ test("pair reply marks the thread read, then posts text or a checked fragment", 
 
 // The progress card's Message the agent button starts its thread on Agreed,
 // which the round's page list never names.
-test("a thread starts on Agreed from the progress card, and pair reply names its block", async (t) => {
+test("a thread starts on Agreed from the progress card, and reading it names its block", async (t) => {
   const { a, start, settled } = await published(t);
   const started = await start({
     topic: "agreed",
@@ -153,10 +150,8 @@ test("a thread starts on Agreed from the progress card, and pair reply names its
   await settled(id);
   const opened = await a.action("reply", { note: id });
   assert.equal(opened.code, 200, opened.body.error);
-  assert.match(
-    opened.body.text,
-    new RegExp(`^Thread ${id} on "Agreed so far", block "Progress" `),
-  );
+  assert.equal(opened.body.thread.page, "Agreed so far");
+  assert.equal(opened.body.thread.anchor, "Progress");
 });
 
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {

@@ -7,7 +7,9 @@ import { detectWake, identify } from "../hub/wake.mjs";
 import { guideCommand } from "../shared/guide.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
-import { exists, json, read, requireValue } from "../shared/util.mjs";
+import { exists, read, requireValue } from "../shared/util.mjs";
+import { usageError } from "./arguments.mjs";
+import { rows } from "./output.mjs";
 
 // fs.cp gives each copied directory its source's mode, and rm cannot empty
 // a read-only directory, so the copy is made writable before it goes. A
@@ -116,155 +118,22 @@ async function keepSource(sessionDir, source, html) {
   }
   return target;
 }
-// The action each command sends the hub, from its options. start registers
-// with the hub instead, and hub is the command start spawns.
-const actions = {
-  status: async () => ({}),
-  read: async (options) => ({ id: options.id }),
-  ack: async (options) => ({
-    note: options.note,
-    ...(options.page !== undefined ? { page: options.page } : {}),
-  }),
-  progress: async (options) => {
-    requireValue(options.start, "progress takes --start ID");
-    return { start: options.start.split("|") };
-  },
-  pause: async (options) => ({ reason: options.reason }),
-  publish: async (options) => {
-    requireValue(options.file, "publish requires --file HTML");
-    const html = await fs.readFile(path.resolve(options.file), "utf8");
-    const action = { html };
-    if (options.pages)
-      action.pages = (await read(path.resolve(options.pages))).pages;
-    if (options.source)
-      action.source = await keepSource(
-        options["session-dir"],
-        options.source,
-        html,
-      );
-    return action;
-  },
-  complete: async () => ({}),
-  "side-work": async ({ change, id, title, text, source, state, url }) => ({
-    change,
-    id,
-    title,
-    text,
-    source,
-    state,
-    url,
-  }),
-  // Without --text or --file, reply marks the thread read and prints it.
-  reply: async (options) => {
-    requireValue(options.note, "reply takes --note ID");
-    requireValue(
-      !(options.text && options.file),
-      "reply takes --text or --file, not both",
-    );
-    return {
-      note: options.note,
-      ...(options.text ? { text: options.text } : {}),
-      ...(options.file
-        ? { html: await fs.readFile(path.resolve(options.file), "utf8") }
-        : {}),
-    };
-  },
-};
-// The options each command takes. A misspelt option is refused, so a
-// command never runs without a value it was given.
-const commandOptions = {
-  hub: [],
-  start: ["session-dir"],
-  status: ["session-dir"],
-  read: ["session-dir", "id"],
-  ack: ["session-dir", "note", "page"],
-  progress: ["session-dir", "start"],
-  pause: ["session-dir", "reason"],
-  publish: ["session-dir", "file", "pages", "source"],
-  complete: ["session-dir"],
-  // pair side-work names its change first, and update then names the item.
-  "side-work": {
-    add: ["session-dir", "title", "text", "source"],
-    update: ["session-dir", "state", "url"],
-  },
-  reply: ["session-dir", "note", "text", "file"],
-};
-const sideWorkUsage = `pair side-work takes add or update:
-  pair side-work add --session-dir PATH --title TEXT --text TEXT --source TEXT
-  pair side-work update ID --session-dir PATH --state working|pr|done|moved|planned [--url URL]`;
-export const sessionCommands = Object.keys(commandOptions);
-function argumentsFrom(argv) {
-  const [command, ...rest] = argv;
-  let known = commandOptions[command];
-  let name = command;
-  const options = {};
-  if (command === "side-work") {
-    options.change = rest.shift();
-    requireValue(Object.hasOwn(known, options.change || ""), sideWorkUsage);
-    known = known[options.change];
-    name = `side-work ${options.change}`;
-    if (options.change === "update") {
-      requireValue(rest[0] && !rest[0].startsWith("--"), sideWorkUsage);
-      options.id = rest.shift();
-    }
-  }
-  for (let i = 0; i < rest.length; i++) {
-    requireValue(rest[i].startsWith("--"), "Options must use --name value");
-    const key = rest[i].slice(2);
-    requireValue(
-      known.includes(key),
-      `--${key} is not an option of pair ${name}, which takes ${known.length ? known.map((option) => `--${option}`).join(", ") : "none"}`,
-    );
-    requireValue(
-      rest[i + 1] && !rest[i + 1].startsWith("--"),
-      `Missing value for --${key}`,
-    );
-    options[key] = rest[++i];
-  }
-  return { command, options };
-}
-export async function main(argv) {
+// The session a command names, and request(), which sends it one action.
+// status and side-work may come from an agent that cannot be woken, such as
+// one the holder briefed, unless the session has to register with a new hub.
+// status still names the agent when there is one, because a hub that runs
+// older code answers status only for the holder.
+export async function openSession(options, { anyAgent = false } = {}) {
   requireNode();
-  const { command, options } = argumentsFrom(argv);
   const config = settings();
-  if (command === "hub") {
-    const hub = await startHub(config);
-    for (const signal of ["SIGTERM", "SIGINT"])
-      process.once(signal, () => hub.close());
-    // The hub also closes itself once no session has been live for a while.
-    await hub.closed;
-    process.exit(0);
-  }
-  let directory =
-    options["session-dir"] && path.resolve(options["session-dir"]);
-  // status only reads, and side-work may come from an agent the holder
-  // briefed, so both run without an agent that can be woken, as from a plain
-  // terminal, unless the session has to register with a new hub. status
-  // still names the agent when there is one, because a hub that runs older
-  // code answers status only for the holder.
+  const directory = path.resolve(options["session-dir"]);
   let wake = null;
   try {
     wake = detectWake();
   } catch (error) {
-    if (!["status", "side-work"].includes(command)) throw error;
+    if (!anyAgent) throw error;
   }
   const register = () => attach(directory, config, (wake ||= detectWake()));
-  if (command === "start") {
-    const resuming = Boolean(directory);
-    directory ||= path.join(config.sessions, crypto.randomUUID());
-    const started = await attach(directory, config, wake, true);
-    return console.log(
-      json({
-        ...started,
-        next:
-          started.next ||
-          (resuming
-            ? `Run: pair ack --session-dir ${directory}`
-            : `Run ${guideCommand("round.md")} and read all it prints before you plan the first round, starting with Required in every round.`),
-      }),
-    );
-  }
-  requireValue(directory, "Every operation requires --session-dir PATH");
   // Only pair start creates a session, so a mistyped path fails here instead
   // of starting a session outside sessions/ that no hub loads again.
   requireValue(
@@ -350,22 +219,71 @@ export async function main(argv) {
     );
     return result;
   }
-  const action = { action: command, ...(await actions[command](options)) };
-  try {
-    const result = await request(action);
-    // reply prints the thread and its instructions as text.
-    console.log(
-      command === "reply"
-        ? result.text
-        : json(command === "status" ? result.status : result),
+  return {
+    directory,
+    request,
+    url: () => `${connection.origin}/s/${connection.sessionId}/`,
+    mayHaveActed: () => mayHaveActed,
+  };
+}
+
+export async function start(options) {
+  requireNode();
+  const resuming = options["session-dir"] !== undefined;
+  if (resuming && options.title !== undefined)
+    throw usageError(
+      "start",
+      "pair start takes --title only when it creates a session, not with --session-dir.",
     );
+  if (!resuming && !options.title?.trim())
+    throw usageError(
+      "start",
+      "pair start requires --title TEXT when it creates a session.",
+    );
+  const config = settings();
+  const wake = detectWake();
+  const directory = resuming
+    ? path.resolve(options["session-dir"])
+    : path.join(config.sessions, crypto.randomUUID());
+  const started = await attach(directory, config, wake, {
+    start: true,
+    ...(resuming ? {} : { title: options.title.trim() }),
+  });
+  // A hub of the previous release names no next step for a new session.
+  const next =
+    started.next ||
+    (resuming
+      ? undefined
+      : `Run ${guideCommand("round.md")} and read all it prints before you plan the first round, starting with Required in every round.`);
+  return {
+    next,
+    data: rows([
+      ["Session", started.sessionDir],
+      ["URL", started.url],
+      ["Phone URL", started.hostUrl],
+      ["Title", started.title],
+    ]),
+    json: { ...started, ...(next ? { next } : {}) },
+  };
+}
+
+export async function publish(options) {
+  const session = await openSession(options);
+  const html = await fs.readFile(path.resolve(options.file), "utf8");
+  const action = { action: "publish", html };
+  if (options.pages)
+    action.pages = (await read(path.resolve(options.pages))).pages;
+  if (options.source)
+    action.source = await keepSource(session.directory, options.source, html);
+  let result;
+  try {
+    result = await session.request(action);
   } catch (error) {
-    // Side work's source is text for the reviewer, not a kept directory.
-    if (command !== "publish" || !action.source) throw error;
+    if (!action.source) throw error;
     // A source kept for a publish the hub refused would block the retry. A
     // published page's source is what the next round starts from, so while
     // the hub may have published this one the copy stays.
-    if (!mayHaveActed) {
+    if (!session.mayHaveActed()) {
       await removeCopy(action.source);
       throw error;
     }
@@ -375,4 +293,25 @@ export async function main(argv) {
       { cause: error },
     );
   }
+  const { page } = result;
+  return {
+    next: result.next,
+    data: [
+      `Published ${page.id} in round ${page.round}.`,
+      `URL ${result.url}`,
+      ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
+    ].join("\n"),
+    json: result,
+  };
+}
+
+// The hub process, which pair start spawns. It also closes itself once no
+// session has been live for a while.
+export async function runHub() {
+  requireNode();
+  const hub = await startHub(settings());
+  for (const signal of ["SIGTERM", "SIGINT"])
+    process.once(signal, () => hub.close());
+  await hub.closed;
+  process.exit(0);
 }

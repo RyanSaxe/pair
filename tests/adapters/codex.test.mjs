@@ -26,9 +26,7 @@ test("the Codex rules allow pair, and check reports Codex's sandbox", async (t) 
     await fs.readFile(path.join(home, "codex", "rules", "pair.rules"), "utf8"),
     'prefix_rule(pattern=["pair"], decision="allow", justification="pair: the command talks to its local hub and writes the session under the state directory")\n',
   );
-  const probe = path.join(home, "probe");
-  await fs.mkdir(probe);
-  const { stdout } = await exec(process.execPath, [pair, "check", probe], {
+  const { stdout } = await exec(process.execPath, [pair, "check", "--json"], {
     env: { ...env, CODEX_SANDBOX: "seatbelt" },
   });
   assert.equal(JSON.parse(stdout).codex.present, true);

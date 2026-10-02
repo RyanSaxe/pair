@@ -106,7 +106,7 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
   assert.match(result.body.next, /Pages still to publish: overview, detail\./);
-  assert.match(result.body.next, /pair ack --note "…" --page ID/);
+  assert.match(result.body.next, /pair progress --page ID --note "…"/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
@@ -168,7 +168,7 @@ test("a build round's next line has the agent mark a step before building it", a
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.match(
     result.body.next,
-    /pair progress --start ID before you start the step that page shows/,
+    /pair progress --page ID before you start the step that page shows/,
   );
 });
 
@@ -472,7 +472,10 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
     "Publish Agreed before a page note",
   );
   await publish("1", "agreed", "Agreed so far", undefined, {}, firstPages);
-  assert.equal(await refusal({ page: "detail" }), "ack --page takes --note");
+  assert.equal(
+    await refusal({ page: "detail" }),
+    "A note on a page takes its text with --note",
+  );
   assert.equal(
     await refusal({ note: "Reading", page: "nope" }),
     "Unknown page nope in round 1",
@@ -484,7 +487,8 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
   );
 });
 
-test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
+// pair progress --note and pair ack send the ack action.
+test("the ack action says the agent has a submission without reading it, and carries a note", async (t) => {
   const h = await testHub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);

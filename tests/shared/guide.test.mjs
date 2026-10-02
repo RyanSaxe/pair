@@ -50,16 +50,16 @@ async function followGuide(print, name, printed = new Set([name])) {
 
 test("the next lines name round.md by the command that prints it", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
-  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  const { config, run, start } = await pairCli(home, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const started = JSON.parse(await run("start"));
-  const acked = JSON.parse(
-    await run("ack", "--session-dir", started.sessionDir),
+  const started = await start();
+  const read = JSON.parse(
+    await run("read", "--session-dir", started.sessionDir, "--json"),
   );
-  for (const next of [started.next, acked.next])
+  for (const next of [started.next, read.next])
     assert.match(next, /\bpair guide round\.md\b/);
   const printed = await followGuide(printer(home), "round.md");
   assert(printed.size > 1, "round.md names other guide files");

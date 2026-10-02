@@ -49,13 +49,16 @@ function named(patch, name) {
   return lines.join("\n");
 }
 
-export async function main([before, after, output, ...extra]) {
-  if (!before || !after || !output || extra.length)
-    throw Error("Usage: pair diff BEFORE AFTER OUTPUT.json");
+export async function main({ args: [before, after, output] }) {
   const input = await compareFiles(before, after);
   await fs.writeFile(output, JSON.stringify(input, null, 2) + "\n", {
     flag: "wx",
     mode: 0o600,
   });
-  console.log(path.resolve(output));
+  const written = path.resolve(output);
+  return {
+    next: "Put the file's JSON in the data-diff-input textarea of a before-after component.",
+    data: `Wrote ${written}`,
+    json: { output: written },
+  };
 }

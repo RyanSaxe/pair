@@ -273,8 +273,9 @@ export async function hub(t, extra = {}, options = {}) {
 // among its ancestors. These commands run under a process named claude whose
 // inbox socket nobody listens on, so a test wake reaches no real session, and
 // the suite passes the same way under Claude Code, Codex, Copilot CLI or none
-// of them.
-export async function pairCli(home, extra = {}, cli = pair) {
+// of them. run returns stdout, output returns stdout and stderr, and start
+// creates a session and returns what start --json prints.
+export async function pairCli(home, extra = {}, { cli = pair } = {}) {
   const relay =
     'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
   // Windows runs only a file with an executable extension.
@@ -290,11 +291,15 @@ export async function pairCli(home, extra = {}, cli = pair) {
     CLAUDE_CODE_MESSAGING_TOKEN: "test",
     ...extra,
   };
-  const run = async (...args) =>
-    (await exec(claude, ["-e", relay, cli, ...args], { env })).stdout;
+  const output = (...args) =>
+    exec(claude, ["-e", relay, cli, ...args], { env });
+  const run = async (...args) => (await output(...args)).stdout;
   return {
     config: settings(env),
     run,
+    output,
+    start: async () =>
+      JSON.parse(await run("start", "--title", "Test", "--json")),
     agent: { harness: "claude-code", id: env.CLAUDE_CODE_MESSAGING_SOCKET },
   };
 }

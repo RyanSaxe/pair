@@ -30,8 +30,7 @@ async function setup(t) {
   const send = async (number) => {
     const sent = await session.feedback(session.event("feedback-only", number));
     assert.equal(sent.code, 200, JSON.stringify(sent.body));
-    for (const step of ["ack", "read"])
-      assert.equal((await session.action(step)).code, 200);
+    assert.equal((await session.action("read")).code, 200);
   };
   const thread = async (number, kind) => {
     const id = crypto.randomUUID();

@@ -410,7 +410,7 @@ export function rounds(session) {
     const set = structuredClone(session.state.openRound);
     requireValue(
       Array.isArray(data.start) && data.start.length > 0,
-      "Page progress only takes --start; publishing marks a page done",
+      "Name each page with --page ID. Publishing a page marks it done.",
     );
     for (const id of data.start) {
       const slot = set.pages.find((item) => item.id === id);

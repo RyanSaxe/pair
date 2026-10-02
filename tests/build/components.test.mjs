@@ -11,8 +11,8 @@ const shipped = new URL(
 );
 
 // A directory under $XDG_CONFIG_HOME/pair/components with the name of one of
-// pair's components replaces it, and pair check reports it.
-test("a user component replaces pair's, and pair check names it", async (t) => {
+// pair's components replaces it in every page pair build writes.
+test("a user component replaces pair's in a built page", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-components-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   const yours = path.join(home, "config", "pair", "components");
@@ -22,8 +22,6 @@ test("a user component replaces pair's, and pair check names it", async (t) => {
   const env = {
     ...process.env,
     XDG_CONFIG_HOME: path.join(home, "config"),
-    XDG_STATE_HOME: path.join(home, "state"),
-    PAIR_HUB_PORT: "0",
   };
   const source = path.join(home, "page.json");
   await fs.writeFile(
@@ -43,12 +41,4 @@ test("a user component replaces pair's, and pair check names it", async (t) => {
     !html.includes((await fs.readFile(shipped, "utf8")).trim()),
     "pair's question styles",
   );
-  const probe = path.join(home, "probe");
-  await fs.mkdir(probe);
-  const { stdout } = await exec(process.execPath, [pair, "check", probe], {
-    env,
-  });
-  const { components } = JSON.parse(stdout);
-  assert.equal(components.yours, yours);
-  assert.deepEqual(components.names, ["question"]);
 });

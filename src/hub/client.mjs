@@ -141,7 +141,9 @@ async function ensureHub(config = settings()) {
   }
   return { ...info, origin: `http://127.0.0.1:${info.port}` };
 }
-export async function attach(directory, config, wake, start = false) {
+// Registers the session with the hub. pair start adds start and, for a new
+// session, its title.
+export async function attach(directory, config, wake, extra = {}) {
   const hub = await ensureHub(config);
   const record = await readRecord(config);
   requireValue(
@@ -154,7 +156,7 @@ export async function attach(directory, config, wake, start = false) {
       authorization: `Bearer ${record.secret}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ sessionDir: directory, wake, start }),
+    body: JSON.stringify({ sessionDir: directory, wake, ...extra }),
     signal: AbortSignal.timeout(15000),
   });
   const result = await response.json();

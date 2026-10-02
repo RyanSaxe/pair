@@ -26,26 +26,29 @@ import {
 test("capability check tests storage, loopback, and the hub port, then cleans up", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-check-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const result = await exec(process.execPath, [pair, "check", directory], {
-    env: { ...process.env, PAIR_HUB_PORT: "0" },
-  });
-  const report = JSON.parse(result.stdout);
+  const check = async (env) =>
+    JSON.parse(
+      (
+        await exec(process.execPath, [pair, "check", "--json"], {
+          env: { ...process.env, XDG_STATE_HOME: directory, ...env },
+        })
+      ).stdout,
+    );
+  const report = await check({ PAIR_HUB_PORT: "0" });
   assert.equal(report.ready, true);
   assert.equal(report.hub.state, "os-assigned");
-  assert.deepEqual(await fs.readdir(directory), []);
+  assert.deepEqual(await fs.readdir(path.join(directory, "pair")), []);
   const h = await hub(t);
-  const live = JSON.parse(
-    (
-      await exec(process.execPath, [pair, "check", directory], {
-        env: { ...process.env, PAIR_HUB_PORT: String(h.record.port) },
-      })
-    ).stdout,
-  );
+  const live = await check({ PAIR_HUB_PORT: String(h.record.port) });
   assert.equal(live.hub.state, "hub");
   assert.equal(live.hub.version, version);
   const file = path.join(directory, "not-a-directory");
   await fs.writeFile(file, "preserve");
-  await assert.rejects(exec(process.execPath, [pair, "check", file]));
+  await assert.rejects(
+    exec(process.execPath, [pair, "check"], {
+      env: { ...process.env, XDG_STATE_HOME: file, PAIR_HUB_PORT: "0" },
+    }),
+  );
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
@@ -54,7 +57,7 @@ test("pair check tests the state directory the hub writes to", async (t) => {
   t.after(() => fs.rm(state, { recursive: true, force: true }));
   const report = JSON.parse(
     (
-      await exec(process.execPath, [pair, "check"], {
+      await exec(process.execPath, [pair, "check", "--json"], {
         env: { ...process.env, XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
       })
     ).stdout,
@@ -84,7 +87,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   const port = await freePort();
   // Each new hub starts with no live session and waits this long for start
   // to register one, which can take over 300ms on a busy machine.
-  const { config, run } = await pairCli(home, {
+  const { config, run, start } = await pairCli(home, {
     PAIR_HUB_PORT: String(port),
     PAIR_HUB_IDLE_SECONDS: "1",
   });
@@ -92,7 +95,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const first = JSON.parse(await run("start"));
+  const first = await start();
   assert.equal(first.url, `http://127.0.0.1:${port}/s/${first.sessionId}/`);
   assert(first.sessionDir.startsWith(config.sessions));
   // The printed wake names the harness and carries none of the token or
@@ -107,7 +110,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   assert.equal(await waitUntil(() => !alive(record.pid), 5000), true);
   assert.equal(await exists(config.hubFile), false);
   const second = JSON.parse(
-    await run("start", "--session-dir", first.sessionDir),
+    await run("start", "--session-dir", first.sessionDir, "--json"),
   );
   assert.equal(second.sessionId, first.sessionId);
   assert.equal(second.url, first.url);
@@ -123,7 +126,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
 test("start waits for a new hub to load the saved sessions", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-saved-"));
   const port = await freePort();
-  const { config, run } = await pairCli(home, {
+  const { config, start: startSession } = await pairCli(home, {
     PAIR_HUB_PORT: String(port),
   });
   t.after(async () => {
@@ -150,7 +153,7 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
       );
     }),
   );
-  const start = async () => JSON.parse(await run("start"));
+  const start = startSession;
   // The first start spawns the hub. The second arrives while it loads.
   const first = start();
   assert.equal(
@@ -171,7 +174,7 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
 
 test("start replaces a stale hub record, and session commands reattach after a crash without losing the queue", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-stale-"));
-  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  const { config, run, start } = await pairCli(home, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
@@ -190,7 +193,7 @@ test("start replaces a stale hub record, and session commands reattach after a c
       secret: "stale",
     }),
   );
-  const started = JSON.parse(await run("start"));
+  const started = await start();
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(record.pid, dead.pid);
   assert.notEqual(record.port, 1);
@@ -248,7 +251,7 @@ test("start replaces a stale hub record, and session commands reattach after a c
   assert.equal(receipt.status, 200);
   process.kill(record.pid, "SIGKILL");
   assert.equal(await waitUntil(() => !alive(record.pid)), true);
-  const output = JSON.parse(await command("read"));
+  const output = JSON.parse(await command("read", "--json"));
   assert.deepEqual(output.event.payload, event);
   const next = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.notEqual(next.pid, record.pid);
@@ -275,21 +278,19 @@ test("start replaces an idle hub that runs other code", async (t) => {
   await fs.appendFile(path.join(copy, "src/build/lint.mjs"), "\n// other\n");
   for (const name of ["other", "current"])
     await fs.mkdir(path.join(home, name));
-  const other = await pairCli(
-    path.join(home, "other"),
-    env,
-    path.join(copy, "src/cli.mjs"),
-  );
+  const other = await pairCli(path.join(home, "other"), env, {
+    cli: path.join(copy, "src/cli.mjs"),
+  });
   const current = await pairCli(path.join(home, "current"), env);
   t.after(async () => {
     await killHub(current.config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const { sessionDir } = JSON.parse(await other.run("start"));
+  const { sessionDir } = await other.start();
   await other.run("pause", "--session-dir", sessionDir, "--reason", "idle");
   const before = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
   assert.notEqual(before.version, version);
-  await current.run("start");
+  await current.start();
   const after = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
   assert.notEqual(after.pid, before.pid);
   assert.equal(after.version, version);
@@ -304,8 +305,8 @@ test(
   { skip: process.platform === "win32" && "Windows has no SIGSTOP" },
   async (t) => {
     const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-stopped-"));
-    const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
-    await run("start");
+    const { config, start } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+    await start();
     const record = await fs.readFile(config.hubFile, "utf8");
     const { pid, port } = JSON.parse(record);
     process.kill(pid, "SIGSTOP");
@@ -316,7 +317,7 @@ test(
       await killHub(config);
       await fs.rm(home, { recursive: true, force: true });
     });
-    await assert.rejects(run("start"), ({ stderr }) => {
+    await assert.rejects(start(), ({ stderr }) => {
       assert.equal(
         stderr,
         `pair: The hub (pid ${pid}) runs but does not answer on port ${port}\n`,

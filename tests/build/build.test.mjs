@@ -450,7 +450,7 @@ test("a page source builds a standalone preview", async (t) => {
   const linked = path.join(directory, "linked.html");
   await exec(process.execPath, [link, "build", source, linked]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
-  await assert.rejects(exec(process.execPath, [link, "build"]), /Usage/);
+  await assert.rejects(exec(process.execPath, [link, "build"]), { code: 1 });
 });
 
 test("an error from pair build starts with pair:", async () => {
