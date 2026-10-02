@@ -3,7 +3,6 @@ import path from "node:path";
 import { problems } from "../../build/lint.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
-import { wakeRunner } from "../wake.mjs";
 
 // Every thread in a session, read from disk once. saveThread writes each
 // change back.
@@ -87,17 +86,10 @@ export function threads(session) {
   async function wakeHolder(id) {
     const thread = records.get(id);
     const line = `pair: a thread on "${thread.page}", session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${command(thread.id)}, which prints the thread and how to answer.`;
-    let wake;
-    try {
-      requireValue(session.wake, "The session has no holder to wake");
-      await wakeRunner(session.wake, line, session.config);
-      wake = { at: timestamp(), ok: true };
-    } catch (error) {
-      wake = { at: timestamp(), ok: false, reason: error.message };
-    }
-    thread.wake = wake;
+    thread.wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
-    if (thread.state === "sending") thread.state = wake.ok ? "sent" : "failed";
+    if (thread.state === "sending")
+      thread.state = thread.wake.ok ? "sent" : "failed";
     await saveThread(thread);
   }
   function open() {

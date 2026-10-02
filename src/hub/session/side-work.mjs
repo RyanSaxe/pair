@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
-import { wakeRunner } from "../wake.mjs";
 
 // The states an agent moves an item to, in order. The reviewer starts and
 // drops it. The agent of a new session that plans a recorded item moves it
@@ -197,14 +196,7 @@ export async function sideWork(session) {
       ? `\n\nThe reviewer's message. Where it differs from the item's text, follow it, and give it word for word to any agent you brief:\n${item.message}`
       : "";
     const line = `pair: side work "${item.title}" was started in parallel on session ${directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. When the session has no branch of its own in the repository you change, branch from that repository's default branch and open the pull request into it. Report each change with pair side-work update ${item.id}, then go back to what you were doing.${note}`;
-    let wake;
-    try {
-      requireValue(session.wake, "The session has no agent to wake");
-      await wakeRunner(session.wake, line, session.config);
-      wake = { at: timestamp(), ok: true };
-    } catch (error) {
-      wake = { at: timestamp(), ok: false, reason: error.message };
-    }
+    const wake = await session.sendWake(line);
     const current = find(id);
     await change(current, {
       wake,

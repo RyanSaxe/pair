@@ -167,9 +167,19 @@
                   ></div>
                   <div class="activity-pages" id="activity-pages"></div>
                   <div class="activity-footer" id="activity-footer">
-                    <button class="btn" id="activity-message" type="button">
+                    <button
+                      class="btn"
+                      id="activity-message"
+                      type="button"
+                      aria-describedby="activity-message-tip"
+                    >
                       Message the agent
                     </button>
+                    <span
+                      class="thread-tip"
+                      id="activity-message-tip"
+                      role="tooltip"
+                    ></span>
                   </div>
                   <div id="activity-handoff" hidden></div>
                 </div>

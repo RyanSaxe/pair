@@ -4,6 +4,7 @@ import {
   activityModel,
   agentNotice,
   finishedLine,
+  messageTiming,
   roundModel,
   rowLabel,
 } from "../../../src/frame/sync/activity.mjs";
@@ -311,4 +312,13 @@ test("the card shows outside a running round what the reviewer must know", () =>
   assert.equal(agentNotice({ ...failed, stage: "submitted" }), true);
   assert.equal(agentNotice({ ...failed, stage: "complete" }), false);
   assert.equal(agentNotice({ ...failed, stage: "updated" }), false);
+});
+
+// Before its first wake, a holder has no steerable, and a session may have
+// no holder.
+test("the message tooltip changes only for a holder whose last wake waits for the turn to end", () => {
+  const midTurn = messageTiming({ steerable: true });
+  assert.equal(messageTiming({}), midTurn);
+  assert.equal(messageTiming(null), midTurn);
+  assert.notEqual(messageTiming({ steerable: false }), midTurn);
 });

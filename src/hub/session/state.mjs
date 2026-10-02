@@ -160,12 +160,15 @@ export async function loadSession(directory, config, origin, tabOpen) {
       ...visible,
       // The holder's identity is a socket path or a thread ID, which stays
       // out of the browser like the rest of the wake target. The frame
-      // cannot import the adapters, so the holder carries its CLI's name.
+      // cannot import the adapters, so the holder carries its CLI's name. Its
+      // steerable, from its last wake, is true when its agent CLI reads a
+      // message in the middle of a turn.
       holder: holder
         ? {
             harness: holder.harness,
             name: adapters[holder.harness].name,
             at: holder.at,
+            steerable: holder.steerable,
           }
         : null,
       handoff: session.handoff,

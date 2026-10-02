@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
@@ -125,9 +126,16 @@ test("the nearest harness ancestor decides the wake target", () => {
       token: "tok",
     },
   );
+  // Codex records its daemon's socket under CODEX_HOME.
+  const codex = { CODEX_THREAD_ID: "t", CODEX_HOME: "/c" };
+  const codexTarget = {
+    harness: "codex",
+    thread: "t",
+    socket: path.join("/c", "app-server-control", "app-server-control.sock"),
+  };
   assert.deepEqual(
-    detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 3, command: "codex" }])),
-    { harness: "codex", thread: "t" },
+    detectWake(codex, tools([{ pid: 3, command: "codex" }])),
+    codexTarget,
   );
   assert.deepEqual(
     detectWake(
@@ -137,8 +145,8 @@ test("the nearest harness ancestor decides the wake target", () => {
     { harness: "copilot", sessionId: "s", port: 4321, sdk: "/sdk/index.js" },
   );
   assert.deepEqual(
-    detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 2, command: "sh" }])),
-    { harness: "codex", thread: "t" },
+    detectWake(codex, tools([{ pid: 2, command: "sh" }])),
+    codexTarget,
   );
   assert.deepEqual(
     detectWake(

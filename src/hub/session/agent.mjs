@@ -82,17 +82,33 @@ export function agent(session) {
     session.tabOpen()
       ? `A pair tab is open in the user's browser, and its session list and bell show this session. Give the link ${url} in chat, and do not open a tab.`
       : `Open ${url} in the user's default browser (macOS open, Windows Start-Process, Linux xdg-open, with the URL quoted), and give the link in chat.`;
+  // Every wake runs here: a submission's, a thread message's and Start in
+  // parallel's. The result has ok, the reason when the wake failed, and via,
+  // the path the line took. Each wake also sets holder.steerable, which the
+  // frame reads to say when the agent reads a message.
+  async function sendWake(line) {
+    let result;
+    try {
+      requireValue(session.wake, "The session has no agent to wake");
+      result = (await wakeRunner(session.wake, line, session.config)) || {};
+    } catch (error) {
+      return { at: timestamp(), ok: false, reason: error.message };
+    }
+    if (result.steerable !== undefined && session.state.holder)
+      await transition({
+        holder: { ...session.state.holder, steerable: result.steerable },
+      });
+    return {
+      at: timestamp(),
+      ok: true,
+      ...(result.via ? { via: result.via } : {}),
+    };
+  }
   // Runs after the submission is saved, outside the browser's request, so a
   // slow or failing harness never delays the reviewer's Sent session.state.
   async function wakeAgent(round) {
     const line = `pair: the reviewer submitted round ${round} of session ${directory}. Run first: ${command("ack")}. It prints the next step.`;
-    let last;
-    try {
-      await wakeRunner(session.wake, line, session.config);
-      last = { at: timestamp(), ok: true };
-    } catch (error) {
-      last = { at: timestamp(), ok: false, reason: error.message };
-    }
+    const last = await sendWake(line);
     await transition({ wake: { harness: session.wake.harness, last } });
   }
   /* Closing a session from the browser. complete() refuses without an
@@ -328,6 +344,7 @@ export function agent(session) {
     report,
     nextStep,
     browserLine,
+    sendWake,
     wakeAgent,
     dismiss,
     act,

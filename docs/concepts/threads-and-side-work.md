@@ -21,12 +21,23 @@ row, line of code, option or checklist item that contains them, and the card
 quotes the words. When a block has four or more threads, the frame collapses
 all but the two newest, and a card you expand or collapse stays that way.
 
-- The agent answers between its steps, whatever it is doing, so a reply can
-  take a minute.
 - A reply can hold text, code, diffs and diagrams. Anything bigger, or
   anything you need to decide, comes as a page in the next round.
 - A thread does not change the round's pages, but it can settle a decision,
   which Agreed then credits to the thread.
+
+When the agent reads a thread depends on its agent CLI:
+
+| Agent CLI                                                                         | Reads a thread                                                              |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Claude Code, pi, opencode                                                         | Between the steps of its turn, after the tool call it is running            |
+| Codex whose app-server daemon runs the thread, as a plain `codex` from 0.160 does | Between the steps of its turn                                               |
+| Copilot CLI                                                                       | At once. It moves a running shell command to the background                 |
+| Any other Codex                                                                   | When its turn ends, so while it writes a round, after the round's last page |
+
+A reply can take a minute while the agent finishes a long step. The tooltip
+on the ⓘ beside "Sent to the agent", and on the progress card's **Message the
+agent**, shows which row applies.
 
 The line under your message says where the thread is:
 

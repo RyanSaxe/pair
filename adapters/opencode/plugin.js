@@ -4,38 +4,19 @@ import { listen } from "../listener.mjs";
 // file exports nothing else. The plugin gives every shell command its wake
 // socket and the ID of the session that runs the command.
 //
-// opencode adds a prompt sent to a busy session to the running request after
-// its current tool call, so the plugin holds wake lines for a session until
-// its session.status event says idle. The running request finishes first, as
-// it does in pi.
+// The plugin sends each wake line at once. opencode adds a prompt for a busy
+// session to the running request, and the model reads it after the tool
+// calls of the current step. A prompt for an idle session starts a request.
 export const PairWake = async ({ client }) => {
-  const busy = new Set();
-  const waiting = new Map();
-  const deliver = async (session, lines) => {
+  const listener = listen(async ({ session, text }) => {
     const { error } = await client.session.promptAsync({
       path: { id: session },
-      body: { parts: lines.map((text) => ({ type: "text", text })) },
+      body: { parts: [{ type: "text", text }] },
     });
     if (error)
       throw new Error(`opencode refused the prompt: ${JSON.stringify(error)}`);
-  };
-  const listener = listen(async ({ session, text }) => {
-    if (!busy.has(session)) return deliver(session, [text]);
-    waiting.set(session, [...(waiting.get(session) ?? []), text]);
   });
   return {
-    event: async ({ event }) => {
-      if (event.type !== "session.status") return;
-      const { sessionID, status } = event.properties;
-      if (status.type !== "idle") return void busy.add(sessionID);
-      busy.delete(sessionID);
-      const lines = waiting.get(sessionID);
-      if (!lines) return;
-      waiting.delete(sessionID);
-      // The hub already recorded these lines as delivered, so a refusal here
-      // has no one to answer.
-      await deliver(sessionID, lines).catch(() => {});
-    },
     "shell.env": async ({ sessionID }, output) => {
       output.env.PAIR_OPENCODE_SOCKET = listener.socket;
       if (sessionID) output.env.PAIR_OPENCODE_SESSION = sessionID;

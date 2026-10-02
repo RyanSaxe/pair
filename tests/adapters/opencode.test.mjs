@@ -24,18 +24,12 @@ function standInClient() {
   };
   return { client, prompts };
 }
-const status = (sessionID, type) => ({
-  event: {
-    type: "session.status",
-    properties: { sessionID, status: { type } },
-  },
-});
-const prompt = (id, ...lines) => ({
+const prompt = (id, text) => ({
   path: { id },
-  body: { parts: lines.map((text) => ({ type: "text", text })) },
+  body: { parts: [{ type: "text", text }] },
 });
 
-test("an opencode wake prompts an idle session and waits for a busy one", async (t) => {
+test("an opencode wake prompts the session at once through pair's plugin", async (t) => {
   const { client, prompts } = standInClient();
   const plugin = await PairWake({ client });
   t.after(() => plugin.dispose());
@@ -54,26 +48,18 @@ test("an opencode wake prompts an idle session and waits for a busy one", async 
   assert.equal(target.socket, plain.PAIR_OPENCODE_SOCKET);
   assert.deepEqual(identify(target), { harness: "opencode", id: "ses_1" });
 
-  await wakeRunner(target, "first");
+  assert.deepEqual(await wakeRunner(target, "first"), {
+    via: "prompt",
+    steerable: true,
+  });
   assert.deepEqual(prompts, [prompt("ses_1", "first")]);
-  // While the session runs a request, the wake succeeds and the plugin sends
-  // nothing until the session is idle, then sends every line in one prompt.
-  await plugin.event(status("ses_1", "busy"));
-  await wakeRunner(target, "second");
-  await wakeRunner(target, "third");
-  assert.equal(prompts.length, 1);
-  await plugin.event(status("ses_1", "idle"));
-  assert.deepEqual(prompts, [
-    prompt("ses_1", "first"),
-    prompt("ses_1", "second", "third"),
-  ]);
 
   client.refusal = { name: "NotFoundError", data: { message: "no session" } };
-  await assert.rejects(wakeRunner(target, "fourth"), {
+  await assert.rejects(wakeRunner(target, "second"), {
     message: `opencode refused the prompt: ${JSON.stringify(client.refusal)}`,
   });
   await plugin.dispose();
-  await assert.rejects(wakeRunner(target, "fifth"), {
+  await assert.rejects(wakeRunner(target, "third"), {
     message: `the agent CLI has exited (ENOENT ${target.socket})`,
   });
 });

@@ -21,12 +21,13 @@ export const detect = (env) => ({
 });
 
 // Two JSON lines over the socket: the auth line, then a user message.
+// Claude Code reads its inbox between the steps of a turn.
 export function wake({ socket, token }, line) {
   return new Promise((resolve, reject) => {
     const client = net.connect(socket);
     client.setTimeout(5000, () => client.destroy(new Error("timed out")));
     client.on("error", reject);
-    client.on("close", resolve);
+    client.on("close", () => resolve({ via: "inbox", steerable: true }));
     client.end(
       JSON.stringify({ type: "auth", token }) +
         "\n" +

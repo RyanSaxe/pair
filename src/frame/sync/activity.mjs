@@ -153,3 +153,15 @@ export function roundModel({ remote, now = Date.now() }) {
   if (minutes >= 5) return { text: `No report for ${minutes} min`, late: true };
   return { text: `${ready} of ${total} ready`, late: false };
 }
+
+// When the holder reads a message the reviewer sends. Each wake sets
+// holder.steerable, which is false only after a wake on a path where the
+// agent CLI reads the line when its turn ends: codex queue for a thread that
+// Codex's app-server daemon does not run, or Copilot's enqueue. On every
+// other path the agent CLI reads a message between the steps of a turn, and
+// a holder before its first wake gets that text too.
+export function messageTiming(holder) {
+  return holder?.steerable === false
+    ? "The agent reads messages only between its turns. While it writes a round, it reads this one after it publishes the round's last page."
+    : "The agent reads messages between its steps, so a reply can take a minute while it is busy.";
+}
