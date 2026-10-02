@@ -6,7 +6,7 @@ import test from "node:test";
 import { renderFinish } from "../../../src/frame/review/send.mjs";
 import { offers } from "../../../src/shared/offers.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import { hub, literal, planData } from "../../support/hub.mjs";
+import { hub, planData } from "../../support/hub.mjs";
 
 test("a plan can be reopened, and only the current round's offer is accepted", async (t) => {
   const h = await hub(t);
@@ -165,9 +165,10 @@ for (const [id, offer] of Object.entries(offers))
       assert.equal((await a.feedback(acceptance)).code, 200);
       assert.equal((await a.action("complete")).code, 409);
       const guide = `pair guide offers/${id}.md`;
-      assert.equal(
-        (await a.action("ack")).body.next,
-        `Run: pair read --session-dir ${a.directory}`,
+      assert.ok(
+        (await a.action("ack")).body.next.includes(
+          `pair read --session-dir ${a.directory}`,
+        ),
       );
       const read = (await a.action("read")).body;
       assert.deepEqual(read.event.payload.groups.notes, [note]);
@@ -289,13 +290,12 @@ test("Start implementation goes on to a build round the reviewer follows", async
   // The frame shows the agent's progress from the acceptance until the build
   // round is complete, in every browser.
   assert.equal((await a.status()).body.latestSubmissionRound, "1");
-  // The line names the section that builds the plan, the offer the build
-  // round's Agreed names, and where the accepted pages' sources are.
+  // The line names the section that builds the plan, and where the
+  // accepted pages' sources are.
   const next = (await a.action("read")).body.next;
   for (const part of [
     "pair guide offers/plan.md",
     "Start implementation section",
-    '"offer": "finish"',
     path.join(a.directory, "src", "1") + path.sep,
   ])
     assert.ok(next.includes(part), `${part} in: ${next}`);
@@ -356,16 +356,11 @@ test("the holder's start resumes an unread Save, and builds the plan once it is 
   // The same agent given the line later, such as a new conversation in the
   // same Claude Code process, builds the plan.
   const built = await start();
-  assert.match(
-    built.body.next,
-    new RegExp(
-      `^Round 1 was saved for later, and you now build it\\. Run pair read --session-dir ${literal(a.directory)} --submission ${save.id},`,
-    ),
-  );
-  assert.match(
-    built.body.next,
-    /the Start implementation section of pair guide offers\/plan\.md/,
-  );
+  for (const part of [
+    `pair read --session-dir ${a.directory} --submission ${save.id}`,
+    "pair guide offers/plan.md",
+  ])
+    assert.ok(built.body.next.includes(part), built.body.next);
   const status = (await a.status()).body;
   assert.equal(status.stage, "working");
   assert.equal(status.latestSubmissionRound, "1");

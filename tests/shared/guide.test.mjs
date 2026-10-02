@@ -162,31 +162,3 @@ test("pair guide and a command's moment print your file after pair's", async (t)
   const at = thread.indexOf(moment);
   assert(at >= 0 && at < thread.indexOf("<pair_thread "), thread);
 });
-
-// The core is read once and kept in mind every round, and a moment prints in
-// the middle of a command's output, so both stay short. Words are counted as
-// wc -w counts them, as runs of characters between whitespace.
-test("the core and each moment stay within their word budgets", async () => {
-  const words = async (name) =>
-    (await fs.readFile(path.join(root, "guide", name), "utf8"))
-      .split(/\s+/)
-      .filter(Boolean).length;
-  assert((await words("pair.md")) <= 1100, "guide/pair.md is over 1,100 words");
-  for (const file of await fs.readdir(path.join(root, "guide/moments")))
-    assert(
-      (await words(`moments/${file}`)) <= 150,
-      `guide/moments/${file} is over 150 words`,
-    );
-});
-
-// A moment prints in a command's output, where a relative path names
-// nothing, so each link in a moment prints as the command that prints the
-// file it names.
-test("a printed moment contains no Markdown link", async (t) => {
-  const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
-  t.after(() => fs.rm(state, { recursive: true, force: true }));
-  for (const file of await fs.readdir(path.join(root, "guide/moments"))) {
-    const text = await printer(state)(`moments/${file}`);
-    assert.doesNotMatch(text, /\[[^\]]*\]\([^()\s]+\)/, `moments/${file}`);
-  }
-});

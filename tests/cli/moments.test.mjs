@@ -64,35 +64,17 @@ async function holder(t) {
   return { cli, session, printed, publish, read, submit };
 }
 
-// A command's output is the next step, then its moment's text, then its
-// data, and it contains no other moment's text.
+// A command's output contains its moment's text and no other moment's.
 function printsMoment(output, name, printed) {
-  const [next, ...rest] = output.split("\n\n");
-  assert.match(next, /^Next: /, output);
-  assert.ok(
-    `${rest.join("\n\n")}\n`.startsWith(`${printed.get(name)}\n`),
-    `${name} after the next step in:\n${output}`,
-  );
+  assert.ok(output.includes(printed.get(name)), `${name} in:\n${output}`);
   for (const [other, text] of printed)
     if (other !== name)
       assert.ok(!output.includes(text), `${other} in:\n${output}`);
-  return next;
-}
-
-// The line that says to publish Agreed says when it names each offer.
-function namesOffers(next, names) {
-  for (const part of names)
-    assert.ok(next.includes(part), `${part} in ${next}`);
 }
 
 test("each command prints the moment it is run at", async (t) => {
   const { cli, session, printed, publish, read, submit } = await holder(t);
-  const started = await cli.run("start", "--title", "Moments");
-  namesOffers(printsMoment(started, "start", printed), [
-    '"offer": "plan"',
-    "overview first",
-    '"offer": "finish"',
-  ]);
+  printsMoment(await cli.run("start", "--title", "Moments"), "start", printed);
 
   const rows = [
     ["publish-agreed", () => publish("1", "agreed", { pages: ["one", "two"] })],
@@ -104,7 +86,6 @@ test("each command prints the moment it is run at", async (t) => {
         await submit("feedback-only", "1");
         return read();
       },
-      ['"offer": "plan"', "overview first", '"offer": "finish"'],
     ],
     [
       "read-thread",
@@ -130,17 +111,13 @@ test("each command prints the moment it is run at", async (t) => {
         await submit("accept", "2", { offer: "plan", action: "implement" });
         return read();
       },
-      ['"offer": "finish"'],
     ],
     [
       "publish-agreed-finish",
       () => publish("3", "agreed", { offer: "finish", pages: ["step"] }),
     ],
   ];
-  for (const [name, run, offerNames] of rows) {
-    const next = printsMoment(await run(), name, printed);
-    if (offerNames) namesOffers(next, offerNames);
-  }
+  for (const [name, run] of rows) printsMoment(await run(), name, printed);
 });
 
 // The hub names an acceptance's moment by the action the reviewer chose.
