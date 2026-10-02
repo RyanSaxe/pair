@@ -1,5 +1,6 @@
 import { main as build } from "./build.mjs";
 import { check, setupCodex } from "./check.mjs";
+import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
 import { publish, runHub, start } from "./session.mjs";
@@ -239,11 +240,19 @@ export const commands = {
   },
   guide: {
     group: "pages",
-    purpose: "Print a guide file or a moment",
+    purpose: "Print a guide file, a moment or a component's markup",
     about:
-      "Print guide/pair.md, or FILE, then your file at the same path under ~/.config/pair/ when there is one. FILE is a Markdown file under guide/ by its path there, such as round.md or moments/read-feedback.md, or components/README.md.",
+      "Print guide/pair.md, or FILE, then your file at the same path under ~/.config/pair/ when there is one. FILE is a Markdown file under guide/ by its path there, such as round.md or moments/read-feedback.md, or components/README.md, or components/NAME/markup.html, which prints your component's markup when you have a component named NAME.",
     args: [{ name: "FILE", optional: true }],
     run: guide,
+  },
+  components: {
+    group: "pages",
+    purpose: "List the components, pair's and yours",
+    about:
+      "List every component, pair's and yours in ~/.config/pair/components/, one line each: its name, when to use it, and the pair guide command that prints its markup.",
+    flags: { json },
+    run: components,
   },
   build: {
     group: "pages",

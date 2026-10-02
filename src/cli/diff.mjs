@@ -57,7 +57,7 @@ export async function main({ args: [before, after, output] }) {
   });
   const written = path.resolve(output);
   return {
-    next: "Put the file's JSON in the data-diff-input textarea of a before-after component.",
+    next: `Put the file's JSON in the data-diff-input textarea of a before-after component, as pair guide components/before-after/markup.html shows.`,
     data: `Wrote ${written}`,
     json: { output: written },
   };

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { componentDirectories } from "../build/components.mjs";
 import { configRoot } from "./settings.mjs";
 
 const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -10,8 +11,9 @@ const markdownLink = /\[([^\]]*)\]\(([^()\s]+)\)/g;
 export const guideCommand = (name) => `pair guide ${name}`;
 
 // The files pair guide prints, by the name it takes: each Markdown file
-// under guide/ by its path there, written with / on every platform, and the
-// components README.
+// under guide/ by its path there, written with / on every platform, the
+// components README, and each component's markup, which is the user's when
+// they have a component of that name.
 async function documents() {
   const guide = path.join(packageRoot, "guide");
   const names = new Map();
@@ -22,6 +24,11 @@ async function documents() {
     "components/README.md",
     path.join(packageRoot, "src", "components", "README.md"),
   );
+  for (const { name, directory } of await componentDirectories())
+    names.set(
+      `components/${name}/markup.html`,
+      path.join(directory, "markup.html"),
+    );
   return names;
 }
 
@@ -30,7 +37,8 @@ async function documents() {
 // link to another guide file replaced by the command that prints it, and
 // every other link as an absolute path, so the agent never resolves a
 // relative path and pair writes nothing. The user's file at the same path
-// under the config root follows pair's, after a blank line.
+// under the config root follows pair's, after a blank line. A component's
+// markup prints as it is.
 export async function guideText(name = "pair.md") {
   const names = await documents();
   const file = names.get(name);
@@ -39,6 +47,7 @@ export async function guideText(name = "pair.md") {
       `No guide file ${name}. The names are: ${[...names.keys()].sort().join(", ")}`,
     );
   const text = await fs.readFile(file, "utf8");
+  if (!name.endsWith(".md")) return text;
   const byFile = new Map([...names].map(([key, value]) => [value, key]));
   const own = text.replace(markdownLink, (_, label, target) => {
     const linked = path.resolve(path.dirname(file), target);

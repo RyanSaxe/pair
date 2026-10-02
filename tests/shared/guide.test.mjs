@@ -21,8 +21,8 @@ const guideNames = (await fs.readdir(path.join(root, "guide"))).filter((file) =>
   file.endsWith(".md"),
 );
 const source = (name) =>
-  name === "components/README.md"
-    ? path.join(root, "src/components/README.md")
+  name.startsWith("components/")
+    ? path.join(root, "src", name)
     : path.join(root, "guide", name);
 
 // pair guide as the agent runs it, with the state directory at state.
@@ -100,7 +100,10 @@ test("pair guide prints guide/pair.md and every guide file, and writes nothing",
   )
     .filter((file) => file.endsWith(".md"))
     .map((file) => file.split(path.sep).join("/"));
-  assert.deepEqual(names, [...files, "components/README.md"].sort());
+  const markup = (await fs.readdir(path.join(root, "src/components")))
+    .filter((name) => name !== "README.md")
+    .map((name) => `components/${name}/markup.html`);
+  assert.deepEqual(names, [...files, "components/README.md", ...markup].sort());
   const reached = new Set();
   for (const name of names)
     if (!reached.has(name)) {
