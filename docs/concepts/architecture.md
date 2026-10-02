@@ -62,9 +62,12 @@ the message, which can be before the agent's turn starts. When pi or opencode
 has exited, the wake fails with `the agent CLI has exited (ENOENT …)` after a
 clean exit, or `(ECONNREFUSED …)` after the CLI was killed.
 
-`pair status` shows the last wake under `wake.last`. When a wake fails, the
-progress card says "Could not wake the agent. Send a message in chat." and
-shows the [handoff line](holders-and-handoff.md).
+`pair status` shows the last wake for a submission under `wake.last`. The
+result of a Codex wake also has `via`, which is `steer` or `queue`. Each
+Codex wake sets `holder.steerable` in `status.json`, which is `true` when the
+daemon runs the thread and Codex reads a message in the middle of a turn.
+When a wake fails, the progress card says "Could not wake the agent. Send a
+message in chat." and shows the [handoff line](holders-and-handoff.md).
 
 A [thread](threads-and-side-work.md) wakes the holder too, once for each
 message, naming the `pair reply` command that prints it. It does so even

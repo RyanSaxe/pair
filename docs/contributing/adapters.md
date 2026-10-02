@@ -17,7 +17,12 @@ and three functions:
   session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
   throws with the reason. `run(file, args)` runs a program and rejects with
-  its error output.
+  its error output. `wake` may resolve to `{ via, steerable }`, where `via`
+  is the path the line took and `steerable` is `true` when the CLI reads a
+  message in the middle of a turn. The hub records `via` in the wake's
+  result and `steerable` as `holder.steerable` in `status.json`. The frame
+  reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
+  on Message the agent.
 
 `src/hub/wake.mjs` lists the adapters and chooses one for `pair start`. It
 compares each ancestor process of the `pair` command, nearest first, with

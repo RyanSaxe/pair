@@ -4,6 +4,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
+import {
+  codexCommand,
+  codexDaemon,
+  turnInProgress,
+} from "../../support/codex.mjs";
 import { hub, literal, planData, waitUntil } from "../../support/hub.mjs";
 
 const png = Buffer.concat([
@@ -12,9 +17,10 @@ const png = Buffer.concat([
 ]);
 
 // A session with round 1 published, and the reviewer's side of a thread.
-async function published(t) {
+// A box registers a holder other than the default Claude Code inbox.
+async function published(t, box) {
   const h = await hub(t);
-  const a = await h.session();
+  const a = await h.session({ box });
   assert.equal((await a.publish(planData())).code, 200);
   const upload = async () =>
     (
@@ -155,6 +161,42 @@ test("a thread starts on Agreed from the progress card, and pair reply names its
     new RegExp(`^Thread ${id} on "Agreed so far", block "Progress" `),
   );
 });
+
+test(
+  "a thread's wake to Codex records its path",
+  {
+    skip:
+      process.platform === "win32" && "a Codex wake needs codex.cmd support",
+  },
+  async (t) => {
+    // A regression that falls back to codex queue runs the stand-in, not
+    // the developer's Codex.
+    const codex = await codexCommand(t);
+    const thread = "thread-1";
+    const daemon = await codexDaemon(t, turnInProgress(thread, "turn-1"));
+    const {
+      a,
+      start,
+      thread: shown,
+      settled,
+    } = await published(t, {
+      target: { harness: "codex", thread, socket: daemon.socket },
+      agent: { harness: "codex", id: thread },
+    });
+    const { id } = (await start()).body.thread;
+    assert.equal(await settled(id), true);
+    assert.equal((await shown(id)).state, "sent");
+    const stored = JSON.parse(
+      await fs.readFile(
+        path.join(a.directory, "threads", `${id}.json`),
+        "utf8",
+      ),
+    );
+    assert.equal(stored.wake.via, "steer");
+    assert.equal((await a.status()).body.holder.steerable, true);
+    assert.deepEqual(await codex.runs(), []);
+  },
+);
 
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {
   const { a, start, thread, settled } = await published(t);
