@@ -53,6 +53,11 @@ once. When the daemon does not run the thread, as with a Codex older than
 Copilot CLI listens only when started with `--ui-server`. Without it,
 `pair start` refuses and prints `copilot --ui-server --resume <session id>`.
 
+Codex asks you to approve each command its sandbox blocks, every `pair`
+command included, unless an allow rule names it. `pair start` refuses under
+Codex until `~/.codex/rules/pair.rules` exists, and `pair setup-codex` writes
+it.
+
 pi and opencode take a message from the hub only through pair's extension
 and plugin, which you register once. When pi runs without the extension, or
 opencode without the plugin, `pair start` refuses and prints the
@@ -68,7 +73,7 @@ in progress, apart from an older Codex and a Copilot CLI that refuses
 [Adapters](../contributing/adapters.md#when-the-cli-reads-the-line) has a
 table of when each one reads it.
 
-`pair status` shows the last wake for a submission under `wake.last`. The
+`pair status` shows the holder and the last wake for a submission. The
 result of each wake has `via`, the path the message took, such as `steer` or
 `queue` for Codex. Each wake sets `holder.steerable` in `status.json`, which
 is `true` when the agent CLI reads a message in the middle of a turn.
@@ -76,8 +81,8 @@ When a wake fails, the progress card says "Could not wake the agent. Send a
 message in chat." and shows the [handoff line](holders-and-handoff.md).
 
 A [thread](threads-and-side-work.md) wakes the holder too, once for each
-message, naming the `pair reply` command that prints it. It does so even
-while the session is paused, because you are waiting for the answer.
+message, naming the `pair read --thread` command that prints it. It does so
+even while the session is paused, because you are waiting for the answer.
 
 ## Storage
 
@@ -88,7 +93,7 @@ hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
 sessions/<dir>/      the directory name is not the session ID
-  status.json        stage, holder, wake, open round; pair status prints it
+  status.json        title, stage, holder, wake, open round; pair status prints it
   connection.json    session ID, hub origin, agent token, wake target
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
@@ -99,6 +104,7 @@ sessions/<dir>/      the directory name is not the session ID
   threads/           one file per thread
   side-work/         one file per side-work item
   activity.json      the last 50 events, for the bell
+  output/            command output too long to print
   acceptance.json    after you accept
 ```
 

@@ -27,11 +27,11 @@ nothing else.
    per step of the plan unless another structure explains the work better,
    and make the pull request description the last page.
 3. Build the plan one step at a time. Before you change anything for a
-   step, run `pair progress --start ID` with the ID of the page that shows
+   step, run `pair progress --page ID` with the ID of the page that shows
    it, so the reviewer sees which step you are building, not only which page
-   you are writing. For steps you build at the same time, run
-   `--start "a|b"`. Report with `pair ack --note "…" --page ID` whenever
-   the work changes and at least every five minutes, as
+   you are writing. For steps you build at the same time, give `--page` once
+   for each. Report with `pair progress --page ID --note "…"` whenever the
+   work changes and at least every five minutes, as
    [round.md](../round.md) describes.
 4. Commit on a branch as the project's instructions say, and open no pull
    request.

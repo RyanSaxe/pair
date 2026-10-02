@@ -8,11 +8,12 @@ checkout, so an edit takes effect at the next command:
 
 ```sh
 npm link
-pair start
+pair start --title "Try pair"
 ```
 
 `pair start` starts the hub on `127.0.0.1:4747` if none is running, creates a
-session under `~/.local/state/pair/sessions/`, and prints its URL. An agent
+session under `~/.local/state/pair/sessions/`, and prints its directory and
+URL. An agent
 runs it from its own shell, because the hub wakes that agent's session when
 you send feedback.
 [Commands](../reference/commands.md#environment-variables) lists the

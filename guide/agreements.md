@@ -32,20 +32,21 @@ when it is wrong. Never ask the reviewer to approve it.
 
 Each agreement needs `sourceRefs` or `source`. When you decide a choice
 because the reviewer asked you to, cite their note in `sourceRefs` and say
-in `source` that you chose and why. When `groups.alignUnflagged` settled a
+in `source` that you chose and why. When the reviewer's Everything else
+looks good, `everything-else-looks-good="yes"` on the submission, settled a
 proposal the page stated, name the round and submission ID in `source`,
-state that `groups.alignUnflagged` was true, and explain why the comments
-did not challenge it.
+state that the reviewer set it, and explain why the comments did not
+challenge it.
 
 Each reference has a `kind`:
 
-| kind         | Required fields        | Meaning                                                                              |
-| ------------ | ---------------------- | ------------------------------------------------------------------------------------ |
-| note         | submissionId, noteId   | A saved comment, with its quote and target.                                          |
-| choice       | submissionId, choiceId | A saved choice. choiceId is its key under `groups.choices`, such as `page/decision`. |
-| answer       | submissionId, answerId | A saved answer to a question component. answerId is the submission's answers key.    |
-| thread       | threadId               | A thread the reviewer started from a note. threadId is the ID `pair reply` takes.    |
-| conversation | text                   | Context from the agent conversation, labeled as such.                                |
+| kind         | Required fields        | Meaning                                                                                   |
+| ------------ | ---------------------- | ----------------------------------------------------------------------------------------- |
+| note         | submissionId, noteId   | A saved comment, with its quote and target. noteId is the `id` of its `pair_note`.        |
+| choice       | submissionId, choiceId | A saved choice. choiceId is the `id` of its `pair_choice`, such as `page/decision`.       |
+| answer       | submissionId, answerId | A saved answer to a question component. answerId is the `id` of its `pair_answer`.        |
+| thread       | threadId               | A thread the reviewer started from a note. threadId is the ID `pair read --thread` takes. |
+| conversation | text                   | Context from the agent conversation, labeled as such.                                     |
 
 When Agreed publishes, the hub resolves each browser reference against
 this session's saved submissions and threads, and rejects a missing
@@ -70,8 +71,8 @@ wrote them in.
 
 A valid source does not make the summary correct. Read the feedback and the
 conversation before writing or changing an agreement. A note on an agreement
-has the agreement's ID in `agreementId`, and the agreement changes only when
-you rewrite it.
+has the agreement's ID in its `agreement` attribute, and the agreement changes
+only when you rewrite it.
 
 ## In a build round
 
