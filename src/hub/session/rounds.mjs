@@ -8,7 +8,7 @@ import {
   pageStyles,
 } from "../../build/assemble.mjs";
 import { linkProblems } from "../../build/lint.mjs";
-import { choiceText } from "../../frame/review/choices.mjs";
+import { choiceText } from "../../shared/choices.mjs";
 import {
   idPattern,
   orderAgreements,

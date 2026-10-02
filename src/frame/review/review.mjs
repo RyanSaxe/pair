@@ -32,7 +32,6 @@ import {
   renderFooter,
   show,
 } from "#frame/pages/pages.mjs";
-import { choiceText } from "#frame/review/choices.mjs";
 import {
   acceptable,
   submissionError,
@@ -49,6 +48,7 @@ import {
   sentByRound,
 } from "#frame/sync/rounds.mjs";
 import { status } from "#frame/sync/sessions.mjs";
+import { choiceText } from "#shared/choices.mjs";
 
 let renderedFeedback = null;
 export function setRenderedFeedback(value) {
