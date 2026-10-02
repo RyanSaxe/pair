@@ -55,6 +55,9 @@ Sessions.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
   waiting for you.
 - **New** marks each page of a round that you have not opened.
+- A session is listed from the moment it starts. Until the agent publishes
+  its first Agreed, the session's page shows its title, its agent and the
+  progress card.
 
 The bell, or <kbd>n</kbd>, lists agent replies and side-work pull requests from
 every session. A line leaves when you click it or its ✕, and **Clear all**

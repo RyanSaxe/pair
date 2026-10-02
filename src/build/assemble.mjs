@@ -145,38 +145,47 @@ export async function assemble(
   // checked it as written.
   const found = problems(data, "", { allowUnknownPages });
   if (found.length) throw new Error(found.join("\n"));
-  bundle ||= await frameBundle();
+  const html = join(bundle || (await frameBundle()), data, css, js);
+  readPlanData(html);
+  return html;
+}
+// A session with nothing published shows the frame with its title and no
+// pages, and the frame draws the session's home view.
+export async function assembleHome(title) {
+  return join(await frameBundle(), { title, pages: [] }, "", "");
+}
+function join(bundle, data, css, js) {
   const { shell, style, drawingEditor, componentCss } = bundle;
   // A bundle stored before the dialogs had a file of their own carries them
   // in its shell.
-  const html = shell
-    .replace("<!-- DIALOGS -->", () => bundle.dialogs ?? "")
-    .replace("<!-- DRAWING_EDITOR -->", () => scriptJson(drawingEditor))
-    .replace(
-      "<!-- FRAME_STYLE -->",
-      // The cascade ranks an unlayered rule above every layered one, so the
-      // frame takes a layer of its own rather than staying outside them. A
-      // component rule then beats a plan rule of any specificity, and a plan
-      // that means it can still say !important.
-      // Page CSS arrives scoped to its page. Nesting it inside the component
-      // scope would exclude the root itself.
-      () =>
-        `<style>\n@layer frame, plan, components;\n@layer frame {\n${style}\n}\n` +
-        `@layer plan {\n${css}\n}\n@scope (#page-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
-        `</style>`,
-    )
-    .replace("<!-- FRAME_SCRIPT -->", () =>
-      bundle.format === 2 ? moduleScript(bundle) : joinedScript(bundle),
-    )
-    // A module, and after the frame's, so the plan's own script sees planUI
-    // and can register a component of its own before the first page renders.
-    .replace(
-      "<!-- CUSTOM_SCRIPT -->",
-      () => `<script type="module">\n${js}\n</script>`,
-    )
-    .replace(jsonScript("plan-data"), () => jsonScriptTag("plan-data", data));
-  readPlanData(html);
-  return html;
+  return (
+    shell
+      .replace("<!-- DIALOGS -->", () => bundle.dialogs ?? "")
+      .replace("<!-- DRAWING_EDITOR -->", () => scriptJson(drawingEditor))
+      .replace(
+        "<!-- FRAME_STYLE -->",
+        // The cascade ranks an unlayered rule above every layered one, so the
+        // frame takes a layer of its own rather than staying outside them. A
+        // component rule then beats a plan rule of any specificity, and a plan
+        // that means it can still say !important.
+        // Page CSS arrives scoped to its page. Nesting it inside the component
+        // scope would exclude the root itself.
+        () =>
+          `<style>\n@layer frame, plan, components;\n@layer frame {\n${style}\n}\n` +
+          `@layer plan {\n${css}\n}\n@scope (#page-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
+          `</style>`,
+      )
+      .replace("<!-- FRAME_SCRIPT -->", () =>
+        bundle.format === 2 ? moduleScript(bundle) : joinedScript(bundle),
+      )
+      // A module, and after the frame's, so the plan's own script sees planUI
+      // and can register a component of its own before the first page renders.
+      .replace(
+        "<!-- CUSTOM_SCRIPT -->",
+        () => `<script type="module">\n${js}\n</script>`,
+      )
+      .replace(jsonScript("plan-data"), () => jsonScriptTag("plan-data", data))
+  );
 }
 // Rounds reuse page IDs, and the reader keeps several rounds loaded, so
 // page CSS and scripts match the round as well as the page.

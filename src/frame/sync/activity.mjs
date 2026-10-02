@@ -55,6 +55,9 @@ export function activityModel({
       : [];
   const ready = slots.filter((item) => item.state === "ready").length;
   const finished = slots.length > 0 && ready === slots.length;
+  // A session with nothing published shows its home view, where the agent
+  // prepares the first round.
+  const home = Boolean(remote) && !remote.current;
   const title = inFlight
     ? "Sending feedback"
     : stopped
@@ -63,9 +66,11 @@ export function activityModel({
         ? "All pages ready"
         : slots.length
           ? "Pages in progress"
-          : received
-            ? "Preparing the next round"
-            : "Waiting for the agent";
+          : home
+            ? "Preparing the first round"
+            : received
+              ? "Preparing the next round"
+              : "Waiting for the agent";
   // An agent that took the session over since the reviewer's last send is
   // named with the time it took over.
   const takeover =
@@ -87,7 +92,8 @@ export function activityModel({
           late: now - Date.parse(remote.report.noteAt) >= LATE,
         };
   // The summary line names why the agent stopped, and before the page list
-  // exists, that it has the feedback.
+  // exists, that it has the feedback. A home view with no note says where
+  // the pages will appear.
   const reason = failed
     ? "Could not wake the agent. Send a message in chat."
     : paused
@@ -99,20 +105,23 @@ export function activityModel({
       [
         slots.length
           ? `${ready} of ${slots.length} pages ready`
-          : received
-            ? read
-              ? "Agent read your feedback"
-              : "Agent received your feedback"
-            : "Feedback saved",
+          : home
+            ? !note &&
+              "The first pages appear here when the agent publishes Agreed."
+            : received
+              ? read
+                ? "Agent read your feedback"
+                : "Agent received your feedback"
+              : "Feedback saved",
         takeover,
       ]
         .filter(Boolean)
         .join(" · ");
   // Until the page list exists, the bar is one track that moves while the
-  // agent works on the feedback.
+  // agent works on the feedback or on the first round.
   const track = slots.length
     ? null
-    : inFlight || (received && !stopped)
+    : inFlight || ((received || home) && !stopped)
       ? "moving"
       : "still";
   return { slots, ready, failed, stopped, title, summary, note, track };

@@ -66,7 +66,9 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
-  await h.session();
+  // A session with nothing published is listed, and its URL serves its
+  // home view.
+  const c = await h.session();
   await a.publish(planData());
   await b.publish(planData());
   // a was published first, and only b waits for the reviewer.
@@ -81,6 +83,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.deepEqual(await listed(), [
     [b.id, true, false],
     [a.id, false, false],
+    [c.id, false, false],
   ]);
   assert.equal(
     (await a.action("pause", { reason: "asked to stop" })).code,
@@ -90,8 +93,16 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.deepEqual(await listed(), [
     [b.id, true, false],
     [a.id, false, true],
+    [c.id, false, false],
   ]);
   assert.equal((await a.request(`${a.base}/`)).code, 200);
+  const home = await c.request(`${c.base}/`);
+  assert.equal(home.code, 200);
+  assert.deepEqual(sessionConfig(home.body), {
+    sessionId: c.id,
+    base: c.base,
+    home: true,
+  });
 });
 
 test("the hub lists when each session started, and a new hub keeps it", async (t) => {

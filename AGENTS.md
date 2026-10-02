@@ -45,10 +45,11 @@ same name under `tests/`:
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.
 - The frame, `src/frame/`, runs in the browser. `app/` starts it and keeps the
-  state every other part reads, `pages/` shows the pages and Agreed, `notes/`
-  has the code for the reviewer's notes, threads, choices, answers and
-  drawings, `review/` is the Review page and sending, and `sync/` reads
-  rounds, sessions, activity and notifications from the hub.
+  state every other part reads, `pages/` shows the pages, Agreed and the home
+  view of a session with nothing published, `notes/` has the code for the
+  reviewer's notes, threads, choices, answers and drawings, `review/` is the
+  Review page and sending, and `sync/` reads rounds, sessions, activity and
+  notifications from the hub.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.

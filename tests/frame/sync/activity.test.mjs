@@ -156,6 +156,30 @@ test("a note without --page shows under the card's title before and after Agreed
   assert.equal(sent.note, null);
 });
 
+test("a session with nothing published prepares its first round, with the note in place of where the pages appear", () => {
+  // The home view has no page set and no submitted round.
+  const first = (report) =>
+    run(
+      { current: null, report },
+      { currentSet: undefined, submittedRound: null },
+    );
+  const home = first({ at: "2026-01-01T00:00:00Z", note: null });
+  assert.equal(home.title, "Preparing the first round");
+  assert.equal(
+    home.summary,
+    "The first pages appear here when the agent publishes Agreed.",
+  );
+  assert.equal(home.track, "moving");
+  assert.deepEqual(home.slots, []);
+  const noted = first({
+    at: "2026-01-01T00:09:00Z",
+    note: "Reading the scroll code",
+    noteAt: "2026-01-01T00:09:00Z",
+  });
+  assert.equal(noted.summary, "");
+  assert.equal(noted.note.text, "Reading the scroll code");
+});
+
 test("a working page's label counts from its note, or from its start, and turns late at five minutes", () => {
   const working = { stopped: false, failed: false };
   const at = (clock) => Date.parse(`2026-01-01T00:${clock}Z`);

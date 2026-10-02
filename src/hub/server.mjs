@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
+import { assembleHome } from "../build/assemble.mjs";
 import { settings, version } from "../shared/settings.mjs";
 import {
   atomic,
@@ -83,7 +84,6 @@ export async function startHub(config = settings()) {
   const listed = () =>
     open()
       .map((session) => session.listing())
-      .filter(Boolean)
       .sort(
         (a, b) =>
           Number(b.needsYou) - Number(a.needsYou) ||
@@ -104,10 +104,8 @@ export async function startHub(config = settings()) {
   // so it holds a comment. The gate ends the head, after anything else the
   // hub adds there, so the head's other modules run before the first frame.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
-  const roundPage = async (session, entry, flags = {}, head = "") => {
-    requireValue(entry, "Unknown round", 404);
-    const html = await fs.readFile(entry.path, "utf8");
-    return embedConfig(
+  const framePage = (session, html, flags, head) =>
+    embedConfig(
       html.replace("</head>", () => head + renderGate + "</head>"),
       {
         sessionId: session.id,
@@ -115,6 +113,10 @@ export async function startHub(config = settings()) {
         ...flags,
       },
     );
+  const roundPage = async (session, entry, flags = {}, head = "") => {
+    requireValue(entry, "Unknown round", 404);
+    const html = await fs.readFile(entry.path, "utf8");
+    return framePage(session, html, flags, head);
   };
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
@@ -240,8 +242,17 @@ export async function startHub(config = settings()) {
             Location: session.base + "/",
           });
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
+          // A session with nothing published shows its home view, which
+          // loads the round once Agreed publishes.
           if (!session.state.current)
-            return reply(200, "No round published yet.", "text/plain");
+            return html(
+              framePage(
+                session,
+                await assembleHome(session.listing().title),
+                { home: true },
+                firstAnswersHead(await firstAnswers(session, sessionList(req))),
+              ),
+            );
           // A session the reviewer closed is read-only, so no tab left open
           // on it can submit and wake an agent that will never run again.
           const closed = Boolean(session.state.dismissedAt);

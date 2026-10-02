@@ -108,8 +108,13 @@ export function renderActivity() {
   // A thread started from the card sits under it, or under the finished line
   // once the card hides, so it moves when the card shows or hides.
   if (wasHidden !== !visible) placeThreads();
-  if (!visible) return;
-  $("activity-message").hidden = !noteEditable();
+  if (visible) drawActivity(running);
+}
+// The progress card's contents. running says the agent works on a round, so
+// the heading shows how long it has taken.
+export function drawActivity(running) {
+  // The footer contains only Message the agent, so it goes with the button.
+  $("activity-footer").hidden = !noteEditable();
   const model = activityModel({
     remote,
     currentSet: pageSets.get(remote?.current?.round),
