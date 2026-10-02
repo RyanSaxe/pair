@@ -16,8 +16,9 @@ export function agent(session) {
   const handoff = `Take over pair session ${directory}: run ${command("start")} and follow what it prints.`;
   // Each agent command is a report, and the reviewer sees when the last one
   // came. Only ack carries a note, so any other report clears the last one.
-  // noteAt keeps the time of the last note, which the Background row counts
-  // from, so a report without a note does not reset it.
+  // noteAt keeps the time of the last note, whose age shows beside the note
+  // under the progress card's title, so a report without a note does not
+  // reset it.
   const report = (note = null) => {
     const at = timestamp();
     const noteAt = note ? at : session.state.report?.noteAt;
@@ -194,8 +195,8 @@ export function agent(session) {
         ? { ...report(data.note?.trim() || null), ...receive(event) }
         : {
             ...session.notePage(data.page, data.note.trim()),
-            // A page note is a report for the round's time. The Background
-            // row keeps its own note and the time of that note.
+            // A page note is a report for the round's time. The note under
+            // the card's title stays, with the time it was sent.
             report: { ...session.state.report, at: timestamp() },
             ...receive(event),
           },

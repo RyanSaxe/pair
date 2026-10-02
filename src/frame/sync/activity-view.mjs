@@ -1,4 +1,4 @@
-import { since } from "#frame/app/time.mjs";
+import { ago, since } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
   base,
@@ -124,8 +124,17 @@ export function renderActivity() {
   $("activity-elapsed").textContent =
     running && startedAt ? since(startedAt) : "";
   $("activity-title").textContent = model.title;
-  $("activity-summary").textContent = model.summary;
-  const { background } = model;
+  // The summary, then the round's note and its age, which turns late as a
+  // row's label does.
+  $("activity-summary").textContent = [model.summary, model.note?.text]
+    .filter(Boolean)
+    .join(" · ");
+  if (model.note) {
+    const age = document.createElement("span");
+    age.textContent = ago(model.note.at);
+    age.classList.toggle("late", model.note.late);
+    $("activity-summary").append(" · ", age);
+  }
   const round = remote?.openRound?.round || remote?.current?.round;
   // A row rebuilds when a page's state changes or its first note arrives,
   // never on a later note, so the list does not redraw on every report.
@@ -140,7 +149,6 @@ export function renderActivity() {
       state,
       Boolean(note),
     ]),
-    background && Boolean(background.note),
   ]);
   const segments = $("activity-segments");
   const rows = $("activity-pages");
@@ -167,23 +175,11 @@ export function renderActivity() {
       segments.append(item);
       rows.append(...drawRow(slot, stopped, `${round}:page:${slot.id}`));
     }
-    if (background) {
-      const divider = document.createElement("div");
-      divider.className = "activity-divider";
-      rows.append(
-        divider,
-        ...drawRow(background, stopped, `${round}:background`),
-      );
-    }
   }
   // Each render sets the labels in place, so the times advance between
   // rebuilds.
-  const listed = [
-    ...slots.map((slot) => [`${round}:page:${slot.id}`, slot]),
-    ...(background ? [[`${round}:background`, background]] : []),
-  ];
-  for (const [key, slot] of listed) {
-    const row = drawn.get(key);
+  for (const slot of slots) {
+    const row = drawn.get(`${round}:page:${slot.id}`);
     if (!row) continue;
     const label = rowLabel(slot, model);
     row.label.textContent = label.text;

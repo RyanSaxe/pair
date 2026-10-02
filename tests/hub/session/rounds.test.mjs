@@ -449,7 +449,7 @@ test("a page note sits on its slot until the page publishes", async (t) => {
   assert.equal(drafting.state, "active");
   assert.ok(drafting.startedAt);
   assert.equal(drafting.note.text, "Drafting");
-  // The page note moves the round's report time and keeps the Background note.
+  // The page note moves the round's report time and keeps the round note.
   const after = (await status()).report;
   assert.equal(after.note, "Reading");
   assert.equal(after.noteAt, before.noteAt);
