@@ -73,6 +73,23 @@ async function bell(page) {
   await page.locator("#center-list .session-row").click();
 }
 
+test("a loaded session draws its header from the answers in its page", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  const asked = [];
+  page.on("request", (request) => asked.push(new URL(request.url()).pathname));
+  await page.goto(s.url(""));
+  // The bell shows once the first status and session list are drawn. The
+  // frame asks the hub for either only if the page did not carry it.
+  await bellReady(page);
+  assert.deepEqual(
+    asked.filter((path) => /\/api\/(status|sessions)$/.test(path)),
+    [],
+  );
+});
+
 test("a Progress reply's link opens its card and focuses the reply", async (t) => {
   const s = await setup(t);
   await s.publish("1");

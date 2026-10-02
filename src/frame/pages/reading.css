@@ -267,3 +267,60 @@ body:has(dialog[open]) .quote-button {
     padding: 20px 16px calc(90px + env(safe-area-inset-bottom));
   }
 }
+/* progress.mjs draws the bar along the top of the reading column while a
+   page the reader moved to is still drawing. */
+.main-column {
+  position: relative;
+}
+.move-bar {
+  position: absolute;
+  /* Above the header, whose z-index is 6. */
+  z-index: 7;
+  /* Over the header's bottom border, so the picture of the previous page
+     that a page load keeps on screen never covers it. */
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  pointer-events: none;
+}
+/* Across a page load, progress.mjs names the previous page's scrolling pane
+   "reading", and the browser holds its picture over the new page until the
+   new page has drawn, for at most 10 s. The header, the sidebar and the bar
+   are the new page's from its first frame, and the new page stays usable. */
+@view-transition {
+  navigation: auto;
+}
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation: none;
+}
+/* The new page's header and sidebar stay out of sight until the frame has
+   drawn them with the session's first answers, so the previous page's show
+   meanwhile. */
+::view-transition-new(root) {
+  animation: chrome-wait 10s step-end forwards;
+}
+@keyframes chrome-wait {
+  from {
+    opacity: 0;
+  }
+}
+::view-transition-old(reading) {
+  background: var(--panel);
+  animation: reading-hold 10s step-end forwards;
+}
+@keyframes reading-hold {
+  to {
+    opacity: 1;
+  }
+}
+.move-bar {
+  opacity: 0;
+}

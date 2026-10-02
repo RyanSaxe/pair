@@ -14,6 +14,7 @@ import {
   serializer,
   timestamp,
 } from "../shared/util.mjs";
+import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
 import { adapters } from "./wake.mjs";
@@ -81,14 +82,26 @@ export async function startHub(config = settings()) {
             ? Date.parse(a.publishedAt) - Date.parse(b.publishedAt)
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
-  const roundPage = async (session, entry, flags = {}) => {
+  // Chrome can paint a page before it has parsed all of it, so a session
+  // the reviewer switched to showed its bare shell, with an empty sidebar and
+  // reading column, before the frame drew into it. A module in the head that
+  // blocks rendering keeps the previous page on screen until the page is
+  // parsed and its modules have run. The hub adds it as it serves the page,
+  // so rounds built before it have it too. A script with no text never runs,
+  // so it holds a comment. The gate ends the head, after anything else the
+  // hub adds there, so the head's other modules run before the first frame.
+  const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
+  const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
     const html = await fs.readFile(entry.path, "utf8");
-    return embedConfig(html, {
-      sessionId: session.id,
-      base: session.base,
-      ...flags,
-    });
+    return embedConfig(
+      html.replace("</head>", () => head + renderGate + "</head>"),
+      {
+        sessionId: session.id,
+        base: session.base,
+        ...flags,
+      },
+    );
   };
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
@@ -218,11 +231,15 @@ export async function startHub(config = settings()) {
             return reply(200, "No round published yet.", "text/plain");
           // A session the reviewer closed is read-only, so no tab left open
           // on it can submit and wake an agent that will never run again.
+          const closed = Boolean(session.state.dismissedAt);
           return html(
             await roundPage(
               session,
               session.roundEntry(session.state.current.round),
-              session.state.dismissedAt ? { closed: true } : {},
+              closed ? { closed: true } : {},
+              closed
+                ? ""
+                : firstAnswersHead(await firstAnswers(session, listed())),
             ),
             {
               "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
