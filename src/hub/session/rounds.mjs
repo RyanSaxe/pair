@@ -206,12 +206,19 @@ export function rounds(session) {
       accepted: null,
     });
     // The hub served the open round from the live file while its pages
-    // arrived, and serves the complete file from now on.
-    if (complete)
+    // arrived, and serves the complete file from now on. The round waits
+    // for the reviewer, and every pair tab's bell says so.
+    if (complete) {
       await fs.rm(
         path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
         { force: true },
       );
+      await session.addActivity({
+        kind: "waiting",
+        round: set.round,
+        offer: set.offer,
+      });
+    }
     return {
       status: view(),
       url: origin + current.url,

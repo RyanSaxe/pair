@@ -160,15 +160,16 @@ export async function hub(t, extra = {}, options = {}) {
     return { code: response.status, body: await response.json() };
   };
   // A session registered by an inbox, or by the agent a pairCli runs as,
-  // so that the command can work on it.
-  async function session({ cli, box } = {}) {
+  // so that the command can work on it. With start, it registers as pair
+  // start does.
+  async function session({ cli, box, start } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
       ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
       : mailbox.target;
     const agent = cli ? cli.agent : mailbox.agent;
     const directory = path.join(config.sessions, crypto.randomUUID());
-    const registered = await register(directory, wake);
+    const registered = await register(directory, wake, start ? { start } : {});
     assert.equal(registered.code, 200, registered.body.error);
     const info = registered.body;
     const connection = JSON.parse(

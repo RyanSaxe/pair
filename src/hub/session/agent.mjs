@@ -306,6 +306,12 @@ export function agent(session) {
         wake: { harness: target.harness, last: null },
       });
     await transition(patch);
+    // The bell of every pair tab announces the session pair start creates.
+    if (start && !held && !session.state.current)
+      await session.addActivity({
+        kind: "session",
+        agent: adapters[target.harness].name,
+      });
     return build ? buildNext(unread) : null;
   }
   // The acceptance keeps its save action, so the line says outright that

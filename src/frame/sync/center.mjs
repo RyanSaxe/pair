@@ -10,6 +10,7 @@ import {
 } from "#frame/app/view.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import {
+  announced,
   eventHref,
   eventTarget,
   eventTitle,
@@ -17,16 +18,17 @@ import {
 import { openPast, remote } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
-/* The bell lists the agent replies and side-work pull requests of every
-   session, newest first, from the last 50 events the hub keeps for each. A
-   line leaves the list when you click it or its ✕, so the bell's number is
-   the number of lines. Which events this browser removed stays in its
-   storage for the hub, so every tab on the hub shares it and each browser
-   keeps its own. A round published before the bell's list came keeps the
-   notification center, which reads its own pair:center: keys, so this list
-   uses a key of its own and leaves those alone. */
+/* The bell lists every session's starts, waiting rounds, agent replies and
+   side-work pull requests, newest first, from the last 50 events the hub
+   keeps for each. A line leaves the list when you click it or its ✕, or,
+   for a waiting round, once you send that round, so the bell's number is
+   the number of lines. Which events this
+   browser removed stays in its storage for the hub, so every tab on the hub
+   shares it and each browser keeps its own. A round published before the
+   bell's list came keeps the notification center, which reads its own
+   pair:center: keys, so this list uses a key of its own and leaves those
+   alone. */
 
-const listedKinds = ["reply", "side-work"];
 const storageKey = "pair:bell:cleared";
 // The removed IDs, kept here too when browser storage is unavailable. Null
 // means this browser has never recorded anything.
@@ -62,13 +64,20 @@ export function settleCleared(listed, cleared) {
   return new Set([...cleared].filter((id) => listed.includes(id)));
 }
 
-// The bell's lines: every listed reply and pull request not removed,
-// newest first.
-export function bellLines(sessions, cleared) {
+// The bell's lines: every listed event not removed, newest first. The tab
+// already shows its own session, so that session's start and waiting round
+// are not lines.
+export function bellLines(sessions, cleared, thisId) {
   return sessions
     .flatMap((entry) =>
       (entry.events || [])
-        .filter((event) => listedKinds.includes(event.kind))
+        .filter(
+          (event) =>
+            announced(entry, event) &&
+            !(
+              entry.id === thisId && ["session", "waiting"].includes(event.kind)
+            ),
+        )
         .map((event) => ({ ...event, entry })),
     )
     .filter((event) => !cleared?.has(event.id))
@@ -89,7 +98,7 @@ export function renderCenter(sessions, fromHub) {
     const after = settleCleared(listed, before);
     if (!before || after.size !== before.size) store(after);
   }
-  lines = bellLines(sessions, loadCleared());
+  lines = bellLines(sessions, loadCleared(), session.sessionId);
   const count = lines.length;
   const bell = $("bell");
   // The bell shows while the hub lists a live session, this tab's own
@@ -102,13 +111,8 @@ export function renderCenter(sessions, fromHub) {
     "aria-label",
     count ? `Notifications: ${count}` : "Notifications",
   );
-  // The tab's title counts what needs you: the other sessions waiting and
-  // the bell's lines.
-  const waiting = sessions.filter(
-    (entry) => entry.id !== session.sessionId && entry.needsYou,
-  ).length;
-  const titled = waiting + count;
-  document.title = (titled ? `(${titled}) ` : "") + plan.title;
+  // The tab's title counts the bell's lines.
+  document.title = (count ? `(${count}) ` : "") + plan.title;
   if (bell.hidden) toggleCenter(false);
   drawCenter();
 }

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createReviewAlerts,
-  reviewAlert,
   wakeAlert,
 } from "../../../src/frame/sync/notifications.mjs";
 
@@ -63,16 +62,30 @@ function alertFixture({
     sessionId,
     open: (url) => opened.push(url),
   });
-  const entry = (id, round, extra = {}) => ({
-    id,
-    title: `Plan ${id}`,
-    round,
-    stage: "updated",
-    needsYou: true,
-    publishedAt: new Date().toISOString(),
-    url: `/s/${id}/`,
-    ...extra,
-  });
+  // A session whose round waits for the reviewer, with the event the hub
+  // adds when the round's last page publishes.
+  const entry = (id, round, extra = {}) => {
+    const at = extra.publishedAt || new Date().toISOString();
+    return {
+      id,
+      title: `Plan ${id}`,
+      round,
+      stage: "updated",
+      needsYou: true,
+      publishedAt: at,
+      url: `/s/${id}/`,
+      events: [
+        {
+          id: `waiting-${id}-${round}`,
+          kind: "waiting",
+          round,
+          ...(extra.offer ? { offer: extra.offer } : {}),
+          at,
+        },
+      ],
+      ...extra,
+    };
+  };
   return {
     alerts,
     host,
@@ -106,7 +119,7 @@ test("alerts announce other sessions once across tabs and never the focused sess
   await Promise.all([a.alerts.update([s1, s3]), b.alerts.update([s1, s3])]);
   assert.equal(a.sent.length + b.sent.length, 1);
   const item = a.sent[0] || b.sent[0];
-  assert.equal(item.title, "Round 1 is ready");
+  assert.equal(item.title, "Round 1 is waiting for you");
   assert.equal(item.options.body, "Plan s3");
   item.onclick();
   assert.deepEqual([...a.opened, ...b.opened], ["/s/s3/"]);
@@ -153,30 +166,6 @@ test("granted permission enables automatically unless explicitly disabled; re-en
   assert.equal(b.sent.length, 1);
 });
 
-test("only sessions that need the user alert, and an offered round says so", () => {
-  const entry = {
-    id: "s1",
-    title: "Plan",
-    offer: "plan",
-    round: "3",
-    stage: "updated",
-    needsYou: true,
-    url: "/s/s1/",
-    publishedAt: "2026-01-01T00:00:00Z",
-  };
-  assert.deepEqual(reviewAlert(entry), {
-    id: "round:s1:3",
-    sessionId: "s1",
-    title: "Round 3 is ready to accept",
-    body: "Plan",
-    url: "/s/s1/",
-    createdAt: "2026-01-01T00:00:00Z",
-  });
-  assert.equal(reviewAlert({ ...entry, needsYou: false }), null);
-  assert.equal(reviewAlert({ ...entry, id: "" }), null);
-  assert.equal(reviewAlert(null), null);
-});
-
 test("denied, unavailable, and failed notifications disable the control", async () => {
   for (const options of [{ permission: "denied" }, { supported: false }]) {
     const a = alertFixture(options);
@@ -195,16 +184,17 @@ test("denied, unavailable, and failed notifications disable the control", async 
   assert.match(a.button.title, /delivery failed/);
 });
 
-test("each reply and pull request in another session alerts once and opens where it happened, and a page does not alert", async () => {
+test("each session start, waiting round, reply and pull request in another session alerts once and opens where it happened, and a page does not alert", async () => {
   const a = alertFixture({ permission: "granted" });
   await a.alerts.update([]);
   const at = later();
   const entry = a.entry("s2", "2", {
     needsYou: false,
     events: [
+      { id: "e0", kind: "session", agent: "Codex", at },
       // A reply event from before replies named their message.
       {
-        id: "e0",
+        id: "e1",
         kind: "reply",
         name: "Overview",
         round: "2",
@@ -214,7 +204,7 @@ test("each reply and pull request in another session alerts once and opens where
         at,
       },
       {
-        id: "e1",
+        id: "e2",
         kind: "reply",
         name: "Overview",
         round: "2",
@@ -225,7 +215,7 @@ test("each reply and pull request in another session alerts once and opens where
         at,
       },
       {
-        id: "e2",
+        id: "e3",
         kind: "side-work",
         name: "Delete visual-review",
         url: "https://github.com/RyanSaxe/pair/pull/12",
@@ -234,7 +224,7 @@ test("each reply and pull request in another session alerts once and opens where
         at,
       },
       {
-        id: "e3",
+        id: "e4",
         kind: "page",
         name: "Offers",
         round: "1",
@@ -248,33 +238,36 @@ test("each reply and pull request in another session alerts once and opens where
   assert.deepEqual(
     a.sent.map((item) => [item.title, item.options.body]),
     [
+      ["Codex started a session", "Plan s2"],
       ["Agent replied on Overview", "Plan s2"],
       ["Agent replied on Overview", "Plan s2"],
       ["Side work opened pull request #12", "Plan s2"],
     ],
   );
   for (const item of a.sent) item.onclick();
-  // A reply opens at the reply itself, and an event from before replies
-  // named their message opens at its thread's card.
+  // A session's start opens the session. A reply opens at the reply itself,
+  // and an event from before replies named their message opens at its
+  // thread's card.
   assert.deepEqual(a.opened, [
+    "/s/s2/",
     "/s/s2/?target=thread-t0#overview",
     "/s/s2/?target=thread-t1-1#overview",
     "/s/s2/?target=side-work-1#agreed",
   ]);
-  // The page that completes a round waiting for the reviewer is announced
-  // by the round's alert alone, before and after the reviewer submits.
-  const complete = a.entry("s3", "4", {
-    publishedAt: later(),
-    events: [
-      { id: "e4", kind: "page", name: "Summary", round: "4", page: "summary" },
-    ].map((event) => ({ ...event, at: later() })),
-  });
-  await a.alerts.update([complete]);
-  await a.alerts.update([{ ...complete, needsYou: false }]);
+  // A round that waits alerts once, and opens the session. Once the round
+  // is sent it no longer alerts, so a tab that misses it while it waits
+  // never announces it.
+  const offered = a.entry("s3", "4", { offer: "plan", publishedAt: later() });
+  await a.alerts.update([offered]);
+  await a.alerts.update([offered]);
+  const sent = a.entry("s4", "1", { needsYou: false, publishedAt: later() });
+  await a.alerts.update([sent]);
   assert.deepEqual(
-    a.sent.slice(3).map((item) => item.title),
-    ["Round 4 is ready"],
+    a.sent.slice(4).map((item) => item.title),
+    ["Round 4 is ready to accept"],
   );
+  a.sent[4].onclick();
+  assert.equal(a.opened.at(-1), "/s/s3/");
 });
 
 test("a session whose agent the hub could not wake alerts once per round", async () => {
