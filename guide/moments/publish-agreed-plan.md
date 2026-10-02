@@ -11,7 +11,11 @@ the rounds builds from alone.
   result is acceptable.
 - Subagents can write the pages at once, because each depends only on
   Agreed. Brief each with this list and `pair progress --page ID --note "…"`
-  for its page, and keep every row current with a note at least every five
+  for its page, and keep each page's notes current at least every five
   minutes.
-- Before the last page, check the plan against Agreed, the feedback and the
-  Present the plan section of `pair guide offers/plan.md`.
+- Before the last page, check the plan against Agreed, the feedback and
+  Present the plan in `pair guide offers/plan.md`.
+- In a code block, a diagram's Mermaid text and the before-after JSON, write
+  `&lt;` for each `<` and `&amp;` for each `&`. Nothing checks this, and the
+  browser reads an unescaped `<` as the start of a tag, so the text after it
+  disappears or changes with no error.

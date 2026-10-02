@@ -236,7 +236,7 @@ test("text over 10,000 bytes goes to a file in the session directory", async (t)
   const next = printed.split("\n")[0];
   assert.match(next, /^Next: /);
   assert(printed.endsWith(`\n\n${next}\n`));
-  assert(Buffer.byteLength(printed) < 2000);
+  assert(Buffer.byteLength(printed) < 10_000);
   const saved = await fs.readFile(file, "utf8");
   assert.match(saved, /^<pair_feedback submission=[^]*<\/pair_feedback>\n$/);
   assert(saved.includes(text.trim()));

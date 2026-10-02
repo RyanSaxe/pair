@@ -11,6 +11,10 @@ request description last.
   build it, and say on the page what you decided and why.
 - Commit on a branch as the project's instructions say, and open no pull
   request.
+- In a code block, a diagram's Mermaid text and the before-after JSON, write
+  `&lt;` for each `<` and `&amp;` for each `&`. Nothing checks this, and the
+  browser reads an unescaped `<` as the start of a tag, so the text after it
+  disappears or changes with no error.
 
 Run `pair guide offers/plan.md` for the steps, in its Start implementation
 section.
