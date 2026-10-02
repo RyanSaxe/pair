@@ -17,13 +17,30 @@ const data = {
   pages: [{ id: "p", title: "P", html: "<p>x</p>" }],
 };
 
-const pageSource = (page) =>
-  buildPage(path.join(os.tmpdir(), "page.json"), {
-    name: "t",
-    round: "1",
-    title: "T",
-    page: { id: "p", title: "P", html: "<p>x</p>", ...page },
-  });
+// A page source whose CSS and JavaScript are files beside it, as an author
+// writes them.
+async function pageSource({ cssText, jsText, ...page }) {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-page-"));
+  try {
+    const files = {};
+    if (cssText !== undefined) {
+      await fs.writeFile(path.join(directory, "page.css"), cssText);
+      files.css = "page.css";
+    }
+    if (jsText !== undefined) {
+      await fs.writeFile(path.join(directory, "page.mjs"), jsText);
+      files.js = "page.mjs";
+    }
+    return await buildPage(path.join(directory, "page.json"), {
+      name: "t",
+      round: "1",
+      title: "T",
+      page: { id: "p", title: "P", html: "<p>x</p>", ...files, ...page },
+    });
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+}
 // The text inside the block that opens with `prelude {`, found by counting
 // braces from its opening one.
 const block = (css, prelude) => {

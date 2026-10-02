@@ -1,12 +1,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { assemble, pageScripts, pageStyles } from "../build/assemble.mjs";
+import { fieldProblems } from "../build/fields.mjs";
 import { sizeImages } from "../build/image-size.mjs";
 import { problems } from "../build/lint.mjs";
 import { pagePlan, validPage } from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
 
 export async function buildPage(source, input) {
+  const unknown = fieldProblems(input);
+  if (unknown.length)
+    throw new Error(
+      unknown.map((line) => `${path.basename(source)}: ${line}`).join("\n"),
+    );
   const read = (file) =>
     fs.readFile(path.resolve(path.dirname(source), file), "utf8");
   const { page: rawPage, ...outer } = input;

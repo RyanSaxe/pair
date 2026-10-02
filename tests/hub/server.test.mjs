@@ -465,8 +465,11 @@ test("a session reached through a symbolic link is the same session", async (t) 
   const second = await h.register(path.join(real, "session"), box.target);
   assert.equal(second.body.sessionId, first.body.sessionId);
   assert.equal(second.body.sessionDir, first.body.sessionDir);
+  const { name, round, title } = planData();
   const agreed = await buildPage(path.join(real, "source.json"), {
-    ...planData(),
+    name,
+    round,
+    title,
     page: {
       id: "agreed",
       title: "Agreed so far",
