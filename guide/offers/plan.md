@@ -34,8 +34,8 @@ requirements and existing permissions. The acceptance may include `guidance`
 of up to 4,000 characters. Follow it. Acceptance authorizes the plan and
 nothing else.
 
-1. Read the plan. Its pages are HTML fragments in the session's
-   `src/<round>/<page-id>/`.
+1. Read the plan, from the page sources in the directory the next step
+   names.
 2. Before the first change, publish the build round's Agreed and page list,
    as [pages.md](../pages.md) describes. Agreed names `"offer": "finish"`
    and contains the task and none of the plan's decisions. It does not

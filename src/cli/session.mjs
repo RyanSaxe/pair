@@ -5,7 +5,6 @@ import { rulesExist, rulesFile } from "../../adapters/codex/rules.mjs";
 import { attach } from "../hub/client.mjs";
 import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
-import { guideCommand } from "../shared/guide.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
@@ -258,22 +257,17 @@ export async function start(options) {
     start: true,
     ...(resuming ? {} : { title: options.title.trim() }),
   });
-  // A hub of the previous release names no next step for a new session.
-  const next =
-    started.next ||
-    (resuming
-      ? undefined
-      : `Run ${guideCommand("round.md")} and read all it prints before you plan the first round, starting with Required in every round.`);
   return {
-    next,
-    moment: started.moment,
+    next: started.next,
+    // A hub of the previous release names no moment for a new session.
+    moment: started.moment || (resuming ? undefined : "start"),
     data: rows([
       ["Session", started.sessionDir],
       ["URL", started.url],
       ["Phone URL", started.hostUrl],
       ["Title", started.title],
     ]),
-    json: { ...started, ...(next ? { next } : {}) },
+    json: started,
   };
 }
 
@@ -318,6 +312,7 @@ export async function publish(options) {
         `URL ${result.url}`,
         ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
       ].join("\n"),
+      ...(result.warning ? [`Warning: ${result.warning}`] : []),
       ...(choosing ? [(await components()).data] : []),
     ].join("\n\n"),
     json: result,

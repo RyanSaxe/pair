@@ -57,21 +57,20 @@ async function followGuide(print, name, printed = new Set([name])) {
   return printed;
 }
 
-test("the next lines name round.md by the command that prints it", async (t) => {
+// pair start prints the start moment, which names the guide files to read
+// before round 1, so a file it names that no longer prints fails here.
+test("every guide file the start output names prints", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
-  const { config, run, start } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const started = await start();
-  const read = JSON.parse(
-    await run("read", "--session-dir", started.sessionDir, "--json"),
-  );
-  for (const next of [started.next, read.next])
-    assert.match(next, /\bpair guide round\.md\b/);
-  const printed = await followGuide(printer(home), "round.md");
-  assert(printed.size > 1, "round.md names other guide files");
+  const started = await run("start", "--title", "Guide");
+  const named = [...started.matchAll(guideRun)].map(([, name]) => name);
+  assert(named.length > 0, started);
+  const printed = new Set(named);
+  for (const name of named) await followGuide(printer(home), name, printed);
 });
 
 // The skill tells the agent to run pair guide, so what it prints is where
