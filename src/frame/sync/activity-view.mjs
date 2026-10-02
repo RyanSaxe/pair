@@ -22,6 +22,7 @@ import {
   activityModel,
   agentNotice,
   finishedLine,
+  messageTiming,
   roundModel,
   rowLabel,
 } from "#frame/sync/activity.mjs";
@@ -115,6 +116,7 @@ export function renderActivity() {
 export function drawActivity(running) {
   // The footer contains only Message the agent, so it goes with the button.
   $("activity-footer").hidden = !noteEditable();
+  $("activity-message-tip").textContent = messageTiming(remote?.holder);
   const model = activityModel({
     remote,
     currentSet: pageSets.get(remote?.current?.round),

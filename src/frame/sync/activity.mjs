@@ -153,3 +153,18 @@ export function roundModel({ remote, now = Date.now() }) {
   if (minutes >= 5) return { text: `No report for ${minutes} min`, late: true };
   return { text: `${ready} of ${total} ready`, late: false };
 }
+
+// When the holder reads a message the reviewer sends. Claude Code reads it
+// between the steps of a turn, and so does Codex while its app-server daemon
+// runs the thread, which the hub records as holder.steerable at each Codex
+// wake. Codex 0.160 starts the daemon by default, so a Codex holder before
+// its first wake gets the same text. Copilot CLI, pi and opencode read it
+// once the turn ends.
+export function messageTiming(holder) {
+  const afterTurn =
+    ["copilot", "pi", "opencode"].includes(holder?.harness) ||
+    (holder?.harness === "codex" && holder.steerable === false);
+  return afterTurn
+    ? "The agent reads messages only between its turns. While it writes a round, it reads this one after it publishes the round's last page."
+    : "The agent reads messages between its steps, so a reply can take a minute while it is busy.";
+}

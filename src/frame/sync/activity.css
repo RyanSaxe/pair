@@ -121,11 +121,25 @@ button.activity-page[aria-expanded="true"] small::after {
 }
 /* The footer contains only Message the agent, on the right, below a rule. */
 .activity-footer {
+  position: relative;
   display: flex;
   justify-content: flex-end;
   margin-top: 11px;
   padding-top: 9px;
   border-top: 1px solid var(--line);
+}
+/* The button's tooltip opens under its right edge, with the arrow under the
+   button, so it stays inside a phone's window. */
+.activity-footer .thread-tip {
+  right: 0;
+  left: auto;
+}
+.activity-footer .thread-tip::before {
+  right: 24px;
+  left: auto;
+}
+#activity-message:is(:hover, :focus-visible) + .thread-tip {
+  visibility: visible;
 }
 @media (prefers-reduced-motion: reduce) {
   .activity-segments i.now {

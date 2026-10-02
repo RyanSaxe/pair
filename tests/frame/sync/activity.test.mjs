@@ -4,6 +4,7 @@ import {
   activityModel,
   agentNotice,
   finishedLine,
+  messageTiming,
   roundModel,
   rowLabel,
 } from "../../../src/frame/sync/activity.mjs";
@@ -311,4 +312,21 @@ test("the card shows outside a running round what the reviewer must know", () =>
   assert.equal(agentNotice({ ...failed, stage: "submitted" }), true);
   assert.equal(agentNotice({ ...failed, stage: "complete" }), false);
   assert.equal(agentNotice({ ...failed, stage: "updated" }), false);
+});
+
+test("the message tooltip follows the holder", () => {
+  const steps = /between its steps/;
+  const turns = /only between its turns/;
+  const holders = [
+    [{ harness: "claude-code" }, steps],
+    [{ harness: "codex", steerable: true }, steps],
+    // Codex 0.160 runs its threads on the daemon unless told otherwise.
+    [{ harness: "codex" }, steps],
+    [{ harness: "codex", steerable: false }, turns],
+    [{ harness: "copilot" }, turns],
+    [{ harness: "pi" }, turns],
+    [{ harness: "opencode" }, turns],
+  ];
+  for (const [holder, text] of holders)
+    assert.match(messageTiming(holder), text, JSON.stringify(holder));
 });
