@@ -36,8 +36,8 @@ nothing else.
 
 1. Read the plan, from the page sources in the directory the next step
    names.
-2. Before the first change, publish the build round's Agreed and page list,
-   as [pages.md](../pages.md) describes. Agreed names `"offer": "finish"`
+2. Before the first change, publish the build round's Agreed and page list.
+   Run `pair guide pages.md` for the commands. Agreed names `"offer": "finish"`
    and contains the task and none of the plan's decisions. It does not
    repeat or link the plan, because the reviewer can still open the
    accepted round. List one page per step of the plan unless another
@@ -58,8 +58,7 @@ nothing else.
    you decided and why.
 6. Write the last page as the pull request description: what the work is,
    why it matters, how to review it and what was done to trust it. If the
-   reviewer chooses Open a PR, this page becomes the pull request's body, as
-   [offers/finish.md](finish.md) describes.
+   reviewer chooses Open a PR, this page becomes the pull request's body.
 
 When the reviewer sends feedback on the build instead of accepting it,
 change the work and publish a follow-up round the same way. Its Agreed also

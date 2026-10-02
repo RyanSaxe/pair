@@ -44,9 +44,9 @@ After an interrupted turn, `pair read` prints where the session stands.
 `pair read --submission ID` prints again a submission that you read in the
 interrupted turn.
 
-When a command cannot reach the hub, follow [setup.md](setup.md), then run
-the same command again on the same session. Do not start a replacement
-session.
+When a command cannot reach the hub, run `pair guide setup.md` and follow
+it, then run the same command again on the same session. Do not start a
+replacement session.
 
 When the user says in words to stop, run `pair pause`. The hub sends no
 wake message for a submission to a paused session. When the user asks you

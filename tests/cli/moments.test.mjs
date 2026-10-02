@@ -7,7 +7,7 @@ import { guideText } from "../../src/shared/guide.mjs";
 import { offers } from "../../src/shared/offers.mjs";
 import { hub, pairCli, root, task } from "../support/hub.mjs";
 
-// Each moment's text as a command prints it, with its links as commands.
+// Each moment's text as a command prints it.
 const printed = new Map();
 for (const file of await fs.readdir(path.join(root, "guide/moments")))
   printed.set(

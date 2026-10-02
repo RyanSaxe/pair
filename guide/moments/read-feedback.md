@@ -1,8 +1,8 @@
 This submission starts the next round, and you decide what it covers.
 
 - Update the task first, then mark each decision settled, reopened, retired
-  or still open, and keep Agreed short as [agreements.md](../agreements.md)
-  says.
+  or still open, and keep Agreed short as the section of that name in
+  `pair guide agreements.md` says.
 - A choice or question left unanswered stays open, even with a recommended
   option, because `everything-else-looks-good="yes"` answers no choice. When
   asked to decide, take the recommended option unless a note names another,

@@ -12,4 +12,5 @@ request description last.
 - Commit on a branch as the project's instructions say, and open no pull
   request.
 
-Start implementation in [offers/plan.md](../offers/plan.md) has the steps.
+Run `pair guide offers/plan.md` for the steps, in its Start implementation
+section.

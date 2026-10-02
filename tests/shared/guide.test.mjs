@@ -5,7 +5,6 @@ import path from "node:path";
 import test from "node:test";
 import {
   exec,
-  exists,
   hub,
   killHub,
   pair,
@@ -14,15 +13,13 @@ import {
   root,
 } from "../support/hub.mjs";
 
-const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
-const guideRun = /\(run `pair guide (\S+)`\)/g;
+// A Markdown link whose target has no scheme, which the agent would have to
+// resolve against a directory it does not know.
+const relativeLink = /\[[^\]]*\]\((?![a-z][a-z+.-]*:)[^()\s]+\)/gi;
+const guideRun = /pair guide ([\w./-]+\.(?:md|html|svg))/g;
 const guideNames = (await fs.readdir(path.join(root, "guide"))).filter((file) =>
   file.endsWith(".md"),
 );
-const source = (name) =>
-  name.startsWith("components/")
-    ? path.join(root, "src", name)
-    : path.join(root, "guide", name);
 
 // pair guide as the agent runs it, with the state directory at state.
 const printer = (state) => async (name) =>
@@ -32,22 +29,24 @@ const printer = (state) => async (name) =>
     })
   ).stdout;
 
-// The agent reads a printed guide file, then the files it names, and never
-// resolves a path itself. Each pair guide command in the text names a file
-// that prints, each other link is an absolute path that exists, and a guide
-// file is named only in a link, which prints as that command. Returns the
-// names it printed.
+// The agent reads a printed guide file, then runs each pair guide command it
+// names, and never resolves a path itself. A printed Markdown file contains
+// no relative link and names a guide file only by its command, and each
+// command names a file that prints. Returns the names it printed.
 async function followGuide(print, name, printed = new Set([name])) {
   const text = await print(name);
-  const prose = (await fs.readFile(source(name), "utf8")).replace(
-    markdownLink,
-    "",
-  );
-  for (const guide of guideNames)
-    assert(!prose.includes(guide), `${name} names ${guide} without a link`);
-  for (const [, target] of text.matchAll(markdownLink)) {
-    assert(path.isAbsolute(target), `${name} links ${target}`);
-    assert(await exists(target), `${name} links ${target}`);
+  if (name.endsWith(".md")) {
+    assert.deepEqual(
+      [...text.matchAll(relativeLink)].map(([link]) => link),
+      [],
+      `${name} has a relative link`,
+    );
+    const prose = text.replaceAll(guideRun, "");
+    for (const guide of guideNames)
+      assert(
+        !prose.includes(guide),
+        `${name} names ${guide} without its command`,
+      );
   }
   for (const [, next] of text.matchAll(guideRun))
     if (!printed.has(next)) {
@@ -76,7 +75,7 @@ test("every guide file the start output names prints", async (t) => {
 // The skill tells the agent to run pair guide, so what it prints is where
 // every session starts. Printing writes nothing, so it works where the
 // state directory cannot be written.
-test("pair guide prints guide/pair.md and every guide file, and writes nothing", async (t) => {
+test("pair guide prints guide/pair.md and every guide file, with no relative link, and writes nothing", async (t) => {
   const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
   t.after(() => fs.rm(state, { recursive: true, force: true }));
   const print = printer(state);
@@ -92,11 +91,11 @@ test("pair guide prints guide/pair.md and every guide file, and writes nothing",
     return true;
   });
   // Every file prints, including one that only a next line names, such as
-  // offers/finish.md, which no guide link reaches.
+  // offers/finish.md, which no guide file names.
   const files = (
     await fs.readdir(path.join(root, "guide"), { recursive: true })
   )
-    .filter((file) => file.endsWith(".md"))
+    .filter((file) => /\.(md|svg)$/.test(file))
     .map((file) => file.split(path.sep).join("/"));
   const markup = (await fs.readdir(path.join(root, "src/components")))
     .filter((name) => name !== "README.md")

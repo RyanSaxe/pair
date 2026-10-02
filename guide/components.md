@@ -14,9 +14,9 @@ components are in `$XDG_CONFIG_HOME/pair/components/`, or in
 the same name as one of pair's components replaces it.
 
 When a page needs a shape no component has, build it in the page's own `css`
-and `js`. When the reviewer asks to keep it for later plans, follow
-[README.md](../src/components/README.md) to move it into
-`$XDG_CONFIG_HOME/pair/components/<name>/` and say the path.
+and `js`. When the reviewer asks to keep it for later plans, run
+`pair guide components/README.md`, move the shape into
+`$XDG_CONFIG_HOME/pair/components/<name>/` as it describes, and say the path.
 Never suggest this to the reviewer.
 
 ## Escaping
@@ -62,8 +62,8 @@ refuses `\htmlClass`: write `\textcolor{#1d4ed8}`, `\textcolor{#a16207}`,
 `\textcolor{#047857}` or `\textcolor{#9333ea}`. The frame follows the theme
 only for these four.
 
-A prototype's markup names an entry in the page's `prototypes`, which
-[prototypes.md](prototypes.md) describes.
+A prototype's markup names an entry in the page's `prototypes`. Run
+`pair guide prototypes.md` for that entry's fields.
 
 ## Decisions
 
@@ -124,8 +124,8 @@ so do not set fixed colors in Mermaid `classDef` declarations.
 Mermaid is the default. Draw a loop as a flowchart when the loop is the
 structure, a sequence diagram when the order of waits is the point, and a
 state diagram for modes. When Mermaid cannot draw the idea cleanly, draw the
-SVG by hand with the frame's tokens, as [flow.svg](flow.svg)
-does. A diagram renders at its drawn size and scrolls sideways when it is
+SVG by hand with the frame's tokens. `pair guide flow.svg` prints an
+example. A diagram renders at its drawn size and scrolls sideways when it is
 wider than the column.
 
 The text of `data-diagram` is the Mermaid source, one statement per line,

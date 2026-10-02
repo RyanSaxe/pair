@@ -108,6 +108,12 @@ requirement that every session already meets. The agent reads each sentence
 as an instruction, and it cannot follow one about the display or the
 reviewer's motives.
 
+Text the agent reads, under `guide/`, in `skills/pair/` and in
+`src/components/README.md`, names another file by the command that prints
+it, written literally, such as ``run `pair guide writing.md` ``, and never by
+a Markdown link, because `pair guide` prints a file as it is and the agent
+cannot resolve a relative path.
+
 ## Checks
 
 CI runs these four on every push and pull request, and a change passes when

@@ -13,5 +13,5 @@ the rounds builds from alone.
   Agreed. Brief each with this list and `pair progress --page ID --note "…"`
   for its page, and keep every row current with a note at least every five
   minutes.
-- Before the last page, check the plan against Agreed, the feedback and
-  Present the plan in [offers/plan.md](../offers/plan.md).
+- Before the last page, check the plan against Agreed, the feedback and the
+  Present the plan section of `pair guide offers/plan.md`.

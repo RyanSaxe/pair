@@ -101,17 +101,14 @@ does next.
 
 - Write each step as an instruction to the agent: "Run `pair read` first when
   the hub wakes you."
-- Give the whole command with its arguments. A prompt names a guide file by
-  the `pair guide` command that prints it, and any other file by its absolute
-  path.
+- Give the whole command with its arguments. Name a guide file by the
+  `pair guide` command that prints it, written literally, such as
+  ``run `pair guide writing.md` ``, and never with a Markdown link, as
+  `AGENTS.md` says. A prompt names any other file by its absolute path.
 - Put a condition before the action it controls: "When `pair start` refuses,
   run `pair check`."
-- State each rule in one file, and link to that file from the others.
-- Link guide files to each other and to `src/components/` with relative
-  Markdown links, such as `[pages.md](pages.md)`. `pair guide` prints each
-  link to another guide file as the command that prints it, and each other
-  link with an absolute path, and it skips a target that contains a space or a
-  parenthesis.
+- State each rule in one file, and name that file by its command in the
+  others.
 - Leave out what the agent does not need in order to act, as the rule for
   guide text in `AGENTS.md` says: how the frame shows something to the
   reviewer, why the reviewer does something, how the hub stores state, why a

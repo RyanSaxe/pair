@@ -72,8 +72,8 @@ Agreed is the running context, so add no summary page.
 
 When nothing in the task or the work is left to decide, or the reviewer
 asks for the plan, the next round is the final plan, which someone who saw
-none of the rounds builds from alone. Before you choose its pages, read
-Present the plan in [offers/plan.md](offers/plan.md).
+none of the rounds builds from alone. Before you choose its pages, run
+`pair guide offers/plan.md` and read its Present the plan section.
 
 Name an offer in Agreed's source on each round the reviewer should be able
 to accept: `"offer": "plan"` on the final plan, and `"offer": "finish"` on
@@ -116,9 +116,8 @@ background, off this round's pages.
 
 ## Lookup files
 
-The reviewer decides from short lines, so write each for a first reading,
-as [writing.md](writing.md) says. Read it, [pages.md](pages.md) and
-[components.md](components.md) before the session's first page. Record work
-outside the task as [side-work.md](side-work.md) describes. Read
-[session.md](session.md) before you take a session over, resume it or pause
-it, and [setup.md](setup.md) when a `pair` command fails.
+Before the session's first page, run `pair guide writing.md`,
+`pair guide pages.md` and `pair guide components.md`. Run
+`pair guide side-work.md` when you find work outside the task,
+`pair guide session.md` before you take a session over, resume it or pause
+it, and `pair guide setup.md` when a `pair` command fails.

@@ -10,6 +10,6 @@ silence.
   that command, so it reports on its own row. It runs in your environment,
   so the hub accepts its notes.
 - Choose each component from the list below by what the reviewer must see.
-  Before the session's first page, read [writing.md](../writing.md) and
-  [components.md](../components.md).
+  Before the session's first page, run `pair guide writing.md` and
+  `pair guide components.md`.
 - Publish each page as soon as it builds and you have checked it.
