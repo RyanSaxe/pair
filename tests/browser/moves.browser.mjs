@@ -128,53 +128,100 @@ test("a second click during a move keeps one bar and never shows the page clicke
   assert.ok(!(await s.page.evaluate(() => window.shown)).includes("slow"));
 });
 
-test("a page load into a slow page keeps the previous page until it is complete", async (t) => {
-  const s = await setup(t);
-  if (!s) return;
-  const other = await s.h.session();
-  assert.equal((await other.publish(round("other"))).code, 200);
-  // Each frame of the new document records whether the browser still shows
-  // the previous page's header and column, and whether the page is drawing.
-  await s.page.addInitScript(() => {
-    window.moveFrames = [];
-    const sample = () => {
-      const running = (name) =>
-        document
-          .getAnimations()
-          .some(
-            (animation) =>
-              animation.effect?.pseudoElement === name &&
-              animation.playState === "running",
-          );
+// Each frame of the document a page load opens records what the browser
+// shows: while its view transition runs, the new header and sidebar
+// (chrome) and the previous page's column, and whether the new page is
+// complete. Once the transition ends, both are the new page's.
+function recordLoad(target) {
+  window.moveFrames = [];
+  const sample = () => {
+    const shown = (pseudo) =>
+      Number(getComputedStyle(document.documentElement, pseudo).opacity) > 0;
+    const content = document.getElementById("page-content");
+    const running = Boolean(document.activeViewTransition);
+    if (running || window.moveFrames.length)
       window.moveFrames.push({
-        chrome: running("::view-transition-new(root)"),
-        column: running("::view-transition-old(reading)"),
-        drawing:
-          document
-            .getElementById("page-content")
-            ?.hasAttribute("data-drawing") ?? true,
+        chrome: !running || shown("::view-transition-new(root)"),
+        column: running && shown("::view-transition-old(reading)"),
+        complete:
+          content?.dataset.pageId === target &&
+          !content.hasAttribute("data-drawing") &&
+          !content.querySelector(".pending-page"),
       });
-      requestAnimationFrame(sample);
-    };
     requestAnimationFrame(sample);
-  });
+  };
+  requestAnimationFrame(sample);
+}
+async function loadInto(t, pages, target, only) {
+  const s = await setup(t);
+  if (!s) return null;
+  const other = await s.h.session();
+  const data = { ...planData("1", undefined, "other"), pages };
+  assert.equal((await other.publish(data, { only })).code, 200);
+  await s.page.addInitScript(recordLoad, target);
   await s.page.evaluate((href) => {
     const link = document.createElement("a");
     link.id = "away";
     link.href = href;
     link.textContent = "away";
     document.body.append(link);
-  }, `${s.h.server.origin}${other.base}/#slow`);
+  }, `${s.h.server.origin}${other.base}/#${target}`);
   await s.page.locator("#away").click();
-  await complete(s.page, "slow");
-  await s.page.waitForTimeout(1200);
-  const frames = await s.page.evaluate(() => window.moveFrames);
-  const drawing = frames.filter((frame) => frame.drawing);
-  // The previous column stays over the new page while it draws, and the
-  // previous header gives way before the page is complete.
-  assert.ok(drawing.some((frame) => frame.column));
-  assert.ok(drawing.some((frame) => frame.column && !frame.chrome));
-  assert.equal(frames.at(-1).column, false);
+  await complete(s.page, target);
+  await s.page.waitForTimeout(400);
+  return s.page.evaluate(() => window.moveFrames);
+}
+// The previous column goes only with a complete page.
+function assertHeld(frames) {
+  assert.ok(frames.length > 0, "the page load ran no view transition");
+  for (const frame of frames)
+    if (!frame.column) assert.ok(frame.complete, JSON.stringify(frame));
+}
+// Frames with the new header and sidebar next to the previous column.
+const mixed = (frames) =>
+  frames.filter((frame) => frame.chrome && frame.column);
+
+test("a page load into a complete page swaps the header, sidebar and page in one frame", async (t) => {
+  const frames = await loadInto(
+    t,
+    [{ id: "quick", title: "Quick", html: "<p>Complete at once.</p>" }],
+    "quick",
+  );
+  if (!frames) return;
+  assertHeld(frames);
+  assert.deepEqual(mixed(frames), []);
+});
+
+test("a page load into a page the served round does not carry yet keeps the previous page until it loads", async (t) => {
+  // A page published after Agreed is not in the round the hub serves until
+  // the round completes, so the new page fetches it.
+  const frames = await loadInto(
+    t,
+    [
+      {
+        id: "ready",
+        title: "Ready",
+        html: '<p>Published.</p><div data-slow="300">figure</div>',
+      },
+      { id: "queued", title: "Queued", html: "<p>Not yet.</p>" },
+    ],
+    "ready",
+    ["ready"],
+  );
+  if (!frames) return;
+  assertHeld(frames);
+});
+
+test("a page load into a slow page shows the new header with the bar and keeps the previous column", async (t) => {
+  const frames = await loadInto(
+    t,
+    [{ id: "slow", title: "Slow", html: '<div data-slow="1000">slow</div>' }],
+    "slow",
+  );
+  if (!frames) return;
+  assertHeld(frames);
+  // The column waits for the page under the new header and the bar.
+  assert.ok(mixed(frames).some((frame) => !frame.complete));
 });
 
 test("with reduced motion a slow move shows the bar still and swaps in with no fade", async (t) => {

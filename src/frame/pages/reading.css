@@ -324,3 +324,8 @@ body:has(dialog[open]) .quote-button {
 .move-bar {
   opacity: 0;
 }
+/* progress.mjs draws a leaving dialog's backdrop as the dialog's shadow, so
+   the view transition carries it in the dialog's picture. */
+dialog[data-leaving]::backdrop {
+  background: transparent;
+}

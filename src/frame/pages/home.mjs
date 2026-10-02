@@ -1,7 +1,7 @@
 import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { base, plan } from "#frame/app/view.mjs";
-import { arrived, beginMove } from "#frame/pages/progress.mjs";
+import { arrived, beginMove, chromeReady } from "#frame/pages/progress.mjs";
 import { drawActivity } from "#frame/sync/activity-view.mjs";
 import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
@@ -40,7 +40,10 @@ async function pollHome() {
 export function startHome() {
   $("page-title").textContent = plan.title;
   beginMove();
-  void pollHome().finally(arrived);
+  void pollHome().finally(() => {
+    chromeReady();
+    arrived();
+  });
   void pollSessions();
   setInterval(pollHome, 1500);
   setInterval(pollSessions, 5000);

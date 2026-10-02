@@ -103,14 +103,19 @@ export function show(
   const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
   let drawing = null;
   // A page whose record is still loading is shown again once it loads, and
-  // the move ends with that.
+  // the move ends with that. Before the first poll, a page missing from the
+  // served round may be published, so it counts as loading until the page
+  // set says whether its placeholder is all there is.
   let loading = false;
   $("reading").hidden = feedback;
   $("feedback").hidden = !feedback;
   if (!feedback) {
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
-    loading = page.status === "ready" && page.pending && page.id !== "agreed";
+    loading =
+      page.pending &&
+      page.id !== "agreed" &&
+      (page.status === undefined || page.status === "ready");
     if (page.status === "ready" && page.pending)
       void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();

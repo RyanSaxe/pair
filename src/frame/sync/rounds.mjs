@@ -48,6 +48,7 @@ import {
   show,
   updateNavigation,
 } from "#frame/pages/pages.mjs";
+import { arrived } from "#frame/pages/progress.mjs";
 import { refreshSideWork } from "#frame/pages/side-work.mjs";
 import {
   renderSentFeedback,
@@ -309,7 +310,7 @@ async function syncPageSet() {
       if (displayedRound === round) {
         const selected = manifest.pages.find((item) => item.id === page.id);
         if (selected?.state === "ready" && page.pending)
-          void loadPageRecord(round, page.id).catch(() => {});
+          void loadPageRecord(round, page.id).catch(arrived);
         else if (selected && page.pending && !$("reading").hidden) {
           const [mark, label] = pendingState(page);
           $("page-content")
@@ -318,6 +319,9 @@ async function syncPageSet() {
               pageIndicator(mark),
               document.createTextNode(label),
             );
+          // The page is not published, so its placeholder is the page, and
+          // a move to it ends here.
+          arrived();
         }
       }
     } else updateNavigation();

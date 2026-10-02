@@ -206,7 +206,8 @@ export async function hub(t, extra = {}, options = {}) {
       );
     // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
-    const publish = async (data) => {
+    // With only, the pages it names go out and the round stays open.
+    const publish = async (data, { only } = {}) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
           name: data.name,
@@ -225,6 +226,7 @@ export async function hub(t, extra = {}, options = {}) {
         pages: data.pages.map(({ id, title }) => ({ id, title })),
       });
       for (const page of data.pages) {
+        if (only && !only.includes(page.id)) continue;
         if (result.code !== 200) break;
         result = await action("publish", { html: await build(page) });
       }
