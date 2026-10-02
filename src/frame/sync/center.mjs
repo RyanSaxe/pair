@@ -50,11 +50,11 @@ function store(ids) {
     /* Keep the copy above. */
   }
 }
-function clear(ids) {
+function clear(ids, redraw = true) {
   const cleared = loadCleared() || new Set();
   for (const id of ids) cleared.add(id);
   store(cleared);
-  renderCenter(latest, false);
+  if (redraw) renderCenter(latest, false);
 }
 // A reply in a thread answers the agent's replies there, so their lines go.
 export function clearThread(threadId) {
@@ -153,23 +153,29 @@ function drawCenter() {
 // change, in another round of this session it opens under Previous, and
 // anywhere else it is a new address. Opening it removes its line.
 function openEvent(event) {
-  clear([event.id]);
-  toggleCenter(false);
   const target = eventTarget(event) || null;
   const round = event.round || plan.round;
   const own = event.entry.id === session.sessionId;
-  if (
+  const here =
     own &&
     round === plan.round &&
     !showingWaiting() &&
-    pages.some((item) => item.id === event.page)
-  )
-    show(event.page, target);
+    pages.some((item) => item.id === event.page);
   // A round other than Current's, or the sent round while Current waits,
   // opens under Previous. A read-only page has no Previous tab.
-  else if (own && editable && (round !== remote.current.round || waiting()))
-    void openPast(round, { pageId: event.page, targetId: target });
-  else location.assign(eventHref(event.entry, event));
+  const past =
+    !here && own && editable && (round !== remote.current.round || waiting());
+  if (!here && !past) {
+    // A new address replaces the whole page, so the list stays as it is
+    // until then, and nothing changes on screen before the move.
+    clear([event.id], false);
+    location.assign(eventHref(event.entry, event));
+    return;
+  }
+  clear([event.id]);
+  toggleCenter(false);
+  if (here) show(event.page, target);
+  else void openPast(round, { pageId: event.page, targetId: target });
 }
 const isOpen = () => $("center-pop").matches(":popover-open");
 // The list opens under the bell, inside the window.

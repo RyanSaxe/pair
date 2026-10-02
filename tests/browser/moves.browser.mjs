@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
@@ -241,5 +242,44 @@ test("with reduced motion a slow move shows the bar still and swaps in with no f
       document.getElementById("page-content").getAnimations(),
     ),
     [],
+  );
+});
+
+test("a bell entry that opens another session leaves the list on screen until the new page replaces it", async (t) => {
+  const s = await setup(t);
+  if (!s) return;
+  const other = await s.h.session();
+  assert.equal((await other.publish(round("other"))).code, 200);
+  const id = crypto.randomUUID();
+  const started = await other.request(`${other.base}/api/threads`, {
+    id,
+    round: "1",
+    topic: "quick",
+    anchor: "A page with no figures",
+    target: "page-content",
+    text: "Where does this land?",
+  });
+  assert.equal(started.code, 201, JSON.stringify(started.body));
+  // Each document notes, as it unloads, whether the bell's list was open.
+  await s.page.addInitScript(() =>
+    addEventListener("pagehide", () =>
+      sessionStorage.setItem(
+        "bell-open",
+        String(document.getElementById("center-pop").matches(":popover-open")),
+      ),
+    ),
+  );
+  await s.page.reload();
+  await s.page.locator("#bell").waitFor();
+  assert.equal(
+    (await other.action("reply", { note: id, text: "Here." })).code,
+    200,
+  );
+  await s.page.locator("#bell").click();
+  await s.page.locator("#center-list .session-row").click();
+  await s.page.waitForURL(new RegExp(other.base));
+  assert.equal(
+    await s.page.evaluate(() => sessionStorage.getItem("bell-open")),
+    "true",
   );
 });
