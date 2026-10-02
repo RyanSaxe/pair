@@ -68,6 +68,7 @@ test("a thread wakes the holder once for each message the reviewer sends", async
     await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
   );
   assert.equal(stored.messages[0].attachments[0].path, image.path);
+  assert.equal(stored.wake.via, "inbox");
   // A thread never changes the round.
   const status = (await a.status()).body;
   assert.equal(status.stage, "updated");

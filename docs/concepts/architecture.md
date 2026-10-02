@@ -37,9 +37,9 @@ way, it refuses and prints what to do.
 | ----------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | A message over the inbox socket.                                                                                  |
 | Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | `turn/steer` over the daemon's socket into the turn in progress, or else `codex queue --thread ID --message TEXT` |
-| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | The SDK inside Copilot CLI sends the message as `enqueue`.                                                        |
-| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | A JSON line over the extension's socket. pi queues the message as a follow-up.                                    |
-| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | A JSON line over the plugin's socket. The plugin sends the message with `promptAsync` once the session is idle.   |
+| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | The SDK inside Copilot CLI sends the message with mode `immediate`, or with `enqueue` when Copilot refuses that.  |
+| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | A JSON line over the extension's socket. The extension gives pi the message as a steering message.                |
+| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | A JSON line over the plugin's socket. The plugin sends the message with `promptAsync` at once.                    |
 
 A plain `codex` from version 0.160 runs its threads on a shared app-server
 daemon, which listens on `app-server-control/app-server-control.sock` under
@@ -58,14 +58,20 @@ and plugin, which you register once. When pi runs without the extension, or
 opencode without the plugin, `pair start` refuses and prints the
 `pi install` command, or the plugin's path and the opencode config file to
 add it to. `wake.last.ok` is `true` once pi or the plugin has taken
-the message, which can be before the agent's turn starts. When pi or opencode
+the message, which is before the agent reads it. When pi or opencode
 has exited, the wake fails with `the agent CLI has exited (ENOENT …)` after a
 clean exit, or `(ECONNREFUSED …)` after the CLI was killed.
 
+Every agent CLI that pair wakes reads the message in the middle of a turn
+in progress, apart from an older Codex and a Copilot CLI that refuses
+`immediate`, which read it when the turn ends.
+[Adapters](../contributing/adapters.md#when-the-cli-reads-the-line) has a
+table of when each one reads it.
+
 `pair status` shows the last wake for a submission under `wake.last`. The
-result of a Codex wake also has `via`, which is `steer` or `queue`. Each
-Codex wake sets `holder.steerable` in `status.json`, which is `true` when the
-daemon runs the thread and Codex reads a message in the middle of a turn.
+result of each wake has `via`, the path the message took, such as `steer` or
+`queue` for Codex. Each wake sets `holder.steerable` in `status.json`, which
+is `true` when the agent CLI reads a message in the middle of a turn.
 When a wake fails, the progress card says "Could not wake the agent. Send a
 message in chat." and shows the [handoff line](holders-and-handoff.md).
 

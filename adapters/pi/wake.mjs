@@ -20,4 +20,9 @@ export const detect = (env) => ({
   session: env.PAIR_PI_SESSION,
 });
 
-export const wake = (target, line) => send(target.socket, { text: line });
+// The extension gives pi the line as a steering message, and pi adds it to
+// the turn in progress between its steps.
+export async function wake(target, line) {
+  await send(target.socket, { text: line });
+  return { via: "steer", steerable: true };
+}

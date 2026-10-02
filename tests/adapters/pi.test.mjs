@@ -19,7 +19,7 @@ function standInPi() {
   return { handlers, sent };
 }
 
-test("a pi wake reaches the session through pair's extension as a follow-up", async (t) => {
+test("a pi wake reaches the session through pair's extension as a steering message", async (t) => {
   const { handlers, sent } = standInPi();
   // A failed assertion would otherwise leave the socket open.
   t.after(() => handlers.session_shutdown({ type: "session_shutdown" }));
@@ -35,8 +35,11 @@ test("a pi wake reaches the session through pair's extension as a follow-up", as
   assert.equal(target.session, "pi-session-1");
   assert.deepEqual(identify(target), { harness: "pi", id: "pi-session-1" });
   const line = "pair: the reviewer submitted round 1 of session /s.";
-  await wakeRunner(target, line);
-  assert.deepEqual(sent, [[line, { deliverAs: "followUp" }]]);
+  assert.deepEqual(await wakeRunner(target, line), {
+    via: "steer",
+    steerable: true,
+  });
+  assert.deepEqual(sent, [[line, { deliverAs: "steer" }]]);
   await assert.rejects(wakeRunner(target, "refuse"), {
     message: "pi is shutting down",
   });

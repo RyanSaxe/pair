@@ -83,10 +83,9 @@ export function agent(session) {
       ? `A pair tab is open in the user's browser, and its session list and bell show this session. Give the link ${url} in chat, and do not open a tab.`
       : `Open ${url} in the user's default browser (macOS open, Windows Start-Process, Linux xdg-open, with the URL quoted), and give the link in chat.`;
   // Every wake runs here: a submission's, a thread message's and Start in
-  // parallel's. The result has ok, the reason when the wake failed, and for
-  // Codex via, the path the line took. A Codex wake also sets
-  // holder.steerable, which the frame reads to say when the agent reads a
-  // message.
+  // parallel's. The result has ok, the reason when the wake failed, and via,
+  // the path the line took. Each wake also sets holder.steerable, which the
+  // frame reads to say when the agent reads a message.
   async function sendWake(line) {
     let result;
     try {

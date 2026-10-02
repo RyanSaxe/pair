@@ -17,8 +17,8 @@ and three functions:
   session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
   throws with the reason. `run(file, args)` runs a program and rejects with
-  its error output. `wake` may resolve to `{ via, steerable }`, where `via`
-  is the path the line took and `steerable` is `true` when the CLI reads a
+  its error output. `wake` resolves to `{ via, steerable }`, where `via` is
+  the path the line took and `steerable` is `true` when the CLI reads a
   message in the middle of a turn. The hub records `via` in the wake's
   result and `steerable` as `holder.steerable` in `status.json`. The frame
   reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
@@ -31,6 +31,33 @@ over an outer one whose variables it inherited. When no ancestor runs an
 adapter's `command`, it chooses the first adapter whose first variable is
 set. It then calls that adapter's `detect`, or refuses with the adapter's
 `unwakeable` message when one of its `variables` is unset.
+
+## When the CLI reads the line
+
+Where the agent CLI allows it, the adapter adds the line to the turn in
+progress, so the agent reads it in the middle of the turn instead of after
+it.
+
+| Agent CLI   | `via`       | API                                                                      | While a turn runs, the agent reads the line                      |
+| ----------- | ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Claude Code | `inbox`     | A user message over the inbox socket                                     | Between the steps of the turn                                    |
+| Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                | Between the steps of the turn                                    |
+| Codex       | `queue`     | `codex queue --thread ID --message TEXT`                                 | When the turn ends                                               |
+| Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI | At once. Copilot moves a running shell command to the background |
+| Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                       | When the turn ends                                               |
+| pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension         | After the tool calls of the current model response               |
+| opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                           | After the tool calls of the current model response               |
+
+Codex's adapter uses `turn/steer` only while a turn of the thread is in
+progress on the daemon, and runs `codex queue` in every other case, and
+after any error on the daemon's socket. Copilot's adapter sends with
+`enqueue` only after Copilot refuses `immediate`. Every Copilot CLI from
+1.0.70 to 1.0.91 lists `immediate` in its API schema. When the CLI is idle,
+the line starts a turn on every path but `turn/steer`.
+
+`steerable` is `false` after a wake through `enqueue`, and after a wake
+through `codex queue` for a thread that the daemon does not run. It is
+`true` after every other wake.
 
 ## A listener inside the CLI
 

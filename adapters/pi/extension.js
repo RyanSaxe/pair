@@ -5,10 +5,11 @@ import { listen } from "../listener.mjs";
 export default function pair(pi) {
   let listener = null;
   pi.on("session_start", (_event, ctx) => {
-    // followUp waits for a running turn to finish, as Codex's queue and
-    // Copilot's enqueue do, and starts a turn when pi is idle.
+    // While pi runs a turn, it adds a steering message to the turn after the
+    // tool calls of the current model response. When pi is idle, the message
+    // starts a turn.
     listener = listen(({ text }) =>
-      pi.sendUserMessage(text, { deliverAs: "followUp" }),
+      pi.sendUserMessage(text, { deliverAs: "steer" }),
     );
     process.env.PAIR_PI_SOCKET = listener.socket;
     process.env.PAIR_PI_SESSION = ctx.sessionManager.getSessionId();

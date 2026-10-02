@@ -35,5 +35,9 @@ export const detect = (env) => ({
   session: env.PAIR_OPENCODE_SESSION,
 });
 
-export const wake = (target, line) =>
-  send(target.socket, { session: target.session, text: line });
+// The plugin sends the line with promptAsync, and opencode adds it to the
+// running request between its steps.
+export async function wake(target, line) {
+  await send(target.socket, { session: target.session, text: line });
+  return { via: "prompt", steerable: true };
+}
