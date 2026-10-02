@@ -188,7 +188,7 @@ XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 
 
 `check` must report the hub port as `free`. `start` prints the session's
 directory and URL. Build and publish a round in that session as
-`guide/round.md` describes, open the URL, and use the change. With
+`guide/pages.md` describes, open the URL, and use the change. With
 `PAIR_WAKE=off` the hub sends no wake message when you send feedback, start a
 thread or press Start in parallel. It saves the submission, thread
 message or start as usual and writes the line it would have sent to

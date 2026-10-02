@@ -125,14 +125,17 @@ test("pair guide and a command's moment print your file after pair's", async (t)
   });
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   await fs.mkdir(path.join(config, "pair", "moments"), { recursive: true });
-  await fs.writeFile(path.join(config, "pair", "round.md"), "Your round.\n");
+  await fs.writeFile(
+    path.join(config, "pair", "agreements.md"),
+    "Your agreements.\n",
+  );
   await fs.writeFile(
     path.join(config, "pair", "moments", "read-thread.md"),
     "Your thread rule.\n",
   );
-  const round = await cli.run("guide", "round.md");
-  assert(round.startsWith("# "), "pair's round.md comes first");
-  assert(round.trimEnd().endsWith("Your round."), "yours follows");
+  const agreements = await cli.run("guide", "agreements.md");
+  assert(agreements.startsWith("# "), "pair's agreements.md comes first");
+  assert(agreements.trimEnd().endsWith("Your agreements."), "yours follows");
 
   const session = await h.session({ cli });
   assert.equal((await session.publish(planData())).code, 200);

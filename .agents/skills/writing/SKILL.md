@@ -17,14 +17,14 @@ what a thing is or does.
 
 ## The text and its reader
 
-| Text                    | Files                                                                                                                                                                                                      | Reader                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| The guide               | `guide/`, which `pair guide` prints                                                                                                                                                                        | The agent running a session                    |
-| The installed skill     | `skills/pair/SKILL.md`                                                                                                                                                                                     | The agent, before it runs `pair guide`         |
-| Prompts                 | The `next` lines from `nextStep()` in `src/hub/session/agent.mjs`, the wake line, the handoff line, the help text and removed forms' lines in `src/cli/commands.mjs`, and errors in `src/` and `adapters/` | The agent, in the middle of its task           |
-| Offer text              | The labels, hints and notes in `src/shared/offers.mjs`                                                                                                                                                     | The reviewer, in the Finish your review dialog |
-| README and docs         | `README.md`, `docs/`                                                                                                                                                                                       | A person installing, using or changing pair    |
-| Repository instructions | `AGENTS.md`, `.agents/skills/`                                                                                                                                                                             | An agent changing pair                         |
+| Text                    | Files                                                                                                                                                                                                                                            | Reader                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| The guide               | `guide/`, which `pair guide` prints                                                                                                                                                                                                              | The agent running a session                    |
+| The installed skill     | `skills/pair/SKILL.md`                                                                                                                                                                                                                           | The agent, before it runs `pair guide`         |
+| Prompts                 | The moment texts in `guide/moments/`, the `next` lines from `nextStep()` in `src/hub/session/agent.mjs`, the wake line, the handoff line, the help text and removed forms' lines in `src/cli/commands.mjs`, and errors in `src/` and `adapters/` | The agent, in the middle of its task           |
+| Offer text              | The labels, hints and notes in `src/shared/offers.mjs`                                                                                                                                                                                           | The reviewer, in the Finish your review dialog |
+| README and docs         | `README.md`, `docs/`                                                                                                                                                                                                                             | A person installing, using or changing pair    |
+| Repository instructions | `AGENTS.md`, `.agents/skills/`                                                                                                                                                                                                                   | An agent changing pair                         |
 
 ## Sentences
 
@@ -108,7 +108,7 @@ does next.
   run `pair check`."
 - State each rule in one file, and link to that file from the others.
 - Link guide files to each other and to `src/components/` with relative
-  Markdown links, such as `[round.md](round.md)`. `pair guide` prints each
+  Markdown links, such as `[pages.md](pages.md)`. `pair guide` prints each
   link to another guide file as the command that prints it, and each other
   link with an absolute path, and it skips a target that contains a space or a
   parenthesis.
