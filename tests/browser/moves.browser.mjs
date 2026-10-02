@@ -144,6 +144,17 @@ function recordLoad(target) {
       window.moveFrames.push({
         chrome: !running || shown("::view-transition-new(root)"),
         column: running && shown("::view-transition-old(reading)"),
+        // The 1 s crossfade from the previous column, after a wait long
+        // enough to show the bar.
+        fading: document
+          .getAnimations()
+          .some(
+            (animation) =>
+              animation.effect?.pseudoElement ===
+                "::view-transition-old(reading)" &&
+              animation.effect.getTiming().duration === 1000 &&
+              animation.playState === "running",
+          ),
         complete:
           content?.dataset.pageId === target &&
           !content.hasAttribute("data-drawing") &&
@@ -178,9 +189,11 @@ function assertHeld(frames) {
   for (const frame of frames)
     if (!frame.column) assert.ok(frame.complete, JSON.stringify(frame));
 }
-// Frames with the new header and sidebar next to the previous column.
+// Frames with the new header and sidebar next to the previous column, other
+// than the crossfade a slow page ends with. On a slow machine a page meant
+// to be quick can take long enough for the bar and the crossfade.
 const mixed = (frames) =>
-  frames.filter((frame) => frame.chrome && frame.column);
+  frames.filter((frame) => frame.chrome && frame.column && !frame.fading);
 
 test("a page load into a complete page swaps the header, sidebar and page in one frame", async (t) => {
   const frames = await loadInto(
