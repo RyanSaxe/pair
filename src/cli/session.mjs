@@ -10,6 +10,7 @@ import { pageData } from "../shared/records.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
 import { usageError } from "./arguments.mjs";
+import { components } from "./components.mjs";
 import { rows } from "./output.mjs";
 
 // fs.cp gives each copied directory its source's mode, and rm cannot empty
@@ -303,14 +304,22 @@ export async function publish(options) {
     );
   }
   const { page } = result;
+  // The agent chooses each page's components from this list, which follows
+  // the Agreed of every round but a build round.
+  const choosing = ["publish-agreed", "publish-agreed-plan"].includes(
+    result.moment,
+  );
   return {
     next: result.next,
     moment: result.moment,
     data: [
-      `Published ${page.id} in round ${page.round}.`,
-      `URL ${result.url}`,
-      ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
-    ].join("\n"),
+      [
+        `Published ${page.id} in round ${page.round}.`,
+        `URL ${result.url}`,
+        ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
+      ].join("\n"),
+      ...(choosing ? [(await components()).data] : []),
+    ].join("\n\n"),
     json: result,
   };
 }
