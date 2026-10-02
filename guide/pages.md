@@ -178,6 +178,4 @@ every note identifies its block.
 ## Figures
 
 Code, formulas, diagrams, charts and prototypes are components, listed with
-their markup and attributes in the [component index](components.md). Their
-renderers load from pinned CDN addresses, so they render only with a network
-connection.
+their markup and attributes in the [component index](components.md).

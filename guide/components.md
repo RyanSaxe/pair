@@ -36,16 +36,16 @@ string, escape each backslash again.
 `python`, `shell`, `json`, or `text` for plain text. `pair build` refuses a
 name that is not a Shiki language ID and suggests the nearest one.
 
-`data-file` on a code block adds a header with the file name, the language
-and a Copy button. `data-caption` on code, a diagram or a chart adds a
-caption line, and `data-title` on a chart adds a header.
+`data-file` on a code block names its file above the code. `data-caption` on
+code, a diagram or a chart adds a caption line, and `data-title` on a chart
+adds a header.
 
-| Attribute    | On                | What it does                                                                                                                                  |
-| ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| data-lines   | `[data-language]` | `"7"`, `"3-4"` or `"3-4, 9"`. Numbers the lines, lights the named lines, and dims the rest until the pointer or the keyboard is on the block. |
-| data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                           |
-| data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. A speech bubble in the gutter of each named line, opening the note in a popover. Needs no range.                |
-| data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, entry N for the Nth literal below.          |
+| Attribute    | On                | What it does                                                                                                                         |
+| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| data-lines   | `[data-language]` | `"7"`, `"3-4"` or `"3-4, 9"`. Numbers the lines, highlights the named lines and dims the rest.                                       |
+| data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                  |
+| data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. Attaches the note to each named line. Needs no range.                                                  |
+| data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, entry N for the Nth literal below. |
 
 Line numbers count from the block's first line, so name a quoted excerpt's
 real range in `data-caption`, such as `Lines 611-621`.
@@ -59,8 +59,8 @@ the code component for source code, never a bare block.
 
 A formula term takes its colour from a literal in the source, because KaTeX
 refuses `\htmlClass`: write `\textcolor{#1d4ed8}`, `\textcolor{#a16207}`,
-`\textcolor{#047857}` or `\textcolor{#9333ea}`, and the frame swaps the
-literal for a class that follows the theme.
+`\textcolor{#047857}` or `\textcolor{#9333ea}`. The frame follows the theme
+only for these four.
 
 A prototype's markup names an entry in the page's `prototypes`, which
 [prototypes.md](prototypes.md) describes.
@@ -73,16 +73,13 @@ prototype. Put that figure in each option: a diagram, code, a chart, an
 image, a prototype, or a mock drawn in the page's own HTML and CSS with the
 frame's tokens. Use the plain decision only when a title and one line are
 enough to judge each option. Put the recommended option first, with the tag.
-Side by side needs every column to be at least 240px wide, and a figure
-scales to its column there and keeps its natural size in a tab. Give each
-option one line of consequence that is specific to it.
+Give each option one line of consequence that is specific to it.
 
 ## Questions and checklists
 
 Use a question when the answer is prose, not a selection. Keep it to one
 sentence and say which part of the plan the answer settles. Use a drawing
-question when the reviewer needs to sketch a boundary, flow or layout. A
-drawing question needs a live hub and a network connection.
+question when the reviewer needs to sketch a boundary, flow or layout.
 
 Start each checklist with no boxes checked, because the agent cannot tell a
 box the reviewer checked from one that started checked. Mark the items the
@@ -133,8 +130,8 @@ wider than the column.
 
 The text of `data-diagram` is the Mermaid source, one statement per line,
 escaped, so a line break in a label is `&lt;br/&gt;`. A click on a node
-whose ID matches a page ID opens that page. The build does not check
-Mermaid, and a diagram that does not parse shows the error under it.
+whose ID matches a page ID opens that page. `pair build` does not check
+Mermaid.
 
 1. **Edges into a group.** An edge into a subgraph's first node passes
    through the subgraph's title. Point the edge at the group, or lay the

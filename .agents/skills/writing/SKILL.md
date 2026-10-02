@@ -112,9 +112,10 @@ does next.
   link to another guide file as the command that prints it, and each other
   link with an absolute path, and it skips a target that contains a space or a
   parenthesis.
-- Leave out what the agent does not need in order to act, such as how the hub
-  stores state, why a design was chosen, or how pair got here. That goes in
-  `docs/`.
+- Leave out what the agent does not need in order to act, as the rule for
+  guide text in `AGENTS.md` says: how the frame shows something to the
+  reviewer, why the reviewer does something, how the hub stores state, why a
+  design was chosen, or how pair got here. The last three go in `docs/`.
 
 ## README and docs
 

@@ -98,6 +98,16 @@ new stylesheet goes into that list.
 Ask before adding a dependency, because a checkout runs with no install only
 while pair has none.
 
+Text under `guide/` and in `skills/pair/` tells the agent only what it acts
+on. Never write how the frame shows something to the reviewer, such as which
+tab lists an item, what a card or a fold shows, or which color marks a
+state, unless the agent must act on it, and then write the action, not the
+display. Never give a reason for what the reviewer does, because pair cannot
+know it. Leave out any other sentence the agent cannot act on, such as a
+requirement that every session already meets. The agent reads each sentence
+as an instruction, and it cannot follow one about the display or the
+reviewer's motives.
+
 ## Checks
 
 CI runs these four on every push and pull request, and a change passes when

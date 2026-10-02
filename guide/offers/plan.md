@@ -39,8 +39,8 @@ nothing else.
 2. Before the first change, publish the build round's Agreed and page list,
    as [pages.md](../pages.md) describes. Agreed names `"offer": "finish"`
    and contains the task and none of the plan's decisions. It does not
-   repeat or link the plan, because the reviewer opens the plan from the
-   Rounds dialog. List one page per step of the plan unless another
+   repeat or link the plan, because the reviewer can still open the
+   accepted round. List one page per step of the plan unless another
    structure explains the work better, and make the pull request
    description the last page.
 3. Build the plan one step at a time. Before you change anything for a
