@@ -187,14 +187,15 @@ pair-thread[collapsed] > :not(.thread-head) {
   text-align: center;
 }
 /* A tooltip has the soft accent ground and ink text, a small shadow
-   instead of a border, and an arrow at the icon that opened it. */
+   instead of a border, and an arrow at the icon that opened it. It ends
+   inside the line it opens under, so on a phone it stays in the window. */
 .thread-tip {
   position: absolute;
   top: calc(100% + 8px);
   left: 96px;
   z-index: 2;
   width: max-content;
-  max-width: 260px;
+  max-width: min(260px, 100% - 96px);
   padding: 6px 10px;
   border-radius: 8px;
   background: var(--accent-soft);
