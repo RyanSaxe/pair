@@ -86,7 +86,7 @@ async function act(session, action, data) {
 }
 
 // Publishes Agreed with the round's page list, then the round's first
-// `count` pages, each after pair progress --start, as an agent does.
+// `count` pages, each after pair progress --page, as an agent does.
 async function publish(session, round, sent, count = round.pages.length) {
   const agreed = {
     id: "agreed",

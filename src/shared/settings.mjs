@@ -33,10 +33,17 @@ export const version = ["src", "adapters"]
 
 const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-// The oldest Node pair supports, from engines.node in package.json.
-const oldestNode = JSON.parse(
+// The user's components, guide files and moment files.
+export const configRoot = (env = process.env) =>
+  path.join(env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "pair");
+const packageJson = JSON.parse(
   readFileSync(path.join(packageRoot, "package.json"), "utf8"),
-).engines.node.replace(">=", "");
+);
+// The release, which the release workflow sets with npm version. A clone
+// has 0.0.0-development.
+export const packageVersion = packageJson.version;
+// The oldest Node pair supports, from engines.node in package.json.
+export const oldestNode = packageJson.engines.node.replace(">=", "");
 export function requireNode() {
   const parts = (release) => release.split(".").map(Number);
   const [running, oldest] = [parts(process.versions.node), parts(oldestNode)];

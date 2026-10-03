@@ -45,8 +45,8 @@ user's browser, and give the link in chat.
 After the last page of a round publishes, or after `pair pause`, the turn
 ends. When the user submits feedback or an acceptance, the hub sends a wake
 message that starts the next turn. When `pair start` refuses because the
-harness cannot receive a wake message, give the user the printed instruction
-and wait for a restart.
+harness cannot receive a wake message, or Codex has no allow rule for pair,
+give the user the printed instruction and wait for a restart.
 
 ## Planning
 
@@ -80,7 +80,7 @@ accepted plan.
 
 - [round.md](round.md): the sequence for each round, the first included.
   Read it before the first round. After each submission, the `next` line of
-  `pair ack` names it.
+  `pair read` names it.
 - [quality.md](quality.md): what makes a page and a plan good. Read it
   before the first round.
 - [writing.md](writing.md): the rules every sentence follows.
@@ -90,7 +90,8 @@ accepted plan.
   to build it.
 - [offers/finish.md](offers/finish.md): the two ways to accept built work.
 - [component index](components.md): every component and its markup. A page
-  copies a component's markup and nothing else.
+  copies a component's markup and nothing else. `pair components` lists
+  every component with its use, the user's included.
 - [the components README](../src/components/README.md): writing a
   component, when a page needs one or the user asks to keep one.
 - [pages.md](pages.md), [agreements.md](agreements.md) and

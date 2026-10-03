@@ -4,11 +4,12 @@
 
 Codex runs commands in a sandbox that blocks pair's hub. With Codex's default
 approval, a `pair` command the sandbox blocks runs again outside the sandbox
-without asking. If Codex asks you to approve every `pair` command instead, run
-this once in a terminal:
+without asking. `pair start` refuses under Codex until Codex has an allow rule
+for `pair`, and asks the agent to ask you for it. Run this once in a terminal,
+or say yes to the agent running it:
 
 ```sh
-pair check --codex-rules
+pair setup-codex
 ```
 
 It writes `~/.codex/rules/pair.rules`, which allows `pair`. A command made only

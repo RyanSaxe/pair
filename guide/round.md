@@ -9,9 +9,9 @@ Follow these in every round, the first included:
    page.
 2. From reading the feedback, or starting the first round, until the
    round's last page publishes, report what you are doing with
-   `pair ack --note` at least every five minutes: without `--page` before
-   Agreed publishes, and with `--page ID` for each page in progress after
-   it.
+   `pair progress --note "…"` at least every five minutes: without `--page`
+   before Agreed publishes, and with `--page ID` for each page in progress
+   after it.
 3. Publish each page as soon as it is complete. Never keep finished pages
    back to publish them together.
 
@@ -38,10 +38,10 @@ user's own are in `$XDG_CONFIG_HOME/pair/components/`, or in
 whenever these paragraphs are not enough for a page or the plan.
 
 When the reviewer submits, the hub sends you a wake message that names
-`pair ack`. Every session command is `pair COMMAND --session-dir PATH`, with
-the path from the wake message. `pair start`, `pair ack`, `pair read`,
-`pair progress` and `pair publish` print the next step. `pair guide`,
-`pair build` and `pair diff` take no session.
+`pair read`. Every session command is `pair COMMAND --session-dir PATH`, with
+the path from the wake message. `pair start`, `pair read`, `pair progress`
+and `pair publish` print the next step first. `pair guide`,
+`pair components`, `pair build` and `pair diff` take no session.
 
 ## Kinds of rounds
 
@@ -109,8 +109,8 @@ Tell each subagent what to do, where to start and what earlier rounds
 already found, so that it does not repeat their work. Give it a rough
 estimate of how long the work should take, the session directory and the ID
 of the page it works on, so that it reports its own progress with
-`pair ack --note "…" --page ID`, or without `--page` for a hedge, and says
-when it expects to take longer. Have it put its results in your work directory,
+`pair progress --page ID --note "…"`, or without `--page` for a hedge, and
+says when it expects to take longer. Have it put its results in your work directory,
 with their sources and anything it could not settle.
 
 When a subagent starts or finishes, say so in a note on its page, or in a
@@ -119,60 +119,63 @@ last page is ready, publish the page and end your turn.
 
 ## Tell the reviewer what you are doing
 
-Run `pair ack` first when a wake message arrives. It shows the reviewer that
-you have their submission, without reading it, and prints the next step.
+Run `pair read` first when a wake message arrives. It marks the submission
+received, which the progress card shows, and prints it with the next step.
 
-From the first round on, run `pair ack --note "…"` whenever you start
+From the first round on, run `pair progress --note "…"` whenever you start
 something the reviewer would want to know about, such as reading their
 feedback, checking the code a page depends on, planning the pages, writing a
 page or waiting for subagents. Write the note for the reviewer, in 80
-characters or fewer. `pair progress --start` shows which page you are on.
+characters or fewer. `pair progress --page ID` shows which page you are on.
 Add `--page ID` to a note about one page's work, and the note shows on that
 page's row of the progress card:
-`pair ack --note "Adding last month's CI failures" --page retry`. A note
-without `--page` shows under the progress card's title, for work that is not
-one page's, such as reading the feedback, planning the pages or a hedge for
-a later round.
+`pair progress --page retry --note "Adding last month's CI failures"`. A
+note without `--page` shows under the progress card's title, for work that is
+not one page's, such as reading the feedback, planning the pages or a hedge
+for a later round.
 
 Report whenever the work changes, as well as every five minutes as Required
 in every round says. A page's note stays until the page publishes or gets a
 newer one. `pair read`, `pair progress`, `pair publish` and `pair reply`
 count as reports too. A subagent that writes a page reports with
-`pair progress` and `pair ack --page` itself.
+`pair progress --page ID` itself.
 
 ## Answer a thread
 
 The reviewer can send a note to you at once as a thread, and the hub sends
 you a wake message for each message in it, whether or not you are working.
-Run the `pair reply` command in the wake message. `pair reply` prints the
-thread and how to answer it. When the reviewer settles a decision in a
+Run the `pair read --thread` command in the wake message. It prints the
+thread and how to answer it with `pair reply`. When the reviewer settles a
+decision in a
 thread, cite the thread as the decision's source on Agreed, as
 [agreements.md](agreements.md) describes.
 
 ## Read the feedback
 
-Run `pair read`. It returns the submission as `event.payload` and marks it
-read. Its `intent` is `feedback-only` for feedback and `accept` for an
-acceptance, and its `groups` field contains the choices, answers and notes.
-Also read anything the user said in the chat since the last round. For an
-acceptance, read the offer's guide file that the `next` line names, and
-follow the action the reviewer chose.
+Run `pair read`. It prints the submission inside a `pair_feedback` tag and
+marks it read. Its `intent` is `feedback-only` for feedback and `accept` for
+an acceptance, and it contains a `pair_choice` for each choice, a
+`pair_answer` for each answer and a `pair_note` for each note. `--json`
+prints the same submission as `event.payload`, with the items in its
+`groups` field. Also read anything the user said in the chat since the last
+round. For an acceptance, read the offer's guide file that the `next` line
+names, and follow the action the reviewer chose.
 
-- `groups.alignUnflagged: true` means the reviewer agrees with what the
+- `everything-else-looks-good="yes"` means the reviewer agrees with what the
   pages stated that no note challenges: a proposed design, wording or plan.
   It answers no control. A choice with nothing selected stays open, even when
   an option was recommended, and a checklist is exactly the boxes the
   reviewer left checked, which can be none. A submission may contain nothing
-  but this. When the field is `false` or missing, silence is not agreement.
+  but this. Without it, silence is not agreement.
 - The reviewer anchors a note to one block but may mean it for other
   decisions too. Read each note against every decision.
-- A note on words the reviewer selected has them in `quote`. When those
-  words appear more than once in the note's block, `occurrence` is the
+- A note on words the reviewer selected has them in its `pair_quote`. When
+  those words appear more than once in the note's block, `occurrence` is the
   number of the one the reviewer selected, such as 2 for the second. A note
   without `occurrence` is on the first.
-- Open the image at every `attachments` path on a note, and the
-  `previewPath` PNG of a drawing answer. `scenePath` names the file with the
-  drawing's editable shapes.
+- Open the image at every `pair_image` path on a note, and the `preview` PNG
+  of a drawing answer. `scene` names the file with the drawing's editable
+  shapes.
 
 Update the task first, because feedback can change what is being built.
 Then mark each decision settled, reopened, retired or still open. A
@@ -180,14 +183,14 @@ recommendation is not an agreement. Read [agreements.md](agreements.md)
 before changing Agreed.
 
 A choice or question the reviewer did not answer stays open, even one with a
-recommended option, whatever `groups.alignUnflagged` says. Do not repeat an
-open decision's unchanged page. Return to it with new evidence, a changed
-proposal or a sharper question. When the reviewer asks you to decide, or
-asks for the complete plan while a choice is still open, decide. Take the
-recommended option unless the reviewer chose another in a note. Record the
-decision on Agreed and continue. When a proposal changes, show it against
-the version the reviewer saw. If two rounds in a row resolve nothing, put
-what remains on one page with a recommendation for each item.
+recommended option, whatever `everything-else-looks-good` says. Do not
+repeat an open decision's unchanged page. Return to it with new evidence, a
+changed proposal or a sharper question. When the reviewer asks you to
+decide, or asks for the complete plan while a choice is still open, decide.
+Take the recommended option unless the reviewer chose another in a note.
+Record the decision on Agreed and continue. When a proposal changes, show it
+against the version the reviewer saw. If two rounds in a row resolve
+nothing, put what remains on one page with a recommendation for each item.
 
 ## Publish the round
 
@@ -218,8 +221,9 @@ what remains on one page with a recommendation for each item.
    ```
 
 4. Mark a page started as soon as work on it begins, research included:
-   `pair progress --start ID`, or `--start "a|b"` for pages worked on at the
-   same time. Independent pages can be worked on in parallel by subagents.
+   `pair progress --page ID`, with `--page` once for each page worked on at
+   the same time. Independent pages can be worked on in parallel by
+   subagents.
    To revise an earlier page, copy its source from the session's
    `src/<round>/<page-id>/` and change its `round` to this one.
 5. Read each page against [quality.md](quality.md) and
@@ -256,8 +260,8 @@ The title names the work in a few words, the text says what it is and why in
 a sentence or two, and the source says where it came from, such as the
 reviewer's note or the command that showed it. The frame lists each item in
 Agreed's Side work tab, where the reviewer can comment on it, drop it or
-start it in parallel. A note on an item has the item's ID in `sideWorkId`,
-and `pair status` lists every item under `sideWork`.
+start it in parallel. A note on an item has the item's ID in its `side-work`
+attribute, and `pair status` lists every item under `sideWork`.
 
 When the reviewer presses Start in parallel, the hub sends you a wake message
 with the steps for the item. Follow them, and report each change with the

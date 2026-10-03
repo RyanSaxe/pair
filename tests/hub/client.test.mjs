@@ -37,11 +37,11 @@ test("start refuses another program's hub at once and creates no session, and ch
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-other-hub-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   const other = await otherHub(t);
-  const { config, run } = await pairCli(home, {
+  const { config, run, start } = await pairCli(home, {
     PAIR_HUB_PORT: String(other.port),
   });
   const started = Date.now();
-  await assert.rejects(run("start"), ({ stderr }) => {
+  await assert.rejects(start(), ({ stderr }) => {
     assert.match(
       stderr,
       new RegExp(`Port ${other.port} is in use by another program`),
@@ -53,7 +53,7 @@ test("start refuses another program's hub at once and creates no session, and ch
   assert(Date.now() - started < 10_000, "start waited for the other hub");
   assert.equal(await exists(config.sessions), false);
   assert(!other.requests.includes("POST /agent/register"));
-  assert.equal(JSON.parse(await run("check")).hub.state, "busy");
+  assert.equal(JSON.parse(await run("check", "--json")).hub.state, "busy");
 });
 
 // A hub whose code predates app in the reply is still pair's, so a pair
@@ -70,5 +70,5 @@ test("a hub whose reply lacks app is pair's when pair's own record names its pid
     config.hubFile,
     JSON.stringify({ pid: process.pid, port: older.port, version: "other" }),
   );
-  assert.equal(JSON.parse(await run("check")).hub.state, "hub");
+  assert.equal(JSON.parse(await run("check", "--json")).hub.state, "hub");
 });

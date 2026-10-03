@@ -17,14 +17,14 @@ what a thing is or does.
 
 ## The text and its reader
 
-| Text                    | Files                                                                                                                                    | Reader                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| The guide               | `guide/`, which `pair guide` prints                                                                                                      | The agent running a session                    |
-| The installed skill     | `skills/pair/SKILL.md`                                                                                                                   | The agent, before it runs `pair guide`         |
-| Prompts                 | The `next` lines from `nextStep()` in `src/hub/session/agent.mjs`, the wake line, the handoff line, and errors in `src/` and `adapters/` | The agent, in the middle of its task           |
-| Offer text              | The labels, hints and notes in `src/shared/offers.mjs`                                                                                   | The reviewer, in the Finish your review dialog |
-| README and docs         | `README.md`, `docs/`                                                                                                                     | A person installing, using or changing pair    |
-| Repository instructions | `AGENTS.md`, `.agents/skills/`                                                                                                           | An agent changing pair                         |
+| Text                    | Files                                                                                                                                                                                                      | Reader                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| The guide               | `guide/`, which `pair guide` prints                                                                                                                                                                        | The agent running a session                    |
+| The installed skill     | `skills/pair/SKILL.md`                                                                                                                                                                                     | The agent, before it runs `pair guide`         |
+| Prompts                 | The `next` lines from `nextStep()` in `src/hub/session/agent.mjs`, the wake line, the handoff line, the help text and removed forms' lines in `src/cli/commands.mjs`, and errors in `src/` and `adapters/` | The agent, in the middle of its task           |
+| Offer text              | The labels, hints and notes in `src/shared/offers.mjs`                                                                                                                                                     | The reviewer, in the Finish your review dialog |
+| README and docs         | `README.md`, `docs/`                                                                                                                                                                                       | A person installing, using or changing pair    |
+| Repository instructions | `AGENTS.md`, `.agents/skills/`                                                                                                                                                                             | An agent changing pair                         |
 
 ## Sentences
 
@@ -99,7 +99,7 @@ the docs.
 The guide and the prompts are instructions: each sentence says what the agent
 does next.
 
-- Write each step as an instruction to the agent: "Run `pair ack` first when
+- Write each step as an instruction to the agent: "Run `pair read` first when
   the hub wakes you."
 - Give the whole command with its arguments. A prompt names a guide file by
   the `pair guide` command that prints it, and any other file by its absolute

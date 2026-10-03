@@ -4,12 +4,13 @@ import path from "node:path";
 import {
   checkRefusal,
   codexReport,
+  rules,
   writeRules,
 } from "../../adapters/codex/rules.mjs";
-import { componentDirectories, userComponents } from "../build/components.mjs";
 import { hubInfo, portOpen, readRecord } from "../hub/client.mjs";
-import { requireNode, settings } from "../shared/settings.mjs";
+import { oldestNode, requireNode, settings } from "../shared/settings.mjs";
 import { listen } from "../shared/util.mjs";
+import { rows } from "./output.mjs";
 
 async function portReport(config) {
   const { port } = config;
@@ -19,29 +20,33 @@ async function portReport(config) {
     ? { port, state: "hub", version: info.version, live: info.live }
     : { port, state: "busy" };
 }
-/* The builder reads a second component root outside pair, so a user keeps
-   components of their own across updates to pair. */
-async function componentReport() {
-  const directory = userComponents();
-  const found = await componentDirectories();
-  const yours = found.filter((entry) => entry.root === 1).map((e) => e.name);
-  return {
-    yours: directory,
-    present: yours.length > 0,
-    count: yours.length,
-    ...(yours.length ? { names: yours } : {}),
-    shipped: found.length - yours.length,
-  };
+function hubLine(hub) {
+  if (hub.state === "os-assigned")
+    return "PAIR_HUB_PORT is 0, so the system picks a port when the hub starts";
+  if (hub.state === "free") return `port ${hub.port} is free`;
+  if (hub.state === "busy")
+    return `port ${hub.port} is in use by another program`;
+  const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
+  return `port ${hub.port} runs a pair hub with ${sessions}, code ${hub.version}`;
 }
-export async function main([argument]) {
-  if (argument === "--codex-rules") return writeRules();
+function codexLine(codex) {
+  if (codex.present) return `${codex.rules} matches pair's rule`;
+  return `${codex.rules} ${codex.exists ? "differs from pair's rule" : "is missing"}`;
+}
+
+// The checks pair start needs to pass, one line each. A check that fails
+// outright refuses with its error. A busy hub port and a missing Codex rules
+// file each add a next step.
+export async function check(options) {
   const codex = await codexReport();
   let directory;
   const server = http.createServer((_, response) => response.end("ready"));
   try {
     requireNode();
     // The hub writes under <state>/pair, so that is the directory to test.
-    const base = argument ? path.resolve(argument) : settings().root;
+    const base = options.args[0]
+      ? path.resolve(options.args[0])
+      : settings().root;
     await fs.mkdir(base, { recursive: true });
     directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
     await fs.writeFile(path.join(directory, "draft"), "ready");
@@ -58,23 +63,43 @@ export async function main([argument]) {
     if ((await response.text()) !== "ready")
       throw new Error("Loopback request failed");
     const config = settings();
-    console.log(
-      JSON.stringify(
-        {
-          ready: true,
-          node: process.versions.node,
-          platform: process.platform,
-          storage: base,
-          components: await componentReport(),
-          hub: config.port
-            ? await portReport(config)
-            : { port: config.port, state: "os-assigned" },
-          ...(codex ? { codex } : {}),
-        },
-        null,
-        2,
-      ),
-    );
+    const hub = config.port
+      ? await portReport(config)
+      : { port: config.port, state: "os-assigned" };
+    const steps = [
+      ...(hub.state === "busy"
+        ? [
+            `Set PAIR_HUB_PORT to a free port, because another program uses port ${hub.port}.`,
+          ]
+        : []),
+      ...(codex && !codex.exists
+        ? [
+            `Ask the user whether pair may write ${codex.rules}. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
+          ]
+        : []),
+    ];
+    const lines = rows([
+      [
+        "node",
+        `${process.versions.node}, and pair needs ${oldestNode} or newer`,
+      ],
+      ["storage", `${base}, writable`],
+      ["loopback", "127.0.0.1 answers"],
+      ["hub", hubLine(hub)],
+      ["codex", codex && codexLine(codex)],
+    ]);
+    return {
+      next: steps.join(" ") || undefined,
+      data: steps.length ? lines : `Every check passed.\n\n${lines}`,
+      json: {
+        ready: true,
+        node: process.versions.node,
+        platform: process.platform,
+        storage: base,
+        hub,
+        ...(codex ? { codex } : {}),
+      },
+    };
   } catch (error) {
     throw checkRefusal(error);
   } finally {
@@ -82,4 +107,13 @@ export async function main([argument]) {
     if (server.listening) await new Promise((resolve) => server.close(resolve));
     if (directory) await fs.rm(directory, { recursive: true, force: true });
   }
+}
+
+export async function setupCodex() {
+  const file = await writeRules();
+  return {
+    next: "Ask the user to restart Codex, which reads its rules only when it starts. After the restart, run pair start again.",
+    data: `Wrote ${file}:\n${rules.trim()}`,
+    json: { rules: file, written: true },
+  };
 }

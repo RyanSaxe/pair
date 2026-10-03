@@ -334,13 +334,15 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal((await a.feedback({ ...event, text: "Changed" })).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const cli = async (...args) =>
-    JSON.parse(await agent.run("read", "--session-dir", a.directory, ...args));
+    JSON.parse(
+      await agent.run("read", "--session-dir", a.directory, "--json", ...args),
+    );
   const output = await cli();
   assert.deepEqual(output.event.payload, event);
   assert.equal(output.status.stage, "working");
   const acked = (await a.status()).body;
   assert.equal((await cli()).event, null);
-  const again = await cli("--id", event.id);
+  const again = await cli("--submission", event.id);
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
   assert.equal((await a.action("read", { id: "nope" })).code, 404);
@@ -356,7 +358,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal((await a.feedback(a.event())).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const status = JSON.parse(
-    await agent.run("status", "--session-dir", a.directory),
+    await agent.run("status", "--session-dir", a.directory, "--json"),
   );
   assert.equal(status.current.round, "2");
 });
@@ -465,8 +467,11 @@ test("a session reached through a symbolic link is the same session", async (t) 
   const second = await h.register(path.join(real, "session"), box.target);
   assert.equal(second.body.sessionId, first.body.sessionId);
   assert.equal(second.body.sessionDir, first.body.sessionDir);
+  const { name, round, title } = planData();
   const agreed = await buildPage(path.join(real, "source.json"), {
-    ...planData(),
+    name,
+    round,
+    title,
     page: {
       id: "agreed",
       title: "Agreed so far",

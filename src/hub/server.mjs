@@ -185,12 +185,14 @@ export async function startHub(config = settings()) {
             Object.hasOwn(adapters, data.wake.harness),
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
-        const session = await register(() =>
-          adopt(path.resolve(data.sessionDir)),
-        );
+        const requested = path.resolve(data.sessionDir);
+        const { session, created } = await register(async () => ({
+          created: !(await exists(path.join(requested, "status.json"))),
+          session: await adopt(requested),
+        }));
         const { directory } = session;
-        const next = await session.exclusive(() =>
-          session.hold(data.wake, data.start === true),
+        const answer = await session.exclusive(() =>
+          session.hold(data.wake, { ...data, created }),
         );
         // The wake target stays the holder's when another agent registers.
         const wake = { harness: session.state.wake.harness };
@@ -206,7 +208,8 @@ export async function startHub(config = settings()) {
           url: origin + session.base + "/",
           wake,
           ...(hostOrigin ? { hostUrl: hostOrigin + session.base + "/" } : {}),
-          ...(next ? { next } : {}),
+          ...(session.state.title ? { title: session.state.title } : {}),
+          ...answer,
         });
       }
       if (parts[0] === "agent" && parts.length === 3) {

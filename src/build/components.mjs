@@ -1,18 +1,15 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { configRoot } from "../shared/settings.mjs";
 
-/** Where a user keeps components of their own, outside pair. pair is
-    installed and updated as a unit, so a component written into its own
-    directory would be an edit to installed software. */
-export function userComponents(env = process.env) {
-  const home = env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return path.join(home, "pair", "components");
-}
+/** pair's components, then the user's. A user keeps components of their
+    own outside pair, because pair is installed and updated as a unit, and a
+    component written into its own directory would be an edit to installed
+    software. */
 export const componentRoots = () => [
   fileURLToPath(new URL("../components/", import.meta.url)),
-  userComponents(),
+  path.join(configRoot(), "components"),
 ];
 /** The component directories, sorted, so registration order is fixed. */
 async function componentNames(root) {

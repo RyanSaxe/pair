@@ -8,7 +8,7 @@ import {
   pageStyles,
 } from "../../build/assemble.mjs";
 import { linkProblems } from "../../build/lint.mjs";
-import { choiceText } from "../../frame/review/choices.mjs";
+import { choiceText } from "../../shared/choices.mjs";
 import {
   idPattern,
   orderAgreements,
@@ -393,6 +393,7 @@ export function rounds(session) {
     }
     return {
       ...result,
+      ...session.afterPublish(result, page.id, set.offer),
       page: {
         id: page.id,
         round: record.round,
@@ -410,7 +411,7 @@ export function rounds(session) {
     const set = structuredClone(session.state.openRound);
     requireValue(
       Array.isArray(data.start) && data.start.length > 0,
-      "Page progress only takes --start; publishing marks a page done",
+      "Name each page with --page ID. Publishing a page marks it done.",
     );
     for (const id of data.start) {
       const slot = set.pages.find((item) => item.id === id);

@@ -1,12 +1,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { assemble, pageScripts, pageStyles } from "../build/assemble.mjs";
+import { fieldProblems } from "../build/fields.mjs";
 import { sizeImages } from "../build/image-size.mjs";
 import { problems } from "../build/lint.mjs";
-import { pagePlan, validPage } from "../shared/records.mjs";
+import { pageData, pagePlan, validPage } from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
 
 export async function buildPage(source, input) {
+  const unknown = fieldProblems(input);
+  if (unknown.length)
+    throw new Error(
+      unknown.map((line) => `${path.basename(source)}: ${line}`).join("\n"),
+    );
   const read = (file) =>
     fs.readFile(path.resolve(path.dirname(source), file), "utf8");
   const { page: rawPage, ...outer } = input;
@@ -66,10 +72,20 @@ export async function buildPage(source, input) {
 export async function build(source) {
   return buildPage(source, JSON.parse(await fs.readFile(source, "utf8")));
 }
-export async function main([source, output, ...extra]) {
-  if (!source || !output || extra.length)
-    throw new Error("Usage: pair build SOURCE.json OUTPUT.html");
+// The next step names the source's directory as --source, and for Agreed
+// the pages.json beside that directory, where guide/pages.md puts it.
+export async function main({ args: [source, output] }) {
   const html = await build(path.resolve(source));
   await fs.writeFile(output, html, { flag: "wx", mode: 0o600 });
-  console.log(path.resolve(output));
+  const built = path.resolve(output);
+  const directory = path.dirname(path.resolve(source));
+  const pages =
+    pageData(html).page.id === "agreed"
+      ? ` --pages ${path.join(path.dirname(directory), "pages.json")}`
+      : "";
+  return {
+    next: `Publish the page with pair publish --session-dir SESSION_DIR --file ${built} --source ${directory}${pages}`,
+    data: `Built ${built}`,
+    json: { output: built },
+  };
 }

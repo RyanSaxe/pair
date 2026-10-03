@@ -1,9 +1,9 @@
 <p>
-  Without <code>--text</code> or <code>--file</code>, <code>pair reply</code>
-  marks the thread read and prints it.
+  <code>pair read --thread</code> marks the thread read and prints it, and
+  <code>pair reply</code> posts the answer as text or as an HTML fragment.
 </p>
 
 <pre data-language="shell">
-pair reply --note ID
-pair reply --note ID --text "…"
-pair reply --note ID --file reply.html</pre>
+pair read --thread ID
+pair reply --thread ID --text "…"
+pair reply --thread ID --file reply.html</pre>

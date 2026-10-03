@@ -6,11 +6,15 @@ import { hub, planData, sleep, task } from "../support/hub.mjs";
 
 test("a new session's first Agreed says to open the URL only when no tab polled the session list within the window", async (t) => {
   const h = await hub(t, {}, { tabWindowMs: 1000 });
-  const build = (session, round, page) =>
-    buildPage(path.join(session.directory, "source.json"), {
-      ...planData(round),
+  const build = (session, round, page) => {
+    const { name, title } = planData(round);
+    return buildPage(path.join(session.directory, "source.json"), {
+      name,
+      round,
+      title,
       page,
     });
+  };
   const publish = async (session, html, pages) => {
     const result = await session.action("publish", {
       html,

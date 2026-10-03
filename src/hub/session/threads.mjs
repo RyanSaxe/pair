@@ -22,13 +22,15 @@ const optional = (value) => value === undefined || typeof value === "string";
 // Finish review goes on a page instead.
 const control =
   /<[a-zA-Z][^>]*\sdata-(?:choice|multiselect|question|drawing-question)=/;
-const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
 // Threads: a note the reviewer sends to the agent at once, and the replies
 // under it. A thread never changes the round.
 export function threads(session) {
   const { directory, threadRecords: records } = session;
-  const command = (id) => `pair reply --session-dir ${directory} --note ${id}`;
+  const readCommand = (id) =>
+    `pair read --session-dir ${directory} --thread ${id}`;
+  const replyCommand = (id) =>
+    `pair reply --session-dir ${directory} --thread ${id}`;
   async function saveThread(thread) {
     thread.updatedAt = timestamp();
     await atomic(path.join(directory, "threads", `${thread.id}.json`), thread);
@@ -85,7 +87,7 @@ export function threads(session) {
   }
   async function wakeHolder(id) {
     const thread = records.get(id);
-    const line = `pair: a thread on "${thread.page}", session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${command(thread.id)}, which prints the thread and how to answer.`;
+    const line = `pair: a thread on "${thread.page}", session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${readCommand(thread.id)}, which prints the thread and how to answer.`;
     thread.wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
     if (thread.state === "sending")
@@ -186,44 +188,13 @@ export function threads(session) {
     );
     requireValue(!found.length, found.join("\n"));
   }
-  function printout(thread) {
-    const block =
-      thread.anchor === thread.page ? "" : `, block "${thread.anchor}"`;
-    const lines = [
-      `Thread ${thread.id} on "${thread.page}"${block} (session ${directory}, round ${thread.round})`,
-    ];
-    if (thread.quote) lines.push(`  On the text: "${thread.quote}"`);
-    const indent = (value) => value.replaceAll("\n", "\n    ");
-    for (const message of thread.messages) {
-      const who = message.from === "agent" ? "Agent" : "You";
-      if (message.html !== undefined)
-        lines.push(
-          `  ${who}, ${clock(message.at)}, as HTML:`,
-          `    ${indent(message.html.trim())}`,
-        );
-      else
-        lines.push(`  ${who}, ${clock(message.at)}: ${indent(message.text)}`);
-      for (const image of message.attachments || [])
-        lines.push(`  Image: ${image.path}`);
-    }
-    lines.push(
-      "",
-      "Answer in the thread with text, or with an HTML fragment written like a page",
-      "that shows code, diffs, diagrams, charts, formulas or a prototype of this",
-      "round. A reply cannot contain a decision, checklist or question. If the",
-      "answer needs more than a few blocks or asks for a decision, say what you",
-      "will show and put it on a page in the next round. If it asks for a change",
-      "to the work you are doing now, say what you will change and change it.",
-      `Post it: ${command(thread.id)} --text "…"`,
-      `     or: ${command(thread.id)} --file reply.html`,
-      "Then go back to what you were doing.",
-    );
-    return lines.join("\n");
-  }
-  // pair reply: with no text it marks the thread read and prints it, and
-  // with --text or --file it posts the agent's reply.
+  // With no text the reply action marks the thread read and returns it, for
+  // pair read --thread, and with text or HTML it posts the agent's reply.
   async function reply(data) {
-    requireValue(idPattern.test(data.note || ""), "pair reply takes --note ID");
+    requireValue(
+      idPattern.test(data.note || ""),
+      "A reply names its thread with --thread ID",
+    );
     const thread = threadFor(data.note);
     requireValue(
       data.text === undefined || data.html === undefined,
@@ -240,7 +211,12 @@ export function threads(session) {
         await saveThread(thread);
       }
       await session.transition(session.report());
-      return { status: session.view(), text: printout(thread) };
+      return {
+        status: session.view(),
+        thread: shown(thread),
+        next: `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
+        moment: "read-thread",
+      };
     }
     if (data.html !== undefined) {
       requireValue(text(data.html), "The reply file is empty");
@@ -268,8 +244,25 @@ export function threads(session) {
     await session.transition(session.report());
     return {
       status: session.view(),
-      text: `Posted your reply in thread ${thread.id}. Go back to what you were doing.\nNext step: ${await session.nextStep()}`,
+      next: `Go back to what you were doing. ${await session.nextStep()}`,
     };
+  }
+  // Each thread with a reviewer message after the time given, or with any
+  // when none is given, for pair read's index, oldest message first.
+  function threadsSince(at) {
+    return [...records.values()]
+      .map((thread) => ({
+        thread,
+        latest: thread.messages.findLast((item) => item.from === "reviewer"),
+      }))
+      .filter(({ latest }) => latest && (!at || latest.at > at))
+      .sort((a, b) => a.latest.at.localeCompare(b.latest.at))
+      .map(({ thread, latest }) => ({
+        id: thread.id,
+        topic: thread.topic,
+        messages: thread.messages.length,
+        latest: latest.text,
+      }));
   }
   // Agreed cites a thread that settled a decision, as it cites a note.
   function threadSource(id) {
@@ -282,6 +275,7 @@ export function threads(session) {
     startThread,
     addThreadMessage,
     reply,
+    threadsSince,
     threadSource,
   };
 }

@@ -8,16 +8,17 @@ it. Keep generated files and feedback outside the project's history.
 ## Starting
 
 ```sh
-pair start
+pair start --title "Retry policy"
 ```
 
-`pair start` starts the hub if none is running, registers the session and prints
-`{sessionId, sessionDir, url, wake}` as JSON, with `hostUrl` when the hub
-also listens on a phone-reachable address. Every later session command takes
-`--session-dir PATH` with the printed `sessionDir`. When the harness cannot
-receive a wake message, `pair start` creates nothing and prints an
-instruction. Give it to the user, and run `pair start` again after the
-restart.
+`pair start` starts the hub if none is running, creates the session with the
+title, which the reviewer sees until the first Agreed replaces it, and
+prints the session's directory and URL, with a phone URL when the hub also
+listens on a phone-reachable address. Every later session command takes
+`--session-dir PATH` with the printed directory. When the harness cannot
+receive a wake message, or Codex has no allow rule for pair,
+`pair start` creates nothing and prints an instruction. Give it to the user,
+and run `pair start` again after the restart.
 
 If a session already exists, resume it with `pair start --session-dir PATH`,
 which keeps its URL. Do not create a replacement. The directory name under
@@ -27,7 +28,7 @@ directory contains the ID.
 When the first Agreed publishes, the `next` line of `pair publish` says
 whether to open the URL in the user's default browser or only to give the
 link, because a pair tab that is already open lists the new session. Follow
-it, and give the link in chat, with `hostUrl` beside it when `pair start`
+it, and give the link in chat, with the phone URL beside it when `pair start`
 printed one. If the launch fails, say so and keep the link available. Do not
 open another tab on later rounds. The open tab shows new pages and rounds in
 place.
@@ -60,12 +61,14 @@ is therefore a new agent, and it is not the holder.
 
 ## Resuming
 
-If a turn is interrupted, the next turn runs `pair ack` before doing anything
-else. It prints where the session stands and the next step. `pair publish`
-refuses while a submission is unread.
+If a turn is interrupted, the next turn runs `pair status` before doing
+anything else. It prints where the session stands and the next step.
+`pair publish` refuses while a submission is unread, and
+`pair read --submission ID` prints a submission again that the interrupted
+turn already read.
 
 ```sh
-pair ack --session-dir PATH
+pair status --session-dir PATH
 ```
 
 When a command cannot reach the hub, follow [setup.md](setup.md), then run
@@ -90,10 +93,11 @@ implementation permission.
 
 ## Acceptance
 
-A round whose Agreed names an `offer` lets the reviewer accept it. An
-`accept` event names the round's `offer` and the `action` the reviewer
-chose. The `next` line of `pair read` names the offer's guide file, which
-says what each action asks of you.
+A round whose Agreed names an `offer` lets the reviewer accept it.
+`pair read` prints an acceptance as a `pair_feedback` with `intent="accept"`,
+the round's `offer` and the `action` the reviewer chose. The `next` line of
+`pair read` names the offer's guide file, which says what each action asks
+of you.
 
 `pair complete` ends the session. Run it after the reviewer accepts built
 work, once you have done the action they chose. After a plan's acceptance it
