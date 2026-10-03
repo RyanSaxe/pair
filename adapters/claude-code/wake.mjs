@@ -9,7 +9,7 @@ export const variables = [
   "CLAUDE_CODE_MESSAGING_TOKEN",
 ];
 export const unwakeable =
-  "this Claude Code session exposes no inbox socket, so it cannot be woken.";
+  "Tell the user that this Claude Code session exposes no inbox socket, so the hub cannot wake it, and stop.";
 
 // A Claude Code session has one inbox socket, and its subagents share it.
 export const identity = (target) => target.socket;

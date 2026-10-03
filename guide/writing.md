@@ -1,13 +1,12 @@
 # Writing
 
-The reviewer reads a page to understand code, to decide what to build or to
-judge built work. Put the facts, choices, reasons and consequences on the
-page. Remove commentary about the page itself.
+A page explains code, puts a decision to the reviewer or shows built work.
+Put the facts, choices, reasons and consequences on the page. Remove
+commentary about the page itself.
 
 Most context is short: one line of consequence under an option, a caption, a
-heading or a row in a checklist. The reviewer decides from those lines, so
-write them for a first reading. If a line needs a second reading, the
-reviewer may ask for clarification instead of making the decision.
+heading or a row in a checklist. Write each of those lines so the reviewer
+understands it on a first reading.
 
 ## Write concrete sentences
 

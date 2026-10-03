@@ -7,7 +7,7 @@ it.
 | Field  | Contract                                                                 |
 | ------ | ------------------------------------------------------------------------ |
 | id     | Unique stable ID with the same character rules as page IDs.              |
-| title  | Accessible, descriptive title, shown in the embed's header.              |
+| title  | Accessible, descriptive title.                                           |
 | html   | Complete self-contained HTML document, including its styles and scripts. |
 | file   | Page-source alternative to html, resolved relative to the page JSON.     |
 | height | Positive preview height in pixels.                                       |
@@ -24,5 +24,4 @@ An embed is about 820px wide. A component mock renders at its natural width
 without scaling. A layout mock designed wider than the embed collapses
 unless it scales. Give it a stage at the design width (1120 works for a
 three-column layout) with `transform: scale(min(1, innerWidth / 1120))`
-and a control to switch to 100%. The reviewer sees it at real size with
-Open full size.
+and a control to switch to 100%.

@@ -51,7 +51,7 @@ test("side work moves from Recorded to Done, and Start in parallel wakes the hol
   assert.deepEqual(
     a.inbox.wakes.map((wake) => wake.message.message.content),
     [
-      `pair: side work "Delete visual-review" was started in parallel on session ${a.directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. When the session has no branch of its own in the repository you change, branch from that repository's default branch and open the pull request into it. Report each change with pair side-work update 1, then go back to what you were doing.`,
+      `pair: side work "Delete visual-review" was started in parallel on session ${a.directory}. Do it apart from the session's own work: in a separate git worktree, on its own branch from the session's branch, done by you or by an agent you brief with the context it needs, ending in a pull request into the session's branch. When the session has no branch of its own in the repository you change, branch from that repository's default branch and open the pull request into it. Report each change with pair side-work update 1, through the states that pair guide side-work.md lists, then go back to what you were doing.`,
     ],
   );
   const again = await reviewer("1", "start");

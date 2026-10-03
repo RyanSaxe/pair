@@ -9,7 +9,7 @@ export const name = "Codex";
 export const command = "codex";
 export const variables = ["CODEX_THREAD_ID"];
 export const unwakeable =
-  "this Codex session exports no CODEX_THREAD_ID, so it cannot be woken.";
+  "Tell the user that this Codex session exports no CODEX_THREAD_ID, so the hub cannot wake it, and stop.";
 
 export const identity = (target) => target.thread;
 

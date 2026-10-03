@@ -29,19 +29,21 @@ export function agent(session) {
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
   // A line that points at a guide file names the command that prints it.
-  const guide = guideCommand;
   const offerGuide = (id) =>
-    guide(path.posix.relative("guide", offers[id].guide));
+    guideCommand(path.posix.relative("guide", offers[id].guide));
   const actionAfter = (offer, after) =>
     offers[offer].accept.actions.find((item) => item.after === after);
+  // A line that says to publish Agreed also says which offer it names.
+  const offerChoice = `If this round is the final plan, Agreed names "offer": "plan" and pages.json lists ${offers.plan.firstPage} first. If you build the work in this round, Agreed names "offer": "finish".`;
+  // The round an accepted plan is built in starts with its Agreed, and its
+  // steps come from the accepted round's page sources.
+  const buildRound = (round) =>
+    `Publish the build round's Agreed with "offer": "finish" before you change anything. The accepted round's page sources are in ${path.join(directory, "src", round)}${path.sep}, one directory per page.`;
   // Every agent command prints the step after it, so an agent that lost its
-  // place, or skipped round.md, is told where the session stands.
+  // place is told where the session stands.
   async function nextStep() {
     const [event] = await pending();
-    if (event)
-      return event.payload.intent === "accept"
-        ? `Run ${offerGuide(event.payload.offer)} and read all it prints, then run: ${command("read")}`
-        : `Run ${guide("round.md")} and read all it prints, then run: ${command("read")}`;
+    if (event) return `Run: ${command("read")}`;
     if (session.state.stage === "complete") return "The session is complete.";
     if (session.state.stage === "saved") {
       const { round } = session.state.current;
@@ -52,27 +54,37 @@ export function agent(session) {
       const action = actionOf(session.state.accepted);
       // A start on the saved round sent this agent on to build it.
       if (action.after === "saved")
-        return `Round ${round} was saved for later, and you are building it now. Run ${offerGuide(offer)} and build the round as its ${actionAfter(offer, "round").label} section describes.`;
+        return `Round ${round} was saved for later, and you are building it now. Run ${offerGuide(offer)} and build the round as its ${actionAfter(offer, "round").label} section describes. ${buildRound(round)}`;
+      if (action.after === "round")
+        return `Run ${offerGuide(offer)} and follow its ${action.label} section. ${buildRound(round)}`;
       return `Run ${offerGuide(offer)} and follow its ${action.label} section.`;
     }
     if (session.state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!session.state.current)
-      return `When you know the first round's pages, publish Agreed with pair publish --pages within minutes, before you start work on any page. ${guide("round.md")} prints the steps.`;
+      return `Publish round 1's Agreed and page list with pair publish within minutes, before you research or write any page. ${offerChoice}`;
+    const building = session.state.current.offer === "finish";
     if (session.state.openRound) {
       const left = session.state.openRound.pages
         .filter((slot) => !slot.recordPath)
         .map((slot) =>
           slot.state === "active" ? `${slot.id} (started)` : slot.id,
         );
-      const steps =
-        session.state.current.offer === "finish"
-          ? "before you start the step that page shows, run pair publish when the step is done and checked"
-          : "as you begin a page, run pair publish as soon as it builds";
-      return `Pages still to publish: ${left.join(", ")}. Run pair progress --page ID ${steps}, and report on each page in progress with pair progress --page ID --note "…" at least every five minutes.`;
+      const [begin, publish] = building
+        ? [
+            "Before you start the step a page shows",
+            "Run pair publish when the step is done and checked.",
+          ]
+        : [
+            "As you begin a page",
+            "Run pair publish as soon as the page builds.",
+          ];
+      return `Pages still to publish: ${left.join(", ")}. ${begin}, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". ${publish}`;
     }
     if (session.state.stage === "working")
-      return `Update the task and Agreed from the feedback, then publish Agreed with pair publish --pages within minutes, before you start work on any page. ${guide("round.md")} prints the steps. Report with pair progress --note "…" at least every five minutes.`;
+      return building
+        ? `Update the task and Agreed from this feedback, then publish Agreed with "offer": "finish" before you change anything. Build this round as the ${actionAfter("plan", "round").label} section of ${offerGuide("plan")} describes, with the pull request description, updated to the work as it now stands, as its last page.`
+        : `Update the task and Agreed from this feedback, then publish Agreed and the page list with pair publish within minutes, before you research or write any page. ${offerChoice}`;
     return `Round ${session.state.current.round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
   }
   // The first Agreed of a session says whether to open its URL. A pair tab
@@ -105,15 +117,26 @@ export function agent(session) {
     };
   }
   // What a publish adds to its answer. It names its moment: Agreed with its
-  // offer, a page while pages remain, or the round's last page.
+  // offer, a page while pages remain, or the round's last page. A final plan
+  // opens on overview, and the reviewer can accept it only when Agreed names
+  // the plan offer, so an Agreed that lists overview first with no offer
+  // publishes with a warning.
   function afterPublish(result, id, offer) {
     const agreed = id === "agreed";
+    const { firstPage } = offers.plan;
+    const unoffered =
+      agreed && !offer && result.status.openRound.pages[0].id === firstPage;
     return {
       moment: agreed
         ? `publish-agreed${offer ? `-${offer}` : ""}`
         : result.roundComplete
           ? "publish-last-page"
           : "publish-page",
+      ...(unoffered
+        ? {
+            warning: `${firstPage} is the first page and Agreed names no offer, so the reviewer can only send feedback on this round. If this round is the final plan, say so in chat, and name "offer": "plan" in the next round's Agreed.`,
+          }
+        : {}),
     };
   }
   // Runs after the submission is saved, outside the browser's request, so a
@@ -381,9 +404,15 @@ export function agent(session) {
         kind: "session",
         agent: adapters[target.harness].name,
       });
-    if (start && created) return { moment: "start" };
+    if (start && created) return { moment: "start", next: await nextStep() };
     const next = build ? await buildNext(unread) : start && (await nextStep());
-    return next ? { next } : {};
+    if (!next) return {};
+    // An agent that takes the session over may never have read the core.
+    return {
+      next: same
+        ? next
+        : `Run pair guide first unless you have read it in this conversation. ${next}`,
+    };
   }
   // The acceptance keeps its save action, so the line says outright that
   // this agent builds the plan.
@@ -392,7 +421,7 @@ export function agent(session) {
     const reading = unread
       ? command("read")
       : `${command("read")} --submission ${session.state.accepted.eventId}`;
-    return `Round ${round} was saved for later, and you now build it. Run ${offerGuide(offer)} and read all it prints, then run: ${reading}. It prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Build the plan as its ${actionAfter(offer, "round").label} section describes.`;
+    return `Round ${round} was saved for later, and you now build it. Run ${reading}, which prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Then build the plan as the ${actionAfter(offer, "round").label} section of ${offerGuide(offer)} describes.`;
   }
   return {
     handoff,

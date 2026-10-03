@@ -3,10 +3,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { offers } from "../../src/shared/offers.mjs";
 import {
   exec,
-  exists,
   hub,
   killHub,
   pair,
@@ -15,15 +13,13 @@ import {
   root,
 } from "../support/hub.mjs";
 
-const markdownLink = /\[[^\]]*\]\(([^()\s]+)\)/g;
-const guideRun = /\(run `pair guide (\S+)`\)/g;
+// A Markdown link whose target has no scheme, which the agent would have to
+// resolve against a directory it does not know.
+const relativeLink = /\[[^\]]*\]\((?![a-z][a-z+.-]*:)[^()\s]+\)/gi;
+const guideRun = /pair guide ([\w./-]+\.(?:md|html|svg))/g;
 const guideNames = (await fs.readdir(path.join(root, "guide"))).filter((file) =>
   file.endsWith(".md"),
 );
-const source = (name) =>
-  name.startsWith("components/")
-    ? path.join(root, "src", name)
-    : path.join(root, "guide", name);
 
 // pair guide as the agent runs it, with the state directory at state.
 const printer = (state) => async (name) =>
@@ -33,22 +29,24 @@ const printer = (state) => async (name) =>
     })
   ).stdout;
 
-// The agent reads a printed guide file, then the files it names, and never
-// resolves a path itself. Each pair guide command in the text names a file
-// that prints, each other link is an absolute path that exists, and a guide
-// file is named only in a link, which prints as that command. Returns the
-// names it printed.
+// The agent reads a printed guide file, then runs each pair guide command it
+// names, and never resolves a path itself. A printed Markdown file contains
+// no relative link and names a guide file only by its command, and each
+// command names a file that prints. Returns the names it printed.
 async function followGuide(print, name, printed = new Set([name])) {
   const text = await print(name);
-  const prose = (await fs.readFile(source(name), "utf8")).replace(
-    markdownLink,
-    "",
-  );
-  for (const guide of guideNames)
-    assert(!prose.includes(guide), `${name} names ${guide} without a link`);
-  for (const [, target] of text.matchAll(markdownLink)) {
-    assert(path.isAbsolute(target), `${name} links ${target}`);
-    assert(await exists(target), `${name} links ${target}`);
+  if (name.endsWith(".md")) {
+    assert.deepEqual(
+      [...text.matchAll(relativeLink)].map(([link]) => link),
+      [],
+      `${name} has a relative link`,
+    );
+    const prose = text.replaceAll(guideRun, "");
+    for (const guide of guideNames)
+      assert(
+        !prose.includes(guide),
+        `${name} names ${guide} without its command`,
+      );
   }
   for (const [, next] of text.matchAll(guideRun))
     if (!printed.has(next)) {
@@ -58,27 +56,26 @@ async function followGuide(print, name, printed = new Set([name])) {
   return printed;
 }
 
-test("the next lines name round.md by the command that prints it", async (t) => {
+// pair start prints the start moment, which names the guide files to read
+// before round 1, so a file it names that no longer prints fails here.
+test("every guide file the start output names prints", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
-  const { config, run, start } = await pairCli(home, { PAIR_HUB_PORT: "0" });
+  const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const started = await start();
-  const read = JSON.parse(
-    await run("read", "--session-dir", started.sessionDir, "--json"),
-  );
-  for (const next of [started.next, read.next])
-    assert.match(next, /\bpair guide round\.md\b/);
-  const printed = await followGuide(printer(home), "round.md");
-  assert(printed.size > 1, "round.md names other guide files");
+  const started = await run("start", "--title", "Guide");
+  const named = [...started.matchAll(guideRun)].map(([, name]) => name);
+  assert(named.length > 0, started);
+  const printed = new Set(named);
+  for (const name of named) await followGuide(printer(home), name, printed);
 });
 
 // The skill tells the agent to run pair guide, so what it prints is where
 // every session starts. Printing writes nothing, so it works where the
 // state directory cannot be written.
-test("pair guide prints guide/pair.md and every guide file, and writes nothing", async (t) => {
+test("pair guide prints guide/pair.md and every guide file, with no relative link, and writes nothing", async (t) => {
   const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
   t.after(() => fs.rm(state, { recursive: true, force: true }));
   const print = printer(state);
@@ -94,11 +91,11 @@ test("pair guide prints guide/pair.md and every guide file, and writes nothing",
     return true;
   });
   // Every file prints, including one that only a next line names, such as
-  // offers/finish.md, which no guide link reaches.
+  // offers/finish.md, which no guide file names.
   const files = (
     await fs.readdir(path.join(root, "guide"), { recursive: true })
   )
-    .filter((file) => file.endsWith(".md"))
+    .filter((file) => /\.(md|svg)$/.test(file))
     .map((file) => file.split(path.sep).join("/"));
   const markup = (await fs.readdir(path.join(root, "src/components")))
     .filter((name) => name !== "README.md")
@@ -127,14 +124,17 @@ test("pair guide and a command's moment print your file after pair's", async (t)
   });
   t.after(() => fs.rm(home, { recursive: true, force: true }));
   await fs.mkdir(path.join(config, "pair", "moments"), { recursive: true });
-  await fs.writeFile(path.join(config, "pair", "round.md"), "Your round.\n");
+  await fs.writeFile(
+    path.join(config, "pair", "agreements.md"),
+    "Your agreements.\n",
+  );
   await fs.writeFile(
     path.join(config, "pair", "moments", "read-thread.md"),
     "Your thread rule.\n",
   );
-  const round = await cli.run("guide", "round.md");
-  assert(round.startsWith("# "), "pair's round.md comes first");
-  assert(round.trimEnd().endsWith("Your round."), "yours follows");
+  const agreements = await cli.run("guide", "agreements.md");
+  assert(agreements.startsWith("# "), "pair's agreements.md comes first");
+  assert(agreements.trimEnd().endsWith("Your agreements."), "yours follows");
 
   const session = await h.session({ cli });
   assert.equal((await session.publish(planData())).code, 200);
@@ -153,18 +153,11 @@ test("pair guide and a command's moment print your file after pair's", async (t)
     "--thread",
     "question-1",
   );
-  const own = (
-    await fs.readFile(path.join(root, "guide/moments/read-thread.md"), "utf8")
-  ).trim();
-  assert(own, "read-thread.md has text");
-  // pair's moment, then yours, both before the thread.
-  const order = [own, "Your thread rule.", "<pair_thread "].map((part) =>
-    thread.indexOf(part),
-  );
-  assert(order[0] >= 0 && order[0] < order[1] && order[1] < order[2], thread);
-
-  // The hub names each acceptance's moment by its action, so each one prints.
-  for (const offer of Object.values(offers))
-    for (const action of offer.accept.actions)
-      await cli.run("guide", `moments/read-accept-${action.id}.md`);
+  // pair guide prints pair's moment, then yours, and pair read --thread
+  // prints the same text before the thread.
+  const moment = (await cli.run("guide", "moments/read-thread.md")).trimEnd();
+  assert(!moment.startsWith("Your"), "pair's read-thread.md comes first");
+  assert(moment.endsWith("Your thread rule."), moment);
+  const at = thread.indexOf(moment);
+  assert(at >= 0 && at < thread.indexOf("<pair_thread "), thread);
 });

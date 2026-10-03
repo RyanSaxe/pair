@@ -3,8 +3,7 @@
 A component directory contains `markup.html`, and `styles.css` and
 `behavior.mjs` when the component needs them. `pair build` reads those three
 files and nothing else.
-[guide/components.md](../../guide/components.md) is the catalog a plan
-author reads.
+`pair guide components.md` prints the catalog a plan author reads.
 
 ## Behavior
 
@@ -53,8 +52,8 @@ Set `data-kind` on the component's root to a singular noun that follows
 
 `styles.css` needs no wrapper. `pair build` puts it in a cascade layer above
 page CSS and the frame's own styles, so a component's type and spacing rules
-override the frame's. Use the design tokens in
-[pages.md](../../guide/pages.md).
+override the frame's. Use the design tokens that `pair guide pages.md`
+prints.
 
 `pair build` also scopes component CSS to `#page-content`, so a selector
 that starts at `:root` or `html` never matches. Follow the theme with

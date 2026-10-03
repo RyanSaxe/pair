@@ -194,10 +194,11 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   );
   const took = JSON.parse(await run(two, "start", "--json"));
   assert.equal(took.url, saved.url);
+  // The new holder reads the core first, then the Save, and builds the plan.
   assert.match(
     took.next,
     new RegExp(
-      `^Round 1 was saved for later, and you now build it\\. Run pair guide offers/plan\\.md and read all it prints, then run: pair read --session-dir ${literal(saved.sessionDir)}\\. .* its action stays save\\. Build the plan as its Start implementation section describes\\.$`,
+      `^Run pair guide first unless you have read it in this conversation\\. Round 1 was saved for later, and you now build it\\. Run pair read --session-dir ${literal(saved.sessionDir)}, .* its action stays save\\. Then build the plan as the Start implementation section of pair guide offers/plan\\.md describes\\.$`,
     ),
   );
   const status = JSON.parse(await run(two, "status", "--json"));

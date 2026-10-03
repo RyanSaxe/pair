@@ -98,6 +98,22 @@ new stylesheet goes into that list.
 Ask before adding a dependency, because a checkout runs with no install only
 while pair has none.
 
+Text under `guide/` and in `skills/pair/` tells the agent only what it acts
+on. Never write how the frame shows something to the reviewer, such as which
+tab lists an item, what a card or a fold shows, or which color marks a
+state, unless the agent must act on it, and then write the action, not the
+display. Never give a reason for what the reviewer does, because pair cannot
+know it. Leave out any other sentence the agent cannot act on, such as a
+requirement that every session already meets. The agent reads each sentence
+as an instruction, and it cannot follow one about the display or the
+reviewer's motives.
+
+Text the agent reads, under `guide/`, in `skills/pair/` and in
+`src/components/README.md`, names another file by the command that prints
+it, written literally, such as ``run `pair guide writing.md` ``, and never by
+a Markdown link, because `pair guide` prints a file as it is and the agent
+cannot resolve a relative path.
+
 ## Checks
 
 CI runs these four on every push and pull request, and a change passes when
@@ -188,7 +204,7 @@ XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 
 
 `check` must report the hub port as `free`. `start` prints the session's
 directory and URL. Build and publish a round in that session as
-`guide/round.md` describes, open the URL, and use the change. With
+`guide/pages.md` describes, open the URL, and use the change. With
 `PAIR_WAKE=off` the hub sends no wake message when you send feedback, start a
 thread or press Start in parallel. It saves the submission, thread
 message or start as usual and writes the line it would have sent to

@@ -52,7 +52,7 @@ function copilotSdk(env) {
 export const command = "copilot";
 export const variables = ["COPILOT_AGENT_SESSION_ID"];
 export const unwakeable =
-  "this Copilot session exports no COPILOT_AGENT_SESSION_ID, so it cannot be woken.";
+  "Tell the user that this Copilot session exports no COPILOT_AGENT_SESSION_ID, so the hub cannot wake it, and stop.";
 export function detect(
   env,
   {
@@ -65,12 +65,12 @@ export function detect(
   const port = ancestor ? portOf(ancestor.pid) : null;
   if (!port)
     throw new Error(
-      `this Copilot session cannot be woken. Restart it with \`copilot --ui-server --resume ${sessionId}\` and run \`pair start\` again.`,
+      `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run \`pair start\` again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
   const { sdk, tried } = findSdk(env);
   if (!sdk)
     throw new Error(
-      `the Copilot SDK was not found at ${tried.join(", ")}, so this session cannot be woken.`,
+      `Tell the user that the Copilot SDK was not found at ${tried.join(", ")}, so the hub cannot wake this session, and stop.`,
     );
   return { harness: "copilot", sessionId, port, sdk };
 }
