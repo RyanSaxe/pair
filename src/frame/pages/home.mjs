@@ -1,7 +1,6 @@
 import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { base, plan } from "#frame/app/view.mjs";
-import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { drawActivity } from "#frame/sync/activity-view.mjs";
 import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
@@ -35,12 +34,10 @@ async function pollHome() {
   drawActivity(true);
 }
 // Polls as a round does: its status every 1.5 s and the session list every
-// 5 s. A page load is a move, as a round's first page is, and it ends once
-// the first status has drawn the card.
+// 5 s.
 export function startHome() {
   $("page-title").textContent = plan.title;
-  beginMove();
-  void pollHome().finally(arrived);
+  void pollHome();
   void pollSessions();
   setInterval(pollHome, 1500);
   setInterval(pollSessions, 5000);
