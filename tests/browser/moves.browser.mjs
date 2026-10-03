@@ -128,31 +128,21 @@ test("a second click during a move keeps one bar and never shows the page clicke
   assert.ok(!(await s.page.evaluate(() => window.shown)).includes("slow"));
 });
 
-test("a page load into a slow page keeps the previous page until it is complete", async (t) => {
+test("a page load into a slow page runs no view transition and shows the bar", async (t) => {
   const s = await setup(t);
   if (!s) return;
   const other = await s.h.session();
   assert.equal((await other.publish(round("other"))).code, 200);
-  // Each frame of the new document records whether the browser still shows
-  // the previous page's header and column, and whether the page is drawing.
+  // A view transition across page loads showed a blank white frame in some
+  // Chrome setups, so each frame of the new document records whether one
+  // runs, and whether the bar is on screen.
   await s.page.addInitScript(() => {
     window.moveFrames = [];
     const sample = () => {
-      const running = (name) =>
-        document
-          .getAnimations()
-          .some(
-            (animation) =>
-              animation.effect?.pseudoElement === name &&
-              animation.playState === "running",
-          );
+      const bar = document.querySelector(".move-bar");
       window.moveFrames.push({
-        chrome: running("::view-transition-new(root)"),
-        column: running("::view-transition-old(reading)"),
-        drawing:
-          document
-            .getElementById("page-content")
-            ?.hasAttribute("data-drawing") ?? true,
+        transition: Boolean(document.activeViewTransition),
+        bar: bar ? Number(getComputedStyle(bar).opacity) > 0 : false,
       });
       requestAnimationFrame(sample);
     };
@@ -167,14 +157,10 @@ test("a page load into a slow page keeps the previous page until it is complete"
   }, `${s.h.server.origin}${other.base}/#slow`);
   await s.page.locator("#away").click();
   await complete(s.page, "slow");
-  await s.page.waitForTimeout(1200);
   const frames = await s.page.evaluate(() => window.moveFrames);
-  const drawing = frames.filter((frame) => frame.drawing);
-  // The previous column stays over the new page while it draws, and the
-  // previous header gives way before the page is complete.
-  assert.ok(drawing.some((frame) => frame.column));
-  assert.ok(drawing.some((frame) => frame.column && !frame.chrome));
-  assert.equal(frames.at(-1).column, false);
+  assert.ok(frames.length > 0);
+  assert.ok(!frames.some((frame) => frame.transition));
+  assert.ok(frames.some((frame) => frame.bar));
 });
 
 test("with reduced motion a slow move shows the bar still and swaps in with no fade", async (t) => {

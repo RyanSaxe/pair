@@ -11,9 +11,9 @@ import { $ } from "#frame/app/util.mjs";
 
    A move to another page of the frame, such as another session or a
    notification's link, is a page load. The old page leaves the time of the
-   click in sessionStorage and names its scrolling pane for the browser's
-   view transition, which keeps a picture of it over the new page until the
-   new page lets it go. */
+   click in sessionStorage, so the new page's bar counts from the click.
+   The browser's view transition is not used across page loads, because in
+   some Chrome setups it showed a blank white frame between the pages. */
 const DELAY_MS = 200;
 const FULL_MS = 3000;
 const HOLD = 0.9;
@@ -26,10 +26,6 @@ let grow = null;
 let picture = null;
 let fading = null;
 let drawnOnce = false;
-// A page load from another page of the frame, whose view transition holds
-// pictures of the previous page until this one releases them.
-let crossing = false;
-let chromeHeld = false;
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 function stored(key, value) {
   try {
@@ -51,18 +47,11 @@ export function installProgress() {
       String(Date.now() - lastInput < 1000 ? lastInput : Date.now()),
     ),
   );
-  window.addEventListener("pageswap", (event) => depart(event.viewTransition));
   bar = document.createElement("div");
   bar.className = "move-bar";
   bar.setAttribute("aria-hidden", "true");
   document.querySelector(".main-column").prepend(bar);
-  // Only a page load from another page of the frame has the browser's
-  // pictures to release, and a load without them stops looking after a few
-  // frames. A recent click on the old page starts this page's move.
-  crossing = true;
-  chromeHeld = true;
-  // In case the first poll never finishes.
-  setTimeout(() => releaseChrome(0), 1000);
+  // A recent click on the old page starts this page's move.
   const at = Number(stored(CLICK_KEY));
   stored(CLICK_KEY, null);
   if (at && Date.now() - at < 5000) beginMove(at);
@@ -156,10 +145,8 @@ export function arrived() {
   const fade = shown && !reduced();
   const leaving = picture;
   picture = null;
-  releaseChrome();
   if (fade) crossfade(leaving);
   else leaving?.remove();
-  endHold(fade);
   finishBar(shown);
 }
 function crossfade(leaving) {
@@ -174,45 +161,4 @@ function crossfade(leaving) {
     leaving.remove();
     if (fading === leaving) fading = null;
   };
-}
-function depart(leaving) {
-  if (!leaving) return;
-  (picture || scroller()).style.viewTransitionName = "reading";
-}
-function held(name) {
-  return document
-    .getAnimations()
-    .find((animation) => animation.effect?.pseudoElement === name);
-}
-// Shows the new page's header and sidebar once the frame has drawn them.
-// The browser may start the transition a frame or two after this page is
-// ready, so this looks for it over the next frames.
-export function releaseChrome(frames = 30) {
-  if (!chromeHeld) return;
-  const hold = held("::view-transition-new(root)");
-  if (hold) {
-    chromeHeld = false;
-    hold.finish();
-  } else if (frames > 0) requestAnimationFrame(() => releaseChrome(frames - 1));
-  else chromeHeld = false;
-}
-// Lets the picture of the previous page's column go, at once or over the
-// crossfade.
-function endHold(fade, frames = 30) {
-  if (!crossing) return;
-  const hold = held("::view-transition-old(reading)");
-  if (!hold) {
-    if (frames > 0) requestAnimationFrame(() => endHold(fade, frames - 1));
-    else crossing = false;
-    return;
-  }
-  crossing = false;
-  if (!fade) return hold.finish();
-  hold.cancel();
-  document.documentElement.animate([{ opacity: 1 }, { opacity: 0 }], {
-    duration: FADE_MS,
-    easing: "ease-in-out",
-    fill: "forwards",
-    pseudoElement: "::view-transition-old(reading)",
-  });
 }
