@@ -43,7 +43,7 @@ import {
   show,
 } from "#frame/pages/pages.mjs";
 import { startHome } from "#frame/pages/home.mjs";
-import { installProgress, releaseChrome } from "#frame/pages/progress.mjs";
+import { installProgress } from "#frame/pages/progress.mjs";
 import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
@@ -198,8 +198,6 @@ function bootRound() {
         // count sees a reply already on screen.
         pollSessions();
         setInterval(pollSessions, 5000);
-        // A page load shows the header and sidebar once they are drawn.
-        requestAnimationFrame(() => releaseChrome());
       });
       setInterval(poll, 1500);
     } else review();
