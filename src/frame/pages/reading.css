@@ -288,3 +288,15 @@ body:has(dialog[open]) .quote-button {
 .move-bar {
   opacity: 0;
 }
+/* A narrow window scrolls .app-body, which clips the bar above the column,
+   so there the bar sticks to the top of .app-body, under the header,
+   however far the page is scrolled. Its negative margin keeps it out of
+   the layout. */
+@media (max-width: 720px) {
+  .move-bar {
+    position: sticky;
+    top: 0;
+    flex: none;
+    margin-bottom: -2px;
+  }
+}

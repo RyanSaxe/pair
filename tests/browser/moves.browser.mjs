@@ -31,6 +31,11 @@ const round = (name) => ({
     { id: "quick", title: "Quick", html: "<p>A page with no figures.</p>" },
     { id: "slow", title: "Slow", html: '<div data-slow="1000">slow</div>' },
     { id: "later", title: "Later", html: '<div data-slow="1000">later</div>' },
+    {
+      id: "long",
+      title: "Long",
+      html: '<div data-slow="1000">long</div>' + "<p>Text.</p>".repeat(120),
+    },
   ],
 });
 async function setup(t, pageOptions) {
@@ -74,6 +79,26 @@ const barAnimations = (page) =>
         duration: animation.effect.getTiming().duration,
       })),
   );
+
+// Whether any part of the bar is on screen: inside the window and inside
+// every ancestor that clips its overflow.
+const barOnScreen = (page) =>
+  page.evaluate(() => {
+    const bar = document.querySelector(".move-bar");
+    if (Number(getComputedStyle(bar).opacity) === 0) return false;
+    let { top, bottom, left, right } = bar.getBoundingClientRect();
+    top = Math.max(top, 0);
+    bottom = Math.min(bottom, innerHeight);
+    for (let box = bar.parentElement; box; box = box.parentElement) {
+      if (getComputedStyle(box).overflow === "visible") continue;
+      const clip = box.getBoundingClientRect();
+      top = Math.max(top, clip.top);
+      bottom = Math.min(bottom, clip.bottom);
+      left = Math.max(left, clip.left);
+      right = Math.min(right, clip.right);
+    }
+    return bottom > top && right > left;
+  });
 
 test("a move to a page that is complete at once swaps it in with no bar", async (t) => {
   const s = await setup(t);
@@ -181,4 +206,26 @@ test("with reduced motion a slow move shows the bar still and swaps in with no f
     ),
     [],
   );
+});
+
+// On a phone the page list is in a dialog, and the column scrolls inside
+// .app-body, which clips anything outside it. A move back to a page returns
+// to where the reader left it, so the page can be scrolled while it draws.
+test("on a phone a slow move shows the bar under the header, even onto a page scrolled down", async (t) => {
+  const s = await setup(t, {
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  if (!s) return;
+  await pageLink(s.page, "long").dispatchEvent("click");
+  await complete(s.page, "long");
+  await s.page.evaluate(() =>
+    document.querySelector(".app-body").scrollTo(0, 2000),
+  );
+  await pageLink(s.page, "quick").dispatchEvent("click");
+  await complete(s.page, "quick");
+  await pageLink(s.page, "long").dispatchEvent("click");
+  await s.page.waitForTimeout(400);
+  assert.equal(await barOnScreen(s.page), true);
 });
