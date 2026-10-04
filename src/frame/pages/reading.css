@@ -1,12 +1,11 @@
 /* The side offsets are padding rather than margin: a margin adds to the
    full width of main and scrolls the page sideways below a 1100px window.
-   The 56px on the left holds the bar that marks a chosen block, the right
-   side matches it so the column sits evenly in main, and the last line
-   clears the comment control, which is always on screen. */
+   The 56px on the left holds the bar that marks a chosen block, and the
+   right side matches it so the column sits evenly in main. */
 .content {
   flex: 1 0 auto;
   margin: 0;
-  padding: 24px 56px 90px;
+  padding: 24px 56px 40px;
   width: 100%;
   min-width: 0;
   min-height: 100%;
@@ -221,11 +220,59 @@ mark.note-mark {
 .figure-caption b {
   color: var(--ink);
 }
-.quote-button {
-  position: fixed;
-  right: calc(max(0px, (100% - 1160px) / 2) + 22px);
-  bottom: calc(22px + env(safe-area-inset-bottom));
-  z-index: var(--z-selection);
+/* The page's title shares its row with the link that comments on the page.
+   A title too long for both puts the link on a line of its own below. */
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin-bottom: 14px;
+}
+.title-row h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.comment-page {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: var(--text-ui);
+}
+.comment-page:disabled {
+  color: var(--muted);
+}
+.comment-page:disabled kbd {
+  display: none;
+}
+@media (hover: hover) {
+  .comment-page:enabled:hover span {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+/* blocks.mjs places the button above the selection or the chosen block. It
+   is part of the page, so it covers the page's content and stays under the
+   header and the sidebar. */
+.comment-here {
+  position: absolute;
+  z-index: 1;
+  padding: 4px 6px 4px 10px;
+  box-shadow: var(--shadow);
+  font-weight: var(--weight-strong);
+}
+@media (pointer: coarse) {
+  .comment-page kbd,
+  .comment-here kbd {
+    display: none;
+  }
+  .comment-here {
+    padding-right: 10px;
+  }
 }
 /* The bar sits in the padding the column already has: 56px on a desktop and
    16px on a phone, so marking a block never narrows the text. It is one
@@ -254,8 +301,8 @@ mark.note-mark {
 .context-link {
   font-size: var(--text-small);
 }
-/* Dialogs cover the current page, so its comment control steps aside. */
-body:has(dialog[open]) .quote-button {
+/* Dialogs cover the current page, so its comment button steps aside. */
+body:has(dialog[open]) .comment-here {
   display: none;
 }
 @media (max-width: 720px) {
@@ -263,8 +310,7 @@ body:has(dialog[open]) .quote-button {
     display: inline-block;
   }
   .content {
-    /* The last line clears the comment control, which is always on screen. */
-    padding: 20px 16px calc(90px + env(safe-area-inset-bottom));
+    padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
   }
 }
 /* progress.mjs draws the bar along the top of the reading column while a

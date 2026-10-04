@@ -11,7 +11,7 @@ import { feedbackText, threadIndex, threadText } from "./tags.mjs";
 // reply with text, which prints as it is.
 
 export async function read(options) {
-  const submission = options.submission ?? options.id;
+  const { submission } = options;
   if (options.thread !== undefined && submission !== undefined)
     throw usageError(
       "read",
@@ -50,19 +50,15 @@ async function readThread(session, id) {
 }
 
 export async function reply(options) {
-  const id = options.thread ?? options.note;
+  const id = options.thread;
   if (options.text !== undefined && options.file !== undefined)
     throw usageError("reply", "pair reply takes --text or --file, not both.");
   const text = options.text !== undefined;
-  if (!text && options.file === undefined) {
-    // pair reply --note ID read the thread when it posted nothing.
-    if (options.note !== undefined)
-      return readThread(await openSession(options), id);
+  if (!text && options.file === undefined)
     throw usageError(
       "reply",
       "pair reply requires --text TEXT or --file HTML.",
     );
-  }
   const session = await openSession(options);
   const result = await session.request({
     action: "reply",
@@ -93,7 +89,7 @@ function noteText(options) {
 }
 
 export async function progress(options) {
-  const pages = options.page ?? options.start?.split("|");
+  const pages = options.page;
   const note = noteText(options);
   if (!pages && note === undefined)
     throw usageError(
@@ -121,25 +117,6 @@ export async function progress(options) {
       note === undefined
         ? `Started: ${pages.join(", ")}.`
         : `Noted on ${pages.join(", ")}: ${note}`,
-    json: result,
-  };
-}
-
-export async function ack(options) {
-  const session = await openSession(options);
-  const result = await session.request({
-    action: "ack",
-    note: options.note,
-    page: options.page,
-  });
-  const note = options.note?.trim();
-  return {
-    next: result.next,
-    data:
-      note &&
-      (options.page
-        ? `Noted on ${options.page}: ${note}`
-        : `Noted on the round: ${note}`),
     json: result,
   };
 }

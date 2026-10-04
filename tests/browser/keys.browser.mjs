@@ -33,11 +33,8 @@ async function selectQuote(page) {
     }, quote);
   assert.equal(selected, quote);
   // The frame reads the selection on selectionchange, which the browser
-  // fires after this call returns.
-  await page.waitForFunction(
-    () =>
-      document.querySelector("#quote")?.textContent === "Comment on selection",
-  );
+  // fires after this call returns, and then shows Comment above it.
+  await page.getByRole("button", { name: "Comment", exact: true }).waitFor();
 }
 
 const popoverOpen = (page, id, open) =>
@@ -80,8 +77,10 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
   const reopen = async () => {
     await page.goto(ownUrl);
     await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
+    // The badge counts the other session, whose round waits for you, once
+    // the session list has loaded.
     await page.waitForFunction(
-      () => document.querySelector("#sessions-count")?.textContent === "2",
+      () => document.querySelector("#sessions-count")?.textContent === "1",
     );
   };
   await reopen();
