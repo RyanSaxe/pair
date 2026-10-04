@@ -53,74 +53,87 @@
 /* reading.css sizes every p on a page with #page-content p, so the card's
    paragraphs name the card to keep its sizes inside a page too. */
 .proposal-card .proposal-title,
-.proposal-card .proposal-delivers,
-.proposal-card .proposal-plan {
+.proposal-card .proposal-delivers {
   margin: 0;
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
 }
 .proposal-card .proposal-title {
+  margin-bottom: 2px;
+}
+.proposal-card .card-meta {
+  margin-bottom: 6px;
+}
+/* The plan's line, cut short like the meta line, with Open and the
+   download icon at its end. */
+.proposal-plan {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
-  margin-bottom: 4px;
-}
-.proposal-card .proposal-plan {
-  margin-top: 4px;
+  gap: 6px;
+  margin-top: 6px;
   color: var(--muted);
+  font-size: var(--text-meta);
+  white-space: nowrap;
 }
+.proposal-plan > .card-icon {
+  color: var(--accent);
+}
+.proposal-plan b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.proposal-plan a {
+  flex: none;
+  color: var(--accent);
+  font-weight: 500;
+}
+.proposal-plan-open {
+  margin-left: auto;
+  padding: 0 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.proposal-plan-download {
+  display: inline-flex;
+  padding: 2px 4px;
+}
+/* The footer holds only buttons, so it stays one row: Decline or Restore
+   on the left, and Comment and Start on the right. */
 .proposal-foot {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 12px;
+  gap: 8px;
   padding: 7px 14px;
   border-top: 1px solid var(--line);
   background: var(--ground);
-  color: var(--muted);
   font-size: var(--text-meta);
 }
 .proposal-foot-start,
-.proposal-where {
-  min-width: 0;
-}
-.proposal-plan-links a {
-  color: var(--accent);
-  font-weight: 500;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.proposal-where a {
-  color: inherit;
-  font-weight: 500;
-  text-decoration: underline;
-  text-decoration-color: var(--line-strong);
-  text-underline-offset: 2px;
-}
 .proposal-actions {
   display: flex;
+  flex: none;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
+  gap: 2px;
+  white-space: nowrap;
 }
-.proposal-actions .link-btn {
+.proposal-foot .link-btn {
+  padding: 3px 6px;
+  border-radius: 6px;
   font-size: var(--text-meta);
   font-weight: 500;
 }
-.proposal-dot {
+.proposal-foot-start .link-btn {
   color: var(--muted);
 }
-/* Start is a quiet outlined button the height of the footer's text, so it
-   reads as one of the card's actions and not as the page's primary one. */
+/* Start is the card's one filled button, the height of the footer's
+   text. */
 .proposal-actions .proposal-start {
   margin-left: 6px;
-  padding: 0 10px;
+  padding: 2px 14px;
   border-radius: 6px;
   font-size: var(--text-meta);
   line-height: 1.6;
-  color: var(--ink);
 }
 /* The Start popup */
 .start-card {

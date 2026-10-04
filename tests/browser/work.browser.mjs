@@ -65,7 +65,7 @@ test("Start sends where the work runs and the message, and the card runs", async
   await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
   await tab("running").click();
   await page
-    .locator("[data-proposal-card=deck] .tag", { hasText: "Working" })
+    .locator("[data-proposal-card=deck] .card-state", { hasText: "Working" })
     .waitFor();
   // The Start answered the round, and the reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
@@ -147,7 +147,7 @@ test("Open a new agent session starts the card with a new agent and shows its th
   assert.deepEqual((await cards())[1].started, "new-agent");
   // Work follows the card to Running, with the thread under it.
   await page
-    .locator("[data-proposal-card=export] .tag", {
+    .locator("[data-proposal-card=export] .card-state", {
       hasText: "Opening a new agent session",
     })
     .waitFor({ timeout: 5000 });

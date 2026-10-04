@@ -1,4 +1,4 @@
-import { $, unreachable } from "#frame/app/util.mjs";
+import { $, plural, unreachable } from "#frame/app/util.mjs";
 import { base, editable, online } from "#frame/app/view.mjs";
 import { openCardNote } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
@@ -70,20 +70,38 @@ const element = (tag, className, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
-// The tag after a card's title and its class: Working in the accent,
-// Waiting for you in green, Done and Declined in grey.
+// A card's state and the tone of its dot: Working in the accent, Waiting
+// for you in green, Done and Declined in grey, and a proposed card, which
+// its tab already names, by its plan with a hollow dot.
 // Work started in a sub-session or with a new agent reads Opening until
 // its session links, and the two look the same after that.
-function cardTag(card, shown) {
+function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.done) return ["Done", "muted"];
-  if (shown.unread.has(card.id)) return ["Agent replied", ""];
-  if (!card.started) return null;
+  if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
+  if (!card.started)
+    return [card.plan ? "Plan ready" : "No plan yet", "hollow"];
   if (card.started.where !== "here" && !card.started.session)
     return card.started.where === "new-agent"
-      ? ["Opening a new agent session", ""]
-      : ["Opening a sub-session", ""];
-  return waits(card, shown) ? ["Waiting for you", "ok"] : ["Working", ""];
+      ? ["Opening a new agent session", "accent"]
+      : ["Opening a sub-session", "accent"];
+  return waits(card, shown) ? ["Waiting for you", "ok"] : ["Working", "accent"];
+}
+// The line under a card's title, here and on Agreed: a dot and a state,
+// then text that an ellipsis cuts short when the line is full.
+export function metaLine(state, tone, rest) {
+  const line = element("div", "card-meta");
+  if (state) {
+    const dot = element("span", "state-dot");
+    dot.dataset.tone = tone;
+    line.append(dot, element("span", "card-state", state));
+  }
+  if (state && rest) line.append(element("span", "", "·"));
+  if (rest) {
+    rest.classList.add("card-rest");
+    line.append(rest);
+  }
+  return line;
 }
 // A link to the session work runs in, which opens in this tab.
 function sessionLink(text, session) {
@@ -114,8 +132,7 @@ function threadLink(text, id) {
         : `${base}/r/${encodeURIComponent(thread.round)}${target}#${thread.topic}`;
   return link;
 }
-// The footer's left side: where the card came from, or for started work
-// where it runs.
+// Where the card came from, or for started work where it runs.
 function cardWhere(card, { needsYou }) {
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
@@ -153,31 +170,54 @@ function cardWhere(card, { needsYou }) {
   }
   return box;
 }
-// A card's plan: when it last changed and the rounds it came from, which
-// pair plan names as one round or a range such as 3-6.
+// A card's plan: its pages, when it last changed and, when it differs, the
+// rounds it came from, which pair plan names as one round or a range such
+// as 3-6.
 export function planLine(plan) {
-  if (!plan) return "No plan yet.";
   const range = plan.rounds.match(/^(\d+)-(\d+)$/);
   const from = range
     ? `from rounds ${range[1]} to ${range[2]}`
     : `from round ${plan.rounds}`;
+  const parts = plan.pages?.length ? [plural(plan.pages.length, "page")] : [];
   // A plan from a linked session names that session's rounds.
-  if (plan.session) return `Plan ${from} of its own session.`;
-  return plan.round
-    ? `Plan updated after round ${plan.round}, ${from}.`
-    : `Plan ${from}.`;
+  if (plan.session) parts.push(`${from} of its own session`);
+  else if (!plan.round) parts.push(from);
+  else {
+    parts.push(`updated after round ${plan.round}`);
+    if (plan.rounds !== plan.round) parts.push(from);
+  }
+  return parts.join(" · ");
 }
-// Open plan shows the plan in this tab, and Download plan saves its file.
-function planLinks(card) {
-  const box = element("span", "proposal-plan-links");
+const icons = {
+  plan: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
+  download:
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+};
+function icon(name) {
+  const box = element("span", "card-icon");
+  box.setAttribute("aria-hidden", "true");
+  box.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;
+  return box;
+}
+// The plan's line: Open shows the plan in this tab, and the download icon
+// saves its file.
+function planRow(card) {
+  const row = element("div", "proposal-plan");
+  const text = element("span", "card-rest");
+  text.append(element("b", "", "Plan"), ` · ${planLine(card.plan)}`);
+  text.title = text.textContent;
   const plan = `${base}/plans/${encodeURIComponent(card.id)}/`;
-  const open = element("a", "", "Open plan");
+  const open = element("a", "proposal-plan-open", "Open");
   open.href = plan;
-  const download = element("a", "", "Download plan");
+  open.setAttribute("aria-label", "Open plan");
+  const download = element("a", "proposal-plan-download");
   download.href = `${plan}download`;
   download.download = `${card.id}-plan.html`;
-  box.append(open, element("span", "proposal-dot", " · "), download);
-  return box;
+  download.title = "Download plan";
+  download.setAttribute("aria-label", "Download plan");
+  download.append(icon("download"));
+  row.append(icon("plan"), text, open, download);
+  return row;
 }
 let failure = "";
 async function act(card, action) {
@@ -206,26 +246,29 @@ function changed(result, follow = null) {
   // A Start can answer the round, which the next status shows.
   void poll();
 }
+// The footer holds only buttons, in one row: Decline or Restore on the
+// left, and Comment and Start on the right.
 function actions(card) {
-  const box = element("span", "proposal-actions");
-  if (!cardsEditable()) return box;
-  const link = (label, run) => {
-    const button = element("button", "link-btn", label);
-    button.type = "button";
-    button.onclick = run;
-    if (box.childElementCount) box.append(element("span", "proposal-dot", "·"));
-    box.append(button);
+  const button = (className, label, run) => {
+    const node = element("button", className, label);
+    node.type = "button";
+    node.onclick = run;
+    return node;
   };
-  if (card.declined) link("Restore", () => act(card, "restore"));
-  else if (!card.started) link("Decline", () => act(card, "decline"));
-  link("Comment", () => openCardNote(card));
-  if (!card.started && !card.declined) {
-    const start = element("button", "btn proposal-start", "Start");
-    start.type = "button";
-    start.onclick = () => openStart(card, (result) => changed(result, card.id));
-    box.append(start);
-  }
-  return box;
+  const left = element("span", "proposal-foot-start");
+  if (card.declined)
+    left.append(button("link-btn", "Restore", () => act(card, "restore")));
+  else if (!card.started)
+    left.append(button("link-btn", "Decline", () => act(card, "decline")));
+  const right = element("span", "proposal-actions");
+  right.append(button("link-btn", "Comment", () => openCardNote(card)));
+  if (!card.started && !card.declined)
+    right.append(
+      button("btn primary proposal-start", "Start", () =>
+        openStart(card, (result) => changed(result, card.id)),
+      ),
+    );
+  return [left, right];
 }
 // One card, the same on Work and in the proposal component.
 export function cardElement(card, shown = context()) {
@@ -233,28 +276,21 @@ export function cardElement(card, shown = context()) {
   root.dataset.proposalCard = card.id;
   const head = element("p", "proposal-title");
   head.append(element("b", "", card.title));
-  const tag = cardTag(card, shown);
-  if (tag) {
-    head.append(element("span", `tag ${tag[1]}`.trim(), tag[0]));
-  }
-  if (card.plan) head.append(element("span", "tag", "Plan"));
+  const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
-  body.append(head, element("p", "proposal-delivers", card.delivers));
-  // Work that started without a plan needs no line saying it has none.
-  if (card.plan || !(card.started || card.declined || card.done))
-    body.append(element("p", "proposal-plan", planLine(card.plan)));
-  const foot = element("div", "proposal-foot");
-  // The plan's links take the place of where the card came from, which
-  // the plan's line names, and follow where started work runs.
-  const where = element("span", "proposal-foot-start");
-  if (!card.plan || card.started) where.append(cardWhere(card, shown));
-  if (card.plan) {
-    if (where.childElementCount)
-      where.append(element("span", "proposal-dot", " · "));
-    where.append(planLinks(card));
+  body.append(
+    head,
+    metaLine(state, tone, cardWhere(card, shown)),
+    element("p", "proposal-delivers", card.delivers),
+  );
+  if (card.plan) body.append(planRow(card));
+  root.append(body);
+  // A card that cannot change has no buttons, and so no footer.
+  if (cardsEditable()) {
+    const foot = element("div", "proposal-foot");
+    foot.append(...actions(card));
+    root.append(foot);
   }
-  foot.append(where, actions(card));
-  root.append(body, foot);
   return root;
 }
 
