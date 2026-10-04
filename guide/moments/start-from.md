@@ -1,6 +1,6 @@
 `pair start --from` created this session for one proposal of the parent
 session, printed below. Do the work on the card, and follow the reviewer's
-message in `<pair_start>` where it asks for something different or more.
+words in `<pair_start>` where they ask for something different or more.
 
 - Build the work in this session's rounds, on a branch of its own, and name
   the branch on the first page. When the proposal has a plan, build from

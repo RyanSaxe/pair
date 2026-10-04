@@ -2,16 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import { hub, pairCli, planData } from "../support/hub.mjs";
+import { hub, literal, pairCli, planData } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
   title,
   delivers: `${title}, delivered.`,
-  changes: "Only talks/q3/.",
   recommend: "sub-session",
-  reason: "It runs apart from this session's rounds.",
-  source: "From the conversation",
 });
 const status = async (directory) =>
   JSON.parse(await fs.readFile(path.join(directory, "status.json"), "utf8"));
@@ -72,17 +69,21 @@ test("pair start --from creates a session for a started proposal, linked both wa
     `Parent    ${a.directory}`,
     "Proposal  deck",
     'Proposal deck, "Build the deck", started in a sub-session by the reviewer.',
-    "May change: Only talks/q3/.",
+    "Delivers: Build the deck, delivered.",
     "Keep the header height.",
   ])
     assert.ok(output.includes(line), `${line} in:\n${output}`);
+  assert.doesNotMatch(output, /May change/);
   // The new session's holder is this agent, and pair status names the
   // parent in the new session and the link in the parent.
   const own = await cli.run("status", "--session-dir", child);
   assert.match(own, /^Next: Publish round 1's Agreed/);
-  assert.match(own, new RegExp(`Parent +${a.directory}, proposal deck`));
+  assert.match(
+    own,
+    new RegExp(`Parent +${literal(a.directory)}, proposal deck`),
+  );
   const theirs = await cli.run("status", "--session-dir", a.directory);
-  assert.match(theirs, new RegExp(`Sub-sessions +deck in ${child}`));
+  assert.match(theirs, new RegExp(`Sub-sessions +deck in ${literal(child)}`));
 });
 
 test("pair start --from refuses a missing --proposal, a directory with no session, an unknown proposal, and one already linked, and creates nothing", async (t) => {

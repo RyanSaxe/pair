@@ -1,21 +1,14 @@
-import { draftedWords, state, unsentItems } from "#frame/app/store.mjs";
 import { $, copyText, unreachable } from "#frame/app/util.mjs";
-import { base, currentAvailable } from "#frame/app/view.mjs";
-import { sendFeedback, submissionError } from "#frame/review/send.mjs";
-import {
-  currentDraft,
-  remote,
-  selectedTab,
-  switchTab,
-} from "#frame/sync/rounds.mjs";
+import { base } from "#frame/app/view.mjs";
+import { remote } from "#frame/sync/rounds.mjs";
 
-/* The Start popup on a proposal's card: what the card delivers and may
-   change, where the work runs and an optional message to the agent. Each
-   choice has its own hint and its own row of buttons, and the hints share
-   one grid cell and the rows another, so the choices, the message box and
-   the button row keep their places whichever choice is selected. Here and
-   In a sub-session start at once. With a new agent copies the command a
-   new agent runs, or asks this session's agent to open one. */
+/* The Start popup on a proposal's card: what the card delivers, where the
+   work runs and an optional message to the agent. Each choice has its own
+   hint and its own row of buttons, and the hints share one grid cell and
+   the rows another, so the choices, the message box and the button row
+   keep their places whichever choice is selected. Here and In a
+   sub-session start at once. With a new agent copies the command a new
+   agent runs, or asks this session's agent to open one. */
 
 let card = null;
 let where = "here";
@@ -34,25 +27,6 @@ function select(choice) {
     part.inert = !part.dataset.startFor.split(" ").includes(choice);
   $("start-message").setAttribute("aria-describedby", `start-hint-${choice}`);
 }
-// Start here or in a sub-session saves a Start that the agent reads with
-// pair read. While Current's round waits for the reviewer, Start first
-// sends what they drafted on it, as Send feedback does, so the agent reads
-// that feedback before the Start. This is that draft, or null.
-function drafted() {
-  if (!remote?.needsYou || !currentAvailable()) return null;
-  const draft = selectedTab === "past" ? currentDraft() : state;
-  return unsentItems(draft).count ? draft : null;
-}
-// The hints for here and a sub-session say when Start sends the drafts.
-function hints() {
-  const draft = drafted();
-  const first = draft
-    ? ` Start first sends your ${draftedWords(draft)} on round ${remote.current.round}, as Send feedback does.`
-    : "";
-  $("start-hint-here").textContent = `Sent to the agent with Start.${first}`;
-  $("start-hint-sub-session").textContent =
-    `Sent to the agent with Start.${first || " This session's round stays open for your feedback."}`;
-}
 // The command a new agent runs to start the card's session.
 const command = () =>
   `pair start --from ${remote.sessionDir} --proposal ${card.id}`;
@@ -61,7 +35,6 @@ export function openStart(proposal, then) {
   after = then;
   $("start-title").textContent = card.title;
   $("start-delivers").textContent = card.delivers;
-  $("start-changes").textContent = card.changes;
   for (const row of rows()) {
     row.disabled = false;
     row.querySelector(".start-recommended").hidden =
@@ -69,7 +42,6 @@ export function openStart(proposal, then) {
   }
   select(card.recommend || "here");
   $("start-message").value = "";
-  hints();
   $("start-error").hidden = true;
   for (const id of ["start-send", "start-copy", "start-open"])
     $(id).disabled = false;
@@ -107,24 +79,6 @@ async function send(action, button) {
   $("start-dialog").close();
   after(result);
 }
-// Start sends the drafts on Current's round first, and sends no Start when
-// they fail to send, so the popup stays open with Send feedback's reason.
-// A reader on Work stays there, as after a Start alone.
-async function start() {
-  const button = $("start-send");
-  button.disabled = true;
-  $("start-error").hidden = true;
-  if (drafted()) {
-    if (selectedTab === "past") switchTab("current", null, { showPage: false });
-    if (!(await sendFeedback({ keepWork: true }))) {
-      $("start-error").textContent = submissionError;
-      $("start-error").hidden = !submissionError;
-      button.disabled = false;
-      return;
-    }
-  }
-  await send("start", button);
-}
 // Copy command copies first, while the click still allows it, then starts
 // the card with a new agent once. The popup stays open, so Open a new agent
 // session is still there.
@@ -157,7 +111,7 @@ export function installStart() {
       select(next.dataset.where);
       next.focus();
     });
-  $("start-send").onclick = start;
+  $("start-send").onclick = () => send("start", $("start-send"));
   $("start-copy").onclick = copy;
   $("start-open").onclick = () => send("open-agent", $("start-open"));
 }

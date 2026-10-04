@@ -86,8 +86,7 @@ async function holder(t) {
       "propose",
       ...dir,
       ...["--id", id, "--title", id, "--delivers", "A fix."],
-      ...["--changes", "One file.", "--recommend", "here"],
-      ...["--reason", "It is small.", "--source", "From the conversation"],
+      ...["--recommend", "here"],
     );
   async function reviewer(id, action, body = {}) {
     const sent = await session.request(

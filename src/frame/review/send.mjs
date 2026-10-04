@@ -133,19 +133,16 @@ async function send(event) {
   return result;
 }
 // Sends Current's draft and leaves Current waiting on Agreed for the next
-// round, or with keepWork on Work when the reader is there, as a Start
-// leaves them. Agreed shows the send while it is in flight, and a failure
-// returns the reader to where they were. It resolves to whether the hub
-// saved the feedback.
-export async function sendFeedback({ keepWork = false } = {}) {
-  if (remote?.openRound || !feedbackEditable()) return false;
-  if (unsentItems(state).count === 0 && !state.alignUnflagged) return false;
+// round. Agreed shows the send while it is in flight, and a failure returns
+// the reader to where they were.
+async function sendFeedback() {
+  if (remote?.openRound || !feedbackEditable()) return;
+  if (unsentItems(state).count === 0 && !state.alignUnflagged) return;
   submissionError = "";
   const origin = {
     page: shownPage(),
     top: scroller().scrollTop,
   };
-  const onWork = keepWork && origin.page === "work";
   submissionInFlight = true;
   review();
   try {
@@ -160,8 +157,7 @@ export async function sendFeedback({ keepWork = false } = {}) {
     if (state.pending?.snapshot !== snapshot)
       state.pending = { snapshot, event: envelope(feedbackText(), groups) };
     persist();
-    switchTab("current", null, { showPage: !onWork });
-    if (onWork) show("work", null, { keepScroll: true, push: false });
+    switchTab("current");
     const result = await send(state.pending.event);
     markSent(state, result.id, new Date().toISOString());
     submissionInFlight = false;
@@ -169,7 +165,6 @@ export async function sendFeedback({ keepWork = false } = {}) {
     setPastRound(plan.round);
     save();
     void loadSubmission().catch(() => {});
-    return true;
   } catch (error) {
     submissionInFlight = false;
     submissionError = submittedCurrent()
@@ -182,7 +177,6 @@ export async function sendFeedback({ keepWork = false } = {}) {
     show(origin.page);
     scroller().scrollTo(0, origin.top);
     review();
-    return false;
   }
 }
 export function installSend() {

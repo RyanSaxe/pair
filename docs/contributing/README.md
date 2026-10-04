@@ -64,8 +64,21 @@ esm.sh or jsDelivr fails the test while that CDN is down.
 
 `npm run screenshots` writes the README's and the docs' PNGs from a demo
 session, in Google Chrome through the same `playwright-core`. It runs on
-macOS, because the frame's text is the system font. Commit the PNGs it
-rewrites, because CI takes no screenshots.
+macOS, because the frame's text is the system font.
+
+The `screenshots` workflow runs it on GitHub's macOS 26 runner for a pull
+request into a branch other than `main` that changes `src/frame/`,
+`src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
+`scripts/demo/`. It pushes the PNGs that the script rewrote to the pull
+request's branch, as a commit by `github-actions[bot]`. The illustration's
+terminal shows IDs that each run creates anew, so every push to such a pull
+request gets one of these commits. Pull it before you push again. GitHub runs
+the checks on that commit only after someone with write access selects
+**Approve workflows to run** on the pull request.
+
+A pull request from a fork gets the run and no commit. For a fork's pull
+request, and for a change elsewhere that alters a screenshot, run
+`npm run screenshots` and commit the PNGs it rewrites.
 
 ## Releasing
 

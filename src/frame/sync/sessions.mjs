@@ -10,6 +10,7 @@ import {
   syncOpened,
 } from "#frame/sync/opened.mjs";
 import { connected, remote } from "#frame/sync/rounds.mjs";
+import { syncSeen } from "#frame/sync/seen.mjs";
 
 let sessions = [];
 // The rows of Sessions, closed parents included, from groupSessions().
@@ -100,7 +101,10 @@ export async function pollSessions() {
   const open = grouped.filter(({ entry }) => !entry.closed);
   sessionOrder = open.map(({ entry }) => entry);
   numbered = open.filter(({ depth }) => !depth).map(({ entry }) => entry);
-  if (fromHub) syncOpened(sessions);
+  if (fromHub) {
+    syncOpened(sessions);
+    syncSeen(sessions);
+  }
   renderSessions();
   renderCenter(listed, fromHub);
   void reviewAlerts.update(sessions);
@@ -394,41 +398,11 @@ export function toggleSessions(open = !isOpen(), focus = false) {
 // Close asks first, in a dialog that says what closing does.
 function confirmClose(entry) {
   $("close-name").textContent = entry.title;
-  $("close-kept").hidden = true;
-  void listKept(entry);
   $("close-confirm").onclick = () => {
     $("close-dialog").close();
     void closeSession(entry);
   };
   $("close-dialog").showModal();
-}
-/* The dialog names each worktree in the session's directory that has
-   uncommitted changes, which closing keeps, once the hub lists them. A
-   list for a session the dialog no longer asks about is dropped. */
-let asking = null;
-async function listKept(entry) {
-  asking = entry.id;
-  try {
-    const response = await fetch(`${entry.url}api/worktrees`);
-    if (!response.ok || asking !== entry.id) return;
-    const { uncommitted } = await response.json();
-    $("close-kept-list").replaceChildren(
-      ...uncommitted.map((directory) => {
-        const item = document.createElement("li");
-        const code = document.createElement("code");
-        code.textContent = directory;
-        item.append(code);
-        return item;
-      }),
-    );
-    $("close-kept-label").textContent =
-      uncommitted.length === 1
-        ? "This worktree has uncommitted changes, so it stays:"
-        : "These worktrees have uncommitted changes, so they stay:";
-    $("close-kept").hidden = !uncommitted.length;
-  } catch {
-    // Without the list, the dialog's text still says which worktrees stay.
-  }
 }
 /* Two round trips, a close and a poll, so the row says it is going before
    either starts. Without it a slow hub looks like a dead control. This

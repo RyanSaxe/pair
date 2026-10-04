@@ -1,1 +1,3 @@
 node_modules/
+# npm run screenshots saves the browser windows of a failed run here.
+screenshots-failure/

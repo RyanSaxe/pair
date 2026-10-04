@@ -8,6 +8,7 @@ import {
   closedText,
   declinedText,
   feedbackText,
+  runningText,
   startText,
   threadIndex,
   threadText,
@@ -44,6 +45,7 @@ export async function read(options) {
         : declined || closed
           ? ""
           : "No submission is waiting.",
+      runningText(result.running),
       declinedText(declined),
       closedText(closed),
       threadIndex(result.threads, result.threadsSince, session.directory),
@@ -190,7 +192,9 @@ const places = {
 function proposalState(card) {
   const plan = card.plan ? ", with a plan" : "";
   if (card.declined) return "declined";
-  if (card.done) return `done ${places[card.started.where]}${plan}`;
+  if (card.withdrawn) return "withdrawn";
+  if (card.done)
+    return `done ${card.done.where ?? places[card.started.where]}${plan}`;
   if (card.started) return `started ${places[card.started.where]}${plan}`;
   return `proposed${plan}`;
 }
@@ -223,17 +227,15 @@ function linkedText(cards = []) {
 
 export async function propose(options) {
   const session = await openSession(options, { anyAgent: true });
-  const fields = ["title", "delivers", "changes", "recommend", "reason"];
+  // The hub checks that each flag goes with the action given.
+  const flags = [
+    "id",
+    ...["title", "delivers", "recommend", "page", "thread", "revise"],
+    ...["start", "quote", "withdraw", "reason", "done", "where", "reopen"],
+  ];
   const result = await session.request({
     action: "propose",
-    id: options.id,
-    ...Object.fromEntries(fields.map((name) => [name, options[name]])),
-    source: options.source,
-    thread: options.thread,
-    page: options.page,
-    revise: options.revise,
-    done: options.done,
-    reopen: options.reopen,
+    ...Object.fromEntries(flags.map((name) => [name, options[name]])),
   });
   const card = result.proposal;
   return {

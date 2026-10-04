@@ -357,6 +357,17 @@ textarea {
   color: var(--ink);
   font-size: var(--text-ui);
 }
+/* iOS Safari zooms the page into a focused field whose text is under
+   16px, so on a touch screen or a narrow window every field is 16px.
+   !important puts the size above any rule that sizes one field, such as a
+   thread's reply box. */
+@media (pointer: coarse), (max-width: 720px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
 :where(main, .sidebar, .pages-slot nav, .app-body) {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;

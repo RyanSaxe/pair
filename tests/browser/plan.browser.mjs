@@ -12,8 +12,9 @@ const pages = [
   { id: "overview", title: "Overview", html: "<p>Twelve slides.</p>" },
   { id: "steps", title: "Steps", html: "<p>Build each slide.</p>" },
 ];
-// A session with round 1 waiting for the reviewer and one proposal with a
-// plan of two pages, attached as pair plan attaches it.
+// A session with round 1 waiting for the reviewer and one proposal from
+// round 1's Overview page with a plan of two pages, attached as pair plan
+// attaches it.
 async function planned(t, title = "Build the deck") {
   const h = await hub(t);
   const session = await h.session();
@@ -22,10 +23,8 @@ async function planned(t, title = "Build the deck") {
     id: "deck",
     title,
     delivers: "Twelve slides on Q3 pricing.",
-    changes: "Only talks/q3/.",
     recommend: "here",
-    reason: "It is one file.",
-    source: "From the conversation",
+    page: "1/overview",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const source = path.join(session.directory, "plans", ".source");
@@ -149,7 +148,7 @@ test("a card with a plan keeps its meta line, plan line and buttons to one row e
   assert.ok(rows.metaTop >= rows.title, "the meta line is under the title");
   assert.deepEqual(
     rows.meta.map(([text]) => text),
-    ["Plan ready", "·", "From the conversation"],
+    ["Plan ready", "·", "From the Overview page"],
   );
   assert.deepEqual(
     rows.foot.map(([text]) => text),

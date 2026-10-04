@@ -7,16 +7,18 @@
 
 ## Pair programming, now that your agent writes the code.
 
-In pair programming, one person drives and the other navigates. Your agent
-drives now, so `pair` puts you in the navigator's seat. You decide what
-matters, question what doesn't add up, and send the agent back when it's off
-course. You finish with a plan you trust and a solution you understand.
+In pair programming, one person drives and the other navigates. Agents write
+most of the code now, so `pair` is built to help you navigate. You read what
+the agent shows you, point at what's wrong, choose between the options it
+lays out, and approve work before it touches your project. You come away
+with decisions you made and code you understand.
 
-**It runs on your machine, inside the agent CLI you already use.**
+**Everything runs on your machine. Your agent works in the CLI you already
+use, and you review its work in your browser.**
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/pair-dark.png">
-  <img alt="pair planning its own threads: code with a line selected, a side-by-side choice of where an answer appears, and a thread the agent answered, beside a phone showing the next round arriving" src="assets/pair-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/illustration-dark.png">
+  <img alt="The agent's terminal beside pair in a browser, with arrows between them: pages go to the browser, feedback comes back to the agent, and a thread goes both ways. The terminal shows the pair commands the agent ran and the feedback it read. The browser shows a page that asks where to retry a charge, and a thread on a selected line of code with the agent's answer." src="assets/illustration-light.png">
 </picture>
 
 ## Get started
@@ -34,34 +36,39 @@ Then, in your project, invoke the `pair` skill with what you want to work on:
 
 > help me understand how this service handles retries
 
-The agent opens the session in your browser, or gives you its link when a
-pair tab is already open.
-[Sessions and rounds](docs/concepts/sessions-and-rounds.md) explains what
-happens there, and [Install](docs/getting-started/install.md) says what each
-agent CLI needs first.
+The agent starts a session and opens it in your browser, or gives you the
+link when a pair tab is already open.
+[Install](docs/getting-started/install.md) says what each agent CLI needs
+first, and [Sessions and rounds](docs/concepts/sessions-and-rounds.md)
+explains what happens next.
 
 ## How it works
 
+<img alt="Working in pair: Explain, Decide, Plan and Build, in any order, each over the loop of every round, in which the agent publishes pages, you review them, and you send feedback. Start leads from that loop to a sub-session beside it, with the same loop of pages and feedback." src="guide/flow.svg">
+
+In a session, the agent explains code, lays out decisions, plans the work
+and builds it, in whatever order the task needs. Every round goes the same
+way: the agent publishes pages, you review them and send feedback, and the
+agent answers with the next round.
+
+On each page, you can select any line or word and comment on it, pick
+between options, or start a thread and get an answer while the agent keeps
+working. The agent changes your project only to do work you approve.
+
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/session-dark.svg">
-  <img alt="A session: you ask, then work through rounds with feedback. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="docs/assets/session-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/work-dark.png">
+  <img alt="Three phone screens, with arrows between them. On the Work page, a proposal to add idempotency keys to charges, with Decline, Comment and Start. Then the Start popup, with In a sub-session chosen and a message to the agent. Then the sub-session, with the agent's pages in progress." src="assets/work-light.png">
 </picture>
 
-A session is a series of rounds. In each round the agent publishes pages and
-you respond: choose, comment, send feedback, or start a thread for an answer
-right away. The agent records the work it thinks is worth doing as
-proposals, and changes your project only when you start one or tell it to.
-Work you start runs in the same session, or in a sub-session you can move
-to and from, and a session runs until you close it.
+When the agent sees work worth doing, it proposes it on the Work page, and
+nothing happens until you approve it, with Start or in your own words. On these phone screens, you
+send a proposal to a sub-session beside the one you're in, and watch the
+agent's progress there.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
-  <img alt="What runs where: your agent CLI, the pair hub on your machine, and your browser" src="docs/assets/architecture-light.svg">
-</picture>
-
-Your agent runs `pair` commands in its own shell. The `pair` hub, on your
-machine, serves the pages to your browser and wakes the agent when you
-respond. [Concepts](docs/concepts/) explains each part in more depth.
+Your agent runs `pair` commands in its own shell. A small hub on your machine
+serves the pages to your browser and wakes the agent when you send feedback.
+[Architecture](docs/concepts/architecture.md) shows what runs where, and
+[Concepts](docs/concepts/) explains each part.
 
 ## Documentation
 

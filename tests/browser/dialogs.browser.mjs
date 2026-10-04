@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { open } from "../support/browser.mjs";
+import { open, stubMermaid } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
 const sentence =
@@ -21,10 +21,7 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     id: "queue",
     title: clip(sentence, 80),
     delivers: clip(sentence, 400),
-    changes: clip(sentence, 400),
     recommend: "here",
-    reason: clip(sentence, 400),
-    source: "From the conversation",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
@@ -80,9 +77,7 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
 
   await page.locator("#menu-button").click();
   await page.locator(`[data-key="close:${session.id}"]:visible`).click();
-  await check("close-dialog", {
-    buttons: ["#close-dialog .actions [data-close]", "#close-confirm"],
-  });
+  await check("close-dialog", { buttons: ["#close-confirm"] });
   await close("close-dialog");
 
   await page.evaluate(() => {
@@ -93,7 +88,9 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
   });
   // The frame reads the selection on selectionchange, which the browser
   // fires after this call returns. Until then, c comments on the page.
-  await page.getByRole("button", { name: "Comment", exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Comment on selection", exact: true })
+    .waitFor();
   await page.keyboard.press("c");
   await page.locator("#note-quote").waitFor();
   await check("note-dialog", {
@@ -111,4 +108,93 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     buttons: ["#start-copy", "#start-open"],
   });
   await close("start-dialog");
+});
+
+// Every dialog backs out the same way: its ×, Escape, or a tap outside,
+// which takes the press and the release both on the backdrop. A drag that
+// starts inside, such as selecting a field's text or a heading's, and ends
+// outside leaves the dialog open.
+test("every dialog closes on its ×, on Escape and on a tap outside, and stays open through a drag that ends outside", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const plan = planData();
+  plan.pages[0].html = `<p>Preserve one result per input.</p>
+<div data-diagram>flowchart LR
+  A --> B</div>
+<section class="drawing-question" data-drawing-question="layout" data-label="Layout">
+  <h3>Sketch the layout</h3>
+  <div class="drawing-stage"><div class="drawing-canvas"><img class="drawing-preview" alt="Saved drawing" hidden /></div><button class="btn" type="button" data-draw>Draw your answer</button></div>
+  <p class="renderer-error" data-drawing-error role="status" hidden></p>
+</section>`;
+  assert.equal((await session.publish(plan)).code, 200);
+  const proposed = await session.action("propose", {
+    id: "queue",
+    title: "Queue the exports",
+    delivers: "One export at a time.",
+    recommend: "here",
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const page = await open(t, "about:blank", {
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+  });
+  if (!page) return;
+  await stubMermaid(page);
+  // The drawing editor loads Excalidraw from esm.sh, and its head works
+  // without it.
+  await page.route(/esm\.sh/, (route) => route.abort());
+  await page.goto(`${h.server.origin}${session.base}/#overview`);
+  await page.locator("[data-diagram] svg").waitFor();
+
+  const isOpen = (id) =>
+    page.locator(`#${id}`).evaluate((dialog) => dialog.open);
+  async function backOut(id, open, press = `#${id} h2`) {
+    const dialog = page.locator(`#${id}`);
+    const shut = () => dialog.waitFor({ state: "hidden" });
+    await open();
+    await dialog.waitFor();
+    const from = await page.locator(press).boundingBox();
+    await page.mouse.move(from.x + 4, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(5, 5, { steps: 4 });
+    await page.mouse.up();
+    assert.equal(await isOpen(id), true, `${id} after a drag out`);
+    await page.touchscreen.tap(5, 5);
+    await shut();
+
+    await open();
+    await dialog.waitFor();
+    await page.keyboard.press("Escape");
+    await shut();
+
+    await open();
+    await dialog.waitFor();
+    await dialog.locator("[data-close]").click();
+    await shut();
+  }
+
+  await backOut("settings-dialog", () => page.locator("#settings").click());
+  await backOut("keys-dialog", () => page.keyboard.press("?"));
+  await backOut("round-dialog", () => page.locator("#round").click());
+  await backOut("close-dialog", async () => {
+    await page.locator("#menu-button").click();
+    await page.locator(`[data-key="close:${session.id}"]:visible`).click();
+  });
+  await backOut(
+    "note-dialog",
+    () => page.locator("#comment-here").click(),
+    "#note-text",
+  );
+  await backOut("drawing-dialog", () => page.locator("[data-draw]").click());
+  await backOut(
+    "diagram-dialog",
+    () => page.locator("[data-diagram] svg").click(),
+    "#diagram-dialog .lightbox-view",
+  );
+  await page.goto(`${h.server.origin}${session.base}/#work`);
+  await backOut(
+    "start-dialog",
+    () => page.locator("[data-proposal-card=queue] .proposal-start").click(),
+    "#start-message",
+  );
 });

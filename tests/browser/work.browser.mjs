@@ -7,22 +7,19 @@ const card = (id, title) => ({
   id,
   title,
   delivers: `${title}, delivered.`,
-  changes: "One file.",
   recommend: "here",
-  reason: "It is small.",
-  source: "From the conversation",
 });
-// A session with round 1 waiting for the reviewer and two proposals, open
-// on Work.
+// A session with round 1 waiting for the reviewer and two proposals, the
+// first from round 1's Overview page, open on Work.
 async function work(t) {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(planData())).code, 200);
-  for (const [id, title] of [
-    ["deck", "Build the deck"],
+  for (const [id, title, page] of [
+    ["deck", "Build the deck", "1/overview"],
     ["export", "Refresh the export"],
   ]) {
-    const added = await session.action("propose", card(id, title));
+    const added = await session.action("propose", { ...card(id, title), page });
     assert.equal(added.code, 200, added.body.error);
   }
   const page = await open(t, `${h.server.origin}${session.base}/#work`);
@@ -65,9 +62,21 @@ test("Start sends where the work runs and the message, and the running card quot
     needs: null,
     proposed: ["2", "2 proposed"],
   });
+  // The line under the card's title names the page the card came from and
+  // links to it.
+  const from = page.locator("[data-proposal-card=deck] .card-meta a");
+  assert.equal(await from.textContent(), "From the Overview page");
+  assert.equal(await from.getAttribute("href"), "#overview");
   await page.locator("[data-proposal-card=deck] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
+  // The popup shows what the card delivers under its title, with no field
+  // labels.
+  assert.equal(
+    await dialog.locator("#start-delivers").textContent(),
+    "Build the deck, delivered.",
+  );
+  assert.doesNotMatch(await dialog.textContent(), /Delivers|May change/);
   assert.equal(
     await dialog.locator("[data-where=here]").getAttribute("aria-checked"),
     "true",
@@ -94,89 +103,59 @@ test("Start sends where the work runs and the message, and the running card quot
       .textContent(),
     "“Keep the header height.”",
   );
-  // The Start answered the round, and the reader stays on Work.
+  // The reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
 });
 
-// Round 1 waits for the reviewer, who picked an option and wrote a note on
-// its page, and the Start popup of a proposal is open.
-async function startWithDrafts(t) {
-  const h = await hub(t);
-  const session = await h.session();
-  const published = await session.publish({
-    ...planData(),
-    pages: [
-      {
-        id: "overview",
-        title: "Overview",
-        html: `<section class="decision" data-choice="retry" data-label="Retry policy"><h3>How should a failed charge retry?</h3><button class="decision-option" type="button" data-value="backoff" data-label="Back off">Back off</button><button class="decision-option" type="button" data-value="once" data-label="Once">Once</button></section>`,
-      },
-    ],
-  });
-  assert.equal(published.code, 200, published.body.error);
-  const added = await session.action("propose", card("deck", "Build the deck"));
-  assert.equal(added.code, 200, added.body.error);
-  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
-  if (!page) return {};
-  await page.locator("[data-choice=retry] [data-value=once]").click();
-  await page.locator("#comment-page").click();
+// Only Send feedback answers a round. With round 1 waiting and a note
+// drafted on it, the reviewer starts two cards here: the round still waits,
+// the agent reads each Start, and the note is still a draft on Review.
+test("Start here leaves the waiting round open with its drafts, so a second card can start", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator("#comment-here").click();
   await page.locator("#note-text").fill("Keep the header height.");
   await page.getByRole("button", { name: "Add to feedback" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await page.locator("#work-row").click();
-  await page.locator("[data-proposal-card=deck] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
-  await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
-  return { session, page, dialog };
-}
-
-test("Start sends the round's drafts as its feedback, which the agent reads before the Start", async (t) => {
-  const { session, page, dialog } = await startWithDrafts(t);
-  if (!page) return;
-  await dialog.locator("#start-send").click();
-  await dialog.waitFor({ state: "hidden" });
-  assert.equal(new URL(page.url()).hash, "#work");
-  const feedback = (await session.action("read")).body.event.payload;
-  assert.equal(feedback.intent, "feedback-only");
-  assert.equal(feedback.round, "1");
-  assert.deepEqual(
-    feedback.groups.notes.map((note) => note.text),
-    ["Keep the header height."],
-  );
-  assert.equal(feedback.groups.choices["overview/retry"].value, "once");
-  const start = (await session.action("read")).body.event.payload;
-  assert.equal(start.intent, "start");
-  assert.equal(start.proposal, "deck");
-  // Send feedback is enabled again once round 2 arrives, and round 2's
-  // Review has none of round 1's drafts.
-  assert.equal((await session.publish(planData("2"))).code, 200);
-  await page.locator("#submit:not([disabled])").waitFor({ timeout: 8000 });
+  for (const id of ["deck", "export"]) {
+    await tab("proposed").click();
+    await page.locator(`[data-proposal-card=${id}] .proposal-start`).click();
+    await dialog.locator("#start-send").click();
+    await dialog.waitFor({ state: "hidden" });
+    assert.equal((await session.status()).body.needsYou, true);
+    const read = (await session.action("read")).body;
+    assert.equal(read.moment, "read-start-here");
+    assert.equal(read.event.payload.proposal, id);
+    assert.equal((await session.status()).body.needsYou, true);
+  }
+  // Both cards run here, and neither needs the reviewer while the round
+  // waits.
+  await tab("running").locator(".work-count", { hasText: "2" }).waitFor();
+  assert.equal(await tab("needs").locator(".work-count").textContent(), "0");
+  await tab("running").click();
+  for (const id of ["deck", "export"])
+    assert.equal(
+      await page.locator(`[data-proposal-card=${id}] .card-meta`).textContent(),
+      "Working here",
+    );
   await page.locator("#review-row").click();
-  await page.locator("#feedback").waitFor();
-  assert.equal(await page.locator("#draft-head").isHidden(), true);
-  assert.equal(
-    await page.locator("#feedback-groups").evaluate((node) => node.innerHTML),
-    "",
+  await page
+    .locator("#feedback-groups", { hasText: "Keep the header height." })
+    .waitFor();
+  assert.equal(await page.locator("#submit").isEnabled(), true);
+  // A card names no round, done or not.
+  const done = await session.action("propose", { id: "deck", done: true });
+  assert.equal(done.code, 200, done.body.error);
+  await page.locator("#work-row").click();
+  await tab("done").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("done").click();
+  assert.doesNotMatch(
+    await page.locator("[data-proposal-card=deck] .card-meta").textContent(),
+    /round/i,
   );
-});
-
-test("Start sends no Start when the round's feedback fails to send", async (t) => {
-  const { session, page, dialog } = await startWithDrafts(t);
-  if (!page) return;
-  await page.route("**/api/feedback", (route) =>
-    route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({ error: "The disk is full." }),
-    }),
-  );
-  await dialog.locator("[data-where=sub-session]").click();
-  await dialog.locator("#start-send").click();
-  await dialog
-    .locator("#start-error", { hasText: "The disk is full." })
-    .waitFor({ timeout: 5000 });
-  assert.equal(await dialog.isVisible(), true);
-  assert.equal((await session.status()).body.proposals[0].started, null);
 });
 
 // The choices, the message box and the button row keep their places
@@ -189,7 +168,6 @@ test("the Start popup keeps one size and one row of buttons", async (t) => {
     ...card("flow", "Redraw the example flow diagram for the fluid model"),
     delivers:
       "guide/flow.svg and its copy in the test fixture drawing rounds, proposals, Start and closing, with no Accept or offers.",
-    changes: "guide/flow.svg and tests/fixture/p-figures.html.",
     recommend: "sub-session",
   });
   assert.equal(added.code, 200, added.body.error);
@@ -288,6 +266,149 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
     .click();
   await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
   assert.equal((await cards())[1].declined, false);
+});
+
+// The agent starts a card when the reviewer asks for the work in their own
+// words. The card quotes them, links to where they wrote them, and has no
+// button that stops the work.
+test("a card started on the reviewer's words quotes them and links to where they wrote them", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const started = await session.action("propose", {
+    id: "deck",
+    start: "here",
+    quote: "Build the deck now.\nKeep the header height.",
+    page: "1/overview",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  await tab("running").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("running").click();
+  const card = page.locator("[data-proposal-card=deck]");
+  await card.waitFor();
+  assert.equal(await card.locator(".card-meta").textContent(), "Working here");
+  const lead = card.locator(".proposal-lead");
+  assert.equal(
+    await lead.textContent(),
+    "Started from your words on the Overview page",
+  );
+  assert.equal(await lead.locator("a").getAttribute("href"), "#overview");
+  assert.equal(
+    await card.locator(".proposal-message").innerText(),
+    "“Build the deck now.\nKeep the header height.”",
+  );
+  assert.deepEqual(
+    await card.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
+});
+
+// A withdrawn card is in Done with the agent's reason, and Restore puts it
+// back in Proposed. A card done somewhere else says where.
+test("a withdrawn card shows the agent's reason and Restore brings it back, and a card done elsewhere says where", async (t) => {
+  const { session, page, tab, cards } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const reason = "The deck moved to the board template.";
+  for (const change of [
+    { id: "deck", withdraw: true, reason },
+    { id: "export", done: true, where: "in #86" },
+  ]) {
+    const changed = await session.action("propose", change);
+    assert.equal(changed.code, 200, changed.body.error);
+  }
+  await tab("done").locator(".work-count", { hasText: "2" }).waitFor();
+  await tab("done").click();
+  const deck = page.locator("[data-proposal-card=deck]");
+  await deck.waitFor();
+  assert.equal(
+    await deck.locator(".card-meta").textContent(),
+    "Withdrawn·From the Overview page",
+  );
+  assert.equal(
+    await deck.locator(".proposal-reason").textContent(),
+    `The agent's reason: ${reason}`,
+  );
+  const exported = page.locator("[data-proposal-card=export]");
+  assert.equal(
+    await exported.locator(".card-meta").textContent(),
+    "Done·in #86",
+  );
+  assert.deepEqual(
+    await exported.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
+  await deck.locator(".link-btn", { hasText: "Restore" }).click();
+  await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
+  assert.equal((await session.status()).body.proposals[0].withdrawn, null);
+  assert.deepEqual(
+    (await cards()).map(({ id, declined }) => [id, declined]),
+    [
+      ["deck", false],
+      ["export", false],
+    ],
+  );
+});
+
+// A card reads New, with the sidebar's New label, until Work has shown it
+// on screen. A page's proposal component shows the label too but does not
+// count, and a card in Done never reads New.
+test("a card reads New until Work shows it", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const data = planData();
+  data.pages[0].html +=
+    '<div class="proposal" data-proposal="fresh" data-kind="proposal"><p><b>Fresh</b></p><p>Fresh work.</p></div>';
+  assert.equal((await session.publish(data)).code, 200);
+  const record = async (fields) => {
+    const added = await session.action("propose", fields);
+    assert.equal(added.code, 200, added.body.error);
+  };
+  // A card recorded before this browser first loaded the session is not
+  // new to it.
+  await record(card("deck", "Build the deck"));
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  await page
+    .locator("#work-row[aria-label='Work, 1 proposed']")
+    .waitFor({ timeout: 8000 });
+  await record(card("fresh", "Fresh work"));
+  const label = (where) =>
+    page.locator(`${where} [data-proposal-card=fresh] .page-new`);
+  await label("#page-content").waitFor({ timeout: 8000 });
+  assert.equal(await label("#page-content").textContent(), "New");
+  await record(card("gone", "Gone work"));
+  await record({ id: "gone", withdraw: true, reason: "Not needed." });
+
+  await page.locator("#work-row").click();
+  await label("#work-cards").waitFor();
+  assert.equal(
+    await page
+      .locator("#work-cards [data-proposal-card=deck] .page-new")
+      .count(),
+    0,
+  );
+  // Work records the card in this browser's storage once it is on screen.
+  await page.waitForFunction(() =>
+    (JSON.parse(localStorage.getItem("pair:cards:seen")) || []).some((key) =>
+      key.endsWith("/fresh"),
+    ),
+  );
+  // A card in Done never reads New, and the others keep the label while
+  // Work stays on screen.
+  await page.locator("#work-tab-done").click();
+  await page.locator("#work-cards [data-proposal-card=gone]").waitFor();
+  assert.equal(await page.locator("#work-cards .page-new").count(), 0);
+  await page.locator("#work-tab-proposed").click();
+  await label("#work-cards").waitFor();
+
+  // Once Work has shown it, the card reads New nowhere.
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator("#page-content .proposal-card").waitFor();
+  assert.equal(await label("#page-content").count(), 0);
+  await page.locator("#work-row").click();
+  await page.locator("#work-cards [data-proposal-card=fresh]").waitFor();
+  assert.equal(await label("#work-cards").count(), 0);
 });
 
 test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {

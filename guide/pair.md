@@ -11,17 +11,18 @@ finished work against, and put the details the reviewer settles within it
 into that alignment rather than into new ones. Merge, rewrite and retire
 alignments as the reviewer's feedback changes them.
 
-Change the reviewer's project only to do work the reviewer started from a
-proposal. When they ask for a change in a note, a thread or the chat,
-record it with `pair propose` so they can start it. A request about work
-already started is part of that work.
+Change the reviewer's project only to do work started through a proposal.
+When the reviewer asks for work in a note, a thread or the chat, record a
+proposal for it, or use one that covers it, and start it with
+`pair propose --start`, quoting their words. A request about work already
+started is part of that work.
 
 Before work starts, research, plan and try changes in a git worktree inside
 the session's directory, which `pair start` prints, or in a plain directory
-there when the project is not a git repository. When the reviewer closes
-the session, the hub removes each of those worktrees that has no
-uncommitted changes and keeps every branch, so commit there anything you
-need later.
+there when the project is not a git repository. Closing the session deletes
+nothing. Once the work you tried in a worktree is done or declined, offer to
+remove the worktrees you made, with a proposal or a question on a page, and
+remove them only when the reviewer starts that proposal or answers yes.
 When a `pair` command prints that the session is complete, stop working on
 the session.
 
@@ -106,14 +107,18 @@ reviewer saw, in the before-after component.
 
 ## Proposals
 
-A proposal is work you suggest and the reviewer starts. Record one with
+A proposal is a card that tracks a piece of work, which the reviewer starts
+with Start or in their own words. Record one with
 `pair propose` as soon as you see work worth doing, including the work the
 task itself calls for, and run `pair guide proposals.md` before the first
 one for its commands. Say in a sentence or two what the work delivers, and
 recommend where it should run.
 
 Show a proposal on the page where it came up, with the proposal component,
-so the reviewer can start it from there. When `pair read` prints that the
+so the reviewer can start it from there. Withdraw a proposal that no longer
+applies, with your reason. When a proposal's work got done some other way,
+mark it done and say where. When started work takes in another proposal,
+join that proposal into the started one. When `pair read` prints that the
 reviewer declined a proposal, drop it and do not propose it again. When it
 prints that a linked session closed, treat that work as finished and build
 on its result.
@@ -142,7 +147,8 @@ the reviewer can judge it, so they can redirect you while you build the
 rest. Where the plan leaves something open, decide, keep building, and say
 on the next page what you decided and why. Fix what the work needs as you
 find it, and say on its pages what you changed beyond the card. Propose
-separately only work that stands apart from it. When the work is done, its last page explains it well enough that whoever
+separately only work that stands apart from it.
+When the work is done, its last page explains it well enough that whoever
 owns it can review it and keep it. For work started in this session, run
 `pair propose --done` after you publish that page.
 

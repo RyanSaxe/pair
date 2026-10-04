@@ -5,16 +5,19 @@ import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
 import { pageData } from "../../../src/shared/records.mjs";
-import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+import {
+  hub,
+  literal,
+  planData,
+  sleep,
+  waitUntil,
+} from "../../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
   title,
   delivers: `${title}, delivered.`,
-  changes: "Only talks/q3/.",
   recommend: "new-agent",
-  reason: "It runs apart from this session's rounds.",
-  source: "From the conversation",
 });
 // A parent session with round 1 waiting for the reviewer and two cards.
 // reviewer posts a card's route from the browser, and link registers a new
@@ -81,7 +84,7 @@ test("Open a new agent session starts the card with a new agent and asks the hol
   assert.equal(read.body.moment, "read-open-agent");
   assert.match(
     read.body.next,
-    new RegExp(`pair start --from ${a.directory} --proposal deck`),
+    new RegExp(`pair start --from ${literal(a.directory)} --proposal deck`),
   );
   // Once the new agent's session links, the thread is an ordinary one.
   await link("deck");
@@ -152,6 +155,11 @@ test("closing a linked session marks its card done once with no wake, and a clos
   const wakes = a.inbox.wakes.length;
   assert.equal((await close(deck)).code, 200);
   assert.equal((await cardOf("deck")).done.by, "close");
+  // --reopen undoes only the agent's own --done.
+  assert.equal(
+    (await a.action("propose", { id: "deck", reopen: true })).code,
+    409,
+  );
   await sleep(100);
   assert.equal(a.inbox.wakes.length, wakes, "no wake for a close");
   // The parent's next pair read reports the close, and the one after it

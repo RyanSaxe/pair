@@ -99,23 +99,33 @@ const places = {
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
-// A started card, which is the agent's own text, then the reviewer's message
-// with Start, when there is one.
+// The reviewer's words that started the card, or their message with
+// Start, when there is one, with where they wrote the words.
+function startMessage(card, started, submission) {
+  const text = started.quote ?? started.message;
+  if (!text) return [];
+  const { page } = started;
+  return [
+    tag(
+      "pair_start",
+      {
+        submission,
+        proposal: card.id,
+        where: started.where,
+        thread: started.thread,
+        page: page && `${page.round}/${page.id}`,
+      },
+      [reviewerLine, tagText(text)].join("\n"),
+      true,
+    ),
+  ];
+}
+// A started card, which is the agent's own text, then the reviewer's words.
 function startedText(card, started, submission) {
   return [
-    `Proposal ${card.id}, "${card.title}", started ${places[started.where]} by the reviewer.`,
+    `Proposal ${card.id}, "${card.title}", started ${places[started.where]} ${started.by === "words" ? "on the reviewer's words" : "by the reviewer"}.`,
     `Delivers: ${card.delivers}`,
-    `May change: ${card.changes}`,
-    ...(started.message
-      ? [
-          tag(
-            "pair_start",
-            { submission, proposal: card.id, where: started.where },
-            [reviewerLine, tagText(started.message)].join("\n"),
-            true,
-          ),
-        ]
-      : []),
+    ...startMessage(card, started, submission),
   ].join("\n");
 }
 // A Start that pair read prints.
@@ -123,6 +133,20 @@ export const startText = (event, card) =>
   startedText(card, event.payload, event.id);
 // The card a session that pair start --from created runs.
 export const proposalText = (card) => startedText(card, card.started);
+
+// Each proposal started here that is not done, with the reviewer's words
+// that started it, which pair read prints after a submission.
+export function runningText(cards) {
+  if (!cards?.length) return "";
+  const width = Math.max(...cards.map((card) => card.id.length));
+  return [
+    "Proposals started here that are not done:",
+    ...cards.flatMap((card) => [
+      `  ${card.id.padEnd(width)}  ${card.title}`,
+      ...startMessage(card, card.started),
+    ]),
+  ].join("\n");
+}
 
 // Each proposal the reviewer declined since the last pair read.
 export function declinedText(cards) {

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { buildPage } from "../../src/cli/build.mjs";
 import { open } from "../../tests/support/browser.mjs";
 import { hub } from "../../tests/support/hub.mjs";
+import { watch } from "./failure.mjs";
 
 const demo = fileURLToPath(new URL("../demo/", import.meta.url));
 const themes = ["light", "dark"];
@@ -206,8 +207,14 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
 }
 
 // Selects the words in the page's content, as a reader's drag does, and
-// waits for the frame's Comment button above them.
+// waits for the comment control to name the selection. A saved note redraws
+// the page, and Shiki then replaces each code block's text, which empties a
+// selection made in the block before then, so select waits for the page's
+// figures first. Chrome fires no selectionchange for that emptying, and the
+// control would keep naming the lost words, so the wait also checks the
+// selected range.
 export async function select(page, words) {
+  await ready(page);
   await page.evaluate((words) => {
     const content = document.getElementById("page-content");
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
@@ -234,12 +241,16 @@ export async function select(page, words) {
   await until(
     page,
     `Selecting "${words}"`,
-    () => document.getElementById("comment-here").dataset.on === "selection",
+    (words) =>
+      getSelection().rangeCount === 1 &&
+      getSelection().getRangeAt(0).toString() === words &&
+      document.getElementById("comment-here").dataset.on === "selection",
+    words,
   );
 }
 
-// Opens the note dialog from the Comment button beside the selection or
-// the chosen block, and types a note.
+// Opens the note dialog from the comment control, which names the selection
+// or the chosen block, and types a note.
 export async function writeNote(page, text) {
   await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
@@ -305,10 +316,10 @@ export async function stage(t, scratch) {
   // Round 1: the reviewer chooses where a thread starts and notes what a
   // reply holds.
   await publish(session, await loadRound(1), sent);
-  const page = await open(t, url, {
-    viewport: desktop,
-    deviceScaleFactor: 2,
-  });
+  const page = watch(
+    await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
+    "demo",
+  );
   await load(page, url, "overview");
   // The bell's first poll marks every event it finds as seen, so the
   // second session starts after it.
@@ -337,7 +348,7 @@ export async function stage(t, scratch) {
     page,
     "Commenting on the decision",
     () =>
-      document.querySelector("#comment-here span").textContent ===
+      document.getElementById("comment-here").getAttribute("aria-label") ===
       "Comment on this decision",
   );
   await writeNote(page, "Does the agent stop what it's doing to answer?");

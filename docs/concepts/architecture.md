@@ -84,7 +84,10 @@ A [thread](threads.md) wakes the holder too, once for each message, naming
 the `pair read --thread` command that prints it. It does so even while the
 session is paused, because you are waiting for the answer. Starting a
 [proposal](proposals-and-work.md) here or in a sub-session wakes the holder
-with your message, unless the session is paused. Declining a proposal and
+with your message, unless the session is paused. When an agent starts a
+proposal on your words with `pair propose --start`, the hub wakes the
+holder only if another agent ran the command, because the holder's own
+output names `pair read` as its next step. Declining a proposal and
 closing a linked session wake no one, and the holder's next `pair read`
 prints them.
 
@@ -113,10 +116,9 @@ sessions/<dir>/      the directory name is not the session ID
 ```
 
 The agent's scratch git worktrees are inside the session's directory too.
-Closing the session removes each one with `git worktree remove`, without
-`--force`, and keeps its branch. Git refuses to remove a worktree with
-modified or untracked files, so that worktree stays, and the hub's log names
-it with git's reason.
+The hub deletes nothing when a session closes. The agent removes the
+worktrees it made only after the reviewer starts its proposal to remove them
+or answers yes to its question on a page.
 
 Sessions from interactive-plan, `pair`'s predecessor, stay under
 `~/.local/state/interactive-plan/`. Start a new session instead of resuming
