@@ -143,23 +143,14 @@
   font-size: var(--text-meta);
   line-height: 1.6;
 }
-/* The Start popup. The card sits a little closer under the title than a
-   dialog's body usually does. */
+/* The Start popup. What the card delivers sits a little closer under the
+   title than a dialog's body usually does. */
 .dialog.start .dialog-head {
   margin-bottom: 12px;
 }
-.start-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 4px 12px;
+.start-delivers {
   margin: 0 0 14px;
   font-size: var(--text-small);
-}
-.start-card dt {
-  color: var(--muted);
-}
-.start-card dd {
-  margin: 0;
 }
 .start-choices .dialog-row {
   align-items: start;

@@ -98,9 +98,9 @@ reviewer saw, in the before-after component.
 A proposal is work you suggest and the reviewer decides on. Record one with
 `pair propose` as soon as you see work worth doing, including the work the
 task itself calls for, and run `pair guide proposals.md` before the first
-one for its commands. Say exactly what it delivers and what it may change,
-because starting it approves only that. Recommend where it should run and
-whether it needs a plan first, with your reason.
+one for its commands. Say exactly what it delivers, because starting it
+approves only that. Recommend where it should run and whether it needs a
+plan first.
 
 Show a proposal on the page where it came up, with the proposal component,
 so the reviewer can start it from there. When `pair read` prints that the
@@ -128,8 +128,7 @@ as soon as the reviewer can judge it, so they can redirect you while you
 build the rest. When the plan leaves something open, decide in line with
 the plan, keep building, and say on the next page what you decided and why.
 Fix a problem you find while building only when the approved result needs
-the fix and the proposal allows that change, say so on the next page, and
-propose anything else.
+the fix, say so on the next page, and propose anything else.
 When the work is done, its last page explains it well enough that whoever
 owns it can review it and keep it. For work started in this session, run
 `pair propose --done` after you publish that page.

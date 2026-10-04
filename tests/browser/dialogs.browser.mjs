@@ -21,10 +21,7 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     id: "queue",
     title: clip(sentence, 80),
     delivers: clip(sentence, 400),
-    changes: clip(sentence, 400),
     recommend: "here",
-    reason: clip(sentence, 400),
-    source: "From the conversation",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const page = await open(t, `${h.server.origin}${session.base}/#overview`, {

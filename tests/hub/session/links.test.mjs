@@ -11,10 +11,7 @@ const card = (id, title) => ({
   id,
   title,
   delivers: `${title}, delivered.`,
-  changes: "Only talks/q3/.",
   recommend: "new-agent",
-  reason: "It runs apart from this session's rounds.",
-  source: "From the conversation",
 });
 // A parent session with round 1 waiting for the reviewer and two cards.
 // reviewer posts a card's route from the browser, and link registers a new

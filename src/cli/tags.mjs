@@ -117,7 +117,6 @@ function startedText(card, started, submission) {
   return [
     `Proposal ${card.id}, "${card.title}", started ${places[started.where]} by the reviewer.`,
     `Delivers: ${card.delivers}`,
-    `May change: ${card.changes}`,
     ...startMessage(card, started, submission),
   ].join("\n");
 }

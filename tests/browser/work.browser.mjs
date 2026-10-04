@@ -7,22 +7,19 @@ const card = (id, title) => ({
   id,
   title,
   delivers: `${title}, delivered.`,
-  changes: "One file.",
   recommend: "here",
-  reason: "It is small.",
-  source: "From the conversation",
 });
-// A session with round 1 waiting for the reviewer and two proposals, open
-// on Work.
+// A session with round 1 waiting for the reviewer and two proposals, the
+// first from round 1's Overview page, open on Work.
 async function work(t) {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(planData())).code, 200);
-  for (const [id, title] of [
-    ["deck", "Build the deck"],
+  for (const [id, title, page] of [
+    ["deck", "Build the deck", "1/overview"],
     ["export", "Refresh the export"],
   ]) {
-    const added = await session.action("propose", card(id, title));
+    const added = await session.action("propose", { ...card(id, title), page });
     assert.equal(added.code, 200, added.body.error);
   }
   const page = await open(t, `${h.server.origin}${session.base}/#work`);
@@ -65,9 +62,21 @@ test("Start sends where the work runs and the message, and the running card quot
     needs: null,
     proposed: ["2", "2 proposed"],
   });
+  // The line under the card's title names the page the card came from and
+  // links to it.
+  const from = page.locator("[data-proposal-card=deck] .card-meta a");
+  assert.equal(await from.textContent(), "From the Overview page");
+  assert.equal(await from.getAttribute("href"), "#overview");
   await page.locator("[data-proposal-card=deck] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
+  // The popup shows what the card delivers under its title, with no field
+  // labels.
+  assert.equal(
+    await dialog.locator("#start-delivers").textContent(),
+    "Build the deck, delivered.",
+  );
+  assert.doesNotMatch(await dialog.textContent(), /Delivers|May change/);
   assert.equal(
     await dialog.locator("[data-where=here]").getAttribute("aria-checked"),
     "true",
@@ -159,7 +168,6 @@ test("the Start popup keeps one size and one row of buttons", async (t) => {
     ...card("flow", "Redraw the example flow diagram for the fluid model"),
     delivers:
       "guide/flow.svg and its copy in the test fixture drawing rounds, proposals, Start and closing, with no Accept or offers.",
-    changes: "guide/flow.svg and tests/fixture/p-figures.html.",
     recommend: "sub-session",
   });
   assert.equal(added.code, 200, added.body.error);

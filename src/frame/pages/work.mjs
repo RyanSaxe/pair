@@ -125,6 +125,14 @@ function pageLink(text, round, id) {
   } else link.href = `${base}/r/${encodeURIComponent(round)}#${id}`;
   return link;
 }
+// The page a card came up on, by the title the hub recorded with the card.
+// A card recorded before the hub kept the title reads From a page.
+const fromPage = ({ id, title }) =>
+  id === "agreed"
+    ? "From Agreed so far"
+    : title
+      ? `From the ${title} page`
+      : "From a page";
 function threadLink(text, id) {
   const thread = remote?.threads?.find((item) => item.id === id);
   if (!thread) return element("span", "", text);
@@ -151,14 +159,11 @@ function cardWhere(card) {
       box.append("In its own session · ", sessionLink("Open", linked));
     else box.textContent = "Waiting for its session to start";
   } else {
-    const { text, page, thread } = card.source;
-    box.append(
-      page
-        ? pageLink(text, page.round, page.id)
-        : thread
-          ? threadLink(text, thread)
-          : text,
-    );
+    // A card recorded with neither --page nor --thread has no line.
+    const { page, thread } = card.source;
+    if (page) box.append(pageLink(fromPage(page), page.round, page.id));
+    else if (thread) box.append(threadLink("From a thread", thread));
+    else return null;
   }
   return box;
 }
