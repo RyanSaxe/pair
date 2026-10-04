@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import { hub, pairCli, planData } from "../support/hub.mjs";
+import { hub, literal, pairCli, planData } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -78,9 +78,12 @@ test("pair start --from creates a session for a started proposal, linked both wa
   // parent in the new session and the link in the parent.
   const own = await cli.run("status", "--session-dir", child);
   assert.match(own, /^Next: Publish round 1's Agreed/);
-  assert.match(own, new RegExp(`Parent +${a.directory}, proposal deck`));
+  assert.match(
+    own,
+    new RegExp(`Parent +${literal(a.directory)}, proposal deck`),
+  );
   const theirs = await cli.run("status", "--session-dir", a.directory);
-  assert.match(theirs, new RegExp(`Sub-sessions +deck in ${child}`));
+  assert.match(theirs, new RegExp(`Sub-sessions +deck in ${literal(child)}`));
 });
 
 test("pair start --from refuses a missing --proposal, a directory with no session, an unknown proposal, and one already linked, and creates nothing", async (t) => {

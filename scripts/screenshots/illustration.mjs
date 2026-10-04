@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { open } from "../../tests/support/browser.mjs";
 import { hub, pairCli } from "../../tests/support/hub.mjs";
 import { inThemes, load, select, until, writeNote } from "./capture.mjs";
+import { watch } from "./failure.mjs";
 import { composeIllustration, composeWork } from "./sheets.mjs";
 
 const demo = fileURLToPath(new URL("../demo/illustration/", import.meta.url));
@@ -129,10 +130,10 @@ export async function illustrate(t, scratch) {
     const dir = field(started, "Session");
     const url = field(started, "URL");
     await round(dir, "1", ["timeouts"]);
-    const page = await open(t, "about:blank", {
-      viewport: desktop,
-      deviceScaleFactor: 2,
-    });
+    const page = watch(
+      await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
+      "illustration",
+    );
 
     doing = "sending round 1";
     await load(page, url, "timeouts");
