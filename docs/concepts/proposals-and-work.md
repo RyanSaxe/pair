@@ -4,6 +4,8 @@ A **proposal** is work the agent suggests and you decide on. The agent
 records one whenever it sees work worth doing, including the work your task
 calls for, with what it delivers and where the agent recommends it runs.
 When you start a proposal, you approve what it delivers, and nothing more.
+When you ask for work in your own words, the agent starts a proposal for
+it, quoting you.
 
 ## The Work page
 
@@ -14,22 +16,27 @@ for its whole life, in four tabs with counts:
 | --------- | ---------------------------------------------------------------------------------------------------- |
 | Needs you | Work in its own session whose round waits for you, and any proposal with an agent reply in the bell. |
 | Running   | Started work the agent is building.                                                                  |
-| Proposed  | Proposals nobody has started or declined.                                                            |
-| Done      | Finished work, and declined proposals with **Restore**.                                              |
+| Proposed  | Proposals nobody has started, declined or withdrawn.                                                 |
+| Done      | Finished work, and declined and withdrawn proposals with **Restore**.                                |
 
 Work opens on the first tab with anything in it, and the number on its row
 counts what needs you. Each card shows what the work delivers, a started
-card quotes the message you sent with Start, if any, and the card's footer
-links to where the proposal came from or where the work runs. A card
-started here reads Working here until the agent marks it done. A page
+card quotes the message you sent with Start, if any, and the line under
+its title links to where the proposal came from or where the work runs. A
+card started here reads Working here until the agent marks it done. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
-| To                  | Do this                                                               |
-| ------------------- | --------------------------------------------------------------------- |
-| Start the work      | Press **Start**, choose where it runs, and add a message if you want. |
-| Turn it down        | Press **Decline**. The agent drops it and does not propose it again.  |
-| Ask about it        | Press **Comment**, which starts a [thread](threads.md) on the card.   |
-| Take back a decline | Press **Restore** on the card in Done.                                |
+A card you have not had on screen on Work reads **New**, as a page you have
+not opened does in the sidebar. Your browser stores which cards you have
+seen, and a card on a page counts as seen only once Work shows it. A card
+in Done never reads New.
+
+| To                | Do this                                                               |
+| ----------------- | --------------------------------------------------------------------- |
+| Start the work    | Press **Start**, choose where it runs, and add a message if you want. |
+| Turn it down      | Press **Decline**. The agent drops it and does not propose it again.  |
+| Ask about it      | Press **Comment**, which starts a [thread](threads.md) on the card.   |
+| Bring a card back | Press **Restore** on a declined or withdrawn card in Done.            |
 
 ## Where the work runs
 
@@ -49,8 +56,15 @@ pane, go in `~/.config/pair/moments/read-open-agent.md`, which `pair`
 prints after its own text for that moment, as
 [the guide](../reference/the-guide.md) describes.
 
-The agent starts a proposal itself only when you told it to in your own
-words, and it quotes them.
+## When you ask in your own words
+
+When you tell the agent to do a piece of work in a note, a thread or the
+chat, the agent records a proposal for it, or uses one that already covers
+it, and starts it with `pair propose --start`, quoting you. The work then
+runs as if you had pressed Start, where you said or, when you did not, where
+the agent recommends. The card says that your words started it, quotes
+them, and links to the page or thread where you wrote them. It has no button
+that stops the work, so tell the agent when you do not want it.
 
 ## Plans
 
@@ -77,6 +91,13 @@ without a plan.
 - Work in a sub-session or a new agent session is done when you close that
   session. The hub marks the card done, and this session's agent learns of
   it the next time it runs `pair read`, then builds on its result.
+- When a proposal's work got done some other way, such as in a pull
+  request, the agent marks the card done and names where, started or not.
+  The line under the card's title reads Done and where, such as
+  Done · in #86.
+- The agent withdraws a proposal nobody started when it no longer applies,
+  with its reason. The card moves to Done as Withdrawn and shows the
+  reason, and Restore puts it back in Proposed.
 
 ## Sub-sessions and new agent sessions
 

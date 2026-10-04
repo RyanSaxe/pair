@@ -268,6 +268,149 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
   assert.equal((await cards())[1].declined, false);
 });
 
+// The agent starts a card when the reviewer asks for the work in their own
+// words. The card quotes them, links to where they wrote them, and has no
+// button that stops the work.
+test("a card started on the reviewer's words quotes them and links to where they wrote them", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const started = await session.action("propose", {
+    id: "deck",
+    start: "here",
+    quote: "Build the deck now.\nKeep the header height.",
+    page: "1/overview",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  await tab("running").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("running").click();
+  const card = page.locator("[data-proposal-card=deck]");
+  await card.waitFor();
+  assert.equal(await card.locator(".card-meta").textContent(), "Working here");
+  const lead = card.locator(".proposal-lead");
+  assert.equal(
+    await lead.textContent(),
+    "Started from your words on the Overview page",
+  );
+  assert.equal(await lead.locator("a").getAttribute("href"), "#overview");
+  assert.equal(
+    await card.locator(".proposal-message").innerText(),
+    "“Build the deck now.\nKeep the header height.”",
+  );
+  assert.deepEqual(
+    await card.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
+});
+
+// A withdrawn card is in Done with the agent's reason, and Restore puts it
+// back in Proposed. A card done somewhere else says where.
+test("a withdrawn card shows the agent's reason and Restore brings it back, and a card done elsewhere says where", async (t) => {
+  const { session, page, tab, cards } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const reason = "The deck moved to the board template.";
+  for (const change of [
+    { id: "deck", withdraw: true, reason },
+    { id: "export", done: true, where: "in #86" },
+  ]) {
+    const changed = await session.action("propose", change);
+    assert.equal(changed.code, 200, changed.body.error);
+  }
+  await tab("done").locator(".work-count", { hasText: "2" }).waitFor();
+  await tab("done").click();
+  const deck = page.locator("[data-proposal-card=deck]");
+  await deck.waitFor();
+  assert.equal(
+    await deck.locator(".card-meta").textContent(),
+    "Withdrawn·From the Overview page",
+  );
+  assert.equal(
+    await deck.locator(".proposal-reason").textContent(),
+    `The agent's reason: ${reason}`,
+  );
+  const exported = page.locator("[data-proposal-card=export]");
+  assert.equal(
+    await exported.locator(".card-meta").textContent(),
+    "Done·in #86",
+  );
+  assert.deepEqual(
+    await exported.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
+  await deck.locator(".link-btn", { hasText: "Restore" }).click();
+  await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
+  assert.equal((await session.status()).body.proposals[0].withdrawn, null);
+  assert.deepEqual(
+    (await cards()).map(({ id, declined }) => [id, declined]),
+    [
+      ["deck", false],
+      ["export", false],
+    ],
+  );
+});
+
+// A card reads New, with the sidebar's New label, until Work has shown it
+// on screen. A page's proposal component shows the label too but does not
+// count, and a card in Done never reads New.
+test("a card reads New until Work shows it", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const data = planData();
+  data.pages[0].html +=
+    '<div class="proposal" data-proposal="fresh" data-kind="proposal"><p><b>Fresh</b></p><p>Fresh work.</p></div>';
+  assert.equal((await session.publish(data)).code, 200);
+  const record = async (fields) => {
+    const added = await session.action("propose", fields);
+    assert.equal(added.code, 200, added.body.error);
+  };
+  // A card recorded before this browser first loaded the session is not
+  // new to it.
+  await record(card("deck", "Build the deck"));
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  await page
+    .locator("#work-row[aria-label='Work, 1 proposed']")
+    .waitFor({ timeout: 8000 });
+  await record(card("fresh", "Fresh work"));
+  const label = (where) =>
+    page.locator(`${where} [data-proposal-card=fresh] .page-new`);
+  await label("#page-content").waitFor({ timeout: 8000 });
+  assert.equal(await label("#page-content").textContent(), "New");
+  await record(card("gone", "Gone work"));
+  await record({ id: "gone", withdraw: true, reason: "Not needed." });
+
+  await page.locator("#work-row").click();
+  await label("#work-cards").waitFor();
+  assert.equal(
+    await page
+      .locator("#work-cards [data-proposal-card=deck] .page-new")
+      .count(),
+    0,
+  );
+  // Work records the card in this browser's storage once it is on screen.
+  await page.waitForFunction(() =>
+    (JSON.parse(localStorage.getItem("pair:cards:seen")) || []).some((key) =>
+      key.endsWith("/fresh"),
+    ),
+  );
+  // A card in Done never reads New, and the others keep the label while
+  // Work stays on screen.
+  await page.locator("#work-tab-done").click();
+  await page.locator("#work-cards [data-proposal-card=gone]").waitFor();
+  assert.equal(await page.locator("#work-cards .page-new").count(), 0);
+  await page.locator("#work-tab-proposed").click();
+  await label("#work-cards").waitFor();
+
+  // Once Work has shown it, the card reads New nowhere.
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator("#page-content .proposal-card").waitFor();
+  assert.equal(await label("#page-content").count(), 0);
+  await page.locator("#work-row").click();
+  await page.locator("#work-cards [data-proposal-card=fresh]").waitFor();
+  assert.equal(await label("#work-cards").count(), 0);
+});
+
 test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {
   const h = await hub(t);
   const parent = await h.session({ start: true });

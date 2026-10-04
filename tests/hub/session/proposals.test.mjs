@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+import {
+  hub,
+  literal,
+  planData,
+  sleep,
+  waitUntil,
+} from "../../support/hub.mjs";
 
 const card = {
   id: "churn-export",
@@ -44,6 +50,7 @@ test("pair propose records one file per card and refuses an ID the session has",
       plan: null,
       started: null,
       declined: null,
+      withdrawn: null,
       done: null,
     },
   );
@@ -197,35 +204,212 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   );
 });
 
-// Starting a card approves its work, and only the reviewer's Start does
-// that: pair propose has no flag that starts a card.
-test("only the reviewer's Start starts a card, and --done and --reopen take only work started here", async (t) => {
-  const { a, propose, add, reviewer, cards, read } = await proposing(t);
+// The agent starts a card when the reviewer asks for the work in their own
+// words, and the start then runs as a Start does: the holder reads it with
+// pair read, and the round still waits for the reviewer.
+test("pair propose --start starts a card on the reviewer's words, and pair read prints the start", async (t) => {
+  const { h, a, propose, add, cards, read } = await proposing(t);
   await add();
-  const early = await propose({ id: "churn-export", done: true });
-  assert.equal(early.code, 409);
-  assert.equal(
-    early.body.error,
-    "Proposal churn-export has not been started, so it takes no --done.",
-  );
+  await add({ id: "board-qa", title: "Board Q&A prep" });
   const thread = await a.request(`${a.base}/api/threads`, {
     id: "go",
     proposal: "churn-export",
     text: "Go ahead and refresh the export.",
   });
   assert.equal(thread.code, 201, thread.body.error);
-  // The request carries all that the removed --start flag sent: where, the
-  // reviewer's words and the thread they wrote them in.
-  await propose({
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  const unquoted = await propose({ id: "churn-export", start: "here" });
+  assert.equal(unquoted.code, 400);
+  assert.equal(
+    unquoted.body.error,
+    "--start takes --quote with the reviewer's words",
+  );
+  const loose = await propose({ id: "churn-export", quote: "Go ahead." });
+  assert.equal(loose.code, 400);
+  assert.equal(loose.body.error, "--quote goes with --start.");
+  assert.equal((await cards())[0].started, null);
+
+  const started = await propose({
     id: "churn-export",
     start: "here",
-    source: "Go ahead and refresh the export.",
+    quote: "Go ahead and refresh the export.",
     thread: "go",
   });
-  assert.equal((await cards())[0].started, null);
-  const started = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(started.code, 200, started.body.error);
-  assert.equal((await read()).moment, "read-start-here");
+  assert.deepEqual(
+    { ...started.body.proposal.started, at: undefined },
+    {
+      at: undefined,
+      round: "1",
+      where: "here",
+      by: "words",
+      quote: "Go ahead and refresh the export.",
+      thread: "go",
+    },
+  );
+  // The holder ran the command, and its next step reads the start, so the
+  // hub sends it no wake.
+  assert.equal(
+    started.body.next,
+    `Run: pair read --session-dir ${a.directory}`,
+  );
+  const answer = await read();
+  assert.equal(answer.moment, "read-start-here");
+  assert.equal(answer.event.payload.quote, "Go ahead and refresh the export.");
+  assert.equal(answer.event.payload.thread, "go");
+  assert.equal((await a.status()).body.needsYou, true);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
+  assert.equal(
+    (await propose({ id: "churn-export", start: "here", quote: "Again." }))
+      .code,
+    409,
+  );
+
+  // Another agent's start wakes the holder, as the reviewer's Start does.
+  const briefed = (await h.inbox()).agent;
+  const apart = await propose(
+    {
+      id: "board-qa",
+      start: "sub-session",
+      quote: "Do the Q&A prep apart.",
+      page: "1/overview",
+    },
+    briefed,
+  );
+  assert.equal(apart.code, 200, apart.body.error);
+  assert.deepEqual(apart.body.proposal.started.page, {
+    round: "1",
+    id: "overview",
+    title: "Overview",
+  });
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
+  assert.equal(
+    a.inbox.wakes[1].message.message.content,
+    `pair: an agent started proposal board-qa, "Board Q&A prep", in a sub-session of session ${a.directory}, on the reviewer's words. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's words, which pair read prints too:\nDo the Q&A prep apart.`,
+  );
+  const sub = await read();
+  assert.equal(sub.moment, "read-start-sub-session");
+  assert.equal(
+    sub.next,
+    `Run pair start --from ${a.directory} --proposal board-qa, then follow what it prints.`,
+  );
+  // Work with a new agent saves no start for pair read, so the holder's
+  // next step is to open that agent.
+  await add({ id: "deck", title: "Build the deck" });
+  const agent = await propose({
+    id: "deck",
+    start: "new-agent",
+    quote: "Have another agent build the deck.",
+  });
+  assert.equal(agent.code, 200, agent.body.error);
+  assert.match(
+    agent.body.next,
+    new RegExp(
+      `^Open a new agent session whose first command is: pair start --from ${literal(a.directory)} --proposal deck\\. `,
+    ),
+  );
+  assert.equal((await read()).event, null);
+});
+
+// The agent clears a card nobody started with --withdraw and its reason.
+// The card is in Done as the declined ones are, and the reviewer's Restore
+// puts it back.
+test("--withdraw moves a card to Done with its reason, and Restore brings it back", async (t) => {
+  const { propose, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const bare = await propose({ id: "churn-export", withdraw: true });
+  assert.equal(bare.code, 400);
+  const reason = "The September schema change was reverted.";
+  const withdrawn = await propose({
+    id: "churn-export",
+    withdraw: true,
+    reason,
+  });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  assert.deepEqual(
+    { ...withdrawn.body.proposal.withdrawn, at: undefined },
+    { at: undefined, reason },
+  );
+  assert.equal(withdrawn.body.proposal.declined, null);
+  // A withdrawn card takes no Start and no plan until it is restored, and
+  // pair read does not report it as declined.
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    409,
+  );
+  assert.equal(
+    (await propose({ id: "churn-export", start: "here", quote: "Do it." }))
+      .code,
+    409,
+  );
+  assert.deepEqual((await read()).declined, []);
+  const restored = await reviewer("churn-export", "restore");
+  assert.equal(restored.code, 200, restored.body.error);
+  assert.equal(restored.body.proposals[0].withdrawn, null);
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  // A started card takes no --withdraw.
+  const late = await propose({ id: "churn-export", withdraw: true, reason });
+  assert.equal(late.code, 409);
+  assert.deepEqual(
+    (await cards()).map(({ id, withdrawn: gone }) => [id, gone]),
+    [
+      ["churn-export", null],
+      ["board-qa", null],
+    ],
+  );
+});
+
+// Work started here is done when the agent says so. Any other card is done
+// with --where, when its work got done somewhere else, and --reopen undoes
+// the agent's own --done.
+test("--done marks work started here done, --where marks any card done, and --reopen undoes either", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const early = await propose({ id: "churn-export", done: true });
+  assert.equal(early.code, 409);
+  assert.equal(
+    early.body.error,
+    'Proposal churn-export has not been started. When its work got done somewhere else, run --done with --where, such as --where "in #86".',
+  );
+  const elsewhere = await propose({
+    id: "churn-export",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(elsewhere.code, 200, elsewhere.body.error);
+  assert.deepEqual(
+    { ...elsewhere.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1", where: "in #86" },
+  );
+  assert.equal(elsewhere.body.proposal.started, null);
+  // A done card takes no Start, and --reopen puts it back in Proposed.
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    409,
+  );
+  const back = await propose({ id: "churn-export", reopen: true });
+  assert.equal(back.code, 200, back.body.error);
+  assert.equal(back.body.proposal.done, null);
+
+  assert.equal(
+    (await reviewer("board-qa", "start", { where: "sub-session" })).code,
+    200,
+  );
+  assert.equal((await propose({ id: "board-qa", done: true })).code, 409);
+  assert.equal(
+    (await propose({ id: "board-qa", done: true, where: "in #87" })).code,
+    200,
+  );
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
   assert.equal((await propose({ id: "churn-export", reopen: true })).code, 409);
   const done = await propose({ id: "churn-export", done: true });
   assert.equal(done.code, 200, done.body.error);
@@ -236,7 +420,13 @@ test("only the reviewer's Start starts a card, and --done and --reopen take only
   assert.equal((await propose({ id: "churn-export", done: true })).code, 409);
   const reopened = await propose({ id: "churn-export", reopen: true });
   assert.equal(reopened.code, 200, reopened.body.error);
-  assert.equal(reopened.body.proposal.done, null);
+  assert.deepEqual(
+    (await cards()).map((card) => [card.id, card.done?.where ?? null]),
+    [
+      ["churn-export", null],
+      ["board-qa", "in #87"],
+    ],
+  );
 });
 
 test("a thread on a card wakes the holder with the card it is on", async (t) => {

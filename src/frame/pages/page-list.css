@@ -106,8 +106,10 @@
 #page-list button .page-activity {
   flex: none;
 }
-/* A ready page of the current round that this browser has not opened. */
-#page-list button .page-new {
+/* A ready page of the current round that this browser has not opened, and
+   a proposal's card that it has not had on screen on Work. */
+#page-list button .page-new,
+.proposal-card .page-new {
   flex: none;
   padding: 1px 7px;
   border-radius: 999px;

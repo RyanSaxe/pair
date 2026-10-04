@@ -1,7 +1,7 @@
 `pair start --from` created this session for one proposal of the parent
 session, printed below. By starting that proposal, the reviewer approved
-what it says it delivers, and nothing more. Where the reviewer's message in
-`<pair_start>` differs from the proposal, follow the message.
+what it says it delivers, and nothing more. Where the reviewer's words in
+`<pair_start>` differ from the proposal, follow their words.
 
 - Build the work in this session's rounds. When the proposal has a plan,
   build from the plan's page sources in the directory printed as Plan.
