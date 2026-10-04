@@ -3,7 +3,11 @@ import { base, editable, online } from "#frame/app/view.mjs";
 import { openCardNote } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { openStart } from "#frame/pages/start-popup.mjs";
-import { listedSession, unreadCards } from "#frame/sync/center.mjs";
+import {
+  listedSession,
+  sessionsListed,
+  unreadCards,
+} from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 
 /* The Work page holds every proposal of the session, from the agent's pair
@@ -257,7 +261,7 @@ export function cardElement(card, shown = context()) {
 /* The page */
 let selected = workTabs[0].id;
 // Opening Work starts on the first tab with a card in it, once the hub has
-// listed the cards.
+// listed the cards and the sessions their work runs in.
 let opening = false;
 let drawnKey = "";
 export function openWork() {
@@ -344,7 +348,12 @@ export function refreshWork(force = false) {
   if ($("work").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards(), shown);
-  if (opening && remote) {
+  // A card whose work runs in another session needs the session listing to
+  // know whether it waits for the reviewer.
+  const linkedKnown =
+    sessionsListed() ||
+    !cards().some((card) => card.started && card.started.where !== "here");
+  if (opening && remote && linkedKnown) {
     selected = openingTab(groups);
     opening = false;
   }
