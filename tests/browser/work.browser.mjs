@@ -156,3 +156,33 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
   await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
   assert.equal((await cards())[1].declined, false);
 });
+
+test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {
+  const h = await hub(t);
+  const parent = await h.session({ start: true });
+  assert.equal((await parent.publish(planData())).code, 200);
+  const added = await parent.action("propose", {
+    ...card("deck", "Build the deck"),
+    recommend: "sub-session",
+  });
+  assert.equal(added.code, 200, added.body.error);
+  const started = await parent.request(
+    `${parent.base}/api/proposals/deck/start`,
+    { where: "sub-session" },
+  );
+  assert.equal(started.code, 200, started.body.error);
+  const child = await h.session({
+    start: true,
+    from: parent.directory,
+    proposal: "deck",
+  });
+  assert.equal((await child.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${parent.base}/#work`);
+  if (!page) return;
+  // The card counts as running until the session listing says its
+  // sub-session waits, so Work must not settle on Running before then.
+  await page.locator('#work-tab-needs[aria-selected="true"]').waitFor();
+  await page
+    .locator("#work-cards [data-proposal-card=deck]")
+    .waitFor({ timeout: 5000 });
+});
