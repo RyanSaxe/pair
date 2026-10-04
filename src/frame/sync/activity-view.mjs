@@ -201,32 +201,84 @@ export function drawActivity(running) {
   if (model.failed && !handoff.firstChild)
     handoff.append(handoffLine(remote.handoff));
 }
-// Every page of a past round, its Feedback page included, names the
-// round. Current never has the strip. A tab click leaves the page on screen,
-// so the strip shows whenever that page belongs to the earlier round,
-// whichever tab is chosen.
-export function renderHistory() {
-  if (planFor) return renderPlanStrip();
-  const old = mode === "readonly";
-  const past = editable && displayedRound === pastRound;
-  const strip = $("history-strip");
-  strip.hidden = !(old || past);
-  if (strip.hidden) return;
-  const label = $("history-label");
-  if (old && session.closed) label.textContent = "This plan is closed";
-  else {
+// Crumbs separated by chevrons.
+function crumbTrail(crumbs) {
+  return crumbs.flatMap((crumb, index) => {
+    const node =
+      typeof crumb === "string" ? document.createElement("span") : crumb;
+    if (typeof crumb === "string") node.textContent = crumb;
+    node.classList.add("crumb-name");
+    if (!index) return [node];
+    const mark = document.createElement("span");
+    mark.className = "crumb";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = "›";
+    return [mark, node];
+  });
+}
+// Inside a linked session, the line under the header names the session it
+// came from, as the way back, then this session. The hub names the parent
+// in the page and in each status.
+function parentCrumbs() {
+  const parent = remote?.parent || session.parent;
+  if (!parent) return [];
+  const link = document.createElement("a");
+  link.href = parent.url;
+  link.textContent = parent.title;
+  return [link, remote?.current?.title || plan.title];
+}
+function drawHistoryLabel(label, old, past, parent) {
+  if (old && session.closed)
+    return label.replaceChildren(
+      ...crumbTrail([...parent, "This plan is closed"]),
+    );
+  if (old || past) {
     const name = document.createElement("b");
+    name.className = "round";
     name.textContent = `Round ${old ? plan.round : pastRound}`;
-    label.replaceChildren(name);
+    label.replaceChildren(...crumbTrail([...parent, name]));
     if (past || shownSubmission()) {
       const meta = document.createElement("span");
       meta.className = "meta";
       meta.textContent = " · Feedback sent";
       label.append(meta);
     }
+    return;
+  }
+  const here = document.createElement("b");
+  here.textContent = parent[1];
+  label.replaceChildren(...crumbTrail([parent[0], here]));
+}
+// Every page of a past round, its Feedback page included, names the
+// round. Current never has the strip. A tab click leaves the page on screen,
+// so the strip shows whenever that page belongs to the earlier round,
+// whichever tab is chosen. A linked session always shows the strip, with
+// its parent's name first.
+export function renderHistory() {
+  if (planFor) return renderPlanStrip();
+  const old = mode === "readonly";
+  const past = editable && displayedRound === pastRound;
+  const parent = parentCrumbs();
+  const strip = $("history-strip");
+  strip.hidden = !(old || past || parent.length);
+  if (strip.hidden) return;
+  const label = $("history-label");
+  // A poll redraws the line only when it changed, so a pointer on the
+  // parent's name keeps its hover.
+  const key = JSON.stringify([
+    old,
+    past && pastRound,
+    plan.round,
+    Boolean(shownSubmission()),
+    parent.map((crumb) => crumb.textContent ?? crumb),
+  ]);
+  if (label.dataset.key !== key) {
+    label.dataset.key = key;
+    label.classList.toggle("crumbs", Boolean(parent.length));
+    drawHistoryLabel(label, old, past, parent);
   }
   const button = $("history-return");
-  button.hidden = old ? session.closed : !currentShown();
+  button.hidden = old ? session.closed : !past || !currentShown();
   button.textContent = "Back to current";
   button.onclick = old
     ? () => location.assign(`${base}/`)
@@ -249,20 +301,11 @@ function renderPlanStrip() {
     work.textContent = "Work";
     crumbs.push(work);
   }
-  crumbs.push(document.createTextNode(title));
+  crumbs.push(title);
   const here = document.createElement("b");
   here.textContent = "Plan";
   crumbs.push(here);
-  $("history-label").replaceChildren(
-    ...crumbs.flatMap((crumb, index) => {
-      if (!index) return [crumb];
-      const mark = document.createElement("span");
-      mark.className = "crumb";
-      mark.setAttribute("aria-hidden", "true");
-      mark.textContent = "›";
-      return [mark, crumb];
-    }),
-  );
+  $("history-label").replaceChildren(...crumbTrail(crumbs));
   const download = $("history-download");
   download.hidden = !online;
   download.href = `${base}/plans/${encodeURIComponent(planFor)}/download`;

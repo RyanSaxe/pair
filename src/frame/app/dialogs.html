@@ -254,9 +254,10 @@
   <div class="dialog-head"></div>
   <div class="lightbox-view"></div>
 </dialog>
-<!-- Start on a proposal's card. Each choice has its own row of buttons in
-     .start-actions, and the rows share one grid cell, so the dialog keeps
-     its size whichever choice is selected. The frame fills in the card. -->
+<!-- Start on a proposal's card. Each choice has its own hint and its own
+     row of buttons, and the hints share one grid cell and the rows another,
+     so the dialog keeps its size whichever choice is selected. The frame
+     fills in the card. -->
 <dialog class="dialog start" id="start-dialog" aria-labelledby="start-title">
   <div class="dialog-head">
     <h2 id="start-title" tabindex="-1" autofocus></h2>
@@ -292,8 +293,8 @@
           >In a sub-session
           <span class="start-recommended" hidden>Recommended</span></span
         ><small
-          >A session linked to this one builds it, so this one stays
-          free.</small
+          >This session's agent builds it in a session linked to this one, so
+          this one stays free.</small
         ></span
       >
     </button>
@@ -308,7 +309,10 @@
         ><span class="start-choice"
           >With a new agent
           <span class="start-recommended" hidden>Recommended</span></span
-        ><small>A separate agent builds it in its own session.</small></span
+        ><small
+          >A separate agent starts its own session linked to this one, while
+          this session keeps going.</small
+        ></span
       >
     </button>
   </div>
@@ -316,13 +320,36 @@
   <textarea
     id="start-message"
     maxlength="4000"
-    aria-describedby="start-hint"
+    aria-describedby="start-hint-here"
   ></textarea>
-  <p class="small" id="start-hint"></p>
+  <div class="start-stack start-hints">
+    <p class="small" id="start-hint-here" data-start-for="here"></p>
+    <p class="small" id="start-hint-sub-session" data-start-for="sub-session">
+      Sent to the agent with Start. This session's round stays open for your
+      feedback.
+    </p>
+    <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
+      The new agent reads this message when it starts. Copy command gives you
+      the command to paste into any agent.
+    </p>
+  </div>
   <p class="small" id="start-error" role="alert" hidden></p>
-  <div class="start-actions">
-    <div class="actions actions-right" data-start-actions="here">
+  <div class="start-stack start-actions">
+    <div class="actions actions-right" data-start-for="here sub-session">
       <button class="btn primary" type="button" id="start-send">Start</button>
+    </div>
+    <div class="actions actions-right" data-start-for="new-agent">
+      <button class="btn" type="button" id="start-copy">Copy command</button>
+      <button
+        class="btn primary start-open"
+        type="button"
+        id="start-open"
+        aria-describedby="start-open-tip"
+      >
+        Open a new agent session<span class="line-tip" id="start-open-tip"
+          >This does not always work.</span
+        >
+      </button>
     </div>
   </div>
 </dialog>
