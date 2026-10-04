@@ -32,13 +32,51 @@ import {
   toggleSessions,
 } from "#frame/sync/sessions.mjs";
 
+/* The ×, Escape and a click outside each back out of a dialog. Backing
+   out of the note dialog keeps its text as a draft and drops the images it
+   uploaded. */
+function backOut(dialog) {
+  if (dialog.id === "note-dialog") settleNoteImages();
+}
+/* A click outside counts only when the press and the release both land on
+   the backdrop, so a drag that starts in the dialog, such as selecting a
+   field's text, leaves it open. A click on the backdrop targets the
+   dialog itself, at a point outside its box. */
+function outside(dialog, event) {
+  if (event.target !== dialog) return false;
+  const box = dialog.getBoundingClientRect();
+  return (
+    event.clientX < box.left ||
+    event.clientX > box.right ||
+    event.clientY < box.top ||
+    event.clientY > box.bottom
+  );
+}
+
 export function installEvents() {
-  for (const head of document.querySelectorAll("dialog .dialog-head")) {
+  for (const head of document.querySelectorAll(
+    "dialog :is(.dialog-head, .drawing-head)",
+  )) {
     const close = $("close-button").content.firstElementChild.cloneNode(true);
     close.dataset.close = head.closest("dialog").id;
     if (head.dataset.closeLabel)
       close.setAttribute("aria-label", head.dataset.closeLabel);
     head.append(close);
+  }
+  for (const dialog of document.querySelectorAll("dialog")) {
+    let pressedOutside = false;
+    dialog.addEventListener("pointerdown", (event) => {
+      pressedOutside = outside(dialog, event);
+    });
+    dialog.addEventListener("click", (event) => {
+      if (pressedOutside && outside(dialog, event)) {
+        backOut(dialog);
+        dialog.close();
+      }
+      pressedOutside = false;
+    });
+    // The browser closes the dialog on Escape once this event returns.
+    dialog.addEventListener("cancel", () => backOut(dialog));
   }
   // A click inside an embedded frame never reaches this document, but it does
   // move focus, so menus close on blur as well as on outside clicks.
@@ -46,8 +84,9 @@ export function installEvents() {
   document.addEventListener("click", (event) => {
     const close = event.target.closest("[data-close]");
     if (close) {
-      if (close.dataset.close === "note-dialog") settleNoteImages();
-      $(close.dataset.close).close();
+      const dialog = $(close.dataset.close);
+      backOut(dialog);
+      dialog.close();
     }
     const tab = event.target.closest("button[data-tab]");
     if (tab) {
@@ -109,19 +148,6 @@ export function installEvents() {
       save();
     }
   });
-  for (const dialog of document.querySelectorAll("dialog")) {
-    dialog.addEventListener("click", (event) => {
-      if (event.target !== dialog) return;
-      const bounds = dialog.getBoundingClientRect();
-      if (
-        event.clientX < bounds.left ||
-        event.clientX > bounds.right ||
-        event.clientY < bounds.top ||
-        event.clientY > bounds.bottom
-      )
-        dialog.close();
-    });
-  }
   /* Keys */
   document.addEventListener("keydown", (event) => {
     /* Textareas keep Enter for newlines. Shift+Enter is the explicit submit

@@ -154,11 +154,16 @@ dialog::backdrop {
 .dialog .dialog-head h2 {
   margin: 0;
 }
+/* A button row holds only actions, with the primary on the right. The ×,
+   Escape and a click outside back out of a dialog, so no row has Cancel. */
 .dialog .actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-top: 18px;
+}
+.dialog .actions .btn.primary {
+  margin-left: auto;
 }
 .dialog-head h2:focus,
 .dialog-head h2:focus-visible {

@@ -168,7 +168,6 @@ function openLightbox(svg) {
   dialog.onmousemove = (event) => event.stopPropagation();
   dialog.onclick = (event) => {
     event.stopPropagation();
-    if (event.target === dialog) return close();
     if (event.target.closest("[data-close]")) return close();
     const id = event.target
       .closest(".node.linked")

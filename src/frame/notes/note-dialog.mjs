@@ -91,10 +91,10 @@ export function forgetImages(items) {
     }).catch(() => {});
 }
 /* A dialog the reviewer abandoned drops what it uploaded, so the session
-   never keeps bytes no note refers to. This runs when the dialog is closed
-   by its own control and again before the next one opens, rather than on
-   the dialog's close event, which a note saved by Escape would also raise
-   and which this frame cannot observe. */
+   never keeps bytes no note refers to. This runs when the reviewer backs
+   out of the dialog, by its ×, Escape or a click outside, and again before
+   the next one opens, rather than on the dialog's close event, which
+   saving a note also raises. */
 export function settleNoteImages() {
   if (!noteImagesSaved)
     forgetImages(

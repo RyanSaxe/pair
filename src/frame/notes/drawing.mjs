@@ -59,7 +59,6 @@ export async function openDrawing(id, label, target, onSaved) {
   $("drawing-dialog").showModal();
 }
 export function installDrawing() {
-  $("drawing-cancel").onclick = closeDrawing;
   $("drawing-dialog").addEventListener("close", resetDrawing);
   $("drawing-save").onclick = () => {
     if (!activeDrawing) return;
