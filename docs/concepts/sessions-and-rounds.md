@@ -40,16 +40,16 @@ header, takes that tab as **Round N**.
 
 ## What you can do on a page
 
-| To                        | Do this                                                                                                               |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Choose between options    | Press an option. **Recommended** is only a suggestion until you choose.                                               |
-| Answer a question         | Type in its box, or draw when it asks for a drawing.                                                                  |
-| Comment on words          | Select them and press **Comment** just above the selection.                                                           |
-| Comment on a block        | Click the block and press its **Comment** button, or <kbd>c</kbd>. <kbd>j</kbd> and <kbd>k</kbd> move between blocks. |
-| Comment on the page       | Press **Comment on this page** beside its title.                                                                      |
-| Get an answer now         | Send the comment as a [thread](threads.md).                                                                           |
-| Start or decline work     | Use a proposal's buttons, on the page or on [Work](proposals-and-work.md).                                            |
-| Review what you will send | Press <kbd>r</kbd>.                                                                                                   |
+| To                        | Do this                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Choose between options    | Press an option. **Recommended** is only a suggestion until you choose.                                                 |
+| Answer a question         | Type in its box, or draw when it asks for a drawing.                                                                    |
+| Comment on words          | Select them and press **Comment on selection** at the bottom right.                                                     |
+| Comment on a block        | Click it, then press the button at the bottom right or <kbd>c</kbd>. <kbd>j</kbd> and <kbd>k</kbd> move between blocks. |
+| Comment on the page       | With nothing selected, press the comment icon at the bottom right, or <kbd>c</kbd>.                                     |
+| Get an answer now         | Send the comment as a [thread](threads.md).                                                                             |
+| Start or decline work     | Use a proposal's buttons, on the page or on [Work](proposals-and-work.md).                                              |
+| Review what you will send | Press <kbd>r</kbd>.                                                                                                     |
 
 ## Agreed
 

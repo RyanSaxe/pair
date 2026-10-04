@@ -1,4 +1,3 @@
-import { scroller } from "#frame/app/places.mjs";
 import { persist, state } from "#frame/app/store.mjs";
 import { $, normalize } from "#frame/app/util.mjs";
 import { editable, noteEditable, page } from "#frame/app/view.mjs";
@@ -94,8 +93,8 @@ export function pageBlocks() {
   return [...$("page-content").children];
 }
 /* The bar marks the chosen block. placeMarks() calls this whenever the
-   page's layout changes, so it also places the Comment button, which moves
-   with the selection and the chosen block. */
+   page's layout changes, so it also places the comment control, which
+   centers itself in the gutter beside the page's text. */
 export let chosen = null;
 export function placeBar() {
   const bar = $("chosen-bar");
@@ -111,7 +110,7 @@ export function chooseBlock(block) {
   chosen = block && block !== chosen ? block : null;
   commentTarget();
 }
-/* The block's button names what kind of thing it will comment on; the note
+/* The comment control names what kind of block it will comment on; the note
    itself still records the block's own heading. */
 function blockKind(block) {
   const has = (selector) =>
@@ -135,105 +134,53 @@ function blockKind(block) {
   if (has("figure, .figure, svg, img")) return "this figure";
   return "this block";
 }
-/* The c key comments on the selection, then the chosen block, then the
-   page. The title's link always comments on the page, and the button beside
-   the selection or the chosen block comments on that. */
+/* The c key and the comment control comment on the selection, then the
+   chosen block, then the page. */
 const target = () =>
   selected.length > 3 ? "selection" : chosen ? "block" : "page";
 export function commentTarget() {
-  const link = $("comment-page");
   const button = $("comment-here");
-  /* An open dialog hides the button in CSS, which no open path can forget. */
-  const usable = editable && !page.pending && !$("reading").hidden;
-  const open = usable && noteEditable();
-  link.hidden = !usable;
-  link.disabled = !open;
-  link.querySelector("span").textContent = open
-    ? "Comment on this page"
-    : "Comments sent";
-  const on = open ? target() : "none";
-  if (on === "page") link.setAttribute("aria-keyshortcuts", "c");
-  else link.removeAttribute("aria-keyshortcuts");
+  /* An open dialog hides the control in CSS, which no open path can forget. */
+  const usable =
+    editable && !page.pending && !$("reading").hidden && noteEditable();
+  button.hidden = !usable;
+  const on = usable ? target() : "none";
   button.dataset.on = on;
-  button.querySelector("span").textContent =
-    on === "block" ? `Comment on ${blockKind(chosen)}` : "Comment";
+  const name =
+    on === "selection"
+      ? "Comment on selection"
+      : on === "block"
+        ? `Comment on ${blockKind(chosen)}`
+        : "Comment on this page";
+  button.setAttribute("aria-label", name);
+  /* The page's icon shows no label, and the label it shrinks from stays
+     until it has shrunk. */
+  if (on === "selection" || on === "block")
+    button.querySelector(".comment-label span").textContent = name;
   placeBar();
 }
-/* One line of the selection as one box, from the selected parts of the
-   top line or the bottom one, such as a bold word and the text after it. */
-function lineBox(boxes, top) {
-  const edge = boxes.reduce((a, b) =>
-    top ? (b.top < a.top ? b : a) : b.bottom > a.bottom ? b : a,
-  );
-  const line = boxes.filter((box) =>
-    top ? box.top < edge.bottom : box.bottom > edge.top,
-  );
-  return {
-    top: edge.top,
-    bottom: edge.bottom,
-    left: Math.min(...line.map((box) => box.left)),
-    right: Math.max(...line.map((box) => box.right)),
-  };
-}
-/* The button sits just above what it comments on: centered over the
-   selection's top line, or at the chosen block's right edge. It is placed
-   in the page, so it scrolls with the words, and kept inside the visible
-   column. Where the room above is out of view or holds the page's title or
-   its link, it goes below the selection's last line or the block instead,
-   so it never covers the words. */
+/* On a window wide enough, the control sits in the gutter between the
+   page's text and the window's right edge, centered across it, so it never
+   covers the text at rest. Where the gutter is narrower than the control,
+   as on a phone, it sits at the bottom right over the page. It grows
+   leftward from that right edge. */
 function placeButton() {
   const button = $("comment-here");
-  const on = button.dataset.on;
-  const selection = getSelection();
-  const boxes =
-    on === "selection" && selection.rangeCount
-      ? [...selection.getRangeAt(0).getClientRects()].filter(
-          (box) => box.width && box.height,
-        )
-      : [];
-  button.hidden = on === "block" ? !chosen : !boxes.length;
   if (button.hidden) return;
-  const gap = 6;
-  const edge = 8;
-  const { offsetWidth: width, offsetHeight: height } = button;
-  const view = scroller().getBoundingClientRect();
-  const block = on === "block" && chosen.getBoundingClientRect();
-  const place = (line, above) => ({
-    top: above ? line.top - gap - height : line.bottom + gap,
-    left: Math.max(
-      view.left + edge,
-      Math.min(
-        block ? line.right - width : (line.left + line.right - width) / 2,
-        Math.min(view.right, innerWidth) - edge - width,
-      ),
-    ),
-  });
-  const title = document.createRange();
-  title.selectNodeContents($("page-title"));
-  const taken = [
-    ...title.getClientRects(),
-    $("comment-page").getBoundingClientRect(),
-  ];
-  const blocked = ({ top, left }) =>
-    top < view.top ||
-    taken.some(
-      (box) =>
-        box.width &&
-        top < box.bottom &&
-        top + height > box.top &&
-        left < box.right &&
-        left + width > box.left,
-    );
-  let spot = place(block || lineBox(boxes, true), true);
-  if (blocked(spot)) spot = place(block || lineBox(boxes, false), false);
-  const host = $("reading").getBoundingClientRect();
-  button.style.top = `${Math.round(spot.top - host.top)}px`;
-  button.style.left = `${Math.round(spot.left - host.left)}px`;
+  // At rest the control is a circle, so its height is its width.
+  const size = parseFloat(getComputedStyle(button).height);
+  const gutter =
+    document.documentElement.clientWidth -
+    $("page-content").getBoundingClientRect().right;
+  const fits = gutter >= size;
+  button.dataset.place = fits ? "gutter" : "corner";
+  button.style.right = fits ? `${(gutter - size) / 2}px` : "";
 }
-/* The button, the link and the c key comment on the same things, so they
-   share the one function that opens the note. */
-export function commentOnTarget(on = target()) {
+/* The control and the c key comment on the same things, so they share the
+   one function that opens the note. */
+export function commentOnTarget() {
   if (!noteEditable() || page.pending) return;
+  const on = target();
   if (on === "selection")
     openNote(
       page.id,
@@ -290,7 +237,9 @@ export function installBlocks() {
   // A press on the button would otherwise clear the selection it is for.
   $("comment-here").onpointerdown = (event) => event.preventDefault();
   $("comment-here").onclick = () => commentOnTarget();
-  $("comment-page").onclick = () => commentOnTarget("page");
+  /* Once the frame is at its widest, a wider window widens the gutter and
+     leaves the page's size as it was, so no layout change places it. */
+  addEventListener("resize", placeButton);
   $("overall-note").onclick = () => openNote("overall", "Overall feedback");
   $("note-text").oninput = () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;

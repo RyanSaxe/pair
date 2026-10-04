@@ -216,58 +216,94 @@ mark.note-mark {
 .figure-caption b {
   color: var(--ink);
 }
-/* The page's title shares its row with the link that comments on the page.
-   A title too long for both puts the link on a line of its own below. */
-.title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 16px;
-  margin-bottom: 14px;
-}
-.title-row h1 {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-}
-.comment-page {
-  flex: none;
-  margin-left: auto;
-  display: inline-flex;
+/* The comment control stays in a corner of the window. With nothing chosen
+   it is a quiet round icon that comments on the page, and for a selection
+   or a chosen block it grows leftward into a blue button that names its
+   target. The label's column widens from 0fr to 1fr, so the button grows to
+   the label's own width with no width measured in script. blocks.mjs sets
+   data-place, and on a wide window the right offset that centers the icon in
+   the gutter beside the page's text. */
+/* Growing, the shape and colour change first and the label fades in once
+   the button has its full width. Shrinking runs the same steps backward. So
+   the label is never drawn cut off by the edge of a button still changing
+   size. */
+.comment-here {
+  --grow: 180ms;
+  --fade: 90ms;
+  position: fixed;
+  z-index: var(--z-comment);
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 18px minmax(0, 0fr);
   align-items: center;
-  gap: 6px;
-  color: var(--accent);
-  font-size: var(--text-ui);
-}
-.comment-page:disabled {
+  column-gap: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
   color: var(--muted);
+  box-shadow: 0 2px 8px light-dark(#0000001f, #00000066);
+  font-size: var(--text-body);
+  font-weight: var(--weight-strong);
+  transition-property:
+    grid-template-columns, column-gap, padding, background-color, border-color,
+    color;
+  transition-duration: var(--grow);
+  transition-timing-function: ease-out;
+  transition-delay: var(--fade);
 }
-.comment-page:disabled kbd {
-  display: none;
+.comment-here[data-place="gutter"] {
+  bottom: 24px;
+}
+.comment-here svg {
+  width: 18px;
+  height: 18px;
+}
+.comment-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--fade);
+}
+.comment-here:is([data-on="selection"], [data-on="block"]) {
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 8px;
+  padding: 0 14px 0 13px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  transition-delay: 0s;
+}
+.comment-here:is([data-on="selection"], [data-on="block"]) .comment-label {
+  opacity: 1;
+  transition: opacity var(--fade) var(--grow);
+}
+.comment-here kbd {
+  min-width: 0;
+  padding: 0 5px;
+  border-color: color-mix(in srgb, currentColor 55%, transparent);
+  background: none;
+  color: inherit;
 }
 @media (hover: hover) {
-  .comment-page:enabled:hover span {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  .comment-here[data-on="page"]:hover {
+    color: var(--accent);
   }
 }
-/* blocks.mjs places the button above the selection or the chosen block. It
-   is part of the page, so it covers the page's content and stays under the
-   header and the sidebar. */
-.comment-here {
-  position: absolute;
-  z-index: 1;
-  padding: 4px 6px 4px 10px;
-  box-shadow: var(--shadow);
-  font-weight: var(--weight-strong);
-}
 @media (pointer: coarse) {
-  .comment-page kbd,
   .comment-here kbd {
     display: none;
   }
-  .comment-here {
-    padding-right: 10px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .comment-here,
+  .comment-label {
+    transition: none !important;
   }
 }
 /* The bar sits in the padding the column already has: 56px on a desktop and
@@ -297,7 +333,7 @@ mark.note-mark {
 .context-link {
   font-size: var(--text-small);
 }
-/* Dialogs cover the current page, so its comment button steps aside. */
+/* Dialogs cover the current page, so its comment control steps aside. */
 body:has(dialog[open]) .comment-here {
   display: none;
 }
@@ -305,8 +341,10 @@ body:has(dialog[open]) .comment-here {
   #feedback-pages {
     display: inline-block;
   }
+  /* The bottom padding lets the last line scroll clear of the comment
+     control in the corner: its 16px offset, its 44px and 16px between. */
   .content {
-    padding: 20px 16px calc(40px + env(safe-area-inset-bottom));
+    padding: 20px 16px calc(76px + env(safe-area-inset-bottom));
   }
 }
 /* progress.mjs draws the bar along the top of the reading column while a
