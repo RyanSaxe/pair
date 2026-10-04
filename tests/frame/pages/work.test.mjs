@@ -81,17 +81,24 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
   assert.equal(openingTab(workGroups([], {})), "needs");
 });
 
-// A card's plan line names the round after which the plan last changed and
-// the rounds it came from, as pair plan's --rounds gave them.
+// A card's plan line counts the plan's pages, names the round after which
+// the plan last changed and, when it differs, the rounds it came from, as
+// pair plan's --rounds gave them.
 test("a card's plan line reads one round or a range", () => {
-  const plan = (rounds) => ({ at: here.at, round: "6", rounds, pages: [] });
-  assert.equal(planLine(null), "No plan yet.");
+  const plan = (rounds, pages = []) => ({
+    at: here.at,
+    round: "6",
+    rounds,
+    pages,
+  });
+  const two = [
+    { id: "overview", title: "Overview" },
+    { id: "steps", title: "Steps" },
+  ];
+  assert.equal(planLine(plan("6", two)), "2 pages · updated after round 6");
   assert.equal(
     planLine(plan("3-6")),
-    "Plan updated after round 6, from rounds 3 to 6.",
+    "updated after round 6 · from rounds 3 to 6",
   );
-  assert.equal(
-    planLine(plan("4")),
-    "Plan updated after round 6, from round 4.",
-  );
+  assert.equal(planLine(plan("4")), "updated after round 6 · from round 4");
 });

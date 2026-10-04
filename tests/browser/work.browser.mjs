@@ -38,13 +38,33 @@ async function work(t) {
   return { session, page, tab, cards };
 }
 
+// The Work row's label, and each shown number with its title.
+const workRow = (page) =>
+  page.locator("#work-row").evaluate((row) => {
+    const count = (kind) => {
+      const mark = row.querySelector(`.count.${kind}`);
+      return mark && !mark.hidden ? [mark.textContent, mark.title] : null;
+    };
+    return {
+      label: row.getAttribute("aria-label"),
+      needs: count("needs"),
+      proposed: count("proposed"),
+    };
+  });
+
 test("Start sends where the work runs and the message, and the card runs", async (t) => {
   const { session, page, tab, cards } = await work(t);
   if (!page) return;
-  // With nothing started, Work opens on Proposed.
+  // With nothing started, Work opens on Proposed, and the Work row shows
+  // the proposed number alone.
   await page
     .locator("#work-tab-proposed[aria-selected=true]")
     .waitFor({ timeout: 8000 });
+  assert.deepEqual(await workRow(page), {
+    label: "Work, 2 proposed",
+    needs: null,
+    proposed: ["2", "2 proposed"],
+  });
   await page.locator("[data-proposal-card=deck] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
@@ -65,7 +85,7 @@ test("Start sends where the work runs and the message, and the card runs", async
   await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
   await tab("running").click();
   await page
-    .locator("[data-proposal-card=deck] .tag", { hasText: "Working" })
+    .locator("[data-proposal-card=deck] .card-state", { hasText: "Working" })
     .waitFor();
   // The Start answered the round, and the reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
@@ -141,7 +161,7 @@ test("Open a new agent session starts the card with a new agent and shows its th
   assert.deepEqual((await cards())[1].started, "new-agent");
   // Work follows the card to Running, with the thread under it.
   await page
-    .locator("[data-proposal-card=export] .tag", {
+    .locator("[data-proposal-card=export] .card-state", {
       hasText: "Opening a new agent session",
     })
     .waitFor({ timeout: 5000 });
@@ -191,6 +211,11 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
     recommend: "sub-session",
   });
   assert.equal(added.code, 200, added.body.error);
+  const proposed = await parent.action(
+    "propose",
+    card("export", "Refresh the export"),
+  );
+  assert.equal(proposed.code, 200, proposed.body.error);
   const started = await parent.request(
     `${parent.base}/api/proposals/deck/start`,
     { where: "sub-session" },
@@ -210,4 +235,10 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
   await page
     .locator("#work-cards [data-proposal-card=deck]")
     .waitFor({ timeout: 5000 });
+  // The Work row shows both numbers, each saying what it counts.
+  assert.deepEqual(await workRow(page), {
+    label: "Work, 1 needs you, 1 proposed",
+    needs: ["1", "1 needs you"],
+    proposed: ["1", "1 proposed"],
+  });
 });

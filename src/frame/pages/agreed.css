@@ -42,28 +42,40 @@
 .agreement-body h2 .tag {
   margin-left: 6px;
 }
+.agreement-body > .card-meta {
+  margin: 0 0 6px;
+}
 .agreement-body p {
   margin: 4px 0 0;
 }
 #page-content .agreement-body :is(p, li) {
   font-size: var(--text-ui);
 }
+/* The footer stays one row: an alignment's holds only buttons, and the
+   task's text is cut short before its Comment moves. */
 .agreement-source {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
   padding: 8px 14px;
   border-top: 1px solid var(--line);
   background: var(--ground);
   font-size: var(--text-meta);
   color: var(--muted);
 }
+.agreement-source > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .agreement-source .actions {
   display: flex;
+  flex: none;
   gap: 4px;
   align-items: center;
+  white-space: nowrap;
 }
 .agreement-source .link-btn,
 .agreement-source a {

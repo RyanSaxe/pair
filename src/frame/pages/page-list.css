@@ -210,6 +210,33 @@
   font-weight: inherit;
   line-height: inherit;
 }
+/* Work's two numbers: the cards that need the reviewer in the color the
+   frame gives work that waits for them, then the proposed cards in grey. */
+.work-counts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+.pages-slot nav #work-row .count {
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+.pages-slot nav #work-row .count.needs {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--attention);
+  color: var(--attention-ink);
+  font-size: var(--text-caps);
+  font-weight: 700;
+  text-align: center;
+}
+.pages-slot nav #work-row .count.proposed {
+  color: var(--muted);
+  font-size: var(--text-meta);
+  font-weight: 500;
+}
 @media (prefers-reduced-motion: reduce) {
   .page-activity.active::before,
   .round-status i {
