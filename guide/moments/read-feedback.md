@@ -25,7 +25,10 @@ This submission starts a new round. You choose what that round covers.
   with `pair propose --session-dir PATH --id ID --start WHERE --quote "…"`,
   quoting the note, with `--page ROUND/PAGE` for the note's round and page.
 - Withdraw each proposal nobody has started that no longer applies, with
-  `pair propose --session-dir PATH --id ID --withdraw --reason "…"`.
+  `pair propose --session-dir PATH --id ID --withdraw --reason "…"`. When a
+  proposal's work got done some other way, run the same command with
+  `--done --where "…"` in place of `--withdraw --reason "…"`, with where it
+  got done.
 - Run `pair progress --note "…"` now, then with `--page ID` as you start
   each page and at least every five minutes after. Give each subagent that
   command for its page.

@@ -248,11 +248,12 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   );
 });
 
-// pair propose sends --withdraw with --reason, and prints the card's state
-// as pair status does.
-test("pair propose withdraws a card", async (t) => {
+// pair propose sends --withdraw with --reason and --done with --where, and
+// prints each card's state as pair status does.
+test("pair propose withdraws a card and marks one done elsewhere", async (t) => {
   const { run, record } = await session(t);
   await record("export", "Refresh the export");
+  await record("notes", "Write the notes");
   assert.match(
     await run(
       ...["propose", "--id", "export", "--withdraw"],
@@ -261,8 +262,12 @@ test("pair propose withdraws a card", async (t) => {
     /\nProposal export: withdrawn\.\n$/,
   );
   assert.match(
+    await run("propose", "--id", "notes", "--done", "--where", "in #86"),
+    /\nProposal notes: done in #86\.\n$/,
+  );
+  assert.match(
     await run("status"),
-    /\n\nProposals\n {2}export {2}withdrawn {2}Refresh the export\n$/,
+    /\n\nProposals\n {2}export {2}withdrawn {4}Refresh the export\n {2}notes {3}done in #86 {2}Write the notes\n$/,
   );
 });
 

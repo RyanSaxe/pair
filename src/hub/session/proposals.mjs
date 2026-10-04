@@ -120,8 +120,8 @@ export async function proposals(session) {
       409,
     );
     requireValue(
-      !card.withdrawn,
-      `Proposal ${card.id} is withdrawn, so it takes no --revise. Record further work as a new proposal.`,
+      !card.withdrawn && !card.done,
+      `Proposal ${card.id} is ${card.done ? "done" : "withdrawn"}, so it takes no --revise. Record further work as a new proposal.`,
       409,
     );
     const patch = Object.fromEntries(
@@ -270,8 +270,8 @@ export async function proposals(session) {
     open();
     const card = find(id);
     requireValue(
-      !card.started,
-      `Proposal ${id} was started, so it cannot be declined`,
+      !card.started && !card.done,
+      `Proposal ${id} was ${card.done ? "done" : "started"}, so it cannot be declined`,
       409,
     );
     if (!card.declined && !card.withdrawn)
@@ -307,32 +307,44 @@ export async function proposals(session) {
       withdrawn: { at: timestamp(), reason: words(data, "reason") },
     });
   }
-  // Work started here is done when the agent says so, and feedback that asks
-  // for changes to it reopens it. Closing a linked session marks the card of
-  // work started anywhere else.
-  function startedHere(card, flag) {
+  // The agent marks work started here done after its last page. With
+  // --where, it marks any card done whose work got done somewhere else,
+  // started or not. Closing a linked session marks the card of work
+  // started there.
+  async function done(card, data) {
+    requireValue(!card.done, `Proposal ${card.id} is already done`, 409);
     requireValue(
-      card.started?.where === "here",
-      card.started
-        ? `Proposal ${card.id} runs in a ${card.started.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done, and it takes no --${flag}.`
-        : `Proposal ${card.id} has not been started, so it takes no --${flag}.`,
+      !card.declined && !card.withdrawn,
+      `Proposal ${card.id} was ${card.declined ? "declined" : "withdrawn"}, so it takes no --done.`,
       409,
     );
-  }
-  async function done(card) {
-    startedHere(card, "done");
-    requireValue(!card.done, `Proposal ${card.id} is already done`, 409);
+    const where = data.where === undefined ? null : words(data, "where");
+    const elsewhere = card.started
+      ? `Proposal ${card.id} runs in a ${card.started.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done`
+      : `Proposal ${card.id} has not been started`;
+    requireValue(
+      where || card.started?.where === "here",
+      `${elsewhere}. When its work got done somewhere else, run --done with --where, such as --where "in #86".`,
+      409,
+    );
     return save(card, {
       done: {
         at: timestamp(),
         by: "agent",
         round: session.state.current?.round ?? null,
+        ...(where ? { where } : {}),
       },
     });
   }
+  // --reopen undoes the agent's own --done, so the card returns to Running,
+  // or to Proposed when nobody started it.
   async function reopen(card) {
-    startedHere(card, "reopen");
     requireValue(card.done, `Proposal ${card.id} is not done`, 409);
+    requireValue(
+      card.done.by === "agent",
+      `Closing its linked session marked proposal ${card.id} done, so it takes no --reopen.`,
+      409,
+    );
     return save(card, { done: null });
   }
   // pair propose, from any agent: it records a card, or with one action
@@ -346,7 +358,7 @@ export async function proposals(session) {
     if (action === "revise") return revise(card, data);
     if (action === "start") return startFromWords(card, data, holder);
     if (action === "withdraw") return withdraw(card, data);
-    if (action === "done") return done(card);
+    if (action === "done") return done(card, data);
     return reopen(card);
   }
   // pair plan attaches a plan to a card that is neither declined, withdrawn
@@ -395,6 +407,7 @@ export async function proposals(session) {
       `Proposal ${id} is already linked to session ${card.started?.session?.dir}`,
       409,
     );
+    requireValue(!card.done, `Proposal ${id} is done`, 409);
     requireValue(
       card.started && card.started.where !== "here",
       card.started

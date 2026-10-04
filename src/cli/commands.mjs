@@ -209,10 +209,14 @@ export const commands = {
         text: "With --withdraw, why the proposal no longer applies, in at most 400 characters.",
       },
       done: {
-        text: "Mark work started here done, after you publish its last page.",
+        text: "Mark work started here done, after you publish its last page. With --where, mark any card done whose work got done somewhere else.",
+      },
+      where: {
+        value: "TEXT",
+        text: 'With --done, where the work got done, such as "in #86", in at most 120 characters.',
       },
       reopen: {
-        text: "Put work started here back to running, when feedback asks for changes to it.",
+        text: "Undo your --done, when feedback asks for changes to the work or the work is not done.",
       },
       json,
     },

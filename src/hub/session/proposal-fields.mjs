@@ -16,6 +16,7 @@ const limits = {
   delivers: 400,
   quote: 4000,
   reason: 400,
+  where: 120,
 };
 export const written = ["title", "delivers"];
 const actions = ["revise", "start", "withdraw", "done", "reopen"];
@@ -25,10 +26,10 @@ const fields = [...written, "recommend", "thread", "page"];
 const takes = {
   start: ["quote", "thread", "page"],
   withdraw: ["reason"],
-  done: [],
+  done: ["where"],
   reopen: [],
 };
-const owners = { quote: "start", reason: "withdraw" };
+const owners = { quote: "start", reason: "withdraw", where: "done" };
 const flags = [...fields, ...Object.keys(owners)];
 
 export function words(data, name) {

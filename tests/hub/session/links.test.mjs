@@ -155,6 +155,11 @@ test("closing a linked session marks its card done once with no wake, and a clos
   const wakes = a.inbox.wakes.length;
   assert.equal((await close(deck)).code, 200);
   assert.equal((await cardOf("deck")).done.by, "close");
+  // --reopen undoes only the agent's own --done.
+  assert.equal(
+    (await a.action("propose", { id: "deck", reopen: true })).code,
+    409,
+  );
   await sleep(100);
   assert.equal(a.inbox.wakes.length, wakes, "no wake for a close");
   // The parent's next pair read reports the close, and the one after it

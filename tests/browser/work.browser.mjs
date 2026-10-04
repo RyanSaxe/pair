@@ -304,19 +304,20 @@ test("a card started on the reviewer's words quotes them and links to where they
 });
 
 // A withdrawn card is in Done with the agent's reason, and Restore puts it
-// back in Proposed.
-test("a withdrawn card shows the agent's reason and Restore brings it back", async (t) => {
+// back in Proposed. A card done somewhere else says where.
+test("a withdrawn card shows the agent's reason and Restore brings it back, and a card done elsewhere says where", async (t) => {
   const { session, page, tab, cards } = await work(t);
   if (!page) return;
   await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
   const reason = "The deck moved to the board template.";
-  const changed = await session.action("propose", {
-    id: "deck",
-    withdraw: true,
-    reason,
-  });
-  assert.equal(changed.code, 200, changed.body.error);
-  await tab("done").locator(".work-count", { hasText: "1" }).waitFor();
+  for (const change of [
+    { id: "deck", withdraw: true, reason },
+    { id: "export", done: true, where: "in #86" },
+  ]) {
+    const changed = await session.action("propose", change);
+    assert.equal(changed.code, 200, changed.body.error);
+  }
+  await tab("done").locator(".work-count", { hasText: "2" }).waitFor();
   await tab("done").click();
   const deck = page.locator("[data-proposal-card=deck]");
   await deck.waitFor();
@@ -328,8 +329,17 @@ test("a withdrawn card shows the agent's reason and Restore brings it back", asy
     await deck.locator(".proposal-reason").textContent(),
     `The agent's reason: ${reason}`,
   );
+  const exported = page.locator("[data-proposal-card=export]");
+  assert.equal(
+    await exported.locator(".card-meta").textContent(),
+    "Done·in #86",
+  );
+  assert.deepEqual(
+    await exported.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
   await deck.locator(".link-btn", { hasText: "Restore" }).click();
-  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
   assert.equal((await session.status()).body.proposals[0].withdrawn, null);
   assert.deepEqual(
     (await cards()).map(({ id, declined }) => [id, declined]),

@@ -86,6 +86,10 @@ without a plan.
 - Work in a sub-session or a new agent session is done when you close that
   session. The hub marks the card done, and this session's agent learns of
   it the next time it runs `pair read`, then builds on its result.
+- When a proposal's work got done some other way, such as in a pull
+  request, the agent marks the card done and names where, started or not.
+  The line under the card's title reads Done and where, such as
+  Done · in #86.
 - The agent withdraws a proposal nobody started when it no longer applies,
   with its reason. The card moves to Done as Withdrawn and shows the
   reason, and Restore puts it back in Proposed.

@@ -193,7 +193,8 @@ function proposalState(card) {
   const plan = card.plan ? ", with a plan" : "";
   if (card.declined) return "declined";
   if (card.withdrawn) return "withdrawn";
-  if (card.done) return `done ${places[card.started.where]}${plan}`;
+  if (card.done)
+    return `done ${card.done.where ?? places[card.started.where]}${plan}`;
   if (card.started) return `started ${places[card.started.where]}${plan}`;
   return `proposed${plan}`;
 }
@@ -230,7 +231,7 @@ export async function propose(options) {
   const flags = [
     "id",
     ...["title", "delivers", "recommend", "page", "thread", "revise"],
-    ...["start", "quote", "withdraw", "reason", "done", "reopen"],
+    ...["start", "quote", "withdraw", "reason", "done", "where", "reopen"],
   ];
   const result = await session.request({
     action: "propose",

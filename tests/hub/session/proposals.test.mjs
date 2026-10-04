@@ -364,20 +364,52 @@ test("--withdraw moves a card to Done with its reason, and Restore brings it bac
   );
 });
 
-// Work started here is done when the agent says so, and --reopen puts it
-// back. Neither takes work that was not started here.
-test("--done and --reopen take only work started here", async (t) => {
-  const { propose, add, reviewer, read } = await proposing(t);
+// Work started here is done when the agent says so. Any other card is done
+// with --where, when its work got done somewhere else, and --reopen undoes
+// the agent's own --done.
+test("--done marks work started here done, --where marks any card done, and --reopen undoes either", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
   await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
   const early = await propose({ id: "churn-export", done: true });
   assert.equal(early.code, 409);
   assert.equal(
     early.body.error,
-    "Proposal churn-export has not been started, so it takes no --done.",
+    'Proposal churn-export has not been started. When its work got done somewhere else, run --done with --where, such as --where "in #86".',
   );
-  const started = await reviewer("churn-export", "start", { where: "here" });
-  assert.equal(started.code, 200, started.body.error);
-  assert.equal((await read()).moment, "read-start-here");
+  const elsewhere = await propose({
+    id: "churn-export",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(elsewhere.code, 200, elsewhere.body.error);
+  assert.deepEqual(
+    { ...elsewhere.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1", where: "in #86" },
+  );
+  assert.equal(elsewhere.body.proposal.started, null);
+  // A done card takes no Start, and --reopen puts it back in Proposed.
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    409,
+  );
+  const back = await propose({ id: "churn-export", reopen: true });
+  assert.equal(back.code, 200, back.body.error);
+  assert.equal(back.body.proposal.done, null);
+
+  assert.equal(
+    (await reviewer("board-qa", "start", { where: "sub-session" })).code,
+    200,
+  );
+  assert.equal((await propose({ id: "board-qa", done: true })).code, 409);
+  assert.equal(
+    (await propose({ id: "board-qa", done: true, where: "in #87" })).code,
+    200,
+  );
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
   assert.equal((await propose({ id: "churn-export", reopen: true })).code, 409);
   const done = await propose({ id: "churn-export", done: true });
   assert.equal(done.code, 200, done.body.error);
@@ -388,7 +420,13 @@ test("--done and --reopen take only work started here", async (t) => {
   assert.equal((await propose({ id: "churn-export", done: true })).code, 409);
   const reopened = await propose({ id: "churn-export", reopen: true });
   assert.equal(reopened.code, 200, reopened.body.error);
-  assert.equal(reopened.body.proposal.done, null);
+  assert.deepEqual(
+    (await cards()).map((card) => [card.id, card.done?.where ?? null]),
+    [
+      ["churn-export", null],
+      ["board-qa", "in #87"],
+    ],
+  );
 });
 
 test("a thread on a card wakes the holder with the card it is on", async (t) => {

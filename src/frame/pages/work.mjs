@@ -151,14 +151,18 @@ function threadLink(text, id) {
         : `${base}/r/${encodeURIComponent(thread.round)}${target}#${thread.topic}`;
   return link;
 }
-// Where the card came from, or for work started elsewhere where it runs.
-// Running work started here has no line, since its state says where it
-// runs, and a card names no round.
+// Where the card came from, for work started elsewhere where it runs, and
+// for work the agent marked done with --where, where it got done. Running
+// work started here has no line, since its state says where it runs, and a
+// card names no round.
 function cardWhere(card) {
   if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
-  if (card.started && card.started.where !== "here") {
+  if (card.done?.where) {
+    box.textContent = card.done.where;
+    box.title = `Done ${card.done.where}`;
+  } else if (card.started && card.started.where !== "here") {
     if (card.done) box.append(sessionLink("Done in its own session", linked));
     else if (linked)
       box.append("In its own session · ", sessionLink("Open", linked));

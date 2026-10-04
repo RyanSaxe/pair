@@ -31,8 +31,11 @@ Change a proposal with its `--id` and one of these flags:
   or where you recommend when they did not say.
 - `--withdraw` when a proposal nobody has started no longer applies, with
   `--reason "…"` saying why.
-- `--done` after you publish the last page of work started here, and
-  `--reopen` when later feedback asks for changes to that work.
+- `--done` after you publish the last page of work started here. When a
+  proposal's work got done some other way, started or not, run `--done`
+  with `--where` and where it got done, such as `--where "in #86"`.
+  `--reopen` undoes your `--done` when later feedback asks for changes to
+  that work.
 
 `pair read` prints each Start, each proposal the reviewer declined and
 each proposal whose linked session closed, with what to do next.
