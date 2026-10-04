@@ -4,14 +4,7 @@ import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
 import { publish, runHub, start } from "./session.mjs";
-import {
-  complete,
-  pause,
-  progress,
-  read,
-  reply,
-  status,
-} from "./actions.mjs";
+import { complete, pause, progress, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
   value: "DIR",
