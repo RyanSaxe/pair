@@ -1,6 +1,18 @@
 import { ago } from "#frame/app/time.mjs";
 
-export const $ = (id) => document.getElementById(id);
+/* A page's markup can reuse an ID the frame uses, such as a section with
+   id="work". The page content comes before Work, Review and the dialogs in
+   the document, so getElementById would return the page's element, and the
+   frame would show and hide that element in place of its own. $ returns
+   the frame's element whenever the frame has one. */
+export function $(id) {
+  const found = document.getElementById(id);
+  const content = document.getElementById("page-content");
+  if (!found || found === content || !content?.contains(found)) return found;
+  for (const element of document.querySelectorAll(`#${CSS.escape(id)}`))
+    if (!content.contains(element)) return element;
+  return found;
+}
 // crypto.randomUUID exists only in a secure context; over plain http on a
 // Tailscale address, which is how a phone reaches the hub, it is undefined.
 export function uuid() {

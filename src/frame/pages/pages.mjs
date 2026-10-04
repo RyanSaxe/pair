@@ -205,7 +205,9 @@ export function show(
 // Scrolls to an element of the page on screen and focuses it, opening any
 // details around it.
 export function reveal(targetId) {
-  const target = targetId && $(targetId);
+  // A target is usually on the page, so a page block that reuses a frame ID
+  // is the one revealed.
+  const target = targetId && document.getElementById(targetId);
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
   if (!target || ![$("reading"), $("work")].some((at) => at.contains(target)))
