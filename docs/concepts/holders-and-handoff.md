@@ -19,13 +19,11 @@ might also hand over to carry on in a new conversation.
 
 ## What other agents can run
 
-| Command          | From an agent that is not the holder                           |
-| ---------------- | -------------------------------------------------------------- |
-| `pair start`     | Takes the session over.                                        |
-| `pair status`    | Works, also from a plain terminal.                             |
-| `pair side-work` | Works, so an agent the holder briefs can report its side work. |
-| Anything else    | Refused.                                                       |
+| Command       | From an agent that is not the holder |
+| ------------- | ------------------------------------ |
+| `pair start`  | Takes the session over.              |
+| `pair status` | Works, also from a plain terminal.   |
+| Anything else | Refused.                             |
 
-After a takeover, the former holder's next command other than `pair status`
-or `pair side-work`, `pair start` included, fails with the time it lost the
-session.
+After a takeover, the former holder's next command other than `pair status`,
+`pair start` included, fails with the time it lost the session.

@@ -71,9 +71,9 @@ const unix = {
   skip: process.platform === "win32" && "a Codex wake needs codex.cmd support",
 };
 const thread = "thread-1";
-// A side-work line contains the reviewer's message, so a line can pass the
-// 125 bytes of a short frame.
-const line = `pair: side work "Retry" was started in parallel on session /s. ${"Do it apart from the session's own work. ".repeat(4)}`;
+// A thread's wake line names the session's directory and the command that
+// prints the thread, so a line can pass the 125 bytes of a short frame.
+const line = `pair: a thread on "Overview", session /s, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir /s --thread 6f1c2a9e-5b7d-4e3a-9c2f-8a1b3d4e5f60, which prints the thread and how to answer.`;
 const queued = ["queue", "--thread", thread, "--message", line];
 
 test("a Codex wake steers the turn in progress", unix, async (t) => {

@@ -327,7 +327,6 @@ export function agent(session) {
     pause,
     publish: (data) => session.publishPage(data.html, data.source, data.pages),
     complete,
-    "side-work": (data) => session.recordSideWork(data),
     reply: (data) => session.reply(data),
   };
   async function act(data) {
@@ -336,11 +335,8 @@ export function agent(session) {
       "Wrong session",
       409,
     );
-    // status only reads, so any agent, or none, may run it. Side work is
-    // done apart from the session's own work, often by an agent the holder
-    // briefed, so any agent may report it.
-    if (!["status", "side-work"].includes(data.action))
-      await requireHolder(data.agent);
+    // status only reads, so any agent, or none, may run it.
+    if (data.action !== "status") await requireHolder(data.agent);
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     return actions[data.action](data);
   }

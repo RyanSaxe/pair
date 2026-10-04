@@ -16,10 +16,8 @@ text{fill:#e6edf3}.s{fill:#9198a1}.line{stroke:#e6edf3}.head{fill:#e6edf3}.box{f
 <text x="315" y="195" class="s">in a thread, answered right away</text>
 <path class="line" d="M370 225 C400 290 230 290 260 229" marker-end="url(#a)"/>
 <text x="315" y="300" class="s">feedback: the next round answers it</text>
-<rect class="side" x="200" y="18" width="110" height="42" rx="21"/><text x="255" y="44" class="s">Thread</text>
-<path class="dash" d="M255 60 V83"/>
-<rect class="side" x="320" y="18" width="110" height="42" rx="21"/><text x="375" y="44" class="s">Side work</text>
-<path class="dash" d="M375 60 V83"/>
+<rect class="side" x="260" y="18" width="110" height="42" rx="21"/><text x="315" y="44" class="s">Thread</text>
+<path class="dash" d="M315 60 V83"/>
 <rect class="box" x="500" y="50" width="140" height="50" rx="10"/><text x="570" y="80" class="t">Understood</text>
 <rect class="box" x="500" y="130" width="140" height="50" rx="10"/><text x="570" y="160" class="t">Plan accepted</text>
 <rect class="box" x="500" y="215" width="140" height="50" rx="10"/><text x="570" y="245" class="t">Work accepted</text>

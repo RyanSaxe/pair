@@ -125,6 +125,5 @@ you publish anything from it.
 
 Before the session's first page, run `pair guide writing.md`,
 `pair guide pages.md` and `pair guide components.md`. Run
-`pair guide side-work.md` when you find work outside the task,
 `pair guide session.md` before you take a session over, resume it or pause
 it, and `pair guide setup.md` when a `pair` command fails.

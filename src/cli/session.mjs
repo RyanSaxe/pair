@@ -120,8 +120,8 @@ async function keepSource(sessionDir, source, html) {
   return target;
 }
 // The session a command names, and request(), which sends it one action.
-// status and side-work may come from an agent that cannot be woken, such as
-// one the holder briefed, unless the session has to register with a new hub.
+// status may come from an agent that cannot be woken, such as one the holder
+// briefed, unless the session has to register with a new hub.
 // status still names the agent when there is one, because a hub that runs
 // older code answers status only for the holder.
 export async function openSession(options, { anyAgent = false } = {}) {

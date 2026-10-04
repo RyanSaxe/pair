@@ -10,7 +10,6 @@ import {
   progress,
   read,
   reply,
-  sideWork,
   status,
 } from "./actions.mjs";
 
@@ -153,7 +152,7 @@ export const commands = {
     group: "session",
     purpose: "Print where the session stands. Any agent may run it.",
     about:
-      "Print where the session stands, with its side work. Any agent may run it, and only the holder's output starts with the next step.",
+      "Print where the session stands. Any agent may run it, and only the holder's output starts with the next step.",
     flags: { "session-dir": sessionDir, json },
     run: status,
   },
@@ -164,48 +163,6 @@ export const commands = {
       "End the session once the reviewer accepts built work and the accepted action is done.",
     flags: { "session-dir": sessionDir, json },
     run: complete,
-  },
-  "side-work": {
-    group: "session",
-    purpose: "Record work outside the task, and report its state",
-    about:
-      "Record work outside the session's task, which the reviewer can start in parallel from Agreed, and report each change to it. Any agent may run it.",
-    subcommands: {
-      add: {
-        about:
-          "Record work outside the session's task, which the reviewer can start in parallel from Agreed. Any agent may run it.",
-        flags: {
-          "session-dir": sessionDir,
-          title: { value: "TEXT", required: true, text: "The item's title." },
-          text: { value: "TEXT", required: true, text: "What the work is." },
-          source: {
-            value: "TEXT",
-            required: true,
-            text: 'Where the work came from, such as "From the conversation".',
-          },
-          json,
-        },
-        run: (options) => sideWork("add", options),
-      },
-      update: {
-        about: "Report a change to side-work item ID. Any agent may run it.",
-        args: [{ name: "ID" }],
-        flags: {
-          "session-dir": sessionDir,
-          state: {
-            value: "STATE",
-            required: true,
-            text: "working, pr and done follow a start from Agreed, moved sends the item to a new session, and planned joins it to this session's plan.",
-          },
-          url: {
-            value: "URL",
-            text: "The pull request with pr, or the new session's URL with moved.",
-          },
-          json,
-        },
-        run: (options) => sideWork("update", options),
-      },
-    },
   },
   guide: {
     group: "pages",

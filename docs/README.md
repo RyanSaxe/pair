@@ -14,8 +14,8 @@ your browser. Start with the section that matches what you want to do.
   rounds, pages, Agreed and feedback.
 - [Offers and building](concepts/offers-and-building.md) explains accepting a
   plan, the build round and accepting the work.
-- [Threads and side work](concepts/threads-and-side-work.md) explains asking a
-  question now and setting work aside.
+- [Threads](concepts/threads-and-side-work.md) explains asking a question
+  now.
 - [Holders and handoff](concepts/holders-and-handoff.md) explains which agent
   holds a session and how another agent takes it over.
 - [Architecture](concepts/architecture.md) explains the hub, how it wakes the

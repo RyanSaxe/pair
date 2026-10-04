@@ -102,7 +102,6 @@ sessions/<dir>/      the directory name is not the session ID
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
   scenes/            editable shapes of drawing answers
   threads/           one file per thread
-  side-work/         one file per side-work item
   activity.json      the last 50 events, for the bell
   output/            command output too long to print
   acceptance.json    after you accept

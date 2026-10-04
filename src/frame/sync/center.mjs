@@ -18,11 +18,11 @@ import {
 import { openPast, remote } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
-/* The bell lists every session's starts, waiting rounds, agent replies and
-   side-work pull requests, newest first, from the last 50 events the hub
-   keeps for each. A line leaves the list when you click it or its ✕, when
-   you reply in its thread, or, for a waiting round, once you send that
-   round, so the bell's number is the number of lines. Which events this
+/* The bell lists every session's starts, waiting rounds and agent replies,
+   newest first, from the last 50 events the hub keeps for each. A line
+   leaves the list when you click it or its ✕, when you reply in its
+   thread, or, for a waiting round, once you send that round, so the bell's
+   number is the number of lines. Which events this
    browser removed stays in its storage for the hub, so every tab on the hub
    shares it and each browser keeps its own. A round published before the
    bell's list came keeps the notification center, which reads its own
