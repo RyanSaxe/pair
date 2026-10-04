@@ -16,12 +16,12 @@ import {
   current,
   currentAvailable,
   feedbackEditable,
-  page,
   pages,
   plan,
   session,
   setPastRound,
   setSubmittedRound,
+  shownPage,
   submittedCurrent,
   submittedRound,
 } from "#frame/app/view.mjs";
@@ -183,7 +183,7 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     return;
   submissionError = "";
   const origin = {
-    page: $("reading").hidden ? "feedback" : page.id,
+    page: shownPage(),
     top: scroller().scrollTop,
   };
   submissionInFlight = true;

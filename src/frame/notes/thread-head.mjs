@@ -20,6 +20,7 @@ const cut = (text, length) =>
   text.length > length ? `${text.slice(0, length - 1).trimEnd()}…` : text;
 // What a thread is on, as its card's head names it.
 function threadName(thread, part, collapsed) {
+  if (thread.proposal) return `On ${thread.page}`;
   if (thread.quote) {
     // A collapsed card hides its quote, so its head quotes the words.
     const words = `“${cut(normalize(thread.quote), 40)}”`;

@@ -32,6 +32,7 @@ import {
   setPastRound,
   setSubmittedRound,
   showingWaiting,
+  shownPage,
   storageKey,
   submittedRound,
   useView,
@@ -48,6 +49,7 @@ import {
   show,
   updateNavigation,
 } from "#frame/pages/pages.mjs";
+import { refreshWork } from "#frame/pages/work.mjs";
 import {
   renderSentFeedback,
   review,
@@ -452,24 +454,30 @@ export async function poll() {
       await syncPageSet().catch(() => {});
       await loadPastView(pastRound).catch(() => {});
     }
-    // Current's round was sent, here or in another browser: the left tab
-    // takes it, and Current waits for the next round.
+    // Current's round was sent, here or in another browser, or a Start
+    // answered it: the left tab takes it, and a reader on Work stays there.
     if (waiting() && !submissionInFlight) {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
-        switchTab("current");
+        const onWork = shownPage() === "work";
+        switchTab("current", null, { showPage: !onWork });
+        if (onWork) show("work", null, { keepScroll: true, push: false });
       }
     }
     // The next round's Agreed arrived while Current waited. It replaces
     // the pending Agreed without moving the reader or the scroll position.
     if (showingWaiting() && currentAvailable() && !submissionInFlight) {
       switchTab("current", null, { showPage: false });
-      show($("reading").hidden ? "feedback" : "agreed", null, {
-        keepScroll: true,
-        push: false,
-        inPlace: true,
-      });
+      show(
+        ["feedback", "work"].includes(shownPage()) ? shownPage() : "agreed",
+        null,
+        {
+          keepScroll: true,
+          push: false,
+          inPlace: true,
+        },
+      );
     }
     void loadSubmission().catch(() => {});
     placeThreads();
@@ -488,4 +496,5 @@ export async function poll() {
   updateNavigation();
   renderRound();
   review();
+  refreshWork();
 }

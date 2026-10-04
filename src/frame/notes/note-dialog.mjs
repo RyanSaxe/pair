@@ -15,6 +15,7 @@ import {
 } from "#frame/notes/notes.mjs";
 import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
+import { cardsEditable } from "#frame/pages/work.mjs";
 
 /* Images on a note. A screenshot pasted from the clipboard has no filename
    and no path, and a file dropped from Finder arrives as a File the browser
@@ -140,7 +141,8 @@ export function installNoteDialog() {
      images stay. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
   $("note-thread").onclick = () => {
-    if (!noteEditable() || $("note-thread").hidden) return;
+    const allowed = noteContext.proposal ? cardsEditable() : noteEditable();
+    if (!allowed || $("note-thread").hidden) return;
     const text = $("note-text").value.trim();
     if (!text) {
       $("note-form").reportValidity();

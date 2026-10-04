@@ -1,6 +1,7 @@
-/* A thread: a card under the block its note is on, or under the progress
-   card, in the frame's card style. The #reading prefix outranks the page's
-   own p rule and reaches cards outside the page's content. */
+/* A thread: a card under the block its note is on, under the progress
+   card, or under a proposal's card on Work, in the frame's card style. The
+   #reading and #work prefix outranks the page's own p rule and reaches
+   cards outside the page's content. */
 pair-thread {
   position: relative;
   display: grid;
@@ -14,7 +15,7 @@ pair-thread {
   font-size: var(--text-label);
   line-height: var(--leading-ui);
 }
-#reading pair-thread p {
+:is(#reading, #work) pair-thread p {
   margin: 0;
   font-size: var(--text-label);
 }
@@ -22,7 +23,7 @@ pair-thread {
    block past each card to its head. A block, or a card, keeps the next
    card 8px below it, so the line meets both. The card's data-thread makes
    the rule outrank the frame's margin for a component or a figure. */
-#reading :has(+ pair-thread[data-thread]) {
+:is(#reading, #work) :has(+ pair-thread[data-thread]) {
   margin-bottom: 8px;
 }
 pair-thread::before {
@@ -115,11 +116,11 @@ pair-thread[collapsed] > :not(.thread-head) {
   gap: 6px;
   min-width: 0;
 }
-#reading .thread-name {
+:is(#reading, #work) .thread-name {
   font-size: var(--text-meta);
   font-weight: var(--weight-strong);
 }
-#reading .thread-meta {
+:is(#reading, #work) .thread-meta {
   color: var(--muted);
   font-size: var(--text-tiny);
   font-weight: 400;
@@ -218,7 +219,7 @@ pair-thread[collapsed] > :not(.thread-head) {
 .thread-info:is(:hover, :focus-visible) + .thread-tip {
   visibility: visible;
 }
-#reading .thread-working {
+:is(#reading, #work) .thread-working {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -243,7 +244,7 @@ pair-thread[collapsed] > :not(.thread-head) {
     animation: none;
   }
 }
-#reading .thread-bad {
+:is(#reading, #work) .thread-bad {
   color: var(--danger);
   font-size: var(--text-meta);
 }

@@ -71,19 +71,24 @@ async function post(id, url, body) {
 }
 export function startThread(context, text, attachments) {
   const now = new Date().toISOString();
-  const fields = {
-    id: uuid(),
-    round: plan.round,
-    topic: context.topic,
-    anchor: context.anchor,
-    ...(context.quote ? { quote: context.quote } : {}),
-    ...(context.target ? { target: context.target } : {}),
-    ...(context.occurrence ? { occurrence: context.occurrence } : {}),
-    ...(context.agreementId ? { agreementId: context.agreementId } : {}),
-  };
+  // A thread on a proposal's card names the card in place of a page.
+  const fields = context.proposal
+    ? { id: uuid(), proposal: context.proposal }
+    : {
+        id: uuid(),
+        round: plan.round,
+        topic: context.topic,
+        anchor: context.anchor,
+        ...(context.quote ? { quote: context.quote } : {}),
+        ...(context.target ? { target: context.target } : {}),
+        ...(context.occurrence ? { occurrence: context.occurrence } : {}),
+        ...(context.agreementId ? { agreementId: context.agreementId } : {}),
+      };
   sent.set(fields.id, {
     ...fields,
-    page: pages.find((item) => item.id === context.topic)?.title,
+    page: context.proposal
+      ? context.title
+      : pages.find((item) => item.id === context.topic)?.title,
     state: "sending",
     createdAt: now,
     messages: [{ from: "reviewer", at: now, text, attachments }],
@@ -416,23 +421,39 @@ function placeProgress(threads) {
   // The cards sit above the page's content, so the note bars move with it.
   if (moved) placeMarks();
 }
-// Each card goes under its block, after the cards started there before it.
-// With four or more threads on one block, all but the two newest start
-// collapsed.
+// The card a thread on a proposal goes under: the card on Work, or the
+// proposal component on a page, whichever is on screen.
+const cardOf = (id) =>
+  [
+    ...document.querySelectorAll(`[data-proposal-card="${CSS.escape(id)}"]`),
+  ].find((node) => !node.closest("[hidden]"));
+// Each thread goes under its block or its proposal's card, after the
+// threads started there before it. With four or more threads in one place,
+// all but the two newest start collapsed.
 export function placeThreads() {
   const root = $("page-content");
-  if (!page || page.pending || $("reading").hidden) return;
-  const list = allThreads()
-    .filter((item) => item.round === plan.round && item.topic === page.id)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const ids = new Set(list.map((item) => item.id));
-  for (const card of $("reading").querySelectorAll("pair-thread"))
-    if (!ids.has(card.dataset.thread)) card.remove();
-  placeProgress(list.filter(onProgress));
+  const reading = page && !page.pending && !$("reading").hidden;
   const groups = new Map();
-  for (const thread of list.filter((item) => !onProgress(item))) {
-    const block = blockOf(root, thread);
-    groups.set(block, [...(groups.get(block) || []), thread]);
+  const group = (at, thread) =>
+    groups.set(at, [...(groups.get(at) || []), thread]);
+  const ids = new Set();
+  const list = [];
+  for (const thread of allThreads().sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  )) {
+    const host = thread.proposal && cardOf(thread.proposal);
+    if (host) group(host, thread);
+    else if (thread.proposal) cards.get(thread.id)?.card.remove();
+    else if (reading && thread.round === plan.round && thread.topic === page.id)
+      list.push(thread);
+    if (host || list.at(-1) === thread) ids.add(thread.id);
+  }
+  if (reading) {
+    for (const card of $("reading").querySelectorAll("pair-thread"))
+      if (!ids.has(card.dataset.thread)) card.remove();
+    placeProgress(list.filter(onProgress));
+    for (const thread of list.filter((item) => !onProgress(item)))
+      group(blockOf(root, thread), thread);
   }
   const placed = new Set();
   for (const [block, threads] of groups)
