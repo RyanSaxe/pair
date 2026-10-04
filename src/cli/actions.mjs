@@ -232,7 +232,6 @@ export async function propose(options) {
     thread: options.thread,
     page: options.page,
     revise: options.revise,
-    start: options.start,
     done: options.done,
     reopen: options.reopen,
   });

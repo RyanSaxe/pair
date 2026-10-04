@@ -160,11 +160,11 @@ export const commands = {
   },
   propose: {
     group: "session",
-    purpose: "Record a proposal, or revise, start, finish or reopen one",
+    purpose: "Record a proposal, or revise, finish or reopen one",
     about:
-      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --start, --done and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
+      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --done and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
     usage:
-      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --done | --reopen] [FIELDS]",
+      "pair propose --session-dir DIR --id ID [--revise | --done | --reopen] [FIELDS]",
     flags: {
       "session-dir": sessionDir,
       id: {
@@ -191,22 +191,18 @@ export const commands = {
       },
       source: {
         value: "TEXT",
-        text: 'Where the work came from, such as "From the churn chart page", or with --start the reviewer\'s words.',
+        text: 'Where the work came from, such as "From the churn chart page".',
       },
       thread: {
         value: "ID",
-        text: "The thread the work or the reviewer's words came from.",
+        text: "The thread the work came from.",
       },
       page: {
         value: "ROUND/PAGE",
-        text: "The page the work or the reviewer's words came from, such as 14/commenting.",
+        text: "The page the work came from, such as 14/commenting.",
       },
       revise: {
         text: "Replace the fields given and keep the rest. Refused once the card is started.",
-      },
-      start: {
-        value: "WHERE",
-        text: "Start the card on the reviewer's words, quoted with --source, with --thread or --page for where they wrote them. WHERE is here, sub-session or new-agent.",
       },
       done: {
         text: "Mark work started here done, after you publish its last page.",
