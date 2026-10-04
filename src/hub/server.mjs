@@ -324,6 +324,27 @@ export async function startHub(config = settings()) {
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.dismiss()));
         }
+        // Start, Decline and Restore on a proposal's card. Start carries
+        // where the work runs and the reviewer's optional message.
+        const cardActions = {
+          start: session.startProposal,
+          decline: session.declineProposal,
+          restore: session.restoreProposal,
+        };
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "proposals" &&
+          rest.length === 4 &&
+          Object.hasOwn(cardActions, rest[3])
+        ) {
+          const data = rest[3] === "start" ? await readBody(req, 50_000) : null;
+          const id = decodeURIComponent(rest[2]);
+          return reply(
+            200,
+            await session.exclusive(() => cardActions[rest[3]](id, data)),
+          );
+        }
         /* This route writes bytes, so it also caps the size and the count,
            decides the type from the leading bytes rather than a header, and
            names the file itself. */

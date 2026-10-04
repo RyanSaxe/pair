@@ -1,0 +1,274 @@
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import test from "node:test";
+import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+
+const card = {
+  id: "churn-export",
+  title: "Refresh the churn data export",
+  delivers: "The export uses the September schema.",
+  changes: "Only reports/churn.sql.",
+  recommend: "here",
+  reason: "It is one query.",
+  source: "Found while drafting the churn chart",
+};
+// A session with round 1 published and waiting for the reviewer. propose
+// runs pair propose's action as the holder, and reviewer posts a card's
+// route from the browser.
+async function proposing(t) {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const propose = (fields, agent = a.agent) =>
+    a.action("propose", { ...fields, agent });
+  const add = async (fields = {}) => {
+    const added = await propose({ ...card, ...fields });
+    assert.equal(added.code, 200, added.body.error);
+    return added.body.proposal;
+  };
+  const reviewer = (id, action, body = {}) =>
+    a.request(`${a.base}/api/proposals/${id}/${action}`, body);
+  const cards = async () => (await a.status()).body.proposals;
+  const read = async () => (await a.action("read")).body;
+  return { h, a, propose, add, reviewer, cards, read };
+}
+
+test("pair propose records one file per card and refuses an ID the session has", async (t) => {
+  const { h, a, propose, add, cards } = await proposing(t);
+  const added = await add();
+  assert.deepEqual(
+    { ...added, recordedAt: undefined, updatedAt: undefined },
+    {
+      ...card,
+      source: { text: card.source },
+      recordedAt: undefined,
+      updatedAt: undefined,
+      plan: null,
+      started: null,
+      declined: null,
+      done: null,
+    },
+  );
+  assert.deepEqual(
+    JSON.parse(
+      await fs.readFile(
+        path.join(a.directory, "proposals", "churn-export.json"),
+        "utf8",
+      ),
+    ),
+    added,
+  );
+  // Any agent may record a card, such as one the holder briefed.
+  const briefed = (await h.inbox()).agent;
+  const other = await propose(
+    { ...card, id: "board-qa", title: "Board Q&A prep", page: "1/overview" },
+    briefed,
+  );
+  assert.equal(other.code, 200, other.body.error);
+  assert.deepEqual(other.body.proposal.source, {
+    text: card.source,
+    page: { round: "1", id: "overview" },
+  });
+  assert.equal(other.body.next, undefined);
+  const again = await propose({ ...card, title: "Another title" });
+  assert.equal(again.code, 409);
+  assert.match(again.body.error, /already has proposal churn-export.*--revise/);
+  assert.deepEqual(
+    (await cards()).map(({ id, title }) => [id, title]),
+    [
+      ["churn-export", card.title],
+      ["board-qa", "Board Q&A prep"],
+    ],
+  );
+  const revised = await propose({
+    id: "churn-export",
+    revise: true,
+    title: "Refresh the export",
+  });
+  assert.equal(revised.code, 200, revised.body.error);
+  assert.equal(revised.body.proposal.title, "Refresh the export");
+  assert.equal(revised.body.proposal.delivers, card.delivers);
+  assert.equal(
+    (await propose({ ...card, id: "Churn Export" })).code,
+    400,
+    "an ID that is not a slug",
+  );
+  assert.equal((await propose({ ...card, id: "x", page: "1/none" })).code, 400);
+  // Every pair tab's bell announces each card.
+  const listed = await a.request("/api/sessions");
+  assert.deepEqual(
+    listed.body.sessions[0].events
+      .filter((event) => event.kind === "proposal")
+      .map(({ proposal, page }) => [proposal, page]),
+    [
+      ["churn-export", "work"],
+      ["board-qa", "work"],
+    ],
+  );
+});
+
+test("Start wakes the holder with the reviewer's message, and answers the waiting round", async (t) => {
+  const { a, propose, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  const message = "Keep the old column names.\nAsk before dropping any.";
+  const started = await reviewer("churn-export", "start", {
+    where: "here",
+    message: `  ${message} `,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const [entry] = started.body.proposals;
+  assert.deepEqual(
+    { ...entry.started, at: undefined },
+    { at: undefined, round: "1", where: "here", by: "reviewer", message },
+  );
+  assert.equal(
+    await waitUntil(() => a.inbox.wakes.length === 1),
+    true,
+    "one wake",
+  );
+  assert.equal(
+    a.inbox.wakes[0].message.message.content,
+    `pair: the reviewer started proposal churn-export, "${card.title}", here in session ${a.directory}. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's message with Start, which pair read prints too:\n${message}`,
+  );
+  // The Start answers round 1, which waited for the reviewer.
+  const status = (await a.status()).body;
+  assert.equal(status.stage, "submitted");
+  assert.equal(status.latestSubmissionRound, "1");
+  assert.equal(status.needsYou, false);
+
+  const second = await reviewer("churn-export", "start", { where: "here" });
+  assert.equal(second.code, 409);
+  assert.equal(second.body.error, "Proposal churn-export was already started");
+  const revise = await propose({
+    id: "churn-export",
+    revise: true,
+    title: "Changed",
+  });
+  assert.equal(revise.code, 409);
+  assert.match(revise.body.error, /was started, which approved what it said/);
+  assert.equal((await reviewer("churn-export", "decline")).code, 409);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
+
+  const answer = await read();
+  assert.equal(answer.moment, "read-start-here");
+  assert.equal(answer.event.payload.proposal, "churn-export");
+  assert.equal(answer.event.payload.message, message);
+  assert.equal(answer.proposal.title, card.title);
+  assert.equal((await cards())[0].started.where, "here");
+});
+
+test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {
+  const { a, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const declined = await reviewer("churn-export", "decline");
+  assert.equal(declined.code, 200, declined.body.error);
+  assert.ok(declined.body.proposals[0].declined.at);
+  assert.equal((await reviewer("churn-export", "decline")).code, 200);
+  const start = await reviewer("churn-export", "start", { where: "here" });
+  assert.equal(start.code, 409);
+  // A decline sends the agent nothing until it runs pair read, which
+  // prints it once.
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 0);
+  assert.deepEqual(
+    (await read()).declined.map(({ id }) => id),
+    ["churn-export"],
+  );
+  assert.deepEqual((await read()).declined, []);
+
+  const restored = await reviewer("churn-export", "restore");
+  assert.equal(restored.code, 200, restored.body.error);
+  assert.equal(restored.body.proposals[0].declined, null);
+  assert.equal((await reviewer("board-qa", "decline")).code, 200);
+  assert.equal((await reviewer("churn-export", "decline")).code, 200);
+  assert.deepEqual((await read()).declined.map(({ id }) => id).sort(), [
+    "board-qa",
+    "churn-export",
+  ]);
+  assert.deepEqual(
+    (await cards()).map((item) => Boolean(item.declined?.reported)),
+    [true, true],
+  );
+});
+
+test("--done and --reopen take only work started here, and --start quotes the reviewer", async (t) => {
+  const { a, propose, add, read } = await proposing(t);
+  await add();
+  const early = await propose({ id: "churn-export", done: true });
+  assert.equal(early.code, 409);
+  assert.equal(
+    early.body.error,
+    "Proposal churn-export has not been started, so it takes no --done.",
+  );
+  const unquoted = await propose({ id: "churn-export", start: "here" });
+  assert.equal(unquoted.code, 400);
+  const thread = await a.request(`${a.base}/api/threads`, {
+    id: "go",
+    proposal: "churn-export",
+    text: "Go ahead and refresh the export.",
+  });
+  assert.equal(thread.code, 201, thread.body.error);
+  const started = await propose({
+    id: "churn-export",
+    start: "here",
+    source: "Go ahead and refresh the export.",
+    thread: "go",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  assert.deepEqual(
+    { ...started.body.proposal.started, at: undefined },
+    {
+      at: undefined,
+      round: "1",
+      where: "here",
+      by: "words",
+      quote: "Go ahead and refresh the export.",
+      thread: "go",
+    },
+  );
+  assert.equal((await read()).moment, "read-start-here");
+  assert.equal((await propose({ id: "churn-export", reopen: true })).code, 409);
+  const done = await propose({ id: "churn-export", done: true });
+  assert.equal(done.code, 200, done.body.error);
+  assert.deepEqual(
+    { ...done.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1" },
+  );
+  assert.equal((await propose({ id: "churn-export", done: true })).code, 409);
+  const reopened = await propose({ id: "churn-export", reopen: true });
+  assert.equal(reopened.code, 200, reopened.body.error);
+  assert.equal(reopened.body.proposal.done, null);
+});
+
+test("a thread on a card wakes the holder with the card it is on", async (t) => {
+  const { a, add } = await proposing(t);
+  await add();
+  const started = await a.request(`${a.base}/api/threads`, {
+    id: "why",
+    proposal: "churn-export",
+    text: "Why September?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  assert.deepEqual(
+    {
+      proposal: started.body.thread.proposal,
+      page: started.body.thread.page,
+      round: started.body.thread.round,
+    },
+    { proposal: "churn-export", page: card.title, round: undefined },
+  );
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  assert.match(
+    a.inbox.wakes[0].message.message.content,
+    /^pair: a thread on proposal churn-export, "Refresh the churn data export", session /,
+  );
+  const missing = await a.request(`${a.base}/api/threads`, {
+    id: "lost",
+    proposal: "nothing",
+    text: "Hello?",
+  });
+  assert.equal(missing.code, 404);
+});

@@ -31,6 +31,8 @@ moment is a Markdown file in `guide/moments/`, and
 | `read-feedback.md`        | `pair read`          | It prints feedback.                                                                                                      |
 | `read-accept-ACTION.md`   | `pair read`          | It prints an acceptance, by the action's ID in `src/shared/offers.mjs`: `save`, `implement`, `finish` or `pull-request`. |
 | `read-thread.md`          | `pair read --thread` | It prints a thread.                                                                                                      |
+| `read-start-here.md`      | `pair read`          | It prints a Start of a proposal here.                                                                                    |
+| `read-declined.md`        | `pair read`          | It prints the proposals the reviewer declined since the last `pair read`, each once.                                     |
 | `publish-agreed.md`       | `pair publish`       | It publishes an Agreed that names no offer.                                                                              |
 | `publish-agreed-OFFER.md` | `pair publish`       | It publishes an Agreed that names the `plan` or `finish` offer.                                                          |
 | `publish-page.md`         | `pair publish`       | It publishes a page, and pages remain.                                                                                   |
@@ -47,6 +49,7 @@ moment is a Markdown file in `guide/moments/`, and
 | [`guide/prototypes.md`](../../guide/prototypes.md)       | `pair guide prototypes.md`    | When a page has a prototype                              |
 | [`guide/session.md`](../../guide/session.md)             | `pair guide session.md`       | Before it takes a session over, resumes it or pauses it  |
 | [`guide/setup.md`](../../guide/setup.md)                 | `pair guide setup.md`         | When a command fails                                     |
+| [`guide/proposals.md`](../../guide/proposals.md)         | `pair guide proposals.md`     | Before it records its first proposal                     |
 | [`guide/offers/plan.md`](../../guide/offers/plan.md)     | `pair guide offers/plan.md`   | Before the final plan, and after the reviewer accepts it |
 | [`guide/offers/finish.md`](../../guide/offers/finish.md) | `pair guide offers/finish.md` | After the reviewer accepts built work                    |
 

@@ -109,6 +109,41 @@ export function feedbackText(event) {
   );
 }
 
+// A Start: the card it started, which is the agent's own text, then the
+// reviewer's message with Start, when there is one.
+export function startText(event, card) {
+  const { payload } = event;
+  return [
+    `Proposal ${payload.proposal}, "${card.title}", started ${payload.where}${payload.by === "words" ? " on the reviewer's words" : " by the reviewer"}.`,
+    `Delivers: ${card.delivers}`,
+    `May change: ${card.changes}`,
+    ...(payload.message
+      ? [
+          tag(
+            "pair_start",
+            {
+              submission: event.id,
+              proposal: payload.proposal,
+              where: payload.where,
+            },
+            [reviewerLine, tagText(payload.message)].join("\n"),
+            true,
+          ),
+        ]
+      : []),
+  ].join("\n");
+}
+
+// Each proposal the reviewer declined since the last pair read.
+export function declinedText(cards) {
+  if (!cards?.length) return "";
+  const width = Math.max(...cards.map((card) => card.id.length));
+  return [
+    "Proposals the reviewer declined:",
+    ...cards.map((card) => `  ${card.id.padEnd(width)}  ${card.title}`),
+  ].join("\n");
+}
+
 // A thread whole: the quoted text, then every message and reply.
 export function threadText(thread) {
   const messages = thread.messages.map((message) =>
@@ -128,6 +163,7 @@ export function threadText(thread) {
       page: thread.topic,
       on: thread.anchor,
       round: thread.round,
+      proposal: thread.proposal,
     },
     [...quote(thread.quote), ...messages].join("\n"),
     true,
@@ -151,7 +187,12 @@ export function threadIndex(threads, since, directory) {
     ...threads.map((thread) =>
       tag(
         "pair_thread",
-        { id: thread.id, page: thread.topic, messages: thread.messages },
+        {
+          id: thread.id,
+          page: thread.topic,
+          proposal: thread.proposal,
+          messages: thread.messages,
+        },
         tagText(opening(thread.latest)),
       ),
     ),

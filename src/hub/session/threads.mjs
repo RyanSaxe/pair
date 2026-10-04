@@ -87,7 +87,10 @@ export function threads(session) {
   }
   async function wakeHolder(id) {
     const thread = records.get(id);
-    const line = `pair: a thread on "${thread.page}", session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${readCommand(thread.id)}, which prints the thread and how to answer.`;
+    const on = thread.proposal
+      ? `proposal ${thread.proposal}, "${thread.page}"`
+      : `"${thread.page}"`;
+    const line = `pair: a thread on ${on}, session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${readCommand(thread.id)}, which prints the thread and how to answer.`;
     thread.wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
     if (thread.state === "sending")
@@ -101,10 +104,35 @@ export function threads(session) {
       409,
     );
   }
+  // A thread on a proposal's card names the card instead of a round, a page
+  // and a block, and its page is the card's title.
+  async function cardThread(data) {
+    const card = session
+      .proposalItems()
+      .find((item) => item.id === data.proposal);
+    requireValue(card, `No proposal ${data.proposal} in this session`, 404);
+    const message = await reviewerMessage(data);
+    return {
+      id: data.id,
+      proposal: card.id,
+      page: card.title,
+      state: "sending",
+      readAt: null,
+      createdAt: message.at,
+      messages: [message],
+    };
+  }
   async function startThread(data) {
     open();
     requireValue(idPattern.test(data.id || ""), "A thread needs an ID");
     requireValue(!records.has(data.id), "This thread already exists", 409);
+    if (data.proposal !== undefined) {
+      const thread = await cardThread(data);
+      records.set(thread.id, thread);
+      await saveThread(thread);
+      wakeLater(thread);
+      return { thread: shown(thread) };
+    }
     const current = session.state.current;
     requireValue(
       current && data.round === current.round,
@@ -181,7 +209,7 @@ export function threads(session) {
     const found = problems(
       {
         pages: [{ id: "reply", title: "Reply", html }],
-        prototypes: await roundPrototypes(thread.round),
+        prototypes: thread.round ? await roundPrototypes(thread.round) : [],
       },
       "",
       { allowUnknownPages: true },
@@ -234,8 +262,10 @@ export function threads(session) {
     await session.addActivity({
       kind: "reply",
       name: thread.page,
-      round: thread.round,
-      page: thread.topic,
+      // A reply on a card opens the Work page, under the card.
+      ...(thread.proposal
+        ? { page: "work", proposal: thread.proposal }
+        : { round: thread.round, page: thread.topic }),
       ...(thread.target ? { target: thread.target } : {}),
       thread: thread.id,
       // The reply's place in the thread, so a notification opens the reply.
@@ -260,6 +290,7 @@ export function threads(session) {
       .map(({ thread, latest }) => ({
         id: thread.id,
         topic: thread.topic,
+        proposal: thread.proposal,
         messages: thread.messages.length,
         latest: latest.text,
       }));
