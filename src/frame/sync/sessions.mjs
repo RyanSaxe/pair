@@ -1,8 +1,6 @@
-import { offers } from "#shared/offers.mjs";
 import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, plural } from "#frame/app/util.mjs";
 import { mode, online, session } from "#frame/app/view.mjs";
-import { handoffLine } from "#frame/pages/renderers.mjs";
 import { installCenter, renderCenter } from "#frame/sync/center.mjs";
 import { createReviewAlerts } from "#frame/sync/notifications.mjs";
 import {
@@ -18,7 +16,6 @@ let sessions = [];
 let grouped = [];
 export let sessionOrder = [];
 let reviewAlerts;
-let narrow;
 export function installSessions() {
   reviewAlerts = createReviewAlerts({
     window,
@@ -27,11 +24,6 @@ export function installSessions() {
     open: (href) => location.assign(new URL(href, location.href).href),
   });
   installCenter();
-  narrow = matchMedia("(max-width: 720px)");
-  narrow.addEventListener("change", () => {
-    toggleSessions(false);
-    renderSessions();
-  });
   $("sessions-pop").addEventListener("toggle", (event) => {
     $("menu-button").setAttribute(
       "aria-expanded",
@@ -48,29 +40,6 @@ export function installSessions() {
   });
 }
 export function status() {
-  // The hub exits once no session is live, so a tab keeps the stage it last
-  // saw: a saved or accepted round keeps its banner while the hub is gone.
-  const saved = remote?.stage === "saved";
-  const complete = remote?.stage === "complete" && remote?.accepted;
-  $("accepted").hidden = !saved && !complete;
-  // A saved round waits for an agent to build it, so the banner gives the
-  // line that hands it over.
-  if (saved) {
-    const { round, offer } = remote.current;
-    const chosen = offers[offer].accept.actions.find(
-      (item) => item.after === "saved",
-    );
-    const text = `Round ${round} accepted: ${chosen.label}.`;
-    if ($("accepted").firstChild?.textContent !== text)
-      $("accepted").replaceChildren(text, handoffLine(remote.handoff));
-  } else if (complete) {
-    const { round, offer, action, path } = remote.accepted;
-    const chosen = offers[offer].accept.actions.find(
-      (item) => item.id === action,
-    );
-    $("accepted").textContent =
-      `Round ${round} accepted: ${chosen.label}. Saved at ${path}`;
-  }
   $("connection-status").textContent = !online
     ? "Local viewing. Feedback can be exported; live submission requires the session URL."
     : !connected
@@ -134,11 +103,9 @@ export async function pollSessions() {
   void reviewAlerts.update(sessions);
 }
 export function stateWords(entry) {
-  if (entry.needsYou)
-    return entry.offer ? "Ready to accept" : "Waiting for you";
+  if (entry.needsYou) return "Waiting for you";
   if (entry.wakeFailed) return "Could not wake the agent";
   if (entry.paused) return "Paused";
-  if (entry.stage === "saved") return "Saved";
   if (!entry.round) return "Preparing the first round";
   if (entry.openRound)
     return `Working · ${entry.openRound.ready} pages readable`;
@@ -147,16 +114,13 @@ export function stateWords(entry) {
   return "Live";
 }
 /* A row's one short status, the first that applies: a round waiting for
-   you, a failed wake, pages this browser has not opened, paused or saved,
-   then the agent at work, which a session before its first round always
-   is. */
+   you, a failed wake, pages this browser has not opened, paused, then the
+   agent at work, which a session before its first round always is. */
 export function rowStatus(entry, unopened = 0) {
-  if (entry.needsYou)
-    return { text: entry.offer ? "Accept" : "Waiting", tone: "need" };
+  if (entry.needsYou) return { text: "Waiting", tone: "need" };
   if (entry.wakeFailed) return { text: "Can't wake", tone: "need" };
   if (unopened) return { text: `${unopened} new`, tone: "news" };
   if (entry.paused) return { text: "Paused", tone: "quiet" };
-  if (entry.stage === "saved") return { text: "Saved", tone: "quiet" };
   if (
     !entry.round ||
     entry.openRound ||
@@ -165,21 +129,20 @@ export function rowStatus(entry, unopened = 0) {
     return { text: "Working", tone: "working" };
   return null;
 }
-/* The sessions button's badge counts every live session. It is orange when
-   another session waits for you or its agent could not be woken, otherwise
-   blue when another session has pages this browser has not opened, and
-   otherwise grey. At 720px and below the same button also opens this tab's
-   Pages, so this tab's unopened pages count toward blue there. */
-export function sessionsBadge(list, thisId, unopened, narrowScreen) {
+/* The sessions button's badge counts the other sessions that need you: a
+   round waiting for you or an agent that could not be woken, which turns
+   it orange, or pages this browser has not opened, which turn it blue
+   when nothing waits. When no other session needs you, it counts the
+   other live sessions in grey. This tab's session never counts. */
+export function sessionsBadge(list, thisId, unopened) {
   const others = list.filter((entry) => entry.id !== thisId);
-  const own = list.find((entry) => entry.id === thisId);
-  const tone = others.some((entry) => entry.needsYou || entry.wakeFailed)
-    ? "need"
-    : others.some((entry) => unopened(entry)) ||
-        (narrowScreen && own && unopened(own))
-      ? "news"
-      : "";
-  return { count: list.length, tone };
+  const waits = (entry) => entry.needsYou || entry.wakeFailed;
+  const needing = others.filter((entry) => waits(entry) || unopened(entry));
+  if (!needing.length) return { count: others.length, tone: "" };
+  return {
+    count: needing.length,
+    tone: needing.some(waits) ? "need" : "news",
+  };
 }
 // The next session after this one, in list order and wrapping to the top,
 // whose round waits for you.
@@ -260,8 +223,7 @@ export function redraw(list, lines) {
 // A closing session's row says so until the hub drops it or refuses.
 const closing = new Map();
 /* One session's row: its number, title and short status, then Copy
-   handoff line and Close in two fixed columns. This tab's row has no
-   Close. */
+   handoff line and Close in two fixed columns. */
 function sessionRow(entry, index, unopened, depth) {
   const current = entry.id === session.sessionId;
   const line = document.createElement("div");
@@ -326,11 +288,9 @@ function sessionRow(entry, index, unopened, depth) {
   line.append(
     row,
     copy,
-    current
-      ? document.createElement("span")
-      : lineButton(`close:${entry.id}`, `Close ${entry.title}`, "✕", () =>
-          dismiss(entry),
-        ),
+    lineButton(`close:${entry.id}`, `Close ${entry.title}`, "✕", () =>
+      confirmClose(entry),
+    ),
   );
   return line;
 }
@@ -352,22 +312,17 @@ function closedHeading(entry, depth) {
   line.append(row);
   return line;
 }
-// At 720px and below the sessions button opens the menu sheet, with this
-// tab's Pages above the sessions. A home view has no pages, so there the
-// button opens the session list at every width.
-const opensSheet = () => narrow.matches && mode !== "home";
-/* Every session, in sessionOrder, in the popover above 720px and under
-   Pages in the menu sheet at 720px and below, and the sessions button's
-   badge. */
+/* Every session, in sessionOrder, in the popover, and the sessions
+   button's badge. */
 function renderSessions() {
   const waiting = sessionOrder.filter(
     (entry) => entry.needsYou && entry.id !== session.sessionId,
   ).length;
-  for (const id of ["sessions-waiting", "sheet-sessions-waiting"])
-    $(id).textContent = waiting ? `${waiting} waiting` : "";
+  $("sessions-waiting").textContent = waiting ? `${waiting} waiting` : "";
   const opened = openedPages();
   const unopened = (entry) => countUnopened(entry, opened);
-  const rows = () =>
+  redraw(
+    $("sessions-list"),
     grouped.map(({ entry, depth }) =>
       entry.closed
         ? closedHeading(entry, depth)
@@ -377,42 +332,42 @@ function renderSessions() {
             unopened(entry),
             depth,
           ),
-    );
-  redraw($("sessions-list"), rows());
-  redraw($("sheet-sessions"), rows());
-  $("sheet-sessions-label").hidden = !sessionOrder.length;
+    ),
+  );
   const menu = $("menu-button");
   const { count, tone } = sessionsBadge(
     sessionOrder,
     session.sessionId,
     unopened,
-    opensSheet(),
   );
   menu.classList.toggle("need", tone === "need");
   menu.classList.toggle("news", tone === "news");
   $("sessions-count").hidden = !count;
   $("sessions-count").textContent = String(count);
-  // With no hub there is no session to list, so above 720px the button has
-  // nothing to open. At 720px and below it still opens Pages.
-  menu.hidden = !count && !opensSheet();
-  if (!count) toggleSessions(false);
-  const what = opensSheet() ? "Pages and sessions" : "Sessions";
+  // With no hub there is no session to list, so the button has nothing to
+  // open.
+  menu.hidden = !sessionOrder.length;
+  if (!sessionOrder.length) toggleSessions(false);
   menu.setAttribute(
     "aria-label",
-    count
-      ? `${what}, ${count} live${waiting ? `, ${plural(waiting, "session")} waiting for you` : ""}`
-      : what,
+    !count
+      ? "Sessions"
+      : tone
+        ? `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`
+        : `Sessions, ${plural(count, "other session")}`,
   );
 }
-// The popover opens under the button, wherever the header puts it.
+// The popover opens under the button, inside the window.
 function placeSessions() {
   const box = $("menu-button").getBoundingClientRect();
+  const width = Math.min(340, innerWidth - 16);
   $("sessions-pop").style.top = `${box.bottom + 6}px`;
-  $("sessions-pop").style.left = `${box.left}px`;
+  $("sessions-pop").style.left =
+    `${Math.max(8, Math.min(box.left, innerWidth - width - 8))}px`;
 }
 const isOpen = () => $("sessions-pop").matches(":popover-open");
-/* Open or close the session list above 720px. Opening it from a key moves
-   focus to this tab's row, so Tab and Enter work through the list. */
+/* Open or close the session list. Opening it from a key moves focus to
+   this tab's row, so Tab and Enter work through the list. */
 export function toggleSessions(open = !isOpen(), focus = false) {
   if (!open) {
     if (isOpen()) $("sessions-pop").hidePopover();
@@ -425,9 +380,19 @@ export function toggleSessions(open = !isOpen(), focus = false) {
       .querySelector(`[data-key="open:${session.sessionId}"]`)
       ?.focus();
 }
-/* Two round trips, a dismiss and a poll, so the row says it is going
-   before either starts. Without it a slow hub looks like a dead control. */
-async function dismiss(entry) {
+// Close asks first, in a dialog that says what closing does.
+function confirmClose(entry) {
+  $("close-name").textContent = entry.title;
+  $("close-confirm").onclick = () => {
+    $("close-dialog").close();
+    void closeSession(entry);
+  };
+  $("close-dialog").showModal();
+}
+/* Two round trips, a close and a poll, so the row says it is going before
+   either starts. Without it a slow hub looks like a dead control. This
+   tab's own session reloads read-only. */
+async function closeSession(entry) {
   closing.set(entry.id, "Closing…");
   renderSessions();
   try {
@@ -435,6 +400,7 @@ async function dismiss(entry) {
       method: "POST",
     });
     if (!response.ok) throw Error();
+    if (entry.id === session.sessionId) return location.reload();
     await pollSessions();
   } catch {
     closing.set(entry.id, "Could not close");

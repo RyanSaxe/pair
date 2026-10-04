@@ -79,11 +79,10 @@ export const sessionConfig = (html) =>
 
 export const task = { title: "The task", html: "<p>What the plan builds.</p>" };
 
-export function planData(round = "1", offer, name = "example") {
+export function planData(round = "1", name = "example") {
   return {
     name,
     round,
-    ...(offer ? { offer } : {}),
     title: "Example work",
     pages: [
       {
@@ -211,7 +210,6 @@ export async function hub(t, extra = {}, options = {}) {
         buildPage(path.join(directory, "source.json"), {
           name: data.name,
           round: data.round,
-          ...(page.id === "agreed" ? { offer: data.offer } : {}),
           title: data.title,
           page,
         });
