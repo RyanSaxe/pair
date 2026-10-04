@@ -9,8 +9,7 @@ export const listing = (items) =>
     ? items.join("")
     : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 
-const shown = (entry) =>
-  Object.entries(entry.flags || {}).filter(([, flag]) => !flag.removed);
+const flagsOf = (entry) => Object.entries(entry.flags || {});
 const flagName = ([key, flag]) =>
   flag.value ? `--${key} ${flag.value}` : `--${key}`;
 
@@ -26,15 +25,13 @@ export function findCommand(commands, argv) {
 // Reads a command's arguments: a flag is --name VALUE, or --name alone for a
 // flag without a value. An unknown flag, an extra argument and a flag given
 // twice are refused, except a flag that repeats. Returns the options, with
-// the arguments in args, and the line of each removed form the arguments
-// use.
+// the arguments in args.
 export function parse({ name, entry, rest }) {
   const refuse = (text) => {
     throw usageError(name, text);
   };
   const flags = entry.flags || {};
   const options = { args: [] };
-  const removed = entry.removed ? [entry.removed] : [];
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
     if (!word.startsWith("--")) {
@@ -44,7 +41,7 @@ export function parse({ name, entry, rest }) {
     const key = word.slice(2);
     const flag = Object.hasOwn(flags, key) ? flags[key] : null;
     if (!flag) {
-      const takes = shown(entry).map(([known]) => `--${known}`);
+      const takes = flagsOf(entry).map(([known]) => `--${known}`);
       refuse(
         `${word} is not a flag of pair ${name}, which takes ${takes.length ? listing(takes) : "only --help"}.`,
       );
@@ -59,7 +56,6 @@ export function parse({ name, entry, rest }) {
     else if (Object.hasOwn(options, key))
       refuse(`${word} is given twice, and pair ${name} takes it once.`);
     else options[key] = value;
-    if (flag.removed) removed.push(flag.removed);
   }
   const slots = entry.args || [];
   if (options.args.length > slots.length)
@@ -73,17 +69,10 @@ export function parse({ name, entry, rest }) {
     refuse(
       `pair ${name} requires ${listing(slots.filter((s) => !s.optional).map((s) => s.name))}.`,
     );
-  for (const [index, slot] of slots.entries())
-    if (slot.removed && index < options.args.length) removed.push(slot.removed);
-  for (const [key, flag] of Object.entries(flags)) {
-    const given = (wanted) => options[wanted] !== undefined;
-    const standIn = Object.entries(flags).some(
-      ([other, item]) => item.replaces === key && given(other),
-    );
-    if (flag.required && !given(key) && !standIn)
+  for (const [key, flag] of Object.entries(flags))
+    if (flag.required && options[key] === undefined)
       refuse(`pair ${name} requires ${flagName([key, flag])}.`);
-  }
-  return { options, removed };
+  return options;
 }
 
 // Wraps text to width columns, with indent before every line but the first.
@@ -101,10 +90,10 @@ function wrap(text, width, indent = "") {
 
 function usage(name, entry) {
   if (entry.usage) return entry.usage;
-  const args = (entry.args || [])
-    .filter((slot) => !slot.removed)
-    .map((slot) => (slot.optional ? `[${slot.name}]` : slot.name));
-  const flags = shown(entry)
+  const args = (entry.args || []).map((slot) =>
+    slot.optional ? `[${slot.name}]` : slot.name,
+  );
+  const flags = flagsOf(entry)
     .filter(([key]) => key !== "json")
     .map((item) =>
       item[1].required
@@ -117,9 +106,9 @@ function usage(name, entry) {
 // What pair COMMAND --help prints: the command's purpose, its usage, and
 // each flag with the required ones marked.
 export function helpText({ name, entry }) {
-  if (entry.help || entry.removed) return `${entry.help || entry.removed}\n`;
+  if (entry.help) return `${entry.help}\n`;
   const rows = [
-    ...shown(entry).map((item) => [
+    ...flagsOf(entry).map((item) => [
       flagName(item),
       `${item[1].text}${item[1].required ? " Required." : ""}`,
     ]),

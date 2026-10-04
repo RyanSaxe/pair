@@ -13,8 +13,12 @@
 :root[data-mode="preview"] .frame-header,
 :root[data-mode="preview"] .history-strip,
 :root[data-mode="preview"] .page-footer,
-:root[data-mode="preview"] #quote {
+:root[data-mode="preview"] #comment-page,
+:root[data-mode="preview"] #comment-here {
   display: none !important;
+}
+:root[data-mode="preview"] .main-column {
+  margin-left: 0;
 }
 :root[data-mode="preview"] main {
   background: var(--ground);
@@ -29,7 +33,8 @@
   overflow: auto;
 }
 :root[data-mode="readonly"] #submit,
-:root[data-mode="readonly"] #quote,
+:root[data-mode="readonly"] #comment-page,
+:root[data-mode="readonly"] #comment-here,
 :root[data-mode="readonly"] [data-comment],
 :root[data-mode="readonly"] .note-count {
   display: none !important;
@@ -41,10 +46,11 @@
 }
 /* A home view has the header and one column: the session's title, its
    agent and the progress card. */
-:root[data-mode="home"] .app-body {
-  grid-template-columns: minmax(0, 1fr);
+:root[data-mode="home"] .main-column {
+  margin-left: 0;
 }
 :root[data-mode="home"] .sidebar,
+:root[data-mode="home"] #sidebar-toggle,
 :root[data-mode="home"] #round,
 :root[data-mode="home"] #submit,
 :root[data-mode="home"] .page-footer {

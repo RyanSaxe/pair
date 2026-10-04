@@ -455,7 +455,7 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
   );
 });
 
-// pair progress --note and pair ack send the ack action.
+// pair progress --note sends the ack action.
 test("the ack action says the agent has a submission without reading it, and carries a note", async (t) => {
   const h = await testHub(t);
   const a = await h.session();

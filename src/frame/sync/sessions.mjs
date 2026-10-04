@@ -14,7 +14,6 @@ import { connected, remote } from "#frame/sync/rounds.mjs";
 let sessions = [];
 export let sessionOrder = [];
 let reviewAlerts;
-let narrow;
 export function installSessions() {
   reviewAlerts = createReviewAlerts({
     window,
@@ -23,11 +22,6 @@ export function installSessions() {
     open: (href) => location.assign(new URL(href, location.href).href),
   });
   installCenter();
-  narrow = matchMedia("(max-width: 720px)");
-  narrow.addEventListener("change", () => {
-    toggleSessions(false);
-    renderSessions();
-  });
   $("sessions-pop").addEventListener("toggle", (event) => {
     $("menu-button").setAttribute(
       "aria-expanded",
@@ -104,21 +98,20 @@ export function rowStatus(entry, unopened = 0) {
     return { text: "Working", tone: "working" };
   return null;
 }
-/* The sessions button's badge counts every live session. It is orange when
-   another session waits for you or its agent could not be woken, otherwise
-   blue when another session has pages this browser has not opened, and
-   otherwise grey. At 720px and below the same button also opens this tab's
-   Pages, so this tab's unopened pages count toward blue there. */
-export function sessionsBadge(list, thisId, unopened, narrowScreen) {
+/* The sessions button's badge counts the other sessions that need you: a
+   round waiting for you or an agent that could not be woken, which turns
+   it orange, or pages this browser has not opened, which turn it blue
+   when nothing waits. When no other session needs you, it counts the
+   other live sessions in grey. This tab's session never counts. */
+export function sessionsBadge(list, thisId, unopened) {
   const others = list.filter((entry) => entry.id !== thisId);
-  const own = list.find((entry) => entry.id === thisId);
-  const tone = others.some((entry) => entry.needsYou || entry.wakeFailed)
-    ? "need"
-    : others.some((entry) => unopened(entry)) ||
-        (narrowScreen && own && unopened(own))
-      ? "news"
-      : "";
-  return { count: list.length, tone };
+  const waits = (entry) => entry.needsYou || entry.wakeFailed;
+  const needing = others.filter((entry) => waits(entry) || unopened(entry));
+  if (!needing.length) return { count: others.length, tone: "" };
+  return {
+    count: needing.length,
+    tone: needing.some(waits) ? "need" : "news",
+  };
 }
 // The next session after this one, in list order and wrapping to the top,
 // whose round waits for you.
@@ -272,60 +265,55 @@ function sessionRow(entry, index, unopened) {
   );
   return line;
 }
-// At 720px and below the sessions button opens the menu sheet, with this
-// tab's Pages above the sessions. A home view has no pages, so there the
-// button opens the session list at every width.
-const opensSheet = () => narrow.matches && mode !== "home";
-/* Every session, in sessionOrder, in the popover above 720px and under
-   Pages in the menu sheet at 720px and below, and the sessions button's
-   badge. */
+/* Every session, in sessionOrder, in the popover, and the sessions
+   button's badge. */
 function renderSessions() {
   const waiting = sessionOrder.filter(
     (entry) => entry.needsYou && entry.id !== session.sessionId,
   ).length;
-  for (const id of ["sessions-waiting", "sheet-sessions-waiting"])
-    $(id).textContent = waiting ? `${waiting} waiting` : "";
+  $("sessions-waiting").textContent = waiting ? `${waiting} waiting` : "";
   const opened = openedPages();
   const unopened = (entry) => countUnopened(entry, opened);
-  const rows = () =>
+  redraw(
+    $("sessions-list"),
     sessionOrder.map((entry, index) =>
       sessionRow(entry, index, unopened(entry)),
-    );
-  redraw($("sessions-list"), rows());
-  redraw($("sheet-sessions"), rows());
-  $("sheet-sessions-label").hidden = !sessionOrder.length;
+    ),
+  );
   const menu = $("menu-button");
   const { count, tone } = sessionsBadge(
     sessionOrder,
     session.sessionId,
     unopened,
-    opensSheet(),
   );
   menu.classList.toggle("need", tone === "need");
   menu.classList.toggle("news", tone === "news");
   $("sessions-count").hidden = !count;
   $("sessions-count").textContent = String(count);
-  // With no hub there is no session to list, so above 720px the button has
-  // nothing to open. At 720px and below it still opens Pages.
-  menu.hidden = !count && !opensSheet();
-  if (!count) toggleSessions(false);
-  const what = opensSheet() ? "Pages and sessions" : "Sessions";
+  // With no hub there is no session to list, so the button has nothing to
+  // open.
+  menu.hidden = !sessionOrder.length;
+  if (!sessionOrder.length) toggleSessions(false);
   menu.setAttribute(
     "aria-label",
-    count
-      ? `${what}, ${count} live${waiting ? `, ${plural(waiting, "session")} waiting for you` : ""}`
-      : what,
+    !count
+      ? "Sessions"
+      : tone
+        ? `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`
+        : `Sessions, ${plural(count, "other session")}`,
   );
 }
-// The popover opens under the button, wherever the header puts it.
+// The popover opens under the button, inside the window.
 function placeSessions() {
   const box = $("menu-button").getBoundingClientRect();
+  const width = Math.min(340, innerWidth - 16);
   $("sessions-pop").style.top = `${box.bottom + 6}px`;
-  $("sessions-pop").style.left = `${box.left}px`;
+  $("sessions-pop").style.left =
+    `${Math.max(8, Math.min(box.left, innerWidth - width - 8))}px`;
 }
 const isOpen = () => $("sessions-pop").matches(":popover-open");
-/* Open or close the session list above 720px. Opening it from a key moves
-   focus to this tab's row, so Tab and Enter work through the list. */
+/* Open or close the session list. Opening it from a key moves focus to
+   this tab's row, so Tab and Enter work through the list. */
 export function toggleSessions(open = !isOpen(), focus = false) {
   if (!open) {
     if (isOpen()) $("sessions-pop").hidePopover();

@@ -14,34 +14,28 @@ const entry = (id, fields = {}) => ({
   ...fields,
 });
 
-test("the sessions badge counts every session, orange when another needs you and blue when another has new pages", () => {
+test("the sessions badge counts the other sessions that need you, and otherwise the other live sessions in grey", () => {
   const none = () => 0;
   const newIn = (ids) => (item) => (ids.includes(item.id) ? 2 : 0);
   const cases = [
-    // [sessions, unopened, narrow, tone]
-    [[entry("1"), entry("2")], none, false, ""],
-    [[entry("1"), entry("2", { needsYou: true })], none, false, "need"],
-    [[entry("1"), entry("2", { wakeFailed: true })], none, false, "need"],
-    [[entry("1"), entry("2")], newIn(["2"]), false, "news"],
-    // Orange wins over blue.
+    // [sessions, unopened, count, tone]
+    [[entry("1")], none, 0, ""],
+    [[entry("1"), entry("2"), entry("3", { paused: true })], none, 2, ""],
+    [[entry("1"), entry("2", { needsYou: true }), entry("3")], none, 1, "need"],
+    [[entry("1"), entry("2", { wakeFailed: true })], none, 1, "need"],
+    [[entry("1"), entry("2"), entry("3")], newIn(["2"]), 1, "news"],
+    // A waiting round turns the count of both kinds orange.
     [
-      [entry("1"), entry("2", { needsYou: true }), entry("3")],
+      [entry("1"), entry("2", { needsYou: true }), entry("3"), entry("4")],
       newIn(["3"]),
-      false,
+      2,
       "need",
     ],
-    // A paused session and this tab's own waiting round add no color.
-    [[entry("1"), entry("2", { paused: true })], none, false, ""],
-    [[entry("1", { needsYou: true }), entry("2")], none, false, ""],
-    // This tab's own new pages count only where the button also opens Pages.
-    [[entry("1"), entry("2")], newIn(["1"]), false, ""],
-    [[entry("1"), entry("2")], newIn(["1"]), true, "news"],
+    // This tab's own waiting round and new pages never count.
+    [[entry("1", { needsYou: true }), entry("2")], newIn(["1"]), 1, ""],
   ];
-  for (const [list, unopened, narrow, tone] of cases)
-    assert.deepEqual(sessionsBadge(list, "1", unopened, narrow), {
-      count: list.length,
-      tone,
-    });
+  for (const [list, unopened, count, tone] of cases)
+    assert.deepEqual(sessionsBadge(list, "1", unopened), { count, tone });
 });
 
 test("sessions keep the order they started in, and w reaches the next waiting one after this tab, wrapping", () => {

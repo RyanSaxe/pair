@@ -34,9 +34,8 @@
   <div class="session-list" id="center-list"></div>
   <p class="pop-empty" id="center-empty">No notifications.</p>
 </div>
-<!-- The first header button opens the session list under it above 720px.
-     At 720px and below the same rows follow Pages in the menu sheet. The
-     frame draws both lists. -->
+<!-- The sessions button opens the session list under it. The frame draws
+     the rows. -->
 <div class="pop" id="sessions-pop" popover aria-labelledby="sessions-title">
   <div class="side-label">
     <span id="sessions-title">Sessions</span
@@ -166,20 +165,6 @@
     <dt><kbd>Esc</kbd></dt>
     <dd>Close menus, panels, and dialogs</dd>
   </dl>
-</dialog>
-<dialog class="dialog" id="pages-dialog" aria-labelledby="pages-title">
-  <div class="dialog-head">
-    <h2 id="pages-title" tabindex="-1" autofocus>Pages</h2>
-    <span class="round-status idle" data-round-status
-      ><i></i><span></span
-    ></span>
-  </div>
-  <div class="pages-slot" id="pages-slot"></div>
-  <div class="side-label" id="sheet-sessions-label" hidden>
-    <span>Sessions</span
-    ><span class="pop-count" id="sheet-sessions-waiting"></span>
-  </div>
-  <div class="sess-list" id="sheet-sessions"></div>
 </dialog>
 <dialog class="lightbox" id="diagram-dialog" aria-label="Diagram, full size">
   <div class="dialog-head"></div>
