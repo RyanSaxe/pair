@@ -5,6 +5,7 @@ import { actionOf, idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
 import { heldItems } from "./submissions.mjs";
+import { removeWorktrees } from "./worktrees.mjs";
 
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // The agent's commands, the holder, and the lines that tell the agent what
@@ -42,9 +43,9 @@ export function agent(session) {
   // Every agent command prints the step after it, so an agent that lost its
   // place is told where the session stands.
   async function nextStep() {
+    if (session.state.stage === "complete") return "The session is complete.";
     const [event] = await pending();
     if (event) return `Run: ${command("read")}`;
-    if (session.state.stage === "complete") return "The session is complete.";
     if (session.state.stage === "saved") {
       const { round } = session.state.current;
       return `Round ${round} is saved for later. Say this line in chat, then end your turn: ${handoff}`;
@@ -146,10 +147,14 @@ export function agent(session) {
     const last = await sendWake(line);
     await transition({ wake: { harness: session.wake.harness, last } });
   }
-  /* Closing a session from the browser. complete() refuses without an
-     acceptance, so ending an abandoned session needs its own door. */
-  async function dismiss() {
+  // The reviewer closes a session from the browser. The hub sends the agent
+  // nothing, and refuses the agent's next command with the line that says
+  // the session is complete. Closing removes the session's scratch
+  // worktrees, and the hub's log names each one.
+  async function close(log) {
     await transition({ stage: "complete", dismissedAt: timestamp() });
+    for (const line of await removeWorktrees(directory))
+      log(`closed ${directory}: ${line}`);
     return { status: view() };
   }
   // Every command but pair status goes through this check, start included.
@@ -335,8 +340,16 @@ export function agent(session) {
       "Wrong session",
       409,
     );
-    // status only reads, so any agent, or none, may run it.
-    if (data.action !== "status") await requireHolder(data.agent);
+    // status only reads, so any agent, or none, may run it, on a closed
+    // session too.
+    if (data.action !== "status") {
+      requireValue(
+        session.state.stage !== "complete",
+        "The session is complete.",
+        409,
+      );
+      await requireHolder(data.agent);
+    }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     return actions[data.action](data);
   }
@@ -427,7 +440,7 @@ export function agent(session) {
     sendWake,
     afterPublish,
     wakeAgent,
-    dismiss,
+    close,
     act,
     hold,
   };

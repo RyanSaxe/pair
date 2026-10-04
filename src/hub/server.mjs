@@ -322,7 +322,7 @@ export async function startHub(config = settings()) {
             ),
           });
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
-          return reply(200, await session.exclusive(() => session.dismiss()));
+          return reply(200, await session.exclusive(() => session.close(log)));
         }
         /* This route writes bytes, so it also caps the size and the count,
            decides the type from the leading bytes rather than a header, and

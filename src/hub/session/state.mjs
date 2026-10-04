@@ -312,7 +312,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     uploadScene: session.uploadScene,
     readScene: session.readScene,
     removeUpload: session.removeUpload,
-    dismiss: session.dismiss,
+    close: session.close,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     act: session.act,
