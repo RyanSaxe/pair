@@ -2,7 +2,7 @@ import { base, editable } from "#frame/app/view.mjs";
 import { acknowledgeReply } from "#frame/sync/center.mjs";
 
 /* The thumbs up on an agent's message in a thread. The reviewer presses it
-   to acknowledge the message without writing a reply, and presses it again
+   to agree with the message without writing a reply, and presses it again
    to take it back. The hub sends no wake for it, and the bell leaves out
    the line of a reply with a thumbs up. */
 

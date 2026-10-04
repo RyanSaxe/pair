@@ -585,11 +585,11 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
   });
   const agent = (await cli.run("read", ...dir, "--thread", id))
     .match(/<pair_message from="agent"[^>]*>/g)
-    .map((opening) => opening.includes(' acknowledged="yes"'));
+    .map((opening) => opening.includes(' agreed="yes"'));
   assert.deepEqual(agent, [true, false]);
   assert.match(
     await cli.run("read", ...dir),
-    new RegExp(`<pair_thread id="${id}"[^>]* acknowledged="message 2">`),
+    new RegExp(`<pair_thread id="${id}"[^>]* agreed="message 2">`),
   );
 });
 

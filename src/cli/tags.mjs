@@ -155,7 +155,7 @@ export function threadText(thread) {
       {
         from: message.from,
         at: clock(message.at),
-        acknowledged: message.acknowledgedAt ? "yes" : undefined,
+        agreed: message.acknowledgedAt ? "yes" : undefined,
       },
       [
         tagText(message.html ?? message.text),
@@ -196,7 +196,7 @@ const numbered = (list) =>
 export function threadIndex(threads, since, directory) {
   if (!threads?.length) return "";
   return [
-    `Threads with a new message or acknowledgement from the reviewer since ${since ? `round ${since}'s submission` : "the session started"}:`,
+    `Threads with a new message or agreement from the reviewer since ${since ? `round ${since}'s submission` : "the session started"}:`,
     ...threads.map((thread) =>
       tag(
         "pair_thread",
@@ -205,7 +205,7 @@ export function threadIndex(threads, since, directory) {
           page: thread.topic,
           proposal: thread.proposal,
           messages: thread.messages,
-          acknowledged: numbered(thread.acknowledged),
+          agreed: numbered(thread.acknowledged),
         },
         tagText(opening(thread.latest)),
       ),
