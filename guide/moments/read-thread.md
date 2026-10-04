@@ -5,5 +5,5 @@ answer needs more than a few blocks, or the reviewer asks for a decision,
 say what you will show and put it on a page in the next round. If the
 reviewer asks for a change to the work you are doing now, say what you will
 change and change it. When the reviewer settles a decision in the thread,
-cite the thread in the decision's `sourceRefs` on the next Agreed, as
+cite the thread in the alignment's `sourceRefs` on the next Agreed, as
 `{ "kind": "thread", "threadId": "ID" }`.

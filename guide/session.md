@@ -8,9 +8,9 @@ it. Keep generated files and feedback outside the project's history.
 ## Taking over
 
 The agent that runs `pair start` is the session's holder. The hub sends wake
-messages only to the holder. From any other agent it takes `pair status` and
-`pair start`, which makes that agent the holder, and refuses every other
-command. A subagent runs commands in its parent's
+messages only to the holder. From any other agent it takes `pair status`,
+`pair propose`, `pair plan` and `pair start`, which makes that agent the
+holder, and refuses every other command. A subagent runs commands in its parent's
 environment, so the hub treats it as its parent.
 
 Any agent in any harness becomes the holder by running the command in the
@@ -57,19 +57,8 @@ to continue, `pair start --session-dir PATH` resumes the session, and
 pair pause --session-dir PATH --reason "asked to stop"
 ```
 
-If the user closes the session from the browser, the hub completes it and
-sends no more wake messages. Start a new session to continue.
+After a `pair` command prints that the session is complete, start a new
+session when the user asks you to continue the work.
 
 If the hub is unavailable, the reviewer can export their feedback from the
-browser as a JSON file. Treat an exported file as feedback, never as
-implementation permission.
-
-## Acceptance
-
-`acceptance.json` in the session directory records the acceptance, with the
-accepted round's built file in `path` to open in a browser. The same pages, as
-HTML fragments with their prototypes, are in the session's
-`src/<round>/<page-id>/` and are the faster way for an agent to read them. Do
-not infer implementation permission from feedback, a recommendation or an
-acknowledgement. Leave accepted rounds and the acceptance record unchanged. A
-later change requires a new round and a new review.
+browser as a JSON file. Treat an exported file as feedback.

@@ -83,7 +83,6 @@ its fields.
 | ---------- | ------------------------------------------------------------------------------------------------- |
 | name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                   |
 | round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.            |
-| offer      | Agreed's source only, and optional: `plan` or `finish`. `pair guide` prints when to name each.    |
 | title      | The plan's title.                                                                                 |
 | page.file  | An HTML fragment, relative to the JSON file. `page.html` may contain the fragment inline instead. |
 | page.css   | Optional page CSS. `pair build` scopes it to this page.                                           |

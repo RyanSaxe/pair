@@ -1,9 +1,6 @@
 # Proposals
 
-Record work worth doing as a proposal with `pair propose`, whether the
-task calls for it or you found it on the way. The reviewer starts the
-proposal, declines it or comments on it. Starting it approves only what it
-says it delivers and may change, so state both exactly.
+Record each proposal with `pair propose` and every field:
 
 ```sh
 pair propose --session-dir PATH --id phone-sidebar \
@@ -43,17 +40,9 @@ each proposal whose linked session closed, with what to do next.
 
 ## Plans
 
-When nothing about a proposal's work is left to decide, or the reviewer asks
-for its plan, write the plan and attach it to the proposal with `pair plan`.
-Write it so that an engineer or agent who saw none of the rounds builds
-exactly what the reviewer aligned on, without asking anything. Show every
-approved look and interface as the reviewer approved it: copy it from its
-page source in the session's `src/ROUND/PAGE/`, and change it to match what
-was agreed after it was shown. State each behavior exactly, and say how to
-check that the work is done. Include code where it makes the plan clearer,
-but write the plan from what the rounds decided, without building the work
-to find out. Settle every open question on a page before you attach the
-plan.
+Copy each approved look and interface into the plan from its page source in
+the session's `src/ROUND/PAGE/`, and change it to match every alignment made
+after the reviewer saw it.
 
 Write each page of the plan as a page source, as `pair guide pages.md`
 describes, with `"round": "plan"`, in a directory named by the page's ID.
