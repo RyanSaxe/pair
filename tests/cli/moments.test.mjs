@@ -4,7 +4,6 @@ import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
 import { guideText } from "../../src/shared/guide.mjs";
-import { offers } from "../../src/shared/offers.mjs";
 import { hub, pairCli, root, task } from "../support/hub.mjs";
 
 // Each moment's text as a command prints it.
@@ -28,12 +27,11 @@ async function holder(t) {
   const session = await h.session({ cli });
   const dir = ["--session-dir", session.directory];
   let count = 0;
-  async function publish(round, page, { offer, pages } = {}) {
+  async function publish(round, page, { pages } = {}) {
     const file = path.join(home, `page-${++count}.html`);
     const html = await buildPage(path.join(home, "source.json"), {
       name: "example",
       round,
-      ...(offer ? { offer } : {}),
       title: "Moments",
       page:
         page === "agreed"
@@ -100,35 +98,6 @@ test("each command prints the moment it is run at", async (t) => {
         return read("--thread", "question");
       },
     ],
-    [
-      "publish-agreed-plan",
-      () => publish("2", "agreed", { offer: "plan", pages: ["overview"] }),
-    ],
-    [
-      "read-accept-implement",
-      async () => {
-        await publish("2", "overview");
-        await submit("accept", "2", { offer: "plan", action: "implement" });
-        return read();
-      },
-    ],
-    [
-      "publish-agreed-finish",
-      () => publish("3", "agreed", { offer: "finish", pages: ["step"] }),
-    ],
   ];
   for (const [name, run] of rows) printsMoment(await run(), name, printed);
-});
-
-// The hub names an acceptance's moment by the action the reviewer chose.
-test("pair read prints the moment of each acceptance's action", async (t) => {
-  for (const [offer, { accept }] of Object.entries(offers))
-    for (const action of accept.actions) {
-      const { printed, publish, read, submit } = await holder(t);
-      const first = offers[offer].firstPage || "work";
-      await publish("1", "agreed", { offer, pages: [first] });
-      await publish("1", first);
-      await submit("accept", "1", { offer, action: action.id });
-      printsMoment(await read(), `read-accept-${action.id}`, printed);
-    }
 });

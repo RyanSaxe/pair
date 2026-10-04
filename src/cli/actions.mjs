@@ -159,18 +159,11 @@ export async function pause(options) {
   };
 }
 
-export async function complete(options) {
-  const session = await openSession(options);
-  const result = await session.request({ action: "complete" });
-  return { next: result.next, data: "The session is complete.", json: result };
-}
-
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
 function stageText(status) {
   if (status.paused) return `paused: ${status.paused.reason}`;
   if (status.stage === "complete") return "complete";
-  if (status.stage === "saved") return "saved for later";
   if (status.openRound) return "the agent publishes its pages";
   if (status.stage === "submitted")
     return "a submission is waiting for pair read";
@@ -203,7 +196,7 @@ export async function status(options) {
       [
         "Round",
         round
-          ? `${round.round}${round.offer ? `, offer ${round.offer}` : ""}, ${stageText(state)}`
+          ? `${round.round}, ${stageText(state)}`
           : `none published yet, ${stageText(state)}`,
       ],
       [
