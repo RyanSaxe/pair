@@ -3,7 +3,9 @@
   /* One order for every layer, so a new piece of chrome cannot quietly
      cover something. The sidebar slides over the page column and its
      strip, never over the header. At 720px and below, the open sidebar and
-     the dimmed page cover the whole page. */
+     the dimmed page cover the whole page. The comment control floats over
+     the page, under the header and the sidebar. */
+  --z-comment: 5;
   --z-header: 6;
   --z-sidebar: 8;
   --z-sidebar-over-page: 41;

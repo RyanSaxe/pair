@@ -206,7 +206,7 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
 }
 
 // Selects the words in the page's content, as a reader's drag does, and
-// waits for the frame's Comment button above them.
+// waits for the comment control to name the selection.
 async function select(page, words) {
   await page.evaluate((words) => {
     const content = document.getElementById("page-content");
@@ -238,8 +238,8 @@ async function select(page, words) {
   );
 }
 
-// Opens the note dialog from the Comment button beside the selection or
-// the chosen block, and types a note.
+// Opens the note dialog from the comment control, which names the selection
+// or the chosen block, and types a note.
 async function writeNote(page, text) {
   await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
@@ -337,7 +337,7 @@ export async function stage(t, scratch) {
     page,
     "Commenting on the decision",
     () =>
-      document.querySelector("#comment-here span").textContent ===
+      document.getElementById("comment-here").getAttribute("aria-label") ===
       "Comment on this decision",
   );
   await writeNote(page, "Does the agent stop what it's doing to answer?");
