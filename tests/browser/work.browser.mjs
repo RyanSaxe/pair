@@ -91,6 +91,87 @@ test("Start sends where the work runs and the message, and the card runs", async
   assert.equal(new URL(page.url()).hash, "#work");
 });
 
+// Round 1 waits for the reviewer, who picked an option and wrote a note on
+// its page, and the Start popup of a proposal is open.
+async function startWithDrafts(t) {
+  const h = await hub(t);
+  const session = await h.session();
+  const published = await session.publish({
+    ...planData(),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<section class="decision" data-choice="retry" data-label="Retry policy"><h3>How should a failed charge retry?</h3><button class="decision-option" type="button" data-value="backoff" data-label="Back off">Back off</button><button class="decision-option" type="button" data-value="once" data-label="Once">Once</button></section>`,
+      },
+    ],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  const added = await session.action("propose", card("deck", "Build the deck"));
+  assert.equal(added.code, 200, added.body.error);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return {};
+  await page.locator("[data-choice=retry] [data-value=once]").click();
+  await page.locator("#comment-page").click();
+  await page.locator("#note-text").fill("Keep the header height.");
+  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.locator("#note-dialog").waitFor({ state: "hidden" });
+  await page.locator("#work-row").click();
+  await page.locator("[data-proposal-card=deck] .proposal-start").click();
+  const dialog = page.locator("#start-dialog");
+  await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
+  return { session, page, dialog };
+}
+
+test("Start sends the round's drafts as its feedback, which the agent reads before the Start", async (t) => {
+  const { session, page, dialog } = await startWithDrafts(t);
+  if (!page) return;
+  await dialog.locator("#start-send").click();
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(new URL(page.url()).hash, "#work");
+  const feedback = (await session.action("read")).body.event.payload;
+  assert.equal(feedback.intent, "feedback-only");
+  assert.equal(feedback.round, "1");
+  assert.deepEqual(
+    feedback.groups.notes.map((note) => note.text),
+    ["Keep the header height."],
+  );
+  assert.equal(feedback.groups.choices["overview/retry"].value, "once");
+  const start = (await session.action("read")).body.event.payload;
+  assert.equal(start.intent, "start");
+  assert.equal(start.proposal, "deck");
+  // Send feedback is enabled again once round 2 arrives, and round 2's
+  // Review has none of round 1's drafts.
+  assert.equal((await session.publish(planData("2"))).code, 200);
+  await page.locator("#submit:not([disabled])").waitFor({ timeout: 8000 });
+  await page.locator("#review-row").click();
+  await page.locator("#feedback").waitFor();
+  assert.equal(await page.locator("#draft-head").isHidden(), true);
+  assert.equal(
+    await page.locator("#feedback-groups").evaluate((node) => node.innerHTML),
+    "",
+  );
+});
+
+test("Start sends no Start when the round's feedback fails to send", async (t) => {
+  const { session, page, dialog } = await startWithDrafts(t);
+  if (!page) return;
+  await page.route("**/api/feedback", (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "The disk is full." }),
+    }),
+  );
+  await dialog.locator("[data-where=sub-session]").click();
+  await dialog.locator("#start-send").click();
+  await dialog
+    .locator("#start-error", { hasText: "The disk is full." })
+    .waitFor({ timeout: 5000 });
+  assert.equal(await dialog.isVisible(), true);
+  assert.equal((await session.status()).body.proposals[0].started, null);
+});
+
 // The choices, the message box and the button row keep their places
 // whichever choice is selected, so the popup never changes size. Each
 // choice's buttons sit in one row, on a desktop and on a 375px phone.
