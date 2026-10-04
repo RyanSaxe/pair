@@ -1,0 +1,24 @@
+<p>A timeout leaves the charge unknown, because the gateway may have charged the card. <code>chargeOrder</code> retries only a <code>GatewayTimeout</code>.</p>
+<section class="decision" data-choice="where" data-label="Where to retry">
+  <h3>Where should the retry run?</h3>
+  <button class="decision-option" type="button" data-value="request" data-label="In the request">
+    <b>Retry inside the request, with backoff <span class="tag">Recommended</span></b>
+    <p>Three attempts within 2 seconds, inside checkout's 5-second limit.</p>
+  </button>
+  <button class="decision-option" type="button" data-value="worker" data-label="In a worker">
+    <b>Queue it and retry in a worker</b>
+    <p>The order waits as pending until a worker charges it.</p>
+  </button>
+</section>
+<pre data-language="ts" data-file="src/payments/charge.ts" data-numbers>
+export async function chargeOrder(order: Order) {
+  const idempotencyKey = `order-${order.id}`;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await gateway.charge(order, { idempotencyKey });
+    } catch (err) {
+      if (!isTimeout(err) || attempt === 3) throw err;
+      await sleep(200 * 2 ** attempt);
+    }
+  }
+}</pre>

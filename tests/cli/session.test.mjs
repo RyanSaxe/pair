@@ -151,6 +151,12 @@ test("a command refuses an unknown flag, an extra argument, a repeated flag and 
     [["progress", ...dir, "--note", "a", "--note", "b"], "--note"],
     [["publish", ...dir], "--file"],
     [["status", ...dir, "--page", "overview"], "--page"],
+    // pair propose takes no --changes, --reason or --source, which an agent
+    // that read an older guide may still pass.
+    [
+      ["propose", ...dir, "--id", "x", "--changes", "y"],
+      "--changes is not a flag of pair propose",
+    ],
   ])
     await assert.rejects(run(...args), (error) => {
       assert.equal(error.code, 1);
@@ -182,8 +188,7 @@ test("pair status and pair propose run from an agent that cannot be woken", asyn
     ...["propose", "--session-dir", sessionDir, "--id", "churn-export"],
     ...["--title", "Refresh the churn data export"],
     ...["--delivers", "The export uses the September schema."],
-    ...["--changes", "Only reports/churn.sql.", "--recommend", "here"],
-    ...["--reason", "It is one query.", "--source", "From the chart page"],
+    ...["--recommend", "here"],
   );
   // Only the holder's output starts with the next step.
   assert.equal(recorded, "Proposal churn-export: proposed.\n");
@@ -578,6 +583,19 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
   ]);
   const status = JSON.parse(await cli.run("status", ...dir, "--json"));
   assert.equal(status.threads, undefined);
+  // The thread and pair read's list name the reply with a thumbs up.
+  await session.request(`${session.base}/api/threads/${id}/acknowledge`, {
+    message: 1,
+    acknowledged: true,
+  });
+  const agent = (await cli.run("read", ...dir, "--thread", id))
+    .match(/<pair_message from="agent"[^>]*>/g)
+    .map((opening) => opening.includes(' agreed="yes"'));
+  assert.deepEqual(agent, [true, false]);
+  assert.match(
+    await cli.run("read", ...dir),
+    new RegExp(`<pair_thread id="${id}"[^>]* agreed="message 2">`),
+  );
 });
 
 // Builds Agreed for round 1 with the page list given, as the agent does,

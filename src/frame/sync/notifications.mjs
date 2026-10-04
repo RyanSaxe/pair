@@ -1,9 +1,11 @@
 // The events the bell lists and alerts for: a session that starts, a round
 // that waits for the reviewer, an agent's reply and an agent's proposal. A
-// waiting round's line lasts while that round waits.
+// waiting round's line lasts while that round waits, and a reply's until
+// the reviewer gives it a thumbs up.
 const listedKinds = ["session", "waiting", "reply", "proposal"];
 export const announced = (entry, event) =>
   listedKinds.includes(event.kind) &&
+  !event.acknowledged &&
   (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
 // What an event in a session says, in the bell and in its alert.
 export function eventTitle(event) {

@@ -4,6 +4,7 @@ import { ago } from "#frame/app/time.mjs";
 import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
 import { base, editable, page, pages, plan } from "#frame/app/view.mjs";
 import { findText, placeMarks } from "#frame/notes/notes.mjs";
+import { ackButton, syncAcks } from "#frame/notes/thread-ack.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
@@ -164,6 +165,10 @@ function contents(html) {
 }
 // A long message opens cut at about twelve lines, under a fade.
 const clampHeight = 250;
+// What cuts each agent message, or shows it whole, by its clamp.
+const fits = new WeakMap();
+// The cards drawn since their messages were last cut.
+const unfitted = new Set();
 function agentBody(thread, message, index) {
   const clamp = element("div", "thread-clamp");
   const content = element("div", "thread-content");
@@ -195,6 +200,7 @@ function agentBody(thread, message, index) {
     fit();
   };
   new ResizeObserver(fit).observe(content);
+  fits.set(clamp, fit);
   if (message.html !== undefined) enhance(content);
   return [clamp, more];
 }
@@ -227,6 +233,7 @@ function messageRow(thread, message, index) {
   const time = element("span", "thread-meta thread-when", when(message.at));
   time.dataset.at = message.at;
   name.append(time);
+  if (agent) name.prepend(ackButton(thread, index));
   body.append(name);
   if (agent) body.append(...agentBody(thread, message, index));
   else {
@@ -354,8 +361,10 @@ function drawCard(entry, thread, part, folded) {
     part,
     remote?.handoff,
   ]);
+  syncAcks(entry.messages, thread);
   if (key === entry.key) return;
   entry.key = key;
+  unfitted.add(entry.card);
   const { card, title, fold, quote, messages, form } = entry;
   card.toggleAttribute("collapsed", collapsed);
   const head = threadTitle(thread, part, collapsed);
@@ -476,6 +485,14 @@ export function placeThreads() {
       }
       placed.add(entry.card);
     });
+  // A message's observer would cut it only at the next frame, after a
+  // scroll to a reply had measured every long message at its full height,
+  // so each card drawn here cuts its messages now that it is on the page.
+  for (const card of unfitted)
+    if (card.isConnected)
+      for (const clamp of card.querySelectorAll(".thread-clamp"))
+        fits.get(clamp)();
+  unfitted.clear();
 }
 // The times on the cards on screen count up between polls.
 function tick() {

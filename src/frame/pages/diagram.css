@@ -23,12 +23,11 @@
   min-height: 0;
   overflow: auto;
 }
-/* On a phone the dialog leaves 24px at each side and 48px above and below,
-   room for a tap outside it that closes it. */
+/* On a phone the dialog keeps every dialog's margin from each edge. */
 @media (max-width: 720px) {
   .lightbox {
-    max-width: calc(100vw - 48px);
-    max-height: calc(100dvh - 96px);
+    max-width: calc(100vw - 2 * var(--dialog-margin));
+    max-height: calc(100dvh - 2 * var(--dialog-margin));
   }
 }
 .lightbox svg {

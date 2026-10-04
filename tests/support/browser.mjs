@@ -41,3 +41,26 @@ export async function open(t, url, { html, ...pageOptions } = {}) {
   await page.goto(url);
   return page;
 }
+
+// Stands in for Mermaid from jsDelivr, so a test runs offline. Like
+// Mermaid, render() draws a full-size element to measure the diagram, in
+// the container it is given or else at the end of the body, and removes it
+// when the render ends.
+const mermaid = `export default {
+  initialize() {},
+  registerLayoutLoaders() {},
+  async render(id, source, container = document.body) {
+    const drawing = document.createElement("div");
+    drawing.id = "d" + id;
+    drawing.style.height = "3000px";
+    container.append(drawing);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    drawing.remove();
+    return { svg: '<svg viewBox="0 0 120 40"></svg>' };
+  },
+};`;
+
+export const stubMermaid = (page) =>
+  page.route(/mermaid\.esm\.min\.mjs$|mermaid-layout-elk/, (route) =>
+    route.fulfill({ body: mermaid, contentType: "text/javascript" }),
+  );

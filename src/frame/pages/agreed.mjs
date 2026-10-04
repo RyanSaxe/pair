@@ -10,14 +10,16 @@ import {
   pages,
 } from "#frame/app/view.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
+import { metaLine } from "#frame/pages/work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
 /* Agreed */
+// An alignment's label and the tone of its dot.
 function agreementLabel(entry) {
   if (entry.state === "reopened") return ["Revisiting", "attention"];
   if (entry.state === "retired") return ["No longer applies", "muted"];
-  if (entry.change === "new") return ["New", ""];
-  if (entry.change === "updated") return ["Updated", ""];
+  if (entry.change === "new") return ["New", "accent"];
+  if (entry.change === "updated") return ["Updated", "accent"];
   return null;
 }
 function describeRecord(record) {
@@ -79,28 +81,37 @@ function agreementCard(entry) {
   body.className = "agreement-body";
   const title = document.createElement("h2");
   title.textContent = entry.title;
-  const label = agreementLabel(entry);
-  if (label) title.append(tag(label[0], label[1]));
+  const records = entry.sourceRecords || [];
+  const first = records.find((record) => record.kind !== "conversation");
+  // The meta line under the title: the label, the reviewer's notes on the
+  // alignment and where it was agreed.
   const noteCount = state.notes.filter(
     (note) => note.agreementId === entry.id,
   ).length;
-  if (noteCount) title.append(tag(plural(noteCount, "note"), "muted"));
-  const content = document.createElement("div");
-  content.innerHTML = entry.html;
-  body.append(title, content);
-  card.append(body);
-  const records = entry.sourceRecords || [];
-  const first = records.find((record) => record.kind !== "conversation");
-  const strip = document.createElement("div");
-  strip.className = "agreement-source";
-  const text = document.createElement("span");
-  text.textContent = first
-    ? `Agreed in round ${first.round} · ${describeRecord(first)}`
+  const source = first
+    ? `Round ${first.round}, ${describeRecord(first)}`
     : records.length
       ? "From the conversation"
       : entry.source
         ? "Source noted by the agent"
         : "";
+  const rest = document.createElement("span");
+  rest.textContent = [noteCount ? plural(noteCount, "note") : "", source]
+    .filter(Boolean)
+    .join(" · ");
+  rest.title = rest.textContent;
+  const [label, tone] = agreementLabel(entry) || [];
+  const content = document.createElement("div");
+  content.innerHTML = entry.html;
+  body.append(title);
+  if (label || rest.textContent)
+    body.append(metaLine(label, tone, rest.textContent ? rest : null));
+  body.append(content);
+  card.append(body);
+  // The footer holds only buttons: the source's links on the left and
+  // Comment on the right.
+  const strip = document.createElement("div");
+  strip.className = "agreement-source";
   const actions = document.createElement("div");
   actions.className = "actions";
   const separator = () => {
@@ -197,15 +208,16 @@ function agreementCard(entry) {
     );
     actions.append(more);
   }
-  if (editable) {
-    if (actions.children.length) actions.append(separator());
-    actions.append(
+  const comment = document.createElement("div");
+  comment.className = "actions";
+  if (editable)
+    comment.append(
       linkButton("Comment", () =>
         openNote("agreed", entry.title, "", null, entry.id, card.id),
       ),
     );
-  }
-  strip.append(text, actions);
+  strip.append(actions, comment);
+  strip.hidden = !actions.children.length && !comment.children.length;
   card.append(strip, details, preview);
   return card;
 }

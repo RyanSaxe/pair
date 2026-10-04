@@ -1,0 +1,87 @@
+name: screenshots
+
+# On a pull request that changes the frame, the components or the demo
+# session, npm run screenshots redraws the README's and the docs' pictures,
+# and the job commits the PNGs it rewrote to the pull request's branch.
+on:
+  pull_request:
+    # A pull request into main is a release from develop. develop's ruleset
+    # refuses a push whose commit has no green checks, and the pull requests
+    # into develop already redrew its pictures.
+    branches-ignore: [main]
+    paths:
+      - src/frame/**
+      - src/components/**
+      - scripts/screenshots.mjs
+      - scripts/screenshots/**
+      - scripts/demo/**
+      - .github/workflows/screenshots.yml
+
+jobs:
+  screenshots:
+    # GitHub creates pull_request runs for the job's own push and holds them
+    # until someone with write access approves them. In the approved runs,
+    # ci.yml checks the new commit and GitHub skips this job, so the job's
+    # commit leads to no further commit.
+    if: github.actor != 'github-actions[bot]'
+    # npm run screenshots runs only on macOS, because the frame's text is the
+    # system font. The label names the macOS version, so the font changes
+    # only when the label does.
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: write # the push of the redrawn PNGs
+    concurrency:
+      group: screenshots-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      # The job checks out the pull request's head commit, not the merge
+      # commit a pull_request run gets by default, so its commit extends the
+      # branch. Without persist-credentials, checkout writes no token into
+      # git's configuration, where npm ci and the script could read it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      # The script writes no PNG and exits with an error when it cannot
+      # stage a picture, which fails the job. In that case it also saves a
+      # screenshot and the console log of each browser window in
+      # screenshots-failure/, which the next step uploads as an artifact of
+      # the run.
+      - run: npm run screenshots
+      - name: Upload the failed run's browser windows
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-failure
+          path: screenshots-failure/
+          if-no-files-found: ignore
+      - name: Commit the rewritten PNGs
+        env:
+          FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TOKEN: ${{ github.token }}
+        run: |
+          git add -- 'assets/*.png' 'docs/assets/*.png'
+          if git diff --cached --quiet; then
+            echo "npm run screenshots rewrote no PNG, so there is nothing to commit."
+            exit 0
+          fi
+          echo "npm run screenshots rewrote these PNGs:"
+          git diff --cached --name-only
+          if [ "$FORK" = true ]; then
+            echo "This pull request comes from the fork $HEAD_REPO, and a pull request from a fork gets a read-only token, so the job commits nothing. To update the pictures, run npm run screenshots on macOS and commit the PNGs it rewrites."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet -m "Redraw the screenshots" \
+            -m "npm run screenshots on macos-26 rewrote these PNGs at $HEAD_SHA."
+          git log -1 --stat
+          git push "https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$HEAD_REF"

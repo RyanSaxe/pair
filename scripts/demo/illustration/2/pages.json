@@ -1,0 +1,7 @@
+{
+  "pages": [
+    { "id": "where-to-retry", "title": "Where to retry" },
+    { "id": "idempotency", "title": "Idempotency" },
+    { "id": "tests", "title": "Tests" }
+  ]
+}

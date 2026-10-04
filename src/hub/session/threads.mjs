@@ -217,6 +217,35 @@ export function threads(session) {
     wakeLater(thread);
     return { thread: shown(thread) };
   }
+  // The reviewer's thumbs up on one of the agent's messages, or its removal.
+  // The hub sends no wake for it.
+  async function acknowledge(id, data) {
+    open();
+    const thread = threadFor(id);
+    const message = Number.isInteger(data.message)
+      ? thread.messages[data.message]
+      : null;
+    requireValue(
+      message?.from === "agent",
+      "Only an agent's message takes a thumbs up",
+    );
+    requireValue(
+      typeof data.acknowledged === "boolean",
+      "acknowledged is true or false",
+    );
+    if (!data.acknowledged) delete message.acknowledgedAt;
+    else message.acknowledgedAt ??= timestamp();
+    await saveThread(thread);
+    return { thread: shown(thread) };
+  }
+  // The bell drops the line of a reply the reviewer acknowledged.
+  const withAcknowledgements = (events) =>
+    events.map((event) =>
+      event.thread &&
+      records.get(event.thread)?.messages[event.message]?.acknowledgedAt
+        ? { ...event, acknowledged: true }
+        : event,
+    );
   // The prototypes a reply may show are the ones its round already has.
   async function roundPrototypes(round) {
     const found = [];
@@ -276,7 +305,9 @@ export function threads(session) {
       return {
         status: session.view(),
         thread: shown(thread),
-        next: `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
+        next: thread.messages.at(-1).acknowledgedAt
+          ? "The reviewer agreed with your last message, so the thread needs no answer. Go back to what you were doing."
+          : `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
         moment: "read-thread",
       };
     }
@@ -311,22 +342,36 @@ export function threads(session) {
       next: `Go back to what you were doing. ${await session.nextStep()}`,
     };
   }
-  // Each thread with a reviewer message after the time given, or with any
-  // when none is given, for pair read's index, oldest message first.
+  // Each thread with a reviewer message or thumbs up after the time given,
+  // or every thread when none is given, for pair read's index, oldest first.
+  // acknowledged numbers the agent messages with a thumbs up from 1.
   function threadsSince(at) {
     return [...records.values()]
-      .map((thread) => ({
-        thread,
-        latest: thread.messages.findLast((item) => item.from === "reviewer"),
-      }))
-      .filter(({ latest }) => latest && (!at || latest.at > at))
-      .sort((a, b) => a.latest.at.localeCompare(b.latest.at))
-      .map(({ thread, latest }) => ({
+      .map((thread) => {
+        const latest = thread.messages.findLast(
+          (item) => item.from === "reviewer",
+        );
+        const acknowledged = thread.messages.flatMap((item, index) =>
+          item.acknowledgedAt ? [index + 1] : [],
+        );
+        const last = [
+          latest?.at,
+          ...thread.messages.map((item) => item.acknowledgedAt),
+        ]
+          .filter(Boolean)
+          .sort()
+          .at(-1);
+        return { thread, latest, acknowledged, last };
+      })
+      .filter(({ latest, last }) => latest && (!at || last > at))
+      .sort((a, b) => a.last.localeCompare(b.last))
+      .map(({ thread, latest, acknowledged }) => ({
         id: thread.id,
         topic: thread.topic,
         proposal: thread.proposal,
         messages: thread.messages.length,
         latest: latest.text,
+        ...(acknowledged.length ? { acknowledged } : {}),
       }));
   }
   // Agreed cites a thread that settled a decision, as it cites a note.
@@ -340,6 +385,8 @@ export function threads(session) {
     startThread,
     agentThread,
     addThreadMessage,
+    acknowledge,
+    withAcknowledgements,
     reply,
     threadsSince,
     threadSource,

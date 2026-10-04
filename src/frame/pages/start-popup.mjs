@@ -1,15 +1,14 @@
-import { draftedWords, state, unsentItems } from "#frame/app/store.mjs";
 import { $, copyText, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
-/* The Start popup on a proposal's card: what the card delivers and may
-   change, where the work runs and an optional message to the agent. Each
-   choice has its own hint and its own row of buttons, and the hints share
-   one grid cell and the rows another, so the choices, the message box and
-   the button row keep their places whichever choice is selected. Here and
-   In a sub-session start at once. With a new agent copies the command a
-   new agent runs, or asks this session's agent to open one. */
+/* The Start popup on a proposal's card: what the card delivers, where the
+   work runs and an optional message to the agent. Each choice has its own
+   hint and its own row of buttons, and the hints share one grid cell and
+   the rows another, so the choices, the message box and the button row
+   keep their places whichever choice is selected. Here and In a
+   sub-session start at once. With a new agent copies the command a new
+   agent runs, or asks this session's agent to open one. */
 
 let card = null;
 let where = "here";
@@ -28,14 +27,6 @@ function select(choice) {
     part.inert = !part.dataset.startFor.split(" ").includes(choice);
   $("start-message").setAttribute("aria-describedby", `start-hint-${choice}`);
 }
-// Start here answers a round that waits for the reviewer, as Send feedback
-// does, so the hint says when that leaves drafted feedback unsent.
-function hint() {
-  const unsent = unsentItems(state).count;
-  return remote?.needsYou && unsent
-    ? `Sent to the agent with Start. Start ends round ${remote.current.round}, so your ${draftedWords(state)} on it stay unsent. Send your feedback first to include them.`
-    : "Sent to the agent with Start.";
-}
 // The command a new agent runs to start the card's session.
 const command = () =>
   `pair start --from ${remote.sessionDir} --proposal ${card.id}`;
@@ -44,7 +35,6 @@ export function openStart(proposal, then) {
   after = then;
   $("start-title").textContent = card.title;
   $("start-delivers").textContent = card.delivers;
-  $("start-changes").textContent = card.changes;
   for (const row of rows()) {
     row.disabled = false;
     row.querySelector(".start-recommended").hidden =
@@ -52,7 +42,6 @@ export function openStart(proposal, then) {
   }
   select(card.recommend || "here");
   $("start-message").value = "";
-  $("start-hint-here").textContent = hint();
   $("start-error").hidden = true;
   for (const id of ["start-send", "start-copy", "start-open"])
     $(id).disabled = false;

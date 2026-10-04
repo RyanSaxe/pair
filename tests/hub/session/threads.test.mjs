@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
-import { hub, planData, waitUntil } from "../../support/hub.mjs";
+import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
 
 const png = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -134,6 +134,41 @@ test("the reply action marks the thread read, then posts text or a checked fragm
   // Reading a thread the agent has answered leaves it answered.
   await a.action("reply", { note: id });
   assert.equal((await thread(id)).state, "replied");
+});
+
+// The reviewer's thumbs up on the agent's reply: no wake, no bell line, and
+// the agent reads it on the thread.
+test("a thumbs up on a reply is recorded without a wake, drops its bell line and comes off again", async (t) => {
+  const { h, a, start, thread, settled } = await published(t);
+  const { id } = (await start()).body.thread;
+  await settled(id);
+  await a.action("reply", { note: id, text: "It is retried once." });
+  const acknowledge = (data) =>
+    a.request(`${a.base}/api/threads/${id}/acknowledge`, data);
+  const replyLine = async () =>
+    (await (await fetch(`${h.server.origin}/api/sessions`)).json()).sessions
+      .find((item) => item.id === a.id)
+      .events.find((event) => event.kind === "reply");
+
+  const given = await acknowledge({ message: 1, acknowledged: true });
+  assert.equal(given.code, 200, given.body.error);
+  assert.ok(Date.parse((await thread(id)).messages[1].acknowledgedAt));
+  assert.equal((await replyLine()).acknowledged, true);
+  const read = await a.action("reply", { note: id });
+  assert.match(read.body.next, /^The reviewer agreed with your last message/);
+  // Only the reviewer's message woke the holder.
+  await sleep(100);
+  assert.equal(a.inbox.wakes.length, 1);
+
+  for (const refused of [
+    { message: 0, acknowledged: true },
+    { message: 1, acknowledged: "yes" },
+  ])
+    assert.equal((await acknowledge(refused)).code, 400);
+  const taken = await acknowledge({ message: 1, acknowledged: false });
+  assert.equal(taken.code, 200, taken.body.error);
+  assert.equal((await thread(id)).messages[1].acknowledgedAt, undefined);
+  assert.equal((await replyLine()).acknowledged, undefined);
 });
 
 // The progress card's Message the agent button starts its thread on Agreed,

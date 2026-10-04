@@ -113,8 +113,8 @@ export async function loadSession(
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  // A closed session stays closed with feedback unread. A Start in a
-  // sub-session leaves this session's round as it is.
+  // A closed session stays closed with feedback unread. A Start leaves the
+  // round as it is.
   if ((await pending()).some(answersRound) && state.stage !== "complete")
     await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
@@ -309,7 +309,7 @@ export async function loadSession(
       updatedAt: state.updatedAt,
       url: base + "/",
       handoff: session.handoff,
-      events: session.activityItems(),
+      events: session.withAcknowledgements(session.activityItems()),
     };
   }
   return {
@@ -345,6 +345,7 @@ export async function loadSession(
     attachPlan: session.attachPlan,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
+    acknowledge: session.acknowledge,
     act: session.act,
     browserView,
     latestFeedback,

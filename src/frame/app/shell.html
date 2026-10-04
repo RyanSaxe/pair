@@ -178,18 +178,7 @@
                 </button>
               </div>
               <section id="reading">
-                <div class="title-row">
-                  <h1 tabindex="-1" id="page-title"></h1>
-                  <button
-                    class="comment-page"
-                    id="comment-page"
-                    type="button"
-                    hidden
-                  >
-                    <span>Comment on this page</span>
-                    <kbd aria-hidden="true">c</kbd>
-                  </button>
-                </div>
+                <h1 tabindex="-1" id="page-title"></h1>
                 <p class="home-agent" id="home-agent" hidden></p>
                 <div class="agent-activity" id="agent-activity" hidden>
                   <div class="activity-heading">
@@ -224,13 +213,28 @@
                 <div class="note-bars" id="note-bars"></div>
                 <div class="chosen-bar" id="chosen-bar" hidden></div>
                 <button
-                  class="btn comment-here"
+                  class="comment-here"
                   id="comment-here"
                   type="button"
+                  aria-keyshortcuts="c"
                   hidden
                 >
-                  <span>Comment</span>
-                  <kbd aria-hidden="true">c</kbd>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.6a8 8 0 1 1 15.6-3.9z"
+                    />
+                  </svg>
+                  <span class="comment-label"
+                    ><span></span><kbd aria-hidden="true">c</kbd></span
+                  >
                 </button>
                 <div id="page-content"></div>
                 <section

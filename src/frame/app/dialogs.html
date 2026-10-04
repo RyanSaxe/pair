@@ -6,21 +6,28 @@
   <div class="dialog-head">
     <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
   </div>
-  <div class="settings-row">
-    <span>Appearance</span>
-    <div class="segmented" id="theme" role="radiogroup" aria-label="Appearance">
-      <button type="button" role="radio" data-theme="system">System</button>
-      <button type="button" role="radio" data-theme="light">Light</button>
-      <button type="button" role="radio" data-theme="dark">Dark</button>
+  <div class="dialog-body">
+    <div class="settings-row">
+      <span>Appearance</span>
+      <div
+        class="segmented"
+        id="theme"
+        role="radiogroup"
+        aria-label="Appearance"
+      >
+        <button type="button" role="radio" data-theme="system">System</button>
+        <button type="button" role="radio" data-theme="light">Light</button>
+        <button type="button" role="radio" data-theme="dark">Dark</button>
+      </div>
     </div>
-  </div>
-  <div class="settings-row">
-    <span>Notifications</span>
-    <button class="btn" id="notifications" type="button">Enable</button>
-  </div>
-  <div class="settings-row">
-    <span>Keys</span>
-    <span class="small">Press <kbd>?</kbd> for the list</span>
+    <div class="settings-row">
+      <span>Notifications</span>
+      <button class="btn" id="notifications" type="button">Enable</button>
+    </div>
+    <div class="settings-row">
+      <span>Keys</span>
+      <span class="small">Press <kbd>?</kbd> for the list</span>
+    </div>
   </div>
 </dialog>
 <!-- The bell opens its list under it. The frame draws the lines. -->
@@ -48,42 +55,44 @@
     <div class="dialog-head" data-close-label="Close note">
       <h2 id="note-title">Add note</h2>
     </div>
-    <p class="small" id="note-anchor"></p>
-    <blockquote id="note-quote" hidden></blockquote>
-    <label for="note-text" id="note-label">Feedback</label>
-    <div class="note-field">
-      <textarea id="note-text" required></textarea>
-      <button
-        class="icon-btn note-image-pick"
-        type="button"
-        id="note-image-pick"
-        aria-label="Add an image"
-        title="Add an image"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
+    <div class="dialog-body">
+      <p class="small" id="note-anchor"></p>
+      <blockquote id="note-quote" hidden></blockquote>
+      <label for="note-text" id="note-label">Feedback</label>
+      <div class="note-field">
+        <textarea id="note-text" required></textarea>
+        <button
+          class="icon-btn note-image-pick"
+          type="button"
+          id="note-image-pick"
+          aria-label="Add an image"
+          title="Add an image"
         >
-          <rect x="3" y="4" width="18" height="16" rx="2.5" />
-          <circle cx="9" cy="10" r="1.8" />
-          <path d="m21 16-5-5-9 9" />
-        </svg>
-      </button>
-      <input
-        type="file"
-        id="note-image-input"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        multiple
-        hidden
-      />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+            <circle cx="9" cy="10" r="1.8" />
+            <path d="m21 16-5-5-9 9" />
+          </svg>
+        </button>
+        <input
+          type="file"
+          id="note-image-input"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          multiple
+          hidden
+        />
+      </div>
+      <div class="note-images" id="note-images" hidden></div>
+      <p class="renderer-error" id="note-image-error" hidden></p>
     </div>
-    <div class="note-images" id="note-images" hidden></div>
-    <p class="renderer-error" id="note-image-error" hidden></p>
     <!-- Start a thread sends the note to the agent now, and Add to feedback
          keeps it for Send feedback. Once the round's feedback is sent, only
          Start a thread shows. The frame fills in the platform's send key. -->
@@ -113,7 +122,6 @@
       <p id="drawing-detail" hidden></p>
     </div>
     <span class="spacer"></span>
-    <button class="btn" id="drawing-cancel" type="button">Cancel</button>
     <button class="btn primary" id="drawing-save" type="button">
       Save drawing
     </button>
@@ -131,7 +139,9 @@
     <h2 id="round-title" tabindex="-1" autofocus>Rounds</h2>
   </div>
   <p class="dialog-detail" id="round-plan"></p>
-  <div class="dialog-list" id="round-list"></div>
+  <div class="dialog-body">
+    <div class="dialog-list" id="round-list"></div>
+  </div>
 </dialog>
 <!-- Close on a row of the session list opens this dialog for that session,
      and Close session closes it. -->
@@ -140,13 +150,13 @@
     <h2 id="close-title" tabindex="-1" autofocus>Close session</h2>
   </div>
   <p class="dialog-detail" id="close-name"></p>
-  <p>
-    The session becomes read-only, with every round kept. The hub removes each
-    git worktree inside the session's directory, and your checkout and branches
-    stay as they are. Its agent gets no message.
-  </p>
-  <div class="actions actions-right">
-    <button class="btn" type="button" data-close="close-dialog">Cancel</button>
+  <div class="dialog-body">
+    <p>
+      The session becomes read-only, with every round kept, and its agent gets
+      no message. Closing deletes no files.
+    </p>
+  </div>
+  <div class="actions">
     <button class="btn primary" type="button" id="close-confirm">
       Close session
     </button>
@@ -156,34 +166,36 @@
   <div class="dialog-head">
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
   </div>
-  <dl class="key-list">
-    <dt><kbd>g</kbd></dt>
-    <dd>Open the session list</dd>
-    <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
-    <dd>Open a session by its number in the session list</dd>
-    <dt><kbd>w</kbd></dt>
-    <dd>Open the next session waiting for you</dd>
-    <dt><kbd>n</kbd></dt>
-    <dd>Open notifications</dd>
-    <dt><kbd>]</kbd> <kbd>[</kbd></dt>
-    <dd>Next and previous page</dd>
-    <dt><kbd>j</kbd> <kbd>k</kbd></dt>
-    <dd>Choose the next and previous block on the page</dd>
-    <dt><kbd>c</kbd></dt>
-    <dd>Comment on the selection, the chosen block, or the page</dd>
-    <dt><kbd>r</kbd></dt>
-    <dd>Review your feedback</dd>
-    <dt><kbd>s</kbd></dt>
-    <dd>Focus Send feedback; Enter sends or opens it</dd>
-    <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
-    <dd>Answer a question or add feedback from its textarea</dd>
-    <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
-    <dd>Start a thread from a note or send a reply in a thread</dd>
-    <dt><kbd>a</kbd></dt>
-    <dd>Open Agreed</dd>
-    <dt><kbd>Esc</kbd></dt>
-    <dd>Close menus, panels, and dialogs</dd>
-  </dl>
+  <div class="dialog-body">
+    <dl class="key-list">
+      <dt><kbd>g</kbd></dt>
+      <dd>Open the session list</dd>
+      <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+      <dd>Open a session by its number in the session list</dd>
+      <dt><kbd>w</kbd></dt>
+      <dd>Open the next session waiting for you</dd>
+      <dt><kbd>n</kbd></dt>
+      <dd>Open notifications</dd>
+      <dt><kbd>]</kbd> <kbd>[</kbd></dt>
+      <dd>Next and previous page</dd>
+      <dt><kbd>j</kbd> <kbd>k</kbd></dt>
+      <dd>Choose the next and previous block on the page</dd>
+      <dt><kbd>c</kbd></dt>
+      <dd>Comment on the selection, the chosen block, or the page</dd>
+      <dt><kbd>r</kbd></dt>
+      <dd>Review your feedback</dd>
+      <dt><kbd>s</kbd></dt>
+      <dd>Focus Send feedback; Enter sends or opens it</dd>
+      <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
+      <dd>Answer a question or add feedback from its textarea</dd>
+      <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
+      <dd>Start a thread from a note or send a reply in a thread</dd>
+      <dt><kbd>a</kbd></dt>
+      <dd>Open Agreed</dd>
+      <dt><kbd>Esc</kbd></dt>
+      <dd>Close menus, panels, and dialogs</dd>
+    </dl>
+  </div>
 </dialog>
 <dialog class="lightbox" id="diagram-dialog" aria-label="Diagram, full size">
   <div class="dialog-head"></div>
@@ -197,83 +209,87 @@
   <div class="dialog-head">
     <h2 id="start-title" tabindex="-1" autofocus></h2>
   </div>
-  <dl class="start-card">
-    <dt>Delivers</dt>
-    <dd id="start-delivers"></dd>
-    <dt>May change</dt>
-    <dd id="start-changes"></dd>
-  </dl>
-  <div
-    class="dialog-list start-choices"
-    role="radiogroup"
-    aria-label="Where the work runs"
-  >
-    <button class="dialog-row" type="button" role="radio" data-where="here">
-      <span class="tick" aria-hidden="true"></span
-      ><span
-        ><span class="start-choice"
-          >Here <span class="start-recommended" hidden>Recommended</span></span
-        ><small>This session builds it in its next rounds.</small></span
-      >
-    </button>
-    <button
-      class="dialog-row"
-      type="button"
-      role="radio"
-      data-where="sub-session"
+  <div class="dialog-body">
+    <p class="start-delivers" id="start-delivers"></p>
+    <div
+      class="dialog-list start-choices"
+      role="radiogroup"
+      aria-label="Where the work runs"
     >
-      <span class="tick" aria-hidden="true"></span
-      ><span
-        ><span class="start-choice"
-          >In a sub-session
-          <span class="start-recommended" hidden>Recommended</span></span
-        ><small
-          >This session's agent builds it in a session linked to this one, so
-          this one stays free.</small
-        ></span
+      <button class="dialog-row" type="button" role="radio" data-where="here">
+        <span class="tick" aria-hidden="true"></span
+        ><span
+          ><span class="start-choice"
+            >Here
+            <span class="start-recommended" hidden>Recommended</span></span
+          ><small
+            >This session's agent starts on it now and shows it in the next
+            rounds.</small
+          ></span
+        >
+      </button>
+      <button
+        class="dialog-row"
+        type="button"
+        role="radio"
+        data-where="sub-session"
       >
-    </button>
-    <button
-      class="dialog-row"
-      type="button"
-      role="radio"
-      data-where="new-agent"
-    >
-      <span class="tick" aria-hidden="true"></span
-      ><span
-        ><span class="start-choice"
-          >With a new agent
-          <span class="start-recommended" hidden>Recommended</span></span
-        ><small
-          >A separate agent starts its own session linked to this one, while
-          this session keeps going.</small
-        ></span
+        <span class="tick" aria-hidden="true"></span
+        ><span
+          ><span class="start-choice"
+            >In a sub-session
+            <span class="start-recommended" hidden>Recommended</span></span
+          ><small
+            >This session's agent builds it in a session linked to this one, so
+            this one stays free.</small
+          ></span
+        >
+      </button>
+      <button
+        class="dialog-row"
+        type="button"
+        role="radio"
+        data-where="new-agent"
       >
-    </button>
-  </div>
-  <label for="start-message">Message to the agent, optional</label>
-  <textarea
-    id="start-message"
-    maxlength="4000"
-    aria-describedby="start-hint-here"
-  ></textarea>
-  <div class="start-stack start-hints">
-    <p class="small" id="start-hint-here" data-start-for="here"></p>
-    <p class="small" id="start-hint-sub-session" data-start-for="sub-session">
-      Sent to the agent with Start. This session's round stays open for your
-      feedback.
-    </p>
-    <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
-      The new agent reads this message when it starts. Copy command gives you
-      the command to paste into any agent.
-    </p>
+        <span class="tick" aria-hidden="true"></span
+        ><span
+          ><span class="start-choice"
+            >With a new agent
+            <span class="start-recommended" hidden>Recommended</span></span
+          ><small
+            >A separate agent starts its own session linked to this one, while
+            this session keeps going.</small
+          ></span
+        >
+      </button>
+    </div>
+    <label for="start-message">Message to the agent, optional</label>
+    <textarea
+      id="start-message"
+      maxlength="4000"
+      aria-describedby="start-hint-here"
+    ></textarea>
+    <div class="start-stack start-hints">
+      <p class="small" id="start-hint-here" data-start-for="here">
+        Sent to the agent with Start. This session's round stays open for your
+        feedback.
+      </p>
+      <p class="small" id="start-hint-sub-session" data-start-for="sub-session">
+        Sent to the agent with Start. This session's round stays open for your
+        feedback.
+      </p>
+      <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
+        The new agent reads this message when it starts. Copy command gives you
+        the command to paste into any agent.
+      </p>
+    </div>
   </div>
   <p class="small" id="start-error" role="alert" hidden></p>
   <div class="start-stack start-actions">
-    <div class="actions actions-right" data-start-for="here sub-session">
+    <div class="actions" data-start-for="here sub-session">
       <button class="btn primary" type="button" id="start-send">Start</button>
     </div>
-    <div class="actions actions-right" data-start-for="new-agent">
+    <div class="actions" data-start-for="new-agent">
       <button class="btn" type="button" id="start-copy">Copy command</button>
       <button
         class="btn primary start-open"

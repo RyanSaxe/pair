@@ -2,13 +2,10 @@ import path from "node:path";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
-import { removeWorktrees } from "./worktrees.mjs";
 
-// Work started here runs in this session's next round, so its Start answers
-// the round as feedback does. Work started anywhere else runs in a session of
-// its own.
-export const answersRound = (event) =>
-  event.payload.intent !== "start" || event.payload.where === "here";
+// Only the reviewer's feedback answers a round. A Start leaves the round as
+// it was, wherever its work runs.
+export const answersRound = (event) => event.payload.intent !== "start";
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // The agent's commands, the holder, and the lines that tell the agent what
 // to do next.
@@ -31,6 +28,12 @@ export function agent(session) {
     event && session.state.lastReceivedId !== event.id
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
+  // The proposals started here that are not done, whose work goes on until
+  // the agent marks it done.
+  const startedHere = () =>
+    session
+      .proposalItems()
+      .filter((card) => card.started?.where === "here" && !card.done);
   // Every agent command prints the step after it, so an agent that lost its
   // place is told where the session stands.
   async function nextStep() {
@@ -51,7 +54,20 @@ export function agent(session) {
     }
     if (session.state.stage === "working")
       return "Update the task and Agreed from this feedback, then publish Agreed and the page list with pair publish within minutes, before you research or write any page.";
-    return `Round ${session.state.current.round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
+    const { round } = session.state.current;
+    // Work started here after this round's page list was published has no
+    // page in it, so the agent builds it now for the next round.
+    const ids = startedHere()
+      .filter((card) => card.started.round === round)
+      .map((card) => card.id);
+    if (session.needsYou() && ids.length) {
+      const named =
+        ids.length === 1
+          ? `proposal ${ids[0]}`
+          : `proposals ${ids.slice(0, -1).join(", ")} and ${ids.at(-1)}`;
+      return `Round ${round} is published and waits for the reviewer. Say in chat what changed if you have not. Then build ${named}, which the reviewer started here, and end your turn when you have done what you can. Publish the work's pages in the next round, which begins when the reviewer sends feedback. The hub sends a wake message then.`;
+    }
+    return `Round ${round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
   }
   // The first Agreed of a session says whether to open its URL. A pair tab
   // that polled the hub recently lists the new session in its bell and
@@ -91,12 +107,10 @@ export function agent(session) {
   }
   // The reviewer closes a session from the browser. The hub sends the agent
   // nothing, and refuses the agent's next command with the line that says
-  // the session is complete. Closing removes the session's scratch
-  // worktrees, and the hub's log names each one.
-  async function close(log) {
+  // the session is complete. Closing deletes no file, and the agent removes
+  // its scratch worktrees once the reviewer agrees.
+  async function close() {
     await transition({ stage: "complete", dismissedAt: timestamp() });
-    for (const line of await removeWorktrees(directory))
-      log(`closed ${directory}: ${line}`);
     await session.closeLinked();
     return { status: view() };
   }
@@ -142,18 +156,17 @@ export function agent(session) {
       threads: session.threadsSince(before?.receivedAt),
       threadsSince: before?.payload.round ?? null,
       ...(event
-        ? {
-            event: session.withDrawingPaths(event),
-            moment: "read-feedback",
-            ...startRead(event),
-          }
+        ? { event: session.withDrawingPaths(event), ...eventRead(event) }
         : { event: null }),
     };
   }
   // A Start prints with the card it started, so the agent reads what the
-  // card approves.
-  function startRead(event) {
-    if (event.payload.intent !== "start") return {};
+  // card approves. Feedback prints with every card started here that is not
+  // done, so the agent keeps building that work in the round the feedback
+  // begins.
+  function eventRead(event) {
+    if (event.payload.intent !== "start")
+      return { moment: "read-feedback", running: startedHere() };
     return {
       moment: `read-start-${event.payload.where}`,
       proposal: session

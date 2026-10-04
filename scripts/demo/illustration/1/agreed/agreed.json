@@ -1,0 +1,14 @@
+{
+  "name": "charge-retry",
+  "round": "1",
+  "title": "Retry a charge when the payment gateway times out",
+  "page": {
+    "id": "agreed",
+    "title": "Agreed so far",
+    "task": {
+      "title": "Retry a charge when the payment gateway times out",
+      "html": "<p>Checkout fails an order when the payment gateway times out, even when a second attempt would succeed. Plan a retry that never charges a card twice.</p>"
+    },
+    "agreements": []
+  }
+}

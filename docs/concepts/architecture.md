@@ -113,8 +113,9 @@ sessions/<dir>/      the directory name is not the session ID
 ```
 
 The agent's scratch git worktrees are inside the session's directory too.
-Closing the session removes each one with `git worktree remove` and keeps
-its branch.
+The hub deletes nothing when a session closes. The agent removes the
+worktrees it made only after the reviewer starts its proposal to remove them
+or answers yes to its question on a page.
 
 Sessions from interactive-plan, `pair`'s predecessor, stay under
 `~/.local/state/interactive-plan/`. Start a new session instead of resuming

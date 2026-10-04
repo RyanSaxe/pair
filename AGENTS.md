@@ -217,9 +217,25 @@ They belong to the person using pair on this machine: a session started there
 shows in their Live sessions, and a hub started there from your checkout serves
 their sessions with your code.
 
-When a change alters what the README's or the docs' screenshots show, run
+When a pull request into a branch other than `main` changes `src/frame/`,
+`src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
+`scripts/demo/`, the `screenshots` job in `.github/workflows/screenshots.yml`
+runs `npm run screenshots` on GitHub's macOS 26 runner and pushes the PNGs
+it rewrote to the pull request's branch. The illustration's terminal shows
+IDs that each run creates anew, so the job pushes a commit after every push
+to such a pull request. Pull that commit before you push to the branch again.
+GitHub runs the checks on the job's commit only after someone with write
+access selects Approve workflows to run on the pull request.
+
+For a change elsewhere that alters what the README's or the docs'
+screenshots show, and for a pull request from a fork, run
 `npm run screenshots` on macOS and commit the PNGs it rewrites. The script
 starts its own hub on a port the system assigns, with its state in a
 temporary directory, and takes each screenshot in the installed Google
 Chrome. The frame's text is the system font, so the script refuses to run on
 another system, where lines would break in other places.
+
+When `npm run screenshots` fails, it saves a screenshot and the console log
+of each of its browser windows in `screenshots-failure/`, which git ignores.
+The `screenshots` job uploads that directory as the `screenshots-failure`
+artifact of its run.

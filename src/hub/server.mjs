@@ -350,7 +350,7 @@ export async function startHub(config = settings()) {
             ),
           });
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
-          return reply(200, await session.exclusive(() => session.close(log)));
+          return reply(200, await session.exclusive(() => session.close()));
         }
         // Start, Decline, Restore and Open a new agent session on a
         // proposal's card. Start carries where the work runs, and Start and
@@ -442,18 +442,25 @@ export async function startHub(config = settings()) {
             await session.exclusive(() => session.startThread(data)),
           );
         }
+        // The reviewer's message in a thread, and the thumbs up on an
+        // agent's message, which sends no wake.
+        const threadActions = {
+          messages: [201, session.addThreadMessage],
+          acknowledge: [200, session.acknowledge],
+        };
         if (
           method === "POST" &&
           rest[0] === "api" &&
           rest[1] === "threads" &&
-          rest[3] === "messages" &&
+          Object.hasOwn(threadActions, rest[3]) &&
           rest.length === 4
         ) {
           const data = await readBody(req, 250_000);
+          const [code, act] = threadActions[rest[3]];
           return reply(
-            201,
+            code,
             await session.exclusive(() =>
-              session.addThreadMessage(decodeURIComponent(rest[2]), data),
+              act(decodeURIComponent(rest[2]), data),
             ),
           );
         }

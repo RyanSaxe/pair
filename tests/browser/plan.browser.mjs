@@ -12,20 +12,19 @@ const pages = [
   { id: "overview", title: "Overview", html: "<p>Twelve slides.</p>" },
   { id: "steps", title: "Steps", html: "<p>Build each slide.</p>" },
 ];
-// A session with round 1 waiting for the reviewer and one proposal with a
-// plan of two pages, attached as pair plan attaches it.
-async function planned(t) {
+// A session with round 1 waiting for the reviewer and one proposal from
+// round 1's Overview page with a plan of two pages, attached as pair plan
+// attaches it.
+async function planned(t, title = "Build the deck") {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(planData())).code, 200);
   const proposed = await session.action("propose", {
     id: "deck",
-    title: "Build the deck",
+    title,
     delivers: "Twelve slides on Q3 pricing.",
-    changes: "Only talks/q3/.",
     recommend: "here",
-    reason: "It is one file.",
-    source: "From the conversation",
+    page: "1/overview",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const source = path.join(session.directory, "plans", ".source");
@@ -58,11 +57,11 @@ test("Open plan shows the plan's pages from its card, and Download saves a file 
   const card = page.locator("[data-proposal-card=deck]");
   await card
     .locator(".proposal-plan", {
-      hasText: "Plan updated after round 1, from round 1.",
+      hasText: "Plan · 2 pages · updated after round 1",
     })
     .waitFor({ timeout: 8000 });
-  await card.locator(".tag", { hasText: "Plan" }).waitFor();
-  await card.locator("a", { hasText: "Open plan" }).click();
+  await card.locator(".card-state", { hasText: "Plan ready" }).waitFor();
+  await card.getByRole("link", { name: "Open plan" }).click();
   await page.waitForURL(/\/plans\/deck\//);
   // The plan's pages, with no Agreed, no Work, no Review and no round tabs.
   const listed = () =>
@@ -106,4 +105,53 @@ test("Open plan shows the plan's pages from its card, and Download saves a file 
   );
   assert.equal(await page.locator("#history-download").isVisible(), false);
   assert.deepEqual(requests, []);
+});
+
+// On a phone, a card with a long title, a plan and every button keeps the
+// lines under its title to one line each and its buttons to one row:
+// Decline on the left, and Comment and Start on the right.
+test("a card with a plan keeps its meta line, plan line and buttons to one row each on a phone", async (t) => {
+  const { h, session } = await planned(
+    t,
+    "Merge the ten 0.3 pull requests into develop in order and release 0.3 to npm",
+  );
+  const page = await open(t, `${h.server.origin}${session.base}/#work`);
+  if (!page) return;
+  await page.setViewportSize({ width: 390, height: 844 });
+  const card = page.locator("[data-proposal-card=deck]");
+  await card.locator(".proposal-start").waitFor({ timeout: 8000 });
+  const rows = await card.evaluate((root) => {
+    const box = (node) => node.getBoundingClientRect();
+    const line = (selector) =>
+      [...root.querySelectorAll(selector)].map((node) => [
+        node.textContent,
+        box(node).top + box(node).height / 2,
+      ]);
+    return {
+      foot: line(".proposal-foot :not(:has(*))"),
+      title: box(root.querySelector(".proposal-title")).bottom,
+      metaTop: root.querySelector(".card-meta")?.getBoundingClientRect().top,
+      meta: line(".card-meta > :not(.state-dot)"),
+      plan: line(".proposal-plan > :not(.card-icon)"),
+    };
+  });
+  // Each line's text sits on one row when their middles agree.
+  for (const [name, line] of Object.entries(rows).filter(([, value]) =>
+    Array.isArray(value),
+  )) {
+    const middles = line.map(([, middle]) => middle);
+    assert.ok(
+      line.length && Math.max(...middles) - Math.min(...middles) <= 2,
+      `${name} is one row: ${JSON.stringify(line)}`,
+    );
+  }
+  assert.ok(rows.metaTop >= rows.title, "the meta line is under the title");
+  assert.deepEqual(
+    rows.meta.map(([text]) => text),
+    ["Plan ready", "·", "From the Overview page"],
+  );
+  assert.deepEqual(
+    rows.foot.map(([text]) => text),
+    ["Decline", "Comment", "Start"],
+  );
 });

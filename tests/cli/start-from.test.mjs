@@ -8,10 +8,7 @@ const card = (id, title) => ({
   id,
   title,
   delivers: `${title}, delivered.`,
-  changes: "Only talks/q3/.",
   recommend: "sub-session",
-  reason: "It runs apart from this session's rounds.",
-  source: "From the conversation",
 });
 const status = async (directory) =>
   JSON.parse(await fs.readFile(path.join(directory, "status.json"), "utf8"));
@@ -72,10 +69,11 @@ test("pair start --from creates a session for a started proposal, linked both wa
     `Parent    ${a.directory}`,
     "Proposal  deck",
     'Proposal deck, "Build the deck", started in a sub-session by the reviewer.',
-    "May change: Only talks/q3/.",
+    "Delivers: Build the deck, delivered.",
     "Keep the header height.",
   ])
     assert.ok(output.includes(line), `${line} in:\n${output}`);
+  assert.doesNotMatch(output, /May change/);
   // The new session's holder is this agent, and pair status names the
   // parent in the new session and the link in the parent.
   const own = await cli.run("status", "--session-dir", child);

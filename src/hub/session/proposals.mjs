@@ -9,15 +9,9 @@ const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // session linked to this one, which this session's holder or a separate
 // agent creates with pair start --from.
 const places = ["here", "sub-session", "new-agent"];
-const limits = {
-  title: 80,
-  delivers: 400,
-  changes: 400,
-  reason: 400,
-  source: 200,
-};
-const written = ["title", "delivers", "changes", "reason"];
-const actions = ["revise", "start", "done", "reopen"];
+const limits = { title: 80, delivers: 400 };
+const written = ["title", "delivers"];
+const actions = ["revise", "done", "reopen"];
 
 function words(data, name) {
   const value = typeof data[name] === "string" ? data[name].trim() : "";
@@ -86,8 +80,9 @@ export async function proposals(session) {
       409,
     );
   }
-  // Where the reviewer's words are: a thread, or a page of a round.
-  function link(data) {
+  // Where the work came from: a thread, or a page of a round with the
+  // page's title from the round's page list.
+  function source(data) {
     requireValue(
       data.thread === undefined || data.page === undefined,
       "pair propose takes --thread or --page, not both",
@@ -101,24 +96,15 @@ export async function proposals(session) {
     }
     if (data.page === undefined) return {};
     const [round, id, extra] = String(data.page).split("/");
-    const set = session.state.roundPages?.[round];
     requireValue(
       round && id && extra === undefined,
       "--page takes ROUND/PAGE, such as 14/commenting",
     );
-    requireValue(
-      set && (id === "agreed" || set.pages.some((slot) => slot.id === id)),
-      `Round ${round} has no page ${id}`,
-    );
-    return { page: { round, id } };
-  }
-  function source(data) {
-    requireValue(
-      data.source !== undefined ||
-        (data.thread === undefined && data.page === undefined),
-      "--thread and --page go with --source",
-    );
-    return { text: words(data, "source"), ...link(data) };
+    const slot =
+      session.state.roundPages?.[round] &&
+      session.pageSet(round).pages.find((item) => item.id === id);
+    requireValue(slot, `Round ${round} has no page ${id}`);
+    return { page: { round, id, title: slot.title } };
   }
   async function add(id, data) {
     requireValue(
@@ -167,20 +153,20 @@ export async function proposals(session) {
     );
     if (data.recommend !== undefined)
       patch.recommend = place(data.recommend, "--recommend");
-    if ([data.source, data.thread, data.page].some((v) => v !== undefined))
+    if (data.thread !== undefined || data.page !== undefined)
       patch.source = source(data);
     requireValue(
       Object.keys(patch).length,
-      "--revise takes a field to change: --title, --delivers, --changes, --recommend, --reason or --source",
+      "--revise takes a field to change: --title, --delivers, --recommend, --page or --thread",
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button or from their words. Work here or in
-  // a sub-session saves a Start event, which the agent reads with pair read.
-  // When the round waits for the reviewer, a Start here answers it as a
-  // submission does, so every pair tab shows the agent's progress on the
-  // work. Work with a new agent saves no event, because a separate agent
-  // runs pair start --from for it.
+  // Start, from the reviewer's button. Work here or in a sub-session saves a
+  // Start event, which the agent reads with pair read. Work with a new agent
+  // saves no event, because a separate agent runs pair start --from for it.
+  // A Start leaves the round as it was, wherever the work runs: only the
+  // reviewer's feedback answers a round, so a round that waits for them
+  // keeps waiting.
   async function start(card, started) {
     open();
     requireValue(
@@ -195,7 +181,7 @@ export async function proposals(session) {
       started: { at: timestamp(), round, ...started },
     });
     if (started.where === "new-agent") return changed;
-    const event = await session.saveEvent({
+    await session.saveEvent({
       id: crypto.randomUUID(),
       intent: "start",
       proposal: card.id,
@@ -204,15 +190,6 @@ export async function proposals(session) {
       by: started.by,
       ...(started.message ? { message: started.message } : {}),
     });
-    if (started.where === "here" && session.needsYou())
-      await transition({
-        stage: "submitted",
-        latestSubmissionId: event.id,
-        latestSubmissionRound: round,
-        roundStartedAt: event.receivedAt,
-        wake: session.state.wake ? { ...session.state.wake, last: null } : null,
-        takeover: null,
-      });
     return changed;
   }
   // Runs after the reviewer's request is answered, as the wake after a
@@ -335,7 +312,7 @@ export async function proposals(session) {
     const chosen = actions.filter((name) => data[name] !== undefined);
     requireValue(
       chosen.length <= 1,
-      "pair propose takes one of --revise, --start, --done and --reopen",
+      "pair propose takes one of --revise, --done and --reopen",
     );
     const [action] = chosen;
     if (!action) return add(id, data);
@@ -349,20 +326,7 @@ export async function proposals(session) {
       `--${action} changes no field. Run --revise for --${fields[0]}.`,
     );
     if (action === "done") return done(card);
-    if (action === "reopen") return reopen(card);
-    // Work started on the reviewer's words quotes them and says where they
-    // wrote them.
-    requireValue(
-      data.source !== undefined &&
-        (data.thread !== undefined || data.page !== undefined),
-      "--start takes --source with the reviewer's words, and --thread or --page with where they wrote them",
-    );
-    return start(card, {
-      where: place(data.start, "--start"),
-      by: "words",
-      quote: words(data, "source"),
-      ...link(data),
-    });
+    return reopen(card);
   }
   // pair plan attaches a plan to a card that is neither declined nor done,
   // started or not, and a second pair plan replaces it.

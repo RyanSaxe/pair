@@ -99,23 +99,25 @@ const places = {
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
+// The reviewer's message with Start, when there is one.
+const startMessage = (card, started, submission) =>
+  started.message
+    ? [
+        tag(
+          "pair_start",
+          { submission, proposal: card.id, where: started.where },
+          [reviewerLine, tagText(started.message)].join("\n"),
+          true,
+        ),
+      ]
+    : [];
 // A started card, which is the agent's own text, then the reviewer's message
-// with Start, when there is one.
+// with Start.
 function startedText(card, started, submission) {
   return [
-    `Proposal ${card.id}, "${card.title}", started ${places[started.where]}${started.by === "words" ? " on the reviewer's words" : " by the reviewer"}.`,
+    `Proposal ${card.id}, "${card.title}", started ${places[started.where]} by the reviewer.`,
     `Delivers: ${card.delivers}`,
-    `May change: ${card.changes}`,
-    ...(started.message
-      ? [
-          tag(
-            "pair_start",
-            { submission, proposal: card.id, where: started.where },
-            [reviewerLine, tagText(started.message)].join("\n"),
-            true,
-          ),
-        ]
-      : []),
+    ...startMessage(card, started, submission),
   ].join("\n");
 }
 // A Start that pair read prints.
@@ -123,6 +125,20 @@ export const startText = (event, card) =>
   startedText(card, event.payload, event.id);
 // The card a session that pair start --from created runs.
 export const proposalText = (card) => startedText(card, card.started);
+
+// Each proposal started here that is not done, with the reviewer's message
+// with Start, which pair read prints after a submission.
+export function runningText(cards) {
+  if (!cards?.length) return "";
+  const width = Math.max(...cards.map((card) => card.id.length));
+  return [
+    "Proposals started here that are not done:",
+    ...cards.flatMap((card) => [
+      `  ${card.id.padEnd(width)}  ${card.title}`,
+      ...startMessage(card, card.started),
+    ]),
+  ].join("\n");
+}
 
 // Each proposal the reviewer declined since the last pair read.
 export function declinedText(cards) {
@@ -152,7 +168,11 @@ export function threadText(thread) {
   const messages = thread.messages.map((message) =>
     tag(
       "pair_message",
-      { from: message.from, at: clock(message.at) },
+      {
+        from: message.from,
+        at: clock(message.at),
+        agreed: message.acknowledgedAt ? "yes" : undefined,
+      },
       [
         tagText(message.html ?? message.text),
         ...images(message.attachments),
@@ -182,12 +202,17 @@ function opening(message) {
   return `${text.slice(0, space > 0 ? space : 60)}…`;
 }
 
-// The threads with a reviewer message since the submission before the one
-// printed, one line each, and how to open one.
+// The agent messages the reviewer gave a thumbs up, by their place in the
+// thread.
+const numbered = (list) =>
+  list && `message${list.length > 1 ? "s" : ""} ${list.join(", ")}`;
+
+// The threads with a reviewer message or thumbs up since the submission
+// before the one printed, one line each, and how to open one.
 export function threadIndex(threads, since, directory) {
   if (!threads?.length) return "";
   return [
-    `Threads the reviewer started or added to since ${since ? `round ${since}'s submission` : "the session started"}:`,
+    `Threads with a new message or agreement from the reviewer since ${since ? `round ${since}'s submission` : "the session started"}:`,
     ...threads.map((thread) =>
       tag(
         "pair_thread",
@@ -196,6 +221,7 @@ export function threadIndex(threads, since, directory) {
           page: thread.topic,
           proposal: thread.proposal,
           messages: thread.messages,
+          agreed: numbered(thread.acknowledged),
         },
         tagText(opening(thread.latest)),
       ),

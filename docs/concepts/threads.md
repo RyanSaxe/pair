@@ -26,6 +26,12 @@ all but the two newest, and a card you expand or collapse stays that way.
   and the alignment on Agreed then credits the thread.
 - When you ask in a thread for a specific change to the work the agent is
   doing, the agent makes it, as an instruction in your own words.
+- Press the thumbs up beside a reply's name to agree with the reply without
+  writing a message. The agent treats what the reply proposed as settled, as
+  it does a decision you settle in words, and does not answer it. The hub
+  sends the agent no wake for it, and the agent reads it the next time it
+  runs `pair read` or reads the thread. The reply's line leaves the bell, and
+  pressing the thumbs up again takes it back.
 
 When the agent reads a thread depends on its agent CLI:
 

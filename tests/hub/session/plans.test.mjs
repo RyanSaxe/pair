@@ -10,10 +10,7 @@ const card = {
   id: "deck",
   title: "Build the deck",
   delivers: "Twelve slides on Q3 pricing.",
-  changes: "Only talks/q3/.",
   recommend: "here",
-  reason: "It is one file.",
-  source: "From the conversation",
 };
 // A session with rounds 1 and 2 published and one proposal. attach sends
 // pair plan's action as the command does: each built page's record, and the

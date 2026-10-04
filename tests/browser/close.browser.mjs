@@ -17,7 +17,7 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   await page.locator("#menu-button").click();
   await close.click();
   const dialog = page.locator("#close-dialog");
-  await dialog.locator("text=Cancel").click();
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
   assert.equal(await dialog.evaluate((element) => element.open), false);
   assert.deepEqual(closes, []);
   assert.notEqual((await session.status()).body.stage, "complete");

@@ -5,14 +5,15 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep } from "../support/hub.mjs";
 
-// A round whose Overview has a block a page thread can target.
-const round = (number) => ({
+// A round whose Overview has a block a page thread can target, with the
+// filler above and below it.
+const round = (number, filler = "") => ({
   ...planData(number),
   pages: [
     {
       id: "overview",
       title: "Overview",
-      html: '<p id="result">Preserve one result per input.</p>',
+      html: `${filler}<p id="result">Preserve one result per input.</p>${filler}`,
     },
   ],
 });
@@ -25,8 +26,8 @@ async function setup(t) {
   const h = await hub(t);
   const session = await h.session();
   const url = (rest) => `${h.server.origin}${session.base}/${rest}`;
-  const publish = async (number) =>
-    assert.equal((await session.publish(round(number))).code, 200);
+  const publish = async (number, filler) =>
+    assert.equal((await session.publish(round(number, filler))).code, 200);
   // The agent reads each submission, as it would before the next round.
   const send = async (number) => {
     const sent = await session.feedback(session.event("feedback-only", number));
@@ -45,11 +46,8 @@ async function setup(t) {
     return id;
   };
   // The agent's first reply is the thread's row 1.
-  const reply = async (id) =>
-    assert.equal(
-      (await session.action("reply", { note: id, text: "Here." })).code,
-      200,
-    );
+  const reply = async (id, text = "Here.") =>
+    assert.equal((await session.action("reply", { note: id, text })).code, 200);
   return { url, publish, send, thread, reply };
 }
 
@@ -140,6 +138,34 @@ test("a reply in an older round opens in the left tab as its round, not /r/", as
   await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
   await focused(page, id);
   assert.doesNotMatch(page.url(), /\/r\//);
+});
+
+test("a long reply opened from the bell lands whole between the header and the bottom of a phone's screen", async (t) => {
+  const s = await setup(t);
+  await s.publish("1", "<p>Filler paragraph.</p>".repeat(40));
+  const id = await s.thread("1", "page");
+  const page = await open(t, s.url("#agreed"), {
+    viewport: { width: 390, height: 844 },
+  });
+  if (!page) return;
+  await bellReady(page);
+  // Uncut, the reply is several screens tall.
+  await s.reply(id, "The retry runs once after a short wait. ".repeat(300));
+  await bell(page);
+  await focused(page, id);
+  const reply = page.locator(`#thread-${id}-1`);
+  await reply.locator(".thread-more").waitFor();
+  const place = await reply.evaluate((row) => ({
+    top: row.getBoundingClientRect().top,
+    bottom: row.getBoundingClientRect().bottom,
+    header: document.getElementById("frame-header").getBoundingClientRect()
+      .bottom,
+    window: innerHeight,
+  }));
+  assert.ok(
+    place.top >= place.header && place.bottom <= place.window,
+    JSON.stringify(place),
+  );
 });
 
 test("each Progress thread has one card, and none while Current waits", async (t) => {
@@ -273,6 +299,45 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   assert.equal(await sidebar.isVisible(), false);
 });
 
+// A page's headings can carry the IDs the frame gives Work and Review.
+test("the sidebar marks the page on screen when the page reuses the IDs of Work and Review", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const published = await session.publish({
+    ...planData("1"),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: '<h2 id="work">Work</h2><p>Proposals.</p><h2 id="feedback">Feedback</h2>',
+      },
+    ],
+  });
+  assert.equal(published.code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+    viewport: { width: 390, height: 800 },
+  });
+  if (!page) return;
+  const marked = () =>
+    page
+      .locator("#page-list [aria-current=page]")
+      .evaluateAll((rows) => rows.map((row) => row.dataset.page));
+  await title(page, "Overview");
+  await bellReady(page);
+  assert.deepEqual(await marked(), ["overview"]);
+  assert.equal(new URL(page.url()).hash, "#overview");
+  for (const [id, heading] of [
+    ["work", "#work-title"],
+    ["feedback", "#feedback-title"],
+    ["overview", "#page-title"],
+  ]) {
+    await page.locator("#sidebar-toggle").click();
+    await page.locator(`#page-list [data-page="${id}"]`).click();
+    await page.locator(heading).waitFor();
+    assert.deepEqual(await marked(), [id]);
+  }
+});
+
 // Inside a linked session, the line under the header names its parent as
 // the way back, and stays one line at 375px with long names.
 test("a linked session's line under the header leads back to its parent and stays one line", async (t) => {
@@ -284,10 +349,7 @@ test("a linked session's line under the header leads back to its parent and stay
     id: "deck",
     title: "Build every slide of the appendix with the new chart colors",
     delivers: "The appendix.",
-    changes: "Only talks/q3/.",
     recommend: "sub-session",
-    reason: "It runs apart.",
-    source: "From the conversation",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const started = await a.request(`${a.base}/api/proposals/deck/start`, {
@@ -317,4 +379,34 @@ test("a linked session's line under the header leads back to its parent and stay
   assert.equal(line.cut, true, "a long name is cut short");
   await back.click();
   await page.waitForURL(`${h.server.origin}${a.base}/`);
+});
+
+test("a link to a section of the page scrolls to it and stays on the page", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const published = await session.publish({
+    ...planData("1"),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<p><a href="#later">Go to the later section</a></p>${"<p>Filler paragraph.</p>".repeat(60)}<h2 id="later">The later section</h2><p>Here.</p>`,
+      },
+    ],
+  });
+  assert.equal(published.code, 200, JSON.stringify(published.body));
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+    viewport: { width: 390, height: 700 },
+  });
+  if (!page) return;
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
+  await page.locator('#page-content a[href="#later"]').click();
+  await page.waitForFunction(() => {
+    const box = document
+      .querySelector("#page-content #later")
+      .getBoundingClientRect();
+    return box.top >= 0 && box.bottom <= window.innerHeight;
+  });
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
+  assert.equal(new URL(page.url()).hash, "#overview");
 });

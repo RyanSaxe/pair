@@ -1,0 +1,6 @@
+{
+  "name": "charge-retry",
+  "round": "2",
+  "title": "Retry a charge when the payment gateway times out",
+  "page": { "id": "tests", "title": "Tests", "file": "tests.html" }
+}

@@ -14,18 +14,45 @@ dialog::backdrop {
   gap: 10px;
   margin-bottom: 16px;
 }
+/* Every dialog grows with its content until it is --dialog-margin from
+   each edge of the window, and max-width: none lifts the browser's
+   smaller cap on a modal. Its title, any line under the title and its
+   button row stay in view, and .dialog-body, the part between them,
+   scrolls. */
 .dialog {
+  --dialog-padding: 24px;
   position: fixed;
   inset: 0;
   margin: auto;
-  width: min(440px, 92vw);
+  width: min(440px, 100vw - 2 * var(--dialog-margin));
+  max-width: none;
   height: fit-content;
-  max-height: 90dvh;
-  padding: 22px 24px;
+  max-height: calc(100dvh - 2 * var(--dialog-margin));
+  padding: 22px var(--dialog-padding);
   border-radius: 10px;
   box-shadow: var(--shadow);
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
+}
+.dialog[open],
+.dialog > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* The body reaches across the dialog's side padding, so a list's hover
+   and a field's focus ring are not cut off where it scrolls. */
+.dialog-body {
+  min-height: 0;
+  margin: 0 calc(-1 * var(--dialog-padding));
+  padding: 0 var(--dialog-padding);
+  overflow-y: auto;
+}
+@media (max-width: 480px) {
+  .dialog {
+    --dialog-padding: 16px;
+    padding-block: 16px;
+  }
 }
 /* A dialog's text has no paragraph margin, so each dialog spaces its
    lines itself. :where keeps this below any rule that names a class. */
@@ -55,8 +82,9 @@ dialog::backdrop {
     text-decoration: underline;
   }
 }
-/* The editor opens as a modal over the page, and fills the screen on a
-   phone, where Excalidraw's toolbar needs the width. */
+/* The editor opens as a modal over the page, and on a phone takes all of
+   the window but every dialog's margin, because Excalidraw's toolbar
+   needs the width. */
 .drawing-dialog {
   width: min(880px, 94vw);
   max-width: 94vw;
@@ -72,13 +100,10 @@ dialog::backdrop {
 }
 @media (max-width: 600px) {
   .drawing-dialog {
-    width: 100vw;
-    max-width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    margin: 0;
-    border: 0;
-    border-radius: 0;
+    width: calc(100vw - 2 * var(--dialog-margin));
+    max-width: none;
+    height: calc(100dvh - 2 * var(--dialog-margin));
+    max-height: none;
   }
   /* The question alone, so the header leaves the drawing its height. */
   .drawing-heading p {
@@ -129,11 +154,16 @@ dialog::backdrop {
 .dialog .dialog-head h2 {
   margin: 0;
 }
+/* A button row holds only actions, with the primary on the right. The ×,
+   Escape and a click outside back out of a dialog, so no row has Cancel. */
 .dialog .actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-top: 18px;
+}
+.dialog .actions .btn.primary {
+  margin-left: auto;
 }
 .dialog-head h2:focus,
 .dialog-head h2:focus-visible {
@@ -247,10 +277,6 @@ dialog::backdrop {
   color: var(--accent);
   font-weight: var(--weight-strong);
 }
-/* Dialogs share one treatment; a long body scrolls inside. */
-.dialog {
-  overflow: auto;
-}
 .dialog.note #note-anchor {
   margin: 0 0 6px;
 }
@@ -262,9 +288,7 @@ dialog::backdrop {
   padding: 10px 0;
   border-top: 1px solid var(--line);
 }
-/* The first row follows the head, which :first-of-type would count as the
-   dialog's first div. */
-.dialog-head + .settings-row {
+.dialog-body > .settings-row:first-child {
   border-top: 0;
   padding-top: 0;
 }
@@ -395,11 +419,6 @@ dialog::backdrop {
   letter-spacing: 0;
   font-size: var(--text-meta);
 }
-@media (max-width: 720px) {
-  .dialog {
-    width: 92vw;
-  }
-}
 /* The session list and the bell's list open under their buttons, in the
    top layer, at the place the frame sets when each opens. */
 .pop {
@@ -452,14 +471,26 @@ dialog::backdrop {
 .sess-line.current {
   background: var(--accent-soft);
 }
-/* A sub-session's name sits one step in from the name of the session it
-   came from, and the numbers keep their column. */
+/* A session that is not a sub-session starts a group with its
+   sub-sessions, set a little apart from the group above. */
+.sess-line:not([style*="--depth"]):not(:first-child) {
+  margin-top: 6px;
+}
+/* A sub-session has no number. Its name sits one step in from the name of
+   the session it came from, after an arrow that fills that step. */
 .sess-line[style*="--depth"] .sess-row .t {
-  padding-left: calc(var(--depth) * 18px);
+  padding-left: calc((var(--depth) - 1) * 18px);
+}
+.sess-row .sub {
+  display: inline-block;
+  width: 18px;
+  color: var(--muted);
+  font-weight: normal;
 }
 /* A closed session over its open sub-sessions reads in grey and has no
-   buttons. */
+   buttons, so its row spans their columns and Closed ends at the right. */
 .sess-closed .sess-row {
+  grid-column: 1 / -1;
   color: var(--muted);
   cursor: default;
 }
@@ -501,6 +532,12 @@ dialog::backdrop {
   color: var(--muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.sess-row .n svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin-left: auto;
 }
 .sess-row .t {
   min-width: 0;

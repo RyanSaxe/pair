@@ -8,10 +8,7 @@ const card = {
   id: "churn-export",
   title: "Refresh the churn data export",
   delivers: "The export uses the September schema.",
-  changes: "Only reports/churn.sql.",
   recommend: "here",
-  reason: "It is one query.",
-  source: "Found while drafting the churn chart",
 };
 // A session with round 1 published and waiting for the reviewer. propose
 // runs pair propose's action as the holder, and reviewer posts a card's
@@ -41,7 +38,7 @@ test("pair propose records one file per card and refuses an ID the session has",
     { ...added, recordedAt: undefined, updatedAt: undefined },
     {
       ...card,
-      source: { text: card.source },
+      source: {},
       recordedAt: undefined,
       updatedAt: undefined,
       plan: null,
@@ -66,9 +63,9 @@ test("pair propose records one file per card and refuses an ID the session has",
     briefed,
   );
   assert.equal(other.code, 200, other.body.error);
+  // A card from a page keeps the page's title, which the card shows.
   assert.deepEqual(other.body.proposal.source, {
-    text: card.source,
-    page: { round: "1", id: "overview" },
+    page: { round: "1", id: "overview", title: "Overview" },
   });
   assert.equal(other.body.next, undefined);
   const again = await propose({ ...card, title: "Another title" });
@@ -108,7 +105,7 @@ test("pair propose records one file per card and refuses an ID the session has",
   );
 });
 
-test("Start wakes the holder with the reviewer's message, and answers the waiting round", async (t) => {
+test("Start wakes the holder with the reviewer's message, and the round still waits for the reviewer", async (t) => {
   const { a, propose, add, reviewer, cards, read } = await proposing(t);
   await add();
   const message = "Keep the old column names.\nAsk before dropping any.";
@@ -131,11 +128,10 @@ test("Start wakes the holder with the reviewer's message, and answers the waitin
     a.inbox.wakes[0].message.message.content,
     `pair: the reviewer started proposal churn-export, "${card.title}", here in session ${a.directory}. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's message with Start, which pair read prints too:\n${message}`,
   );
-  // The Start answers round 1, which waited for the reviewer.
-  const status = (await a.status()).body;
-  assert.equal(status.stage, "submitted");
-  assert.equal(status.latestSubmissionRound, "1");
-  assert.equal(status.needsYou, false);
+  // Only the reviewer's feedback answers round 1, so it still waits for
+  // them.
+  const waits = async () => (await a.status()).body.needsYou;
+  assert.equal(await waits(), true);
 
   const second = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(second.code, 409);
@@ -157,6 +153,13 @@ test("Start wakes the holder with the reviewer's message, and answers the waitin
   assert.equal(answer.event.payload.message, message);
   assert.equal(answer.proposal.title, card.title);
   assert.equal((await cards())[0].started.where, "here");
+  // Reading the Start leaves round 1 waiting, so the next step builds the
+  // work now and publishes it in the next round, not in round 1.
+  assert.equal(await waits(), true);
+  assert.match(
+    answer.next,
+    /^Round 1 is published and waits for the reviewer\. .*build proposal churn-export, .*Publish the work's pages in the next round, which begins when the reviewer sends feedback\./,
+  );
 });
 
 test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {
@@ -194,8 +197,10 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   );
 });
 
-test("--done and --reopen take only work started here, and --start quotes the reviewer", async (t) => {
-  const { a, propose, add, read } = await proposing(t);
+// Starting a card approves its work, and only the reviewer's Start does
+// that: pair propose has no flag that starts a card.
+test("only the reviewer's Start starts a card, and --done and --reopen take only work started here", async (t) => {
+  const { a, propose, add, reviewer, cards, read } = await proposing(t);
   await add();
   const early = await propose({ id: "churn-export", done: true });
   assert.equal(early.code, 409);
@@ -203,32 +208,23 @@ test("--done and --reopen take only work started here, and --start quotes the re
     early.body.error,
     "Proposal churn-export has not been started, so it takes no --done.",
   );
-  const unquoted = await propose({ id: "churn-export", start: "here" });
-  assert.equal(unquoted.code, 400);
   const thread = await a.request(`${a.base}/api/threads`, {
     id: "go",
     proposal: "churn-export",
     text: "Go ahead and refresh the export.",
   });
   assert.equal(thread.code, 201, thread.body.error);
-  const started = await propose({
+  // The request carries all that the removed --start flag sent: where, the
+  // reviewer's words and the thread they wrote them in.
+  await propose({
     id: "churn-export",
     start: "here",
     source: "Go ahead and refresh the export.",
     thread: "go",
   });
+  assert.equal((await cards())[0].started, null);
+  const started = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(started.code, 200, started.body.error);
-  assert.deepEqual(
-    { ...started.body.proposal.started, at: undefined },
-    {
-      at: undefined,
-      round: "1",
-      where: "here",
-      by: "words",
-      quote: "Go ahead and refresh the export.",
-      thread: "go",
-    },
-  );
   assert.equal((await read()).moment, "read-start-here");
   assert.equal((await propose({ id: "churn-export", reopen: true })).code, 409);
   const done = await propose({ id: "churn-export", done: true });

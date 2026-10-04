@@ -3,14 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import {
-  exec,
-  exists,
-  hub,
-  planData,
-  sleep,
-  waitUntil,
-} from "../../support/hub.mjs";
+import { exec, hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
 
 // Git hands GIT_DIR to hooks and to the commands git rebase -x runs, and it
 // would point every command here at pair's own repository.
@@ -26,7 +19,10 @@ const git = async (cwd, ...args) =>
     )
   ).stdout;
 
-test("closing a session removes only the git worktrees inside its directory", async (t) => {
+// Closing a session deletes no file. Every worktree and plain directory the
+// agent made inside the session's directory stays for the agent to remove
+// when the reviewer agrees, and the user's repository stays as it was.
+test("closing a session deletes nothing inside its directory or in the user's repository", async (t) => {
   const temp = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "pair-close-")),
   );
@@ -53,24 +49,33 @@ test("closing a session removes only the git worktrees inside its directory", as
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
-  const inside = path.join(a.directory, "scratch", "try");
+  const dirty = path.join(a.directory, "scratch", "dirty");
+  const clean = path.join(a.directory, "scratch", "clean");
+  // A plain directory, as a session outside a git repository uses.
+  const plain = path.join(a.directory, "scratch", "plain");
   const outside = path.join(temp, "outside");
-  const linked = path.join(temp, "linked");
-  await git(checkout, "worktree", "add", "--quiet", "-b", "try", inside);
+  await git(checkout, "worktree", "add", "--quiet", "-b", "dirty", dirty);
+  await git(checkout, "worktree", "add", "--quiet", "-b", "clean", clean);
   await git(checkout, "worktree", "add", "--quiet", "-b", "outside", outside);
-  await git(checkout, "worktree", "add", "--quiet", "--detach", linked);
-  // A path inside the session's directory that leads to a worktree outside.
-  const link = path.join(a.directory, "linked");
-  await fs.symlink(
-    linked,
-    link,
-    process.platform === "win32" ? "junction" : "dir",
-  );
-  // The scratch worktree has changes the agent never committed.
-  await fs.writeFile(path.join(inside, "file.txt"), "tried\n");
-  await fs.writeFile(path.join(inside, "tried.txt"), "new\n");
+  await fs.mkdir(plain);
+  await fs.writeFile(path.join(plain, "notes.txt"), "notes\n");
+  // The dirty worktree has changes the agent never committed.
+  await fs.writeFile(path.join(dirty, "file.txt"), "tried\n");
+  await fs.writeFile(path.join(dirty, "tried.txt"), "new\n");
 
-  const repository = async () => ({
+  // Each file under a directory with its contents.
+  async function files(directory) {
+    const found = {};
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) Object.assign(found, await files(file));
+      else found[file] = await fs.readFile(file, "utf8");
+    }
+    return found;
+  }
+  // The checkout's branches, HEAD, status and worktrees, and every file in
+  // the session's scratch directory and the outside worktree.
+  const snapshot = async () => ({
     branches: await git(
       checkout,
       "for-each-ref",
@@ -85,20 +90,18 @@ test("closing a session removes only the git worktrees inside its directory", as
       "--porcelain=v1",
       "--untracked-files=all",
     ),
+    worktrees: await git(checkout, "worktree", "list", "--porcelain"),
+    scratch: await files(path.join(a.directory, "scratch")),
+    outside: await files(outside),
   });
-  const before = await repository();
+  const before = await snapshot();
+  assert.match(before.worktrees, /^worktree .*\/scratch\/dirty$/m);
+  assert.match(before.worktrees, /^worktree .*\/scratch\/clean$/m);
+  assert.equal(before.scratch[path.join(plain, "notes.txt")], "notes\n");
+  assert.equal(before.scratch[path.join(dirty, "tried.txt")], "new\n");
+
   assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
-  assert.equal(await exists(inside), false);
-  assert.deepEqual(await repository(), before);
-  const worktrees = (await git(checkout, "worktree", "list", "--porcelain"))
-    .split("\n")
-    .filter((line) => line.startsWith("worktree "))
-    .map((line) => path.resolve(line.slice("worktree ".length)))
-    .sort();
-  assert.deepEqual(worktrees, [checkout, linked, outside].sort());
-  for (const directory of [outside, linked])
-    assert.equal(await exists(path.join(directory, "file.txt")), true);
-  assert.equal(await fs.realpath(link), linked);
+  assert.deepEqual(await snapshot(), before);
 });
 
 test("after a close the agent's next command says the session is complete, and nothing wakes it", async (t) => {
