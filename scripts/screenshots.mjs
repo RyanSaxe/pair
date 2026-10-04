@@ -1,10 +1,13 @@
 // npm run screenshots: stages a demo session on a hub of its own and writes
-// the README's and the docs' PNGs from Google Chrome.
+// the README's and the docs' PNGs from Google Chrome. Then it stages a
+// second session with the pair command, as an agent runs it, and writes the
+// illustration of a session and the picture of starting work on a phone.
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stage } from "./screenshots/capture.mjs";
+import { illustrate } from "./screenshots/illustration.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -32,6 +35,8 @@ async function main() {
   let images, failure;
   try {
     images = await stage(t, scratch);
+    const pictures = await illustrate(t, path.join(scratch, "illustration"));
+    for (const [file, png] of pictures) images.set(file, png);
   } catch (error) {
     failure = error;
   }

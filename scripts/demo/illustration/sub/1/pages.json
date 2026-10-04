@@ -1,0 +1,6 @@
+{
+  "pages": [
+    { "id": "keys", "title": "The key on each charge" },
+    { "id": "tests", "title": "Tests for a repeated charge" }
+  ]
+}

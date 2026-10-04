@@ -105,7 +105,7 @@ async function publish(session, round, sent, count = round.pages.length) {
 }
 
 // Waits for a condition in the page, and names the step when it times out.
-async function until(page, step, predicate, arg) {
+export async function until(page, step, predicate, arg) {
   try {
     await page.waitForFunction(predicate, arg);
   } catch (error) {
@@ -116,7 +116,7 @@ async function until(page, step, predicate, arg) {
 // Waits until every code block, diagram, formula and chart on the shown
 // page has rendered or shown its error. Then it refuses a visible renderer
 // error.
-async function ready(page) {
+export async function ready(page) {
   await until(page, "Rendering the page's figures", () =>
     [
       ...document.querySelectorAll(
@@ -137,7 +137,7 @@ async function ready(page) {
 
 // Loads the session's page with this ID afresh, because the frame reads the
 // page from the address's hash only when it loads.
-async function load(page, url, id) {
+export async function load(page, url, id) {
   await page.goto("about:blank");
   await page.goto(`${url}#${id}`);
   await until(
@@ -165,7 +165,7 @@ async function counted(page) {
 
 // Takes one screenshot in each theme. The screenshot stops the frame's
 // animations, so the same state always gives the same pixels.
-async function inThemes(page, clip) {
+export async function inThemes(page, clip) {
   // The pointer rests on the middle of the header's top edge, where no
   // control shows a hover state.
   await page.mouse.move(page.viewportSize().width / 2, 1);
@@ -207,7 +207,7 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
 
 // Selects the words in the page's content, as a reader's drag does, and
 // waits for the frame's Comment button above them.
-async function select(page, words) {
+export async function select(page, words) {
   await page.evaluate((words) => {
     const content = document.getElementById("page-content");
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
@@ -240,7 +240,7 @@ async function select(page, words) {
 
 // Opens the note dialog from the Comment button beside the selection or
 // the chosen block, and types a note.
-async function writeNote(page, text) {
+export async function writeNote(page, text) {
   await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
   await page.locator("#note-text").fill(text);

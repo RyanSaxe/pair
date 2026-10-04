@@ -1,0 +1,7 @@
+<p>Each test runs <code>chargeOrder</code> against a fake gateway.</p>
+<ul>
+  <li>A timeout, then a success, returns one charge.</li>
+  <li>A timeout after the gateway charged returns that same charge.</li>
+  <li>A decline throws at once, with no retry.</li>
+  <li>Three timeouts throw <code>GatewayTimeout</code>.</li>
+</ul>
