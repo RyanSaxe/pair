@@ -330,10 +330,8 @@ export async function publish(options) {
   }
   const { page } = result;
   // The agent chooses each page's components from this list, which follows
-  // the Agreed of every round but a build round.
-  const choosing = ["publish-agreed", "publish-agreed-plan"].includes(
-    result.moment,
-  );
+  // every Agreed.
+  const choosing = result.moment === "publish-agreed";
   return {
     next: result.next,
     moment: result.moment,
@@ -343,7 +341,6 @@ export async function publish(options) {
         `URL ${result.url}`,
         ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
       ].join("\n"),
-      ...(result.warning ? [`Warning: ${result.warning}`] : []),
       ...(choosing ? [(await components()).data] : []),
     ].join("\n\n"),
     json: result,

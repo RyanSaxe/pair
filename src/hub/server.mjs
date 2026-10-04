@@ -350,7 +350,7 @@ export async function startHub(config = settings()) {
             ),
           });
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
-          return reply(200, await session.exclusive(() => session.dismiss()));
+          return reply(200, await session.exclusive(() => session.close(log)));
         }
         // Start, Decline, Restore and Open a new agent session on a
         // proposal's card. Start carries where the work runs, and Start and

@@ -41,7 +41,6 @@ export async function loadSession(
         stage: "ready",
         current: null,
         acknowledged: [],
-        accepted: null,
         startedAt: timestamp(),
         // Round 1 starts with the pair start that creates the session.
         roundStartedAt: timestamp(),
@@ -114,13 +113,9 @@ export async function loadSession(
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  // A saved round keeps its acceptance unread until an agent reads it, and
-  // stays saved. A closed session stays closed with feedback unread. A Start
-  // in a sub-session leaves this session's round as it is.
-  if (
-    (await pending()).some(answersRound) &&
-    !["saved", "complete"].includes(state.stage)
-  )
+  // A closed session stays closed with feedback unread. A Start in a
+  // sub-session leaves this session's round as it is.
+  if ((await pending()).some(answersRound) && state.stage !== "complete")
     await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
   const sameRound = (event) =>
@@ -135,9 +130,7 @@ export async function loadSession(
   // title in its status.
   const title = () =>
     state.current ? state.current.title : state.title || "New session";
-  // A saved session waits for an agent, so it does not keep the hub running.
-  const active = () =>
-    !["complete", "saved"].includes(state.stage) && !state.paused;
+  const active = () => state.stage !== "complete" && !state.paused;
   // The parts of a session share this context. A part calls another part's
   // function through it, so no part depends on the order they are made in.
   const session = {
@@ -238,11 +231,7 @@ export async function loadSession(
     );
     const event = requestedRound
       ? events
-          .filter(
-            (item) =>
-              item.payload.intent === "feedback-only" &&
-              item.payload.round === requestedRound,
-          )
+          .filter((item) => item.payload.round === requestedRound)
           .sort((a, b) => b.sequence - a.sequence)[0]
       : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
         ? await read(
@@ -254,7 +243,6 @@ export async function loadSession(
           )
         : null;
     if (!event) return null;
-    if (event.payload.intent !== "feedback-only") return null;
     const { groups, round } = event.payload;
     return {
       id: event.id,
@@ -284,7 +272,6 @@ export async function loadSession(
     return {
       id: state.sessionId,
       title: title(),
-      offer: state.current?.offer,
       // A linked session names the session and the proposal it came from.
       parentId: state.parent?.sessionId ?? null,
       proposal: state.parent?.proposal ?? null,
@@ -343,7 +330,7 @@ export async function loadSession(
     uploadScene: session.uploadScene,
     readScene: session.readScene,
     removeUpload: session.removeUpload,
-    dismiss: session.dismiss,
+    close: session.close,
     startProposal: session.startProposal,
     openAgent: session.openAgent,
     declineProposal: session.declineProposal,

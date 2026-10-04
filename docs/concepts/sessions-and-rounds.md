@@ -29,6 +29,15 @@ the page, and choosing a page closes it. Its **Last round** tab shows the
 round before this one. A round you open from the Rounds button, the clock in
 the header, takes that tab as **Round N**.
 
+## The sidebar
+
+The sidebar lists the round's pages, then **Review**. The first button in
+the header opens and closes it, and the frame keeps your choice in this
+browser. At 720px and below the sidebar starts closed and opens over the
+page, and choosing a page closes it. Its **Last round** tab shows the round
+before this one. A round you open from the Rounds button, the clock in the
+header, takes that tab as **Round N**.
+
 ## What you can do on a page
 
 | To                        | Do this                                                                                                               |
@@ -80,6 +89,9 @@ line** and ✕, which closes the session.
   sessions. The session in this tab never counts.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
   waiting for you.
+- ✕ opens a dialog that asks before it closes the session. A closed session
+  is read-only with every round kept, its agent gets no message, and the hub
+  removes each git worktree inside the session's directory.
 - **New** marks each page of a round that you have not opened.
 - A session is listed from the moment it starts. Until the agent publishes
   its first Agreed, the session's page shows its title, its agent and the

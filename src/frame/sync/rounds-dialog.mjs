@@ -1,3 +1,4 @@
+import { closeSidebarOverPage } from "#frame/app/sidebar.mjs";
 import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -9,7 +10,7 @@ import {
   submittedRound,
 } from "#frame/app/view.mjs";
 import { chooseBlock } from "#frame/notes/blocks.mjs";
-import { closeDrawer, displayedRound } from "#frame/pages/pages.mjs";
+import { displayedRound } from "#frame/pages/pages.mjs";
 import { renderHistory } from "#frame/sync/activity-view.mjs";
 import {
   openPast,
@@ -101,7 +102,7 @@ export function toggleRoundMenu(open = !$("round-dialog").open) {
 export function closeMenus() {
   chooseBlock(null);
   window.dispatchEvent(new CustomEvent("plan:dismiss"));
-  closeDrawer();
+  closeSidebarOverPage();
   toggleRoundMenu(false);
   toggleCenter(false);
   toggleSessions(false);

@@ -370,7 +370,6 @@ export function openNote(
   opener = document.activeElement;
   $("note-dialog").showModal();
   $("note-text").focus();
-  $("quote").hidden = true;
 }
 /* Comment on a proposal's card starts a thread on the card, which shows
    under it. The dialog shows only Start a thread, because the message is

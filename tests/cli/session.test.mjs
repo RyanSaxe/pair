@@ -39,7 +39,6 @@ test("the CLI builds and publishes each page with its own saved source", async (
     JSON.stringify({
       name: "cli",
       round: "1",
-      offer: "plan",
       title: "CLI plan",
       page: {
         id: "agreed",
@@ -92,23 +91,6 @@ test("the CLI builds and publishes each page with its own saved source", async (
     "<p>Ready by CLI</p>",
   );
   const overviewHtml = path.join(root, "overview-built.html");
-  // Only Agreed's source names the round's offer.
-  await fs.writeFile(
-    overviewJson,
-    JSON.stringify({ ...overview, offer: "plan" }),
-  );
-  await assert.rejects(
-    command(["build", overviewJson, overviewHtml]),
-    (error) => {
-      assert.equal(error.code, 1);
-      assert.equal(
-        error.stderr,
-        `pair: page "overview" names an offer. Only Agreed's source names the round's offer.\n`,
-      );
-      return true;
-    },
-  );
-  assert.equal(await exists(overviewHtml), false);
   await fs.writeFile(overviewJson, JSON.stringify(overview));
   await command(["build", overviewJson, overviewHtml]);
   await command([
@@ -126,11 +108,6 @@ test("the CLI builds and publishes each page with its own saved source", async (
       "utf8",
     ),
     /Ready by CLI/,
-  );
-  // The round takes its offer from Agreed.
-  assert.deepEqual(
-    (await registered.status()).body.rounds.map((item) => item.offer),
-    ["plan"],
   );
 });
 
@@ -244,7 +221,6 @@ async function sessionWithAgreed(t) {
     return { source, built };
   };
   const agreed = await page("agreed", {
-    offer: "plan",
     page: {
       id: "agreed",
       title: "Agreed so far",

@@ -126,9 +126,8 @@ export function drawActivity(running) {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  // The hub records when the agent's round started: the send, the
-  // acceptance, the pair start that builds a saved plan, or for round 1 the
-  // pair start that created the session.
+  // The hub records when the agent's round started: the send, or for round 1
+  // the pair start that created the session.
   const startedAt = remote?.roundStartedAt;
   $("activity-elapsed").textContent =
     running && startedAt ? since(startedAt) : "";
@@ -228,10 +227,15 @@ function parentCrumbs() {
   return [link, remote?.current?.title || plan.title];
 }
 function drawHistoryLabel(label, old, past, parent) {
-  if (old && session.closed)
+  // A closed session names itself, after its parent when it has one.
+  if (old && session.closed) {
+    const name = document.createElement("b");
+    name.textContent = plan.title;
     return label.replaceChildren(
-      ...crumbTrail([...parent, "This plan is closed"]),
+      ...crumbTrail([...parent.slice(0, 1), name]),
+      " is closed",
     );
+  }
   if (old || past) {
     const name = document.createElement("b");
     name.className = "round";
@@ -310,8 +314,7 @@ function renderPlanStrip() {
   download.hidden = !online;
   download.href = `${base}/plans/${encodeURIComponent(planFor)}/download`;
 }
-// The Pages heading in the sidebar and in the phone drawer shows the page
-// round's status. The text stays while the status fades out.
+// The Pages heading in the sidebar shows the page round's status. The text stays while the status fades out.
 export function renderRound() {
   const model = editable ? roundModel({ remote }) : null;
   for (const status of document.querySelectorAll("[data-round-status]")) {

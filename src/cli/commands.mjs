@@ -4,16 +4,7 @@ import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
 import { plan, publish, runHub, start } from "./session.mjs";
-import {
-  ack,
-  complete,
-  pause,
-  progress,
-  propose,
-  read,
-  reply,
-  status,
-} from "./actions.mjs";
+import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
   value: "DIR",
@@ -24,9 +15,7 @@ const json = { text: "Print the result as one JSON object." };
 
 // Every command, in the order pair --help lists them. An entry has the line
 // pair --help prints (purpose), the paragraph its own --help starts with
-// (about), its flags and arguments, and the function that runs it. A flag or
-// argument with a removed line is a form this release still runs, which
-// pair --help and the command's --help leave out; 0.3 deletes them here.
+// (about), its flags and arguments, and the function that runs it.
 export const commands = {
   start: {
     group: "session",
@@ -72,26 +61,9 @@ export const commands = {
         value: "ID",
         text: "Print that thread whole, with how to answer it, and mark it read.",
       },
-      id: {
-        value: "ID",
-        removed:
-          "--id on pair read is replaced by --submission. --id works in this release only.",
-      },
       json,
     },
     run: read,
-  },
-  ack: {
-    hidden: true,
-    removed:
-      "pair ack is replaced by pair read, which marks the feedback received as it prints it, and by pair progress --note for a note. pair ack works in this release only.",
-    flags: {
-      "session-dir": sessionDir,
-      note: { value: "TEXT" },
-      page: { value: "ID" },
-      json,
-    },
-    run: ack,
   },
   progress: {
     group: "session",
@@ -108,11 +80,6 @@ export const commands = {
       note: {
         value: "TEXT",
         text: "What you are doing, in at most 80 characters. With --page it goes on that page's row. Alone it is a note on the round, before or after Agreed.",
-      },
-      start: {
-        value: "ID",
-        removed:
-          "--start on pair progress is replaced by --page, given once for each page. --start works in this release only.",
       },
       json,
     },
@@ -161,12 +128,6 @@ export const commands = {
       file: {
         value: "HTML",
         text: "Your reply as an HTML fragment that passes pair build's page checks.",
-      },
-      note: {
-        value: "ID",
-        replaces: "thread",
-        removed:
-          "pair reply --note ID is replaced by pair read --thread ID to read a thread and pair reply --thread ID to post. --note on pair reply works in this release only.",
       },
       json,
     },
@@ -298,14 +259,6 @@ export const commands = {
     },
     run: plan,
   },
-  complete: {
-    group: "session",
-    purpose: "End the session once the accepted work is done",
-    about:
-      "End the session once the reviewer accepts built work and the accepted action is done.",
-    flags: { "session-dir": sessionDir, json },
-    run: complete,
-  },
   guide: {
     group: "pages",
     purpose: "Print a guide file, a moment or a component's markup",
@@ -345,23 +298,8 @@ export const commands = {
     purpose: "Check Node, storage, loopback, the hub port and Codex's rules",
     about:
       "Check Node, storage, loopback, the hub port and Codex's rules file, and print each result on its own line. XDG_STATE_HOME=DIR pair check checks storage under another state directory.",
-    args: [
-      {
-        name: "STATE_DIR",
-        optional: true,
-        removed:
-          "pair check STATE_DIR is replaced by XDG_STATE_HOME=STATE_DIR pair check. It works in this release only.",
-      },
-    ],
-    flags: {
-      "codex-rules": {
-        removed:
-          "pair check --codex-rules is replaced by pair setup-codex. It works in this release only.",
-      },
-      json,
-    },
-    run: (options) =>
-      options["codex-rules"] ? setupCodex(options) : check(options),
+    flags: { json },
+    run: check,
   },
   "setup-codex": {
     group: "setup",

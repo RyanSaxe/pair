@@ -100,6 +100,10 @@ export function bellLines(sessions, cleared, thisId) {
 // Every listed session, closed ones included, from the last listing.
 let latest = [];
 let lines = [];
+let listedFromHub = false;
+// Whether a listing has come from the hub, so a card's linked session can be
+// looked up.
+export const sessionsListed = () => listedFromHub;
 // The listed session with the ID, such as the one a card's work runs in.
 export const listedSession = (id) =>
   (id && latest.find((entry) => entry.id === id)) || null;
@@ -130,6 +134,7 @@ export const unreadCards = () =>
 export function renderCenter(sessions, fromHub) {
   latest = sessions;
   if (fromHub) {
+    listedFromHub = true;
     const before = loadCleared();
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
