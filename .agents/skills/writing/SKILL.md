@@ -1,6 +1,6 @@
 ---
 name: writing
-description: "Read before writing or changing text that an agent or a person reads in pair: the guide, the installed skill, the lines the hub and the commands print, the offer text, the README, docs, AGENTS.md and the repository skills. It names each text's reader and gives the sentence rules, what personification is and why pair's text avoids it, pair's terms, and the checks to run before you finish."
+description: "Read before writing or changing text that an agent or a person reads in pair: the guide, the installed skill, the lines the hub and the commands print, the README, docs, AGENTS.md and the repository skills. It names each text's reader and gives the sentence rules, what personification is and why pair's text avoids it, pair's terms, and the checks to run before you finish."
 metadata:
   # npx skills add searches .agents/skills/ too, and skips a skill marked
   # internal unless INSTALL_INTERNAL_SKILLS=1 is set.
@@ -11,20 +11,18 @@ metadata:
 
 pair's text has two kinds of reader. An agent reads the guide and every line
 the hub and the `pair` command print, and acts on each sentence in the middle
-of a session. People read the README, `docs/` and the offer text in the Finish
-your review dialog. Both read each sentence literally, so each sentence states
-what a thing is or does.
+of a session. People read the README and `docs/`. Both read each sentence
+literally, so each sentence states what a thing is or does.
 
 ## The text and its reader
 
-| Text                    | Files                                                                                                                                                                                                                                            | Reader                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| The guide               | `guide/`, which `pair guide` prints                                                                                                                                                                                                              | The agent running a session                    |
-| The installed skill     | `skills/pair/SKILL.md`                                                                                                                                                                                                                           | The agent, before it runs `pair guide`         |
-| Prompts                 | The moment texts in `guide/moments/`, the `next` lines from `nextStep()` in `src/hub/session/agent.mjs`, the wake line, the handoff line, the help text and removed forms' lines in `src/cli/commands.mjs`, and errors in `src/` and `adapters/` | The agent, in the middle of its task           |
-| Offer text              | The labels, hints and notes in `src/shared/offers.mjs`                                                                                                                                                                                           | The reviewer, in the Finish your review dialog |
-| README and docs         | `README.md`, `docs/`                                                                                                                                                                                                                             | A person installing, using or changing pair    |
-| Repository instructions | `AGENTS.md`, `.agents/skills/`                                                                                                                                                                                                                   | An agent changing pair                         |
+| Text                    | Files                                                                                                                                                                                                                   | Reader                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| The guide               | `guide/`, which `pair guide` prints                                                                                                                                                                                     | The agent running a session                 |
+| The installed skill     | `skills/pair/SKILL.md`                                                                                                                                                                                                  | The agent, before it runs `pair guide`      |
+| Prompts                 | The moment texts in `guide/moments/`, the `next` lines from `nextStep()` in `src/hub/session/agent.mjs`, the wake line, the handoff line, the help text in `src/cli/commands.mjs`, and errors in `src/` and `adapters/` | The agent, in the middle of its task        |
+| README and docs         | `README.md`, `docs/`                                                                                                                                                                                                    | A person installing, using or changing pair |
+| Repository instructions | `AGENTS.md`, `.agents/skills/`                                                                                                                                                                                          | An agent changing pair                      |
 
 ## Sentences
 
@@ -56,8 +54,8 @@ to know.
   session" does not say how. "The hub identifies the session by its inbox
   socket" names the socket, which is what to check when a wake fails.
 - Some ordinary words are also pair's terms. The holder is the agent that runs
-  a session, and an offer is `plan` or `finish`. A reader takes a sentence in
-  which a field "holds" data, or a button "offers" an action, as a statement
+  a session, and a proposal is a card of work. A reader takes a sentence in
+  which a field "holds" data, or a page "proposes" a change, as a statement
   about those terms.
 
 A verb whose subject performs it is not personification: `pair build` refuses a
@@ -74,27 +72,30 @@ These rewrites are from pair's guide:
 | The hub restarts on the newer code once no session is live.                                                                    | The next `pair start` that finds no live session replaces the hub with one on its own code.                                   | `pair start` stops the old hub and starts a new one. Nothing restarts the hub on its own.             |
 | A submission to a paused session wakes no one.                                                                                 | The hub sends no wake event for a submission to a paused session.                                                             | The hub sends wake events. A submission is data.                                                      |
 | The page tells the reader that the agent stopped and that a message in the chat resumes the session.                           | The progress card at the top of Agreed shows "Agent paused" with the reason, and "Send a message in chat."                    | The frame shows the card. The rewrite names the card and quotes what it shows.                        |
-| The acceptance's `groups` hold the comments and choices the reviewer drafted before accepting.                                 | The acceptance's `groups` field contains the comments and choices the reviewer drafted before accepting.                      | A field contains data, and "hold" also reads as the holder.                                           |
 
 ## Terms
 
 Use one name for one thing, in one file and across the guide, the prompts and
 the docs.
 
-| Term           | Meaning                                                                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| hub            | The one process that serves every live session, on `127.0.0.1:4747` unless `PAIR_HUB_PORT` names another port.                                                                                   |
-| session        | One piece of work between an agent and a reviewer, from `pair start` until it completes, with its own directory under `~/.local/state/pair/sessions/`.                                           |
-| round          | The pages the agent publishes together, which the reviewer answers with one submission.                                                                                                          |
-| Agreed         | The first page of every round, with the task and the decisions settled so far.                                                                                                                   |
-| offer          | `plan` or `finish`, set in Agreed's source, which the reviewer accepts in the Finish your review dialog.                                                                                         |
-| frame          | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                                                             |
-| holder         | The agent that last ran `pair start` on a session. The hub wakes only the holder, and other agents can run only `pair status` and `pair propose`.                                                |
-| reviewer       | The person who reads a round's pages in the browser and sends feedback.                                                                                                                          |
-| proposal       | A card for one piece of work, which an agent records with `pair propose` and the reviewer starts, declines or comments on from Work.                                                             |
-| linked session | A session that `pair start --from` created for a proposal of another session, its parent. A sub-session is one the parent's holder holds, and a new agent session is one a separate agent holds. |
-| agent CLI      | Claude Code, Codex, Copilot CLI, pi or opencode, each with a folder under `adapters/`.                                                                                                           |
-| handoff line   | The line that another agent runs to take a session over.                                                                                                                                         |
+| Term           | Meaning                                                                                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| hub            | The one process that serves every live session, on `127.0.0.1:4747` unless `PAIR_HUB_PORT` names another port.                                                                                             |
+| session        | One piece of work between an agent and a reviewer, from `pair start` until the reviewer closes it, with its own directory under `~/.local/state/pair/sessions/`.                                           |
+| round          | The pages the agent publishes together, which the reviewer answers with one submission.                                                                                                                    |
+| Agreed         | The first page of every round, with the task and the alignments settled so far.                                                                                                                            |
+| decision       | A choice still open on a page, which the reviewer settles.                                                                                                                                                 |
+| alignment      | A decision the reviewer settled. Agreed lists each one under Alignments, from the `agreements` list in Agreed's source.                                                                                    |
+| option         | One of the different ways to do the work that a decision puts to the reviewer.                                                                                                                             |
+| frame          | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                                                                       |
+| holder         | The agent that last ran `pair start` on a session. The hub wakes only the holder, and other agents can run only `pair status`, `pair propose`, `pair plan` and `pair start`, which takes the session over. |
+| reviewer       | The person who reads a round's pages in the browser and sends feedback.                                                                                                                                    |
+| proposal       | A card for one piece of work, which an agent records with `pair propose` and the reviewer starts, declines or comments on from Work.                                                                       |
+| Work           | The frame's page that lists every proposal of the session, in the tabs Needs you, Running, Proposed and Done.                                                                                              |
+| plan           | The pages an agent attaches to a proposal with `pair plan`, from which someone who saw none of the rounds builds the work. A plan is not a round.                                                          |
+| linked session | A session that `pair start --from` created for a proposal of another session, its parent. A sub-session is one the parent's holder holds, and a new agent session is one a separate agent holds.           |
+| agent CLI      | Claude Code, Codex, Copilot CLI, pi or opencode, each with a folder under `adapters/`.                                                                                                                     |
+| handoff line   | The line that another agent runs to take a session over.                                                                                                                                                   |
 
 ## Instructions for the agent
 
