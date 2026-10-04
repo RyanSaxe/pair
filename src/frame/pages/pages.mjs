@@ -343,8 +343,8 @@ export function updateNavigation(force = false) {
     // The waiting Current lists Agreed alone.
     if (!showingWaiting()) pageList.append(separator());
     for (const item of pages.slice(1)) addPageButton(item);
-    // Work sits above Review, with two numbers: the cards that need the
-    // reviewer and the proposed cards.
+    // Work sits above Review, with two numbers: the proposed cards, then
+    // the cards that need the reviewer at the row's right edge.
     if (hasWork()) {
       const work = document.createElement("button");
       work.type = "button";
@@ -354,7 +354,7 @@ export function updateNavigation(force = false) {
       label.textContent = "Work";
       const counts = document.createElement("span");
       counts.className = "work-counts";
-      for (const kind of ["needs", "proposed"]) {
+      for (const kind of ["proposed", "needs"]) {
         const total = document.createElement("b");
         total.className = `count ${kind}`;
         total.hidden = true;

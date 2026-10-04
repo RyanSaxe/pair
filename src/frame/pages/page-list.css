@@ -210,8 +210,8 @@
   font-weight: inherit;
   line-height: inherit;
 }
-/* Work's two numbers: the cards that need the reviewer in the color the
-   frame gives work that waits for them, then the proposed cards in grey. */
+/* Work's two numbers: the proposed cards in grey, then the cards that need
+   the reviewer in the color the frame gives work that waits for them. */
 .work-counts {
   display: flex;
   flex: none;

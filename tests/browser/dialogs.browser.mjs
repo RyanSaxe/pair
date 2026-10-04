@@ -93,7 +93,9 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
   });
   // The frame reads the selection on selectionchange, which the browser
   // fires after this call returns. Until then, c comments on the page.
-  await page.getByRole("button", { name: "Comment", exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Comment on selection", exact: true })
+    .waitFor();
   await page.keyboard.press("c");
   await page.locator("#note-quote").waitFor();
   await check("note-dialog", {

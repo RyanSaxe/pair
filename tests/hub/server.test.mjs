@@ -14,6 +14,7 @@ import {
   planData,
   sessionConfig,
   sleep,
+  waitUntil,
 } from "../support/hub.mjs";
 
 test("two sessions on one hub isolate tokens, events, and acknowledgements", async (t) => {
@@ -209,10 +210,21 @@ test("the root URL opens the session that most needs you, then the last viewed, 
   result = await open();
   assert.equal(result.code, 302);
   assert.equal(result.location, `${b.base}/`);
+  // The hub wakes the agent after it answers the feedback request, and the
+  // wake's write sets updatedAt. Waiting for each wake, and 5 ms after each
+  // read, puts every write to a in an earlier millisecond than the writes to
+  // b, which the fallback to b below depends on.
   for (const session of [a, b]) {
     const event = session.event();
     await session.feedback(event);
+    assert.equal(
+      await waitUntil(async () =>
+        Boolean((await session.status()).body.wake?.last),
+      ),
+      true,
+    );
     await session.action("read");
+    await sleep(5);
   }
   assert.equal((await open(`pair-last=${a.id}`)).location, `${a.base}/`);
   assert.equal((await open(`pair-last=nope`)).location, `${b.base}/`);

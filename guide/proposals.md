@@ -26,12 +26,6 @@ Change a proposal with its `--id` and one of these flags:
 
 - `--revise` with the fields to replace. The hub refuses it once the
   proposal is started, so record further work as a new proposal.
-- `--start WHERE`, only when the reviewer told you in their own words to do
-  the work, with `--source` quoting those words and `--thread` or `--page`
-  for where they wrote them. WHERE is `here`, `sub-session` or `new-agent`,
-  where they said the work runs. After `--start new-agent`, open a separate
-  agent whose first command is `pair start --from PATH --proposal ID`, or
-  give the user that command when you cannot.
 - `--done` after you publish the last page of work started here, and
   `--reopen` when later feedback asks for changes to that work.
 

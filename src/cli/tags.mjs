@@ -103,7 +103,7 @@ const places = {
 // with Start, when there is one.
 function startedText(card, started, submission) {
   return [
-    `Proposal ${card.id}, "${card.title}", started ${places[started.where]}${started.by === "words" ? " on the reviewer's words" : " by the reviewer"}.`,
+    `Proposal ${card.id}, "${card.title}", started ${places[started.where]} by the reviewer.`,
     `Delivers: ${card.delivers}`,
     `May change: ${card.changes}`,
     ...(started.message

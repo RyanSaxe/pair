@@ -153,10 +153,15 @@
   <p class="dialog-detail" id="close-name"></p>
   <div class="dialog-body">
     <p>
-      The session becomes read-only, with every round kept. The hub removes each
-      git worktree inside the session's directory, and your checkout and
-      branches stay as they are. Its agent gets no message.
+      The session becomes read-only, with every round kept, and its agent gets
+      no message. The hub removes each git worktree inside the session's
+      directory that has no uncommitted changes. A worktree with uncommitted
+      changes stays, and so do your checkout and branches.
     </p>
+    <div id="close-kept" hidden>
+      <p id="close-kept-label"></p>
+      <ul id="close-kept-list"></ul>
+    </div>
   </div>
   <div class="actions actions-right">
     <button class="btn" type="button" data-close="close-dialog">Cancel</button>
@@ -276,10 +281,11 @@
     ></textarea>
     <div class="start-stack start-hints">
       <p class="small" id="start-hint-here" data-start-for="here"></p>
-      <p class="small" id="start-hint-sub-session" data-start-for="sub-session">
-        Sent to the agent with Start. This session's round stays open for your
-        feedback.
-      </p>
+      <p
+        class="small"
+        id="start-hint-sub-session"
+        data-start-for="sub-session"
+      ></p>
       <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
         The new agent reads this message when it starts. Copy command gives you
         the command to paste into any agent.

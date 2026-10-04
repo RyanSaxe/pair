@@ -19,8 +19,9 @@ for its whole life, in four tabs with counts:
 | Done      | Finished work, and declined proposals with **Restore**.                                                               |
 
 Work opens on the first tab with anything in it, and the number on its row
-counts what needs you. Each card shows what the work delivers, and its
-footer links to where the proposal came from or where the work runs. A page
+counts what needs you. Each card shows what the work delivers, a started
+card quotes the message you sent with Start, if any, and the card's footer
+links to where the proposal came from or where the work runs. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
 | To                  | Do this                                                               |
@@ -41,6 +42,12 @@ message to the agent.
 | Here             | This session's agent builds it in the session's next rounds. When the round waits for you, the Start is your answer to it, as Send feedback would be.                                                                                                              |
 | In a sub-session | This session's agent builds it in a session linked to this one and gives its steps to subagents, so this session's rounds continue.                                                                                                                                |
 | With a new agent | A separate agent builds it in its own session linked to this one. **Copy command** copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open one where you can see it. |
+
+When you press **Start** here or in a sub-session while the round waits for
+you, the frame first sends the comments and choices you have not sent on that
+round, as Send feedback would, and then sends the Start, so the agent reads
+your feedback before the Start. When the feedback cannot be sent, the frame
+sends no Start, and the popup shows the reason.
 
 Open a new agent session does not always work. The agent answers in a
 thread on the card with what it opened, or with the command when it cannot

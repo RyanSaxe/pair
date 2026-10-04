@@ -38,10 +38,10 @@ async function linkedWorktrees(root) {
 /* Removes each git worktree inside a session's directory with git worktree
    remove, and only after its real path is inside the directory's real path,
    so the user's checkout, branches and anything outside the directory stay
-   as they are. --force removes a worktree with changes the agent never
-   committed, which is what a scratch worktree has, and the reviewer
-   confirmed the close. A locked worktree takes a second --force, so it
-   stays. The result has a line for each worktree, removed or kept. */
+   as they are. Without --force, git refuses a worktree with modified or
+   untracked files, and a locked one, so the hub keeps every worktree with
+   work the agent never committed. The result has a line for each worktree,
+   removed or kept, with git's reason for one it kept. */
 export async function removeWorktrees(directory) {
   const root = await fs.realpath(directory);
   const lines = [];
@@ -61,15 +61,39 @@ export async function removeWorktrees(directory) {
       );
       await run(
         "git",
-        ["--git-dir", stdout.trim(), "worktree", "remove", "--force", real],
+        ["--git-dir", stdout.trim(), "worktree", "remove", real],
         { cwd: root, env: gitEnv() },
       );
       lines.push(`removed worktree ${real}`);
     } catch (error) {
+      const reason = (error.stderr?.trim() || error.message).replace(
+        /^fatal: /,
+        "",
+      );
       lines.push(
-        `kept worktree ${real}: ${error.stderr?.trim() || error.message}`,
+        `kept worktree ${real}, which git refused to remove: ${reason}`,
       );
     }
   }
   return lines;
+}
+
+/* The worktrees inside a session's directory that a close keeps because
+   they have changes nobody committed, by the check git worktree remove
+   makes: any line from git status --porcelain --ignore-submodules=none. */
+export async function uncommittedWorktrees(directory) {
+  const root = await fs.realpath(directory).catch(() => null);
+  if (!root) return [];
+  const kept = [];
+  for (const found of await linkedWorktrees(root)) {
+    const real = await fs.realpath(found).catch(() => null);
+    if (!real?.startsWith(root + path.sep)) continue;
+    const { stdout } = await run(
+      "git",
+      ["status", "--porcelain", "--ignore-submodules=none"],
+      { cwd: real, env: gitEnv() },
+    ).catch(() => ({ stdout: "" }));
+    if (stdout.trim()) kept.push(real);
+  }
+  return kept;
 }

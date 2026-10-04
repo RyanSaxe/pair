@@ -194,8 +194,10 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   );
 });
 
-test("--done and --reopen take only work started here, and --start quotes the reviewer", async (t) => {
-  const { a, propose, add, read } = await proposing(t);
+// Starting a card approves its work, and only the reviewer's Start does
+// that: pair propose has no flag that starts a card.
+test("only the reviewer's Start starts a card, and --done and --reopen take only work started here", async (t) => {
+  const { a, propose, add, reviewer, cards, read } = await proposing(t);
   await add();
   const early = await propose({ id: "churn-export", done: true });
   assert.equal(early.code, 409);
@@ -203,32 +205,23 @@ test("--done and --reopen take only work started here, and --start quotes the re
     early.body.error,
     "Proposal churn-export has not been started, so it takes no --done.",
   );
-  const unquoted = await propose({ id: "churn-export", start: "here" });
-  assert.equal(unquoted.code, 400);
   const thread = await a.request(`${a.base}/api/threads`, {
     id: "go",
     proposal: "churn-export",
     text: "Go ahead and refresh the export.",
   });
   assert.equal(thread.code, 201, thread.body.error);
-  const started = await propose({
+  // The request carries all that the removed --start flag sent: where, the
+  // reviewer's words and the thread they wrote them in.
+  await propose({
     id: "churn-export",
     start: "here",
     source: "Go ahead and refresh the export.",
     thread: "go",
   });
+  assert.equal((await cards())[0].started, null);
+  const started = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(started.code, 200, started.body.error);
-  assert.deepEqual(
-    { ...started.body.proposal.started, at: undefined },
-    {
-      at: undefined,
-      round: "1",
-      where: "here",
-      by: "words",
-      quote: "Go ahead and refresh the export.",
-      thread: "go",
-    },
-  );
   assert.equal((await read()).moment, "read-start-here");
   assert.equal((await propose({ id: "churn-export", reopen: true })).code, 409);
   const done = await propose({ id: "churn-export", done: true });

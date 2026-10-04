@@ -73,6 +73,30 @@ test("Sessions numbers only the sessions that are not sub-sessions, the number k
       ["2", "Last"],
     ],
   );
+  // The closed session's mark sits in the number column, and each session
+  // that is not a sub-session sits further from the row above than a
+  // sub-session sits from its parent.
+  const layout = await rows.evaluateAll((lines) => {
+    const box = (element) => element.getBoundingClientRect();
+    return {
+      number: box(lines[0].querySelector(".n")),
+      mark: box(lines[2].querySelector(".n svg")),
+      gaps: lines
+        .slice(1)
+        .map((line, index) => box(line).top - box(lines[index]).bottom),
+    };
+  });
+  assert.ok(
+    layout.mark.width > 0 &&
+      layout.mark.left >= layout.number.left &&
+      layout.mark.right <= layout.number.right,
+    `the mark spans ${layout.mark.left} to ${layout.mark.right}, the number column ${layout.number.left} to ${layout.number.right}`,
+  );
+  const [ownSubGap, closedGap, closedSubGap, lastGap] = layout.gaps;
+  assert.ok(
+    Math.min(closedGap, lastGap) > Math.max(ownSubGap, closedSubGap),
+    `gaps above each row: ${layout.gaps.join(", ")}`,
+  );
   // With no buttons on its row, Closed ends in the Close column.
   const closedEnd = await rows
     .nth(2)

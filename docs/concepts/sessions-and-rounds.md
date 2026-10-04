@@ -40,16 +40,16 @@ header, takes that tab as **Round N**.
 
 ## What you can do on a page
 
-| To                        | Do this                                                                                                               |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Choose between options    | Press an option. **Recommended** is only a suggestion until you choose.                                               |
-| Answer a question         | Type in its box, or draw when it asks for a drawing.                                                                  |
-| Comment on words          | Select them and press **Comment** just above the selection.                                                           |
-| Comment on a block        | Click the block and press its **Comment** button, or <kbd>c</kbd>. <kbd>j</kbd> and <kbd>k</kbd> move between blocks. |
-| Comment on the page       | Press **Comment on this page** beside its title.                                                                      |
-| Get an answer now         | Send the comment as a [thread](threads.md).                                                                           |
-| Start or decline work     | Use a proposal's buttons, on the page or on [Work](proposals-and-work.md).                                            |
-| Review what you will send | Press <kbd>r</kbd>.                                                                                                   |
+| To                        | Do this                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Choose between options    | Press an option. **Recommended** is only a suggestion until you choose.                                                 |
+| Answer a question         | Type in its box, or draw when it asks for a drawing.                                                                    |
+| Comment on words          | Select them and press **Comment on selection** at the bottom right.                                                     |
+| Comment on a block        | Click it, then press the button at the bottom right or <kbd>c</kbd>. <kbd>j</kbd> and <kbd>k</kbd> move between blocks. |
+| Comment on the page       | With nothing selected, press the comment icon at the bottom right, or <kbd>c</kbd>.                                     |
+| Get an answer now         | Send the comment as a [thread](threads.md).                                                                             |
+| Start or decline work     | Use a proposal's buttons, on the page or on [Work](proposals-and-work.md).                                              |
+| Review what you will send | Press <kbd>r</kbd>.                                                                                                     |
 
 ## Agreed
 
@@ -92,7 +92,8 @@ Each row has **Copy handoff line** and ✕, which closes the session.
   sub-sessions included.
 - ✕ opens a dialog that asks before it closes the session. A closed session
   is read-only with every round kept, its agent gets no message, and the hub
-  removes each git worktree inside the session's directory.
+  removes each git worktree inside the session's directory that has no
+  uncommitted changes.
 - **New** marks each page of a round that you have not opened.
 - A session is listed from the moment it starts. Until the agent publishes
   its first Agreed, the session's page shows its title, its agent and the
@@ -118,8 +119,9 @@ A session ends when you close it, after you have told the agent anything
 left to do. ✕ on its row in the session list opens a dialog that asks
 first. A closed session is read-only with every round kept, and its agent
 gets no message. The hub removes each git worktree inside the session's
-directory, where the agent tried changes, and keeps their branches. Your
-checkout and branches stay as they are. A closed session that still has
+directory, where the agent tried changes, and keeps their branches. A
+worktree with uncommitted changes stays, and the dialog lists each one with
+its path before you close. Your checkout and branches stay as they are. A closed session that still has
 open sub-sessions stays in the list as a grey heading over them, and leaves
 with the last one.
 

@@ -103,12 +103,10 @@ because starting it approves only that. Recommend where it should run and
 whether it needs a plan first, with your reason.
 
 Show a proposal on the page where it came up, with the proposal component,
-so the reviewer can start it from there. Start one yourself only when the
-reviewer told you to in their own words, with `pair propose --start`,
-quoting them. When `pair read` prints that the reviewer declined a
-proposal, drop it and do not propose it again. When it prints that a
-linked session closed, treat that work as finished and build on its
-result.
+so the reviewer can start it from there. When `pair read` prints that the
+reviewer declined a proposal, drop it and do not propose it again. When it
+prints that a linked session closed, treat that work as finished and build
+on its result.
 
 ## A good plan
 

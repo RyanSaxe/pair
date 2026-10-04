@@ -26,7 +26,10 @@ const git = async (cwd, ...args) =>
     )
   ).stdout;
 
-test("closing a session removes only the git worktrees inside its directory", async (t) => {
+// Closing deletes nothing anyone has not committed: git refuses to remove
+// a worktree with changes, the hub keeps it, its log says why, and the
+// Close dialog names it first.
+test("closing a session removes only the clean git worktrees inside its directory", async (t) => {
   const temp = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "pair-close-")),
   );
@@ -50,13 +53,20 @@ test("closing a session removes only the git worktrees inside its directory", as
   await fs.writeFile(path.join(checkout, "file.txt"), "changed\n");
   await fs.writeFile(path.join(checkout, "untracked.txt"), "new\n");
 
-  const h = await hub(t);
+  const log = [];
+  const h = await hub(t, {}, { log: (line) => log.push(line) });
   const a = await h.session();
   await a.publish(planData());
   const inside = path.join(a.directory, "scratch", "try");
+  const clean = path.join(a.directory, "scratch", "clean");
+  // A plain directory, as a session outside a git repository uses.
+  const plain = path.join(a.directory, "scratch", "plain");
   const outside = path.join(temp, "outside");
   const linked = path.join(temp, "linked");
   await git(checkout, "worktree", "add", "--quiet", "-b", "try", inside);
+  await git(checkout, "worktree", "add", "--quiet", "-b", "clean", clean);
+  await fs.mkdir(plain);
+  await fs.writeFile(path.join(plain, "notes.txt"), "notes\n");
   await git(checkout, "worktree", "add", "--quiet", "-b", "outside", outside);
   await git(checkout, "worktree", "add", "--quiet", "--detach", linked);
   // A path inside the session's directory that leads to a worktree outside.
@@ -87,15 +97,41 @@ test("closing a session removes only the git worktrees inside its directory", as
     ),
   });
   const before = await repository();
+  // The hub names each worktree by its real path.
+  const kept = await fs.realpath(inside);
+  assert.deepEqual((await a.request(`${a.base}/api/worktrees`)).body, {
+    uncommitted: [kept],
+  });
   assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
-  assert.equal(await exists(inside), false);
+  assert.equal(await exists(clean), false);
+  assert.equal(
+    await fs.readFile(path.join(inside, "file.txt"), "utf8"),
+    "tried\n",
+  );
+  assert.equal(
+    await fs.readFile(path.join(inside, "tried.txt"), "utf8"),
+    "new\n",
+  );
+  assert.equal(
+    await fs.readFile(path.join(plain, "notes.txt"), "utf8"),
+    "notes\n",
+  );
+  // The hub's log names the kept worktree with git's reason.
+  const reasons = log
+    .map((line) => line.split(`kept worktree ${kept}, `)[1])
+    .filter(Boolean);
+  assert.equal(reasons.length, 1);
+  assert.match(
+    reasons[0],
+    /^which git refused to remove: .* contains modified or untracked files/,
+  );
   assert.deepEqual(await repository(), before);
   const worktrees = (await git(checkout, "worktree", "list", "--porcelain"))
     .split("\n")
     .filter((line) => line.startsWith("worktree "))
     .map((line) => path.resolve(line.slice("worktree ".length)))
     .sort();
-  assert.deepEqual(worktrees, [checkout, linked, outside].sort());
+  assert.deepEqual(worktrees, [checkout, kept, linked, outside].sort());
   for (const directory of [outside, linked])
     assert.equal(await exists(path.join(directory, "file.txt")), true);
   assert.equal(await fs.realpath(link), linked);
