@@ -40,15 +40,9 @@ message to the agent.
 
 | Choice           | What happens                                                                                                                                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Here             | This session's agent begins it at once and publishes its pages in this session's next rounds.                                                                                                                                                                      |
+| Here             | This session's agent begins it at once and publishes its pages in this session's next rounds. A round that waits for you stays open, with your drafts on it, until you send feedback, so you can start more work first.                                            |
 | In a sub-session | This session's agent builds it in a session linked to this one and gives its steps to subagents, so this session's rounds continue.                                                                                                                                |
 | With a new agent | A separate agent builds it in its own session linked to this one. **Copy command** copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open one where you can see it. |
-
-When you press **Start** here or in a sub-session while the round waits for
-you, the frame first sends the comments and choices you have not sent on that
-round, as Send feedback would, and then sends the Start, so the agent reads
-your feedback before the Start. When the feedback cannot be sent, the frame
-sends no Start, and the popup shows the reason.
 
 Open a new agent session does not always work. The agent answers in a
 thread on the card with what it opened, or with the command when it cannot
