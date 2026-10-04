@@ -181,10 +181,11 @@ const places = {
   "new-agent": "with a new agent",
 };
 function proposalState(card) {
+  const plan = card.plan ? ", with a plan" : "";
   if (card.declined) return "declined";
-  if (card.done) return `done ${places[card.started.where]}`;
-  if (card.started) return `started ${places[card.started.where]}`;
-  return "proposed";
+  if (card.done) return `done ${places[card.started.where]}${plan}`;
+  if (card.started) return `started ${places[card.started.where]}${plan}`;
+  return `proposed${plan}`;
 }
 
 function proposalsText(cards) {

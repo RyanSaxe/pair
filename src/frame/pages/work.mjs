@@ -119,6 +119,30 @@ function cardWhere(card, { needsYou }) {
   }
   return box;
 }
+// A card's plan: when it last changed and the rounds it came from, which
+// pair plan names as one round or a range such as 3-6.
+export function planLine(plan) {
+  if (!plan) return "No plan yet.";
+  const range = plan.rounds.match(/^(\d+)-(\d+)$/);
+  const from = range
+    ? `from rounds ${range[1]} to ${range[2]}`
+    : `from round ${plan.rounds}`;
+  return plan.round
+    ? `Plan updated after round ${plan.round}, ${from}.`
+    : `Plan ${from}.`;
+}
+// Open plan shows the plan in this tab, and Download plan saves its file.
+function planLinks(card) {
+  const box = element("span", "proposal-plan-links");
+  const plan = `${base}/plans/${encodeURIComponent(card.id)}/`;
+  const open = element("a", "", "Open plan");
+  open.href = plan;
+  const download = element("a", "", "Download plan");
+  download.href = `${plan}download`;
+  download.download = `${card.id}-plan.html`;
+  box.append(open, element("span", "proposal-dot", " · "), download);
+  return box;
+}
 let failure = "";
 async function act(card, action) {
   try {
@@ -175,10 +199,23 @@ export function cardElement(card, shown = context()) {
   if (tag) {
     head.append(element("span", `tag ${tag[1]}`.trim(), tag[0]));
   }
+  if (card.plan) head.append(element("span", "tag", "Plan"));
   const body = element("div", "proposal-body");
   body.append(head, element("p", "proposal-delivers", card.delivers));
+  // Work that started without a plan needs no line saying it has none.
+  if (card.plan || !(card.started || card.declined || card.done))
+    body.append(element("p", "proposal-plan", planLine(card.plan)));
   const foot = element("div", "proposal-foot");
-  foot.append(cardWhere(card, shown), actions(card));
+  // The plan's links take the place of where the card came from, which
+  // the plan's line names, and follow where started work runs.
+  const where = element("span", "proposal-foot-start");
+  if (!card.plan || card.started) where.append(cardWhere(card, shown));
+  if (card.plan) {
+    if (where.childElementCount)
+      where.append(element("span", "proposal-dot", " · "));
+    where.append(planLinks(card));
+  }
+  foot.append(where, actions(card));
   root.append(body, foot);
   return root;
 }
