@@ -26,6 +26,11 @@ its title links to where the proposal came from or where the work runs. A
 card started here reads Working here until the agent marks it done. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
+A card you have not had on screen on Work reads **New**, as a page you have
+not opened does in the sidebar. Your browser stores which cards you have
+seen, and a card on a page counts as seen only once Work shows it. A card
+in Done never reads New.
+
 | To                | Do this                                                               |
 | ----------------- | --------------------------------------------------------------------- |
 | Start the work    | Press **Start**, choose where it runs, and add a message if you want. |

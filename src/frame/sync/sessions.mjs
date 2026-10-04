@@ -10,6 +10,7 @@ import {
   syncOpened,
 } from "#frame/sync/opened.mjs";
 import { connected, remote } from "#frame/sync/rounds.mjs";
+import { syncSeen } from "#frame/sync/seen.mjs";
 
 let sessions = [];
 // The rows of Sessions, closed parents included, from groupSessions().
@@ -100,7 +101,10 @@ export async function pollSessions() {
   const open = grouped.filter(({ entry }) => !entry.closed);
   sessionOrder = open.map(({ entry }) => entry);
   numbered = open.filter(({ depth }) => !depth).map(({ entry }) => entry);
-  if (fromHub) syncOpened(sessions);
+  if (fromHub) {
+    syncOpened(sessions);
+    syncSeen(sessions);
+  }
   renderSessions();
   renderCenter(listed, fromHub);
   void reviewAlerts.update(sessions);

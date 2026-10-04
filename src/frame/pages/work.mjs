@@ -1,5 +1,5 @@
 import { $, plural, unreachable } from "#frame/app/util.mjs";
-import { base, editable, online } from "#frame/app/view.mjs";
+import { base, editable, online, session } from "#frame/app/view.mjs";
 import { openCardNote } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { openStart } from "#frame/pages/start-popup.mjs";
@@ -9,6 +9,7 @@ import {
   unreadCards,
 } from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
+import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
 /* The Work page holds every proposal of the session, from the agent's pair
    propose until the work is done, in four tabs. The hub stores five facts
@@ -291,12 +292,14 @@ function actions(card) {
     );
   return [left, right];
 }
-// One card, the same on Work and in the proposal component.
-export function cardElement(card, shown = context()) {
+// One card, the same on Work and in the proposal component, with the New
+// label when fresh.
+export function cardElement(card, shown = context(), fresh = false) {
   const root = element("article", "proposal-card");
   root.dataset.proposalCard = card.id;
   const head = element("p", "proposal-title");
   head.append(element("b", "", card.title));
+  if (fresh) head.append(element("span", "page-new", "New"));
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
   body.append(
@@ -335,6 +338,36 @@ export function cardElement(card, shown = context()) {
   return root;
 }
 
+/* New: a card in a live session that this browser has not had on screen
+   on Work, unless it is in Done. A card on a page counts as seen only once
+   Work shows it. On Work, a card keeps the label until Work opens again, so
+   it does not lose it while the reviewer reads it. */
+const labelled = (card) => cardsEditable() && !finished(card);
+const unseen = (card, seen) =>
+  labelled(card) &&
+  Boolean(seen) &&
+  !seen.has(cardKey(session.sessionId, card.id));
+let marked = new Set();
+let watcher = null;
+// Records each card on screen on Work as seen, once half of it shows.
+function watchCards(list) {
+  watcher?.disconnect();
+  watcher = new IntersectionObserver(
+    (entries, observer) => {
+      const shown = entries.filter((entry) => entry.isIntersecting);
+      for (const entry of shown) observer.unobserve(entry.target);
+      if (shown.length)
+        markSeen(
+          session.sessionId,
+          shown.map((entry) => entry.target.dataset.proposalCard),
+        );
+    },
+    { threshold: 0.5 },
+  );
+  for (const node of list.querySelectorAll("[data-proposal-card]"))
+    watcher.observe(node);
+}
+
 /* The page */
 let selected = workTabs[0].id;
 // Opening Work starts on the first tab with a card in it, once the hub has
@@ -344,6 +377,7 @@ let drawnKey = "";
 export function openWork() {
   opening = true;
   failure = "";
+  marked = new Set();
   refreshWork(true);
 }
 function selectTab(id) {
@@ -351,7 +385,7 @@ function selectTab(id) {
   refreshWork(true);
   $(`work-tab-${id}`)?.focus();
 }
-function renderWork(groups, shown) {
+function renderWork(groups, shown, seen) {
   const tabs = $("work-tabs");
   tabs.replaceChildren(
     ...workTabs.map(({ id, label }) => {
@@ -381,9 +415,12 @@ function renderWork(groups, shown) {
   const list = $("work-cards");
   list.setAttribute("aria-labelledby", `work-tab-${selected}`);
   const chosen = groups[selected];
+  for (const card of chosen) if (unseen(card, seen)) marked.add(card.id);
   list.replaceChildren(
     ...(chosen.length
-      ? chosen.map((card) => cardElement(card, shown))
+      ? chosen.map((card) =>
+          cardElement(card, shown, marked.has(card.id) && labelled(card)),
+        )
       : [
           element(
             "p",
@@ -392,6 +429,7 @@ function renderWork(groups, shown) {
           ),
         ]),
   );
+  watchCards(list);
 }
 /* The component on a page: the card the hub has under the ID, or the text
    the author wrote where no hub has the card. */
@@ -400,26 +438,30 @@ export function drawProposal(root) {
   mounted.set(root, "");
   paintProposal(root);
 }
-function paintProposal(root) {
+function paintProposal(root, seen = seenCards()) {
   const card = cards().find((item) => item.id === root.dataset.proposal);
   if (!card) return;
   const shown = context();
+  const fresh = unseen(card, seen);
   const key = JSON.stringify([
     card,
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
     shown.unread.has(card.id),
     cardsEditable(),
     remote?.current?.round,
+    fresh,
   ]);
   if (mounted.get(root) === key) return;
   mounted.set(root, key);
   root.dataset.proposalCard = card.id;
-  root.replaceChildren(cardElement(card, shown));
+  root.replaceChildren(cardElement(card, shown, fresh));
 }
 // Every poll and every action draws the cards again when they changed.
 export function refreshWork(force = false) {
+  if (remote) adoptCards(session.sessionId, cards());
+  const seen = seenCards();
   for (const root of mounted.keys())
-    if (root.isConnected) paintProposal(root);
+    if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
   if ($("work").hidden) return placeThreads();
   const shown = context();
@@ -444,7 +486,7 @@ export function refreshWork(force = false) {
   ]);
   if (force || key !== drawnKey) {
     drawnKey = key;
-    renderWork(groups, shown);
+    renderWork(groups, shown, seen);
   }
   placeThreads();
 }

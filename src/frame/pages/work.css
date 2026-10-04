@@ -60,7 +60,13 @@
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
 }
+/* The New label sits at the title's right, as on a page's row in the
+   sidebar. */
 .proposal-card .proposal-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
   margin-bottom: 2px;
 }
 /* The reviewer's words or message with Start, and the agent's reason for
