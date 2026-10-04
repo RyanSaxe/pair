@@ -466,6 +466,11 @@ dialog::backdrop {
 .sess-line.current {
   background: var(--accent-soft);
 }
+/* A session that is not a sub-session starts a group with its
+   sub-sessions, set a little apart from the group above. */
+.sess-line:not([style*="--depth"]):not(:first-child) {
+  margin-top: 6px;
+}
 /* A sub-session has no number. Its name sits one step in from the name of
    the session it came from, after an arrow that fills that step. */
 .sess-line[style*="--depth"] .sess-row .t {
@@ -522,6 +527,12 @@ dialog::backdrop {
   color: var(--muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.sess-row .n svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin-left: auto;
 }
 .sess-row .t {
   min-width: 0;
