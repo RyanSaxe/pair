@@ -137,6 +137,16 @@ test("Start here leaves the waiting round open with its drafts, so a second card
     .locator("#feedback-groups", { hasText: "Keep the header height." })
     .waitFor();
   assert.equal(await page.locator("#submit").isEnabled(), true);
+  // A card names no round, done or not.
+  const done = await session.action("propose", { id: "deck", done: true });
+  assert.equal(done.code, 200, done.body.error);
+  await page.locator("#work-row").click();
+  await tab("done").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("done").click();
+  assert.doesNotMatch(
+    await page.locator("[data-proposal-card=deck] .card-meta").textContent(),
+    /round/i,
+  );
 });
 
 // The choices, the message box and the button row keep their places

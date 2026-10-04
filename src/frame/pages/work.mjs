@@ -139,7 +139,8 @@ function threadLink(text, id) {
   return link;
 }
 // Where the card came from, or for work started elsewhere where it runs.
-// Work started here has no line, since its state says where it runs.
+// Running work started here has no line, since its state says where it
+// runs, and a card names no round.
 function cardWhere(card) {
   if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
@@ -149,13 +150,6 @@ function cardWhere(card) {
     else if (linked)
       box.append("In its own session · ", sessionLink("Open", linked));
     else box.textContent = "Waiting for its session to start";
-  } else if (card.done && !card.declined) {
-    const round = card.done.round;
-    box.append(
-      round
-        ? pageLink(`Done here in round ${round}`, round, "agreed")
-        : "Done here",
-    );
   } else {
     const { text, page, thread } = card.source;
     box.append(
