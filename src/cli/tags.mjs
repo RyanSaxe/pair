@@ -75,7 +75,6 @@ export function feedbackText(event) {
           page: note.topic,
           on: note.anchor || undefined,
           agreement: note.agreementId,
-          "side-work": note.sideWorkId,
           occurrence: note.occurrence,
         },
         [

@@ -116,13 +116,6 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
           occurrence: 2,
           text: "The second one.",
         },
-        {
-          id: "note-3",
-          topic: "agreed",
-          anchor: "Side work: Tidy the logs",
-          sideWorkId: "tidy-logs",
-          text: "Later.",
-        },
       ],
     },
   });
@@ -161,12 +154,11 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   const note = tag("note", "note-1")[1];
   for (const part of ["A failed item", "Keep it.", image.path])
     assert(note.includes(part), note);
-  // A note on an agreement or a side-work item names it, and a quote that
-  // appears more than once in its block names which appearance.
+  // A note on an agreement names it, and a quote that appears more than once
+  // in its block names which appearance.
   const opening = (id) => tag("note", id)[0].split("\n")[0];
   assert.match(opening("note-2"), / agreement="retry"/);
   assert.match(opening("note-2"), / occurrence="2"/);
-  assert.match(opening("note-3"), / side-work="tidy-logs"/);
   assert(tag("thread", "after")[1].includes("retried once"));
   assert(!printed.includes('<pair_thread id="before"'), printed);
   const json = JSON.parse(await read("--submission", event.id, "--json"));

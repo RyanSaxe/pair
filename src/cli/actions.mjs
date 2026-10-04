@@ -4,13 +4,7 @@ import { adapters } from "../hub/wake.mjs";
 import { usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
-import {
-  feedbackText,
-  tag,
-  tagText,
-  threadIndex,
-  threadText,
-} from "./tags.mjs";
+import { feedbackText, threadIndex, threadText } from "./tags.mjs";
 
 // The session commands other than start and publish: the action each sends
 // the hub, and the output it prints. A hub of the previous release answers
@@ -195,25 +189,6 @@ function holderText({ holder, wake }) {
   return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent}`;
 }
 
-function sideWorkText(items) {
-  if (!items.length) return "";
-  const width = (key) => Math.max(...items.map((item) => item[key].length));
-  return [
-    "Side work",
-    ...items.flatMap((item) => [
-      [
-        `  ${item.id.padEnd(width("id"))}`,
-        item.state.padEnd(width("state")),
-        item.title,
-        ...(item.url ? [item.url] : []),
-      ].join("  "),
-      ...(item.message
-        ? [tag("pair_side_work", { id: item.id }, tagText(item.message))]
-        : []),
-    ]),
-  ].join("\n");
-}
-
 export async function status(options) {
   const session = await openSession(options, { anyAgent: true });
   const result = await session.request({ action: "status" });
@@ -221,57 +196,27 @@ export async function status(options) {
   const round = state.current;
   return {
     next: result.next,
-    data: [
-      rows([
-        ["Session", session.directory],
-        ["URL", session.url()],
-        ["Title", state.title],
-        [
-          "Round",
-          round
-            ? `${round.round}${round.offer ? `, offer ${round.offer}` : ""}, ${stageText(state)}`
-            : `none published yet, ${stageText(state)}`,
-        ],
-        [
-          "Pages",
-          state.openRound?.pages
-            .map((page) => `${page.id} (${page.state})`)
-            .join(", "),
-        ],
-        ["Holder", holderText(state)],
-        ["Handoff", state.handoff],
-      ]),
-      sideWorkText(state.sideWork || []),
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
+    data: rows([
+      ["Session", session.directory],
+      ["URL", session.url()],
+      ["Title", state.title],
+      [
+        "Round",
+        round
+          ? `${round.round}${round.offer ? `, offer ${round.offer}` : ""}, ${stageText(state)}`
+          : `none published yet, ${stageText(state)}`,
+      ],
+      [
+        "Pages",
+        state.openRound?.pages
+          .map((page) => `${page.id} (${page.state})`)
+          .join(", "),
+      ],
+      ["Holder", holderText(state)],
+      ["Handoff", state.handoff],
+    ]),
     json: state,
     sessionDir: session.directory,
     subject: "status",
-  };
-}
-
-export async function sideWork(change, options) {
-  const session = await openSession(options, { anyAgent: true });
-  const result = await session.request({
-    action: "side-work",
-    change,
-    id: options.args[0],
-    title: options.title,
-    text: options.text,
-    source: options.source,
-    state: options.state,
-    url: options.url,
-  });
-  const { item } = result;
-  return {
-    // Only an item's pull request has a step after it, for whichever agent
-    // runs it.
-    next: result.next,
-    data: [
-      `Side work ${item.id}, ${item.state}: ${item.title}`,
-      ...(item.url ? [item.url] : []),
-    ].join("\n"),
-    json: result,
   };
 }

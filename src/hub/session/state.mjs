@@ -15,7 +15,6 @@ import { activity } from "./activity.mjs";
 import { agent } from "./agent.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { rounds } from "./rounds.mjs";
-import { sideWork } from "./side-work.mjs";
 import { submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
@@ -150,7 +149,6 @@ export async function loadSession(directory, config, origin, tabOpen) {
     agent(session),
     rounds(session),
     pageNotes(session),
-    await sideWork(session),
     threads(session),
     await activity(session),
   );
@@ -195,7 +193,6 @@ export async function loadSession(directory, config, origin, tabOpen) {
       wake: state.wake || null,
       paused: state.paused || null,
       needsYou: needsYou(),
-      sideWork: session.sideWorkItems(),
     };
   }
   // The browser draws every thread's card from its status. An agent reads a
@@ -316,8 +313,6 @@ export async function loadSession(directory, config, origin, tabOpen) {
     readScene: session.readScene,
     removeUpload: session.removeUpload,
     dismiss: session.dismiss,
-    startSideWork: session.startSideWork,
-    dropSideWork: session.dropSideWork,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     act: session.act,

@@ -38,18 +38,17 @@ moment is a Markdown file in `guide/moments/`, and
 
 ## Lookup files
 
-| File                                                     | Command                       | The agent reads it                                                   |
-| -------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------- |
-| [`guide/agreements.md`](../../guide/agreements.md)       | `pair guide agreements.md`    | Before it writes Agreed                                              |
-| [`guide/pages.md`](../../guide/pages.md)                 | `pair guide pages.md`         | Before the session's first page                                      |
-| [`guide/components.md`](../../guide/components.md)       | `pair guide components.md`    | Before the session's first page                                      |
-| [`guide/writing.md`](../../guide/writing.md)             | `pair guide writing.md`       | Before the session's first page                                      |
-| [`guide/prototypes.md`](../../guide/prototypes.md)       | `pair guide prototypes.md`    | When a page has a prototype                                          |
-| [`guide/side-work.md`](../../guide/side-work.md)         | `pair guide side-work.md`     | When it records side work, or the reviewer presses Start in parallel |
-| [`guide/session.md`](../../guide/session.md)             | `pair guide session.md`       | Before it takes a session over, resumes it or pauses it              |
-| [`guide/setup.md`](../../guide/setup.md)                 | `pair guide setup.md`         | When a command fails                                                 |
-| [`guide/offers/plan.md`](../../guide/offers/plan.md)     | `pair guide offers/plan.md`   | Before the final plan, and after the reviewer accepts it             |
-| [`guide/offers/finish.md`](../../guide/offers/finish.md) | `pair guide offers/finish.md` | After the reviewer accepts built work                                |
+| File                                                     | Command                       | The agent reads it                                       |
+| -------------------------------------------------------- | ----------------------------- | -------------------------------------------------------- |
+| [`guide/agreements.md`](../../guide/agreements.md)       | `pair guide agreements.md`    | Before it writes Agreed                                  |
+| [`guide/pages.md`](../../guide/pages.md)                 | `pair guide pages.md`         | Before the session's first page                          |
+| [`guide/components.md`](../../guide/components.md)       | `pair guide components.md`    | Before the session's first page                          |
+| [`guide/writing.md`](../../guide/writing.md)             | `pair guide writing.md`       | Before the session's first page                          |
+| [`guide/prototypes.md`](../../guide/prototypes.md)       | `pair guide prototypes.md`    | When a page has a prototype                              |
+| [`guide/session.md`](../../guide/session.md)             | `pair guide session.md`       | Before it takes a session over, resumes it or pauses it  |
+| [`guide/setup.md`](../../guide/setup.md)                 | `pair guide setup.md`         | When a command fails                                     |
+| [`guide/offers/plan.md`](../../guide/offers/plan.md)     | `pair guide offers/plan.md`   | Before the final plan, and after the reviewer accepts it |
+| [`guide/offers/finish.md`](../../guide/offers/finish.md) | `pair guide offers/finish.md` | After the reviewer accepts built work                    |
 
 `pair guide components/README.md` prints
 [`src/components/README.md`](../../src/components/README.md), which says how
