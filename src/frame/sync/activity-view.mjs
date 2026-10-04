@@ -124,9 +124,8 @@ export function drawActivity(running) {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  // The hub records when the agent's round started: the send, the
-  // acceptance, the pair start that builds a saved plan, or for round 1 the
-  // pair start that created the session.
+  // The hub records when the agent's round started: the send, or for round 1
+  // the pair start that created the session.
   const startedAt = remote?.roundStartedAt;
   $("activity-elapsed").textContent =
     running && startedAt ? since(startedAt) : "";

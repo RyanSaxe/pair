@@ -16,10 +16,6 @@ This submission starts a new round. You choose what that round covers.
 - When the reviewer asks you to decide, take the option you recommended
   unless a note names another, and say in the agreement's `source` that you
   chose it.
-- When nothing is left to decide, or the reviewer asks for the plan, make
-  this round the final plan: publish Agreed with `"offer": "plan"`, list
-  `overview` first in `pages.json`, and write the pages as Present the plan
-  in `pair guide offers/plan.md` says.
 - Run `pair progress --note "…"` now, then with `--page ID` as you start
   each page and at least every five minutes after. Give each subagent that
   command for its page.

@@ -1,10 +1,7 @@
 import path from "node:path";
-import { guideCommand } from "../../shared/guide.mjs";
-import { offers } from "../../shared/offers.mjs";
-import { actionOf, idPattern } from "../../shared/records.mjs";
+import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
-import { heldItems } from "./submissions.mjs";
 
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // The agent's commands, the holder, and the lines that tell the agent what
@@ -28,63 +25,26 @@ export function agent(session) {
     event && session.state.lastReceivedId !== event.id
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
-  // A line that points at a guide file names the command that prints it.
-  const offerGuide = (id) =>
-    guideCommand(path.posix.relative("guide", offers[id].guide));
-  const actionAfter = (offer, after) =>
-    offers[offer].accept.actions.find((item) => item.after === after);
-  // A line that says to publish Agreed also says which offer it names.
-  const offerChoice = `If this round is the final plan, Agreed names "offer": "plan" and pages.json lists ${offers.plan.firstPage} first. If you build the work in this round, Agreed names "offer": "finish".`;
-  // The round an accepted plan is built in starts with its Agreed, and its
-  // steps come from the accepted round's page sources.
-  const buildRound = (round) =>
-    `Publish the build round's Agreed with "offer": "finish" before you change anything. The accepted round's page sources are in ${path.join(directory, "src", round)}${path.sep}, one directory per page.`;
   // Every agent command prints the step after it, so an agent that lost its
   // place is told where the session stands.
   async function nextStep() {
     const [event] = await pending();
     if (event) return `Run: ${command("read")}`;
     if (session.state.stage === "complete") return "The session is complete.";
-    if (session.state.stage === "saved") {
-      const { round } = session.state.current;
-      return `Round ${round} is saved for later. Say this line in chat, then end your turn: ${handoff}`;
-    }
-    if (session.state.accepted) {
-      const { round, offer } = session.state.accepted;
-      const action = actionOf(session.state.accepted);
-      // A start on the saved round sent this agent on to build it.
-      if (action.after === "saved")
-        return `Round ${round} was saved for later, and you are building it now. Run ${offerGuide(offer)} and build the round as its ${actionAfter(offer, "round").label} section describes. ${buildRound(round)}`;
-      if (action.after === "round")
-        return `Run ${offerGuide(offer)} and follow its ${action.label} section. ${buildRound(round)}`;
-      return `Run ${offerGuide(offer)} and follow its ${action.label} section.`;
-    }
     if (session.state.paused)
       return `The session is paused. Tell the user, and resume it with: ${command("start")}`;
     if (!session.state.current)
-      return `Publish round 1's Agreed and page list with pair publish within minutes, before you research or write any page. ${offerChoice}`;
-    const building = session.state.current.offer === "finish";
+      return "Publish round 1's Agreed and page list with pair publish within minutes, before you research or write any page.";
     if (session.state.openRound) {
       const left = session.state.openRound.pages
         .filter((slot) => !slot.recordPath)
         .map((slot) =>
           slot.state === "active" ? `${slot.id} (started)` : slot.id,
         );
-      const [begin, publish] = building
-        ? [
-            "Before you start the step a page shows",
-            "Run pair publish when the step is done and checked.",
-          ]
-        : [
-            "As you begin a page",
-            "Run pair publish as soon as the page builds.",
-          ];
-      return `Pages still to publish: ${left.join(", ")}. ${begin}, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". ${publish}`;
+      return `Pages still to publish: ${left.join(", ")}. As you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Run pair publish as soon as the page builds.`;
     }
     if (session.state.stage === "working")
-      return building
-        ? `Update the task and Agreed from this feedback, then publish Agreed with "offer": "finish" before you change anything. Build this round as the ${actionAfter("plan", "round").label} section of ${offerGuide("plan")} describes, with the pull request description, updated to the work as it now stands, as its last page.`
-        : `Update the task and Agreed from this feedback, then publish Agreed and the page list with pair publish within minutes, before you research or write any page. ${offerChoice}`;
+      return "Update the task and Agreed from this feedback, then publish Agreed and the page list with pair publish within minutes, before you research or write any page.";
     return `Round ${session.state.current.round} is published. Say in chat what changed if you have not, then end your turn. The hub sends a wake message when the reviewer submits.`;
   }
   // The first Agreed of a session says whether to open its URL. A pair tab
@@ -116,29 +76,6 @@ export function agent(session) {
       ...(result.via ? { via: result.via } : {}),
     };
   }
-  // What a publish adds to its answer. It names its moment: Agreed with its
-  // offer, a page while pages remain, or the round's last page. A final plan
-  // opens on overview, and the reviewer can accept it only when Agreed names
-  // the plan offer, so an Agreed that lists overview first with no offer
-  // publishes with a warning.
-  function afterPublish(result, id, offer) {
-    const agreed = id === "agreed";
-    const { firstPage } = offers.plan;
-    const unoffered =
-      agreed && !offer && result.status.openRound.pages[0].id === firstPage;
-    return {
-      moment: agreed
-        ? `publish-agreed${offer ? `-${offer}` : ""}`
-        : result.roundComplete
-          ? "publish-last-page"
-          : "publish-page",
-      ...(unoffered
-        ? {
-            warning: `${firstPage} is the first page and Agreed names no offer, so the reviewer can only send feedback on this round. If this round is the final plan, say so in chat, and name "offer": "plan" in the next round's Agreed.`,
-          }
-        : {}),
-    };
-  }
   // Runs after the submission is saved, outside the browser's request, so a
   // slow or failing harness never delays the reviewer's Sent session.state.
   async function wakeAgent(round) {
@@ -146,8 +83,7 @@ export function agent(session) {
     const last = await sendWake(line);
     await transition({ wake: { harness: session.wake.harness, last } });
   }
-  /* Closing a session from the browser. complete() refuses without an
-     acceptance, so ending an abandoned session needs its own door. */
+  // Closing a session from the browser, the only way a session ends.
   async function dismiss() {
     await transition({ stage: "complete", dismissedAt: timestamp() });
     return { status: view() };
@@ -196,10 +132,7 @@ export function agent(session) {
       ...(event
         ? {
             event: session.withDrawingPaths(event),
-            moment:
-              event.payload.intent === "accept"
-                ? `read-accept-${event.payload.action}`
-                : "read-feedback",
+            moment: "read-feedback",
           }
         : { event: null }),
     };
@@ -232,24 +165,11 @@ export function agent(session) {
     const patch = {
       ...report(),
       ...receive(event),
-      stage: session.state.stage === "saved" ? "saved" : "working",
+      stage: "working",
       acknowledged: [...session.state.acknowledged, event.id],
       acknowledgedAt: timestamp(),
       lastAcknowledgedId: event.id,
     };
-    if (event.payload.intent === "accept") {
-      patch.accepted = {
-        eventId: event.id,
-        ...session.state.current,
-        action: event.payload.action,
-        ...(event.payload.guidance ? { guidance: event.payload.guidance } : {}),
-        ...(heldItems(event.payload.groups)
-          ? { groups: event.payload.groups }
-          : {}),
-        acceptedAt: event.receivedAt,
-      };
-      await atomic(path.join(directory, "acceptance.json"), patch.accepted);
-    }
     await transition(patch);
     return {
       status: view(),
@@ -295,22 +215,6 @@ export function agent(session) {
     });
     return { status: view(), next: await nextStep() };
   }
-  async function complete() {
-    requireValue(
-      session.state.accepted,
-      `Read the acceptance with ${command("read")} before pair complete.`,
-      409,
-    );
-    const action = actionOf(session.state.accepted);
-    if (action.after !== "complete")
-      requireValue(
-        false,
-        `${action.label} keeps the session open, so pair complete refuses. ${await nextStep()}`,
-        409,
-      );
-    await transition({ stage: "complete" });
-    return { status: view(), next: await nextStep() };
-  }
   // The actions an agent command sends, by the command that sends it.
   // Any agent may run pair status, and only the holder's output names a
   // next step.
@@ -326,7 +230,6 @@ export function agent(session) {
     progress: (data) => session.pageProgress(data),
     pause,
     publish: (data) => session.publishPage(data.html, data.source, data.pages),
-    complete,
     reply: (data) => session.reply(data),
   };
   async function act(data) {
@@ -342,12 +245,7 @@ export function agent(session) {
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
   // other registration, such as a command reattaching to a new hub, changes
-  // nothing when it comes from an agent other than the holder. start on a
-  // saved round builds it, from any agent and whether or not the Save was
-  // read, with one exception: the holder's own start while its Save is unread
-  // resumes an interrupted turn, which reads the Save and says the handoff
-  // line. Once the holder has read the Save, its start builds too, such as
-  // from a new conversation in the same Claude Code process. A start that
+  // nothing when it comes from an agent other than the holder. A start that
   // creates the session names it with its title and answers with the start
   // moment, and any other start answers with the session's next step.
   async function hold(target, options = {}) {
@@ -360,7 +258,6 @@ export function agent(session) {
     // act() then answers or refuses the command, so a former holder's pair
     // status keeps its takeover notice.
     if (!start && held && !same) return {};
-    const unread = (await pending()).length > 0;
     await requireHolder(agent, start);
     await atomic(session.wakeFile, target);
     session.wake = target;
@@ -383,16 +280,6 @@ export function agent(session) {
           ],
         });
     }
-    // A build clears the failed wake of the Save, so the card follows the
-    // build and not a harness that had exited.
-    const build = start && session.state.stage === "saved" && !(same && unread);
-    if (build)
-      Object.assign(patch, report(), {
-        stage: "working",
-        latestSubmissionRound: session.state.current.round,
-        roundStartedAt: timestamp(),
-        wake: { harness: target.harness, last: null },
-      });
     await transition(patch);
     // The bell of every pair tab announces the session pair start creates.
     if (start && !held && !session.state.current)
@@ -401,7 +288,7 @@ export function agent(session) {
         agent: adapters[target.harness].name,
       });
     if (start && created) return { moment: "start", next: await nextStep() };
-    const next = build ? await buildNext(unread) : start && (await nextStep());
+    const next = start && (await nextStep());
     if (!next) return {};
     // An agent that takes the session over may never have read the core.
     return {
@@ -410,22 +297,12 @@ export function agent(session) {
         : `Run pair guide first unless you have read it in this conversation. ${next}`,
     };
   }
-  // The acceptance keeps its save action, so the line says outright that
-  // this agent builds the plan.
-  async function buildNext(unread) {
-    const { round, offer } = session.state.current;
-    const reading = unread
-      ? command("read")
-      : `${command("read")} --submission ${session.state.accepted.eventId}`;
-    return `Round ${round} was saved for later, and you now build it. Run ${reading}, which prints the acceptance with the reviewer's comments, and its action stays ${actionAfter(offer, "saved").id}. Then build the plan as the ${actionAfter(offer, "round").label} section of ${offerGuide(offer)} describes.`;
-  }
   return {
     handoff,
     report,
     nextStep,
     browserLine,
     sendWake,
-    afterPublish,
     wakeAgent,
     dismiss,
     act,

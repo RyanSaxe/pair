@@ -1,21 +1,11 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { actionOf, idPattern, offerFor } from "../../shared/records.mjs";
+import { idPattern } from "../../shared/records.mjs";
 import { exists, read, requireValue } from "../../shared/util.mjs";
 
-// Every event carries groups, which are often empty. An acceptance record
-// keeps them only when they hold a note, a choice or an answer.
-export function heldItems(groups) {
-  return (
-    Boolean(groups) &&
-    ((Array.isArray(groups.notes) && groups.notes.length > 0) ||
-      Object.keys(groups.choices || {}).length > 0 ||
-      Object.keys(groups.answers || {}).length > 0)
-  );
-}
-// What the reviewer sends: feedback and acceptances.
+// What the reviewer sends: feedback on a round.
 export function submissions(session) {
-  const { directory, transition, pending, sameRound, exclusive } = session;
+  const { directory, transition, sameRound, exclusive } = session;
   function withDrawingPaths(event) {
     const answers = event.payload.groups?.answers;
     if (
@@ -70,20 +60,14 @@ export function submissions(session) {
         data.text.trim(),
       "Submission requires ID and text",
     );
-    requireValue(
-      ["feedback-only", "accept"].includes(data.intent),
-      "Invalid submission intent",
-    );
+    requireValue(data.intent === "feedback-only", "Invalid submission intent");
     requireValue(
       data.groups &&
         typeof data.groups === "object" &&
         !Array.isArray(data.groups),
       "groups must be an object",
     );
-    if (
-      data.intent === "feedback-only" &&
-      data.groups.alignUnflagged !== undefined
-    )
+    if (data.groups.alignUnflagged !== undefined)
       requireValue(
         typeof data.groups.alignUnflagged === "boolean",
         "alignUnflagged must be a boolean",
@@ -147,26 +131,6 @@ export function submissions(session) {
         }
       }
     }
-    if (data.intent === "accept") {
-      const accept = offerFor(data.offer)?.accept;
-      requireValue(
-        accept?.actions.some((action) => action.id === data.action),
-        "An acceptance names an offer and one of its actions",
-      );
-      if (data.guidance !== undefined) {
-        requireValue(
-          data.action === accept.guidance.action &&
-            typeof data.guidance === "string",
-          `Only ${accept.guidance.action} takes guidance`,
-        );
-        data.guidance = data.guidance.trim();
-        requireValue(
-          data.guidance.length <= 4000,
-          "Guidance exceeds 4,000 characters",
-        );
-        if (!data.guidance) delete data.guidance;
-      }
-    }
     const file = path.join(directory, "feedback", data.id + ".json");
     if (await exists(file)) {
       const original = await read(file);
@@ -182,44 +146,21 @@ export function submissions(session) {
       "Review the current round before submitting; export older drafts if needed",
       409,
     );
-    if (data.intent === "accept") {
-      requireValue(
-        data.offer === session.state.current.offer,
-        `Round ${session.state.current.round} does not offer ${data.offer}`,
-        409,
-      );
-      requireValue(
-        ["ready", "updated"].includes(session.state.stage) &&
-          !(await pending()).length,
-        "Resolve feedback before accepting the current round",
-        409,
-      );
-    }
     requireValue(
       !session.state.openRound,
       "Finish every listed page before submitting feedback",
       409,
     );
     const event = await session.saveEvent(data);
-    const after = data.intent === "accept" ? actionOf(data).after : null;
     await transition({
-      stage:
-        after === "saved"
-          ? "saved"
-          : data.intent === "feedback-only" && session.state.stage === "working"
-            ? "working"
-            : "submitted",
+      stage: session.state.stage === "working" ? "working" : "submitted",
       latestSubmissionId: data.id,
       // The round of a submission the agent answers with its next round.
       // The frame shows the agent's progress until that round is complete.
-      latestSubmissionRound:
-        data.intent === "feedback-only" || after === "round"
-          ? data.round
-          : null,
+      latestSubmissionRound: data.round,
       // Every browser counts the agent's running time from this.
       roundStartedAt: event.receivedAt,
       wake: session.state.wake ? { ...session.state.wake, last: null } : null,
-      accepted: null,
       takeover: null,
     });
     if (session.wake && !session.state.paused)

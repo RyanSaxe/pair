@@ -50,14 +50,11 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
   // The frame numbers the sessions in the order they started.
   await sleep(20);
   const other = await h.session();
-  assert.equal(
-    (await other.publish(planData("1", undefined, "other"))).code,
-    200,
-  );
+  assert.equal((await other.publish(planData("1", "other"))).code, 200);
   assert.equal(
     (
       await session.publish({
-        ...planData("1", undefined, "keys"),
+        ...planData("1", "keys"),
         pages: [
           controls,
           {

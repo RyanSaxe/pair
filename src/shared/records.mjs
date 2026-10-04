@@ -1,4 +1,3 @@
-import { offers } from "./offers.mjs";
 import { jsonScript, requireValue } from "./util.mjs";
 
 export const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
@@ -21,10 +20,6 @@ export function readPlanData(html) {
 function validPlan(data) {
   requireValue(idPattern.test(data.name || ""), "Invalid name");
   requireValue(roundPattern.test(data.round || ""), "Invalid round");
-  requireValue(
-    data.offer === undefined || offerFor(data.offer),
-    `Unknown offer ${JSON.stringify(data.offer)}. The offers are ${Object.keys(offers).join(", ")}.`,
-  );
   requireValue(
     typeof data.title === "string" && data.title.trim(),
     "title is required",
@@ -161,25 +156,7 @@ function validPlan(data) {
         "Unknown prototype reference",
       );
   }
-  if (data.pageMode !== "partial")
-    requireFirstPage(data.offer, data.pages[0].id);
   return data;
-}
-export function offerFor(id) {
-  return typeof id === "string" && Object.hasOwn(offers, id)
-    ? offers[id]
-    : null;
-}
-export const actionOf = ({ offer, action }) =>
-  offers[offer].accept.actions.find((item) => item.id === action);
-// A round that makes an offer opens on the page the offer names, such as a
-// plan's overview.
-function requireFirstPage(offer, id) {
-  const first = offerFor(offer)?.firstPage;
-  requireValue(
-    !first || id === first,
-    `A round that offers ${offer} lists ${first} first`,
-  );
 }
 // The task opens Agreed: what the plan is building towards, in a title and a
 // few sentences.
@@ -220,12 +197,6 @@ export function validPage(record) {
     "Invalid page ID",
   );
   requireValue(titled(page), "Page title is required");
-  // The hub takes the round's offer from Agreed and would ignore one on any
-  // other page, so a page that names one is refused.
-  requireValue(
-    page.id === "agreed" || record.offer === undefined,
-    `page "${page.id}" names an offer. Only Agreed's source names the round's offer.`,
-  );
   requireValue(
     page.id === "agreed"
       ? Array.isArray(page.agreements)
@@ -258,7 +229,6 @@ export function pagePlan({ page, ...record }) {
   return {
     name: record.name,
     round: record.round,
-    offer: record.offer,
     title: record.title,
     pageMode: "partial",
     pages: agreed ? [] : [{ id: page.id, title: page.title, html: page.html }],
@@ -267,7 +237,7 @@ export function pagePlan({ page, ...record }) {
     prototypes: page.prototypes || [],
   };
 }
-export function pageList(items, offer) {
+export function pageList(items) {
   requireValue(
     Array.isArray(items) && items.length > 0,
     "List at least one page",
@@ -280,7 +250,6 @@ export function pageList(items, offer) {
     );
     ids.add(item.id);
   }
-  requireFirstPage(offer, items[0].id);
   return items.map(({ id, title }) => ({
     id,
     title,

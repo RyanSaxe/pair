@@ -132,7 +132,6 @@ export function rounds(session) {
     const data = {
       name: set.name,
       round: set.round,
-      offer: set.offer,
       title: set.title,
       ...(complete ? {} : { pageMode: "partial" }),
       pages,
@@ -172,7 +171,6 @@ export function rounds(session) {
       current = {
         name: set.name,
         round: set.round,
-        offer: set.offer,
         title: set.title,
         path: file,
         url: base + "/",
@@ -187,7 +185,6 @@ export function rounds(session) {
           {
             name: set.name,
             round: set.round,
-            offer: set.offer,
             title: set.title,
             publishedAt: current.publishedAt,
             url: `${base}/r/${encodeURIComponent(set.round)}`,
@@ -203,7 +200,6 @@ export function rounds(session) {
       current,
       title: set.title,
       rounds,
-      accepted: null,
     });
     // The hub served the open round from the live file while its pages
     // arrived, and serves the complete file from now on. The round waits
@@ -213,11 +209,7 @@ export function rounds(session) {
         path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
         { force: true },
       );
-      await session.addActivity({
-        kind: "waiting",
-        round: set.round,
-        offer: set.offer,
-      });
+      await session.addActivity({ kind: "waiting", round: set.round });
     }
     return {
       status: view(),
@@ -259,7 +251,7 @@ export function rounds(session) {
     );
     let set;
     if (page.id === "agreed") {
-      const slots = pageList(pages, record.offer);
+      const slots = pageList(pages);
       requireValue(
         !session.state.openRound,
         "Agreed is already published for this round",
@@ -290,7 +282,6 @@ export function rounds(session) {
       set = {
         name: record.name,
         round: record.round,
-        offer: record.offer,
         title: record.title,
         agreed: null,
         pages: slots,
@@ -304,8 +295,6 @@ export function rounds(session) {
         409,
       );
       set = structuredClone(session.state.openRound);
-      // The round's offer comes from Agreed, and validPage refuses one on
-      // any other page.
       requireValue(
         ["name", "round", "title"].every((key) => record[key] === set[key]),
         "Page does not match this round",
@@ -393,7 +382,12 @@ export function rounds(session) {
     }
     return {
       ...result,
-      ...session.afterPublish(result, page.id, set.offer),
+      moment:
+        page.id === "agreed"
+          ? "publish-agreed"
+          : result.roundComplete
+            ? "publish-last-page"
+            : "publish-page",
       page: {
         id: page.id,
         round: record.round,
