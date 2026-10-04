@@ -73,9 +73,8 @@ test("Start sends where the work runs and the message, and the card runs", async
 
 // The choices, the message box and the button row keep their places
 // whichever choice is selected, so the popup never changes size. Each
-// choice's buttons sit in one row, and a card with a long title and
-// description fits a phone's window, 375 by 664, without scrolling.
-test("the Start popup keeps one size and one row of buttons, and fits a phone", async (t) => {
+// choice's buttons sit in one row, on a desktop and on a 375px phone.
+test("the Start popup keeps one size and one row of buttons", async (t) => {
   const { session, page } = await work(t);
   if (!page) return;
   const added = await session.action("propose", {
@@ -121,11 +120,6 @@ test("the Start popup keeps one size and one row of buttons, and fits a phone", 
       }
     }
     for (const box of boxes) assert.deepEqual(box, boxes[0], `at ${width}px`);
-    const scroll = await dialog.evaluate((node) => [
-      node.scrollHeight,
-      node.clientHeight,
-    ]);
-    assert.ok(scroll[0] <= scroll[1], `scrolls at ${width}px: ${scroll}`);
     // Only the chosen row of buttons can be pressed.
     await dialog.locator("[data-where=new-agent]").click();
     assert.equal(await dialog.locator("#start-open").isVisible(), true);

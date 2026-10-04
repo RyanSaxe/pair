@@ -155,7 +155,7 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
   assert.ok(Date.parse((await thread(id)).messages[1].acknowledgedAt));
   assert.equal((await replyLine()).acknowledged, true);
   const read = await a.action("reply", { note: id });
-  assert.match(read.body.next, /^The reviewer acknowledged your last message/);
+  assert.match(read.body.next, /^The reviewer agreed with your last message/);
   // Only the reviewer's message woke the holder.
   await sleep(100);
   assert.equal(a.inbox.wakes.length, 1);

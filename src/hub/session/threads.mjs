@@ -306,7 +306,7 @@ export function threads(session) {
         status: session.view(),
         thread: shown(thread),
         next: thread.messages.at(-1).acknowledgedAt
-          ? "The reviewer acknowledged your last message, so the thread needs no answer. Go back to what you were doing."
+          ? "The reviewer agreed with your last message, so the thread needs no answer. Go back to what you were doing."
           : `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
         moment: "read-thread",
       };
