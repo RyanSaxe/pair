@@ -39,11 +39,11 @@ jobs:
       # commit a pull_request run gets by default, so its commit extends the
       # branch. Without persist-credentials, checkout writes no token into
       # git's configuration, where npm ci and the script could read it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: npm ci
