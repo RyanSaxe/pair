@@ -72,16 +72,34 @@ test("Start sends where the work runs and the message, and the card runs", async
 });
 
 // The choices, the message box and the button row keep their places
-// whichever choice is selected, so the popup never changes size.
-test("the Start popup keeps one size whichever choice is selected", async (t) => {
-  const { page } = await work(t);
+// whichever choice is selected, so the popup never changes size. Each
+// choice's buttons sit in one row, and a card with a long title and
+// description fits a phone's window, 375 by 664, without scrolling.
+test("the Start popup keeps one size and one row of buttons, and fits a phone", async (t) => {
+  const { session, page } = await work(t);
   if (!page) return;
-  for (const width of [1280, 375]) {
-    await page.setViewportSize({ width, height: 800 });
-    await page.locator("[data-proposal-card=deck] .proposal-start").click();
+  const added = await session.action("propose", {
+    ...card("flow", "Redraw the example flow diagram for the fluid model"),
+    delivers:
+      "guide/flow.svg and its copy in the test fixture drawing rounds, proposals, Start and closing, with no Accept or offers.",
+    changes: "guide/flow.svg and tests/fixture/p-figures.html.",
+    recommend: "sub-session",
+  });
+  assert.equal(added.code, 200, added.body.error);
+  const rows = {
+    here: ["#start-send"],
+    "sub-session": ["#start-send"],
+    "new-agent": ["#start-copy", "#start-open"],
+  };
+  for (const [width, height] of [
+    [1280, 800],
+    [375, 664],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.locator("[data-proposal-card=flow] .proposal-start").click();
     const dialog = page.locator("#start-dialog");
     await dialog
-      .locator("#start-title", { hasText: "Build the deck" })
+      .locator("#start-title", { hasText: "Redraw the example flow" })
       .waitFor();
     const boxes = [];
     for (const where of ["here", "sub-session", "new-agent", "here"]) {
@@ -93,8 +111,21 @@ test("the Start popup keeps one size whichever choice is selected", async (t) =>
         "true",
       );
       boxes.push(await dialog.boundingBox());
+      const buttons = await Promise.all(
+        rows[where].map((id) => dialog.locator(id).boundingBox()),
+      );
+      const copy = await dialog.locator("#start-copy").boundingBox();
+      for (const button of buttons) {
+        assert.equal(button.y, buttons[0].y, `${where} at ${width}px`);
+        assert.equal(button.height, copy.height, `${where} at ${width}px`);
+      }
     }
     for (const box of boxes) assert.deepEqual(box, boxes[0], `at ${width}px`);
+    const scroll = await dialog.evaluate((node) => [
+      node.scrollHeight,
+      node.clientHeight,
+    ]);
+    assert.ok(scroll[0] <= scroll[1], `scrolls at ${width}px: ${scroll}`);
     // Only the chosen row of buttons can be pressed.
     await dialog.locator("[data-where=new-agent]").click();
     assert.equal(await dialog.locator("#start-open").isVisible(), true);

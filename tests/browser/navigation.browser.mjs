@@ -273,6 +273,45 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   assert.equal(await sidebar.isVisible(), false);
 });
 
+// A page's headings can carry the IDs the frame gives Work and Review.
+test("the sidebar marks the page on screen when the page reuses the IDs of Work and Review", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const published = await session.publish({
+    ...planData("1"),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: '<h2 id="work">Work</h2><p>Proposals.</p><h2 id="feedback">Feedback</h2>',
+      },
+    ],
+  });
+  assert.equal(published.code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+    viewport: { width: 390, height: 800 },
+  });
+  if (!page) return;
+  const marked = () =>
+    page
+      .locator("#page-list [aria-current=page]")
+      .evaluateAll((rows) => rows.map((row) => row.dataset.page));
+  await title(page, "Overview");
+  await bellReady(page);
+  assert.deepEqual(await marked(), ["overview"]);
+  assert.equal(new URL(page.url()).hash, "#overview");
+  for (const [id, heading] of [
+    ["work", "#work-title"],
+    ["feedback", "#feedback-title"],
+    ["overview", "#page-title"],
+  ]) {
+    await page.locator("#sidebar-toggle").click();
+    await page.locator(`#page-list [data-page="${id}"]`).click();
+    await page.locator(heading).waitFor();
+    assert.deepEqual(await marked(), [id]);
+  }
+});
+
 // Inside a linked session, the line under the header names its parent as
 // the way back, and stays one line at 375px with long names.
 test("a linked session's line under the header leads back to its parent and stays one line", async (t) => {

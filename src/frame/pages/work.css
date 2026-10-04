@@ -204,13 +204,28 @@
 .start-open:is(:hover, :focus-visible) > .line-tip {
   visibility: visible;
 }
-/* On a phone the new agent's two buttons do not fit on one line, so every
-   choice's buttons take the full width, one under the other. */
+/* Each choice's buttons sit in one row, as in the note dialog: Copy
+   command on the left and the primary on the right. The rows share a grid
+   cell, so a row keeps its buttons at their own height when a narrower
+   window wraps the other row's labels. dialogs.css comes later in the
+   cascade, so these rules name the dialog to outrank its .dialog .actions. */
+.dialog.start .actions {
+  align-items: flex-start;
+  margin-top: 10px;
+}
+.dialog.start .actions .btn.primary {
+  margin-left: auto;
+}
+/* On a phone the popup fills the window but for an 8px margin on each
+   side, so With a new agent's two buttons fit in one row at 375px, and a
+   card with a long title and description fits without scrolling. The
+   browser caps a modal dialog 2em and 6px short of the window unless
+   max-width and max-height are set. */
 @media (max-width: 480px) {
-  .start-actions .actions {
-    flex-wrap: wrap;
-  }
-  .start-actions .btn {
-    flex: 1 1 100%;
+  .dialog.start {
+    width: calc(100vw - 16px);
+    max-width: none;
+    max-height: calc(100dvh - 16px);
+    padding: 18px;
   }
 }
