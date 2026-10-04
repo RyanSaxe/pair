@@ -74,10 +74,6 @@
   margin-left: auto;
   text-align: right;
 }
-.accepted {
-  margin: 10px 0 16px;
-  overflow-wrap: anywhere;
-}
 /* Notes on the text */
 ::highlight(plan-note),
 ::highlight(plan-preview) {

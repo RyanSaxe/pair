@@ -65,12 +65,10 @@ test("sessions keep the order they started in, and w reaches the next waiting on
 
 test("a row shows the first status that applies", () => {
   const cases = [
-    [{ needsYou: true, offer: "plan", wakeFailed: true }, 2, "Accept"],
-    [{ needsYou: true }, 2, "Waiting"],
+    [{ needsYou: true, wakeFailed: true }, 2, "Waiting"],
     [{ wakeFailed: true, paused: true }, 2, "Can't wake"],
     [{ stage: "working", paused: true }, 2, "2 new"],
     [{ paused: true, stage: "working" }, 0, "Paused"],
-    [{ stage: "saved" }, 0, "Saved"],
     [{ stage: "working" }, 0, "Working"],
     [{ stage: "updated", openRound: { ready: 1 } }, 0, "Working"],
     // The agent prepares the first round of a session with nothing published.

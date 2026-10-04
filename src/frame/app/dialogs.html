@@ -86,9 +86,8 @@
     <div class="note-images" id="note-images" hidden></div>
     <p class="renderer-error" id="note-image-error" hidden></p>
     <!-- Start a thread sends the note to the agent now, and Add to feedback
-         keeps it for Send feedback, or Finish review on a round with an
-         offer. Once the round's feedback is sent, only Start a thread shows.
-         The frame fills in the platform's send key. -->
+         keeps it for Send feedback. Once the round's feedback is sent, only
+         Start a thread shows. The frame fills in the platform's send key. -->
     <div class="note-actions">
       <button class="btn" type="button" id="note-thread">
         Start a thread <kbd data-send-key></kbd>
@@ -128,74 +127,6 @@
     referrerpolicy="no-referrer"
   ></iframe>
 </dialog>
-<dialog class="dialog" id="finish-dialog" aria-labelledby="finish-title">
-  <div class="dialog-head">
-    <h2 id="finish-title" tabindex="-1" autofocus>Finish your review</h2>
-  </div>
-  <p class="dialog-detail" id="finish-detail"></p>
-  <div class="dialog-list" role="radiogroup" aria-label="Decision">
-    <button
-      class="dialog-row"
-      type="button"
-      role="radio"
-      data-decision="accept"
-    >
-      <span class="tick"></span
-      ><span
-        ><span id="accept-label"></span><br /><small id="accept-hint"></small
-      ></span>
-    </button>
-    <button
-      class="dialog-row"
-      type="button"
-      role="radio"
-      data-decision="changes"
-    >
-      <span class="tick"></span
-      ><span>Request changes<br /><small id="changes-hint"></small></span>
-    </button>
-  </div>
-  <p class="small" id="finish-drafted"></p>
-  <p class="small" id="finish-error" role="status" hidden></p>
-  <!-- Both sections share one grid cell, so switching rows keeps the
-       dialog's size. The round's offer fills the Accept row and its
-       section. -->
-  <div class="decide-sections">
-    <div id="finish-accept">
-      <p class="small" id="accept-note"></p>
-      <label for="accept-guidance" id="accept-guidance-label"></label>
-      <textarea
-        id="accept-guidance"
-        maxlength="4000"
-        aria-describedby="accept-guidance-detail"
-      ></textarea>
-      <p class="small" id="accept-guidance-detail"></p>
-      <div class="actions" id="accept-actions"></div>
-    </div>
-    <div id="finish-changes" inert>
-      <p class="small">
-        Requesting changes sends your comments to the waiting agent, and nothing
-        is accepted.
-      </p>
-      <label for="request-comment" id="request-comment-label"
-        >Overall comment</label
-      >
-      <textarea
-        id="request-comment"
-        maxlength="4000"
-        aria-describedby="request-comment-detail"
-      ></textarea>
-      <p class="small" id="request-comment-detail">
-        Sent with your request, like an overall comment on Review.
-      </p>
-      <div class="actions actions-right">
-        <button class="btn primary" type="button" id="request-changes">
-          Request changes
-        </button>
-      </div>
-    </div>
-  </div>
-</dialog>
 <dialog class="dialog" id="round-dialog" aria-labelledby="round-title">
   <div class="dialog-head">
     <h2 id="round-title" tabindex="-1" autofocus>Rounds</h2>
@@ -225,7 +156,7 @@
     <dt><kbd>r</kbd></dt>
     <dd>Review your feedback</dd>
     <dt><kbd>s</kbd></dt>
-    <dd>Focus Send feedback or Finish review; Enter sends or opens it</dd>
+    <dd>Focus Send feedback; Enter sends or opens it</dd>
     <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
     <dd>Answer a question or add feedback from its textarea</dd>
     <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>

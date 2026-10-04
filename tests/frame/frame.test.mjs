@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
-import { canAccept, submitButton } from "#frame/review/send.mjs";
 
 const read = (name) =>
   fs.readFile(new URL(`../../src/frame/${name}`, import.meta.url), "utf8");
@@ -34,35 +33,6 @@ test("every page sets its own note line, Agreed and unfinished pages included", 
     !mark.includes('$("note-count")'),
     "only countNotes writes the line",
   );
-});
-
-test("drafting a comment never hides the way to accept a final plan", () => {
-  const finishing = {
-    inFlight: false,
-    opensFeedback: false,
-    onSentFeedback: false,
-    finishes: true,
-    finishable: canAccept({
-      offer: "plan",
-      connected: true,
-      current: true,
-      submitted: false,
-      stage: "updated",
-    }),
-    waitingForPages: false,
-    sendable: true,
-    alignUnflagged: true,
-  };
-  assert.deepEqual(submitButton({ ...finishing, pending: 0 }), {
-    disabled: false,
-    text: "Finish review",
-    primary: true,
-  });
-  assert.deepEqual(submitButton({ ...finishing, pending: 2 }), {
-    disabled: false,
-    text: "Finish review (2)",
-    primary: true,
-  });
 });
 
 test("the build's language list is the one for the Shiki the frame loads", async () => {

@@ -3,7 +3,6 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { renderFinish } from "../../../src/frame/review/send.mjs";
 import { offers } from "../../../src/shared/offers.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
 import { hub, planData } from "../../support/hub.mjs";
@@ -54,29 +53,9 @@ test("a plan can be reopened, and only the current round's offer is accepted", a
   );
 });
 
-// Finish your review as renderFinish fills it, in a stand-in document that
-// returns an element for any ID.
-function finishDialog(round, accept) {
-  const elements = new Map();
-  const document = {
-    getElementById(name) {
-      if (!elements.has(name))
-        elements.set(name, {
-          replaceChildren(...children) {
-            this.children = children;
-          },
-        });
-      return elements.get(name);
-    },
-    createElement: () => ({}),
-  };
-  renderFinish(document, round, offers, accept);
-  return elements;
-}
-
-// Every registry entry: the round opens on the offer's first page, Finish
-// your review renders the entry, and the button for each action is accepted
-// with a drafted comment and sends the agent to the offer's guide file.
+// Every registry entry: the round opens on the offer's first page, and each
+// action is accepted with a drafted comment and sends the agent to the
+// offer's guide file.
 for (const [id, offer] of Object.entries(offers))
   for (const action of offer.accept.actions)
     test(`a round that offers ${id} is accepted with ${action.id}`, async (t) => {
@@ -104,42 +83,6 @@ for (const [id, offer] of Object.entries(offers))
         "utf8",
       );
       assert.equal(readPlanData(built).offer, id);
-      let pressed;
-      const shown = finishDialog(
-        readPlanData(built),
-        (chosen) => (pressed = chosen),
-      );
-      const text = (element) => shown.get(element).textContent;
-      assert.equal(text("finish-detail"), "Example work, round 1");
-      assert.deepEqual(
-        [
-          "accept-label",
-          "accept-hint",
-          "changes-hint",
-          "accept-note",
-          "accept-guidance-label",
-          "accept-guidance-detail",
-        ].map(text),
-        [
-          offer.accept.label,
-          offer.accept.hint,
-          offer.changes,
-          offer.accept.note,
-          offer.accept.guidance.label,
-          offer.accept.guidance.hint,
-        ],
-      );
-      // Plain actions on the left, and the primary one on the right.
-      const buttons = shown.get("accept-actions").children;
-      assert.deepEqual(
-        buttons.map((button) => [button.textContent, button.className]),
-        offer.accept.actions.map((item, index, all) => [
-          item.label,
-          index === all.length - 1 ? "btn primary" : "btn",
-        ]),
-      );
-      buttons.find((button) => button.textContent === action.label).onclick();
-      assert.equal(pressed, action);
       // The sessions list says which rounds wait to be accepted.
       const [listed] = (await a.request("/api/sessions")).body.sessions;
       assert.equal(listed.offer, id);
@@ -158,7 +101,7 @@ for (const [id, offer] of Object.entries(offers))
           : {};
       const acceptance = a.event("accept", "1", {
         offer: id,
-        action: pressed.id,
+        action: action.id,
         groups: { alignUnflagged: true, choices: {}, notes: [note] },
         ...guidance,
       });

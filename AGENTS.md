@@ -176,7 +176,7 @@ In `tests/support/browser.mjs`, `launch()` starts Chrome, and
 
 ## Checking the frame in a browser
 
-The browser tests check what the frame does, such as Finish your review, a
+The browser tests check what the frame does, such as sending feedback, a
 note's highlight and the keys, and that every fixture figure renders. No test
 checks how a page looks, so open a frame or component change in a browser
 before calling it done.
