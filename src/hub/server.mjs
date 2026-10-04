@@ -16,6 +16,7 @@ import {
   timestamp,
 } from "../shared/util.mjs";
 import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
+import { startFrom, withClosedParents } from "./linking.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
 import { adapters } from "./wake.mjs";
@@ -70,7 +71,9 @@ export async function startHub(config = settings()) {
     const known = await canonical(directory);
     let session = byDirectory.get(known);
     if (!session) {
-      session = await loadSession(directory, config, origin, tabOpen);
+      session = await loadSession(directory, config, origin, tabOpen, (id) =>
+        registry.get(id),
+      );
       registry.set(session.id, session);
       byDirectory.set(known, session);
     }
@@ -82,7 +85,7 @@ export async function startHub(config = settings()) {
     );
   const active = () => open().filter((session) => session.active());
   const listed = () =>
-    open()
+    withClosedParents(open(), (id) => registry.get(id))
       .map((session) => session.listing())
       .sort(
         (a, b) =>
@@ -104,12 +107,15 @@ export async function startHub(config = settings()) {
   // so it holds a comment. The gate ends the head, after anything else the
   // hub adds there, so the head's other modules run before the first frame.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
+  // A linked session's page names its parent, for the line under the
+  // header.
   const framePage = (session, html, flags, head) =>
     embedConfig(
       html.replace("</head>", () => head + renderGate + "</head>"),
       {
         sessionId: session.id,
         base: session.base,
+        ...(session.state.parent ? { parent: session.parentView() } : {}),
         ...flags,
       },
     );
@@ -161,7 +167,7 @@ export async function startHub(config = settings()) {
         const target =
           sessions.find((item) => item.needsYou)?.url ||
           (remembered?.state.current ? remembered.base + "/" : null) ||
-          sessions[0]?.url;
+          sessions.find((item) => !item.closed)?.url;
         if (target) return reply(302, "", "text/plain", { Location: target });
         return html(
           '<!doctype html><title>pair</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
@@ -186,13 +192,22 @@ export async function startHub(config = settings()) {
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
         const requested = path.resolve(data.sessionDir);
-        const { session, created } = await register(async () => ({
-          created: !(await exists(path.join(requested, "status.json"))),
-          session: await adopt(requested),
-        }));
+        const { session, created, card } = await register(async () => {
+          const created = !(await exists(path.join(requested, "status.json")));
+          if (data.from === undefined)
+            return { created, session: await adopt(requested) };
+          return {
+            created,
+            ...(await startFrom(adopt, requested, created, data)),
+          };
+        });
         const { directory } = session;
         const answer = await session.exclusive(() =>
-          session.hold(data.wake, { ...data, created }),
+          session.hold(data.wake, {
+            ...data,
+            created,
+            ...(card ? { title: card.title } : {}),
+          }),
         );
         // The wake target stays the holder's when another agent registers.
         const wake = { harness: session.state.wake.harness };
@@ -209,6 +224,7 @@ export async function startHub(config = settings()) {
           wake,
           ...(hostOrigin ? { hostUrl: hostOrigin + session.base + "/" } : {}),
           ...(session.state.title ? { title: session.state.title } : {}),
+          ...(card ? { parent: session.state.parent, proposal: card } : {}),
           ...answer,
         });
       }
@@ -336,12 +352,14 @@ export async function startHub(config = settings()) {
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close(log)));
         }
-        // Start, Decline and Restore on a proposal's card. Start carries
-        // where the work runs and the reviewer's optional message.
+        // Start, Decline, Restore and Open a new agent session on a
+        // proposal's card. Start carries where the work runs, and Start and
+        // Open a new agent session the reviewer's optional message.
         const cardActions = {
           start: session.startProposal,
           decline: session.declineProposal,
           restore: session.restoreProposal,
+          "open-agent": session.openAgent,
         };
         if (
           method === "POST" &&
@@ -350,7 +368,9 @@ export async function startHub(config = settings()) {
           rest.length === 4 &&
           Object.hasOwn(cardActions, rest[3])
         ) {
-          const data = rest[3] === "start" ? await readBody(req, 50_000) : null;
+          const data = ["start", "open-agent"].includes(rest[3])
+            ? await readBody(req, 50_000)
+            : null;
           const id = decodeURIComponent(rest[2]);
           return reply(
             200,

@@ -178,13 +178,39 @@
   margin-top: 6px;
   color: var(--danger);
 }
-.start-actions {
+/* Each choice's hint and its row of buttons share a grid cell with the
+   other choices', so the popup keeps one size whichever choice is
+   selected. */
+.start-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
-.start-actions > * {
+.start-stack > * {
   grid-area: 1 / 1;
 }
-.start-actions > [inert] {
+.start-stack > [inert] {
   visibility: hidden;
+}
+.start-hints > p {
+  margin: 6px 0 0;
+}
+/* Open a new agent session's tooltip opens above the button. */
+.start-open {
+  position: relative;
+}
+.start-open .line-tip {
+  font-weight: 400;
+}
+.start-open:is(:hover, :focus-visible) > .line-tip {
+  visibility: visible;
+}
+/* On a phone the new agent's two buttons do not fit on one line, so every
+   choice's buttons take the full width, one under the other. */
+@media (max-width: 480px) {
+  .start-actions .actions {
+    flex-wrap: wrap;
+  }
+  .start-actions .btn {
+    flex: 1 1 100%;
+  }
 }

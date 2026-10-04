@@ -3,7 +3,7 @@ import { base, editable, online } from "#frame/app/view.mjs";
 import { openCardNote } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { openStart } from "#frame/pages/start-popup.mjs";
-import { unreadCards } from "#frame/sync/center.mjs";
+import { listedSession, unreadCards } from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 
 /* The Work page holds every proposal of the session, from the agent's pair
@@ -18,13 +18,19 @@ export const workTabs = [
   { id: "proposed", label: "Proposed", empty: "No proposed work." },
   { id: "done", label: "Done", empty: "No work is done yet." },
 ];
+// Whether the round that started work waits for the reviewer: this
+// session's for work here, and the linked session's for work anywhere else.
+const waits = (card, { needsYou = false, linked = () => null } = {}) =>
+  card.started.where === "here"
+    ? needsYou
+    : Boolean(linked(card.started.session?.id)?.needsYou);
 // A card needs the reviewer when its thread has an agent reply they have
-// not cleared from the bell, or when it runs here and the session's round
-// waits for them. A declined card is listed with the done ones.
-export function cardTab(card, { needsYou = false, unread = new Set() } = {}) {
-  if (unread.has(card.id)) return "needs";
+// not cleared from the bell, or when the round its work runs in waits for
+// them. A declined card is listed with the done ones.
+export function cardTab(card, context = {}) {
+  if (context.unread?.has(card.id)) return "needs";
   if (card.declined || card.done) return "done";
-  if (card.started) return needsYou ? "needs" : "running";
+  if (card.started) return waits(card, context) ? "needs" : "running";
   return "proposed";
 }
 export function workGroups(cards, context) {
@@ -40,7 +46,14 @@ const cards = () => remote?.proposals || [];
 const context = () => ({
   needsYou: Boolean(remote?.needsYou),
   unread: unreadCards(),
+  linked: listedSession,
 });
+// Which linked sessions wait for the reviewer, so a card redraws when one
+// starts or stops waiting.
+const linkedWaits = () =>
+  cards().map((card) =>
+    Boolean(listedSession(card.started?.session?.id)?.needsYou),
+  );
 // Start, Decline, Restore and Comment need the live session.
 export const cardsEditable = () =>
   editable && online && Boolean(remote) && remote.stage !== "complete";
@@ -55,13 +68,24 @@ const element = (tag, className, text) => {
 };
 // The tag after a card's title and its class: Working in the accent,
 // Waiting for you in green, Done and Declined in grey.
-function cardTag(card, { needsYou, unread }) {
+// Work started in a sub-session or with a new agent reads Opening until
+// its session links, and the two look the same after that.
+function cardTag(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.done) return ["Done", "muted"];
-  if (unread.has(card.id)) return ["Agent replied", ""];
-  if (card.started)
-    return needsYou ? ["Waiting for you", "ok"] : ["Working", ""];
-  return null;
+  if (shown.unread.has(card.id)) return ["Agent replied", ""];
+  if (!card.started) return null;
+  if (card.started.where !== "here" && !card.started.session)
+    return card.started.where === "new-agent"
+      ? ["Opening a new agent session", ""]
+      : ["Opening a sub-session", ""];
+  return waits(card, shown) ? ["Waiting for you", "ok"] : ["Working", ""];
+}
+// A link to the session work runs in, which opens in this tab.
+function sessionLink(text, session) {
+  const link = element("a", "", text);
+  link.href = session.url;
+  return link;
 }
 // A link to a page of a round: in place for the round on screen, and on
 // the round's read-only page for an earlier one.
@@ -90,7 +114,13 @@ function threadLink(text, id) {
 // where it runs.
 function cardWhere(card, { needsYou }) {
   const box = element("span", "proposal-where");
-  if (card.done && !card.declined) {
+  const linked = card.started?.session;
+  if (card.started && card.started.where !== "here") {
+    if (card.done) box.append(sessionLink("Done in its own session", linked));
+    else if (linked)
+      box.append("In its own session · ", sessionLink("Open", linked));
+    else box.textContent = "Waiting for its session to start";
+  } else if (card.done && !card.declined) {
     const round = card.done.round;
     box.append(
       round
@@ -127,6 +157,8 @@ export function planLine(plan) {
   const from = range
     ? `from rounds ${range[1]} to ${range[2]}`
     : `from round ${plan.rounds}`;
+  // A plan from a linked session names that session's rounds.
+  if (plan.session) return `Plan ${from} of its own session.`;
   return plan.round
     ? `Plan updated after round ${plan.round}, ${from}.`
     : `Plan ${from}.`;
@@ -160,10 +192,12 @@ async function act(card, action) {
   }
 }
 // The hub answers each action with every card, which replaces the cards of
-// the last poll.
-function changed(result) {
+// the last poll. After Start, Work shows the tab the card moved to.
+function changed(result, follow = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
+  const moved = follow && cards().find((card) => card.id === follow);
+  if (moved && !$("work").hidden) selected = cardTab(moved, context());
   refreshWork(true);
   // A Start can answer the round, which the next status shows.
   void poll();
@@ -184,7 +218,7 @@ function actions(card) {
   if (!card.started && !card.declined) {
     const start = element("button", "btn proposal-start", "Start");
     start.type = "button";
-    start.onclick = () => openStart(card, changed);
+    start.onclick = () => openStart(card, (result) => changed(result, card.id));
     box.append(start);
   }
   return box;
@@ -291,6 +325,7 @@ function paintProposal(root) {
   const shown = context();
   const key = JSON.stringify([
     card,
+    Boolean(listedSession(card.started?.session?.id)?.needsYou),
     shown.needsYou,
     shown.unread.has(card.id),
     cardsEditable(),
@@ -315,6 +350,7 @@ export function refreshWork(force = false) {
   }
   const key = JSON.stringify([
     cards(),
+    linkedWaits(),
     shown.needsYou,
     [...shown.unread],
     selected,

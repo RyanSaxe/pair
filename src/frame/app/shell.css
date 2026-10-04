@@ -262,6 +262,34 @@ main {
   margin: 0 6px;
   color: var(--muted);
 }
+/* In a linked session the line stays one line at every width: the
+   sessions' names give up their width first, each cut short with an
+   ellipsis. */
+#history-label.crumbs {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+#history-label.crumbs :is(.crumb-name, .meta) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The parent's name, the way back, keeps its width up to 45% of the line. */
+#history-label.crumbs .crumb-name:first-child {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+#history-label.crumbs :is(.crumb, .round) {
+  flex: none;
+}
+/* A flex item drops the leading space of " · Feedback sent". */
+#history-label.crumbs .meta {
+  padding-left: 0.25em;
+}
 /* Narrow screens: the sidebar starts closed and slides over the dimmed
    page, under the header, and the page keeps its width. */
 @media (prefers-reduced-motion: reduce) {

@@ -4,6 +4,11 @@ import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
 import { removeWorktrees } from "./worktrees.mjs";
 
+// Work started here runs in this session's next round, so its Start answers
+// the round as feedback does. Work started anywhere else runs in a session of
+// its own.
+export const answersRound = (event) =>
+  event.payload.intent !== "start" || event.payload.where === "here";
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 // The agent's commands, the holder, and the lines that tell the agent what
 // to do next.
@@ -92,6 +97,7 @@ export function agent(session) {
     await transition({ stage: "complete", dismissedAt: timestamp() });
     for (const line of await removeWorktrees(directory))
       log(`closed ${directory}: ${line}`);
+    await session.closeLinked();
     return { status: view() };
   }
   // Every command but pair status goes through this check, start included.
@@ -175,27 +181,36 @@ export function agent(session) {
     }
     const [event] = await pending();
     const declined = await session.reportDeclined();
+    const closed = await session.reportClosed();
     if (!event)
       return {
         status: view(),
         ...readAnswer(null, submissionBefore()),
         declined,
+        closed,
         next: await nextStep(),
       };
     const patch = {
       ...report(),
       ...receive(event),
-      stage: "working",
+      stage: !answersRound(event) ? session.state.stage : "working",
       acknowledged: [...session.state.acknowledged, event.id],
       acknowledgedAt: timestamp(),
       lastAcknowledgedId: event.id,
     };
     await transition(patch);
+    const { proposal, where } = event.payload;
     return {
       status: view(),
       ...readAnswer(event, submissionBefore(event.sequence)),
       declined,
-      next: await nextStep(),
+      closed,
+      // A sub-session's Start leaves this session's round as it was, so its
+      // next step is the command that creates the sub-session.
+      next:
+        where === "sub-session"
+          ? `Run pair start --from ${directory} --proposal ${proposal}, then follow what it prints.`
+          : await nextStep(),
     };
   }
   async function ack(data) {
@@ -332,7 +347,12 @@ export function agent(session) {
         kind: "session",
         agent: adapters[target.harness].name,
       });
-    if (start && created) return { moment: "start", next: await nextStep() };
+    if (start && created)
+      return {
+        // A session pair start --from created runs one proposal.
+        moment: session.state.parent ? ["start", "start-from"] : "start",
+        next: await nextStep(),
+      };
     const next = start && (await nextStep());
     if (!next) return {};
     // An agent that takes the session over may never have read the core.

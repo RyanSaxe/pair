@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   byStart,
+  groupSessions,
   nextWaiting,
   rowStatus,
   sessionsBadge,
@@ -71,4 +72,36 @@ test("a row shows the first status that applies", () => {
   ];
   for (const [fields, unopened, text] of cases)
     assert.equal(rowStatus(entry("2", fields), unopened)?.text, text);
+});
+
+// Sub-sessions follow the session they came from, in the order they
+// started, and a closed parent the hub still lists heads them.
+test("Sessions lists each sub-session after its parent, one step in, under a closed parent's heading", () => {
+  const rows = (list) =>
+    groupSessions(list).map(({ entry, depth }) => [
+      entry.id,
+      depth,
+      Boolean(entry.closed),
+    ]);
+  assert.deepEqual(
+    rows([
+      entry("4", { parentId: "1" }),
+      entry("3"),
+      entry("2", { parentId: "1" }),
+      entry("5", { parentId: "2" }),
+      entry("1", { closed: true }),
+    ]),
+    [
+      ["1", 0, true],
+      ["2", 1, false],
+      ["5", 2, false],
+      ["4", 1, false],
+      ["3", 0, false],
+    ],
+  );
+  // A sub-session whose parent is not listed stands at the top.
+  assert.deepEqual(rows([entry("2", { parentId: "9" }), entry("1")]), [
+    ["1", 0, false],
+    ["2", 0, false],
+  ]);
 });

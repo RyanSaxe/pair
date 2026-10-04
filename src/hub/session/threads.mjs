@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { problems } from "../../build/lint.mjs";
@@ -175,6 +176,32 @@ export function threads(session) {
     wakeLater(thread);
     return { thread: shown(thread) };
   }
+  // Open a new agent session on a card starts a thread of kind open-agent
+  // with the reviewer's message, and wakes the holder as any thread does.
+  async function agentThread(card, text) {
+    open();
+    const at = timestamp();
+    const thread = {
+      id: crypto.randomUUID(),
+      kind: "open-agent",
+      proposal: card.id,
+      page: card.title,
+      state: "sending",
+      readAt: null,
+      createdAt: at,
+      messages: [{ from: "reviewer", at, text }],
+    };
+    records.set(thread.id, thread);
+    await saveThread(thread);
+    wakeLater(thread);
+    return shown(thread);
+  }
+  // Until a session links to the card, the thread asks the holder to open
+  // the agent that runs pair start --from.
+  const opensAgent = (thread) =>
+    thread.kind === "open-agent" &&
+    !session.proposalItems().find((card) => card.id === thread.proposal)
+      ?.started?.session;
   function threadFor(id) {
     const thread = records.get(id);
     requireValue(thread, `No thread ${id} in this session`, 404);
@@ -239,6 +266,13 @@ export function threads(session) {
         await saveThread(thread);
       }
       await session.transition(session.report());
+      if (opensAgent(thread))
+        return {
+          status: session.view(),
+          thread: shown(thread),
+          next: `Open a new agent session whose first command is: pair start --from ${directory} --proposal ${thread.proposal}. Then post what you opened with ${replyCommand(thread.id)} --text "…", or post that command when you cannot open one, and go back to what you were doing.`,
+          moment: "read-open-agent",
+        };
       return {
         status: session.view(),
         thread: shown(thread),
@@ -304,6 +338,7 @@ export function threads(session) {
   return {
     threadView,
     startThread,
+    agentThread,
     addThreadMessage,
     reply,
     threadsSince,
