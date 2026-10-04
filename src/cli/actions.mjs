@@ -8,6 +8,7 @@ import {
   closedText,
   declinedText,
   feedbackText,
+  runningText,
   startText,
   threadIndex,
   threadText,
@@ -44,6 +45,7 @@ export async function read(options) {
         : declined || closed
           ? ""
           : "No submission is waiting.",
+      runningText(result.running),
       declinedText(declined),
       closedText(closed),
       threadIndex(result.threads, result.threadsSince, session.directory),

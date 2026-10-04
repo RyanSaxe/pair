@@ -16,6 +16,10 @@ This submission starts a new round. You choose what that round covers.
 - When the reviewer asks you to decide, take the option you recommended
   unless a note names another, and say in the alignment's `source` that you
   chose it.
+- When `pair read` lists proposals started here that are not done, keep
+  building each one in this round, whether or not the feedback mentions it.
+  List a page in this round for each part of that work that will be ready
+  for the reviewer to judge.
 - Run `pair progress --note "…"` now, then with `--page ID` as you start
   each page and at least every five minutes after. Give each subagent that
   command for its page.

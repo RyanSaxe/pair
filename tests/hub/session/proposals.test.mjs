@@ -108,7 +108,7 @@ test("pair propose records one file per card and refuses an ID the session has",
   );
 });
 
-test("Start wakes the holder with the reviewer's message, and answers the waiting round", async (t) => {
+test("Start wakes the holder with the reviewer's message, and the round still waits for the reviewer", async (t) => {
   const { a, propose, add, reviewer, cards, read } = await proposing(t);
   await add();
   const message = "Keep the old column names.\nAsk before dropping any.";
@@ -131,11 +131,10 @@ test("Start wakes the holder with the reviewer's message, and answers the waitin
     a.inbox.wakes[0].message.message.content,
     `pair: the reviewer started proposal churn-export, "${card.title}", here in session ${a.directory}. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's message with Start, which pair read prints too:\n${message}`,
   );
-  // The Start answers round 1, which waited for the reviewer.
-  const status = (await a.status()).body;
-  assert.equal(status.stage, "submitted");
-  assert.equal(status.latestSubmissionRound, "1");
-  assert.equal(status.needsYou, false);
+  // Only the reviewer's feedback answers round 1, so it still waits for
+  // them.
+  const waits = async () => (await a.status()).body.needsYou;
+  assert.equal(await waits(), true);
 
   const second = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(second.code, 409);
@@ -157,6 +156,13 @@ test("Start wakes the holder with the reviewer's message, and answers the waitin
   assert.equal(answer.event.payload.message, message);
   assert.equal(answer.proposal.title, card.title);
   assert.equal((await cards())[0].started.where, "here");
+  // Reading the Start leaves round 1 waiting, so the next step builds the
+  // work now and publishes it in the next round, not in round 1.
+  assert.equal(await waits(), true);
+  assert.match(
+    answer.next,
+    /^Round 1 is published and waits for the reviewer\. .*build proposal churn-export, .*Publish the work's pages in the next round, which begins when the reviewer sends feedback\./,
+  );
 });
 
 test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {

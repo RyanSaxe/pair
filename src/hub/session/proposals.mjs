@@ -175,12 +175,12 @@ export async function proposals(session) {
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button. Work here or in
-  // a sub-session saves a Start event, which the agent reads with pair read.
-  // When the round waits for the reviewer, a Start here answers it as a
-  // submission does, so every pair tab shows the agent's progress on the
-  // work. Work with a new agent saves no event, because a separate agent
-  // runs pair start --from for it.
+  // Start, from the reviewer's button. Work here or in a sub-session saves a
+  // Start event, which the agent reads with pair read. Work with a new agent
+  // saves no event, because a separate agent runs pair start --from for it.
+  // A Start leaves the round as it was, wherever the work runs: only the
+  // reviewer's feedback answers a round, so a round that waits for them
+  // keeps waiting.
   async function start(card, started) {
     open();
     requireValue(
@@ -195,7 +195,7 @@ export async function proposals(session) {
       started: { at: timestamp(), round, ...started },
     });
     if (started.where === "new-agent") return changed;
-    const event = await session.saveEvent({
+    await session.saveEvent({
       id: crypto.randomUUID(),
       intent: "start",
       proposal: card.id,
@@ -204,15 +204,6 @@ export async function proposals(session) {
       by: started.by,
       ...(started.message ? { message: started.message } : {}),
     });
-    if (started.where === "here" && session.needsYou())
-      await transition({
-        stage: "submitted",
-        latestSubmissionId: event.id,
-        latestSubmissionRound: round,
-        roundStartedAt: event.receivedAt,
-        wake: session.state.wake ? { ...session.state.wake, last: null } : null,
-        takeover: null,
-      });
     return changed;
   }
   // Runs after the reviewer's request is answered, as the wake after a
