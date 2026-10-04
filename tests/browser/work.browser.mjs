@@ -52,10 +52,6 @@ test("Start sends where the work runs and the message, and the card runs", async
     await dialog.locator("[data-where=here]").getAttribute("aria-checked"),
     "true",
   );
-  assert.equal(
-    await dialog.locator("[data-where=new-agent]").isDisabled(),
-    true,
-  );
   await dialog.locator("#start-message").fill("Keep the header height.");
   await dialog.locator("#start-send").click();
   await dialog.waitFor({ state: "hidden" });
@@ -73,6 +69,62 @@ test("Start sends where the work runs and the message, and the card runs", async
     .waitFor();
   // The Start answered the round, and the reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
+});
+
+// The choices, the message box and the button row keep their places
+// whichever choice is selected, so the popup never changes size.
+test("the Start popup keeps one size whichever choice is selected", async (t) => {
+  const { page } = await work(t);
+  if (!page) return;
+  for (const width of [1280, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.locator("[data-proposal-card=deck] .proposal-start").click();
+    const dialog = page.locator("#start-dialog");
+    await dialog
+      .locator("#start-title", { hasText: "Build the deck" })
+      .waitFor();
+    const boxes = [];
+    for (const where of ["here", "sub-session", "new-agent", "here"]) {
+      await dialog.locator(`[data-where=${where}]`).click();
+      assert.equal(
+        await dialog
+          .locator(`[data-where=${where}]`)
+          .getAttribute("aria-checked"),
+        "true",
+      );
+      boxes.push(await dialog.boundingBox());
+    }
+    for (const box of boxes) assert.deepEqual(box, boxes[0], `at ${width}px`);
+    // Only the chosen row of buttons can be pressed.
+    await dialog.locator("[data-where=new-agent]").click();
+    assert.equal(await dialog.locator("#start-open").isVisible(), true);
+    assert.equal(await dialog.locator("#start-send").isVisible(), false);
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+  }
+});
+
+test("Open a new agent session starts the card with a new agent and shows its thread", async (t) => {
+  const { session, page, cards } = await work(t);
+  if (!page) return;
+  await page.locator("[data-proposal-card=export] .proposal-start").click();
+  const dialog = page.locator("#start-dialog");
+  await dialog.locator("[data-where=new-agent]").click();
+  await dialog.locator("#start-message").fill("Use the board template.");
+  await dialog.locator("#start-open").click();
+  await dialog.waitFor({ state: "hidden" });
+  assert.deepEqual((await cards())[1].started, "new-agent");
+  // Work follows the card to Running, with the thread under it.
+  await page
+    .locator("[data-proposal-card=export] .tag", {
+      hasText: "Opening a new agent session",
+    })
+    .waitFor({ timeout: 5000 });
+  await page
+    .locator("pair-thread", { hasText: "Use the board template." })
+    .waitFor({ timeout: 5000 });
+  const { threads } = (await session.status()).body;
+  assert.equal(threads[0].kind, "open-agent");
 });
 
 test("Decline takes a card out of Proposed, and Restore puts it back", async (t) => {
@@ -103,4 +155,34 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
     .click();
   await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
   assert.equal((await cards())[1].declined, false);
+});
+
+test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {
+  const h = await hub(t);
+  const parent = await h.session({ start: true });
+  assert.equal((await parent.publish(planData())).code, 200);
+  const added = await parent.action("propose", {
+    ...card("deck", "Build the deck"),
+    recommend: "sub-session",
+  });
+  assert.equal(added.code, 200, added.body.error);
+  const started = await parent.request(
+    `${parent.base}/api/proposals/deck/start`,
+    { where: "sub-session" },
+  );
+  assert.equal(started.code, 200, started.body.error);
+  const child = await h.session({
+    start: true,
+    from: parent.directory,
+    proposal: "deck",
+  });
+  assert.equal((await child.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${parent.base}/#work`);
+  if (!page) return;
+  // The card counts as running until the session listing says its
+  // sub-session waits, so Work must not settle on Running before then.
+  await page.locator('#work-tab-needs[aria-selected="true"]').waitFor();
+  await page
+    .locator("#work-cards [data-proposal-card=deck]")
+    .waitFor({ timeout: 5000 });
 });

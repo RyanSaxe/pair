@@ -5,6 +5,7 @@ import { usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
 import {
+  closedText,
   declinedText,
   feedbackText,
   startText,
@@ -27,18 +28,24 @@ export async function read(options) {
   if (options.thread !== undefined) return readThread(session, options.thread);
   const result = await session.request({ action: "read", id: submission });
   const declined = result.declined?.length ? result.declined : null;
+  const closed = result.closed?.length ? result.closed : null;
   return {
     next: result.next,
-    moment: [result.moment, declined && "read-declined"].filter(Boolean),
+    moment: [
+      result.moment,
+      declined && "read-declined",
+      closed && "read-closed",
+    ].filter(Boolean),
     data: [
       result.event
         ? result.event.payload.intent === "start"
           ? startText(result.event, result.proposal)
           : feedbackText(result.event)
-        : declined
+        : declined || closed
           ? ""
           : "No submission is waiting.",
       declinedText(declined),
+      closedText(closed),
       threadIndex(result.threads, result.threadsSince, session.directory),
     ]
       .filter(Boolean)
@@ -206,6 +213,14 @@ function proposalsText(cards) {
   ].join("\n");
 }
 
+// The sessions linked to this one, one per started proposal.
+function linkedText(cards = []) {
+  const linked = cards.filter((card) => card.started?.session && !card.done);
+  return linked
+    .map((card) => `${card.id} in ${card.started.session.dir}`)
+    .join(", ");
+}
+
 export async function propose(options) {
   const session = await openSession(options, { anyAgent: true });
   const fields = ["title", "delivers", "changes", "recommend", "reason"];
@@ -255,6 +270,12 @@ export async function status(options) {
         ],
         ["Holder", holderText(state)],
         ["Handoff", state.handoff],
+        [
+          "Parent",
+          state.parent &&
+            `${state.parent.sessionDir}, proposal ${state.parent.proposal}`,
+        ],
+        ["Sub-sessions", linkedText(state.proposals)],
       ]),
       proposalsText(state.proposals),
     ]

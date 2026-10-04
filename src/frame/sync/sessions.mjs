@@ -12,6 +12,8 @@ import {
 import { connected, remote } from "#frame/sync/rounds.mjs";
 
 let sessions = [];
+// The rows of Sessions, closed parents included, from groupSessions().
+let grouped = [];
 export let sessionOrder = [];
 let reviewAlerts;
 export function installSessions() {
@@ -55,20 +57,49 @@ export const byStart = (list) =>
       (a.startedAt || "").localeCompare(b.startedAt || "") ||
       a.id.localeCompare(b.id),
   );
+/* Sessions in the order they started, each sub-session right after the
+   session it came from, one step deeper. The hub lists a closed session
+   only while a session linked to it is open, and its row is the heading of
+   those sessions. */
+export function groupSessions(list) {
+  const ids = new Set(list.map((entry) => entry.id));
+  const children = new Map();
+  const roots = [];
+  for (const entry of byStart(list))
+    if (entry.parentId && ids.has(entry.parentId))
+      children.set(entry.parentId, [
+        ...(children.get(entry.parentId) || []),
+        entry,
+      ]);
+    else roots.push(entry);
+  const rows = [];
+  const visit = (entry, depth) => {
+    rows.push({ entry, depth });
+    for (const child of children.get(entry.id) || []) visit(child, depth + 1);
+  };
+  for (const entry of roots) visit(entry, 0);
+  return rows;
+}
 export async function pollSessions() {
   let fromHub = false;
+  let listed = [];
   try {
     const response = await fetch("/api/sessions");
     if (!response.ok) throw Error();
-    sessions = (await response.json()).sessions || [];
+    listed = (await response.json()).sessions || [];
     fromHub = true;
   } catch {
-    sessions = [];
+    listed = [];
   }
-  sessionOrder = byStart(sessions);
+  sessions = listed.filter((entry) => !entry.closed);
+  grouped = groupSessions(listed);
+  // A number opens the same open session from every tab.
+  sessionOrder = grouped
+    .filter(({ entry }) => !entry.closed)
+    .map(({ entry }) => entry);
   if (fromHub) syncOpened(sessions);
   renderSessions();
-  renderCenter(sessions, fromHub);
+  renderCenter(listed, fromHub);
   void reviewAlerts.update(sessions);
 }
 export function stateWords(entry) {
@@ -193,10 +224,11 @@ export function redraw(list, lines) {
 const closing = new Map();
 /* One session's row: its number, title and short status, then Copy
    handoff line and Close in two fixed columns. */
-function sessionRow(entry, index, unopened) {
+function sessionRow(entry, index, unopened, depth) {
   const current = entry.id === session.sessionId;
   const line = document.createElement("div");
   line.className = `sess-line${current ? " current" : ""}`;
+  if (depth) line.style.setProperty("--depth", depth);
   if (closing.get(entry.id) === "Closing…") line.dataset.closing = "true";
   const row = document.createElement("button");
   row.type = "button";
@@ -262,6 +294,24 @@ function sessionRow(entry, index, unopened) {
   );
   return line;
 }
+// A closed session over its open sub-sessions: its name in grey, with no
+// number and no buttons.
+function closedHeading(entry, depth) {
+  const line = document.createElement("div");
+  line.className = "sess-line sess-closed";
+  if (depth) line.style.setProperty("--depth", depth);
+  const row = document.createElement("div");
+  row.className = "sess-row";
+  const title = document.createElement("span");
+  title.className = "t";
+  title.textContent = entry.title;
+  const state = document.createElement("span");
+  state.className = "pill quiet";
+  state.textContent = "Closed";
+  row.append(document.createElement("span"), title, state);
+  line.append(row);
+  return line;
+}
 /* Every session, in sessionOrder, in the popover, and the sessions
    button's badge. */
 function renderSessions() {
@@ -273,8 +323,15 @@ function renderSessions() {
   const unopened = (entry) => countUnopened(entry, opened);
   redraw(
     $("sessions-list"),
-    sessionOrder.map((entry, index) =>
-      sessionRow(entry, index, unopened(entry)),
+    grouped.map(({ entry, depth }) =>
+      entry.closed
+        ? closedHeading(entry, depth)
+        : sessionRow(
+            entry,
+            sessionOrder.indexOf(entry),
+            unopened(entry),
+            depth,
+          ),
     ),
   );
   const menu = $("menu-button");

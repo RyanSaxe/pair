@@ -74,8 +74,14 @@ export function plans(session) {
     );
     return path.resolve(source);
   }
+  // In a linked session, pair plan may name the proposal the session runs,
+  // whose card is in the parent. The plan then comes from this session's
+  // rounds and goes beside the parent's card.
   async function attachPages(data) {
-    const card = session.plannable(data.proposal);
+    const owner = session.planOwner(data.proposal);
+    const card = owner
+      ? await owner.exclusive(async () => owner.plannable(data.proposal))
+      : session.plannable(data.proposal);
     const rounds = planRounds(data.rounds);
     const pages = planPages(data);
     const source = stagedSource(data.source);
@@ -95,8 +101,9 @@ export function plans(session) {
     });
     // The new plan is written beside the old one and then takes its place,
     // so the plan view never shows half of each.
-    const target = path.join(folder, card.id);
-    const next = path.join(folder, `.${card.id}-${crypto.randomUUID()}`);
+    const home = owner ? path.join(owner.directory, "plans") : folder;
+    const target = path.join(home, card.id);
+    const next = path.join(home, `.${card.id}-${crypto.randomUUID()}`);
     const old = `${next}-old`;
     await fs.mkdir(next, { recursive: true, mode: 0o700 });
     try {
@@ -114,16 +121,22 @@ export function plans(session) {
       throw error;
     }
     await fs.rm(old, { recursive: true, force: true });
-    const proposal = await session.attachPlan(card.id, {
+    const plan = {
       at: timestamp(),
+      // The round of the session the plan's rounds are in, which names
+      // itself when it is not the card's.
       round: session.state.current?.round ?? null,
+      ...(owner ? { session: session.state.sessionId } : {}),
       rounds,
       pages: pages.map(({ id, title }) => ({ id, title })),
-    });
+    };
+    const proposal = owner
+      ? await owner.exclusive(() => owner.attachPlan(card.id, plan))
+      : await session.attachPlan(card.id, plan);
     return {
       proposal,
       replaced: Boolean(card.plan),
-      url: `${session.origin}${session.base}/plans/${encodeURIComponent(card.id)}/`,
+      url: `${session.origin}${owner ? owner.base : session.base}/plans/${encodeURIComponent(card.id)}/`,
     };
   }
   // The plan view and Download serve the file pair plan assembled.

@@ -21,16 +21,25 @@ export const commands = {
     group: "session",
     purpose: "Start a session, or resume or take over one with --session-dir",
     about:
-      "Make this agent the holder of a new session, or of the one --session-dir names, and print the session's directory and URL.",
-    usage: "pair start (--title TEXT | --session-dir DIR)",
+      "Make this agent the holder of a new session, or of the one --session-dir names, and print the session's directory and URL. With --from and --proposal, create a session for a proposal of another session, linked to it.",
+    usage:
+      "pair start (--title TEXT | --session-dir DIR | --from DIR --proposal ID)",
     flags: {
       title: {
         value: "TEXT",
-        text: "The new session's title, which the reviewer sees until the first Agreed replaces it. Required when pair start creates a session.",
+        text: "The new session's title, which the reviewer sees until the first Agreed replaces it. Required when pair start creates a session without --from.",
       },
       "session-dir": {
         value: "DIR",
         text: "Resume that session, or take it over from another agent. It takes no --title.",
+      },
+      from: {
+        value: "DIR",
+        text: "Create a session for a proposal of the session in DIR, linked to that session both ways, with the proposal's title. It takes --proposal.",
+      },
+      proposal: {
+        value: "ID",
+        text: "The proposal the new session runs, which the reviewer started in a sub-session or with a new agent. Given with --from.",
       },
       json,
     },
@@ -197,7 +206,7 @@ export const commands = {
       },
       start: {
         value: "WHERE",
-        text: "Start the card on the reviewer's words, quoted with --source, with --thread or --page for where they wrote them. WHERE is here.",
+        text: "Start the card on the reviewer's words, quoted with --source, with --thread or --page for where they wrote them. WHERE is here, sub-session or new-agent.",
       },
       done: {
         text: "Mark work started here done, after you publish its last page.",

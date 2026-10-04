@@ -2,7 +2,7 @@ import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { base, plan } from "#frame/app/view.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
-import { drawActivity } from "#frame/sync/activity-view.mjs";
+import { drawActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
 
@@ -31,6 +31,8 @@ async function pollHome() {
     .filter(Boolean)
     .join(" · ");
   $("home-agent").hidden = false;
+  // A linked session names its parent under the header from its first view.
+  renderHistory();
   $("agent-activity").hidden = false;
   drawActivity(true);
 }

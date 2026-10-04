@@ -54,6 +54,28 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
   );
   assert.equal(openingTab(waiting), "needs");
 
+  // Work in a linked session waits for the reviewer while that session's
+  // round does, whatever this session's round does.
+  const linked = (id) => ({ ...here, where: "new-agent", session: { id } });
+  const sessions = { waiting: { needsYou: true }, busy: { needsYou: false } };
+  const elsewhere = workGroups(
+    [
+      card("waits", { started: linked("waiting") }),
+      card("works", { started: linked("busy") }),
+      card("opening", { started: { ...here, where: "sub-session" } }),
+    ],
+    { needsYou: true, linked: (id) => sessions[id] },
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(elsewhere).map(([id, list]) => [
+        id,
+        list.map((c) => c.id),
+      ]),
+    ),
+    { needs: ["waits"], running: ["works", "opening"], proposed: [], done: [] },
+  );
+
   const proposedOnly = workGroups([card("a")], {});
   assert.equal(openingTab(proposedOnly), "proposed");
   assert.equal(openingTab(workGroups([], {})), "needs");

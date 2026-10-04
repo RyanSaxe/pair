@@ -11,6 +11,7 @@ import { exists, read, requireValue } from "../shared/util.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
 import { rows } from "./output.mjs";
+import { proposalText } from "./tags.mjs";
 
 // fs.cp gives each copied directory its source's mode, and rm cannot empty
 // a read-only directory, so the copy is made writable before it goes. A
@@ -236,12 +237,25 @@ const codexRefusal = (file) =>
 export async function start(options) {
   requireNode();
   const resuming = options["session-dir"] !== undefined;
+  const from = options.from !== undefined;
+  if (from && (resuming || options.title !== undefined))
+    throw usageError(
+      "start",
+      "pair start --from takes no --title and no --session-dir. It creates a session with the proposal's title.",
+    );
+  if (from !== (options.proposal !== undefined))
+    throw usageError(
+      "start",
+      from
+        ? "pair start --from takes --proposal ID, the proposal the new session runs."
+        : "pair start takes --proposal only with --from.",
+    );
   if (resuming && options.title !== undefined)
     throw usageError(
       "start",
       "pair start takes --title only when it creates a session, not with --session-dir.",
     );
-  if (!resuming && !options.title?.trim())
+  if (!resuming && !from && !options.title?.trim())
     throw usageError(
       "start",
       "pair start requires --title TEXT when it creates a session.",
@@ -255,18 +269,35 @@ export async function start(options) {
     : path.join(config.sessions, crypto.randomUUID());
   const started = await attach(directory, config, wake, {
     start: true,
-    ...(resuming ? {} : { title: options.title.trim() }),
+    ...(from
+      ? { from: path.resolve(options.from), proposal: options.proposal }
+      : resuming
+        ? {}
+        : { title: options.title.trim() }),
   });
+  const card = started.proposal;
   return {
     next: started.next,
     // A hub of the previous release names no moment for a new session.
     moment: started.moment || (resuming ? undefined : "start"),
-    data: rows([
-      ["Session", started.sessionDir],
-      ["URL", started.url],
-      ["Phone URL", started.hostUrl],
-      ["Title", started.title],
-    ]),
+    data: [
+      rows([
+        ["Session", started.sessionDir],
+        ["URL", started.url],
+        ["Phone URL", started.hostUrl],
+        ["Title", started.title],
+        ["Parent", started.parent?.sessionDir],
+        ["Proposal", card?.id],
+        [
+          "Plan",
+          card?.plan &&
+            `${path.join(started.parent.sessionDir, "plans", card.id, "src")}${path.sep}, one directory per page`,
+        ],
+      ]),
+      card && proposalText(card),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     json: started,
   };
 }

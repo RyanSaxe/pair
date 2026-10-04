@@ -1,15 +1,16 @@
 import { draftedWords, state, unsentItems } from "#frame/app/store.mjs";
-import { $, unreachable } from "#frame/app/util.mjs";
+import { $, copyText, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
 /* The Start popup on a proposal's card: what the card delivers and may
    change, where the work runs and an optional message to the agent. Each
-   choice has its own row of buttons, and the rows share one grid cell, so
-   the choices, the message box and the button row keep their places
-   whichever choice is selected. Only Here starts work in this release. */
+   choice has its own hint and its own row of buttons, and the hints share
+   one grid cell and the rows another, so the choices, the message box and
+   the button row keep their places whichever choice is selected. Here and
+   In a sub-session start at once. With a new agent copies the command a
+   new agent runs, or asks this session's agent to open one. */
 
-const enabled = new Set(["here"]);
 let card = null;
 let where = "here";
 let after = null;
@@ -23,19 +24,21 @@ function select(choice) {
     row.classList.toggle("current", chosen);
     row.tabIndex = chosen ? 0 : -1;
   }
-  for (const section of $("start-dialog").querySelectorAll(
-    "[data-start-actions]",
-  ))
-    section.inert = section.dataset.startActions !== choice;
+  for (const part of $("start-dialog").querySelectorAll("[data-start-for]"))
+    part.inert = !part.dataset.startFor.split(" ").includes(choice);
+  $("start-message").setAttribute("aria-describedby", `start-hint-${choice}`);
 }
-// Start answers a round that waits for the reviewer, as Send feedback does,
-// so the hint says when that leaves drafted feedback unsent.
+// Start here answers a round that waits for the reviewer, as Send feedback
+// does, so the hint says when that leaves drafted feedback unsent.
 function hint() {
   const unsent = unsentItems(state).count;
   return remote?.needsYou && unsent
     ? `Sent to the agent with Start. Start ends round ${remote.current.round}, so your ${draftedWords(state)} on it stay unsent. Send your feedback first to include them.`
     : "Sent to the agent with Start.";
 }
+// The command a new agent runs to start the card's session.
+const command = () =>
+  `pair start --from ${remote.sessionDir} --proposal ${card.id}`;
 export function openStart(proposal, then) {
   card = proposal;
   after = then;
@@ -43,23 +46,27 @@ export function openStart(proposal, then) {
   $("start-delivers").textContent = card.delivers;
   $("start-changes").textContent = card.changes;
   for (const row of rows()) {
-    row.disabled = !enabled.has(row.dataset.where);
+    row.disabled = false;
     row.querySelector(".start-recommended").hidden =
       row.dataset.where !== card.recommend;
   }
-  select(enabled.has(card.recommend) ? card.recommend : "here");
+  select(card.recommend || "here");
   $("start-message").value = "";
-  $("start-hint").textContent = hint();
+  $("start-hint-here").textContent = hint();
   $("start-error").hidden = true;
-  $("start-send").disabled = false;
+  for (const id of ["start-send", "start-copy", "start-open"])
+    $(id).disabled = false;
+  $("start-copy").textContent = "Copy command";
   $("start-dialog").showModal();
 }
-async function send() {
-  $("start-send").disabled = true;
+// Sends one of the card's routes with the choice and the message. The
+// popup stays open when the hub refuses, with the hub's reason.
+async function post(action, button) {
+  button.disabled = true;
   $("start-error").hidden = true;
   try {
     const response = await fetch(
-      `${base}/api/proposals/${encodeURIComponent(card.id)}/start`,
+      `${base}/api/proposals/${encodeURIComponent(card.id)}/${action}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,18 +75,39 @@ async function send() {
     );
     const result = await response.json();
     if (!response.ok) throw Error(result.error || "The hub refused it.");
-    $("start-dialog").close();
-    after(result);
+    button.disabled = false;
+    return result;
   } catch (error) {
     $("start-error").textContent = unreachable(error);
     $("start-error").hidden = false;
-    $("start-send").disabled = false;
+    button.disabled = false;
+    return null;
   }
+}
+async function send(action, button) {
+  const result = await post(action, button);
+  if (!result) return;
+  $("start-dialog").close();
+  after(result);
+}
+// Copy command copies first, while the click still allows it, then starts
+// the card with a new agent once. The popup stays open, so Open a new agent
+// session is still there.
+async function copy() {
+  const copied = await copyText(command());
+  if (!card.started) {
+    const result = await post("start", $("start-copy"));
+    if (!result) return;
+    card = result.proposals.find((item) => item.id === card.id) || card;
+    // The card now runs with a new agent, so only this choice is left.
+    for (const row of rows()) row.disabled = row.dataset.where !== "new-agent";
+    after(result);
+  }
+  $("start-copy").textContent = copied ? "Copied" : "Copy failed";
 }
 export function installStart() {
   for (const row of rows()) row.onclick = () => select(row.dataset.where);
-  // The arrow keys move between the choices that can start work, as in a
-  // radio group.
+  // The arrow keys move between the choices left, as in a radio group.
   $("start-dialog")
     .querySelector("[role=radiogroup]")
     .addEventListener("keydown", (event) => {
@@ -94,5 +122,7 @@ export function installStart() {
       select(next.dataset.where);
       next.focus();
     });
-  $("start-send").onclick = send;
+  $("start-send").onclick = () => send("start", $("start-send"));
+  $("start-copy").onclick = copy;
+  $("start-open").onclick = () => send("open-agent", $("start-open"));
 }

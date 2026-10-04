@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bellLines, settleCleared } from "../../../src/frame/sync/center.mjs";
+import {
+  bellLines,
+  sessionWords,
+  settleCleared,
+} from "../../../src/frame/sync/center.mjs";
 
 const event = (id, kind, at) => ({ id, kind, at });
 
@@ -42,4 +46,30 @@ test("the bell lists every session's starts, waiting rounds and replies, newest 
 test("a browser with no record starts with an empty bell, and later forgets IDs the hub dropped", () => {
   assert.deepEqual([...settleCleared(["r1", "r2"], null)], ["r1", "r2"]);
   assert.deepEqual([...settleCleared(["r2"], new Set(["r1", "r2"]))], ["r2"]);
+});
+
+// A sub-session's line names its parent, which the hub lists, closed or
+// not, and a closed session adds no line.
+test("a sub-session's bell line names its parent, and a closed parent adds no line", () => {
+  const parent = {
+    id: "a",
+    title: "Q3 pricing deck",
+    closed: true,
+    events: [event("r1", "reply", "2026-09-28T10:00:00Z")],
+  };
+  const child = {
+    id: "b",
+    title: "Build the deck",
+    parentId: "a",
+    events: [event("r2", "reply", "2026-09-28T10:10:00Z")],
+  };
+  assert.deepEqual(
+    bellLines([parent, child], new Set(), "x").map(({ id }) => id),
+    ["r2"],
+  );
+  assert.equal(
+    sessionWords(child, [parent, child]),
+    "Sub-session of Q3 pricing deck · Build the deck",
+  );
+  assert.equal(sessionWords(parent, [parent, child]), "Q3 pricing deck");
 });

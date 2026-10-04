@@ -81,6 +81,7 @@ export function settleCleared(listed, cleared) {
 // are not lines.
 export function bellLines(sessions, cleared, thisId) {
   return sessions
+    .filter((entry) => !entry.closed)
     .flatMap((entry) =>
       (entry.events || [])
         .filter(
@@ -96,8 +97,25 @@ export function bellLines(sessions, cleared, thisId) {
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 
+// Every listed session, closed ones included, from the last listing.
 let latest = [];
 let lines = [];
+let listedFromHub = false;
+// Whether a listing has come from the hub, so a card's linked session can be
+// looked up.
+export const sessionsListed = () => listedFromHub;
+// The listed session with the ID, such as the one a card's work runs in.
+export const listedSession = (id) =>
+  (id && latest.find((entry) => entry.id === id)) || null;
+// A sub-session's line names the session it came from first, so a long
+// name of its own cannot push the parent's out of the line.
+export function sessionWords(entry, sessions) {
+  const parent =
+    entry.parentId && sessions.find((item) => item.id === entry.parentId);
+  return parent
+    ? `Sub-session of ${parent.title} · ${entry.title}`
+    : entry.title;
+}
 // The proposals of this tab's session whose thread has an agent reply that
 // is still a line in the bell.
 export const unreadCards = () =>
@@ -116,6 +134,7 @@ export const unreadCards = () =>
 export function renderCenter(sessions, fromHub) {
   latest = sessions;
   if (fromHub) {
+    listedFromHub = true;
     const before = loadCleared();
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
@@ -128,7 +147,7 @@ export function renderCenter(sessions, fromHub) {
   const bell = $("bell");
   // The bell shows while the hub lists a live session, this tab's own
   // included, so n works with one session.
-  bell.hidden = !sessions.length;
+  bell.hidden = !sessions.some((entry) => !entry.closed);
   bell.classList.toggle("need", count > 0);
   $("bell-count").hidden = !count;
   $("bell-count").textContent = String(count);
@@ -157,7 +176,7 @@ function drawCenter() {
       sessionLine({
         key: `open:${event.id}`,
         title: eventTitle(event),
-        words: `${event.entry.title} · ${ago(event.at)}`,
+        words: `${sessionWords(event.entry, latest)} · ${ago(event.at)}`,
         tint: "",
         open: () => openEvent(event),
         icons: [

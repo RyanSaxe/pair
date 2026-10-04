@@ -5,8 +5,9 @@ import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 
 // The agent names each proposal with a slug, such as phone-sidebar.
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-// Where the work runs once it starts. Only here starts work in this release
-// of the hub; the other two are recommendations the reviewer reads.
+// Where the work runs once it starts: in this session's rounds, or in a
+// session linked to this one, which this session's holder or a separate
+// agent creates with pair start --from.
 const places = ["here", "sub-session", "new-agent"];
 const limits = {
   title: 80,
@@ -174,10 +175,12 @@ export async function proposals(session) {
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button or from their words. It saves a Start
-  // event, which the agent reads with pair read. When the round waits for
-  // the reviewer, the Start answers it as a submission does, so every pair
-  // tab shows the agent's progress on the work.
+  // Start, from the reviewer's button or from their words. Work here or in
+  // a sub-session saves a Start event, which the agent reads with pair read.
+  // When the round waits for the reviewer, a Start here answers it as a
+  // submission does, so every pair tab shows the agent's progress on the
+  // work. Work with a new agent saves no event, because a separate agent
+  // runs pair start --from for it.
   async function start(card, started) {
     open();
     requireValue(
@@ -187,14 +190,11 @@ export async function proposals(session) {
     );
     requireValue(!card.done, `Proposal ${card.id} is done`, 409);
     requireValue(!card.started, `Proposal ${card.id} was already started`, 409);
-    requireValue(
-      started.where === "here",
-      "Work starts here in this release of pair",
-    );
     const round = session.state.current?.round ?? null;
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
     });
+    if (started.where === "new-agent") return changed;
     const event = await session.saveEvent({
       id: crypto.randomUUID(),
       intent: "start",
@@ -204,7 +204,7 @@ export async function proposals(session) {
       by: started.by,
       ...(started.message ? { message: started.message } : {}),
     });
-    if (session.needsYou())
+    if (started.where === "here" && session.needsYou())
       await transition({
         stage: "submitted",
         latestSubmissionId: event.id,
@@ -222,24 +222,59 @@ export async function proposals(session) {
     const note = card.started.message
       ? `\n\nThe reviewer's message with Start, which pair read prints too:\n${card.started.message}`
       : "";
-    const line = `pair: the reviewer started proposal ${id}, "${card.title}", here in session ${directory}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
+    const place =
+      card.started.where === "here"
+        ? `here in session ${directory}`
+        : `in a sub-session of session ${directory}`;
+    const line = `pair: the reviewer started proposal ${id}, "${card.title}", ${place}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
     const last = await session.sendWake(line);
     if (session.wake)
       await transition({ wake: { harness: session.wake.harness, last } });
   }
   const listed = () => ({ proposals: proposalItems() });
   // The Start button on a card, with where the work runs and the reviewer's
-  // optional message.
+  // optional message. With a new agent, the answer carries the command the
+  // reviewer pastes into that agent, and the hub wakes no one.
   async function startProposal(id, data) {
     const text = message(data);
+    const where = place(data?.where, "Start's where");
     await start(find(id), {
-      where: place(data?.where, "Start's where"),
+      where,
       by: "reviewer",
       ...(text ? { message: text } : {}),
     });
+    if (where === "new-agent") return { ...listed(), command: fromCommand(id) };
     if (session.wake && !session.state.paused)
       setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
     return listed();
+  }
+  const fromCommand = (id) => `pair start --from ${directory} --proposal ${id}`;
+  // Open a new agent session on a card asks this session's holder, in a
+  // thread on the card, to open a separate agent that runs pair start
+  // --from. It starts the card with a new agent when it is not started.
+  async function openAgent(id, data) {
+    open();
+    const card = find(id);
+    const text = message(data);
+    if (!card.started)
+      await start(card, {
+        where: "new-agent",
+        by: "reviewer",
+        ...(text ? { message: text } : {}),
+      });
+    else
+      requireValue(
+        card.started.where === "new-agent" && !card.started.session,
+        card.started.session
+          ? `Proposal ${id} already runs in session ${card.started.session.dir}`
+          : `Proposal ${id} was already started`,
+        409,
+      );
+    const thread = await session.agentThread(
+      find(id),
+      text || "Open a new agent session for this proposal.",
+    );
+    return { ...listed(), thread };
   }
   // Decline takes a card out of Proposed, and Restore puts it back. Both
   // leave a card already in that state as it is.
@@ -359,9 +394,54 @@ export async function proposals(session) {
       });
     return unreported;
   }
+  // pair start --from links one session to a card the reviewer started in
+  // a sub-session or with a new agent. Starting the card is the reviewer's
+  // instruction, so a card nobody started links to no session.
+  function linkable(id) {
+    open();
+    const card = find(id);
+    requireValue(
+      !card.started?.session,
+      `Proposal ${id} is already linked to session ${card.started?.session?.dir}`,
+      409,
+    );
+    requireValue(
+      card.started && card.started.where !== "here",
+      card.started
+        ? `Proposal ${id} was started here, so it runs in this session's rounds`
+        : `The reviewer has not started proposal ${id}. pair start --from runs a proposal started in a sub-session or with a new agent.`,
+      409,
+    );
+    return card;
+  }
+  const linkSession = (id, linked) => {
+    const card = linkable(id);
+    return save(card, { started: { ...card.started, session: linked } });
+  };
+  // Closing a linked session marks its card done, once.
+  async function closedSession(id, sessionId) {
+    const card = cards.get(id);
+    if (!card || card.done || card.started?.session?.id !== sessionId) return;
+    await save(card, { done: { at: timestamp(), by: "close" } });
+  }
+  // pair read prints each card whose linked session closed once, and the
+  // hub sends no wake for it.
+  async function reportClosed() {
+    const unreported = proposalItems().filter(
+      (card) => card.done?.by === "close" && !card.done.reported,
+    );
+    for (const card of unreported)
+      await save(card, { done: { ...card.done, reported: timestamp() } });
+    return unreported;
+  }
   return {
     proposalItems,
     reportDeclined,
+    reportClosed,
+    linkable,
+    linkSession,
+    closedSession,
+    openAgent,
     propose,
     plannable,
     attachPlan,

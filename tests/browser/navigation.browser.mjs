@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import path from "node:path";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep } from "../support/hub.mjs";
@@ -270,4 +271,50 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   await page.locator("#page-title", { hasText: "Overview" }).waitFor();
   await expanded(false);
   assert.equal(await sidebar.isVisible(), false);
+});
+
+// Inside a linked session, the line under the header names its parent as
+// the way back, and stays one line at 375px with long names.
+test("a linked session's line under the header leads back to its parent and stays one line", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const long = "Rework the quarterly pricing deck for the board meeting";
+  assert.equal((await a.publish({ ...planData(), title: long })).code, 200);
+  const proposed = await a.action("propose", {
+    id: "deck",
+    title: "Build every slide of the appendix with the new chart colors",
+    delivers: "The appendix.",
+    changes: "Only talks/q3/.",
+    recommend: "sub-session",
+    reason: "It runs apart.",
+    source: "From the conversation",
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const started = await a.request(`${a.base}/api/proposals/deck/start`, {
+    where: "sub-session",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const child = await h.register(
+    path.join(h.config.sessions, crypto.randomUUID()),
+    (await h.inbox()).target,
+    { start: true, from: a.directory, proposal: "deck" },
+  );
+  assert.equal(child.code, 200, child.body.error);
+  const page = await open(t, child.body.url, {
+    viewport: { width: 375, height: 700 },
+  });
+  if (!page) return;
+  const back = page.locator("#history-label a", { hasText: long });
+  await back.waitFor({ timeout: 5000 });
+  const line = await page.locator("#history-label").evaluate((label) => ({
+    height: label.getBoundingClientRect().height,
+    lineHeight: parseFloat(getComputedStyle(label).lineHeight),
+    cut: [...label.querySelectorAll(".crumb-name")].some(
+      (name) => name.scrollWidth > name.clientWidth,
+    ),
+  }));
+  assert.ok(line.height < line.lineHeight * 1.5, JSON.stringify(line));
+  assert.equal(line.cut, true, "a long name is cut short");
+  await back.click();
+  await page.waitForURL(`${h.server.origin}${a.base}/`);
 });

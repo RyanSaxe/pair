@@ -93,30 +93,36 @@ export function feedbackText(event) {
   );
 }
 
-// A Start: the card it started, which is the agent's own text, then the
-// reviewer's message with Start, when there is one.
-export function startText(event, card) {
-  const { payload } = event;
+// Where a Start runs the work, as the agent reads it.
+const places = {
+  here: "here",
+  "sub-session": "in a sub-session",
+  "new-agent": "with a new agent",
+};
+// A started card, which is the agent's own text, then the reviewer's message
+// with Start, when there is one.
+function startedText(card, started, submission) {
   return [
-    `Proposal ${payload.proposal}, "${card.title}", started ${payload.where}${payload.by === "words" ? " on the reviewer's words" : " by the reviewer"}.`,
+    `Proposal ${card.id}, "${card.title}", started ${places[started.where]}${started.by === "words" ? " on the reviewer's words" : " by the reviewer"}.`,
     `Delivers: ${card.delivers}`,
     `May change: ${card.changes}`,
-    ...(payload.message
+    ...(started.message
       ? [
           tag(
             "pair_start",
-            {
-              submission: event.id,
-              proposal: payload.proposal,
-              where: payload.where,
-            },
-            [reviewerLine, tagText(payload.message)].join("\n"),
+            { submission, proposal: card.id, where: started.where },
+            [reviewerLine, tagText(started.message)].join("\n"),
             true,
           ),
         ]
       : []),
   ].join("\n");
 }
+// A Start that pair read prints.
+export const startText = (event, card) =>
+  startedText(card, event.payload, event.id);
+// The card a session that pair start --from created runs.
+export const proposalText = (card) => startedText(card, card.started);
 
 // Each proposal the reviewer declined since the last pair read.
 export function declinedText(cards) {
@@ -125,6 +131,19 @@ export function declinedText(cards) {
   return [
     "Proposals the reviewer declined:",
     ...cards.map((card) => `  ${card.id.padEnd(width)}  ${card.title}`),
+  ].join("\n");
+}
+
+// Each proposal whose linked session closed since the last pair read.
+export function closedText(cards) {
+  if (!cards?.length) return "";
+  const width = Math.max(...cards.map((card) => card.id.length));
+  return [
+    "Proposals whose linked session closed:",
+    ...cards.map(
+      (card) =>
+        `  ${card.id.padEnd(width)}  ${card.title}, in ${card.started.session.dir}`,
+    ),
   ].join("\n");
 }
 
@@ -148,6 +167,7 @@ export function threadText(thread) {
       on: thread.anchor,
       round: thread.round,
       proposal: thread.proposal,
+      kind: thread.kind,
     },
     [...quote(thread.quote), ...messages].join("\n"),
     true,

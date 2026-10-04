@@ -452,6 +452,20 @@ dialog::backdrop {
 .sess-line.current {
   background: var(--accent-soft);
 }
+/* A sub-session's name sits one step in from the name of the session it
+   came from, and the numbers keep their column. */
+.sess-line[style*="--depth"] .sess-row .t {
+  padding-left: calc(var(--depth) * 18px);
+}
+/* A closed session over its open sub-sessions reads in grey and has no
+   buttons. */
+.sess-closed .sess-row {
+  color: var(--muted);
+  cursor: default;
+}
+.sess-line.sess-closed::before {
+  display: none;
+}
 .sess-line[data-closing] {
   opacity: 0.45;
   pointer-events: none;
