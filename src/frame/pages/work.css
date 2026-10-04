@@ -53,13 +53,21 @@
 /* reading.css sizes every p on a page with #page-content p, so the card's
    paragraphs name the card to keep its sizes inside a page too. */
 .proposal-card .proposal-title,
-.proposal-card .proposal-delivers {
+.proposal-card .proposal-delivers,
+.proposal-card .proposal-message {
   margin: 0;
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
 }
 .proposal-card .proposal-title {
   margin-bottom: 2px;
+}
+/* The reviewer's message with Start keeps its line breaks. */
+.proposal-card .proposal-message {
+  margin-top: 6px;
+  color: var(--muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 .proposal-card .card-meta {
   margin-bottom: 6px;

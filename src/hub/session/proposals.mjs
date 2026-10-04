@@ -17,7 +17,7 @@ const limits = {
   source: 200,
 };
 const written = ["title", "delivers", "changes", "reason"];
-const actions = ["revise", "start", "done", "reopen"];
+const actions = ["revise", "done", "reopen"];
 
 function words(data, name) {
   const value = typeof data[name] === "string" ? data[name].trim() : "";
@@ -86,7 +86,7 @@ export async function proposals(session) {
       409,
     );
   }
-  // Where the reviewer's words are: a thread, or a page of a round.
+  // Where the work came from: a thread, or a page of a round.
   function link(data) {
     requireValue(
       data.thread === undefined || data.page === undefined,
@@ -175,7 +175,7 @@ export async function proposals(session) {
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button or from their words. Work here or in
+  // Start, from the reviewer's button. Work here or in
   // a sub-session saves a Start event, which the agent reads with pair read.
   // When the round waits for the reviewer, a Start here answers it as a
   // submission does, so every pair tab shows the agent's progress on the
@@ -335,7 +335,7 @@ export async function proposals(session) {
     const chosen = actions.filter((name) => data[name] !== undefined);
     requireValue(
       chosen.length <= 1,
-      "pair propose takes one of --revise, --start, --done and --reopen",
+      "pair propose takes one of --revise, --done and --reopen",
     );
     const [action] = chosen;
     if (!action) return add(id, data);
@@ -349,20 +349,7 @@ export async function proposals(session) {
       `--${action} changes no field. Run --revise for --${fields[0]}.`,
     );
     if (action === "done") return done(card);
-    if (action === "reopen") return reopen(card);
-    // Work started on the reviewer's words quotes them and says where they
-    // wrote them.
-    requireValue(
-      data.source !== undefined &&
-        (data.thread !== undefined || data.page !== undefined),
-      "--start takes --source with the reviewer's words, and --thread or --page with where they wrote them",
-    );
-    return start(card, {
-      where: place(data.start, "--start"),
-      by: "words",
-      quote: words(data, "source"),
-      ...link(data),
-    });
+    return reopen(card);
   }
   // pair plan attaches a plan to a card that is neither declined nor done,
   // started or not, and a second pair plan replaces it.
