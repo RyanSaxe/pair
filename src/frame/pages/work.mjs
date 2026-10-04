@@ -167,6 +167,19 @@ function cardWhere(card) {
   }
   return box;
 }
+// Where the reviewer wrote the words that started a card, as a link, when
+// the agent gave it.
+function wordsPlace({ thread, page }) {
+  if (thread) return threadLink("in a thread", thread);
+  if (!page) return null;
+  const text =
+    page.id === "agreed"
+      ? "on Agreed so far"
+      : page.title
+        ? `on the ${page.title} page`
+        : "on a page";
+  return pageLink(text, page.round, page.id);
+}
 // A card's plan: its pages, when it last changed and, when it differs, the
 // rounds it came from, which pair plan names as one round or a range such
 // as 3-6.
@@ -281,10 +294,18 @@ export function cardElement(card, shown = context()) {
     metaLine(state, tone, cardWhere(card)),
     element("p", "proposal-delivers", card.delivers),
   );
-  // The reviewer's message with Start, quoted under what the card delivers,
-  // so the card shows everything the reviewer approved.
-  if (card.started?.message)
-    body.append(element("p", "proposal-message", `“${card.started.message}”`));
+  // The reviewer's words that started the card, or their message with
+  // Start, quoted under what the card delivers, so the card shows
+  // everything the reviewer approved.
+  const { started } = card;
+  if (started?.by === "words") {
+    const lead = element("p", "proposal-lead", "Started from your words");
+    const place = wordsPlace(started);
+    if (place) lead.append(" ", place);
+    body.append(lead);
+  }
+  const quoted = started?.quote ?? started?.message;
+  if (quoted) body.append(element("p", "proposal-message", `“${quoted}”`));
   if (card.plan) body.append(planRow(card));
   root.append(body);
   // A card that cannot change has no buttons, and so no footer.

@@ -268,6 +268,41 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
   assert.equal((await cards())[1].declined, false);
 });
 
+// The agent starts a card when the reviewer asks for the work in their own
+// words. The card quotes them, links to where they wrote them, and has no
+// button that stops the work.
+test("a card started on the reviewer's words quotes them and links to where they wrote them", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const started = await session.action("propose", {
+    id: "deck",
+    start: "here",
+    quote: "Build the deck now.\nKeep the header height.",
+    page: "1/overview",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  await tab("running").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("running").click();
+  const card = page.locator("[data-proposal-card=deck]");
+  await card.waitFor();
+  assert.equal(await card.locator(".card-meta").textContent(), "Working here");
+  const lead = card.locator(".proposal-lead");
+  assert.equal(
+    await lead.textContent(),
+    "Started from your words on the Overview page",
+  );
+  assert.equal(await lead.locator("a").getAttribute("href"), "#overview");
+  assert.equal(
+    await card.locator(".proposal-message").innerText(),
+    "“Build the deck now.\nKeep the header height.”",
+  );
+  assert.deepEqual(
+    await card.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
+});
+
 test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {
   const h = await hub(t);
   const parent = await h.session({ start: true });

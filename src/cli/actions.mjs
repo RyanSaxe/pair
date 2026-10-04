@@ -225,14 +225,15 @@ function linkedText(cards = []) {
 
 export async function propose(options) {
   const session = await openSession(options, { anyAgent: true });
-  const fields = ["title", "delivers", "recommend", "page", "thread"];
+  // The hub checks that each flag goes with the action given.
+  const flags = [
+    "id",
+    ...["title", "delivers", "recommend", "page", "thread", "revise"],
+    ...["start", "quote", "done", "reopen"],
+  ];
   const result = await session.request({
     action: "propose",
-    id: options.id,
-    ...Object.fromEntries(fields.map((name) => [name, options[name]])),
-    revise: options.revise,
-    done: options.done,
-    reopen: options.reopen,
+    ...Object.fromEntries(flags.map((name) => [name, options[name]])),
   });
   const card = result.proposal;
   return {

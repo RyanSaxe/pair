@@ -2,41 +2,13 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
-
-// The agent names each proposal with a slug, such as phone-sidebar.
-const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-// Where the work runs once it starts: in this session's rounds, or in a
-// session linked to this one, which this session's holder or a separate
-// agent creates with pair start --from.
-const places = ["here", "sub-session", "new-agent"];
-const limits = { title: 80, delivers: 400 };
-const written = ["title", "delivers"];
-const actions = ["revise", "done", "reopen"];
-
-function words(data, name) {
-  const value = typeof data[name] === "string" ? data[name].trim() : "";
-  requireValue(
-    value && value.length <= limits[name],
-    `--${name} takes text of at most ${limits[name]} characters`,
-  );
-  return value;
-}
-function place(value, name) {
-  requireValue(
-    places.includes(value),
-    `${name} takes here, sub-session or new-agent`,
-  );
-  return value;
-}
-// The reviewer's optional message with Start, at most 4,000 characters as
-// an overall comment is.
-function message(data) {
-  if (data?.message === undefined) return "";
-  requireValue(typeof data.message === "string", "A message must be text");
-  const text = data.message.trim();
-  requireValue(text.length <= 4000, "The message exceeds 4,000 characters");
-  return text;
-}
+import {
+  message,
+  place,
+  proposeAction,
+  words,
+  written,
+} from "./proposal-fields.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
@@ -161,12 +133,12 @@ export async function proposals(session) {
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button. Work here or in a sub-session saves a
-  // Start event, which the agent reads with pair read. Work with a new agent
-  // saves no event, because a separate agent runs pair start --from for it.
-  // A Start leaves the round as it was, wherever the work runs: only the
-  // reviewer's feedback answers a round, so a round that waits for them
-  // keeps waiting.
+  // Start, from the reviewer's button or from their words. Work here or in
+  // a sub-session saves a Start event, which the agent reads with pair
+  // read. Work with a new agent saves no event, because a separate agent
+  // runs pair start --from for it. A Start leaves the round as it was,
+  // wherever the work runs: only the reviewer's feedback answers a round,
+  // so a round that waits for them keeps waiting.
   async function start(card, started) {
     open();
     requireValue(
@@ -185,29 +157,37 @@ export async function proposals(session) {
       id: crypto.randomUUID(),
       intent: "start",
       proposal: card.id,
-      where: started.where,
       round,
-      by: started.by,
-      ...(started.message ? { message: started.message } : {}),
+      ...started,
     });
     return changed;
   }
-  // Runs after the reviewer's request is answered, as the wake after a
-  // submission does.
+  // Runs after the request that started the card is answered, as the wake
+  // after a submission does.
   async function wakeFor(id) {
     const card = find(id);
-    const note = card.started.message
-      ? `\n\nThe reviewer's message with Start, which pair read prints too:\n${card.started.message}`
+    const { started } = card;
+    const fromWords = started.by === "words";
+    const text = fromWords ? started.quote : started.message;
+    const note = text
+      ? `\n\n${fromWords ? "The reviewer's words" : "The reviewer's message with Start"}, which pair read prints too:\n${text}`
       : "";
     const place =
-      card.started.where === "here"
+      started.where === "here"
         ? `here in session ${directory}`
         : `in a sub-session of session ${directory}`;
-    const line = `pair: the reviewer started proposal ${id}, "${card.title}", ${place}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
+    const what = fromWords
+      ? `an agent started proposal ${id}, "${card.title}", ${place}, on the reviewer's words`
+      : `the reviewer started proposal ${id}, "${card.title}", ${place}`;
+    const line = `pair: ${what}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
     const last = await session.sendWake(line);
     if (session.wake)
       await transition({ wake: { harness: session.wake.harness, last } });
   }
+  const wakeLater = (id) => {
+    if (session.wake && !session.state.paused)
+      setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
+  };
   const listed = () => ({ proposals: proposalItems() });
   // The Start button on a card, with where the work runs and the reviewer's
   // optional message. With a new agent, the answer carries the command the
@@ -221,9 +201,28 @@ export async function proposals(session) {
       ...(text ? { message: text } : {}),
     });
     if (where === "new-agent") return { ...listed(), command: fromCommand(id) };
-    if (session.wake && !session.state.paused)
-      setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
+    wakeLater(id);
     return listed();
+  }
+  // pair propose --start: the agent starts a card because the reviewer
+  // asked for the work in a note, a thread or the chat, with their words
+  // and, when it gives them, where they wrote them. The holder that runs it
+  // reads the start with pair read, which its next step names, so the hub
+  // wakes the holder only for a start another agent sends.
+  async function startFromWords(card, data, holder) {
+    const where = place(data.start, "--start");
+    requireValue(
+      data.quote !== undefined,
+      "--start takes --quote with the reviewer's words",
+    );
+    const started = await start(card, {
+      where,
+      by: "words",
+      quote: words(data, "quote"),
+      ...source(data),
+    });
+    if (!holder && where !== "new-agent") wakeLater(card.id);
+    return started;
   }
   const fromCommand = (id) => `pair start --from ${directory} --proposal ${id}`;
   // Open a new agent session on a card asks this session's holder, in a
@@ -301,30 +300,15 @@ export async function proposals(session) {
     return save(card, { done: null });
   }
   // pair propose, from any agent: it records a card, or with one action
-  // flag changes the card that has the ID.
-  async function propose(data) {
+  // flag changes the card that has the ID. holder says whether the holder
+  // sent it.
+  async function propose(data, holder) {
     open();
-    const id = typeof data.id === "string" ? data.id : "";
-    requireValue(
-      slug.test(id) && id.length <= 60,
-      "--id takes a slug of lowercase letters, digits and hyphens, at most 60 characters, such as phone-sidebar",
-    );
-    const chosen = actions.filter((name) => data[name] !== undefined);
-    requireValue(
-      chosen.length <= 1,
-      "pair propose takes one of --revise, --done and --reopen",
-    );
-    const [action] = chosen;
+    const { id, action } = proposeAction(data);
     if (!action) return add(id, data);
     const card = find(id);
     if (action === "revise") return revise(card, data);
-    const fields = [...written, "recommend"].filter(
-      (name) => data[name] !== undefined,
-    );
-    requireValue(
-      !fields.length,
-      `--${action} changes no field. Run --revise for --${fields[0]}.`,
-    );
+    if (action === "start") return startFromWords(card, data, holder);
     if (action === "done") return done(card);
     return reopen(card);
   }
@@ -358,8 +342,8 @@ export async function proposals(session) {
       });
     return unreported;
   }
-  // pair start --from links one session to a card the reviewer started in
-  // a sub-session or with a new agent. Starting the card is the reviewer's
+  // pair start --from links one session to a card started in a
+  // sub-session or with a new agent. Starting the card is the reviewer's
   // instruction, so a card nobody started links to no session.
   function linkable(id) {
     open();

@@ -20,6 +20,10 @@ This submission starts a new round. You choose what that round covers.
   building each one in this round, whether or not the feedback mentions it.
   List a page in this round for each part of that work that will be ready
   for the reviewer to judge.
+- When a note tells you to do a piece of work, record a proposal for it
+  unless one already covers it. Before you build it, start that proposal
+  with `pair propose --session-dir PATH --id ID --start WHERE --quote "…"`,
+  quoting the note, with `--page ROUND/PAGE` for the note's round and page.
 - Run `pair progress --note "…"` now, then with `--page ID` as you start
   each page and at least every five minutes after. Give each subagent that
   command for its page.

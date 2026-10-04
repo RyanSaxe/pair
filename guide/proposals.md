@@ -23,6 +23,12 @@ Change a proposal with its `--id` and one of these flags:
 
 - `--revise` with the fields to replace. The hub refuses it once the
   proposal is started, so record further work as a new proposal.
+- `--start WHERE --quote "…"` when the reviewer tells you in their own
+  words, in a note, a thread or the chat, to do the work. Record a proposal
+  for the work first unless one already covers it. Quote their words, and
+  add `--page ROUND/PAGE` or `--thread ID` for where they wrote them. WHERE
+  is `here`, `sub-session` or `new-agent`: where they said the work runs,
+  or where you recommend when they did not say.
 - `--done` after you publish the last page of work started here, and
   `--reopen` when later feedback asks for changes to that work.
 

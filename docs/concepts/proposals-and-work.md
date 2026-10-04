@@ -4,6 +4,8 @@ A **proposal** is work the agent suggests and you decide on. The agent
 records one whenever it sees work worth doing, including the work your task
 calls for, with what it delivers and where the agent recommends it runs.
 When you start a proposal, you approve what it delivers, and nothing more.
+When you ask for work in your own words, the agent starts a proposal for
+it, quoting you.
 
 ## The Work page
 
@@ -19,9 +21,9 @@ for its whole life, in four tabs with counts:
 
 Work opens on the first tab with anything in it, and the number on its row
 counts what needs you. Each card shows what the work delivers, a started
-card quotes the message you sent with Start, if any, and the card's footer
-links to where the proposal came from or where the work runs. A card
-started here reads Working here until the agent marks it done. A page
+card quotes the message you sent with Start, if any, and the line under
+its title links to where the proposal came from or where the work runs. A
+card started here reads Working here until the agent marks it done. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
 | To                  | Do this                                                               |
@@ -49,8 +51,15 @@ pane, go in `~/.config/pair/moments/read-open-agent.md`, which `pair`
 prints after its own text for that moment, as
 [the guide](../reference/the-guide.md) describes.
 
-The agent starts a proposal itself only when you told it to in your own
-words, and it quotes them.
+## When you ask in your own words
+
+When you tell the agent to do a piece of work in a note, a thread or the
+chat, the agent records a proposal for it, or uses one that already covers
+it, and starts it with `pair propose --start`, quoting you. The work then
+runs as if you had pressed Start, where you said or, when you did not, where
+the agent recommends. The card says that your words started it, quotes
+them, and links to the page or thread where you wrote them. It has no button
+that stops the work, so tell the agent when you do not want it.
 
 ## Plans
 

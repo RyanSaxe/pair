@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+import {
+  hub,
+  literal,
+  planData,
+  sleep,
+  waitUntil,
+} from "../../support/hub.mjs";
 
 const card = {
   id: "churn-export",
@@ -197,10 +203,118 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   );
 });
 
-// Starting a card approves its work, and only the reviewer's Start does
-// that: pair propose has no flag that starts a card.
-test("only the reviewer's Start starts a card, and --done and --reopen take only work started here", async (t) => {
-  const { a, propose, add, reviewer, cards, read } = await proposing(t);
+// The agent starts a card when the reviewer asks for the work in their own
+// words, and the start then runs as a Start does: the holder reads it with
+// pair read, and the round still waits for the reviewer.
+test("pair propose --start starts a card on the reviewer's words, and pair read prints the start", async (t) => {
+  const { h, a, propose, add, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const thread = await a.request(`${a.base}/api/threads`, {
+    id: "go",
+    proposal: "churn-export",
+    text: "Go ahead and refresh the export.",
+  });
+  assert.equal(thread.code, 201, thread.body.error);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  const unquoted = await propose({ id: "churn-export", start: "here" });
+  assert.equal(unquoted.code, 400);
+  assert.equal(
+    unquoted.body.error,
+    "--start takes --quote with the reviewer's words",
+  );
+  const loose = await propose({ id: "churn-export", quote: "Go ahead." });
+  assert.equal(loose.code, 400);
+  assert.equal(loose.body.error, "--quote goes with --start.");
+  assert.equal((await cards())[0].started, null);
+
+  const started = await propose({
+    id: "churn-export",
+    start: "here",
+    quote: "Go ahead and refresh the export.",
+    thread: "go",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  assert.deepEqual(
+    { ...started.body.proposal.started, at: undefined },
+    {
+      at: undefined,
+      round: "1",
+      where: "here",
+      by: "words",
+      quote: "Go ahead and refresh the export.",
+      thread: "go",
+    },
+  );
+  // The holder ran the command, and its next step reads the start, so the
+  // hub sends it no wake.
+  assert.equal(
+    started.body.next,
+    `Run: pair read --session-dir ${a.directory}`,
+  );
+  const answer = await read();
+  assert.equal(answer.moment, "read-start-here");
+  assert.equal(answer.event.payload.quote, "Go ahead and refresh the export.");
+  assert.equal(answer.event.payload.thread, "go");
+  assert.equal((await a.status()).body.needsYou, true);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
+  assert.equal(
+    (await propose({ id: "churn-export", start: "here", quote: "Again." }))
+      .code,
+    409,
+  );
+
+  // Another agent's start wakes the holder, as the reviewer's Start does.
+  const briefed = (await h.inbox()).agent;
+  const apart = await propose(
+    {
+      id: "board-qa",
+      start: "sub-session",
+      quote: "Do the Q&A prep apart.",
+      page: "1/overview",
+    },
+    briefed,
+  );
+  assert.equal(apart.code, 200, apart.body.error);
+  assert.deepEqual(apart.body.proposal.started.page, {
+    round: "1",
+    id: "overview",
+    title: "Overview",
+  });
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
+  assert.equal(
+    a.inbox.wakes[1].message.message.content,
+    `pair: an agent started proposal board-qa, "Board Q&A prep", in a sub-session of session ${a.directory}, on the reviewer's words. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's words, which pair read prints too:\nDo the Q&A prep apart.`,
+  );
+  const sub = await read();
+  assert.equal(sub.moment, "read-start-sub-session");
+  assert.equal(
+    sub.next,
+    `Run pair start --from ${a.directory} --proposal board-qa, then follow what it prints.`,
+  );
+  // Work with a new agent saves no start for pair read, so the holder's
+  // next step is to open that agent.
+  await add({ id: "deck", title: "Build the deck" });
+  const agent = await propose({
+    id: "deck",
+    start: "new-agent",
+    quote: "Have another agent build the deck.",
+  });
+  assert.equal(agent.code, 200, agent.body.error);
+  assert.match(
+    agent.body.next,
+    new RegExp(
+      `^Open a new agent session whose first command is: pair start --from ${literal(a.directory)} --proposal deck\\. `,
+    ),
+  );
+  assert.equal((await read()).event, null);
+});
+
+// Work started here is done when the agent says so, and --reopen puts it
+// back. Neither takes work that was not started here.
+test("--done and --reopen take only work started here", async (t) => {
+  const { propose, add, reviewer, read } = await proposing(t);
   await add();
   const early = await propose({ id: "churn-export", done: true });
   assert.equal(early.code, 409);
@@ -208,21 +322,6 @@ test("only the reviewer's Start starts a card, and --done and --reopen take only
     early.body.error,
     "Proposal churn-export has not been started, so it takes no --done.",
   );
-  const thread = await a.request(`${a.base}/api/threads`, {
-    id: "go",
-    proposal: "churn-export",
-    text: "Go ahead and refresh the export.",
-  });
-  assert.equal(thread.code, 201, thread.body.error);
-  // The request carries all that the removed --start flag sent: where, the
-  // reviewer's words and the thread they wrote them in.
-  await propose({
-    id: "churn-export",
-    start: "here",
-    source: "Go ahead and refresh the export.",
-    thread: "go",
-  });
-  assert.equal((await cards())[0].started, null);
   const started = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(started.code, 200, started.body.error);
   assert.equal((await read()).moment, "read-start-here");

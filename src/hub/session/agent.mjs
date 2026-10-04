@@ -280,13 +280,21 @@ export function agent(session) {
     pause,
     publish: (data) => session.publishPage(data.html, data.source, data.pages),
     reply: (data) => session.reply(data),
-    propose: async (data) => ({
-      sessionId: session.state.sessionId,
-      proposal: await session.propose(data),
-      ...(sameAgent(session.state.holder, data.agent)
-        ? { next: await nextStep() }
-        : {}),
-    }),
+    // Work started with a new agent on the reviewer's words waits for an
+    // agent that runs pair start --from, as after Open a new agent session.
+    propose: async (data) => {
+      const holder = sameAgent(session.state.holder, data.agent);
+      const proposal = await session.propose(data, holder);
+      const next =
+        data.start === "new-agent"
+          ? `Open a new agent session whose first command is: pair start --from ${directory} --proposal ${proposal.id}. Give the user that command in chat when you cannot open one, and go back to what you were doing.`
+          : await nextStep();
+      return {
+        sessionId: session.state.sessionId,
+        proposal,
+        ...(holder ? { next } : {}),
+      };
+    },
     plan: async (data) => ({
       sessionId: session.state.sessionId,
       ...(await session.attachPages(data)),

@@ -84,7 +84,10 @@ A [thread](threads.md) wakes the holder too, once for each message, naming
 the `pair read --thread` command that prints it. It does so even while the
 session is paused, because you are waiting for the answer. Starting a
 [proposal](proposals-and-work.md) here or in a sub-session wakes the holder
-with your message, unless the session is paused. Declining a proposal and
+with your message, unless the session is paused. When an agent starts a
+proposal on your words with `pair propose --start`, the hub wakes the
+holder only if another agent ran the command, because the holder's own
+output names `pair read` as its next step. Declining a proposal and
 closing a linked session wake no one, and the holder's next `pair read`
 prints them.
 

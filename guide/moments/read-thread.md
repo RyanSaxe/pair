@@ -8,6 +8,12 @@ change and change it. When the reviewer settles a decision in the thread,
 cite the thread in the alignment's `sourceRefs` on the next Agreed, as
 `{ "kind": "thread", "threadId": "ID" }`.
 
+When the reviewer tells you in the thread to do other work, record a
+proposal for it unless one already covers it. Before you build it, start
+that proposal with
+`pair propose --session-dir PATH --id ID --start WHERE --quote "…"`,
+quoting them, with `--thread` and this thread's ID.
+
 `agreed="yes"` on one of your messages means the reviewer agreed with it.
 Treat what the message proposed as settled by the reviewer in this thread,
 and do not answer it.
