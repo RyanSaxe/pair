@@ -206,8 +206,14 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
 }
 
 // Selects the words in the page's content, as a reader's drag does, and
-// waits for the comment control to name the selection.
+// waits for the comment control to name the selection. A saved note redraws
+// the page, and Shiki then replaces each code block's text, which empties a
+// selection made in the block before then, so select waits for the page's
+// figures first. Chrome fires no selectionchange for that emptying, and the
+// control would keep naming the lost words, so the wait also checks the
+// selected range.
 export async function select(page, words) {
+  await ready(page);
   await page.evaluate((words) => {
     const content = document.getElementById("page-content");
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
@@ -234,7 +240,11 @@ export async function select(page, words) {
   await until(
     page,
     `Selecting "${words}"`,
-    () => document.getElementById("comment-here").dataset.on === "selection",
+    (words) =>
+      getSelection().rangeCount === 1 &&
+      getSelection().getRangeAt(0).toString() === words &&
+      document.getElementById("comment-here").dataset.on === "selection",
+    words,
   );
 }
 
