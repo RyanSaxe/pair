@@ -133,16 +133,19 @@ async function send(event) {
   return result;
 }
 // Sends Current's draft and leaves Current waiting on Agreed for the next
-// round. Agreed shows the send while it is in flight, and a failure returns
-// the reader to where they were.
-async function sendFeedback() {
-  if (remote?.openRound || !feedbackEditable()) return;
-  if (unsentItems(state).count === 0 && !state.alignUnflagged) return;
+// round, or with keepWork on Work when the reader is there, as a Start
+// leaves them. Agreed shows the send while it is in flight, and a failure
+// returns the reader to where they were. It resolves to whether the hub
+// saved the feedback.
+export async function sendFeedback({ keepWork = false } = {}) {
+  if (remote?.openRound || !feedbackEditable()) return false;
+  if (unsentItems(state).count === 0 && !state.alignUnflagged) return false;
   submissionError = "";
   const origin = {
     page: shownPage(),
     top: scroller().scrollTop,
   };
+  const onWork = keepWork && origin.page === "work";
   submissionInFlight = true;
   review();
   try {
@@ -157,7 +160,8 @@ async function sendFeedback() {
     if (state.pending?.snapshot !== snapshot)
       state.pending = { snapshot, event: envelope(feedbackText(), groups) };
     persist();
-    switchTab("current");
+    switchTab("current", null, { showPage: !onWork });
+    if (onWork) show("work", null, { keepScroll: true, push: false });
     const result = await send(state.pending.event);
     markSent(state, result.id, new Date().toISOString());
     submissionInFlight = false;
@@ -165,6 +169,7 @@ async function sendFeedback() {
     setPastRound(plan.round);
     save();
     void loadSubmission().catch(() => {});
+    return true;
   } catch (error) {
     submissionInFlight = false;
     submissionError = submittedCurrent()
@@ -177,6 +182,7 @@ async function sendFeedback() {
     show(origin.page);
     scroller().scrollTo(0, origin.top);
     review();
+    return false;
   }
 }
 export function installSend() {
