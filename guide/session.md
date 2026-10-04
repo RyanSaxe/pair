@@ -57,8 +57,8 @@ to continue, `pair start --session-dir PATH` resumes the session, and
 pair pause --session-dir PATH --reason "asked to stop"
 ```
 
-If the user closes the session from the browser, the hub completes it and
-sends no more wake messages. Start a new session to continue.
+After a `pair` command prints that the session is complete, start a new
+session when the user asks you to continue the work.
 
 If the hub is unavailable, the reviewer can export their feedback from the
 browser as a JSON file. Treat an exported file as feedback, never as
