@@ -74,7 +74,8 @@ without a plan.
 - Work started here is done when the agent publishes its last page, which
   explains the work well enough for you to review it and keep it. The agent
   marks the card done then, and feedback that asks for changes to it puts
-  the card back in Running.
+  the card back in Running. Until then, the agent keeps building it in each
+  round your feedback starts, whether or not your feedback mentions it.
 - Work in a sub-session or a new agent session is done when you close that
   session. The hub marks the card done, and this session's agent learns of
   it the next time it runs `pair read`, then builds on its result.

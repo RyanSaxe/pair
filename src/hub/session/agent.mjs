@@ -159,18 +159,17 @@ export function agent(session) {
       threads: session.threadsSince(before?.receivedAt),
       threadsSince: before?.payload.round ?? null,
       ...(event
-        ? {
-            event: session.withDrawingPaths(event),
-            moment: "read-feedback",
-            ...startRead(event),
-          }
+        ? { event: session.withDrawingPaths(event), ...eventRead(event) }
         : { event: null }),
     };
   }
   // A Start prints with the card it started, so the agent reads what the
-  // card approves.
-  function startRead(event) {
-    if (event.payload.intent !== "start") return {};
+  // card approves. Feedback prints with every card started here that is not
+  // done, so the agent keeps building that work in the round the feedback
+  // begins.
+  function eventRead(event) {
+    if (event.payload.intent !== "start")
+      return { moment: "read-feedback", running: startedHere() };
     return {
       moment: `read-start-${event.payload.where}`,
       proposal: session
