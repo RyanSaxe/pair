@@ -347,10 +347,4 @@ main {
     display: block;
     overflow: auto;
   }
-  /* iOS zooms into a field under 16px. */
-  input,
-  select,
-  textarea {
-    font-size: 16px;
-  }
 }
