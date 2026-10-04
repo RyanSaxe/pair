@@ -25,7 +25,9 @@ and how many pages are ready.
 The sidebar lists the round's pages, then **Review**. The first button in
 the header opens and closes it, and the frame keeps your choice in this
 browser. At 720px and below the sidebar starts closed and opens over the
-page, and choosing a page closes it.
+page, and choosing a page closes it. Its **Last round** tab shows the round
+before this one. A round you open from the Rounds button, the clock in the
+header, takes that tab as **Round N**.
 
 ## What you can do on a page
 

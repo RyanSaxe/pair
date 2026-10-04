@@ -15,6 +15,7 @@ import {
   currentShown,
   editable,
   hasFeedbackPage,
+  olderPast,
   page,
   pages,
   pastAvailable,
@@ -315,7 +316,7 @@ function newMarks() {
 export function updateNavigation(force = false) {
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
-  $("past-tab").textContent = pastRound ? `Round ${pastRound}` : "Previous";
+  $("past-tab").textContent = olderPast() ? `Round ${pastRound}` : "Last round";
   for (const tab of ["past", "current"])
     $(`${tab}-tab`).setAttribute("aria-selected", String(selectedTab === tab));
   if (
@@ -391,7 +392,7 @@ export function installPages() {
     button.id = `${tab}-tab`;
     button.dataset.tab = tab;
     button.setAttribute("role", "tab");
-    button.textContent = tab === "current" ? "Current" : "Previous";
+    button.textContent = tab === "current" ? "Current" : "Last round";
     tabs.append(button);
   }
   // A read-only page shows one round, so there is nothing to switch to.

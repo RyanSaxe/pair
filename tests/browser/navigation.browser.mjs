@@ -101,7 +101,7 @@ test("a Progress reply's link opens its card and focuses the reply", async (t) =
   assert.equal(await card.getAttribute("collapsed"), null);
 });
 
-test("a reply in the round just sent opens under Previous", async (t) => {
+test("a reply in the round just sent opens under Last round", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const onPage = await s.thread("1", "page");
@@ -113,7 +113,7 @@ test("a reply in the round just sent opens under Previous", async (t) => {
   await s.reply(onPage);
   await bell(page);
   await selected(page, "past");
-  await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
+  await page.locator("#past-tab", { hasText: "Last round" }).waitFor();
   await title(page, "Overview");
   await focused(page, onPage);
   await s.reply(onProgress);
@@ -123,7 +123,7 @@ test("a reply in the round just sent opens under Previous", async (t) => {
   await focused(page, onProgress);
 });
 
-test("a reply in an older round opens under Previous, not /r/", async (t) => {
+test("a reply in an older round opens in the left tab as its round, not /r/", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const id = await s.thread("1", "page");
@@ -188,6 +188,25 @@ test("Back to current opens the waiting Agreed, not an empty Review", async (t) 
   await waiting();
   await page.goto(s.url("#feedback"));
   await waiting();
+});
+
+test("the left tab reads Last round for the round before Current's, and Round 1 once opened from the Rounds dialog", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  await s.send("1");
+  await s.publish("2");
+  await s.send("2");
+  await s.publish("3");
+  const page = await open(t, s.url("#agreed"));
+  if (!page) return;
+  // The tab is enabled once the first status has loaded round 2.
+  await page
+    .locator("#past-tab:not([disabled])", { hasText: "Last round" })
+    .waitFor();
+  await page.locator("#round").click();
+  await page.locator("#round-list button", { hasText: "Round 1" }).click();
+  await selected(page, "past");
+  await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
 });
 
 test("the sidebar opens and closes at 1280px and at 375px, where it slides over the page", async (t) => {
