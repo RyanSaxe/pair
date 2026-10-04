@@ -5,7 +5,7 @@ import { requireValue, timestamp } from "../../shared/util.mjs";
 export function pageNotes(session) {
   // Returns the state patch, so ack can apply it with its report in one
   // transition. A note on a page not yet started marks it started, as
-  // pair progress --start would.
+  // pair progress --page would.
   function notePage(id, text) {
     const set = structuredClone(session.state.openRound);
     requireValue(

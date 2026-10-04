@@ -118,7 +118,7 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
     await killHub(one.config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  const saved = JSON.parse(await one.run("start"));
+  const saved = await one.start();
   const run = (cli, ...args) =>
     cli.run(...args, "--session-dir", saved.sessionDir);
   const plan = { name: "example", round: "1", title: "Plan" };
@@ -173,34 +173,39 @@ test("a saved plan outlives its hub until another agent takes it over", async (t
   // A saved session is not live, so the hub exits with only it left.
   assert.equal(await waitUntil(() => !alive(hubRecord.pid), 5000), true);
   // A new hub loads it from disk at the URL it had.
-  const fresh = JSON.parse(await two.run("start"));
+  const fresh = await two.start();
   const listed = await fetch(`${origin}/api/sessions`).then((response) =>
     response.json(),
   );
+  // The new session is listed from its start, before it publishes.
   assert.deepEqual(
-    listed.sessions.map(({ url, stage }) => [url, stage]),
-    [[`/s/${saved.sessionId}/`, "saved"]],
+    listed.sessions.map(({ url, stage }) => [url, stage]).sort(),
+    [
+      [`/s/${fresh.sessionId}/`, "ready"],
+      [`/s/${saved.sessionId}/`, "saved"],
+    ].sort(),
   );
   assert.equal(fresh.url, `${origin}/s/${fresh.sessionId}/`);
   // Another agent takes it over with the handoff line and is sent to build it.
-  const handoff = JSON.parse(await run(one, "status")).handoff;
+  const handoff = JSON.parse(await run(one, "status", "--json")).handoff;
   assert.equal(
     handoff,
     `Take over pair session ${saved.sessionDir}: run pair start --session-dir ${saved.sessionDir} and follow what it prints.`,
   );
-  const took = JSON.parse(await run(two, "start"));
+  const took = JSON.parse(await run(two, "start", "--json"));
   assert.equal(took.url, saved.url);
+  // The new holder reads the core first, then the Save, and builds the plan.
   assert.match(
     took.next,
     new RegExp(
-      `^Round 1 was saved for later, and you now build it\\. Run pair guide offers/plan\\.md and read all it prints, then run: pair read --session-dir ${literal(saved.sessionDir)}\\. .* its action stays save\\. Build the plan as its Start implementation section describes\\.$`,
+      `^Run pair guide first unless you have read it in this conversation\\. Round 1 was saved for later, and you now build it\\. Run pair read --session-dir ${literal(saved.sessionDir)}, .* its action stays save\\. Then build the plan as the Start implementation section of pair guide offers/plan\\.md describes\\.$`,
     ),
   );
-  const status = JSON.parse(await run(two, "status"));
+  const status = JSON.parse(await run(two, "status", "--json"));
   assert.equal(status.stage, "working");
   assert.equal(status.latestSubmissionRound, "1");
   await assert.rejects(
-    run(one, "ack"),
+    run(one, "read"),
     /Another agent took this session over at \d\d:\d\d\. Stop working on it\./,
   );
 });

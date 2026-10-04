@@ -7,14 +7,10 @@
 
 ## Pair programming, now that your agent writes the code.
 
-When an agent writes most of the code, the hard part is thinking the work
-through with it: what to build, how it should work, and whether you
-understand what it did. `pair` gives the two of you one place to do that. The
-agent lays its thinking out as pages, with mocks, diagrams, code and diffs.
-You choose between its options, comment on anything, and ask questions that
-it answers right away. Each round it brings everything together in new
-pages, until you have a plan you trust, a build you understand, or an answer
-you can explain.
+In pair programming, one person drives and the other navigates. Your agent
+drives now, so `pair` puts you in the navigator's seat. You decide what
+matters, question what doesn't add up, and send the agent back when it's off
+course. You finish with a plan you trust and a solution you understand.
 
 **It runs on your machine, inside the agent CLI you already use.**
 
@@ -38,7 +34,8 @@ Then, in your project, invoke the `pair` skill with what you want to work on:
 
 > help me understand how this service handles retries
 
-The agent opens the session in your browser.
+The agent opens the session in your browser, or gives you its link when a
+pair tab is already open.
 [Sessions and rounds](docs/concepts/sessions-and-rounds.md) explains what
 happens there, and [Install](docs/getting-started/install.md) says what each
 agent CLI needs first.

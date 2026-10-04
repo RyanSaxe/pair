@@ -9,7 +9,7 @@ export const variables = [
   "CLAUDE_CODE_MESSAGING_TOKEN",
 ];
 export const unwakeable =
-  "this Claude Code session exposes no inbox socket, so it cannot be woken.";
+  "Tell the user that this Claude Code session exposes no inbox socket, so the hub cannot wake it, and stop.";
 
 // A Claude Code session has one inbox socket, and its subagents share it.
 export const identity = (target) => target.socket;
@@ -21,12 +21,13 @@ export const detect = (env) => ({
 });
 
 // Two JSON lines over the socket: the auth line, then a user message.
+// Claude Code reads its inbox between the steps of a turn.
 export function wake({ socket, token }, line) {
   return new Promise((resolve, reject) => {
     const client = net.connect(socket);
     client.setTimeout(5000, () => client.destroy(new Error("timed out")));
     client.on("error", reject);
-    client.on("close", resolve);
+    client.on("close", () => resolve({ via: "inbox", steerable: true }));
     client.end(
       JSON.stringify({ type: "auth", token }) +
         "\n" +

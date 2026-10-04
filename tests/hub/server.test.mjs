@@ -66,7 +66,9 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
-  await h.session();
+  // A session with nothing published is listed, and its URL serves its
+  // home view.
+  const c = await h.session();
   await a.publish(planData());
   await b.publish(planData());
   // a was published first, and only b waits for the reviewer.
@@ -81,6 +83,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.deepEqual(await listed(), [
     [b.id, true, false],
     [a.id, false, false],
+    [c.id, false, false],
   ]);
   assert.equal(
     (await a.action("pause", { reason: "asked to stop" })).code,
@@ -90,8 +93,16 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.deepEqual(await listed(), [
     [b.id, true, false],
     [a.id, false, true],
+    [c.id, false, false],
   ]);
   assert.equal((await a.request(`${a.base}/`)).code, 200);
+  const home = await c.request(`${c.base}/`);
+  assert.equal(home.code, 200);
+  assert.deepEqual(sessionConfig(home.body), {
+    sessionId: c.id,
+    base: c.base,
+    home: true,
+  });
 });
 
 test("the hub lists when each session started, and a new hub keeps it", async (t) => {
@@ -323,13 +334,15 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal((await a.feedback({ ...event, text: "Changed" })).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const cli = async (...args) =>
-    JSON.parse(await agent.run("read", "--session-dir", a.directory, ...args));
+    JSON.parse(
+      await agent.run("read", "--session-dir", a.directory, "--json", ...args),
+    );
   const output = await cli();
   assert.deepEqual(output.event.payload, event);
   assert.equal(output.status.stage, "working");
   const acked = (await a.status()).body;
   assert.equal((await cli()).event, null);
-  const again = await cli("--id", event.id);
+  const again = await cli("--submission", event.id);
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
   assert.equal((await a.action("read", { id: "nope" })).code, 404);
@@ -345,7 +358,7 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   assert.equal((await a.feedback(a.event())).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const status = JSON.parse(
-    await agent.run("status", "--session-dir", a.directory),
+    await agent.run("status", "--session-dir", a.directory, "--json"),
   );
   assert.equal(status.current.round, "2");
 });
@@ -454,8 +467,11 @@ test("a session reached through a symbolic link is the same session", async (t) 
   const second = await h.register(path.join(real, "session"), box.target);
   assert.equal(second.body.sessionId, first.body.sessionId);
   assert.equal(second.body.sessionDir, first.body.sessionDir);
+  const { name, round, title } = planData();
   const agreed = await buildPage(path.join(real, "source.json"), {
-    ...planData(),
+    name,
+    round,
+    title,
     page: {
       id: "agreed",
       title: "Agreed so far",

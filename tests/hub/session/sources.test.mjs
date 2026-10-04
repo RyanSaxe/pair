@@ -51,7 +51,6 @@ test("publication resolves exact mixed sources from saved feedback before hashin
         text: "Driver also confirmed the return type in conversation.",
       },
     ],
-    sourceRecords: [{ kind: "note", text: "Forged source" }],
   };
   const data = { ...planData("2"), agreements: [entry] };
   const result = await a.publish(data);

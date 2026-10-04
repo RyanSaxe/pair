@@ -1,4 +1,9 @@
 /* Shell */
+/* The panes scroll inside the app, so the window never scrolls, and an
+   element that lands on the body cannot show the window's scroll bar. */
+html {
+  overflow: hidden;
+}
 /* The whole frame, sidebar included, is capped and centered so the nav stays
    next to the text while the composition stays centered on wide screens. */
 /* 100dvh is the height you can actually see, so a short page does not

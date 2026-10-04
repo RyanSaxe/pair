@@ -8,11 +8,12 @@ checkout, so an edit takes effect at the next command:
 
 ```sh
 npm link
-pair start
+pair start --title "Try pair"
 ```
 
 `pair start` starts the hub on `127.0.0.1:4747` if none is running, creates a
-session under `~/.local/state/pair/sessions/`, and prints its URL. An agent
+session under `~/.local/state/pair/sessions/`, and prints its directory and
+URL. An agent
 runs it from its own shell, because the hub wakes that agent's session when
 you send feedback.
 [Commands](../reference/commands.md#environment-variables) lists the
@@ -25,8 +26,8 @@ disk.
 | Path              | Contents                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `src/`            | The `pair` command, the hub, the page builder, and the browser frame with its components.                        |
-| `guide/`          | What the agent reads while it works: `pair.md` first, `round.md` for each round, and the contracts it builds to. |
-| `skills/pair/`    | The skill an agent CLI loads. Its one instruction is to run `pair guide`.                                        |
+| `guide/`          | What the agent reads while it works: the core, `pair.md`, the moment texts, in `moments/`, and the lookup files. |
+| `skills/pair/`    | The skill an agent CLI loads. It says to run `pair guide`, then to follow what each `pair` command prints.       |
 | `adapters/`       | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session.                         |
 | `tests/`          | The test suites, the browser tests in `tests/browser/`, and a fixture page with every component.                 |
 | `docs/`           | These pages.                                                                                                     |

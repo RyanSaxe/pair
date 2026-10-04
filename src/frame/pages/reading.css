@@ -267,3 +267,36 @@ body:has(dialog[open]) .quote-button {
     padding: 20px 16px calc(90px + env(safe-area-inset-bottom));
   }
 }
+/* progress.mjs draws the bar along the top of the reading column while a
+   page the reader moved to is still drawing. */
+.main-column {
+  position: relative;
+}
+.move-bar {
+  position: absolute;
+  /* Above the header, whose z-index is 6. */
+  z-index: 7;
+  /* Over the header's bottom border. */
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  pointer-events: none;
+}
+.move-bar {
+  opacity: 0;
+}
+/* A narrow window scrolls .app-body, which clips the bar above the column,
+   so there the bar sticks to the top of .app-body, under the header,
+   however far the page is scrolled. Its negative margin keeps it out of
+   the layout. */
+@media (max-width: 720px) {
+  .move-bar {
+    position: sticky;
+    top: 0;
+    flex: none;
+    margin-bottom: -2px;
+  }
+}

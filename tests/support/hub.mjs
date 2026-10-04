@@ -136,10 +136,11 @@ export async function inbox(t, home) {
 
 // An in-process hub on a port the OS assigns, in a home of its own. Every
 // session registers with its own inbox, so a test sees only its own wakes.
-export async function hub(t, extra = {}) {
+// options replace settings that no environment variable sets.
+export async function hub(t, extra = {}, options = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
   const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
-  const config = { ...settings(env), log() {} };
+  const config = { ...settings(env), log() {}, ...options };
   const server = await startHub(config);
   t.after(async () => {
     await server.close();
@@ -159,15 +160,16 @@ export async function hub(t, extra = {}) {
     return { code: response.status, body: await response.json() };
   };
   // A session registered by an inbox, or by the agent a pairCli runs as,
-  // so that the command can work on it.
-  async function session({ cli, box } = {}) {
+  // so that the command can work on it. With start, it registers as pair
+  // start does.
+  async function session({ cli, box, start } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
       ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
       : mailbox.target;
     const agent = cli ? cli.agent : mailbox.agent;
     const directory = path.join(config.sessions, crypto.randomUUID());
-    const registered = await register(directory, wake);
+    const registered = await register(directory, wake, start ? { start } : {});
     assert.equal(registered.code, 200, registered.body.error);
     const info = registered.body;
     const connection = JSON.parse(
@@ -271,28 +273,46 @@ export async function hub(t, extra = {}) {
 // among its ancestors. These commands run under a process named claude whose
 // inbox socket nobody listens on, so a test wake reaches no real session, and
 // the suite passes the same way under Claude Code, Codex, Copilot CLI or none
-// of them.
-export async function pairCli(home, extra = {}, cli = pair) {
+// of them. With harness "codex" they run under a process named codex with a
+// thread ID instead. run returns stdout, output returns stdout and stderr,
+// and start creates a session and returns what start --json prints.
+export async function pairCli(
+  home,
+  extra = {},
+  { cli = pair, harness = "claude-code" } = {},
+) {
   const relay =
     'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
+  const codex = harness === "codex";
   // Windows runs only a file with an executable extension.
-  const claude = path.join(
+  const name = codex ? "codex" : "claude";
+  const agentCli = path.join(
     home,
-    process.platform === "win32" ? "claude.exe" : "claude",
+    process.platform === "win32" ? `${name}.exe` : name,
   );
-  await fs.symlink(process.execPath, claude);
+  await fs.symlink(process.execPath, agentCli);
   const env = {
     ...process.env,
     XDG_STATE_HOME: home,
-    CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
-    CLAUDE_CODE_MESSAGING_TOKEN: "test",
+    ...(codex
+      ? { CODEX_THREAD_ID: "test-thread" }
+      : {
+          CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
+          CLAUDE_CODE_MESSAGING_TOKEN: "test",
+        }),
     ...extra,
   };
-  const run = async (...args) =>
-    (await exec(claude, ["-e", relay, cli, ...args], { env })).stdout;
+  const output = (...args) =>
+    exec(agentCli, ["-e", relay, cli, ...args], { env });
+  const run = async (...args) => (await output(...args)).stdout;
   return {
     config: settings(env),
     run,
-    agent: { harness: "claude-code", id: env.CLAUDE_CODE_MESSAGING_SOCKET },
+    output,
+    start: async () =>
+      JSON.parse(await run("start", "--title", "Test", "--json")),
+    agent: codex
+      ? { harness: "codex", id: env.CODEX_THREAD_ID }
+      : { harness: "claude-code", id: env.CLAUDE_CODE_MESSAGING_SOCKET },
   };
 }

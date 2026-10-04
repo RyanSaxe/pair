@@ -55,17 +55,22 @@ Sessions.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
   waiting for you.
 - **New** marks each page of a round that you have not opened.
+- A session is listed from the moment it starts. Until the agent publishes
+  its first Agreed, the session's page shows its title, its agent and the
+  progress card.
 
 The bell, or <kbd>n</kbd>, lists agent replies and side-work pull requests from
-every session. A line leaves when you click it or its ✕, and **Clear all**
-empties the list. The bell's orange number is the number of lines. With
-notifications on in Settings, you also get a system notification when a
-session starts waiting, when an agent cannot be woken, and for each new line
-in the bell, unless its session is open in the tab you are using.
+every session, and each other session that starts or has a round waiting for
+you. A line leaves when you click it or its ✕, a waiting round's line leaves
+once you send that round, and a reply in a thread clears that thread's lines.
+**Clear all** empties the list. The bell's orange number is the number of
+lines. With notifications on in Settings, you also get a system notification
+for each new line and when an agent cannot be woken, unless its session is
+open in the tab you are using.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
-  <img alt="The bell's list with an agent's reply, and the session button in orange because another session waits for you" src="../assets/bell-light.png">
+  <img alt="The bell's list with another session's start and waiting round and an agent's reply, and the session button in orange because that session waits for you" src="../assets/bell-light.png">
 </picture>
 
 ## Feedback

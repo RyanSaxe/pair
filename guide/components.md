@@ -6,34 +6,28 @@ and behavior are already in the frame, so they do not belong in the page's
 `css` or `js`. Component CSS outranks page CSS, so do not restyle a
 component. A component is as wide as the reading column.
 
-The table lists the components pair ships. The user's own components are in
-`$XDG_CONFIG_HOME/pair/components/`, or in `~/.config/pair/components/`
-when `XDG_CONFIG_HOME` is not set, and `pair check` lists their names.
-Before you choose a component, read the `markup.html` in each of those
-directories. A directory there with the same name as one of pair's
-components replaces it.
-
-| Directory                                                          | Use                                        | Content and interaction                                                                                                                                                      |
-| ------------------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [decision](../src/components/decision/markup.html)                 | Options that differ in policy or wording   | Radio-style rows. Each row is the `data-value` button with a title, an optional Recommended tag, and one line of consequence.                                                |
-| [visual-decision](../src/components/visual-decision/markup.html)   | Options that differ in something visible   | Option articles with a header, one line, and a figure. The reviewer can switch between tabs and side-by-side view.                                                           |
-| [question](../src/components/question/markup.html)                 | An open answer the agent needs             | The question, why it matters, a textarea and an Answer button. Feedback includes the answer under `groups.answers`.                                                          |
-| [drawing-question](../src/components/drawing-question/markup.html) | A spatial answer the reviewer should draw  | A drawing editor that opens over the page. The answer includes an editable Excalidraw scene and a PNG preview. Needs a live hub and a network connection.                    |
-| [comparison](../src/components/comparison/markup.html)             | Two or three options with matched sections | Repeat the option article. Matching sections align across options. Selection uses the `data-choice` and `data-value` buttons.                                                |
-| [before-after](../src/components/before-after/markup.html)         | A proposed change                          | A Git diff for text or code, or a before and proposed pair for diagrams and other visuals.                                                                                   |
-| [scope-checklist](../src/components/scope-checklist/markup.html)   | Independent inclusions                     | Repeat the checkbox row with stable option IDs and readable labels.                                                                                                          |
-| [behavior-cases](../src/components/behavior-cases/markup.html)     | Situations and proposed outcomes           | Repeat the case section with its When and Then labels. Keep each ID in its contextual comment label.                                                                         |
-| [code](../src/components/code/markup.html)                         | Source code                                | `data-language` with the source as escaped text.                                                                                                                             |
-| [formula](../src/components/formula/markup.html)                   | Inline or display math                     | `data-math` set to inline or display. `data-terms` names the coloured terms under the formula.                                                                               |
-| [diagram](../src/components/diagram/markup.html)                   | A diagram                                  | `data-diagram` with Mermaid source as text. Nodes whose IDs match page IDs open those pages, and a click opens the diagram full size.                                        |
-| [chart](../src/components/chart/markup.html)                       | A chart or a mathematical demonstration    | `data-chart` with an ECharts option object as JSON text. The frame applies the theme palette.                                                                                |
-| [prototype](../src/components/prototype/markup.html)               | An approved or proposed interaction        | `data-prototype` naming an entry in the page's `prototypes`. The frame supplies the sandboxed frame, the Source fold and Open full size. See [prototypes.md](prototypes.md). |
+`pair components` lists every component, pair's and the user's, with its use
+and the `pair guide` command that prints its markup. Before you choose a
+component, print the markup of each one you might use. The user's own
+components are in `$XDG_CONFIG_HOME/pair/components/`, or in
+`~/.config/pair/components/` when `XDG_CONFIG_HOME` is not set, and one with
+the same name as one of pair's components replaces it.
 
 When a page needs a shape no component has, build it in the page's own `css`
-and `js`. When the reviewer asks to keep it for later plans, follow
-[README.md](../src/components/README.md) to move it into
-`$XDG_CONFIG_HOME/pair/components/<name>/` and say the path.
+and `js`. When the reviewer asks to keep it for later plans, run
+`pair guide components/README.md`, move the shape into
+`$XDG_CONFIG_HOME/pair/components/<name>/` as it describes, and say the path.
 Never suggest this to the reviewer.
+
+## Escaping
+
+A code block, a diagram's Mermaid text and the before-after JSON in
+`textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
+`&amp;` for each `&` in them. Nothing checks this, and the browser reads an
+unescaped `<` as the start of a tag: `<T>` in code hides the rest of its
+line, and `<br/>` in a Mermaid label loses its line break, with no error.
+Leave `>` as it is, so `-->` and `->>` stay as written. In a formula inside
+a JSON string, write each backslash twice.
 
 ## Code and figures
 
@@ -41,16 +35,16 @@ Never suggest this to the reviewer.
 `python`, `shell`, `json`, or `text` for plain text. `pair build` refuses a
 name that is not a Shiki language ID and suggests the nearest one.
 
-`data-file` on a code block adds a header with the file name, the language
-and a Copy button. `data-caption` on code, a diagram or a chart adds a
-caption line, and `data-title` on a chart adds a header.
+`data-file` on a code block names its file above the code. `data-caption` on
+code, a diagram or a chart adds a caption line, and `data-title` on a chart
+adds a header.
 
-| Attribute    | On                | What it does                                                                                                                                  |
-| ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| data-lines   | `[data-language]` | `"7"`, `"3-4"` or `"3-4, 9"`. Numbers the lines, lights the named lines, and dims the rest until the pointer or the keyboard is on the block. |
-| data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                           |
-| data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. A speech bubble in the gutter of each named line, opening the note in a popover. Needs no range.                |
-| data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, in the order the colours appear.            |
+| Attribute    | On                | What it does                                                                                                                         |
+| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| data-lines   | `[data-language]` | `"7"`, `"3-4"` or `"3-4, 9"`. Numbers the lines, highlights the named lines and dims the rest.                                       |
+| data-numbers | `[data-language]` | Takes no value. Numbers the lines and dims nothing.                                                                                  |
+| data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. Attaches the note to each named line. Needs no range.                                                  |
+| data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, entry N for the Nth literal below. |
 
 Line numbers count from the block's first line, so name a quoted excerpt's
 real range in `data-caption`, such as `Lines 611-621`.
@@ -59,16 +53,16 @@ Use `data-lines` only when the selected range is the subject of the review,
 and `data-notes` only when the exact line needs an explanation. Leave both
 off routine code examples.
 
-A code block's source is HTML text, so write `&lt;` for `<` and `&amp;` for
-`&`. Nothing checks this: unescaped, `&lt;T&gt;` becomes a tag and the rest
-of the line disappears. Write a multi-line block as a `<pre>`, which keeps
-its line breaks. Use the code component for source code, never a bare block.
+Write a multi-line code block as a `<pre>`, which keeps its line breaks. Use
+the code component for source code, never a bare block.
 
 A formula term takes its colour from a literal in the source, because KaTeX
 refuses `\htmlClass`: write `\textcolor{#1d4ed8}`, `\textcolor{#a16207}`,
-`\textcolor{#047857}` or `\textcolor{#9333ea}`, and the frame swaps the
-literal for a class that follows the theme. Escape backslashes again when
-math is inside a JSON string.
+`\textcolor{#047857}` or `\textcolor{#9333ea}`. The frame follows the theme
+only for these four.
+
+A prototype's markup names an entry in the page's `prototypes`. Run
+`pair guide prototypes.md` for that entry's fields.
 
 ## Decisions
 
@@ -78,18 +72,13 @@ prototype. Put that figure in each option: a diagram, code, a chart, an
 image, a prototype, or a mock drawn in the page's own HTML and CSS with the
 frame's tokens. Use the plain decision only when a title and one line are
 enough to judge each option. Put the recommended option first, with the tag.
-Side by side needs every column to be at least 240px wide, and a figure
-scales to its column there and keeps its natural size in a tab. Give each
-option one line of consequence that is specific to it. After recording a
-choice on Agreed, remove that decision from the next round.
+Give each option one line of consequence that is specific to it.
 
 ## Questions and checklists
 
 Use a question when the answer is prose, not a selection. Keep it to one
 sentence and say which part of the plan the answer settles. Use a drawing
-question when the reviewer needs to sketch a boundary, flow or layout. After
-recording an answer on Agreed, remove the question from the next round,
-because the reviewer reads a question left there as asked again.
+question when the reviewer needs to sketch a boundary, flow or layout.
 
 Start each checklist with no boxes checked, because the agent cannot tell a
 box the reviewer checked from one that started checked. Mark the items the
@@ -118,11 +107,11 @@ pair diff BEFORE AFTER OUTPUT.json
 Give it the whole files, not excerpts, so the patch numbers each line as the
 file does. Show each file's change as its own diff.
 
-Put that JSON in the markup's `textarea[data-diff-input]` with each `&` written
-as `&amp;` and each `<` as `&lt;`, and put the file name in `data-file` on the
-section. The patch names the file by AFTER's base name, so give the proposed
-copy the file's real name, or a name that says what it is. `pair diff` requires
-Git and refuses to overwrite an existing output.
+Put that JSON in the markup's `textarea[data-diff-input]`, escaped, and put
+the file name in `data-file` on the section. The patch names the file by
+AFTER's base name, so give the proposed copy the file's real name, or a name
+that says what it is. `pair diff` requires Git and refuses to overwrite an
+existing output.
 
 For visual changes, fill the before and proposed slots and explain the
 change in the legend. Put the `added`, `removed` or `changed` class on
@@ -134,17 +123,14 @@ so do not set fixed colors in Mermaid `classDef` declarations.
 Mermaid is the default. Draw a loop as a flowchart when the loop is the
 structure, a sequence diagram when the order of waits is the point, and a
 state diagram for modes. When Mermaid cannot draw the idea cleanly, draw the
-SVG by hand with the frame's tokens, as [flow.svg](flow.svg)
-does. A diagram renders at its drawn size and scrolls sideways when it is
+SVG by hand with the frame's tokens. `pair guide flow.svg` prints an
+example. A diagram renders at its drawn size and scrolls sideways when it is
 wider than the column.
 
-The text of `data-diagram` is the Mermaid source, one statement per line.
-It is HTML text, like a code block's source: write `&lt;` for `<` and
-`&amp;` for `&`, so a line break in a label is `&lt;br/&gt;`. An unescaped
-`<br/>` becomes an HTML element, and the label renders without the break,
-with no error. `>` needs no escaping, so `-->` and `->>` stay as written. The build
-does not check Mermaid, and a diagram that does not parse shows the error
-under it.
+The text of `data-diagram` is the Mermaid source, one statement per line,
+escaped, so a line break in a label is `&lt;br/&gt;`. A click on a node
+whose ID matches a page ID opens that page. `pair build` does not check
+Mermaid.
 
 1. **Edges into a group.** An edge into a subgraph's first node passes
    through the subgraph's title. Point the edge at the group, or lay the

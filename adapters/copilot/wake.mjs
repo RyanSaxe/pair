@@ -52,7 +52,7 @@ function copilotSdk(env) {
 export const command = "copilot";
 export const variables = ["COPILOT_AGENT_SESSION_ID"];
 export const unwakeable =
-  "this Copilot session exports no COPILOT_AGENT_SESSION_ID, so it cannot be woken.";
+  "Tell the user that this Copilot session exports no COPILOT_AGENT_SESSION_ID, so the hub cannot wake it, and stop.";
 export function detect(
   env,
   {
@@ -65,32 +65,45 @@ export function detect(
   const port = ancestor ? portOf(ancestor.pid) : null;
   if (!port)
     throw new Error(
-      `this Copilot session cannot be woken. Restart it with \`copilot --ui-server --resume ${sessionId}\` and run \`pair start\` again.`,
+      `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run \`pair start\` again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
   const { sdk, tried } = findSdk(env);
   if (!sdk)
     throw new Error(
-      `the Copilot SDK was not found at ${tried.join(", ")}, so this session cannot be woken.`,
+      `Tell the user that the Copilot SDK was not found at ${tried.join(", ")}, so the hub cannot wake this session, and stop.`,
     );
   return { harness: "copilot", sessionId, port, sdk };
 }
 
 // The hub runs this file as a child process to send, so a broken SDK cannot
-// take the hub down.
+// take the hub down. With the send mode immediate, Copilot adds the line to
+// the turn in progress at once, and moves a running shell command to the
+// background. When Copilot is idle, the line starts a turn. When Copilot
+// refuses immediate, the adapter sends the line with enqueue, and Copilot
+// reads it when its turn ends.
 export async function wake(target, line, run) {
-  await run(process.execPath, [
-    here,
-    target.sdk,
-    String(target.port),
-    target.sessionId,
-    line,
-  ]);
+  const send = (mode) =>
+    run(process.execPath, [
+      here,
+      target.sdk,
+      String(target.port),
+      target.sessionId,
+      mode,
+      line,
+    ]);
+  try {
+    await send("immediate");
+    return { via: "immediate", steerable: true };
+  } catch {
+    await send("enqueue");
+    return { via: "enqueue", steerable: false };
+  }
 }
 
 // In the child: connect to the TUI's embedded server through the SDK shipped
-// inside the CLI, resume the session, and enqueue one prompt.
+// inside the CLI, resume the session, and send one prompt in the given mode.
 if (process.argv[1] === here) {
-  const [sdk, port, sessionId, line] = process.argv.slice(2);
+  const [sdk, port, sessionId, mode, line] = process.argv.slice(2);
   const { CopilotClient, approveAll } = await import(pathToFileURL(sdk).href);
   const client = new CopilotClient({
     connection: { kind: "uri", url: `http://127.0.0.1:${port}` },
@@ -101,7 +114,7 @@ if (process.argv[1] === here) {
     const session = await client.resumeSession(sessionId, {
       onPermissionRequest: approveAll,
     });
-    await session.send({ prompt: line, mode: "enqueue" });
+    await session.send({ prompt: line, mode });
   } finally {
     await client.stop();
   }

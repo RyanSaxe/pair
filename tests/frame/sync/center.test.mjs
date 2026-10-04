@@ -4,28 +4,39 @@ import { bellLines, settleCleared } from "../../../src/frame/sync/center.mjs";
 
 const event = (id, kind, at) => ({ id, kind, at });
 
-test("the bell lists every session's replies and pull requests, newest first, without page events or removed lines", () => {
+test("the bell lists every session's starts, waiting rounds, replies and pull requests, newest first, without page events, removed lines or this tab's own start and round", () => {
   const sessions = [
     {
       id: "a",
+      round: "1",
+      needsYou: true,
       events: [
+        event("s1", "session", "2026-09-28T09:00:00Z"),
         event("r1", "reply", "2026-09-28T10:00:00Z"),
         event("p1", "page", "2026-09-28T10:05:00Z"),
+        { ...event("a1", "waiting", "2026-09-28T10:06:00Z"), round: "1" },
       ],
     },
-    { id: "b", events: [event("w1", "side-work", "2026-09-28T10:10:00Z")] },
+    {
+      id: "b",
+      round: "2",
+      needsYou: true,
+      events: [
+        event("s2", "session", "2026-09-28T09:30:00Z"),
+        event("w1", "side-work", "2026-09-28T10:10:00Z"),
+        // A round sent before the one that waits now has no line.
+        { ...event("b1", "waiting", "2026-09-28T10:11:00Z"), round: "1" },
+        { ...event("b2", "waiting", "2026-09-28T10:12:00Z"), round: "2" },
+      ],
+    },
   ];
-  assert.deepEqual(
-    bellLines(sessions, new Set()).map(({ id, entry }) => [id, entry.id]),
-    [
-      ["w1", "b"],
-      ["r1", "a"],
-    ],
-  );
-  assert.deepEqual(
-    bellLines(sessions, new Set(["w1"])).map(({ id }) => id),
-    ["r1"],
-  );
+  const lines = (list, cleared = new Set()) =>
+    bellLines(list, cleared, "a").map(({ id }) => id);
+  assert.deepEqual(lines(sessions), ["b2", "w1", "r1", "s2"]);
+  assert.deepEqual(lines(sessions, new Set(["w1"])), ["b2", "r1", "s2"]);
+  // Sending the round that waits removes its line.
+  const sent = [sessions[0], { ...sessions[1], needsYou: false }];
+  assert.deepEqual(lines(sent), ["w1", "r1", "s2"]);
 });
 
 test("a browser with no record starts with an empty bell, and later forgets IDs the hub dropped", () => {

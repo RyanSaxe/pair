@@ -153,6 +153,7 @@
               ></div>
               <section id="reading">
                 <h1 tabindex="-1" id="page-title"></h1>
+                <p class="home-agent" id="home-agent" hidden></p>
                 <div class="agent-activity" id="agent-activity" hidden>
                   <div class="activity-heading">
                     <strong id="activity-title"></strong>
@@ -165,10 +166,20 @@
                     aria-hidden="true"
                   ></div>
                   <div class="activity-pages" id="activity-pages"></div>
-                  <div class="activity-footer">
-                    <button class="btn" id="activity-message" type="button">
+                  <div class="activity-footer" id="activity-footer">
+                    <button
+                      class="btn"
+                      id="activity-message"
+                      type="button"
+                      aria-describedby="activity-message-tip"
+                    >
                       Message the agent
                     </button>
+                    <span
+                      class="thread-tip"
+                      id="activity-message-tip"
+                      role="tooltip"
+                    ></span>
                   </div>
                   <div id="activity-handoff" hidden></div>
                 </div>

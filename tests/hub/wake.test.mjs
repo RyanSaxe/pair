@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
@@ -40,7 +41,7 @@ test("a submission wakes the holder with the line that names the session", async
         type: "user",
         message: {
           role: "user",
-          content: `pair: the reviewer submitted round 1 of session ${a.directory}. Run first: pair ack --session-dir ${a.directory}. It prints the next step.`,
+          content: `pair: the reviewer submitted round 1 of session ${a.directory}. Run first: pair read --session-dir ${a.directory}. It prints the feedback and the next step.`,
         },
       },
     },
@@ -125,9 +126,16 @@ test("the nearest harness ancestor decides the wake target", () => {
       token: "tok",
     },
   );
+  // Codex records its daemon's socket under CODEX_HOME.
+  const codex = { CODEX_THREAD_ID: "t", CODEX_HOME: "/c" };
+  const codexTarget = {
+    harness: "codex",
+    thread: "t",
+    socket: path.join("/c", "app-server-control", "app-server-control.sock"),
+  };
   assert.deepEqual(
-    detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 3, command: "codex" }])),
-    { harness: "codex", thread: "t" },
+    detectWake(codex, tools([{ pid: 3, command: "codex" }])),
+    codexTarget,
   );
   assert.deepEqual(
     detectWake(
@@ -137,8 +145,8 @@ test("the nearest harness ancestor decides the wake target", () => {
     { harness: "copilot", sessionId: "s", port: 4321, sdk: "/sdk/index.js" },
   );
   assert.deepEqual(
-    detectWake({ CODEX_THREAD_ID: "t" }, tools([{ pid: 2, command: "sh" }])),
-    { harness: "codex", thread: "t" },
+    detectWake(codex, tools([{ pid: 2, command: "sh" }])),
+    codexTarget,
   );
   assert.deepEqual(
     detectWake(
@@ -171,7 +179,7 @@ test("start refuses without a wake path and says what to do", () => {
   // pi without pair's extension, found as an ancestor or, with no agent CLI
   // among the ancestors, by its first variable.
   const pi = {
-    message: `this pi session runs without pair's extension, so it cannot be woken. Run \`pi install ${extension}\`, restart pi with \`pi --continue\`, and run \`pair start\` again.`,
+    message: `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`,
   };
   assert.throws(() => detectWake({}, tools([{ pid: 3, command: "pi" }])), pi);
   assert.throws(
@@ -185,7 +193,7 @@ test("start refuses without a wake path and says what to do", () => {
         { PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock" },
         tools([{ pid: 3, command: "opencode" }]),
       ),
-    /^Error: this opencode session runs without pair's plugin/,
+    /This opencode session runs without pair's plugin/,
   );
   assert.throws(
     () =>
@@ -193,7 +201,7 @@ test("start refuses without a wake path and says what to do", () => {
         { COPILOT_AGENT_SESSION_ID: "s" },
         tools([{ pid: 3, command: "copilot" }], null),
       ),
-    /copilot --ui-server --resume s` and run `pair start` again/,
+    /copilot --ui-server --resume s`, then run `pair start` again/,
   );
   assert.throws(
     () =>

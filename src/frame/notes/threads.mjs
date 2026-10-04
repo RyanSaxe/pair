@@ -5,6 +5,8 @@ import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
 import { base, editable, page, pages, plan } from "#frame/app/view.mjs";
 import { findText, placeMarks } from "#frame/notes/notes.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
+import { clearThread } from "#frame/sync/center.mjs";
+import { messageTiming } from "#frame/sync/activity.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
 /* Threads. A note the reviewer sends to the agent at once, shown as a card
@@ -104,6 +106,9 @@ function sendReply(thread, text) {
     ],
   });
   drafts.delete(thread.id);
+  // The reply answers the agent's replies in the thread, so their lines
+  // leave the bell before the hub answers.
+  clearThread(thread.id);
   placeThreads();
   void post(
     thread.id,
@@ -251,11 +256,7 @@ function statusLine(thread) {
     const info = element("button", "thread-info", "i");
     info.type = "button";
     info.setAttribute("aria-label", "About Sent to the agent");
-    const tip = element(
-      "span",
-      "thread-tip",
-      "The agent reads threads between its steps, so a reply can take a minute while it is busy.",
-    );
+    const tip = element("span", "thread-tip", messageTiming(remote?.holder));
     tip.id = `thread-tip-${thread.id}`;
     tip.setAttribute("role", "tooltip");
     info.setAttribute("aria-describedby", tip.id);

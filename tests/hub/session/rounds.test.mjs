@@ -105,8 +105,8 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
-  assert.match(result.body.next, /^Pages still to publish: overview, detail\./);
-  assert.match(result.body.next, /pair ack --note "…" --page ID/);
+  assert.match(result.body.next, /Pages still to publish: overview, detail\./);
+  assert.match(result.body.next, /pair progress --page ID --note "…"/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
@@ -168,8 +168,29 @@ test("a build round's next line has the agent mark a step before building it", a
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.match(
     result.body.next,
-    /pair progress --start ID before you start the step that page shows/,
+    /Before you start the step a page shows.* pair progress --page ID --note "…"/,
   );
+});
+
+// A final plan opens on overview, and the reviewer can accept it only when
+// Agreed names the plan offer. An Agreed that lists overview first and names
+// no offer still publishes, and the answer warns about the missing offer.
+test("an Agreed with overview first and no offer publishes with a warning", async (t) => {
+  const agreed = async (offer) => {
+    const { directory, act } = await session(t);
+    const html = await buildPage(path.join(directory, "source.json"), {
+      name: "page-test",
+      round: "1",
+      ...(offer ? { offer } : {}),
+      title: "Page test",
+      page: { id: "agreed", title: "Agreed so far", agreements: [], task },
+    });
+    const result = await act({ action: "publish", html, pages: firstPages });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    return result.body;
+  };
+  assert.ok((await agreed()).warning);
+  assert.equal((await agreed("plan")).warning, undefined);
 });
 
 test("listed pages arrive independently and only the last completes the round", async (t) => {
@@ -449,7 +470,7 @@ test("a page note sits on its slot until the page publishes", async (t) => {
   assert.equal(drafting.state, "active");
   assert.ok(drafting.startedAt);
   assert.equal(drafting.note.text, "Drafting");
-  // The page note moves the round's report time and keeps the Background note.
+  // The page note moves the round's report time and keeps the round note.
   const after = (await status()).report;
   assert.equal(after.note, "Reading");
   assert.equal(after.noteAt, before.noteAt);
@@ -472,7 +493,10 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
     "Publish Agreed before a page note",
   );
   await publish("1", "agreed", "Agreed so far", undefined, {}, firstPages);
-  assert.equal(await refusal({ page: "detail" }), "ack --page takes --note");
+  assert.equal(
+    await refusal({ page: "detail" }),
+    "A note on a page takes its text with --note",
+  );
   assert.equal(
     await refusal({ note: "Reading", page: "nope" }),
     "Unknown page nope in round 1",
@@ -484,7 +508,8 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
   );
 });
 
-test("ack says the agent has a submission without reading it, and carries a note", async (t) => {
+// pair progress --note and pair ack send the ack action.
+test("the ack action says the agent has a submission without reading it, and carries a note", async (t) => {
   const h = await testHub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
@@ -498,10 +523,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   });
   assert.equal(ack.body.status.lastReceivedId, event.id);
   assert.equal(ack.body.status.report.note, "Reading your feedback");
-  assert.match(
-    ack.body.next,
-    /^Run pair guide round\.md and read all it prints, then run: pair read --session-dir /,
-  );
+  assert.ok(ack.body.next.includes(`pair read --session-dir ${a.directory}`));
   // Receiving is not reading: the submission stays unread, so publish waits.
   assert.deepEqual(ack.body.status.acknowledged, []);
   assert.equal((await a.publish(planData("2"))).code, 409);
@@ -511,7 +533,7 @@ test("ack says the agent has a submission without reading it, and carries a note
   assert.equal(read.body.event.id, event.id);
   // Any other report clears the note, so the card never shows a stale one.
   assert.equal(read.body.status.report.note, null);
-  assert.match(read.body.next, /publish Agreed with pair publish --pages/);
+  assert.match(read.body.next, /publish Agreed and the page list/);
   const published = await a.publish(planData("2"));
   assert.equal(published.body.roundComplete, true);
   assert.match(published.body.next, /^Round 2 is published\./);

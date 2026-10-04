@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
+import { assembleHome } from "../build/assemble.mjs";
 import { settings, version } from "../shared/settings.mjs";
 import {
   atomic,
@@ -14,6 +15,7 @@ import {
   serializer,
   timestamp,
 } from "../shared/util.mjs";
+import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
 import { adapters } from "./wake.mjs";
@@ -41,7 +43,16 @@ export async function startHub(config = settings()) {
   const register = serializer();
   let origin = null,
     hostOrigin = null,
-    allowedHosts = new Set();
+    allowedHosts = new Set(),
+    localHosts = new Set();
+  // Every pair tab receives the session list, first in the page the hub
+  // serves it and then from its poll every 5 s, and no pair command requests
+  // it, so the last list the hub sent to this machine is the last poll of any
+  // pair tab on it. A tab on the PAIR_HUB_HOST address, such as a phone's,
+  // does not count, because the agent opens its tab on this machine. A new
+  // hub has no record until an open tab polls it.
+  let tabPolledAt = -Infinity;
+  const tabOpen = () => Date.now() - tabPolledAt < config.tabWindowMs;
   const log = (message) =>
     (config.log || console.log)(`${timestamp()} ${message}`);
   // A session directory can be reached by more than one path, such as
@@ -59,7 +70,7 @@ export async function startHub(config = settings()) {
     const known = await canonical(directory);
     let session = byDirectory.get(known);
     if (!session) {
-      session = await loadSession(directory, config, origin);
+      session = await loadSession(directory, config, origin, tabOpen);
       registry.set(session.id, session);
       byDirectory.set(known, session);
     }
@@ -73,7 +84,6 @@ export async function startHub(config = settings()) {
   const listed = () =>
     open()
       .map((session) => session.listing())
-      .filter(Boolean)
       .sort(
         (a, b) =>
           Number(b.needsYou) - Number(a.needsYou) ||
@@ -81,14 +91,32 @@ export async function startHub(config = settings()) {
             ? Date.parse(a.publishedAt) - Date.parse(b.publishedAt)
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
-  const roundPage = async (session, entry, flags = {}) => {
+  const sessionList = (req) => {
+    if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
+    return listed();
+  };
+  // Chrome can paint a page before it has parsed all of it, so a session
+  // the reviewer switched to showed its bare shell, with an empty sidebar and
+  // reading column, before the frame drew into it. A module in the head that
+  // blocks rendering keeps the previous page on screen until the page is
+  // parsed and its modules have run. The hub adds it as it serves the page,
+  // so rounds built before it have it too. A script with no text never runs,
+  // so it holds a comment. The gate ends the head, after anything else the
+  // hub adds there, so the head's other modules run before the first frame.
+  const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
+  const framePage = (session, html, flags, head) =>
+    embedConfig(
+      html.replace("</head>", () => head + renderGate + "</head>"),
+      {
+        sessionId: session.id,
+        base: session.base,
+        ...flags,
+      },
+    );
+  const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
     const html = await fs.readFile(entry.path, "utf8");
-    return embedConfig(html, {
-      sessionId: session.id,
-      base: session.base,
-      ...flags,
-    });
+    return framePage(session, html, flags, head);
   };
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
@@ -122,7 +150,7 @@ export async function startHub(config = settings()) {
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
-        return reply(200, { sessions: listed() });
+        return reply(200, { sessions: sessionList(req) });
       if (method === "GET" && url.pathname === "/") {
         const sessions = listed();
         const cookie = req.headers.cookie
@@ -157,12 +185,14 @@ export async function startHub(config = settings()) {
             Object.hasOwn(adapters, data.wake.harness),
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
-        const session = await register(() =>
-          adopt(path.resolve(data.sessionDir)),
-        );
+        const requested = path.resolve(data.sessionDir);
+        const { session, created } = await register(async () => ({
+          created: !(await exists(path.join(requested, "status.json"))),
+          session: await adopt(requested),
+        }));
         const { directory } = session;
-        const next = await session.exclusive(() =>
-          session.hold(data.wake, data.start === true),
+        const answer = await session.exclusive(() =>
+          session.hold(data.wake, { ...data, created }),
         );
         // The wake target stays the holder's when another agent registers.
         const wake = { harness: session.state.wake.harness };
@@ -178,7 +208,8 @@ export async function startHub(config = settings()) {
           url: origin + session.base + "/",
           wake,
           ...(hostOrigin ? { hostUrl: hostOrigin + session.base + "/" } : {}),
-          ...(next ? { next } : {}),
+          ...(session.state.title ? { title: session.state.title } : {}),
+          ...answer,
         });
       }
       if (parts[0] === "agent" && parts.length === 3) {
@@ -214,15 +245,30 @@ export async function startHub(config = settings()) {
             Location: session.base + "/",
           });
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
+          // A session with nothing published shows its home view, which
+          // loads the round once Agreed publishes.
           if (!session.state.current)
-            return reply(200, "No round published yet.", "text/plain");
+            return html(
+              framePage(
+                session,
+                await assembleHome(session.listing().title),
+                { home: true },
+                firstAnswersHead(await firstAnswers(session, sessionList(req))),
+              ),
+            );
           // A session the reviewer closed is read-only, so no tab left open
           // on it can submit and wake an agent that will never run again.
+          const closed = Boolean(session.state.dismissedAt);
           return html(
             await roundPage(
               session,
               session.roundEntry(session.state.current.round),
-              session.state.dismissedAt ? { closed: true } : {},
+              closed ? { closed: true } : {},
+              closed
+                ? ""
+                : firstAnswersHead(
+                    await firstAnswers(session, sessionList(req)),
+                  ),
             ),
             {
               "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
@@ -415,6 +461,9 @@ export async function startHub(config = settings()) {
   }
   allowedHosts = new Set(
     [...hosts, "localhost"].map((host) => `${host}:${port}`),
+  );
+  localHosts = new Set(
+    ["127.0.0.1", "localhost"].map((host) => `${host}:${port}`),
   );
   for (const name of await fs.readdir(config.sessions)) {
     const directory = path.join(config.sessions, name);

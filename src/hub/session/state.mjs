@@ -10,6 +10,7 @@ import {
   serializer,
   timestamp,
 } from "../../shared/util.mjs";
+import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent } from "./agent.mjs";
 import { pageNotes } from "./page-notes.mjs";
@@ -19,7 +20,8 @@ import { submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
-export async function loadSession(directory, config, origin) {
+// tabOpen says whether a pair tab on this machine polled the hub recently.
+export async function loadSession(directory, config, origin, tabOpen) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
@@ -124,6 +126,7 @@ export async function loadSession(directory, config, origin) {
     directory,
     config,
     origin,
+    tabOpen,
     base,
     exclusive,
     transition,
@@ -156,8 +159,18 @@ export async function loadSession(directory, config, origin) {
     return {
       ...visible,
       // The holder's identity is a socket path or a thread ID, which stays
-      // out of the browser like the rest of the wake target.
-      holder: holder ? { harness: holder.harness, at: holder.at } : null,
+      // out of the browser like the rest of the wake target. The frame
+      // cannot import the adapters, so the holder carries its CLI's name. Its
+      // steerable, from its last wake, is true when its agent CLI reads a
+      // message in the middle of a turn.
+      holder: holder
+        ? {
+            harness: holder.harness,
+            name: adapters[holder.harness].name,
+            at: holder.at,
+            steerable: holder.steerable,
+          }
+        : null,
       handoff: session.handoff,
       ...(state.openRound
         ? {
@@ -186,7 +199,8 @@ export async function loadSession(directory, config, origin) {
     };
   }
   // The browser draws every thread's card from its status. An agent reads a
-  // thread with pair reply, so its commands print the status without them.
+  // thread with pair read --thread, so its commands print the status without
+  // them.
   function browserView() {
     return {
       ...view(),
@@ -239,14 +253,15 @@ export async function loadSession(directory, config, origin) {
       },
     };
   }
+  // A session is listed from the pair start that creates it. Before its
+  // first round it takes the title in its status, or "New session".
   function listing() {
-    if (!state.current) return null;
-    const { round } = state.current;
+    const round = state.current?.round ?? null;
     const set = state.roundPages?.[round];
     return {
       id: state.sessionId,
-      title: state.current.title,
-      offer: state.current.offer,
+      title: state.current ? state.current.title : state.title || "New session",
+      offer: state.current?.offer,
       round,
       stage: state.stage,
       needsYou: needsYou(),
@@ -276,7 +291,7 @@ export async function loadSession(directory, config, origin) {
       wakeFailed: state.wake?.last?.ok === false,
       paused: Boolean(state.paused),
       startedAt: state.startedAt,
-      publishedAt: state.current.publishedAt,
+      publishedAt: state.current?.publishedAt,
       updatedAt: state.updatedAt,
       url: base + "/",
       handoff: session.handoff,

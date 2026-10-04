@@ -25,6 +25,8 @@
 }
 :root[data-mode="preview"] {
   --text-h1: 17px;
+  /* A preview is one page at its natural height, so the window scrolls. */
+  overflow: auto;
 }
 :root[data-mode="readonly"] #submit,
 :root[data-mode="readonly"] #quote,
@@ -36,4 +38,20 @@
 :root[data-mode="readonly"] [data-multiselect] input,
 :root[data-mode="readonly"] [data-question] textarea {
   pointer-events: none;
+}
+/* A home view has the header and one column: the session's title, its
+   agent and the progress card. */
+:root[data-mode="home"] .app-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+:root[data-mode="home"] .sidebar,
+:root[data-mode="home"] #round,
+:root[data-mode="home"] #submit,
+:root[data-mode="home"] .page-footer {
+  display: none;
+}
+.home-agent {
+  margin: -6px 0 20px;
+  color: var(--muted);
+  font-size: var(--text-small);
 }

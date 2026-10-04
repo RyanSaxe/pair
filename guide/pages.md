@@ -6,19 +6,34 @@ Keep one work directory for the session under the system temp directory, or
 under the scratch directory your agent CLI gives you. For round N, put each
 page's source in `WORK/src/N/<page-id>/`: its JSON source and the files it
 names. Write the round's `pages.json` to `WORK/src/N/`, beside the page
-directories, and build pages to `WORK/out/N/`. In the commands, `SRC` is
-`WORK/src/N` and `OUT` is `WORK/out/N`:
+directories, and build pages to `WORK/out/N/`. `pages.json` lists the pages
+that follow Agreed, in order, as
+`{ "pages": [{ "id": "policy", "title": "Retry policy" }] }`.
+
+Build Agreed and publish it with the page list, then build and publish each
+page as soon as it is done. In the commands, `SRC` is `WORK/src/N` and `OUT`
+is `WORK/out/N`:
 
 ```sh
+pair build SRC/agreed/agreed.json OUT/agreed.html
+pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir PATH
 pair build SRC/policy/policy.json OUT/policy.html
+pair publish --file OUT/policy.html --source SRC/policy --session-dir PATH
 ```
 
-`pair build` refuses to overwrite, so build a change to a new path or delete
-the old output first. `pair publish --source SRC/policy` copies that
-directory to the session's `src/<round>/<page-id>/`, so keep built pages,
-previews and scratch files out of it. `pair publish --pages SRC/pages.json`
-reads the page list. Embed every local resource a page uses. Do not install
-packages to author a plan.
+`pair build` lists every structural problem in a source and writes nothing
+when it finds one. It refuses to overwrite, so build a change to a new path
+or delete the old output first. `pair publish --source SRC/policy` copies
+that directory to the session's `src/<round>/<page-id>/`, so keep built
+pages, previews and scratch files out of it. To revise an earlier round's
+page, copy its source from there and change its `round` to this one. Embed
+every local resource a page uses. Do not install packages to author a plan.
+
+A published page cannot change in its round. `pair publish` checks each `#`
+link on the pages after Agreed, and refuses a page whose link names neither
+a page of the round nor an element on its own page. Open a page in a browser
+only when it has CSS or a script you wrote and you cannot judge it from the
+source.
 
 In a round, you change the pages, their CSS, JavaScript and prototypes, and
 Agreed. The frame, pair's components, the `pair` command and the hub are
@@ -28,9 +43,8 @@ chat and plan it as work on pair.
 ## Source fields
 
 Agreed and every other page share the outer fields `name`, `round` and
-`title`. Agreed also requires a `task`, whose fields are in
-[agreements.md](agreements.md). Name the round's `offer` in Agreed's source
-only. `pair build` refuses any other page whose source names one.
+`title`. Agreed also requires a `task`. Run `pair guide agreements.md` for
+its fields.
 
 ```json
 {
@@ -65,16 +79,16 @@ only. `pair build` refuses any other page whose source names one.
 }
 ```
 
-| Field      | Contract                                                                                                                                                                                                                                                  |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                                                                                                                                                                           |
-| round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.                                                                                                                                                                    |
-| offer      | Agreed's source only, and optional. Every other page's source names none. `plan` on a complete plan, whose first page after Agreed is `overview`. `finish` on a round in which you build the work. Without an offer, the reviewer can only send feedback. |
-| title      | The plan's title.                                                                                                                                                                                                                                         |
-| page.file  | An HTML fragment, relative to the JSON file. `page.html` may contain the fragment inline instead.                                                                                                                                                         |
-| page.css   | Optional page CSS. `pair build` scopes it to this page.                                                                                                                                                                                                   |
-| page.js    | Optional module that exports `setup(root, planUI)`.                                                                                                                                                                                                       |
-| prototypes | Optional prototypes for this page. See [prototypes.md](prototypes.md).                                                                                                                                                                                    |
+| Field      | Contract                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                   |
+| round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.            |
+| offer      | Agreed's source only, and optional: `plan` or `finish`. `pair guide` prints when to name each.    |
+| title      | The plan's title.                                                                                 |
+| page.file  | An HTML fragment, relative to the JSON file. `page.html` may contain the fragment inline instead. |
+| page.css   | Optional page CSS. `pair build` scopes it to this page.                                           |
+| page.js    | Optional module that exports `setup(root, planUI)`.                                               |
+| prototypes | Optional prototypes for this page. Run `pair guide prototypes.md` for their fields.               |
 
 Page IDs are unique within a round. `agreed` is only for the Agreed page,
 and `feedback` is reserved.
@@ -104,8 +118,7 @@ popovers), `--line` and `--line-strong`, `--ink`, `--muted`, `--accent`,
 `--accent-soft`, `--attention` and `--attention-bg` (needs you), `--ok` and
 `--ok-bg` (sent, accepted), `--danger` and `--danger-bg` (removed), `--code`,
 and `--mark` (noted text). Do not color preferred options green or
-alternatives red to express preference, and add a label wherever color is
-the only sign of a meaning.
+alternatives red to express preference.
 
 Type is the system stack: 13px chrome, 13.5px to 15px reading, 22px page
 titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
@@ -125,7 +138,7 @@ titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
 | data-comment                         | A button that opens a note on the nearest ancestor with an ID, using the attribute as its label.                                                                   |
 | planUI.comment(anchor, quote)        | Open a note from a custom control.                                                                                                                                 |
 | planUI.enhance(element)              | Render components in content a script added.                                                                                                                       |
-| planUI.define(name, {match, setup})  | Register a component. See [the components README](../src/components/README.md).                                                                                    |
+| planUI.define(name, {match, setup})  | Register a component. `pair guide components/README.md` prints how.                                                                                                |
 | planUI.chart(element, options)       | Return an ECharts instance asynchronously.                                                                                                                         |
 | planUI.diff(element, input, options) | Render one Git file patch. Input has before, after and patch strings. options.diffStyle is split or unified.                                                       |
 | planUI.prefs.get(key), set(key, v)   | Remember a viewing preference in the browser.                                                                                                                      |
@@ -162,7 +175,6 @@ every note identifies its block.
 
 ## Figures
 
-Code, formulas, diagrams, charts and prototypes are components, listed with
-their markup and attributes in the [component index](components.md). Their
-renderers load from pinned CDN addresses, so they render only with a network
-connection.
+Code, formulas, diagrams, charts and prototypes are components.
+`pair components` lists them, and `pair guide components.md` prints their
+attributes.

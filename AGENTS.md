@@ -33,8 +33,8 @@ Each module has its own folder, and a module's tests are in the folder of the
 same name under `tests/`:
 
 - The command, `src/cli.mjs` and `src/cli/`, reads the arguments and runs the
-  command. `build`, `diff`, `check` and `guide` run on their own, and each
-  session command sends a request to the hub.
+  command. `build`, `diff`, `check`, `setup-codex`, `guide` and `components`
+  run on their own, and each session command sends a request to the hub.
 - The hub, `src/hub/`, serves the HTTP routes on `127.0.0.1:4747`. A session
   command starts it when none is running, and it exits after 15 minutes with
   no live session. It wakes the holder, the agent that last ran `pair start`
@@ -45,10 +45,11 @@ same name under `tests/`:
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.
 - The frame, `src/frame/`, runs in the browser. `app/` starts it and keeps the
-  state every other part reads, `pages/` shows the pages and Agreed, `notes/`
-  has the code for the reviewer's notes, threads, choices, answers and
-  drawings, `review/` is the Review page and sending, and `sync/` reads
-  rounds, sessions, activity and notifications from the hub.
+  state every other part reads, `pages/` shows the pages, Agreed and the home
+  view of a session with nothing published, `notes/` has the code for the
+  reviewer's notes, threads, choices, answers and drawings, `review/` is the
+  Review page and sending, and `sync/` reads rounds, sessions, activity and
+  notifications from the hub.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.
@@ -60,7 +61,8 @@ same name under `tests/`:
   that takes no message from another process, the folder also contains the
   code that runs inside the CLI and listens for the hub's wake on a socket.
 - The guide, `guide/`, is what the agent reads while it runs a session.
-  `pair guide` prints `guide/pair.md`.
+  `pair guide` prints `guide/pair.md`, and each command prints the text of
+  the moment it names, from `guide/moments/`, after its next step.
 - The installed skill, `skills/pair/`, contains the instruction to run
   `pair guide` and follow what it prints. `npx skills add` installs it.
 - The repository skills, `.agents/skills/`, are for working on pair. npm and
@@ -95,6 +97,22 @@ new stylesheet goes into that list.
 
 Ask before adding a dependency, because a checkout runs with no install only
 while pair has none.
+
+Text under `guide/` and in `skills/pair/` tells the agent only what it acts
+on. Never write how the frame shows something to the reviewer, such as which
+tab lists an item, what a card or a fold shows, or which color marks a
+state, unless the agent must act on it, and then write the action, not the
+display. Never give a reason for what the reviewer does, because pair cannot
+know it. Leave out any other sentence the agent cannot act on, such as a
+requirement that every session already meets. The agent reads each sentence
+as an instruction, and it cannot follow one about the display or the
+reviewer's motives.
+
+Text the agent reads, under `guide/`, in `skills/pair/` and in
+`src/components/README.md`, names another file by the command that prints
+it, written literally, such as ``run `pair guide writing.md` ``, and never by
+a Markdown link, because `pair guide` prints a file as it is and the agent
+cannot resolve a relative path.
 
 ## Checks
 
@@ -181,19 +199,19 @@ the same new state directory, a free port from 4880 to 4899 and
 ```sh
 state=$(mktemp -d)
 XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start
+XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
 ```
 
 `check` must report the hub port as `free`. `start` prints the session's
-`sessionDir` and `url`. Build and publish a round in that session as
-`guide/round.md` describes, open the URL, and use the change. With
+directory and URL. Build and publish a round in that session as
+`guide/pages.md` describes, open the URL, and use the change. With
 `PAIR_WAKE=off` the hub sends no wake message when you send feedback, start a
 thread or press Start in parallel. It saves the submission, thread
 message or start as usual and writes the line it would have sent to
 `$state/pair/hub/hub.log`. Leave `PAIR_WAKE` unset only to check a change to
 the wake itself, and then the hub wakes the agent that ran `start`. Finish with
-`node src/cli.mjs pause --session-dir DIR` under the same variables, and the
-hub exits 60 seconds later.
+`node src/cli.mjs pause --session-dir DIR --reason "Done"` under the same
+variables, and the hub exits 60 seconds later.
 
 Never use port 4747 or the default state directory, `~/.local/state/pair`.
 They belong to the person using pair on this machine: a session started there
