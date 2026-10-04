@@ -18,7 +18,7 @@ test("a session's start, a round that finishes and a reply each add one event, a
   const a = await h.session({ start: true });
   // pair start again on the session it started adds nothing.
   await h.register(a.directory, a.inbox.target, { start: true });
-  assert.equal((await a.publish(planData("1", "plan"))).code, 200);
+  assert.equal((await a.publish(planData("1"))).code, 200);
   const thread = crypto.randomUUID();
   const started = await a.request(`${a.base}/api/threads`, {
     id: thread,
@@ -39,7 +39,7 @@ test("a session's start, a round that finishes and a reply each add one event, a
   const events = await listedEvents(h.server.origin, a.id);
   assert.deepEqual(described(events), [
     { kind: "session", agent: "Claude Code" },
-    { kind: "waiting", round: "1", offer: "plan" },
+    { kind: "waiting", round: "1" },
     {
       kind: "reply",
       name: "Overview",

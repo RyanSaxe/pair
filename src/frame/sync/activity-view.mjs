@@ -126,9 +126,8 @@ export function drawActivity(running) {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  // The hub records when the agent's round started: the send, the
-  // acceptance, the pair start that builds a saved plan, or for round 1 the
-  // pair start that created the session.
+  // The hub records when the agent's round started: the send, or for round 1
+  // the pair start that created the session.
   const startedAt = remote?.roundStartedAt;
   $("activity-elapsed").textContent =
     running && startedAt ? since(startedAt) : "";
@@ -202,7 +201,8 @@ export function drawActivity(running) {
     handoff.append(handoffLine(remote.handoff));
 }
 // Every page of a past round, its Feedback page included, names the
-// round. Current never has the strip. A tab click leaves the page on screen,
+// round, and a closed session names the session. Current never has the
+// strip. A tab click leaves the page on screen,
 // so the strip shows whenever that page belongs to the earlier round,
 // whichever tab is chosen.
 export function renderHistory() {
@@ -213,9 +213,11 @@ export function renderHistory() {
   strip.hidden = !(old || past);
   if (strip.hidden) return;
   const label = $("history-label");
-  if (old && session.closed) label.textContent = "This plan is closed";
-  else {
-    const name = document.createElement("b");
+  const name = document.createElement("b");
+  if (old && session.closed) {
+    name.textContent = plan.title;
+    label.replaceChildren(name, " is closed");
+  } else {
     name.textContent = `Round ${old ? plan.round : pastRound}`;
     label.replaceChildren(name);
     if (past || shownSubmission()) {
@@ -267,8 +269,7 @@ function renderPlanStrip() {
   download.hidden = !online;
   download.href = `${base}/plans/${encodeURIComponent(planFor)}/download`;
 }
-// The Pages heading in the sidebar and in the phone drawer shows the page
-// round's status. The text stays while the status fades out.
+// The Pages heading in the sidebar shows the page round's status. The text stays while the status fades out.
 export function renderRound() {
   const model = editable ? roundModel({ remote }) : null;
   for (const status of document.querySelectorAll("[data-round-status]")) {

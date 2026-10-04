@@ -34,14 +34,19 @@ const agreed = (page = {}, outer = {}) => ({
   page: { id: "agreed", title: "Agreed so far", task, agreements: [], ...page },
 });
 
-// Rounds of a real session reached the reviewer without the plan offer,
-// because Agreed's source named it inside page and the build ignored it.
+// Rounds of a real session reached the reviewer without a field, because
+// Agreed's source named it inside page and the build ignored it.
 test("pair build refuses a field it does not know and says where a misplaced one goes", async (t) => {
   const directory = await workDirectory(t);
   // A field pair knows at another level names the level it belongs at.
   assert.match(
-    await build(directory, agreed({ offer: "plan" })),
-    /\bpage\.offer\b.*\btop level\b/,
+    await build(directory, agreed({ round: "1" })),
+    /\bpage\.round\b.*\btop level\b/,
+  );
+  // A round ends only with feedback, so Agreed's source names no offer.
+  assert.equal(
+    await build(directory, agreed({}, { offer: "plan" })),
+    "pair: agreed.json: offer is not a field of the source. A page source takes name, round, title and page.\n",
   );
   const agreement = {
     id: "one",

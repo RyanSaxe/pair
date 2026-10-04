@@ -19,7 +19,6 @@ import {
   submittedCurrent,
   submittedRound,
   viewKey,
-  views,
 } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
@@ -33,7 +32,6 @@ import {
   show,
 } from "#frame/pages/pages.mjs";
 import {
-  acceptable,
   submissionError,
   submissionInFlight,
   submitButton,
@@ -444,21 +442,12 @@ export function review() {
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;
-  const offer = forCurrent
-    ? views.get(remote.current.round).plan.offer
-    : plan.offer;
   const button = submitButton({
     inFlight: submissionInFlight,
     opensFeedback: sent && !forCurrent,
     onSentFeedback:
       $("reading").hidden &&
       (mode === "readonly" || plan.round === submittedRound),
-    finishes: Boolean(offer),
-    finishable: forCurrent
-      ? connected &&
-        !remote.openRound &&
-        ["ready", "updated"].includes(remote.stage)
-      : acceptable(),
     waitingForPages: Boolean(remote?.openRound),
     sendable:
       connected &&

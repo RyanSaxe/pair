@@ -9,7 +9,7 @@ export const announced = (entry, event) =>
 export function eventTitle(event) {
   if (event.kind === "session") return `${event.agent} started a session`;
   if (event.kind === "waiting")
-    return `Round ${event.round} is ${event.offer ? "ready to accept" : "waiting for you"}`;
+    return `Round ${event.round} is waiting for you`;
   if (event.kind === "proposal") return `Agent proposed ${event.name}`;
   return `Agent replied on ${event.name}`;
 }
