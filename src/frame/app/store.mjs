@@ -19,7 +19,8 @@ export function emptyDraft(round) {
     notes: [],
     choices: {},
     answers: {},
-    // The text typed into each question, before and after its Answer.
+    // The text typed into each question, before and after its Answer, and
+    // each drawing question's drawing since it was last saved.
     drafts: {},
     noteDrafts: {},
     submitted: null,
@@ -91,7 +92,8 @@ export function submissionGroups(draft) {
 }
 
 // A sent item does not carry over to the next round's draft. A sent answer's
-// typed text goes with it, so the next round's question starts empty.
+// typed text or drawing goes with it, so the next round's question starts
+// empty.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
   for (const note of draft.notes) note.sentIn ||= id;

@@ -54,6 +54,16 @@
       };
       const send = (type, extra = {}) =>
         parent.postMessage({ type, nonce, ...extra }, "*");
+      // Excalidraw calls onChange on a scroll or a selection too. It raises an
+      // element's version on each edit to the element, so the background and
+      // the sum of the versions change only when the drawing does. Each change
+      // to the drawing goes to the frame, which keeps it as a draft.
+      const version = ({ elements, appState }) =>
+        `${appState.viewBackgroundColor} ${elements.reduce(
+          (sum, element) => sum + element.version,
+          0,
+        )}`;
+      let sent;
       addEventListener("message", async (event) => {
         if (event.source !== parent || event.data?.nonce !== nonce) return;
         if (event.data.type === "init") {
@@ -64,6 +74,7 @@
               appState: scene.appState,
               files: scene.files,
             };
+          sent = version(draft);
           createRoot(document.getElementById("canvas")).render(
             React.createElement(Excalidraw, {
               initialData: draft,
@@ -75,6 +86,16 @@
                   },
                   files,
                 };
+                if (version(draft) === sent) return;
+                sent = version(draft);
+                send("change", {
+                  scene: {
+                    ...draft,
+                    elements: draft.elements.filter(
+                      (element) => !element.isDeleted,
+                    ),
+                  },
+                });
               },
               UIOptions: {
                 canvasActions: {
