@@ -2,12 +2,16 @@ import { jsonScript, requireValue } from "./util.mjs";
 
 export const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export const roundPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$/;
-// A page ID is valid, not yet used in its round, and not one of the two the
-// frame reserves.
+// Page IDs the frame keeps for its own pages. The frame opens the page that
+// the address's # part names, and for each of these it opens its own page:
+// - agreed is Agreed so far, which only Agreed's source may name.
+// - feedback is Review, called Feedback on a past round.
+// - work is Work, which lists the session's proposals.
+const reservedPageIds = ["agreed", "feedback", "work"];
+const reserved = `${reservedPageIds.slice(0, -1).join(", ")} and ${reservedPageIds.at(-1)} are reserved`;
+// A page ID is valid, not yet used in its round, and not reserved.
 const freePageId = (id, ids) =>
-  idPattern.test(id || "") &&
-  !["agreed", "feedback"].includes(id) &&
-  !ids.has(id);
+  idPattern.test(id || "") && !reservedPageIds.includes(id) && !ids.has(id);
 const titled = (item) => typeof item.title === "string" && item.title.trim();
 export function readPlanData(html) {
   const match = html.match(jsonScript("plan-data"));
@@ -138,7 +142,7 @@ function validPlan(data) {
   for (const page of data.pages) {
     requireValue(
       freePageId(page.id, ids),
-      "Page IDs must be unique; agreed and feedback are reserved",
+      `Page IDs must be unique; ${reserved}`,
     );
     requireValue(
       titled(page) && typeof page.html === "string",
@@ -192,10 +196,7 @@ export function pageData(html) {
 export function validPage(record) {
   const page = record?.page;
   requireValue(page && typeof page === "object", "Page record requires page");
-  requireValue(
-    idPattern.test(page.id || "") && page.id !== "feedback",
-    "Invalid page ID",
-  );
+  requireValue(idPattern.test(page.id || ""), "Invalid page ID");
   requireValue(titled(page), "Page title is required");
   requireValue(
     page.id === "agreed"
@@ -246,7 +247,7 @@ export function pageList(items) {
   for (const item of items) {
     requireValue(
       item && freePageId(item.id, ids) && titled(item),
-      "Page IDs and titles must be valid and unique",
+      `Page IDs and titles must be valid and unique; ${reserved}`,
     );
     ids.add(item.id);
   }

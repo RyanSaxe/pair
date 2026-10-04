@@ -90,7 +90,7 @@ its fields.
 | prototypes | Optional prototypes for this page. Run `pair guide prototypes.md` for their fields.               |
 
 Page IDs are unique within a round. `agreed` is only for the Agreed page,
-and `feedback` is reserved.
+and `feedback` and `work` are reserved.
 
 Page HTML is trusted markup written by the agent. Reviewer comments are
 plain text. Never put them into executable HTML or JavaScript, and never put
