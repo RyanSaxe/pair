@@ -11,7 +11,8 @@ can own it without reading every line.
 
 Agreed is the first page of every round. It states the task as you
 understand it, then each decision settled so far, with its source. Change
-the project only when the reviewer asks for a specific change.
+the project only when the reviewer asks for a specific change, or to build a
+proposal the reviewer started, as `pair guide proposals.md` describes.
 
 Before then, try changes only in a git worktree inside the session directory
 that `pair start` prints, or in a plain directory there when the project is
@@ -124,5 +125,6 @@ you publish anything from it.
 
 Before the session's first page, run `pair guide writing.md`,
 `pair guide pages.md` and `pair guide components.md`. Run
+`pair guide proposals.md` before you record your first proposal,
 `pair guide session.md` before you take a session over, resume it or pause
 it, and `pair guide setup.md` when a `pair` command fails.

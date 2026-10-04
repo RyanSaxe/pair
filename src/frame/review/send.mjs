@@ -12,12 +12,12 @@ import {
   base,
   currentAvailable,
   feedbackEditable,
-  page,
   pages,
   plan,
   session,
   setPastRound,
   setSubmittedRound,
+  shownPage,
   submittedCurrent,
   submittedRound,
 } from "#frame/app/view.mjs";
@@ -140,7 +140,7 @@ async function sendFeedback() {
   if (unsentItems(state).count === 0 && !state.alignUnflagged) return;
   submissionError = "";
   const origin = {
-    page: $("reading").hidden ? "feedback" : page.id,
+    page: shownPage(),
     top: scroller().scrollTop,
   };
   submissionInFlight = true;

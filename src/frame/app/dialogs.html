@@ -189,3 +189,75 @@
   <div class="dialog-head"></div>
   <div class="lightbox-view"></div>
 </dialog>
+<!-- Start on a proposal's card. Each choice has its own row of buttons in
+     .start-actions, and the rows share one grid cell, so the dialog keeps
+     its size whichever choice is selected. The frame fills in the card. -->
+<dialog class="dialog start" id="start-dialog" aria-labelledby="start-title">
+  <div class="dialog-head">
+    <h2 id="start-title" tabindex="-1" autofocus></h2>
+  </div>
+  <dl class="start-card">
+    <dt>Delivers</dt>
+    <dd id="start-delivers"></dd>
+    <dt>May change</dt>
+    <dd id="start-changes"></dd>
+  </dl>
+  <div
+    class="dialog-list start-choices"
+    role="radiogroup"
+    aria-label="Where the work runs"
+  >
+    <button class="dialog-row" type="button" role="radio" data-where="here">
+      <span class="tick" aria-hidden="true"></span
+      ><span
+        ><span class="start-choice"
+          >Here <span class="start-recommended" hidden>Recommended</span></span
+        ><small>This session builds it in its next rounds.</small></span
+      >
+    </button>
+    <button
+      class="dialog-row"
+      type="button"
+      role="radio"
+      data-where="sub-session"
+    >
+      <span class="tick" aria-hidden="true"></span
+      ><span
+        ><span class="start-choice"
+          >In a sub-session
+          <span class="start-recommended" hidden>Recommended</span></span
+        ><small
+          >A session linked to this one builds it, so this one stays
+          free.</small
+        ></span
+      >
+    </button>
+    <button
+      class="dialog-row"
+      type="button"
+      role="radio"
+      data-where="new-agent"
+    >
+      <span class="tick" aria-hidden="true"></span
+      ><span
+        ><span class="start-choice"
+          >With a new agent
+          <span class="start-recommended" hidden>Recommended</span></span
+        ><small>A separate agent builds it in its own session.</small></span
+      >
+    </button>
+  </div>
+  <label for="start-message">Message to the agent, optional</label>
+  <textarea
+    id="start-message"
+    maxlength="4000"
+    aria-describedby="start-hint"
+  ></textarea>
+  <p class="small" id="start-hint"></p>
+  <p class="small" id="start-error" role="alert" hidden></p>
+  <div class="start-actions">
+    <div class="actions actions-right" data-start-actions="here">
+      <button class="btn primary" type="button" id="start-send">Start</button>
+    </div>
+  </div>
+</dialog>

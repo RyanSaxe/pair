@@ -14,6 +14,7 @@ import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent } from "./agent.mjs";
 import { pageNotes } from "./page-notes.mjs";
+import { proposals } from "./proposals.mjs";
 import { rounds } from "./rounds.mjs";
 import { submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
@@ -129,6 +130,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     saveEvent,
     pending,
     sameRound,
+    needsYou,
     view,
     browserView,
     wakeFile,
@@ -147,6 +149,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     pageNotes(session),
     threads(session),
     await activity(session),
+    await proposals(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -189,6 +192,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
       wake: state.wake || null,
       paused: state.paused || null,
       needsYou: needsYou(),
+      proposals: session.proposalItems(),
     };
   }
   // The browser draws every thread's card from its status. An agent reads a
@@ -303,6 +307,9 @@ export async function loadSession(directory, config, origin, tabOpen) {
     readScene: session.readScene,
     removeUpload: session.removeUpload,
     close: session.close,
+    startProposal: session.startProposal,
+    declineProposal: session.declineProposal,
+    restoreProposal: session.restoreProposal,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     act: session.act,

@@ -292,6 +292,25 @@
                   <button id="feedback-pages" type="button">Pages →</button>
                 </nav>
               </section>
+              <!-- Every proposal of the session, in four tabs. The frame
+                   draws the tabs and the cards. -->
+              <section id="work" hidden>
+                <h1 tabindex="-1" id="work-title">Work</h1>
+                <p
+                  class="notice"
+                  id="work-error"
+                  data-tone="danger"
+                  role="alert"
+                  hidden
+                ></p>
+                <div
+                  class="work-tabs"
+                  id="work-tabs"
+                  role="tablist"
+                  aria-label="Work"
+                ></div>
+                <div class="work-cards" id="work-cards" role="tabpanel"></div>
+              </section>
             </div>
           </main>
         </div>

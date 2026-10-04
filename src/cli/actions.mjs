@@ -4,7 +4,13 @@ import { adapters } from "../hub/wake.mjs";
 import { usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
-import { feedbackText, threadIndex, threadText } from "./tags.mjs";
+import {
+  declinedText,
+  feedbackText,
+  startText,
+  threadIndex,
+  threadText,
+} from "./tags.mjs";
 
 // The session commands other than start and publish: the action each sends
 // the hub, and the output it prints. A hub of the previous release answers
@@ -20,11 +26,19 @@ export async function read(options) {
   const session = await openSession(options);
   if (options.thread !== undefined) return readThread(session, options.thread);
   const result = await session.request({ action: "read", id: submission });
+  const declined = result.declined?.length ? result.declined : null;
   return {
     next: result.next,
-    moment: result.moment,
+    moment: [result.moment, declined && "read-declined"].filter(Boolean),
     data: [
-      result.event ? feedbackText(result.event) : "No submission is waiting.",
+      result.event
+        ? result.event.payload.intent === "start"
+          ? startText(result.event, result.proposal)
+          : feedbackText(result.event)
+        : declined
+          ? ""
+          : "No submission is waiting.",
+      declinedText(declined),
       threadIndex(result.threads, result.threadsSince, session.directory),
     ]
       .filter(Boolean)
@@ -159,6 +173,61 @@ function holderText({ holder, wake }) {
   return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent}`;
 }
 
+// A proposal's state, from its facts, as pair propose and pair status print
+// it.
+const places = {
+  here: "here",
+  "sub-session": "in a sub-session",
+  "new-agent": "with a new agent",
+};
+function proposalState(card) {
+  if (card.declined) return "declined";
+  if (card.done) return `done ${places[card.started.where]}`;
+  if (card.started) return `started ${places[card.started.where]}`;
+  return "proposed";
+}
+
+function proposalsText(cards) {
+  if (!cards?.length) return "";
+  const states = cards.map(proposalState);
+  const width = (values) => Math.max(...values.map((value) => value.length));
+  const idWidth = width(cards.map((card) => card.id));
+  const stateWidth = width(states);
+  return [
+    "Proposals",
+    ...cards.map((card, index) =>
+      [
+        `  ${card.id.padEnd(idWidth)}`,
+        states[index].padEnd(stateWidth),
+        card.title,
+      ].join("  "),
+    ),
+  ].join("\n");
+}
+
+export async function propose(options) {
+  const session = await openSession(options, { anyAgent: true });
+  const fields = ["title", "delivers", "changes", "recommend", "reason"];
+  const result = await session.request({
+    action: "propose",
+    id: options.id,
+    ...Object.fromEntries(fields.map((name) => [name, options[name]])),
+    source: options.source,
+    thread: options.thread,
+    page: options.page,
+    revise: options.revise,
+    start: options.start,
+    done: options.done,
+    reopen: options.reopen,
+  });
+  const card = result.proposal;
+  return {
+    next: result.next,
+    data: `Proposal ${card.id}: ${proposalState(card)}.`,
+    json: result,
+  };
+}
+
 export async function status(options) {
   const session = await openSession(options, { anyAgent: true });
   const result = await session.request({ action: "status" });
@@ -166,25 +235,30 @@ export async function status(options) {
   const round = state.current;
   return {
     next: result.next,
-    data: rows([
-      ["Session", session.directory],
-      ["URL", session.url()],
-      ["Title", state.title],
-      [
-        "Round",
-        round
-          ? `${round.round}, ${stageText(state)}`
-          : `none published yet, ${stageText(state)}`,
-      ],
-      [
-        "Pages",
-        state.openRound?.pages
-          .map((page) => `${page.id} (${page.state})`)
-          .join(", "),
-      ],
-      ["Holder", holderText(state)],
-      ["Handoff", state.handoff],
-    ]),
+    data: [
+      rows([
+        ["Session", session.directory],
+        ["URL", session.url()],
+        ["Title", state.title],
+        [
+          "Round",
+          round
+            ? `${round.round}, ${stageText(state)}`
+            : `none published yet, ${stageText(state)}`,
+        ],
+        [
+          "Pages",
+          state.openRound?.pages
+            .map((page) => `${page.id} (${page.state})`)
+            .join(", "),
+        ],
+        ["Holder", holderText(state)],
+        ["Handoff", state.handoff],
+      ]),
+      proposalsText(state.proposals),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     json: state,
     sessionDir: session.directory,
     subject: "status",

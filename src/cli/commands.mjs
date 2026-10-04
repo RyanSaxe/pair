@@ -4,7 +4,7 @@ import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
 import { publish, runHub, start } from "./session.mjs";
-import { pause, progress, read, reply, status } from "./actions.mjs";
+import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
   value: "DIR",
@@ -148,6 +148,68 @@ export const commands = {
       "Print where the session stands. Any agent may run it, and only the holder's output starts with the next step.",
     flags: { "session-dir": sessionDir, json },
     run: status,
+  },
+  propose: {
+    group: "session",
+    purpose: "Record a proposal, or revise, start, finish or reopen one",
+    about:
+      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --start, --done and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
+    usage:
+      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --done | --reopen] [FIELDS]",
+    flags: {
+      "session-dir": sessionDir,
+      id: {
+        value: "ID",
+        required: true,
+        text: "The card's ID, a slug of lowercase letters, digits and hyphens, such as phone-sidebar. A new card takes an ID the session does not have.",
+      },
+      title: { value: "TEXT", text: "The work, in at most 80 characters." },
+      delivers: {
+        value: "TEXT",
+        text: "What the work delivers, in at most 400 characters.",
+      },
+      changes: {
+        value: "TEXT",
+        text: "What the work may change, in at most 400 characters. Starting the card approves only these changes.",
+      },
+      recommend: {
+        value: "WHERE",
+        text: "Where you recommend the work runs: here, sub-session or new-agent.",
+      },
+      reason: {
+        value: "TEXT",
+        text: "Why you recommend that, in at most 400 characters.",
+      },
+      source: {
+        value: "TEXT",
+        text: 'Where the work came from, such as "From the churn chart page", or with --start the reviewer\'s words.',
+      },
+      thread: {
+        value: "ID",
+        text: "The thread the work or the reviewer's words came from.",
+      },
+      page: {
+        value: "ROUND/PAGE",
+        text: "The page the work or the reviewer's words came from, such as 14/commenting.",
+      },
+      revise: {
+        text: "Replace the fields given and keep the rest. Refused once the card is started.",
+      },
+      start: {
+        value: "WHERE",
+        text: "Start the card on the reviewer's words, quoted with --source, with --thread or --page for where they wrote them. WHERE is here.",
+      },
+      done: {
+        text: "Mark work started here done, after you publish its last page.",
+      },
+      reopen: {
+        text: "Put work started here back to running, when feedback asks for changes to it.",
+      },
+      json,
+    },
+    footer:
+      "A new card takes --title, --delivers, --changes, --recommend, --reason and --source.",
+    run: propose,
   },
   guide: {
     group: "pages",

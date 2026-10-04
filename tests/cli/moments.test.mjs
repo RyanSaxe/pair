@@ -54,12 +54,28 @@ async function holder(t) {
     );
   }
   const read = (...args) => cli.run("read", ...dir, ...args);
+  // A proposal the agent records, and the reviewer's Start or Decline on it.
+  const propose = (id) =>
+    cli.run(
+      "propose",
+      ...dir,
+      ...["--id", id, "--title", id, "--delivers", "A fix."],
+      ...["--changes", "One file.", "--recommend", "here"],
+      ...["--reason", "It is small.", "--source", "From the conversation"],
+    );
+  async function reviewer(id, action, body = {}) {
+    const sent = await session.request(
+      `${session.base}/api/proposals/${id}/${action}`,
+      body,
+    );
+    assert.equal(sent.code, 200, sent.body.error);
+  }
   // The reviewer sends a submission from the browser.
   async function submit(...event) {
     const sent = await session.feedback(session.event(...event));
     assert.equal(sent.code, 200, sent.body.error);
   }
-  return { cli, session, printed, publish, read, submit };
+  return { cli, session, printed, publish, read, submit, propose, reviewer };
 }
 
 // A command's output contains its moment's text and no other moment's.
@@ -71,7 +87,8 @@ function printsMoment(output, name, printed) {
 }
 
 test("each command prints the moment it is run at", async (t) => {
-  const { cli, session, printed, publish, read, submit } = await holder(t);
+  const { cli, session, printed, publish, read, submit, propose, reviewer } =
+    await holder(t);
   printsMoment(await cli.run("start", "--title", "Moments"), "start", printed);
 
   const rows = [
@@ -96,6 +113,22 @@ test("each command prints the moment it is run at", async (t) => {
           text: "Why?",
         });
         return read("--thread", "question");
+      },
+    ],
+    [
+      "read-declined",
+      async () => {
+        await propose("later");
+        await reviewer("later", "decline");
+        return read();
+      },
+    ],
+    [
+      "read-start-here",
+      async () => {
+        await propose("now");
+        await reviewer("now", "start", { where: "here" });
+        return read();
       },
     ],
   ];

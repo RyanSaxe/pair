@@ -21,15 +21,18 @@ async function momentText(name) {
   }
 }
 
-// Writes a session command's output in one shape: the next step, the
-// moment's text, then the data, each after a blank line, and the next step
-// again when the output is long. With --json it writes output.json instead.
+// Writes a session command's output in one shape: the next step, the text
+// of each moment it names, then the data, each after a blank line, and the
+// next step again when the output is long. With --json it writes output.json instead.
 // A session command's output names its session directory, where data too
 // long to print goes, in a file whose path prints in its place.
 export async function print(output, { json, command }) {
   if (json) return console.log(JSON.stringify(output.json, null, 2));
   const next = output.next && `Next: ${output.next}`;
-  const moment = output.moment ? await momentText(output.moment) : "";
+  const moments = [output.moment].flat().filter(Boolean);
+  const moment = (await Promise.all(moments.map(momentText)))
+    .filter(Boolean)
+    .join("\n\n");
   let data = output.data || "";
   const whole = [next, moment, data].filter(Boolean).join("\n\n");
   const between = [moment, data].filter(Boolean).join("\n\n");

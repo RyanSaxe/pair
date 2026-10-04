@@ -24,14 +24,16 @@ moment is a Markdown file in `guide/moments/`, and
 `pair guide moments/NAME.md` prints one. After `publish-agreed.md`,
 `pair publish` also prints the list that `pair components` prints.
 
-| File in `guide/moments/` | Printed by           | When                                   |
-| ------------------------ | -------------------- | -------------------------------------- |
-| `start.md`               | `pair start`         | It creates a session.                  |
-| `read-feedback.md`       | `pair read`          | It prints feedback.                    |
-| `read-thread.md`         | `pair read --thread` | It prints a thread.                    |
-| `publish-agreed.md`      | `pair publish`       | It publishes Agreed.                   |
-| `publish-page.md`        | `pair publish`       | It publishes a page, and pages remain. |
-| `publish-last-page.md`   | `pair publish`       | It publishes the round's last page.    |
+| File in `guide/moments/` | Printed by           | When                                                                                 |
+| ------------------------ | -------------------- | ------------------------------------------------------------------------------------ |
+| `start.md`               | `pair start`         | It creates a session.                                                                |
+| `read-feedback.md`       | `pair read`          | It prints feedback.                                                                  |
+| `read-thread.md`         | `pair read --thread` | It prints a thread.                                                                  |
+| `read-start-here.md`     | `pair read`          | It prints a Start of a proposal here.                                                |
+| `read-declined.md`       | `pair read`          | It prints the proposals the reviewer declined since the last `pair read`, each once. |
+| `publish-agreed.md`      | `pair publish`       | It publishes Agreed.                                                                 |
+| `publish-page.md`        | `pair publish`       | It publishes a page, and pages remain.                                               |
+| `publish-last-page.md`   | `pair publish`       | It publishes the round's last page.                                                  |
 
 ## Lookup files
 
@@ -44,6 +46,7 @@ moment is a Markdown file in `guide/moments/`, and
 | [`guide/prototypes.md`](../../guide/prototypes.md) | `pair guide prototypes.md` | When a page has a prototype                             |
 | [`guide/session.md`](../../guide/session.md)       | `pair guide session.md`    | Before it takes a session over, resumes it or pauses it |
 | [`guide/setup.md`](../../guide/setup.md)           | `pair guide setup.md`      | When a command fails                                    |
+| [`guide/proposals.md`](../../guide/proposals.md)   | `pair guide proposals.md`  | Before it records its first proposal                    |
 
 `pair guide components/README.md` prints
 [`src/components/README.md`](../../src/components/README.md), which says how

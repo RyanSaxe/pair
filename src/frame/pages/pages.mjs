@@ -16,6 +16,7 @@ import {
   editable,
   hasFeedbackPage,
   olderPast,
+  online,
   page,
   pages,
   pastAvailable,
@@ -24,6 +25,7 @@ import {
   session,
   setPage,
   showingWaiting,
+  shownPage,
   submittedCurrent,
   submittedRound,
   viewKey,
@@ -42,6 +44,7 @@ import {
 } from "#frame/notes/notes.mjs";
 import { renderAgreements } from "#frame/pages/agreed.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
+import { openWork, refreshWork, workCount } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -83,8 +86,10 @@ function whenDrawn(drawing, then) {
 }
 function visiblePageId() {
   if (displayedRound !== viewKey()) return null;
-  return $("reading").hidden ? "feedback" : page.id;
+  return shownPage();
 }
+// Work is on every round of a session the hub serves.
+const hasWork = () => online && hasFeedbackPage;
 // Page changes push history so the back button and a pasted hash both work;
 // re-rendering the same page, restoring after a reload, and popstate itself
 // leave history alone.
@@ -103,13 +108,20 @@ export function show(
   // The waiting view has no Review page, because its round's feedback is
   // sent, so a saved place or a #feedback link opens its Agreed.
   const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
+  const work = id === "work" && hasWork();
+  // Work opens on its first tab with a card, and keeps the tab the reader
+  // chose while it stays on screen.
+  const stayed = work && !$("work").hidden;
   let drawing = null;
   // A page whose record is still loading is shown again once it loads, and
   // the move ends with that.
   let loading = false;
-  $("reading").hidden = feedback;
+  $("reading").hidden = feedback || work;
   $("feedback").hidden = !feedback;
-  if (!feedback) {
+  $("work").hidden = !work;
+  if (stayed) refreshWork(true);
+  else if (work) openWork();
+  else if (!feedback) {
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
     loading = page.status === "ready" && page.pending && page.id !== "agreed";
@@ -154,20 +166,21 @@ export function show(
     else button.removeAttribute("aria-current");
   }
   const url = new URL(location.href);
-  url.hash = feedback ? "feedback" : page.id;
+  url.hash = shownPage();
   url.searchParams.delete("target");
   if (targetId) url.searchParams.set("target", targetId);
   if (push && url.href !== location.href) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
   if (!inPlace)
-    (feedback ? $("feedback").querySelector("h1") : $("page-title")).focus({
-      preventScroll: true,
-    });
+    (work
+      ? $("work-title")
+      : feedback
+        ? $("feedback").querySelector("h1")
+        : $("page-title")
+    ).focus({ preventScroll: true });
   // Returning to a page within a round lands where the reader left it.
   if (!keepScroll) {
-    const saved = targetId
-      ? 0
-      : places[displayedRound]?.tops?.[feedback ? "feedback" : page.id];
+    const saved = targetId ? 0 : places[displayedRound]?.tops?.[shownPage()];
     if (saved) restoreScroll(saved);
     else scroller().scrollTo(0, 0);
   } else if (resuming) settleScroll();
@@ -194,7 +207,8 @@ export function reveal(targetId) {
   const target = targetId && $(targetId);
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
-  if (!target || !$("reading").contains(target)) return;
+  if (!target || ![$("reading"), $("work")].some((at) => at.contains(target)))
+    return;
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
   // A collapsed thread card shows only its head, so a reply inside it has no
@@ -326,6 +340,21 @@ export function updateNavigation(force = false) {
     // The waiting Current lists Agreed alone.
     if (!showingWaiting()) pageList.append(separator());
     for (const item of pages.slice(1)) addPageButton(item);
+    // Work sits above Review, and its number counts the cards that need
+    // the reviewer.
+    if (hasWork()) {
+      const work = document.createElement("button");
+      work.type = "button";
+      work.id = "work-row";
+      work.dataset.page = "work";
+      const label = document.createElement("span");
+      label.textContent = "Work";
+      const total = document.createElement("b");
+      total.className = "count";
+      total.hidden = true;
+      work.append(label, total);
+      pageList.append(separator(), work);
+    }
     if (hasFeedbackPage && !showingWaiting()) {
       const review = document.createElement("button");
       review.type = "button";
@@ -342,6 +371,17 @@ export function updateNavigation(force = false) {
     }
     pageList.dataset.round = plan.round;
     pageList.dataset.tab = selectedTab;
+  }
+  const workRow = $("work-row");
+  if (workRow) {
+    const count = workCount();
+    const mark = workRow.querySelector(".count");
+    mark.textContent = String(count);
+    mark.hidden = !count;
+    workRow.setAttribute(
+      "aria-label",
+      count ? `Work, ${count} need${count === 1 ? "s" : ""} you` : "Work",
+    );
   }
   const opened = newMarks();
   for (const item of pages) {
