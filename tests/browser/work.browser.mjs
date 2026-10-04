@@ -119,7 +119,7 @@ async function startWithDrafts(t) {
   const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return {};
   await page.locator("[data-choice=retry] [data-value=once]").click();
-  await page.locator("#comment-page").click();
+  await page.locator("#comment-here").click();
   await page.locator("#note-text").fill("Keep the header height.");
   await page.getByRole("button", { name: "Add to feedback" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
