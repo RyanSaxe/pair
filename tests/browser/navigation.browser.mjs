@@ -5,14 +5,15 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep } from "../support/hub.mjs";
 
-// A round whose Overview has a block a page thread can target.
-const round = (number) => ({
+// A round whose Overview has a block a page thread can target, with the
+// filler above and below it.
+const round = (number, filler = "") => ({
   ...planData(number),
   pages: [
     {
       id: "overview",
       title: "Overview",
-      html: '<p id="result">Preserve one result per input.</p>',
+      html: `${filler}<p id="result">Preserve one result per input.</p>${filler}`,
     },
   ],
 });
@@ -25,8 +26,8 @@ async function setup(t) {
   const h = await hub(t);
   const session = await h.session();
   const url = (rest) => `${h.server.origin}${session.base}/${rest}`;
-  const publish = async (number) =>
-    assert.equal((await session.publish(round(number))).code, 200);
+  const publish = async (number, filler) =>
+    assert.equal((await session.publish(round(number, filler))).code, 200);
   // The agent reads each submission, as it would before the next round.
   const send = async (number) => {
     const sent = await session.feedback(session.event("feedback-only", number));
@@ -45,11 +46,8 @@ async function setup(t) {
     return id;
   };
   // The agent's first reply is the thread's row 1.
-  const reply = async (id) =>
-    assert.equal(
-      (await session.action("reply", { note: id, text: "Here." })).code,
-      200,
-    );
+  const reply = async (id, text = "Here.") =>
+    assert.equal((await session.action("reply", { note: id, text })).code, 200);
   return { url, publish, send, thread, reply };
 }
 
@@ -140,6 +138,34 @@ test("a reply in an older round opens in the left tab as its round, not /r/", as
   await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
   await focused(page, id);
   assert.doesNotMatch(page.url(), /\/r\//);
+});
+
+test("a long reply opened from the bell lands whole between the header and the bottom of a phone's screen", async (t) => {
+  const s = await setup(t);
+  await s.publish("1", "<p>Filler paragraph.</p>".repeat(40));
+  const id = await s.thread("1", "page");
+  const page = await open(t, s.url("#agreed"), {
+    viewport: { width: 390, height: 844 },
+  });
+  if (!page) return;
+  await bellReady(page);
+  // Uncut, the reply is several screens tall.
+  await s.reply(id, "The retry runs once after a short wait. ".repeat(300));
+  await bell(page);
+  await focused(page, id);
+  const reply = page.locator(`#thread-${id}-1`);
+  await reply.locator(".thread-more").waitFor();
+  const place = await reply.evaluate((row) => ({
+    top: row.getBoundingClientRect().top,
+    bottom: row.getBoundingClientRect().bottom,
+    header: document.getElementById("frame-header").getBoundingClientRect()
+      .bottom,
+    window: innerHeight,
+  }));
+  assert.ok(
+    place.top >= place.header && place.bottom <= place.window,
+    JSON.stringify(place),
+  );
 });
 
 test("each Progress thread has one card, and none while Current waits", async (t) => {
