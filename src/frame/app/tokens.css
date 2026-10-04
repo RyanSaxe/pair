@@ -54,6 +54,11 @@
   --space-label: 12px;
   --space-field: 6px;
   --field-height: 64px;
+  /* Every dialog stays this far from each edge of the window. At 10px,
+     with a dialog's 16px padding on a phone, the Start popup's Copy
+     command and Open a new agent session fit in one row at 375px with 9px
+     to spare. */
+  --dialog-margin: 10px;
   font:
     var(--text-body) / var(--leading-body) -apple-system,
     BlinkMacSystemFont,

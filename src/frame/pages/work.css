@@ -122,12 +122,16 @@
   line-height: 1.6;
   color: var(--ink);
 }
-/* The Start popup */
+/* The Start popup. The card sits a little closer under the title than a
+   dialog's body usually does. */
+.dialog.start .dialog-head {
+  margin-bottom: 12px;
+}
 .start-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 4px 12px;
-  margin: -4px 0 14px;
+  margin: 0 0 14px;
   font-size: var(--text-small);
 }
 .start-card dt {
@@ -205,27 +209,17 @@
   visibility: visible;
 }
 /* Each choice's buttons sit in one row, as in the note dialog: Copy
-   command on the left and the primary on the right. The rows share a grid
-   cell, so a row keeps its buttons at their own height when a narrower
-   window wraps the other row's labels. dialogs.css comes later in the
-   cascade, so these rules name the dialog to outrank its .dialog .actions. */
+   command on the left and the primary on the right. A window narrower
+   than 375px moves the primary under Copy command rather than past the
+   dialog's edge. The rows share a grid cell, so a row keeps its buttons at
+   their own height when the other row wraps. dialogs.css comes later in
+   the cascade, so these rules name the dialog to outrank its .dialog
+   .actions. */
 .dialog.start .actions {
+  flex-wrap: wrap;
   align-items: flex-start;
   margin-top: 10px;
 }
 .dialog.start .actions .btn.primary {
   margin-left: auto;
-}
-/* On a phone the popup fills the window but for an 8px margin on each
-   side, so With a new agent's two buttons fit in one row at 375px, and a
-   card with a long title and description fits without scrolling. The
-   browser caps a modal dialog 2em and 6px short of the window unless
-   max-width and max-height are set. */
-@media (max-width: 480px) {
-  .dialog.start {
-    width: calc(100vw - 16px);
-    max-width: none;
-    max-height: calc(100dvh - 16px);
-    padding: 18px;
-  }
 }
