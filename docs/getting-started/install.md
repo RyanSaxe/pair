@@ -8,7 +8,9 @@ npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 ```
 
 To update, run `npm update -g @ryansaxe/pair`. The skill never needs
-reinstalling.
+reinstalling. Before you update from 0.2 to 0.3, close every open session,
+because 0.3 does not read the side work, offers or accepted plans an earlier
+version stored.
 
 ## Your agent CLI
 

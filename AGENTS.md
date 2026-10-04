@@ -40,7 +40,7 @@ same name under `tests/`:
   no live session. It wakes the holder, the agent that last ran `pair start`
   on a session. `src/hub/session/` has one session's state and actions: its
   rounds, its holder, the reviewer's submissions and uploads, its threads,
-  its proposals and its link to the session it came from.
+  its proposals and their plans, and its link to the session it came from.
 - The builder, `src/build/`, turns a page source into a page. `problems()`
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.
@@ -205,9 +205,9 @@ XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 
 `check` must report the hub port as `free`. `start` prints the session's
 directory and URL. Build and publish a round in that session as
 `guide/pages.md` describes, open the URL, and use the change. With
-`PAIR_WAKE=off` the hub sends no wake message when you send feedback or start
-a thread. It saves the submission or thread message as usual and writes the
-line it would have sent to `$state/pair/hub/hub.log`. Leave `PAIR_WAKE` unset only to check a change to
+`PAIR_WAKE=off` the hub sends no wake message when you send feedback, start
+a thread or start a proposal. It saves the submission, thread message or
+start as usual and writes the line it would have sent to `$state/pair/hub/hub.log`. Leave `PAIR_WAKE` unset only to check a change to
 the wake itself, and then the hub wakes the agent that ran `start`. Finish with
 `node src/cli.mjs pause --session-dir DIR --reason "Done"` under the same
 variables, and the hub exits 60 seconds later.

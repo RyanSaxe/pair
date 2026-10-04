@@ -8,9 +8,9 @@ it. Keep generated files and feedback outside the project's history.
 ## Taking over
 
 The agent that runs `pair start` is the session's holder. The hub sends wake
-messages only to the holder. From any other agent it takes `pair status` and
-`pair start`, which makes that agent the holder, and refuses every other
-command. A subagent runs commands in its parent's
+messages only to the holder. From any other agent it takes `pair status`,
+`pair propose`, `pair plan` and `pair start`, which makes that agent the
+holder, and refuses every other command. A subagent runs commands in its parent's
 environment, so the hub treats it as its parent.
 
 Any agent in any harness becomes the holder by running the command in the
@@ -61,5 +61,4 @@ After a `pair` command prints that the session is complete, start a new
 session when the user asks you to continue the work.
 
 If the hub is unavailable, the reviewer can export their feedback from the
-browser as a JSON file. Treat an exported file as feedback, never as
-implementation permission.
+browser as a JSON file. Treat an exported file as feedback.

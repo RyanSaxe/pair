@@ -1,8 +1,7 @@
 # Understand code
 
 Use a session to learn a codebase, a module, a pull request, or a topic
-around the code. It runs for as many rounds as you want, and nothing needs
-accepting.
+around the code. It runs for as many rounds as you want.
 
 ## Ask
 
@@ -34,4 +33,5 @@ Ask for a plan, in a comment or in chat. The same session can
 [plan the change](plan-a-change.md) and build it.
 
 To stop, tell the agent in chat. It pauses the session and picks up any
-feedback you sent when you ask it to continue.
+feedback you sent when you ask it to continue. Close the session from the
+session list when you are done with it.

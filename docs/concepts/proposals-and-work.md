@@ -1,0 +1,93 @@
+# Proposals and Work
+
+A **proposal** is work the agent suggests and you decide on. The agent
+records one whenever it sees work worth doing, including the work your task
+calls for, with what it delivers, what it may change, where the agent
+recommends it runs and why. When you start a proposal, you approve exactly
+that, and nothing more.
+
+## The Work page
+
+**Work**, in the sidebar above Review, holds every proposal of the session
+for its whole life, in four tabs with counts:
+
+| Tab       | Lists                                                                                                                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------- |
+| Needs you | Started work whose round waits for you, here or in its own session, and any proposal with an agent reply in the bell. |
+| Running   | Started work the agent is building.                                                                                   |
+| Proposed  | Proposals nobody has started or declined.                                                                             |
+| Done      | Finished work, and declined proposals with **Restore**.                                                               |
+
+Work opens on the first tab with anything in it, and the number on its row
+counts what needs you. Each card shows what the work delivers, and its
+footer links to where the proposal came from or where the work runs. A page
+or a thread shows a proposal as the same card, with the same buttons.
+
+| To                  | Do this                                                               |
+| ------------------- | --------------------------------------------------------------------- |
+| Start the work      | Press **Start**, choose where it runs, and add a message if you want. |
+| Turn it down        | Press **Decline**. The agent drops it and does not propose it again.  |
+| Ask about it        | Press **Comment**, which starts a [thread](threads.md) on the card.   |
+| Take back a decline | Press **Restore** on the card in Done.                                |
+
+## Where the work runs
+
+The Start popup shows what the proposal delivers and may change, the three
+places the work can run, with the agent's recommendation marked, and a
+message to the agent.
+
+| Choice           | What happens                                                                                                                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Here             | This session's agent builds it in the session's next rounds. When the round waits for you, the Start is your answer to it, as Send feedback would be.                                                                                                              |
+| In a sub-session | This session's agent builds it in a session linked to this one and gives its steps to subagents, so this session's rounds continue.                                                                                                                                |
+| With a new agent | A separate agent builds it in its own session linked to this one. **Copy command** copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open one where you can see it. |
+
+Open a new agent session does not always work. The agent answers in a
+thread on the card with what it opened, or with the command when it cannot
+open one. Your own instructions for opening an agent, such as in a tmux
+pane, go in `~/.config/pair/moments/read-open-agent.md`, which `pair`
+prints after its own text for that moment, as
+[the guide](../reference/the-guide.md) describes.
+
+The agent starts a proposal itself only when you told it to in your own
+words, and it quotes them.
+
+## Plans
+
+When nothing is left to decide, or you ask for it, the agent writes the plan
+and attaches it to the proposal. A plan is the pages someone who saw none of
+the rounds needs to build exactly what you aligned on, with every approved
+mock, wording and interface. The card then has a **Plan** tag, says which
+rounds the plan came from, and has **Open plan** and **Download plan**.
+
+Open plan opens the plan in the tab, read-only, with its pages in the
+sidebar. The line under the header reads Work, the card's title and Plan,
+and Work leads back. With Download plan, your browser saves the plan as one
+HTML file, which opens with no hub. When later rounds change the plan, the agent
+attaches it again, and it replaces the old one. Simple work can start
+without a plan.
+
+## When work is done
+
+- Work started here is done when the agent publishes its last page, which
+  explains the work well enough for you to review it and keep it. The agent
+  marks the card done then, and feedback that asks for changes to it puts
+  the card back in Running.
+- Work in a sub-session or a new agent session is done when you close that
+  session. The hub marks the card done, and this session's agent learns of
+  it the next time it runs `pair read`, then builds on its result.
+
+## Sub-sessions and new agent sessions
+
+A sub-session and a new agent session are both sessions linked to this one,
+both ways. This session's agent holds a sub-session. A separate agent holds a
+new agent session, and can read this session for context but never takes it
+over. For you they look and work the same:
+
+- The card reads Opening a sub-session, or Opening a new agent session,
+  until the session starts, and then **Open** leads to it.
+- The session list shows it indented under this session.
+- The line under its header reads this session's name, a chevron and its
+  own name. This session's name leads back.
+- You send feedback on its rounds as in any session, and when you close it,
+  the hub marks the card done.

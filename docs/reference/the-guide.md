@@ -14,8 +14,9 @@ in three parts:
 
 Your own file at the same path under `$XDG_CONFIG_HOME/pair/`, or
 `~/.config/pair/`, prints after pair's, such as `~/.config/pair/pages.md`
-after `guide/pages.md`. Nothing there is required, and nothing replaces
-pair's text.
+after `guide/pages.md`, or `~/.config/pair/moments/read-open-agent.md`, where
+you can say how the agent opens a new agent session on your machine.
+Nothing there is required, and nothing replaces pair's text.
 
 ## Moments
 
