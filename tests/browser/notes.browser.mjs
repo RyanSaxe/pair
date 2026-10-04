@@ -49,8 +49,8 @@ async function settledControl(page, name) {
   return page.locator("#comment-here").boundingBox();
 }
 
-// The control's box, the right edge of the page's text and the window's
-// width, read in one frame.
+// The control's box, the right edges of the page's text and of the page,
+// and the window's size, read in one frame.
 const placement = (page) =>
   page.evaluate(() => {
     const box = document.getElementById("comment-here").getBoundingClientRect();
@@ -61,14 +61,15 @@ const placement = (page) =>
       bottom: box.bottom,
       text: document.getElementById("page-content").getBoundingClientRect()
         .right,
+      edge: document.getElementById("content").getBoundingClientRect().right,
       width: document.documentElement.clientWidth,
       height: document.documentElement.clientHeight,
     };
   });
-const inGutter = ({ left, right, text, width }) =>
-  left >= text &&
-  right <= width &&
-  Math.abs(left - text - (width - right)) <= 1;
+// Wholly in the page's white margin, centered between the text and the
+// page's right edge.
+const inGutter = ({ left, right, text, edge }) =>
+  left >= text && right <= edge && Math.abs(left - text - (edge - right)) <= 1;
 
 async function openDecisions(t) {
   const page = await open(t, "http://pair.localhost/", {
@@ -144,7 +145,7 @@ test("with nothing selected, the corner icon and the c key comment on the page",
   });
 });
 
-test("on a wide window the corner icon is centered in the gutter right of the page's text, through a resize and the sidebar closing", async (t) => {
+test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize and the sidebar closing", async (t) => {
   // Agreed draws no figure, so nothing on it changes size with the window.
   const page = await open(t, "http://pair.localhost/", {
     html: await fixtureHtml(),
