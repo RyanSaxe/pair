@@ -150,14 +150,15 @@ async function load(page, url, id) {
 }
 
 // The frame learns of the second session and of the agent's reply from a
-// poll of the hub every 5 s, so a capture waits for both counts: the second
-// session's start and waiting round, and the reply.
+// poll of the hub every 5 s, so a capture waits for both counts: the
+// sessions badge's count of the second session, whose round waits for you,
+// and the bell's lines for that session's start and round and the reply.
 async function counted(page) {
   await until(
     page,
     "Counting the sessions and the notifications",
     () =>
-      document.getElementById("sessions-count").textContent === "2" &&
+      document.getElementById("sessions-count").textContent === "1" &&
       document.getElementById("bell-count").textContent === "3",
   );
 }

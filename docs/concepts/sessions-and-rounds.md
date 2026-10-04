@@ -57,9 +57,11 @@ The Sessions button, second in the header, or <kbd>g</kbd>, opens the session
 list: every live session in the order it started, with **Copy handoff line**
 and ✕ to close one for good.
 
-- The button's number counts the live sessions. It is orange when another
-  session waits for you or its agent could not be woken, blue when another
-  session has pages you have not opened, and grey otherwise.
+- The button's number counts the other sessions that need you. It is orange
+  when one has a round waiting for you or an agent that could not be woken,
+  and blue when the others that need you have pages you have not opened.
+  When no other session needs you, a grey number counts your other live
+  sessions. The session in this tab never counts.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
   waiting for you.
 - **New** marks each page of a round that you have not opened.

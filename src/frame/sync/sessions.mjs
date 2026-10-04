@@ -128,18 +128,20 @@ export function rowStatus(entry, unopened = 0) {
     return { text: "Working", tone: "working" };
   return null;
 }
-/* The sessions button's badge counts every live session. It is orange when
-   another session waits for you or its agent could not be woken, otherwise
-   blue when another session has pages this browser has not opened, and
-   otherwise grey. */
+/* The sessions button's badge counts the other sessions that need you: a
+   round waiting for you or an agent that could not be woken, which turns
+   it orange, or pages this browser has not opened, which turn it blue
+   when nothing waits. When no other session needs you, it counts the
+   other live sessions in grey. This tab's session never counts. */
 export function sessionsBadge(list, thisId, unopened) {
   const others = list.filter((entry) => entry.id !== thisId);
-  const tone = others.some((entry) => entry.needsYou || entry.wakeFailed)
-    ? "need"
-    : others.some((entry) => unopened(entry))
-      ? "news"
-      : "";
-  return { count: list.length, tone };
+  const waits = (entry) => entry.needsYou || entry.wakeFailed;
+  const needing = others.filter((entry) => waits(entry) || unopened(entry));
+  if (!needing.length) return { count: others.length, tone: "" };
+  return {
+    count: needing.length,
+    tone: needing.some(waits) ? "need" : "news",
+  };
 }
 // The next session after this one, in list order and wrapping to the top,
 // whose round waits for you.
@@ -320,13 +322,15 @@ function renderSessions() {
   $("sessions-count").textContent = String(count);
   // With no hub there is no session to list, so the button has nothing to
   // open.
-  menu.hidden = !count;
-  if (!count) toggleSessions(false);
+  menu.hidden = !sessionOrder.length;
+  if (!sessionOrder.length) toggleSessions(false);
   menu.setAttribute(
     "aria-label",
-    count
-      ? `Sessions, ${count} live${waiting ? `, ${plural(waiting, "session")} waiting for you` : ""}`
-      : "Sessions",
+    !count
+      ? "Sessions"
+      : tone
+        ? `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`
+        : `Sessions, ${plural(count, "other session")}`,
   );
 }
 // The popover opens under the button, inside the window.
