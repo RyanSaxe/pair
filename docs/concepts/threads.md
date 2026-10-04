@@ -5,7 +5,9 @@ A **thread** gets you an answer now, without waiting for the next round.
 Write a comment, then press **Start a thread** (<kbd>⌘</kbd>
 <kbd>Enter</kbd>, or <kbd>Ctrl</kbd> <kbd>Enter</kbd> off a Mac) instead of
 **Add to feedback**. The comment goes to the agent at once, and its reply
-appears in a card under the block you commented on.
+appears in a card under the block you commented on. **Comment** on a
+[proposal](proposals-and-work.md) starts a thread on that proposal, which
+shows under its card.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
@@ -21,7 +23,9 @@ all but the two newest, and a card you expand or collapse stays that way.
 - A reply can hold text, code, diffs and diagrams. Anything bigger, or
   anything you need to decide, comes as a page in the next round.
 - A thread does not change the round's pages, but it can settle a decision,
-  which Agreed then credits to the thread.
+  and the alignment on Agreed then credits the thread.
+- When you ask in a thread for a specific change to the work the agent is
+  doing, the agent makes it, as an instruction in your own words.
 
 When the agent reads a thread depends on its agent CLI:
 

@@ -14,49 +14,45 @@ in three parts:
 
 Your own file at the same path under `$XDG_CONFIG_HOME/pair/`, or
 `~/.config/pair/`, prints after pair's, such as `~/.config/pair/pages.md`
-after `guide/pages.md`. Nothing there is required, and nothing replaces
-pair's text.
+after `guide/pages.md`, or `~/.config/pair/moments/read-open-agent.md`, where
+you can say how the agent opens a new agent session on your machine.
+Nothing there is required, and nothing replaces pair's text.
 
 ## Moments
 
 A command prints the text of the moment it names after its next step. Each
 moment is a Markdown file in `guide/moments/`, and
-`pair guide moments/NAME.md` prints one. After `publish-agreed.md` and
-`publish-agreed-plan.md`, `pair publish` also prints the list that
-`pair components` prints.
+`pair guide moments/NAME.md` prints one. After `publish-agreed.md`,
+`pair publish` also prints the list that `pair components` prints.
 
-| File in `guide/moments/`    | Printed by           | When                                                                                                                     |
-| --------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `start.md`                  | `pair start`         | It creates a session.                                                                                                    |
-| `start-from.md`             | `pair start --from`  | It creates a session for a proposal, after `start.md`.                                                                   |
-| `read-feedback.md`          | `pair read`          | It prints feedback.                                                                                                      |
-| `read-accept-ACTION.md`     | `pair read`          | It prints an acceptance, by the action's ID in `src/shared/offers.mjs`: `save`, `implement`, `finish` or `pull-request`. |
-| `read-thread.md`            | `pair read --thread` | It prints a thread.                                                                                                      |
-| `read-start-here.md`        | `pair read`          | It prints a Start of a proposal here.                                                                                    |
-| `read-start-sub-session.md` | `pair read`          | It prints a Start of a proposal in a sub-session.                                                                        |
-| `read-open-agent.md`        | `pair read --thread` | It prints the thread that Open a new agent session started, until a session links to the proposal.                       |
-| `read-declined.md`          | `pair read`          | It prints the proposals the reviewer declined since the last `pair read`, each once.                                     |
-| `read-closed.md`            | `pair read`          | It prints the proposals whose linked session closed since the last `pair read`, each once.                               |
-| `plan.md`                   | `pair plan`          | It attaches a plan to a proposal, or replaces the plan the proposal has.                                                 |
-| `publish-agreed.md`         | `pair publish`       | It publishes an Agreed that names no offer.                                                                              |
-| `publish-agreed-OFFER.md`   | `pair publish`       | It publishes an Agreed that names the `plan` or `finish` offer.                                                          |
-| `publish-page.md`           | `pair publish`       | It publishes a page, and pages remain.                                                                                   |
-| `publish-last-page.md`      | `pair publish`       | It publishes the round's last page.                                                                                      |
+| File in `guide/moments/`    | Printed by           | When                                                                                               |
+| --------------------------- | -------------------- | -------------------------------------------------------------------------------------------------- |
+| `start.md`                  | `pair start`         | It creates a session.                                                                              |
+| `start-from.md`             | `pair start --from`  | It creates a session for a proposal, after `start.md`.                                             |
+| `read-feedback.md`          | `pair read`          | It prints feedback.                                                                                |
+| `read-thread.md`            | `pair read --thread` | It prints a thread.                                                                                |
+| `read-start-here.md`        | `pair read`          | It prints a Start of a proposal here.                                                              |
+| `read-start-sub-session.md` | `pair read`          | It prints a Start of a proposal in a sub-session.                                                  |
+| `read-open-agent.md`        | `pair read --thread` | It prints the thread that Open a new agent session started, until a session links to the proposal. |
+| `read-declined.md`          | `pair read`          | It prints the proposals the reviewer declined since the last `pair read`, each once.               |
+| `read-closed.md`            | `pair read`          | It prints the proposals whose linked session closed since the last `pair read`, each once.         |
+| `plan.md`                   | `pair plan`          | It attaches a plan to a proposal, or replaces the plan the proposal has.                           |
+| `publish-agreed.md`         | `pair publish`       | It publishes Agreed.                                                                               |
+| `publish-page.md`           | `pair publish`       | It publishes a page, and pages remain.                                                             |
+| `publish-last-page.md`      | `pair publish`       | It publishes the round's last page.                                                                |
 
 ## Lookup files
 
-| File                                                     | Command                       | The agent reads it                                       |
-| -------------------------------------------------------- | ----------------------------- | -------------------------------------------------------- |
-| [`guide/agreements.md`](../../guide/agreements.md)       | `pair guide agreements.md`    | Before it writes Agreed                                  |
-| [`guide/pages.md`](../../guide/pages.md)                 | `pair guide pages.md`         | Before the session's first page                          |
-| [`guide/components.md`](../../guide/components.md)       | `pair guide components.md`    | Before the session's first page                          |
-| [`guide/writing.md`](../../guide/writing.md)             | `pair guide writing.md`       | Before the session's first page                          |
-| [`guide/prototypes.md`](../../guide/prototypes.md)       | `pair guide prototypes.md`    | When a page has a prototype                              |
-| [`guide/session.md`](../../guide/session.md)             | `pair guide session.md`       | Before it takes a session over, resumes it or pauses it  |
-| [`guide/setup.md`](../../guide/setup.md)                 | `pair guide setup.md`         | When a command fails                                     |
-| [`guide/proposals.md`](../../guide/proposals.md)         | `pair guide proposals.md`     | Before it records its first proposal or attaches a plan  |
-| [`guide/offers/plan.md`](../../guide/offers/plan.md)     | `pair guide offers/plan.md`   | Before the final plan, and after the reviewer accepts it |
-| [`guide/offers/finish.md`](../../guide/offers/finish.md) | `pair guide offers/finish.md` | After the reviewer accepts built work                    |
+| File                                               | Command                    | The agent reads it                                      |
+| -------------------------------------------------- | -------------------------- | ------------------------------------------------------- |
+| [`guide/agreements.md`](../../guide/agreements.md) | `pair guide agreements.md` | Before it writes Agreed                                 |
+| [`guide/pages.md`](../../guide/pages.md)           | `pair guide pages.md`      | Before the session's first page                         |
+| [`guide/components.md`](../../guide/components.md) | `pair guide components.md` | Before the session's first page                         |
+| [`guide/writing.md`](../../guide/writing.md)       | `pair guide writing.md`    | Before the session's first page                         |
+| [`guide/prototypes.md`](../../guide/prototypes.md) | `pair guide prototypes.md` | When a page has a prototype                             |
+| [`guide/session.md`](../../guide/session.md)       | `pair guide session.md`    | Before it takes a session over, resumes it or pauses it |
+| [`guide/setup.md`](../../guide/setup.md)           | `pair guide setup.md`      | When a command fails                                    |
+| [`guide/proposals.md`](../../guide/proposals.md)   | `pair guide proposals.md`  | Before it records its first proposal or attaches a plan |
 
 `pair guide components/README.md` prints
 [`src/components/README.md`](../../src/components/README.md), which says how

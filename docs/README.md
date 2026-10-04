@@ -11,11 +11,11 @@ your browser. Start with the section that matches what you want to do.
 ## Concepts
 
 - [Sessions and rounds](concepts/sessions-and-rounds.md) explains sessions,
-  rounds, pages, Agreed and feedback.
-- [Offers and building](concepts/offers-and-building.md) explains accepting a
-  plan, the build round and accepting the work.
-- [Threads](concepts/threads-and-side-work.md) explains asking a question
-  now.
+  rounds, pages, Agreed, feedback and closing a session.
+- [Proposals and Work](concepts/proposals-and-work.md) explains the work the
+  agent proposes, starting it here or in a sub-session, plans, and when work
+  is done.
+- [Threads](concepts/threads.md) explains asking a question now.
 - [Holders and handoff](concepts/holders-and-handoff.md) explains which agent
   holds a session and how another agent takes it over.
 - [Architecture](concepts/architecture.md) explains the hub, how it wakes the
@@ -26,8 +26,8 @@ your browser. Start with the section that matches what you want to do.
 - [Plan a change](guides/plan-a-change.md) gets you to a plan you trust.
 - [Understand code](guides/understand-code.md) uses a session to learn a
   codebase, a module or a pull request.
-- [Build a plan](guides/build-a-plan.md) follows a build and reviews what it
-  made.
+- [Build the work](guides/build-the-work.md) follows the work you start and
+  reviews what it made.
 
 ## Reference
 
@@ -43,5 +43,3 @@ your browser. Start with the section that matches what you want to do.
   checkout, lists the repository's folders and gives the checks to run.
 - [Adapters](contributing/adapters.md) is the contract a `wake.mjs` meets to
   wake an agent CLI.
-- [Offers](contributing/offers.md) describes the registry behind the Accept
-  actions in the Finish your review dialog.

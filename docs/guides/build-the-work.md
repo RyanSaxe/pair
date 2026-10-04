@@ -1,8 +1,10 @@
-# Build a plan
+# Build the work
 
-After you accept a plan with **Start implementation**, the agent builds it
-in the same session and tab. The build is a round of its own, with a page
-for each part of the work.
+When you start a [proposal](../concepts/proposals-and-work.md), the agent
+builds the work you approved, from the proposal's plan when it has one. Work
+you start **Here** is built in the same session and tab. Work you start in a
+sub-session or with a new agent is built in its own session, which you open
+from the card.
 
 ## Follow the build
 
@@ -11,32 +13,29 @@ for each part of the work.
   <img alt="The progress card: 2 of 4 pages ready, the page in progress with when it last changed, the agent's note under the title, and Message the agent" src="../assets/progress-card-light.png" width="390">
 </picture>
 
-- The build round's Agreed shows the task and a progress card: each page as
+- Each round's Agreed shows the task and a progress card: each page as
   Ready, Working or Queued, and the agent's latest note.
-- Each page is published once its part is done and checked, so you can read
-  it while the next part is built.
-- A page shows what was built, and any departure from the plan with the
-  reason. The agent decides rather than stopping to ask.
-- The plan stays in its own round. Open it from the Rounds button, the clock
-  in the header.
+- The agent publishes each part as soon as you can judge it, so you can
+  redirect it while it builds the rest.
+- When the plan leaves something open, the agent decides in line with the
+  plan, keeps building, and says on the next page what it decided and why.
+- The plan stays on its card. Open it from Work with **Open plan**.
 
 ## Steer it
 
-| To                            | Do this                                                        |
-| ----------------------------- | -------------------------------------------------------------- |
-| Change the work while it runs | Start a thread on the page. The reply says what will change.   |
-| Stop                          | Tell the agent in chat. It pauses, and continues when you ask. |
+| To                            | Do this                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| Change the work while it runs | Ask for the change in a thread or a comment. The agent makes the change you name. |
+| Add work it found on the way  | Start the proposal the agent records for it.                                      |
+| Stop                          | Tell the agent in chat. It pauses, and continues when you ask.                    |
 
 ## Review the work
 
-The last page is the pull request description: what the work is, why, how to
-review it and what was done to trust it. Press **Finish review**:
+The last page explains the work well enough for you to review it and keep
+it: what changed, why, and how it was checked. The agent then marks the
+card done. Feedback that asks for changes to the work puts the card back in
+Running, and the agent publishes the changes in the next round.
 
-- **Request changes**: the agent changes the work and publishes a follow-up
-  round.
-- **Accept work** with **Open a PR**: the agent opens the pull request with
-  that page as its body and fixes CI until it passes.
-- **Accept work** with **Finish without a PR**: the work stays on its branch.
-
-A plan saved for later is built the same way, by whichever agent runs its
-[handoff line](../concepts/holders-and-handoff.md).
+Work in a sub-session or a new agent session is done when you close that
+session. When everything is finished, tell the agent anything left to do,
+such as opening the pull request, then close the session.
