@@ -81,19 +81,20 @@ These rewrites are from pair's guide:
 Use one name for one thing, in one file and across the guide, the prompts and
 the docs.
 
-| Term         | Meaning                                                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| hub          | The one process that serves every live session, on `127.0.0.1:4747` unless `PAIR_HUB_PORT` names another port.                                         |
-| session      | One piece of work between an agent and a reviewer, from `pair start` until it completes, with its own directory under `~/.local/state/pair/sessions/`. |
-| round        | The pages the agent publishes together, which the reviewer answers with one submission.                                                                |
-| Agreed       | The first page of every round, with the task and the decisions settled so far.                                                                         |
-| offer        | `plan` or `finish`, set in Agreed's source, which the reviewer accepts in the Finish your review dialog.                                               |
-| frame        | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                   |
-| holder       | The agent that last ran `pair start` on a session. The hub wakes only the holder, and other agents can run only `pair status` and `pair propose`.      |
-| reviewer     | The person who reads a round's pages in the browser and sends feedback.                                                                                |
-| proposal     | A card for one piece of work, which an agent records with `pair propose` and the reviewer starts, declines or comments on from Work.                   |
-| agent CLI    | Claude Code, Codex, Copilot CLI, pi or opencode, each with a folder under `adapters/`.                                                                 |
-| handoff line | The line that another agent runs to take a session over.                                                                                               |
+| Term           | Meaning                                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| hub            | The one process that serves every live session, on `127.0.0.1:4747` unless `PAIR_HUB_PORT` names another port.                                                                                   |
+| session        | One piece of work between an agent and a reviewer, from `pair start` until it completes, with its own directory under `~/.local/state/pair/sessions/`.                                           |
+| round          | The pages the agent publishes together, which the reviewer answers with one submission.                                                                                                          |
+| Agreed         | The first page of every round, with the task and the decisions settled so far.                                                                                                                   |
+| offer          | `plan` or `finish`, set in Agreed's source, which the reviewer accepts in the Finish your review dialog.                                                                                         |
+| frame          | The browser page that shows a round and sends feedback. Its code is in `src/frame/`.                                                                                                             |
+| holder         | The agent that last ran `pair start` on a session. The hub wakes only the holder, and other agents can run only `pair status` and `pair propose`.                                                |
+| reviewer       | The person who reads a round's pages in the browser and sends feedback.                                                                                                                          |
+| proposal       | A card for one piece of work, which an agent records with `pair propose` and the reviewer starts, declines or comments on from Work.                                                             |
+| linked session | A session that `pair start --from` created for a proposal of another session, its parent. A sub-session is one the parent's holder holds, and a new agent session is one a separate agent holds. |
+| agent CLI      | Claude Code, Codex, Copilot CLI, pi or opencode, each with a folder under `adapters/`.                                                                                                           |
+| handoff line   | The line that another agent runs to take a session over.                                                                                                                                         |
 
 ## Instructions for the agent
 

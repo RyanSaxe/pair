@@ -29,14 +29,17 @@ Change a proposal with its `--id` and one of these flags:
 
 - `--revise` with the fields to replace. The hub refuses it once the
   proposal is started, so record further work as a new proposal.
-- `--start here`, only when the reviewer told you in their own words to do
+- `--start WHERE`, only when the reviewer told you in their own words to do
   the work, with `--source` quoting those words and `--thread` or `--page`
-  for where they wrote them.
+  for where they wrote them. WHERE is `here`, `sub-session` or `new-agent`,
+  where they said the work runs. After `--start new-agent`, open a separate
+  agent whose first command is `pair start --from PATH --proposal ID`, or
+  give the user that command when you cannot.
 - `--done` after you publish the last page of work started here, and
   `--reopen` when later feedback asks for changes to that work.
 
-`pair read` prints each Start and each proposal the reviewer declined, with
-what to do next.
+`pair read` prints each Start, each proposal the reviewer declined and
+each proposal whose linked session closed, with what to do next.
 
 ## Plans
 
@@ -64,4 +67,6 @@ pair plan --session-dir PATH --proposal phone-sidebar --rounds 13-15 \
 ```
 
 `--rounds` names the rounds the plan came from, one round or a range. Give
-one `--file` for each page in `pages.json`, in the same order.
+one `--file` for each page in `pages.json`, in the same order. In a session
+that `pair start --from` created, `--proposal` can name the proposal the
+session runs, and `--rounds` names this session's rounds.

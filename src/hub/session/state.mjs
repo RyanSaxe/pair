@@ -12,7 +12,8 @@ import {
 } from "../../shared/util.mjs";
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
-import { agent } from "./agent.mjs";
+import { agent, answersRound } from "./agent.mjs";
+import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { plans } from "./plans.mjs";
 import { proposals } from "./proposals.mjs";
@@ -21,8 +22,16 @@ import { submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
-// tabOpen says whether a pair tab on this machine polled the hub recently.
-export async function loadSession(directory, config, origin, tabOpen) {
+// tabOpen says whether a pair tab on this machine polled the hub recently,
+// and peer finds another session on the hub by its ID, for the session a
+// linked session came from.
+export async function loadSession(
+  directory,
+  config,
+  origin,
+  tabOpen,
+  peer = () => null,
+) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
@@ -106,8 +115,12 @@ export async function loadSession(directory, config, origin, tabOpen) {
       .sort((a, b) => a.sequence - b.sequence);
   }
   // A saved round keeps its acceptance unread until an agent reads it, and
-  // stays saved. A closed session stays closed with feedback unread.
-  if ((await pending()).length && !["saved", "complete"].includes(state.stage))
+  // stays saved. A closed session stays closed with feedback unread. A Start
+  // in a sub-session leaves this session's round as it is.
+  if (
+    (await pending()).some(answersRound) &&
+    !["saved", "complete"].includes(state.stage)
+  )
     await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
   const sameRound = (event) =>
@@ -118,6 +131,10 @@ export async function loadSession(directory, config, origin, tabOpen) {
     Boolean(state.current) &&
     !state.openRound &&
     ["ready", "updated"].includes(state.stage);
+  // A session's name: its round's title, or before its first round the
+  // title in its status.
+  const title = () =>
+    state.current ? state.current.title : state.title || "New session";
   // A saved session waits for an agent, so it does not keep the hub running.
   const active = () =>
     !["complete", "saved"].includes(state.stage) && !state.paused;
@@ -128,6 +145,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     config,
     origin,
     tabOpen,
+    peer,
     base,
     exclusive,
     transition,
@@ -156,6 +174,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     await activity(session),
     await proposals(session),
     plans(session),
+    links(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -209,6 +228,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
       ...view(),
       sessionDir: directory,
       threads: session.threadView(),
+      parent: session.parentView(),
     };
   }
   async function latestFeedback(requestedRound) {
@@ -263,8 +283,12 @@ export async function loadSession(directory, config, origin, tabOpen) {
     const set = state.roundPages?.[round];
     return {
       id: state.sessionId,
-      title: state.current ? state.current.title : state.title || "New session",
+      title: title(),
       offer: state.current?.offer,
+      // A linked session names the session and the proposal it came from.
+      parentId: state.parent?.sessionId ?? null,
+      proposal: state.parent?.proposal ?? null,
+      closed: state.stage === "complete",
       round,
       stage: state.stage,
       needsYou: needsYou(),
@@ -311,6 +335,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     get state() {
       return state;
     },
+    title,
     exclusive,
     submit: session.submit,
     upload: session.upload,
@@ -320,9 +345,17 @@ export async function loadSession(directory, config, origin, tabOpen) {
     removeUpload: session.removeUpload,
     dismiss: session.dismiss,
     startProposal: session.startProposal,
+    openAgent: session.openAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
     planFile: session.planFile,
+    parentView: session.parentView,
+    linkParent: session.linkParent,
+    linkable: session.linkable,
+    linkSession: session.linkSession,
+    closedSession: session.closedSession,
+    plannable: session.plannable,
+    attachPlan: session.attachPlan,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     act: session.act,

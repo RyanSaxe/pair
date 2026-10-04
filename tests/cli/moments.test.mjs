@@ -116,11 +116,13 @@ async function holder(t) {
   };
 }
 
-// A command's output contains its moment's text and no other moment's.
-function printsMoment(output, name, printed) {
-  assert.ok(output.includes(printed.get(name)), `${name} in:\n${output}`);
+// A command's output contains its moments' text and no other moment's.
+function printsMoment(output, names, printed) {
+  const named = [names].flat();
+  for (const name of named)
+    assert.ok(output.includes(printed.get(name)), `${name} in:\n${output}`);
   for (const [other, text] of printed)
-    if (other !== name)
+    if (!named.includes(other))
       assert.ok(!output.includes(text), `${other} in:\n${output}`);
 }
 
@@ -183,6 +185,41 @@ test("each command prints the moment it is run at", async (t) => {
         await propose("now");
         await reviewer("now", "start", { where: "here" });
         return read();
+      },
+    ],
+    [
+      "read-start-sub-session",
+      async () => {
+        await propose("apart");
+        await reviewer("apart", "start", { where: "sub-session" });
+        return read();
+      },
+    ],
+    [
+      ["start", "start-from"],
+      () =>
+        cli.run(
+          "start",
+          ...["--from", session.directory, "--proposal", "apart"],
+        ),
+    ],
+    [
+      "read-closed",
+      async () => {
+        const { proposals } = (await session.status()).body;
+        const linked = proposals.find((card) => card.id === "apart");
+        await session.request(`${linked.started.session.url}api/dismiss`, {});
+        return read();
+      },
+    ],
+    [
+      "read-open-agent",
+      async () => {
+        await propose("agent");
+        await reviewer("agent", "open-agent");
+        const { threads } = (await session.status()).body;
+        const thread = threads.find((item) => item.kind === "open-agent");
+        return read("--thread", thread.id);
       },
     ],
     [

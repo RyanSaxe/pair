@@ -25,19 +25,23 @@ moment is a Markdown file in `guide/moments/`, and
 `publish-agreed-plan.md`, `pair publish` also prints the list that
 `pair components` prints.
 
-| File in `guide/moments/`  | Printed by           | When                                                                                                                     |
-| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `start.md`                | `pair start`         | It creates a session.                                                                                                    |
-| `read-feedback.md`        | `pair read`          | It prints feedback.                                                                                                      |
-| `read-accept-ACTION.md`   | `pair read`          | It prints an acceptance, by the action's ID in `src/shared/offers.mjs`: `save`, `implement`, `finish` or `pull-request`. |
-| `read-thread.md`          | `pair read --thread` | It prints a thread.                                                                                                      |
-| `read-start-here.md`      | `pair read`          | It prints a Start of a proposal here.                                                                                    |
-| `read-declined.md`        | `pair read`          | It prints the proposals the reviewer declined since the last `pair read`, each once.                                     |
-| `plan.md`                 | `pair plan`          | It attaches a plan to a proposal, or replaces the plan the proposal has.                                                 |
-| `publish-agreed.md`       | `pair publish`       | It publishes an Agreed that names no offer.                                                                              |
-| `publish-agreed-OFFER.md` | `pair publish`       | It publishes an Agreed that names the `plan` or `finish` offer.                                                          |
-| `publish-page.md`         | `pair publish`       | It publishes a page, and pages remain.                                                                                   |
-| `publish-last-page.md`    | `pair publish`       | It publishes the round's last page.                                                                                      |
+| File in `guide/moments/`    | Printed by           | When                                                                                                                     |
+| --------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `start.md`                  | `pair start`         | It creates a session.                                                                                                    |
+| `start-from.md`             | `pair start --from`  | It creates a session for a proposal, after `start.md`.                                                                   |
+| `read-feedback.md`          | `pair read`          | It prints feedback.                                                                                                      |
+| `read-accept-ACTION.md`     | `pair read`          | It prints an acceptance, by the action's ID in `src/shared/offers.mjs`: `save`, `implement`, `finish` or `pull-request`. |
+| `read-thread.md`            | `pair read --thread` | It prints a thread.                                                                                                      |
+| `read-start-here.md`        | `pair read`          | It prints a Start of a proposal here.                                                                                    |
+| `read-start-sub-session.md` | `pair read`          | It prints a Start of a proposal in a sub-session.                                                                        |
+| `read-open-agent.md`        | `pair read --thread` | It prints the thread that Open a new agent session started, until a session links to the proposal.                       |
+| `read-declined.md`          | `pair read`          | It prints the proposals the reviewer declined since the last `pair read`, each once.                                     |
+| `read-closed.md`            | `pair read`          | It prints the proposals whose linked session closed since the last `pair read`, each once.                               |
+| `plan.md`                   | `pair plan`          | It attaches a plan to a proposal, or replaces the plan the proposal has.                                                 |
+| `publish-agreed.md`         | `pair publish`       | It publishes an Agreed that names no offer.                                                                              |
+| `publish-agreed-OFFER.md`   | `pair publish`       | It publishes an Agreed that names the `plan` or `finish` offer.                                                          |
+| `publish-page.md`           | `pair publish`       | It publishes a page, and pages remain.                                                                                   |
+| `publish-last-page.md`      | `pair publish`       | It publishes the round's last page.                                                                                      |
 
 ## Lookup files
 
