@@ -16,6 +16,9 @@
 :root[data-mode="preview"] #quote {
   display: none !important;
 }
+:root[data-mode="preview"] .main-column {
+  margin-left: 0;
+}
 :root[data-mode="preview"] main {
   background: var(--ground);
   display: block;
@@ -41,10 +44,11 @@
 }
 /* A home view has the header and one column: the session's title, its
    agent and the progress card. */
-:root[data-mode="home"] .app-body {
-  grid-template-columns: minmax(0, 1fr);
+:root[data-mode="home"] .main-column {
+  margin-left: 0;
 }
 :root[data-mode="home"] .sidebar,
+:root[data-mode="home"] #sidebar-toggle,
 :root[data-mode="home"] #round,
 :root[data-mode="home"] #submit,
 :root[data-mode="home"] .page-footer {

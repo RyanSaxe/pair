@@ -229,8 +229,7 @@ export function renderHistory() {
     ? () => location.assign(`${base}/`)
     : () => switchTab("current");
 }
-// The Pages heading in the sidebar and in the phone drawer shows the page
-// round's status. The text stays while the status fades out.
+// The Pages heading in the sidebar shows the page round's status. The text stays while the status fades out.
 export function renderRound() {
   const model = editable ? roundModel({ remote }) : null;
   for (const status of document.querySelectorAll("[data-round-status]")) {

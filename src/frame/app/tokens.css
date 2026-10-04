@@ -1,10 +1,14 @@
 :root {
   color-scheme: light;
   /* One order for every layer, so a new piece of chrome cannot quietly
-     cover something. The selection control sits above all of it. */
-  --z-sidebar: 5;
+     cover something. The sidebar slides over the page column and its
+     strip, never over the header. The selection control sits above all
+     of it, except at 720px and below, where the open sidebar and the
+     dimmed page cover the whole page. */
   --z-header: 6;
+  --z-sidebar: 8;
   --z-selection: 40;
+  --z-sidebar-over-page: 41;
   --ground: light-dark(#f6f6f8, #121417);
   --panel: light-dark(#ffffff, #1a1d22);
   --line: light-dark(#e3e4e8, #2a2e35);

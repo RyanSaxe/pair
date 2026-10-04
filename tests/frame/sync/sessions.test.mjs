@@ -18,27 +18,25 @@ test("the sessions badge counts every session, orange when another needs you and
   const none = () => 0;
   const newIn = (ids) => (item) => (ids.includes(item.id) ? 2 : 0);
   const cases = [
-    // [sessions, unopened, narrow, tone]
-    [[entry("1"), entry("2")], none, false, ""],
-    [[entry("1"), entry("2", { needsYou: true })], none, false, "need"],
-    [[entry("1"), entry("2", { wakeFailed: true })], none, false, "need"],
-    [[entry("1"), entry("2")], newIn(["2"]), false, "news"],
+    // [sessions, unopened, tone]
+    [[entry("1"), entry("2")], none, ""],
+    [[entry("1"), entry("2", { needsYou: true })], none, "need"],
+    [[entry("1"), entry("2", { wakeFailed: true })], none, "need"],
+    [[entry("1"), entry("2")], newIn(["2"]), "news"],
     // Orange wins over blue.
     [
       [entry("1"), entry("2", { needsYou: true }), entry("3")],
       newIn(["3"]),
-      false,
       "need",
     ],
-    // A paused session and this tab's own waiting round add no color.
-    [[entry("1"), entry("2", { paused: true })], none, false, ""],
-    [[entry("1", { needsYou: true }), entry("2")], none, false, ""],
-    // This tab's own new pages count only where the button also opens Pages.
-    [[entry("1"), entry("2")], newIn(["1"]), false, ""],
-    [[entry("1"), entry("2")], newIn(["1"]), true, "news"],
+    // A paused session and this tab's own waiting round and new pages add
+    // no color.
+    [[entry("1"), entry("2", { paused: true })], none, ""],
+    [[entry("1", { needsYou: true }), entry("2")], none, ""],
+    [[entry("1"), entry("2")], newIn(["1"]), ""],
   ];
-  for (const [list, unopened, narrow, tone] of cases)
-    assert.deepEqual(sessionsBadge(list, "1", unopened, narrow), {
+  for (const [list, unopened, tone] of cases)
+    assert.deepEqual(sessionsBadge(list, "1", unopened), {
       count: list.length,
       tone,
     });

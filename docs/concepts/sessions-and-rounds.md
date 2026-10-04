@@ -20,6 +20,13 @@ appears in the same tab.
 While the agent works, a card at the top of Agreed shows what it is doing
 and how many pages are ready.
 
+## The sidebar
+
+The sidebar lists the round's pages, then **Review**. The first button in
+the header opens and closes it, and the frame keeps your choice in this
+browser. At 720px and below the sidebar starts closed and opens over the
+page, and choosing a page closes it.
+
 ## What you can do on a page
 
 | To                        | Do this                                                                 |
@@ -44,10 +51,9 @@ link to where it was agreed. Comment on anything there that is wrong.
 
 ## Sessions and notifications
 
-The first button in the header, or <kbd>g</kbd>, opens the session list: every
-live session in the order it started, with **Copy handoff line** and ✕ to
-close one for good. At 720px and below, the same button opens Pages, then
-Sessions.
+The Sessions button, second in the header, or <kbd>g</kbd>, opens the session
+list: every live session in the order it started, with **Copy handoff line**
+and ✕ to close one for good.
 
 - The button's number counts the live sessions. It is orange when another
   session waits for you or its agent could not be woken, blue when another
