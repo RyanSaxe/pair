@@ -14,6 +14,7 @@ import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent } from "./agent.mjs";
 import { pageNotes } from "./page-notes.mjs";
+import { plans } from "./plans.mjs";
 import { proposals } from "./proposals.mjs";
 import { rounds } from "./rounds.mjs";
 import { submissions } from "./submissions.mjs";
@@ -154,6 +155,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     threads(session),
     await activity(session),
     await proposals(session),
+    plans(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -320,6 +322,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     startProposal: session.startProposal,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
+    planFile: session.planFile,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     act: session.act,

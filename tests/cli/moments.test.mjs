@@ -56,6 +56,32 @@ async function holder(t) {
     );
   }
   const read = (...args) => cli.run("read", ...dir, ...args);
+  // A plan of one page from round 1, attached to a proposal with pair plan.
+  async function plan(id) {
+    const source = path.join(home, `plan-${id}`);
+    await fs.mkdir(path.join(source, "overview"), { recursive: true });
+    const file = path.join(home, `plan-${id}.html`);
+    await fs.writeFile(
+      file,
+      await buildPage(path.join(source, "overview", "overview.json"), {
+        name: "example",
+        round: "plan",
+        title: "Moments",
+        page: { id: "overview", title: "Overview", html: "<p>A plan.</p>" },
+      }),
+    );
+    const list = path.join(source, "pages.json");
+    await fs.writeFile(
+      list,
+      JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
+    );
+    return cli.run(
+      "plan",
+      ...dir,
+      ...["--proposal", id, "--rounds", "1", "--pages", list],
+      ...["--file", file, "--source", source],
+    );
+  }
   // A proposal the agent records, and the reviewer's Start or Decline on it.
   const propose = (id) =>
     cli.run(
@@ -77,7 +103,17 @@ async function holder(t) {
     const sent = await session.feedback(session.event(...event));
     assert.equal(sent.code, 200, sent.body.error);
   }
-  return { cli, session, printed, publish, read, submit, propose, reviewer };
+  return {
+    cli,
+    session,
+    printed,
+    publish,
+    read,
+    submit,
+    propose,
+    plan,
+    reviewer,
+  };
 }
 
 // A command's output contains its moment's text and no other moment's.
@@ -89,8 +125,17 @@ function printsMoment(output, name, printed) {
 }
 
 test("each command prints the moment it is run at", async (t) => {
-  const { cli, session, printed, publish, read, submit, propose, reviewer } =
-    await holder(t);
+  const {
+    cli,
+    session,
+    printed,
+    publish,
+    read,
+    submit,
+    propose,
+    plan,
+    reviewer,
+  } = await holder(t);
   printsMoment(await cli.run("start", "--title", "Moments"), "start", printed);
 
   const rows = [
@@ -123,6 +168,13 @@ test("each command prints the moment it is run at", async (t) => {
         await propose("later");
         await reviewer("later", "decline");
         return read();
+      },
+    ],
+    [
+      "plan",
+      async () => {
+        await propose("planned");
+        return plan("planned");
       },
     ],
     [

@@ -126,6 +126,6 @@ you publish anything from it.
 
 Before the session's first page, run `pair guide writing.md`,
 `pair guide pages.md` and `pair guide components.md`. Run
-`pair guide proposals.md` before you record your first proposal,
-`pair guide session.md` before you take a session over, resume it or pause
-it, and `pair guide setup.md` when a `pair` command fails.
+`pair guide proposals.md` before you record your first proposal or attach
+a plan, `pair guide session.md` before you take a session over, resume it
+or pause it, and `pair guide setup.md` when a `pair` command fails.
