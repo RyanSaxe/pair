@@ -94,7 +94,7 @@ export function pageBlocks() {
 }
 /* The bar marks the chosen block. placeMarks() calls this whenever the
    page's layout changes, so it also places the comment control, which
-   centers itself in the gutter beside the page's text. */
+   centers itself in the page's margin beside its text. */
 export let chosen = null;
 export function placeBar() {
   const bar = $("chosen-bar");
@@ -159,22 +159,24 @@ export function commentTarget() {
     button.querySelector(".comment-label span").textContent = name;
   placeBar();
 }
-/* On a window wide enough, the control sits in the gutter between the
-   page's text and the window's right edge, centered across it, so it never
-   covers the text at rest. Where the gutter is narrower than the control,
-   as on a phone, it sits at the bottom right over the page. It grows
-   leftward from that right edge. */
+/* On a window wide enough, the control sits in the page's white margin,
+   centered between the end of the text and the page's right edge, so it
+   never covers the text at rest. Where the margin is narrower than the
+   control, as on a phone, it sits at the bottom right over the page. It
+   grows leftward from its right edge, over the text. */
 function placeButton() {
   const button = $("comment-here");
   if (button.hidden) return;
   // At rest the control is a circle, so its height is its width.
   const size = parseFloat(getComputedStyle(button).height);
-  const gutter =
-    document.documentElement.clientWidth -
-    $("page-content").getBoundingClientRect().right;
-  const fits = gutter >= size;
+  const text = $("page-content").getBoundingClientRect().right;
+  const edge = $("content").getBoundingClientRect().right;
+  const fits = edge - text >= size;
+  const width = document.documentElement.clientWidth;
   button.dataset.place = fits ? "gutter" : "corner";
-  button.style.right = fits ? `${(gutter - size) / 2}px` : "";
+  button.style.right = fits
+    ? `${width - edge + (edge - text - size) / 2}px`
+    : "";
 }
 /* The control and the c key comment on the same things, so they share the
    one function that opens the note. */
@@ -237,7 +239,7 @@ export function installBlocks() {
   // A press on the button would otherwise clear the selection it is for.
   $("comment-here").onpointerdown = (event) => event.preventDefault();
   $("comment-here").onclick = () => commentOnTarget();
-  /* Once the frame is at its widest, a wider window widens the gutter and
+  /* Once the frame is at its widest, a wider window moves the page's edge and
      leaves the page's size as it was, so no layout change places it. */
   addEventListener("resize", placeButton);
   $("overall-note").onclick = () => openNote("overall", "Overall feedback");
