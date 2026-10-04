@@ -308,18 +308,23 @@ function sessionRow(entry, unopened, depth) {
   );
   return line;
 }
-// A closed session over its open sub-sessions: its name in grey, with no
-// number and no buttons, and Closed at the right end of the row.
+const closedIcon =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+// A closed session over its open sub-sessions: its name in grey, a lock in
+// the number column, no buttons, and Closed at the right end of the row.
 function closedHeading(entry, depth) {
   const line = document.createElement("div");
   line.className = "sess-line sess-closed";
   if (depth) line.style.setProperty("--depth", depth);
   const row = document.createElement("div");
   row.className = "sess-row";
+  const mark = document.createElement("span");
+  mark.className = "n";
+  mark.innerHTML = closedIcon;
   const state = document.createElement("span");
   state.className = "pill quiet";
   state.textContent = "Closed";
-  row.append(document.createElement("span"), rowTitle(entry, depth), state);
+  row.append(mark, rowTitle(entry, depth), state);
   line.append(row);
   return line;
 }
