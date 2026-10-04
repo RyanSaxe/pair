@@ -73,9 +73,17 @@ test("a drawing the reviewer backs out of opens again as they left it, after a r
   <p class="renderer-error" data-drawing-error role="status" hidden></p>
 </section>`;
   assert.equal((await session.publish(plan)).code, 200);
+  // Chrome gives a sandboxed frame a process of its own, and the editor's
+  // srcdoc frame starts loading in it before Playwright routes its
+  // requests, so its first requests can reach the real esm.sh. A drag into
+  // a new frame's process can be lost too. Without site isolation the frame
+  // shares the page's process and routes. Chrome keeps only the last
+  // --disable-features switch, so disabling IsolateSandboxedIframes alone
+  // would drop the features Playwright disables.
   const page = await open(t, "about:blank", {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
+    args: ["--disable-site-isolation-trials"],
   });
   if (!page) return;
   await stubExcalidraw(page);
