@@ -26,14 +26,8 @@ async function scratch(t) {
 // arguments contain: no check, no hub, no file.
 test("every command takes --help, prints its usage, exits 0 and runs nothing", async (t) => {
   const { cwd, state, run } = await scratch(t);
-  const names = Object.entries(commands).flatMap(([name, entry]) =>
-    entry.subcommands
-      ? [name, ...Object.keys(entry.subcommands).map((sub) => `${name} ${sub}`)]
-      : [name],
-  );
-  for (const name of names) {
-    const { stdout } = await run(...name.split(" "), "--help", "extra");
-    const { hidden } = commands[name.split(" ")[0]];
+  for (const [name, { hidden }] of Object.entries(commands)) {
+    const { stdout } = await run(name, "--help", "extra");
     if (!hidden) assert.match(stdout, new RegExp(`\nUsage: pair ${name}\\b`));
     else assert(stdout.trim(), name);
   }

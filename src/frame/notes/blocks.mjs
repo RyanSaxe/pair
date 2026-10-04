@@ -91,13 +91,7 @@ export function blockTargets(root, topic) {
   });
 }
 export function pageBlocks() {
-  return [...$("page-content").children].flatMap((block) =>
-    block.classList.contains("agreed-tabs")
-      ? []
-      : block.classList.contains("agreed-panel")
-        ? [...block.children]
-        : [block],
-  );
+  return [...$("page-content").children];
 }
 /* The bar marks the chosen block. placeMarks() calls this whenever the
    page's layout changes, so it also places the Comment button, which moves
@@ -248,7 +242,6 @@ export function commentOnTarget(on = target()) {
       null,
       null,
       selectedTarget,
-      null,
       selectedOccurrence(getSelection(), selected, selectedTarget),
     );
   else if (on === "block") {
@@ -287,10 +280,10 @@ export function installBlocks() {
     )
       return;
     if (getSelection()?.toString().trim()) return;
-    // A thread's card is no block, even where it sits inside Side work.
+    // A thread's card is no block.
     const block =
-      !event.target.closest("pair-thread, .agreed-tabs") &&
-      event.target.closest(".agreed-panel > *, #page-content > *");
+      !event.target.closest("pair-thread") &&
+      event.target.closest("#page-content > *");
     // A paragraph, a heading or a list is commented on by selecting its words.
     chooseBlock(block && !blockSkip.has(block.tagName) ? block : null);
   });

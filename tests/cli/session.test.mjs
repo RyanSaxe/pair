@@ -184,51 +184,16 @@ test("a command refuses an unknown flag, an extra argument, a repeated flag and 
   assert.equal((await status()).report.note, "Reading");
 });
 
-// pair side-work names its change before the options, and update names the
-// item, so a misplaced word is refused like a misspelt option.
-test("pair side-work adds an item from any agent and names it on update", async (t) => {
-  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-side-work-"));
-  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+// An agent the holder briefs may have no inbox socket of its own, and its
+// pair status still reaches the hub.
+test("pair status runs from an agent that cannot be woken", async (t) => {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-status-"));
+  const { config, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(scratch, { recursive: true, force: true });
   });
   const { sessionDir } = await start();
-  const add = ["side-work", "add", "--session-dir", sessionDir];
-  const { item } = JSON.parse(
-    await run(
-      ...add,
-      "--title",
-      "Delete visual-review",
-      "--text",
-      "The skill is deprecated but still installed.",
-      "--source",
-      "From the conversation",
-      "--json",
-    ),
-  );
-  assert.equal(item.id, "1");
-  assert.equal(item.state, "recorded");
-  const refused = async (args, named) =>
-    assert.rejects(run(...args), (error) => {
-      assert.equal(error.code, 1);
-      assert(error.stderr.includes(named), error.stderr);
-      return true;
-    });
-  await refused([...add, "--state", "working"], "--state");
-  await refused(
-    ["side-work", "update", "--session-dir", sessionDir, "--state", "working"],
-    "ID",
-  );
-  await refused(["side-work", "--session-dir", sessionDir], "add or update");
-  // The item reaches the hub by its ID, which refuses to move it before the
-  // reviewer starts it.
-  await refused(
-    ["side-work", "update", "1", "--session-dir", sessionDir, "--state", "pr"],
-    "Side work 1 has not been started. It starts when the reviewer presses Start in parallel on Agreed.",
-  );
-  // An agent the holder briefs may have no inbox socket of its own, and its
-  // command still reaches the hub.
   const briefed = path.join(scratch, "briefed");
   await fs.mkdir(briefed);
   const unwakeable = await pairCli(briefed, {
@@ -236,51 +201,10 @@ test("pair side-work adds an item from any agent and names it on update", async 
     XDG_STATE_HOME: scratch,
     CLAUDE_CODE_MESSAGING_SOCKET: "",
   });
-  const { item: second } = JSON.parse(
-    await unwakeable.run(
-      ...add,
-      "--title",
-      "Say why a command fails on an older hub",
-      "--text",
-      'A hub on older code answers ack with "Unknown agent action".',
-      "--source",
-      "Found while restarting the hub",
-      "--json",
-    ),
+  const status = JSON.parse(
+    await unwakeable.run("status", "--session-dir", sessionDir, "--json"),
   );
-  assert.equal(second.id, "2");
-});
-
-// A side-work item's source is text such as a file name, never a path the
-// CLI owns, so a refused add leaves it alone.
-test("a refused pair side-work add leaves the path its source names", async (t) => {
-  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-side-work-"));
-  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
-  t.after(async () => {
-    await killHub(config);
-    await fs.rm(scratch, { recursive: true, force: true });
-  });
-  const { sessionDir } = await start();
-  const named = path.join(scratch, "README.md");
-  await fs.writeFile(named, "kept\n");
-  await assert.rejects(
-    run(
-      "side-work",
-      "add",
-      "--session-dir",
-      sessionDir,
-      "--title",
-      "Fix the intro",
-      "--source",
-      named,
-    ),
-    (error) => {
-      assert.equal(error.code, 1);
-      assert.match(error.stderr, /--text/);
-      return true;
-    },
-  );
-  assert.equal(await fs.readFile(named, "utf8"), "kept\n");
+  assert.equal(status.title, "Test");
 });
 
 // publish copies its --source into the session before the hub sees the page,

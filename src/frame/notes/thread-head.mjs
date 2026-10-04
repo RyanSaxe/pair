@@ -28,9 +28,7 @@ function threadName(thread, part, collapsed) {
   }
   if (thread.agreementId === "task") return "On the task";
   if (thread.anchor === thread.page) return "On this page";
-  // A side-work item's card sits inside Side work, so its head leaves out
-  // the "Side work: " its note's anchor starts with.
-  return `On ${thread.anchor.replace(/^Side work: /, "")}`;
+  return `On ${thread.anchor}`;
 }
 // A card's head: what the thread is on, how many messages it has, and its
 // state when the card is collapsed. part names the part of the block the

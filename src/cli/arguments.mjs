@@ -14,22 +14,12 @@ const flagName = ([key, flag]) =>
   flag.value ? `--${key} ${flag.value}` : `--${key}`;
 
 // The command the arguments name in the table, with the arguments after its
-// name. A command with subcommands takes one as its next word.
+// name.
 export function findCommand(commands, argv) {
-  const [name, sub] = argv;
-  const entry = Object.hasOwn(commands, name) ? commands[name] : null;
-  if (!entry?.subcommands) return entry && { name, entry, rest: argv.slice(1) };
-  if (Object.hasOwn(entry.subcommands, sub || ""))
-    return {
-      name: `${name} ${sub}`,
-      entry: entry.subcommands[sub],
-      rest: argv.slice(2),
-    };
-  if (argv.includes("--help")) return { name, entry, rest: argv.slice(1) };
-  throw usageError(
-    name,
-    `pair ${name} takes ${Object.keys(entry.subcommands).join(" or ")}.`,
-  );
+  const [name] = argv;
+  return Object.hasOwn(commands, name)
+    ? { name, entry: commands[name], rest: argv.slice(1) }
+    : null;
 }
 
 // Reads a command's arguments: a flag is --name VALUE, or --name alone for a
@@ -100,10 +90,6 @@ function wrap(text, width, indent = "") {
 
 function usage(name, entry) {
   if (entry.usage) return entry.usage;
-  if (entry.subcommands)
-    return Object.entries(entry.subcommands)
-      .map(([sub, item]) => usage(`${name} ${sub}`, item))
-      .join("\n       ");
   const args = (entry.args || []).map((slot) =>
     slot.optional ? `[${slot.name}]` : slot.name,
   );
@@ -129,25 +115,16 @@ export function helpText({ name, entry }) {
     ["--help", "Print this help and run nothing."],
   ];
   const width = Math.max(...rows.map(([label]) => label.length)) + 2;
-  const flags = entry.subcommands
-    ? [
-        `Run ${Object.keys(entry.subcommands)
-          .map((sub) => `pair ${name} ${sub} --help`)
-          .join(" or ")} for its flags.`,
-      ]
-    : [
-        "Flags:",
-        ...rows.map(
-          ([label, text]) =>
-            `  ${label.padEnd(width)}${wrap(text, 78 - width, " ".repeat(width + 2))}`,
-        ),
-      ];
   return [
     wrap(entry.about, 80),
     "",
     `Usage: ${usage(name, entry)}`,
     "",
-    ...flags,
+    "Flags:",
+    ...rows.map(
+      ([label, text]) =>
+        `  ${label.padEnd(width)}${wrap(text, 78 - width, " ".repeat(width + 2))}`,
+    ),
     ...(entry.footer ? ["", entry.footer] : []),
     "",
   ].join("\n");
@@ -167,7 +144,7 @@ export function overview(commands) {
     "Work with an agent in the browser: plan a change, build it, and explain it.",
     "An agent starts with pair guide and follows what it prints.",
     "",
-    "Usage: pair COMMAND [SUBCOMMAND] [ARGUMENTS] [FLAGS]",
+    "Usage: pair COMMAND [ARGUMENTS] [FLAGS]",
     ...Object.entries(groups).flatMap(([group, title]) => [
       "",
       title,
