@@ -220,20 +220,6 @@ export async function illustrate(t, scratch) {
     const shots = { browser: await inThemes(page) };
     await page.evaluate(() => getSelection().removeAllRanges());
 
-    doing = "taking the Work card's screenshot";
-    await page.goto("about:blank");
-    await page.goto(`${url}#work`);
-    const card = page.locator("article.proposal-card").first();
-    const start = card.getByRole("button", { name: "Start", exact: true });
-    await start.waitFor();
-    const cardBox = await card.boundingBox();
-    const startBox = await start.boundingBox();
-    const geometry = {
-      cardWidth: cardBox.width,
-      startY: (startBox.y + startBox.height / 2 - cardBox.y) / cardBox.height,
-    };
-    shots.card = await inThemes(page, cardBox);
-
     doing = "sending round 2";
     await load(page, url, "where-to-retry");
     await send(page);
@@ -244,6 +230,10 @@ export async function illustrate(t, scratch) {
     await page.goto("about:blank");
     await page.goto(`${url}#work`);
     await page.locator("#work-tab-proposed").click();
+    const start = page
+      .locator("article.proposal-card")
+      .first()
+      .getByRole("button", { name: "Start", exact: true });
     await start.waitFor();
     shots.phoneWork = await inThemes(page);
     await start.click();
@@ -296,7 +286,7 @@ export async function illustrate(t, scratch) {
         subDir,
       );
 
-    doing = "taking the sub-session's screenshots";
+    doing = "taking the sub-session's screenshot";
     await load(page, subUrl, "agreed");
     await page.getByText(title).first().waitFor();
     // Each page's row on the progress card opens to show the agent's note.
@@ -310,10 +300,6 @@ export async function illustrate(t, scratch) {
     );
     for (const row of await rows.all()) await row.click();
     shots.phoneSub = await inThemes(page);
-    await page.setViewportSize({ width: desktop.width, height: 600 });
-    await load(page, subUrl, "agreed");
-    await page.locator("#agent-activity").waitFor();
-    shots.sub = await inThemes(page);
 
     doing = "composing the pictures";
     const browser = page.context().browser();
@@ -323,7 +309,7 @@ export async function illustrate(t, scratch) {
       );
       images.set(
         `assets/illustration-${theme}.png`,
-        await composeIllustration(browser, theme, shot, transcript, geometry),
+        await composeIllustration(browser, theme, shot, transcript),
       );
       images.set(
         `assets/work-${theme}.png`,
