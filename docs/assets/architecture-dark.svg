@@ -14,5 +14,5 @@ text{fill:#e6edf3}.s{fill:#9198a1}.line{stroke:#e6edf3}.head{fill:#e6edf3}.box{f
 <path class="line" d="M250 130 H184" marker-end="url(#a)"/><text x="215" y="172" class="s">wake</text>
 <path class="line" d="M410 92 H476" marker-end="url(#a)"/><text x="445" y="60" class="s">pages</text>
 <path class="line" d="M480 130 H414" marker-end="url(#a)"/><text x="445" y="172" class="s">feedback, threads</text>
-<text x="330" y="212" class="s">The hub keeps each session, its rounds and its side work on disk</text>
+<text x="330" y="212" class="s">The hub keeps each session and its rounds on disk</text>
 </svg>

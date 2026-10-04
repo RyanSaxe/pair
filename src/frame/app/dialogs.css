@@ -268,13 +268,8 @@ dialog::backdrop {
 .decide-sections > [inert] {
   visibility: hidden;
 }
-.dialog.note #note-anchor,
-#start-item {
+.dialog.note #note-anchor {
   margin: 0 0 6px;
-}
-/* The message box is the note's height, without room for an image button. */
-#start-message {
-  min-height: 120px;
 }
 /* The line that says what goes with the decision stands apart from the rows
    above it and the note below. */

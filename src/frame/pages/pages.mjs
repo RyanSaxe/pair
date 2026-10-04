@@ -38,7 +38,7 @@ import {
   markNotes,
   placeMarks,
 } from "#frame/notes/notes.mjs";
-import { renderAgreements, showAgreedTab } from "#frame/pages/agreed.mjs";
+import { renderAgreements } from "#frame/pages/agreed.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
@@ -189,14 +189,12 @@ export function show(
   });
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
-// details around it and the Agreed tab that holds it.
+// details around it.
 export function reveal(targetId) {
   const target = targetId && $(targetId);
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
   if (!target || !$("reading").contains(target)) return;
-  const panel = target.closest(".agreed-panel");
-  if (panel) showAgreedTab(panel.id);
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
   // A collapsed thread card shows only its head, so a reply inside it has no

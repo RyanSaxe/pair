@@ -25,7 +25,6 @@ for each part of the work.
 | To                            | Do this                                                        |
 | ----------------------------- | -------------------------------------------------------------- |
 | Change the work while it runs | Start a thread on the page. The reply says what will change.   |
-| Get unrelated work done       | Ask for side work, then press **Start in parallel** on Agreed. |
 | Stop                          | Tell the agent in chat. It pauses, and continues when you ask. |
 
 ## Review the work

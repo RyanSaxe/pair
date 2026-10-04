@@ -279,7 +279,6 @@ export function installNotes() {
         notes[0].id,
         notes[0].agreementId,
         notes[0].target,
-        notes[0].sideWorkId,
         notes[0].occurrence,
       );
     else if (notes.length > 1) show("feedback");
@@ -297,10 +296,9 @@ export function installNotes() {
   });
   /* Closing puts focus back on the control that opened the note. The
      browser does that itself, but not to a control that was redrawn: a save
-     redraws the page, which focuses its heading, or Review's list, and a
-     poll can redraw side work. Focus then goes to the redrawn element that
-     held the control, found by its ID: the block, card or Review item the
-     note is on. */
+     redraws the page, which focuses its heading, or Review's list. Focus
+     then goes to the redrawn element that held the control, found by its
+     ID: the block, card or Review item the note is on. */
   $("note-dialog").addEventListener("close", () => {
     const shown = (element) =>
       element?.isConnected && element.checkVisibility();
@@ -326,7 +324,6 @@ export function openNote(
   id = null,
   entryId = null,
   target = null,
-  sideWorkId = null,
   occurrence = 1,
 ) {
   // After the round's feedback is sent, only a new note on a page opens,
@@ -339,7 +336,6 @@ export function openNote(
     anchor,
     quote,
     ...(entryId ? { agreementId: entryId } : {}),
-    ...(sideWorkId ? { sideWorkId } : {}),
     ...(target ? { target } : {}),
     ...(occurrence > 1 ? { occurrence } : {}),
   };
