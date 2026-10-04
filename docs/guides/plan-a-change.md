@@ -1,7 +1,8 @@
 # Plan a change
 
-A planning session ends with a plan that someone who saw none of the rounds
-could build. Use it for any change where how to build it is not obvious yet.
+Planning ends with a plan that someone who saw none of the rounds could
+build, attached to the [proposal](../concepts/proposals-and-work.md) for the
+work. Use it for any change where how to build it is not obvious yet.
 
 ## Ask
 
@@ -28,18 +29,22 @@ and anything you already know you do or do not want.
 - **Ask a quick question as a thread**, so the answer arrives before you
   send the round.
 
-To go faster, ask the agent to decide what is still open, or to present the
-complete plan. It takes its recommendations and records them on Agreed.
+To go faster, ask the agent to decide what is still open, or to write the
+plan. It takes its recommendations and records them on Agreed.
 
-## Before you accept
+## Before you start the work
 
-The complete plan opens with an overview. Check that:
+When nothing is left to decide, the agent attaches the plan to the
+proposal. Open it from the proposal's card on Work with **Open plan**, and
+check that:
 
 - every mock, wording and interface you approved is shown in it, not
   described;
-- each page says how its part will be verified;
-- every decision on Agreed appears as you agreed it.
+- each page says how its part will be checked;
+- every alignment on Agreed appears as you settled it.
 
-Then press **Finish review**: **Request changes**, or **Accept plan** with
-**Start implementation** or **Save for later**.
-[Build a plan](build-a-plan.md) follows what happens next.
+When something is wrong, say so with **Comment** on the card or in your
+feedback, and the agent attaches a revised plan.
+When the plan is right, press **Start** on the card and choose where the
+work runs. **Download plan** saves it as one HTML file to keep or send.
+[Build the work](build-the-work.md) follows what happens next.

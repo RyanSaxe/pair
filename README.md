@@ -44,14 +44,15 @@ agent CLI needs first.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/session-dark.svg">
-  <img alt="A session: you ask, then work through rounds until something is understood, a plan is accepted, or the work is accepted" src="docs/assets/session-light.svg">
+  <img alt="A session: you ask, then work through rounds with feedback. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="docs/assets/session-light.svg">
 </picture>
 
 A session is a series of rounds. In each round the agent publishes pages and
 you respond: choose, comment, send feedback, or start a thread for an answer
-right away. A session that explains something can go round as long as you
-like. When a plan is complete you accept it, and the same session builds it,
-one page per part, until you accept the work.
+right away. The agent records the work it thinks is worth doing as
+proposals, and changes your project only when you start one or tell it to.
+Work you start runs in the same session, or in a sub-session you can move
+to and from, and a session runs until you close it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
@@ -66,10 +67,10 @@ respond. [Concepts](docs/concepts/) explains each part in more depth.
 
 - [Getting started](docs/getting-started/) installs `pair` and runs a first
   session.
-- [Concepts](docs/concepts/) explains sessions, rounds, pages, Agreed and the
-  hub.
-- [Guides](docs/guides/) covers planning, understanding code, building and
-  handing a session over.
+- [Concepts](docs/concepts/) explains sessions, rounds, pages, Agreed,
+  proposals and the hub.
+- [Guides](docs/guides/) covers planning, understanding code and building
+  the work.
 - [Reference](docs/reference/) lists every command and setting, and what the
   agent reads.
 - [Troubleshooting](docs/troubleshooting.md) covers the problems people hit.

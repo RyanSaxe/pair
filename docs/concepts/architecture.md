@@ -12,8 +12,8 @@ wakes the agent when you respond.
 ## The hub
 
 - `pair start` starts the hub when none is running.
-- A session is live from `pair start` until it completes, pauses or is saved
-  for later. The hub exits after `PAIR_HUB_IDLE_SECONDS` with no live
+- A session is live from `pair start` until you close it or its agent
+  pauses it. The hub exits after `PAIR_HUB_IDLE_SECONDS` with no live
   session, and the next `pair start` starts a new one on the same port.
 - A new hub loads every session from disk, so each keeps its URL.
 - Every tab reads the session list every 5 seconds, with each session's
@@ -80,9 +80,13 @@ is `true` when the agent CLI reads a message in the middle of a turn.
 When a wake fails, the progress card says "Could not wake the agent. Send a
 message in chat." and shows the [handoff line](holders-and-handoff.md).
 
-A [thread](threads-and-side-work.md) wakes the holder too, once for each
-message, naming the `pair read --thread` command that prints it. It does so
-even while the session is paused, because you are waiting for the answer.
+A [thread](threads.md) wakes the holder too, once for each message, naming
+the `pair read --thread` command that prints it. It does so even while the
+session is paused, because you are waiting for the answer. Starting a
+[proposal](proposals-and-work.md) here or in a sub-session wakes the holder
+with your message, unless the session is paused. Declining a proposal and
+closing a linked session wake no one, and the holder's next `pair read`
+prints them.
 
 ## Storage
 
@@ -93,7 +97,7 @@ hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
 sessions/<dir>/      the directory name is not the session ID
-  status.json        title, stage, holder, wake, open round; pair status prints it
+  status.json        title, stage, holder, wake, open round, linked parent; pair status prints it
   connection.json    session ID, hub origin, agent token, wake target
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
@@ -102,10 +106,15 @@ sessions/<dir>/      the directory name is not the session ID
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
   scenes/            editable shapes of drawing answers
   threads/           one file per thread
+  proposals/         one file per proposal
+  plans/<id>/        a proposal's plan: plan.html, pages.json and each page's source
   activity.json      the last 50 events, for the bell
   output/            command output too long to print
-  acceptance.json    after you accept
 ```
+
+The agent's scratch git worktrees are inside the session's directory too.
+Closing the session removes each one with `git worktree remove` and keeps
+its branch.
 
 Sessions from interactive-plan, `pair`'s predecessor, stay under
 `~/.local/state/interactive-plan/`. Start a new session instead of resuming
