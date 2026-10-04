@@ -92,7 +92,9 @@ without a plan.
   session. The hub marks the card done, and this session's agent learns of
   it the next time it runs `pair read`, then builds on its result.
 - When a proposal's work got done some other way, such as in a pull
-  request, the agent marks the card done and names where, started or not.
+  request, the agent marks the card done and names where, whether the card
+  was not started or started here. A card whose work runs in its own
+  session finishes only when that session closes.
   The line under the card's title reads Done and where, such as
   Done · in #86.
 - The agent withdraws a proposal nobody started when it no longer applies,

@@ -401,10 +401,14 @@ test("--done marks work started here done, --where marks any card done, and --re
     (await reviewer("board-qa", "start", { where: "sub-session" })).code,
     200,
   );
+  // A card whose work runs in its own session finishes only when that
+  // session closes, so it keeps its link to the session.
   assert.equal((await propose({ id: "board-qa", done: true })).code, 409);
+  const linked = await propose({ id: "board-qa", done: true, where: "in #87" });
+  assert.equal(linked.code, 409);
   assert.equal(
-    (await propose({ id: "board-qa", done: true, where: "in #87" })).code,
-    200,
+    linked.body.error,
+    "Proposal board-qa runs in a sub-session, so closing that session marks it done.",
   );
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
@@ -424,7 +428,7 @@ test("--done marks work started here done, --where marks any card done, and --re
     (await cards()).map((card) => [card.id, card.done?.where ?? null]),
     [
       ["churn-export", null],
-      ["board-qa", "in #87"],
+      ["board-qa", null],
     ],
   );
 });

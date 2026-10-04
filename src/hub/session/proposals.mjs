@@ -308,9 +308,9 @@ export async function proposals(session) {
     });
   }
   // The agent marks work started here done after its last page. With
-  // --where, it marks any card done whose work got done somewhere else,
-  // started or not. Closing a linked session marks the card of work
-  // started there.
+  // --where, it marks a card done whose work got done somewhere else,
+  // started here or not started. Only closing a linked session marks the
+  // card of work started there, so the card keeps its link to that session.
   async function done(card, data) {
     requireValue(!card.done, `Proposal ${card.id} is already done`, 409);
     requireValue(
@@ -318,13 +318,15 @@ export async function proposals(session) {
       `Proposal ${card.id} was ${card.declined ? "declined" : "withdrawn"}, so it takes no --done.`,
       409,
     );
-    const where = data.where === undefined ? null : words(data, "where");
-    const elsewhere = card.started
-      ? `Proposal ${card.id} runs in a ${card.started.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done`
-      : `Proposal ${card.id} has not been started`;
     requireValue(
-      where || card.started?.where === "here",
-      `${elsewhere}. When its work got done somewhere else, run --done with --where, such as --where "in #86".`,
+      !card.started || card.started.where === "here",
+      `Proposal ${card.id} runs in a ${card.started?.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done.`,
+      409,
+    );
+    const where = data.where === undefined ? null : words(data, "where");
+    requireValue(
+      where || card.started,
+      `Proposal ${card.id} has not been started. When its work got done somewhere else, run --done with --where, such as --where "in #86".`,
       409,
     );
     return save(card, {
