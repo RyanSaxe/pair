@@ -113,8 +113,10 @@ sessions/<dir>/      the directory name is not the session ID
 ```
 
 The agent's scratch git worktrees are inside the session's directory too.
-Closing the session removes each one with `git worktree remove` and keeps
-its branch.
+Closing the session removes each one with `git worktree remove`, without
+`--force`, and keeps its branch. Git refuses to remove a worktree with
+modified or untracked files, so that worktree stays, and the hub's log names
+it with git's reason.
 
 Sessions from interactive-plan, `pair`'s predecessor, stay under
 `~/.local/state/interactive-plan/`. Start a new session instead of resuming

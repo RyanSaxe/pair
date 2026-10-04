@@ -19,6 +19,7 @@ import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
 import { startFrom, withClosedParents } from "./linking.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
+import { uncommittedWorktrees } from "./session/worktrees.mjs";
 import { adapters } from "./wake.mjs";
 
 async function readBody(req, limit) {
@@ -352,6 +353,11 @@ export async function startHub(config = settings()) {
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close(log)));
         }
+        // The Close dialog names each worktree that closing keeps.
+        if (method === "GET" && rest[0] === "api" && rest[1] === "worktrees")
+          return reply(200, {
+            uncommitted: await uncommittedWorktrees(session.directory),
+          });
         // Start, Decline, Restore and Open a new agent session on a
         // proposal's card. Start carries where the work runs, and Start and
         // Open a new agent session the reviewer's optional message.

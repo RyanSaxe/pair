@@ -195,6 +195,20 @@ dialog::backdrop {
   color: var(--muted);
   font-size: var(--text-small);
 }
+/* The Close dialog's worktrees with uncommitted changes, each path whole
+   and broken at any character on a phone. */
+#close-kept {
+  margin-top: 10px;
+}
+#close-kept ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+#close-kept code {
+  font-size: var(--text-meta);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
+}
 .key-list {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
