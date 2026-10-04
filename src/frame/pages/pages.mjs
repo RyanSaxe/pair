@@ -177,7 +177,6 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  $("quote").hidden = true;
   if (!inPlace) closeMenus();
   updateNavigation();
   review();

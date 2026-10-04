@@ -1,10 +1,9 @@
 :root {
   color-scheme: light;
   /* One order for every layer, so a new piece of chrome cannot quietly
-     cover something. The selection control sits above all of it. */
+     cover something. */
   --z-sidebar: 5;
   --z-header: 6;
-  --z-selection: 40;
   --ground: light-dark(#f6f6f8, #121417);
   --panel: light-dark(#ffffff, #1a1d22);
   --line: light-dark(#e3e4e8, #2a2e35);

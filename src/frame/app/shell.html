@@ -152,7 +152,18 @@
                 hidden
               ></div>
               <section id="reading">
-                <h1 tabindex="-1" id="page-title"></h1>
+                <div class="title-row">
+                  <h1 tabindex="-1" id="page-title"></h1>
+                  <button
+                    class="comment-page"
+                    id="comment-page"
+                    type="button"
+                    hidden
+                  >
+                    <span>Comment on this page</span>
+                    <kbd aria-hidden="true">c</kbd>
+                  </button>
+                </div>
                 <p class="home-agent" id="home-agent" hidden></p>
                 <div class="agent-activity" id="agent-activity" hidden>
                   <div class="activity-heading">
@@ -186,6 +197,15 @@
                 <p class="finished-line" id="finished-line" hidden></p>
                 <div class="note-bars" id="note-bars"></div>
                 <div class="chosen-bar" id="chosen-bar" hidden></div>
+                <button
+                  class="btn comment-here"
+                  id="comment-here"
+                  type="button"
+                  hidden
+                >
+                  <span>Comment</span>
+                  <kbd aria-hidden="true">c</kbd>
+                </button>
                 <div id="page-content"></div>
                 <section
                   class="sent-page-comments"
@@ -256,9 +276,6 @@
     <script type="application/json" id="drawing-editor-source">
       <!-- DRAWING_EDITOR -->
     </script>
-    <button class="btn primary quote-button" id="quote" type="button" hidden>
-      Comment on this page
-    </button>
     <div class="note-tip" id="note-tip" hidden></div>
 
     <script type="application/json" id="session-config">

@@ -33,11 +33,8 @@ async function selectQuote(page) {
     }, quote);
   assert.equal(selected, quote);
   // The frame reads the selection on selectionchange, which the browser
-  // fires after this call returns.
-  await page.waitForFunction(
-    () =>
-      document.querySelector("#quote")?.textContent === "Comment on selection",
-  );
+  // fires after this call returns, and then shows Comment above it.
+  await page.getByRole("button", { name: "Comment", exact: true }).waitFor();
 }
 
 const popoverOpen = (page, id, open) =>

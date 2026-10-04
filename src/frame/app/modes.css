@@ -13,7 +13,8 @@
 :root[data-mode="preview"] .frame-header,
 :root[data-mode="preview"] .history-strip,
 :root[data-mode="preview"] .page-footer,
-:root[data-mode="preview"] #quote {
+:root[data-mode="preview"] #comment-page,
+:root[data-mode="preview"] #comment-here {
   display: none !important;
 }
 :root[data-mode="preview"] main {
@@ -29,7 +30,8 @@
   overflow: auto;
 }
 :root[data-mode="readonly"] #submit,
-:root[data-mode="readonly"] #quote,
+:root[data-mode="readonly"] #comment-page,
+:root[data-mode="readonly"] #comment-here,
 :root[data-mode="readonly"] [data-comment],
 :root[data-mode="readonly"] .note-count {
   display: none !important;
