@@ -54,6 +54,9 @@ Sessions.
   session has pages you have not opened, and grey otherwise.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
   waiting for you.
+- ✕ opens a dialog that asks before it closes the session. A closed session
+  is read-only with every round kept, its agent gets no message, and the hub
+  removes each git worktree inside the session's directory.
 - **New** marks each page of a round that you have not opened.
 - A session is listed from the moment it starts. Until the agent publishes
   its first Agreed, the session's page shows its title, its agent and the
