@@ -241,4 +241,21 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
     needs: ["1", "1 needs you"],
     proposed: ["1", "1 proposed"],
   });
+  // The needs-you pill ends the row, after the proposed number.
+  const edges = await page.locator("#work-row").evaluate((row) => {
+    const box = (kind) =>
+      row.querySelector(`.count.${kind}`).getBoundingClientRect();
+    return {
+      rowEnd:
+        row.getBoundingClientRect().right -
+        parseFloat(getComputedStyle(row).paddingRight),
+      needs: box("needs"),
+      proposed: box("proposed"),
+    };
+  });
+  assert.ok(
+    edges.proposed.right < edges.needs.left,
+    `the proposed number ends at ${edges.proposed.right}, the pill starts at ${edges.needs.left}`,
+  );
+  assert.equal(Math.round(edges.needs.right), Math.round(edges.rowEnd));
 });
