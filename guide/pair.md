@@ -17,11 +17,13 @@ change from their words, show it on the next page and quote them.
 
 Before you have an instruction, research, plan and try changes only in a
 git worktree inside the session's directory, which `pair start` prints, or
-in a plain directory there when the project is not a git repository. When
-the reviewer closes the session, the hub removes each git worktree in that
-directory and keeps its branch, so commit there anything you need later.
-When a `pair` command prints that the session is complete, stop working on
-the session.
+in a plain directory there when the project is not a git repository. The
+hub deletes nothing when the reviewer closes the session. Once the work you
+tried in a worktree there is done or declined, offer to remove the worktrees
+you made by recording a proposal or asking a question on a page, and remove
+them only when the reviewer starts that proposal or answers yes. When a
+`pair` command prints that the session is complete, stop working on the
+session.
 
 ## How pair instructs you
 

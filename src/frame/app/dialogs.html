@@ -153,14 +153,8 @@
   <div class="dialog-body">
     <p>
       The session becomes read-only, with every round kept, and its agent gets
-      no message. The hub removes each git worktree inside the session's
-      directory that has no uncommitted changes. A worktree with uncommitted
-      changes stays, and so do your checkout and branches.
+      no message. Closing deletes no files.
     </p>
-    <div id="close-kept" hidden>
-      <p id="close-kept-label"></p>
-      <ul id="close-kept-list"></ul>
-    </div>
   </div>
   <div class="actions">
     <button class="btn primary" type="button" id="close-confirm">
