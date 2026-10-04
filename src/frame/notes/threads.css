@@ -125,6 +125,38 @@ pair-thread[collapsed] > :not(.thread-head) {
   font-size: var(--text-tiny);
   font-weight: 400;
 }
+/* The thumbs up on an agent's message sits at the end of its name line, a
+   muted outline until the reviewer presses it and filled in the accent
+   after. Its negative margins keep the line's height. */
+.thread-ack {
+  float: right;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: -7px -6px -7px 8px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+.thread-ack svg {
+  width: 15px;
+  height: 15px;
+}
+.thread-ack[aria-pressed="true"] {
+  color: var(--accent);
+}
+.thread-ack[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+.thread-ack:disabled {
+  opacity: 1;
+}
+@media (hover: hover) {
+  .thread-ack:not(:disabled):hover {
+    color: var(--accent);
+    background: var(--ground);
+  }
+}
 .thread-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

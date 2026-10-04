@@ -83,6 +83,33 @@ test("a reply in a thread clears that thread's lines from the bell and keeps the
   await count(page, "1");
 });
 
+test("a thumbs up on a reply fills and takes its line out of the bell, and pressing it again puts both back", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(round())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  await bellReady(page);
+  const id = await thread(session, "page");
+  await reply(session, id);
+  await count(page, "1");
+  const thumb = page.locator(`pair-thread[data-thread="${id}"] .thread-ack`);
+  await thumb.click();
+  assert.equal(await thumb.getAttribute("aria-pressed"), "true");
+  await count(page, "");
+  // After a reload, the hub's thread and listing keep both.
+  await page.reload();
+  await page
+    .locator(
+      `pair-thread[data-thread="${id}"] .thread-ack[aria-pressed="true"]`,
+    )
+    .waitFor();
+  await count(page, "");
+  await thumb.click();
+  assert.equal(await thumb.getAttribute("aria-pressed"), "false");
+  await count(page, "1");
+});
+
 test("another session's finished round adds a waiting line, and sending that round removes it", async (t) => {
   const h = await hub(t);
   const a = await h.session();

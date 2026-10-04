@@ -309,7 +309,7 @@ export async function loadSession(
       updatedAt: state.updatedAt,
       url: base + "/",
       handoff: session.handoff,
-      events: session.activityItems(),
+      events: session.withAcknowledgements(session.activityItems()),
     };
   }
   return {
@@ -345,6 +345,7 @@ export async function loadSession(
     attachPlan: session.attachPlan,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
+    acknowledge: session.acknowledge,
     act: session.act,
     browserView,
     latestFeedback,

@@ -152,7 +152,11 @@ export function threadText(thread) {
   const messages = thread.messages.map((message) =>
     tag(
       "pair_message",
-      { from: message.from, at: clock(message.at) },
+      {
+        from: message.from,
+        at: clock(message.at),
+        acknowledged: message.acknowledgedAt ? "yes" : undefined,
+      },
       [
         tagText(message.html ?? message.text),
         ...images(message.attachments),
@@ -182,12 +186,17 @@ function opening(message) {
   return `${text.slice(0, space > 0 ? space : 60)}…`;
 }
 
-// The threads with a reviewer message since the submission before the one
-// printed, one line each, and how to open one.
+// The agent messages the reviewer gave a thumbs up, by their place in the
+// thread.
+const numbered = (list) =>
+  list && `message${list.length > 1 ? "s" : ""} ${list.join(", ")}`;
+
+// The threads with a reviewer message or thumbs up since the submission
+// before the one printed, one line each, and how to open one.
 export function threadIndex(threads, since, directory) {
   if (!threads?.length) return "";
   return [
-    `Threads the reviewer started or added to since ${since ? `round ${since}'s submission` : "the session started"}:`,
+    `Threads with a new message or acknowledgement from the reviewer since ${since ? `round ${since}'s submission` : "the session started"}:`,
     ...threads.map((thread) =>
       tag(
         "pair_thread",
@@ -196,6 +205,7 @@ export function threadIndex(threads, since, directory) {
           page: thread.topic,
           proposal: thread.proposal,
           messages: thread.messages,
+          acknowledged: numbered(thread.acknowledged),
         },
         tagText(opening(thread.latest)),
       ),

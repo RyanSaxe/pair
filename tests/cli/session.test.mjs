@@ -578,6 +578,19 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
   ]);
   const status = JSON.parse(await cli.run("status", ...dir, "--json"));
   assert.equal(status.threads, undefined);
+  // The thread and pair read's list name the reply with a thumbs up.
+  await session.request(`${session.base}/api/threads/${id}/acknowledge`, {
+    message: 1,
+    acknowledged: true,
+  });
+  const agent = (await cli.run("read", ...dir, "--thread", id))
+    .match(/<pair_message from="agent"[^>]*>/g)
+    .map((opening) => opening.includes(' acknowledged="yes"'));
+  assert.deepEqual(agent, [true, false]);
+  assert.match(
+    await cli.run("read", ...dir),
+    new RegExp(`<pair_thread id="${id}"[^>]* acknowledged="message 2">`),
+  );
 });
 
 // Builds Agreed for round 1 with the page list given, as the agent does,

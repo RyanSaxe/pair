@@ -49,7 +49,7 @@ export const commands = {
     group: "session",
     purpose: "Print the reviewer's next submission, a past one, or a thread",
     about:
-      "Print the reviewer's next submission and mark it received and read, then list each thread the reviewer started or added to since the submission before it.",
+      "Print the reviewer's next submission and mark it received and read, then list each thread with a new message or acknowledgement from the reviewer since the submission before it.",
     usage: "pair read --session-dir DIR [--submission ID | --thread ID]",
     flags: {
       "session-dir": sessionDir,
