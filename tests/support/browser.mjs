@@ -6,9 +6,10 @@ import "./env.mjs";
 // skipping.
 const missing = "Google Chrome is not installed";
 
-export async function launch() {
+// args are switches for Chrome.
+export async function launch({ args } = {}) {
   try {
-    return await chromium.launch({ channel: "chrome" });
+    return await chromium.launch({ channel: "chrome", args });
   } catch (error) {
     const message = error.message || String(error);
     if (
@@ -22,11 +23,12 @@ export async function launch() {
 }
 
 // Opens url in a new page of the installed Chrome, and closes Chrome when
-// the test ends. With html, the page is served at http://pair.localhost/.
-export async function open(t, url, { html, ...pageOptions } = {}) {
+// the test ends. With html, the page is served at http://pair.localhost/,
+// and args are switches for Chrome.
+export async function open(t, url, { html, args, ...pageOptions } = {}) {
   let browser;
   try {
-    browser = await launch();
+    browser = await launch({ args });
   } catch (error) {
     if (process.env.CI || error.message !== missing) throw error;
     t.skip(missing);
