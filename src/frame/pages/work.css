@@ -53,7 +53,8 @@
 /* reading.css sizes every p on a page with #page-content p, so the card's
    paragraphs name the card to keep its sizes inside a page too. */
 .proposal-card .proposal-title,
-.proposal-card .proposal-delivers {
+.proposal-card .proposal-delivers,
+.proposal-card .proposal-plan {
   margin: 0;
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
@@ -64,6 +65,10 @@
   align-items: center;
   gap: 4px 8px;
   margin-bottom: 4px;
+}
+.proposal-card .proposal-plan {
+  margin-top: 4px;
+  color: var(--muted);
 }
 .proposal-foot {
   display: flex;
@@ -77,8 +82,15 @@
   color: var(--muted);
   font-size: var(--text-meta);
 }
+.proposal-foot-start,
 .proposal-where {
   min-width: 0;
+}
+.proposal-plan-links a {
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .proposal-where a {
   color: inherit;

@@ -1,6 +1,7 @@
 /* An approved prototype in a sandboxed frame, with its source beneath. */
 function prototypeUrl(prototype) {
-  if (online)
+  // A plan is no round of the hub's, so its prototypes open from the page.
+  if (online && !plan.proposal)
     return `${base}/r/${encodeURIComponent(plan.round)}/prototype/${encodeURIComponent(prototype.id)}`;
   return URL.createObjectURL(new Blob([prototype.html], { type: "text/html" }));
 }
