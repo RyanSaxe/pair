@@ -73,6 +73,19 @@ test("Sessions numbers only the sessions that are not sub-sessions, the number k
       ["2", "Last"],
     ],
   );
+  // With no buttons on its row, Closed ends in the Close column.
+  const closedEnd = await rows
+    .nth(2)
+    .locator(".pill")
+    .evaluate((pill) => pill.getBoundingClientRect().right);
+  const closeColumn = await rows
+    .nth(3)
+    .locator('[data-key^="close:"]')
+    .evaluate((button) => button.getBoundingClientRect());
+  assert.ok(
+    closedEnd > closeColumn.left && closedEnd <= closeColumn.right,
+    `Closed ends at ${closedEnd}, the Close column spans ${closeColumn.left} to ${closeColumn.right}`,
+  );
   await page.keyboard.press("Escape");
 
   await page.keyboard.press("2");

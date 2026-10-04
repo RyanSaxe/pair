@@ -464,8 +464,9 @@ dialog::backdrop {
   font-weight: normal;
 }
 /* A closed session over its open sub-sessions reads in grey and has no
-   buttons. */
+   buttons, so its row spans their columns and Closed ends at the right. */
 .sess-closed .sess-row {
+  grid-column: 1 / -1;
   color: var(--muted);
   cursor: default;
 }

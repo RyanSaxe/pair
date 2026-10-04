@@ -309,7 +309,7 @@ function sessionRow(entry, unopened, depth) {
   return line;
 }
 // A closed session over its open sub-sessions: its name in grey, with no
-// number and no buttons.
+// number and no buttons, and Closed at the right end of the row.
 function closedHeading(entry, depth) {
   const line = document.createElement("div");
   line.className = "sess-line sess-closed";
