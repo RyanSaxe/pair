@@ -1,0 +1,26 @@
+{
+  "name": "charge-retry",
+  "round": "2",
+  "title": "Retry a charge when the payment gateway times out",
+  "page": {
+    "id": "agreed",
+    "title": "Agreed so far",
+    "task": {
+      "title": "Retry a charge when the payment gateway times out",
+      "html": "<p>Checkout fails an order when the payment gateway times out, even when a second attempt would succeed. Plan a retry that never charges a card twice.</p>"
+    },
+    "agreements": [
+      {
+        "id": "timeouts-only",
+        "title": "Retry only a gateway timeout, never a decline",
+        "html": "<p>A declined card fails the order at once, as it does today.</p>",
+        "sourceRefs": [
+          {
+            "kind": "conversation",
+            "text": "The reviewer asked to retry timeouts and leave declines alone."
+          }
+        ]
+      }
+    ]
+  }
+}

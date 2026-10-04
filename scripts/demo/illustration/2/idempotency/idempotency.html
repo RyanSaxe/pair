@@ -1,0 +1,2 @@
+<p>The gateway keeps each <code>Idempotency-Key</code> for 24 hours. A second request with the same key returns the first charge instead of charging again.</p>
+<p><code>gateway.charge</code> sends no key today, so the retry depends on adding one.</p>
