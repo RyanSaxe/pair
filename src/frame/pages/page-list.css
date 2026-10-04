@@ -35,10 +35,6 @@
 .round-status.idle {
   opacity: 0;
 }
-.dialog-head .round-status {
-  margin-left: auto;
-  font-size: var(--text-label);
-}
 .pages-slot nav {
   display: block;
   padding: 0;
@@ -213,11 +209,6 @@
   font-size: inherit;
   font-weight: inherit;
   line-height: inherit;
-}
-/* The page list is one element, shown in the sidebar or in the dialog. */
-#pages-dialog .pages-slot nav {
-  padding: 0;
-  overflow: visible;
 }
 @media (prefers-reduced-motion: reduce) {
   .page-activity.active::before,

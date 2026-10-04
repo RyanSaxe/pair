@@ -13,7 +13,7 @@ the version.
 | `pair progress --page ID --note TEXT`                     | Report a page started, a note on a page, or, without `--page`, a note on the round. The progress card shows each report.                                                                        |
 | `pair publish --file HTML`                                | Publish a built page. A round's first publish is Agreed, with `--pages`.                                                                                                                        |
 | `pair reply --thread ID --text TEXT`, or `--file HTML`    | Post the agent's reply in a thread: text, or an HTML fragment that `pair build`'s page checks accept.                                                                                           |
-| `pair status`, `pause`, `complete`                        | Print the session's state, pause it, or end it once the action for accepted work is done.                                                                                                       |
+| `pair status`, `pause`                                    | Print the session's state, or pause it.                                                                                                                                                         |
 | `pair build SOURCE.json OUTPUT.html`                      | Build a page from its source, or list every structural problem, including a field pair does not know, and write nothing.                                                                        |
 | `pair diff BEFORE AFTER OUTPUT.json`                      | Write the input for the before-after component from two files.                                                                                                                                  |
 | `pair check`                                              | Check Node, storage, loopback, the hub port and Codex's rules file, one line each.                                                                                                              |
@@ -25,10 +25,6 @@ moment's text, then its result, with the reviewer's words inside `pair_`
 tags. `--json` prints the result as one JSON object instead. A session
 command whose text is over 10,000 bytes writes it to a file in the session's
 `output/` directory and prints the file's path.
-
-`pair ack`, `pair reply --note`, `pair progress --start`, `pair read --id`,
-`pair check --codex-rules` and `pair check STATE_DIR` still work in this
-release, and each prints the command that replaces it.
 
 ## Environment variables
 

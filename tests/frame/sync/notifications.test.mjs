@@ -79,7 +79,6 @@ function alertFixture({
           id: `waiting-${id}-${round}`,
           kind: "waiting",
           round,
-          ...(extra.offer ? { offer: extra.offer } : {}),
           at,
         },
       ],
@@ -133,9 +132,6 @@ test("alerts announce other sessions once across tabs and never the focused sess
   });
   await reload.alerts.update([s1, s3]);
   assert.equal(reload.sent.length, 0);
-  const plan = a.entry("s4", "3", { offer: "plan", publishedAt: later() });
-  await b.alerts.update([plan]);
-  assert.equal(b.sent.at(-1).title, "Round 3 is ready to accept");
 });
 
 test("granted permission enables automatically unless explicitly disabled; re-enabling skips backlog", async () => {
@@ -246,14 +242,14 @@ test("each session start, waiting round and reply in another session alerts once
   // A round that waits alerts once, and opens the session. Once the round
   // is sent it no longer alerts, so a tab that misses it while it waits
   // never announces it.
-  const offered = a.entry("s3", "4", { offer: "plan", publishedAt: later() });
-  await a.alerts.update([offered]);
-  await a.alerts.update([offered]);
+  const waiting = a.entry("s3", "4", { publishedAt: later() });
+  await a.alerts.update([waiting]);
+  await a.alerts.update([waiting]);
   const sent = a.entry("s4", "1", { needsYou: false, publishedAt: later() });
   await a.alerts.update([sent]);
   assert.deepEqual(
     a.sent.slice(3).map((item) => item.title),
-    ["Round 4 is ready to accept"],
+    ["Round 4 is waiting for you"],
   );
   a.sent[3].onclick();
   assert.equal(a.opened.at(-1), "/s/s3/");

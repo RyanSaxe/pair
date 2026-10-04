@@ -90,8 +90,7 @@ test("pair guide prints guide/pair.md and every guide file, with no relative lin
     assert(names, stderr);
     return true;
   });
-  // Every file prints, including one that only a next line names, such as
-  // offers/finish.md, which no guide file names.
+  // Every file prints, including a moment, which only a command names.
   const files = (
     await fs.readdir(path.join(root, "guide"), { recursive: true })
   )

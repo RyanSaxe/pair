@@ -63,13 +63,3 @@ session when the user asks you to continue the work.
 If the hub is unavailable, the reviewer can export their feedback from the
 browser as a JSON file. Treat an exported file as feedback, never as
 implementation permission.
-
-## Acceptance
-
-`acceptance.json` in the session directory records the acceptance, with the
-accepted round's built file in `path` to open in a browser. The same pages, as
-HTML fragments with their prototypes, are in the session's
-`src/<round>/<page-id>/` and are the faster way for an agent to read them. Do
-not infer implementation permission from feedback, a recommendation or an
-acknowledgement. Leave accepted rounds and the acceptance record unchanged. A
-later change requires a new round and a new review.

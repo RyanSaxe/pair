@@ -370,7 +370,6 @@ export function openNote(
   opener = document.activeElement;
   $("note-dialog").showModal();
   $("note-text").focus();
-  $("quote").hidden = true;
 }
 /* The progress card's button starts a thread about the work in progress.
    The dialog shows only Start a thread, because the message is for the
