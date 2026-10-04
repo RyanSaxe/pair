@@ -11,7 +11,7 @@ can own it without reading every line.
 
 Agreed is the first page of every round. It states the task as you
 understand it, then each decision settled so far, with its source. Change
-the project only to carry out an offer the reviewer accepted.
+the project only when the reviewer asks for a specific change.
 
 ## How pair instructs you
 
@@ -67,20 +67,12 @@ Publish sound pages now rather than wait to cover everything.
 
 A planning round settles what the work is and why, then how to do it,
 until another engineer could build it from the plan. Research by reading
-and running the code, or by building a prototype in your work directory,
-and change nothing the plan describes until the reviewer accepts it.
+and running the code, or by building a prototype in your work directory.
 Agreed is the session's running summary, so add no summary page.
-
-The reviewer can accept a round only when its Agreed names an offer in its
-source: `"offer": "plan"` on the final plan, and `"offer": "finish"` on
-every round in which you build the work. A build round builds every step
-of the accepted plan.
 
 When nothing in the task or the work is left to decide, or the reviewer
 asks for the plan, make the next round the final plan, which someone who
-saw none of the rounds builds from alone. Publish its Agreed with
-`"offer": "plan"` and `overview` first in the page list, and write its
-pages as Present the plan in `pair guide offers/plan.md` says.
+saw none of the rounds builds from alone.
 
 ## A good page
 

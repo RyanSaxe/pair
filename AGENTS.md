@@ -54,8 +54,8 @@ same name under `tests/`:
   `markup.html` that a page author copies and the component's styles and
   behavior.
 - The shared modules, `src/shared/`, are the ones that more than one of the
-  command, the hub, the builder and the frame import, such as the offer
-  registry in `src/shared/offers.mjs`.
+  command, the hub, the builder and the frame import, such as
+  `src/shared/choices.mjs`, which writes a reviewer's choice as text.
 - The adapters, `adapters/`, have one folder per agent CLI. Each folder's
   `wake.mjs` finds a running session of that CLI and wakes it. For a CLI
   that takes no message from another process, the folder also contains the
@@ -149,8 +149,8 @@ Read `.agents/skills/test-audit/SKILL.md` before writing, changing or deleting
 a test, and when asked to audit the tests.
 
 Read `.agents/skills/writing/SKILL.md` before writing or changing `guide/`,
-`skills/pair/`, a line the hub or a command prints, `src/shared/offers.mjs`,
-the README, `docs/`, this file or a skill in `.agents/skills/`.
+`skills/pair/`, a line the hub or a command prints, the README, `docs/`, this
+file or a skill in `.agents/skills/`.
 
 ## Tests
 
