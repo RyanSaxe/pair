@@ -223,14 +223,11 @@ function linkedText(cards = []) {
 
 export async function propose(options) {
   const session = await openSession(options, { anyAgent: true });
-  const fields = ["title", "delivers", "changes", "recommend", "reason"];
+  const fields = ["title", "delivers", "recommend", "page", "thread"];
   const result = await session.request({
     action: "propose",
     id: options.id,
     ...Object.fromEntries(fields.map((name) => [name, options[name]])),
-    source: options.source,
-    thread: options.thread,
-    page: options.page,
     revise: options.revise,
     done: options.done,
     reopen: options.reopen,

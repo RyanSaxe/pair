@@ -11,10 +11,7 @@ async function withSubSession(h, title) {
     id: "work",
     title: `${title} work`,
     delivers: "The work.",
-    changes: "Only its own files.",
     recommend: "sub-session",
-    reason: "It runs apart.",
-    source: "From the conversation",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const started = await parent.request(

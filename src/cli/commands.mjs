@@ -177,21 +177,9 @@ export const commands = {
         value: "TEXT",
         text: "What the work delivers, in at most 400 characters.",
       },
-      changes: {
-        value: "TEXT",
-        text: "What the work may change, in at most 400 characters. Starting the card approves only these changes.",
-      },
       recommend: {
         value: "WHERE",
         text: "Where you recommend the work runs: here, sub-session or new-agent.",
-      },
-      reason: {
-        value: "TEXT",
-        text: "Why you recommend that, in at most 400 characters.",
-      },
-      source: {
-        value: "TEXT",
-        text: 'Where the work came from, such as "From the churn chart page".',
       },
       thread: {
         value: "ID",
@@ -212,8 +200,7 @@ export const commands = {
       },
       json,
     },
-    footer:
-      "A new card takes --title, --delivers, --changes, --recommend, --reason and --source.",
+    footer: "A new card takes --title, --delivers and --recommend.",
     run: propose,
   },
   plan: {

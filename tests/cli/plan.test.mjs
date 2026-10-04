@@ -21,9 +21,7 @@ test("pair plan keeps the plan's source, and a refused plan leaves no copy", asy
   const dir = ["--session-dir", session.directory];
   await cli.run(
     ...["propose", ...dir, "--id", "deck", "--title", "Build the deck"],
-    ...["--delivers", "Twelve slides.", "--changes", "Only talks/q3/."],
-    ...["--recommend", "here", "--reason", "It is one file."],
-    ...["--source", "From the conversation"],
+    ...["--delivers", "Twelve slides.", "--recommend", "here"],
   );
   const source = path.join(home, "plan");
   const pages = [

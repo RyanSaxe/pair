@@ -323,10 +323,7 @@ test("a linked session's line under the header leads back to its parent and stay
     id: "deck",
     title: "Build every slide of the appendix with the new chart colors",
     delivers: "The appendix.",
-    changes: "Only talks/q3/.",
     recommend: "sub-session",
-    reason: "It runs apart.",
-    source: "From the conversation",
   });
   assert.equal(proposed.code, 200, proposed.body.error);
   const started = await a.request(`${a.base}/api/proposals/deck/start`, {

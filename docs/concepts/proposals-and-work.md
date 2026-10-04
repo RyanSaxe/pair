@@ -2,9 +2,8 @@
 
 A **proposal** is work the agent suggests and you decide on. The agent
 records one whenever it sees work worth doing, including the work your task
-calls for, with what it delivers, what it may change, where the agent
-recommends it runs and why. When you start a proposal, you approve exactly
-that, and nothing more.
+calls for, with what it delivers and where the agent recommends it runs.
+When you start a proposal, you approve what it delivers, and nothing more.
 
 ## The Work page
 
@@ -33,9 +32,8 @@ or a thread shows a proposal as the same card, with the same buttons.
 
 ## Where the work runs
 
-The Start popup shows what the proposal delivers and may change, the three
-places the work can run, with the agent's recommendation marked, and a
-message to the agent.
+The Start popup shows what the proposal delivers, the three places the work
+can run, with the agent's recommendation marked, and a message to the agent.
 
 | Choice           | What happens                                                                                                                                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

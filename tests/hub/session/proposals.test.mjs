@@ -8,10 +8,7 @@ const card = {
   id: "churn-export",
   title: "Refresh the churn data export",
   delivers: "The export uses the September schema.",
-  changes: "Only reports/churn.sql.",
   recommend: "here",
-  reason: "It is one query.",
-  source: "Found while drafting the churn chart",
 };
 // A session with round 1 published and waiting for the reviewer. propose
 // runs pair propose's action as the holder, and reviewer posts a card's
@@ -41,7 +38,7 @@ test("pair propose records one file per card and refuses an ID the session has",
     { ...added, recordedAt: undefined, updatedAt: undefined },
     {
       ...card,
-      source: { text: card.source },
+      source: {},
       recordedAt: undefined,
       updatedAt: undefined,
       plan: null,
@@ -66,9 +63,9 @@ test("pair propose records one file per card and refuses an ID the session has",
     briefed,
   );
   assert.equal(other.code, 200, other.body.error);
+  // A card from a page keeps the page's title, which the card shows.
   assert.deepEqual(other.body.proposal.source, {
-    text: card.source,
-    page: { round: "1", id: "overview" },
+    page: { round: "1", id: "overview", title: "Overview" },
   });
   assert.equal(other.body.next, undefined);
   const again = await propose({ ...card, title: "Another title" });

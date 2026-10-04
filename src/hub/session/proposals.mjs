@@ -9,14 +9,8 @@ const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // session linked to this one, which this session's holder or a separate
 // agent creates with pair start --from.
 const places = ["here", "sub-session", "new-agent"];
-const limits = {
-  title: 80,
-  delivers: 400,
-  changes: 400,
-  reason: 400,
-  source: 200,
-};
-const written = ["title", "delivers", "changes", "reason"];
+const limits = { title: 80, delivers: 400 };
+const written = ["title", "delivers"];
 const actions = ["revise", "done", "reopen"];
 
 function words(data, name) {
@@ -86,8 +80,9 @@ export async function proposals(session) {
       409,
     );
   }
-  // Where the work came from: a thread, or a page of a round.
-  function link(data) {
+  // Where the work came from: a thread, or a page of a round with the
+  // page's title from the round's page list.
+  function source(data) {
     requireValue(
       data.thread === undefined || data.page === undefined,
       "pair propose takes --thread or --page, not both",
@@ -101,24 +96,15 @@ export async function proposals(session) {
     }
     if (data.page === undefined) return {};
     const [round, id, extra] = String(data.page).split("/");
-    const set = session.state.roundPages?.[round];
     requireValue(
       round && id && extra === undefined,
       "--page takes ROUND/PAGE, such as 14/commenting",
     );
-    requireValue(
-      set && (id === "agreed" || set.pages.some((slot) => slot.id === id)),
-      `Round ${round} has no page ${id}`,
-    );
-    return { page: { round, id } };
-  }
-  function source(data) {
-    requireValue(
-      data.source !== undefined ||
-        (data.thread === undefined && data.page === undefined),
-      "--thread and --page go with --source",
-    );
-    return { text: words(data, "source"), ...link(data) };
+    const slot =
+      session.state.roundPages?.[round] &&
+      session.pageSet(round).pages.find((item) => item.id === id);
+    requireValue(slot, `Round ${round} has no page ${id}`);
+    return { page: { round, id, title: slot.title } };
   }
   async function add(id, data) {
     requireValue(
@@ -167,11 +153,11 @@ export async function proposals(session) {
     );
     if (data.recommend !== undefined)
       patch.recommend = place(data.recommend, "--recommend");
-    if ([data.source, data.thread, data.page].some((v) => v !== undefined))
+    if (data.thread !== undefined || data.page !== undefined)
       patch.source = source(data);
     requireValue(
       Object.keys(patch).length,
-      "--revise takes a field to change: --title, --delivers, --changes, --recommend, --reason or --source",
+      "--revise takes a field to change: --title, --delivers, --recommend, --page or --thread",
     );
     return save(card, patch);
   }
