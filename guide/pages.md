@@ -27,7 +27,7 @@ or delete the old output first. `pair publish --source SRC/policy` copies
 that directory to the session's `src/<round>/<page-id>/`, so keep built
 pages, previews and scratch files out of it. To revise an earlier round's
 page, copy its source from there and change its `round` to this one. Embed
-every local resource a page uses. Do not install packages to author a plan.
+every local resource a page uses.
 
 A published page cannot change in its round. `pair publish` checks each `#`
 link on the pages after Agreed, and refuses a page whose link names neither

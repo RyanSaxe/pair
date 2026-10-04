@@ -57,10 +57,10 @@ submission, thread or item.
 Do not write `sourceRecords` yourself. Remove old `change` markers on the
 next publication, and do not recreate settled entries to fill the record.
 
-When the alignment settles something the reviewer saw, such as a look, a
-layout, wording or an interface, its `html` names the material that shows
-it: the round, the page and the figure, prototype or code block. Reuse
-that material in the plan, updated to match later alignments.
+When an alignment is about something the reviewer saw, such as a look, a
+layout, wording or an interface, say in its `html` where they saw it: the
+round, the page and the figure, prototype or code block. Copy that
+material into the plan, changed to match later alignments.
 
 When agreed material changes in a later round, mark the alignment
 `change: updated`, rewrite its text, and put the source that settled the new

@@ -77,13 +77,13 @@ Give each option one line of consequence that is specific to it.
 ## Questions and checklists
 
 Use a question when the answer is prose, not a selection. Keep it to one
-sentence and say which part of the plan the answer settles. Use a drawing
+sentence, and say what you will decide with the answer. Use a drawing
 question when the reviewer needs to sketch a boundary, flow or layout.
 
 Start each checklist with no boxes checked, because the agent cannot tell a
-box the reviewer checked from one that started checked. Mark the items the
-plan recommends with the `Recommended` tag. Keep the count line above the
-rows. The component updates it.
+box the reviewer checked from one that started checked. Mark the items you
+recommend with the `Recommended` tag. Keep the count line above the rows.
+The component updates it.
 
 ## Matched sections
 

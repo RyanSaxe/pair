@@ -4,22 +4,24 @@
 
 You and the reviewer work toward the session's task in rounds. In each
 round you publish pages, and the reviewer answers them with feedback.
-Agreed is the first page of every round. It states the task as you
-understand it, then every decision the reviewer has settled, with its
-source. Each settled decision on Agreed is an alignment.
+Agreed is the first page of every round. On it you state the task as you
+understand it, then the decisions the reviewer has settled, as alignments.
+Give each decision one alignment, at the size someone would check the
+finished work against, and put the details the reviewer settles within it
+into that alignment rather than into new ones. Merge, rewrite and retire
+alignments as the reviewer's feedback changes them.
 
-Only change the reviewer's project when they told you to make a specific
-change, by starting a proposal or in their own words. A question, a
-suggestion or agreement with a page is not an instruction, and when you
-cannot tell, treat the words as not one and record a proposal. An
-instruction covers the change it names and nothing more. When you make a
-change from their words, show it on the next page and quote them.
+Change the reviewer's project only to do work the reviewer started from a
+proposal. When they ask for a change in a note, a thread or the chat,
+record it with `pair propose` so they can start it. A request about work
+already started is part of that work.
 
-Before you have an instruction, research, plan and try changes only in a
-git worktree inside the session's directory, which `pair start` prints, or
-in a plain directory there when the project is not a git repository. When
-the reviewer closes the session, the hub removes each git worktree in that
-directory and keeps its branch, so commit there anything you need later.
+Before work starts, research, plan and try changes in a git worktree inside
+the session's directory, which `pair start` prints, or in a plain directory
+there when the project is not a git repository. When the reviewer closes
+the session, the hub removes each of those worktrees that has no
+uncommitted changes and keeps every branch, so commit there anything you
+need later.
 When a `pair` command prints that the session is complete, stop working on
 the session.
 
@@ -37,11 +39,18 @@ Where they conflict, follow the user's, except where a command refuses.
 
 ## Starting
 
-Learn what you can from the project. Ask the user the few questions the
-project cannot answer, in one message, then run `pair start --title "…"`.
-Ask every later question on a page. Every other session command takes
+Run `pair start --title "…"` as soon as you can state the task in a
+sentence, and ask your questions on round 1's pages. Ask in the chat first
+only when you cannot state the task. Every other session command takes
 `--session-dir PATH`, with the directory `pair start` prints. When
 `pair start` prints a Phone URL, give it in chat beside the session's link.
+
+Once the session has started, ask every question on a page or in a thread,
+never with your agent CLI's own question prompt, which stops your turn
+until someone answers it in the terminal. Keep working on what does not
+depend on the answer. When you need the user's permission for something
+outside the task, such as installing or upgrading software on their
+machine, propose it.
 
 ## A round
 
@@ -95,44 +104,43 @@ reviewer saw, in the before-after component.
 
 ## Proposals
 
-A proposal is work you suggest and the reviewer decides on. Record one with
+A proposal is work you suggest and the reviewer starts. Record one with
 `pair propose` as soon as you see work worth doing, including the work the
 task itself calls for, and run `pair guide proposals.md` before the first
-one for its commands. Say exactly what it delivers and what it may change,
-because starting it approves only that. Recommend where it should run and
-whether it needs a plan first, with your reason.
+one for its commands. Say in a sentence or two what the work delivers, and
+recommend where it should run.
 
 Show a proposal on the page where it came up, with the proposal component,
-so the reviewer can start it from there. Start one yourself only when the
-reviewer told you to in their own words, with `pair propose --start`,
-quoting them. When `pair read` prints that the reviewer declined a
-proposal, drop it and do not propose it again. When it prints that a
-linked session closed, treat that work as finished and build on its
-result.
+so the reviewer can start it from there. When `pair read` prints that the
+reviewer declined a proposal, drop it and do not propose it again. When it
+prints that a linked session closed, treat that work as finished and build
+on its result.
 
 ## A good plan
 
-When nothing is left to decide, or the reviewer asks for the plan, write
-the plan and attach it to its proposal with `pair plan`. Write it so that
-an engineer or agent who saw none of the rounds builds exactly what the
-reviewer aligned on, without asking anything. Show every approved look and
-interface as the reviewer approved it, state each behavior exactly, and say
-how to check that the work is done. Include code where it makes the plan
-clearer, but write the plan from what the conversation decided, without
-building the work to find out. Settle every open question on a page before
-you attach the plan. `pair guide proposals.md` says how to build the plan's
-pages and attach them.
+Write a plan when the reviewer asks for one, or when the rounds have
+settled a design worth writing down before it is built, and attach it to
+its proposal with `pair plan`. Write it so that an engineer or agent who
+saw none of the rounds builds what the reviewer aligned on without asking
+anything. Show every approved look and interface as the reviewer approved
+it, state each behavior exactly, and say how to check that the work is
+done. Include code where it makes the plan clearer. Explore what you need
+to, such as a package you have not used, in a scratch worktree, and build
+the work itself only after it starts. Settle every open question on a page
+before you attach the plan, and attach it again whenever the reviewer
+changes what it should say, until the work is done.
+`pair guide proposals.md` says how to build the plan's pages and attach
+them.
 
 ## Building
 
-Build the approved work from its plan, when it has one. Publish each part
-as soon as the reviewer can judge it, so they can redirect you while you
-build the rest. When the plan leaves something open, decide in line with
-the plan, keep building, and say on the next page what you decided and why.
-Fix a problem you find while building only when the approved result needs
-the fix and the proposal allows that change, say so on the next page, and
-propose anything else.
-When the work is done, its last page explains it well enough that whoever
+Build started work on a branch of its own, from its plan when it has one,
+and name the branch on the work's first page. Publish each part as soon as
+the reviewer can judge it, so they can redirect you while you build the
+rest. Where the plan leaves something open, decide, keep building, and say
+on the next page what you decided and why. Fix what the work needs as you
+find it, and say on its pages what you changed beyond the card. Propose
+separately only work that stands apart from it. When the work is done, its last page explains it well enough that whoever
 owns it can review it and keep it. For work started in this session, run
 `pair propose --done` after you publish that page.
 

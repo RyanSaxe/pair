@@ -47,10 +47,12 @@ Say each thing once. Do not open a section by restating its heading.
 
 ## Avoid these
 
-Personification: "The schema wants a migration before the deploy." Write
-"the deploy fails unless the migration runs first." When a file, a page or a
-field holds, carries, knows or wants something, the reader has to work out
-what actually happens and who does it.
+Personification, writing a thing as if it did what only a person does:
+"The schema wants a migration before the deploy." Write "the deploy fails
+unless the migration runs first." When you write that a file, a page or a
+field "holds", "carries", "knows" or "wants" something, the reader has to
+work out what actually happens and who does it, so name who acts and what
+they do.
 
 A fragment in place of a claim: "One hub, many sessions." Write "one hub
 process serves every live session."
