@@ -13,8 +13,9 @@ import { poll, remote } from "#frame/sync/rounds.mjs";
 /* The Work page holds every proposal of the session, from the agent's pair
    propose until the work is done, in four tabs. The hub stores four facts
    on each card, plan, started, declined and done, and the tab follows from
-   them and from whether the session's round waits for the reviewer. A page
-   shows the same card with the proposal component. */
+   them and, for work in a linked session, from whether that session's
+   round waits for the reviewer. A page shows the same card with the
+   proposal component. */
 
 export const workTabs = [
   { id: "needs", label: "Needs you", empty: "Nothing needs you." },
@@ -22,15 +23,16 @@ export const workTabs = [
   { id: "proposed", label: "Proposed", empty: "No proposed work." },
   { id: "done", label: "Done", empty: "No work is done yet." },
 ];
-// Whether the round that started work waits for the reviewer: this
-// session's for work here, and the linked session's for work anywhere else.
-const waits = (card, { needsYou = false, linked = () => null } = {}) =>
-  card.started.where === "here"
-    ? needsYou
-    : Boolean(linked(card.started.session?.id)?.needsYou);
+// Whether the linked session that runs work started elsewhere waits for
+// the reviewer. Work started here runs until the agent marks it done,
+// whatever this session's round does, because the reviewer answers that
+// round with this session's own Send feedback.
+const waits = (card, { linked = () => null } = {}) =>
+  card.started.where !== "here" &&
+  Boolean(linked(card.started.session?.id)?.needsYou);
 // A card needs the reviewer when its thread has an agent reply they have
-// not cleared from the bell, or when the round its work runs in waits for
-// them. A declined card is listed with the done ones.
+// not cleared from the bell, or when the linked session its work runs in
+// waits for them. A declined card is listed with the done ones.
 export function cardTab(card, context = {}) {
   if (context.unread?.has(card.id)) return "needs";
   if (card.declined || card.done) return "done";
@@ -48,7 +50,6 @@ export const openingTab = (groups) =>
 
 const cards = () => remote?.proposals || [];
 const context = () => ({
-  needsYou: Boolean(remote?.needsYou),
   unread: unreadCards(),
   linked: listedSession,
 });
@@ -74,18 +75,19 @@ const element = (tag, className, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
-// A card's state and the tone of its dot: Working in the accent, Waiting
-// for you in green, Done and Declined in grey, and a proposed card, which
-// its tab already names, by its plan with a hollow dot.
-// Work started in a sub-session or with a new agent reads Opening until
-// its session links, and the two look the same after that.
+// A card's state and the tone of its dot: Working here and Working in the
+// accent, Waiting for you in green, Done and Declined in grey, and a
+// proposed card, which its tab already names, by its plan with a hollow
+// dot. Work started in a sub-session or with a new agent reads Opening
+// until its session links, and the two look the same after that.
 function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.done) return ["Done", "muted"];
   if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
   if (!card.started)
     return [card.plan ? "Plan ready" : "No plan yet", "hollow"];
-  if (card.started.where !== "here" && !card.started.session)
+  if (card.started.where === "here") return ["Working here", "accent"];
+  if (!card.started.session)
     return card.started.where === "new-agent"
       ? ["Opening a new agent session", "accent"]
       : ["Opening a sub-session", "accent"];
@@ -136,8 +138,10 @@ function threadLink(text, id) {
         : `${base}/r/${encodeURIComponent(thread.round)}${target}#${thread.topic}`;
   return link;
 }
-// Where the card came from, or for started work where it runs.
-function cardWhere(card, { needsYou }) {
+// Where the card came from, or for work started elsewhere where it runs.
+// Work started here has no line, since its state says where it runs.
+function cardWhere(card) {
+  if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
   if (card.started && card.started.where !== "here") {
@@ -152,16 +156,6 @@ function cardWhere(card, { needsYou }) {
         ? pageLink(`Done here in round ${round}`, round, "agreed")
         : "Done here",
     );
-  } else if (card.started) {
-    const round = remote?.current?.round;
-    if (needsYou && round)
-      box.append(
-        pageLink(`Here, round ${round} waits for you`, round, "agreed"),
-      );
-    else
-      box.textContent = remote?.openRound
-        ? `Here, in this session's round ${remote.openRound.round}`
-        : "Here, in this session's next round";
   } else {
     const { text, page, thread } = card.source;
     box.append(
@@ -247,7 +241,8 @@ function changed(result, follow = null) {
   const moved = follow && cards().find((card) => card.id === follow);
   if (moved && !$("work").hidden) selected = cardTab(moved, context());
   refreshWork(true);
-  // A Start can answer the round, which the next status shows.
+  // The next status shows the rest of what the action changed, such as the
+  // thread that Open a new agent session starts.
   void poll();
 }
 // The footer holds only buttons, in one row: Decline or Restore on the
@@ -284,7 +279,7 @@ export function cardElement(card, shown = context()) {
   const body = element("div", "proposal-body");
   body.append(
     head,
-    metaLine(state, tone, cardWhere(card, shown)),
+    metaLine(state, tone, cardWhere(card)),
     element("p", "proposal-delivers", card.delivers),
   );
   // The reviewer's message with Start, quoted under what the card delivers,
@@ -374,7 +369,6 @@ function paintProposal(root) {
   const key = JSON.stringify([
     card,
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
-    shown.needsYou,
     shown.unread.has(card.id),
     cardsEditable(),
     remote?.current?.round,
@@ -404,13 +398,11 @@ export function refreshWork(force = false) {
   const key = JSON.stringify([
     cards(),
     linkedWaits(),
-    shown.needsYou,
     [...shown.unread],
     selected,
     failure,
     cardsEditable(),
     remote?.current?.round,
-    remote?.openRound?.round,
   ]);
   if (force || key !== drawnKey) {
     drawnKey = key;

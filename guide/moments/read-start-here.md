@@ -3,9 +3,11 @@ approved what it says it delivers and may change, and nothing more. Where
 the reviewer's message in `<pair_start>` differs from the proposal, follow
 the message.
 
-- Build the work in this session's next rounds. When the proposal has a
-  plan, build from the plan's page sources in `plans/ID/src/` in the
-  session's directory.
+- Begin the work now. When the proposal has a plan, build from the plan's
+  page sources in `plans/ID/src/` in the session's directory.
+- When you are building a round and have not published its Agreed, list
+  the work's pages in that round. Otherwise publish them in the next round,
+  which begins when the reviewer sends feedback.
 - Publish each part the reviewer can judge as soon as it exists.
 - Fix a problem you find while building only when the work needs the fix
   and the proposal allows that change. Record anything else with

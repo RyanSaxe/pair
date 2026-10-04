@@ -94,7 +94,7 @@ test("Start sends where the work runs and the message, and the running card quot
       .textContent(),
     "“Keep the header height.”",
   );
-  // The Start answered the round, and the reader stays on Work.
+  // The reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
 });
 

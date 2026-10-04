@@ -16,8 +16,9 @@ const counts = (groups) =>
     Object.entries(groups).map(([id, list]) => [id, list.length]),
   );
 
-// The tab of each card follows from its facts, the session's round and the
-// bell's unread replies, and Work opens on the first tab with a card.
+// The tab of each card follows from its facts, the linked sessions' rounds
+// and the bell's unread replies, and Work opens on the first tab with a
+// card.
 test("Work counts each tab's cards and opens on the first tab with one", () => {
   const cards = [
     card("proposed"),
@@ -26,7 +27,7 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
     card("declined", { declined: { at: here.at } }),
     card("replied"),
   ];
-  const working = workGroups(cards, { needsYou: false, unread: new Set() });
+  const working = workGroups(cards, { unread: new Set() });
   assert.deepEqual(counts(working), {
     needs: 0,
     running: 1,
@@ -35,27 +36,23 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
   });
   assert.equal(openingTab(working), "running");
 
-  // Work started here waits for the reviewer while the session's round
-  // does, and a card with an unread reply needs them whatever its state.
-  const waiting = workGroups(cards, {
-    needsYou: true,
-    unread: new Set(["replied", "done"]),
-  });
+  // A card with an unread reply needs the reviewer whatever its state.
+  const replied = workGroups(cards, { unread: new Set(["replied", "done"]) });
   assert.deepEqual(
     Object.fromEntries(
-      Object.entries(waiting).map(([id, list]) => [id, list.map((c) => c.id)]),
+      Object.entries(replied).map(([id, list]) => [id, list.map((c) => c.id)]),
     ),
     {
-      needs: ["running", "done", "replied"],
-      running: [],
+      needs: ["done", "replied"],
+      running: ["running"],
       proposed: ["proposed"],
       done: ["declined"],
     },
   );
-  assert.equal(openingTab(waiting), "needs");
+  assert.equal(openingTab(replied), "needs");
 
   // Work in a linked session waits for the reviewer while that session's
-  // round does, whatever this session's round does.
+  // round does.
   const linked = (id) => ({ ...here, where: "new-agent", session: { id } });
   const sessions = { waiting: { needsYou: true }, busy: { needsYou: false } };
   const elsewhere = workGroups(
@@ -64,7 +61,7 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
       card("works", { started: linked("busy") }),
       card("opening", { started: { ...here, where: "sub-session" } }),
     ],
-    { needsYou: true, linked: (id) => sessions[id] },
+    { linked: (id) => sessions[id] },
   );
   assert.deepEqual(
     Object.fromEntries(

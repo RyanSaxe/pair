@@ -452,8 +452,8 @@ export async function poll() {
       await syncPageSet().catch(() => {});
       await loadPastView(pastRound).catch(() => {});
     }
-    // Current's round was sent, here or in another browser, or a Start
-    // answered it: the left tab takes it, and a reader on Work stays there.
+    // Current's round was sent, here or in another browser: the left tab
+    // takes it, and a reader on Work stays there.
     if (waiting() && !submissionInFlight) {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {

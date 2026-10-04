@@ -11,17 +11,18 @@ that, and nothing more.
 **Work**, in the sidebar above Review, holds every proposal of the session
 for its whole life, in four tabs with counts:
 
-| Tab       | Lists                                                                                                                 |
-| --------- | --------------------------------------------------------------------------------------------------------------------- |
-| Needs you | Started work whose round waits for you, here or in its own session, and any proposal with an agent reply in the bell. |
-| Running   | Started work the agent is building.                                                                                   |
-| Proposed  | Proposals nobody has started or declined.                                                                             |
-| Done      | Finished work, and declined proposals with **Restore**.                                                               |
+| Tab       | Lists                                                                                                |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| Needs you | Work in its own session whose round waits for you, and any proposal with an agent reply in the bell. |
+| Running   | Started work the agent is building.                                                                  |
+| Proposed  | Proposals nobody has started or declined.                                                            |
+| Done      | Finished work, and declined proposals with **Restore**.                                              |
 
 Work opens on the first tab with anything in it, and the number on its row
 counts what needs you. Each card shows what the work delivers, a started
 card quotes the message you sent with Start, if any, and the card's footer
-links to where the proposal came from or where the work runs. A page
+links to where the proposal came from or where the work runs. A card
+started here reads Working here until the agent marks it done. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
 | To                  | Do this                                                               |
@@ -39,7 +40,7 @@ message to the agent.
 
 | Choice           | What happens                                                                                                                                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Here             | This session's agent builds it in the session's next rounds. When the round waits for you, the Start is your answer to it, as Send feedback would be.                                                                                                              |
+| Here             | This session's agent begins it at once and publishes its pages in this session's next rounds.                                                                                                                                                                      |
 | In a sub-session | This session's agent builds it in a session linked to this one and gives its steps to subagents, so this session's rounds continue.                                                                                                                                |
 | With a new agent | A separate agent builds it in its own session linked to this one. **Copy command** copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open one where you can see it. |
 
