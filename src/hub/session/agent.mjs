@@ -139,8 +139,20 @@ export function agent(session) {
         ? {
             event: session.withDrawingPaths(event),
             moment: "read-feedback",
+            ...startRead(event),
           }
         : { event: null }),
+    };
+  }
+  // A Start prints with the card it started, so the agent reads what the
+  // card approves.
+  function startRead(event) {
+    if (event.payload.intent !== "start") return {};
+    return {
+      moment: `read-start-${event.payload.where}`,
+      proposal: session
+        .proposalItems()
+        .find((card) => card.id === event.payload.proposal),
     };
   }
   const submissionBefore = (sequence = Infinity) =>
@@ -162,10 +174,12 @@ export function agent(session) {
       };
     }
     const [event] = await pending();
+    const declined = await session.reportDeclined();
     if (!event)
       return {
         status: view(),
         ...readAnswer(null, submissionBefore()),
+        declined,
         next: await nextStep(),
       };
     const patch = {
@@ -180,6 +194,7 @@ export function agent(session) {
     return {
       status: view(),
       ...readAnswer(event, submissionBefore(event.sequence)),
+      declined,
       next: await nextStep(),
     };
   }
@@ -237,6 +252,13 @@ export function agent(session) {
     pause,
     publish: (data) => session.publishPage(data.html, data.source, data.pages),
     reply: (data) => session.reply(data),
+    propose: async (data) => ({
+      sessionId: session.state.sessionId,
+      proposal: await session.propose(data),
+      ...(sameAgent(session.state.holder, data.agent)
+        ? { next: await nextStep() }
+        : {}),
+    }),
   };
   async function act(data) {
     requireValue(
@@ -245,14 +267,15 @@ export function agent(session) {
       409,
     );
     // status only reads, so any agent, or none, may run it, on a closed
-    // session too.
+    // session too. Any agent may record a proposal, such as a subagent that
+    // finds work worth doing.
     if (data.action !== "status") {
       requireValue(
         session.state.stage !== "complete",
         "The session is complete.",
         409,
       );
-      await requireHolder(data.agent);
+      if (data.action !== "propose") await requireHolder(data.agent);
     }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     return actions[data.action](data);

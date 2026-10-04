@@ -1,6 +1,12 @@
 import { record } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { editable, page, pastRound, placeKey } from "#frame/app/view.mjs";
+import {
+  editable,
+  page,
+  pastRound,
+  placeKey,
+  shownPage,
+} from "#frame/app/view.mjs";
 import { displayedRound } from "#frame/pages/pages.mjs";
 import { renders } from "#frame/pages/renderers.mjs";
 import { selectedTab } from "#frame/sync/rounds.mjs";
@@ -60,7 +66,7 @@ export const scroller = () =>
    reader stores them, so a read-only page cannot overwrite its tabs. */
 let placeTimer = 0;
 export function rememberPlace() {
-  const pageId = $("reading").hidden ? "feedback" : page.id;
+  const pageId = shownPage();
   const round = displayedRound;
   const held = restoring?.round === round && restoring.page === pageId;
   const top = held
@@ -98,9 +104,10 @@ export let restoring = null;
    position and then jump when they finish. */
 const heights = new Map();
 const shownBody = () =>
-  $("reading").hidden ? $("feedback") : $("page-content");
+  ({ work: $("work"), feedback: $("feedback") })[shownPage()] ||
+  $("page-content");
 export function rememberHeight() {
-  const pageId = $("reading").hidden ? "feedback" : page.id;
+  const pageId = shownPage();
   if (restoring?.round === displayedRound && restoring.page === pageId) return;
   heights.set(`${displayedRound}:${pageId}`, shownBody().offsetHeight);
 }
@@ -108,12 +115,13 @@ export function endRestore() {
   restoring = null;
   $("page-content").style.minHeight = "";
   $("feedback").style.minHeight = "";
+  $("work").style.minHeight = "";
 }
 export function restoreScroll(top) {
   endRestore();
   restoring = {
     round: displayedRound,
-    page: $("reading").hidden ? "feedback" : page.id,
+    page: shownPage(),
     top,
   };
   const height = heights.get(`${restoring.round}:${restoring.page}`);

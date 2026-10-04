@@ -371,6 +371,31 @@ export function openNote(
   $("note-dialog").showModal();
   $("note-text").focus();
 }
+/* Comment on a proposal's card starts a thread on the card, which shows
+   under it. The dialog shows only Start a thread, because the message is
+   for the agent now and does not go into the round's feedback. */
+export function openCardNote(card) {
+  clearHighlight("plan-note");
+  noteContext = { proposal: card.id, title: card.title };
+  editing = null;
+  noteDraftKey = JSON.stringify(["proposal", card.id]);
+  $("note-anchor").textContent = card.title;
+  $("note-anchor").hidden = false;
+  $("note-quote").hidden = true;
+  $("note-text").value = state.noteDrafts?.[noteDraftKey] ?? "";
+  settleNoteImages();
+  setNoteImages([]);
+  drawNoteImages();
+  imageError("");
+  $("note-title").textContent = "Comment on this proposal";
+  $("note-label").textContent = "Message";
+  $("note-save").hidden = true;
+  $("note-thread").hidden = false;
+  $("note-thread").classList.add("primary");
+  opener = document.activeElement;
+  $("note-dialog").showModal();
+  $("note-text").focus();
+}
 /* The progress card's button starts a thread about the work in progress.
    The dialog shows only Start a thread, because the message is for the
    agent now and does not go into the round's feedback. */

@@ -51,6 +51,7 @@ const stylesheets = [
   "review/review.css",
   "notes/threads.css",
   "pages/agreed.css",
+  "pages/work.css",
   "pages/diagram.css",
   "app/dialogs.css",
   "app/modes.css",

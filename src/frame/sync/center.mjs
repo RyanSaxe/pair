@@ -2,13 +2,15 @@ import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
   editable,
+  mode,
   pages,
   plan,
   session,
   showingWaiting,
   waiting,
 } from "#frame/app/view.mjs";
-import { show } from "#frame/pages/pages.mjs";
+import { show, updateNavigation } from "#frame/pages/pages.mjs";
+import { refreshWork } from "#frame/pages/work.mjs";
 import {
   announced,
   eventHref,
@@ -96,6 +98,19 @@ export function bellLines(sessions, cleared, thisId) {
 
 let latest = [];
 let lines = [];
+// The proposals of this tab's session whose thread has an agent reply that
+// is still a line in the bell.
+export const unreadCards = () =>
+  new Set(
+    lines
+      .filter(
+        (event) =>
+          event.kind === "reply" &&
+          event.proposal &&
+          event.entry.id === session.sessionId,
+      )
+      .map((event) => event.proposal),
+  );
 // fromHub says the sessions came from the hub, so an ID they lack is gone
 // for good.
 export function renderCenter(sessions, fromHub) {
@@ -125,6 +140,11 @@ export function renderCenter(sessions, fromHub) {
   document.title = (count ? `(${count}) ` : "") + plan.title;
   if (bell.hidden) toggleCenter(false);
   drawCenter();
+  // Work counts a card with an unread reply as one that needs the reviewer.
+  if (mode !== "home") {
+    updateNavigation();
+    refreshWork();
+  }
 }
 
 function drawCenter() {
@@ -158,7 +178,8 @@ function openEvent(event) {
   const target = eventTarget(event) || null;
   const round = event.round || plan.round;
   const own = event.entry.id === session.sessionId;
-  if (
+  if (own && event.page === "work" && editable) show("work", target);
+  else if (
     own &&
     round === plan.round &&
     !showingWaiting() &&

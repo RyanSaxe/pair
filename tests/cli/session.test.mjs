@@ -162,8 +162,8 @@ test("a command refuses an unknown flag, an extra argument, a repeated flag and 
 });
 
 // An agent the holder briefs may have no inbox socket of its own, and its
-// pair status still reaches the hub.
-test("pair status runs from an agent that cannot be woken", async (t) => {
+// pair status and pair propose still reach the hub.
+test("pair status and pair propose run from an agent that cannot be woken", async (t) => {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-status-"));
   const { config, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
@@ -178,10 +178,23 @@ test("pair status runs from an agent that cannot be woken", async (t) => {
     XDG_STATE_HOME: scratch,
     CLAUDE_CODE_MESSAGING_SOCKET: "",
   });
+  const recorded = await unwakeable.run(
+    ...["propose", "--session-dir", sessionDir, "--id", "churn-export"],
+    ...["--title", "Refresh the churn data export"],
+    ...["--delivers", "The export uses the September schema."],
+    ...["--changes", "Only reports/churn.sql.", "--recommend", "here"],
+    ...["--reason", "It is one query.", "--source", "From the chart page"],
+  );
+  // Only the holder's output starts with the next step.
+  assert.equal(recorded, "Proposal churn-export: proposed.\n");
   const status = JSON.parse(
     await unwakeable.run("status", "--session-dir", sessionDir, "--json"),
   );
   assert.equal(status.title, "Test");
+  assert.match(
+    await unwakeable.run("status", "--session-dir", sessionDir),
+    /\n\nProposals\n {2}churn-export {2}proposed {2}Refresh the churn data export\n$/,
+  );
 });
 
 // publish copies its --source into the session before the hub sees the page,

@@ -1,4 +1,5 @@
 import { state } from "#frame/app/store.mjs";
+import { $ } from "#frame/app/util.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
@@ -53,6 +54,9 @@ export let page;
 export function setPage(next) {
   page = next;
 }
+// What is on screen: a page of the round, the Work page or Review.
+export const shownPage = () =>
+  !$("work").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
 export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&

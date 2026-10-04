@@ -1,0 +1,14 @@
+/* The frame draws the card inside the root. The author's text, which shows
+   until then and wherever no hub has the card, sits in the same box. */
+.proposal > .proposal-card {
+  margin: 0;
+}
+.proposal:not(:has(.proposal-card)) {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.proposal:not(:has(.proposal-card)) p {
+  margin: 0;
+}

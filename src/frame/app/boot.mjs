@@ -39,6 +39,7 @@ import { installThreads } from "#frame/notes/threads.mjs";
 import { installPages, reveal, show } from "#frame/pages/pages.mjs";
 import { startHome } from "#frame/pages/home.mjs";
 import { installProgress } from "#frame/pages/progress.mjs";
+import { installStart } from "#frame/pages/start-popup.mjs";
 import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
@@ -111,6 +112,7 @@ function bootRound() {
   installProgress();
   installNoteDialog();
   installThreads();
+  installStart();
   installSend();
   installEvents();
   installControls();
@@ -135,7 +137,7 @@ function bootRound() {
       ? null
       : placeIn(plan.round, [
           ...pages.map((item) => item.id),
-          ...(editable ? ["feedback"] : []),
+          ...(editable ? ["feedback", "work"] : []),
         ]);
     const target = query.get("target");
     const asked = location.hash.slice(1);

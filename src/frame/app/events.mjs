@@ -8,6 +8,7 @@ import {
   page,
   plan,
   session,
+  shownPage,
 } from "#frame/app/view.mjs";
 import {
   blockSkip,
@@ -157,7 +158,7 @@ export function installEvents() {
       return;
     } else if (key === "]" || key === "[") {
       const order = pageOrder().map((item) => item.id);
-      const index = order.indexOf($("feedback").hidden ? page.id : "feedback");
+      const index = order.indexOf(shownPage());
       const next = order[index + (key === "]" ? 1 : -1)];
       if (next) show(next);
     } else if (key === "j" || key === "k") {

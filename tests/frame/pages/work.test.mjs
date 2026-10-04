@@ -1,0 +1,60 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { openingTab, workGroups } from "#frame/pages/work.mjs";
+
+const card = (id, facts = {}) => ({
+  id,
+  plan: null,
+  started: null,
+  declined: null,
+  done: null,
+  ...facts,
+});
+const here = { at: "2026-10-04T00:00:00.000Z", where: "here" };
+const counts = (groups) =>
+  Object.fromEntries(
+    Object.entries(groups).map(([id, list]) => [id, list.length]),
+  );
+
+// The tab of each card follows from its facts, the session's round and the
+// bell's unread replies, and Work opens on the first tab with a card.
+test("Work counts each tab's cards and opens on the first tab with one", () => {
+  const cards = [
+    card("proposed"),
+    card("running", { started: here }),
+    card("done", { started: here, done: { at: here.at, by: "agent" } }),
+    card("declined", { declined: { at: here.at } }),
+    card("replied"),
+  ];
+  const working = workGroups(cards, { needsYou: false, unread: new Set() });
+  assert.deepEqual(counts(working), {
+    needs: 0,
+    running: 1,
+    proposed: 2,
+    done: 2,
+  });
+  assert.equal(openingTab(working), "running");
+
+  // Work started here waits for the reviewer while the session's round
+  // does, and a card with an unread reply needs them whatever its state.
+  const waiting = workGroups(cards, {
+    needsYou: true,
+    unread: new Set(["replied", "done"]),
+  });
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(waiting).map(([id, list]) => [id, list.map((c) => c.id)]),
+    ),
+    {
+      needs: ["running", "done", "replied"],
+      running: [],
+      proposed: ["proposed"],
+      done: ["declined"],
+    },
+  );
+  assert.equal(openingTab(waiting), "needs");
+
+  const proposedOnly = workGroups([card("a")], {});
+  assert.equal(openingTab(proposedOnly), "proposed");
+  assert.equal(openingTab(workGroups([], {})), "needs");
+});
