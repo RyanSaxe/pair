@@ -13,6 +13,13 @@ Agreed is the first page of every round. It states the task as you
 understand it, then each decision settled so far, with its source. Change
 the project only to carry out an offer the reviewer accepted.
 
+Before then, try changes only in a git worktree inside the session directory
+that `pair start` prints, or in a plain directory there when the project is
+not a git repository. When the reviewer closes the session, the hub removes
+each git worktree in the session directory and keeps its branch, so commit
+there anything you need later. When a `pair` command prints that the
+session is complete, stop working on the session.
+
 ## How pair instructs you
 
 Read this core once, with `pair guide`, and again after you take a session
