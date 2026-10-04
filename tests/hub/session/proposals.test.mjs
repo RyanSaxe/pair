@@ -50,6 +50,7 @@ test("pair propose records one file per card and refuses an ID the session has",
       plan: null,
       started: null,
       declined: null,
+      withdrawn: null,
       done: null,
     },
   );
@@ -309,6 +310,58 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
     ),
   );
   assert.equal((await read()).event, null);
+});
+
+// The agent clears a card nobody started with --withdraw and its reason.
+// The card is in Done as the declined ones are, and the reviewer's Restore
+// puts it back.
+test("--withdraw moves a card to Done with its reason, and Restore brings it back", async (t) => {
+  const { propose, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const bare = await propose({ id: "churn-export", withdraw: true });
+  assert.equal(bare.code, 400);
+  const reason = "The September schema change was reverted.";
+  const withdrawn = await propose({
+    id: "churn-export",
+    withdraw: true,
+    reason,
+  });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  assert.deepEqual(
+    { ...withdrawn.body.proposal.withdrawn, at: undefined },
+    { at: undefined, reason },
+  );
+  assert.equal(withdrawn.body.proposal.declined, null);
+  // A withdrawn card takes no Start and no plan until it is restored, and
+  // pair read does not report it as declined.
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    409,
+  );
+  assert.equal(
+    (await propose({ id: "churn-export", start: "here", quote: "Do it." }))
+      .code,
+    409,
+  );
+  assert.deepEqual((await read()).declined, []);
+  const restored = await reviewer("churn-export", "restore");
+  assert.equal(restored.code, 200, restored.body.error);
+  assert.equal(restored.body.proposals[0].withdrawn, null);
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  // A started card takes no --withdraw.
+  const late = await propose({ id: "churn-export", withdraw: true, reason });
+  assert.equal(late.code, 409);
+  assert.deepEqual(
+    (await cards()).map(({ id, withdrawn: gone }) => [id, gone]),
+    [
+      ["churn-export", null],
+      ["board-qa", null],
+    ],
+  );
 });
 
 // Work started here is done when the agent says so, and --reopen puts it

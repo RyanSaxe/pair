@@ -303,6 +303,43 @@ test("a card started on the reviewer's words quotes them and links to where they
   );
 });
 
+// A withdrawn card is in Done with the agent's reason, and Restore puts it
+// back in Proposed.
+test("a withdrawn card shows the agent's reason and Restore brings it back", async (t) => {
+  const { session, page, tab, cards } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const reason = "The deck moved to the board template.";
+  const changed = await session.action("propose", {
+    id: "deck",
+    withdraw: true,
+    reason,
+  });
+  assert.equal(changed.code, 200, changed.body.error);
+  await tab("done").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("done").click();
+  const deck = page.locator("[data-proposal-card=deck]");
+  await deck.waitFor();
+  assert.equal(
+    await deck.locator(".card-meta").textContent(),
+    "Withdrawn·From the Overview page",
+  );
+  assert.equal(
+    await deck.locator(".proposal-reason").textContent(),
+    `The agent's reason: ${reason}`,
+  );
+  await deck.locator(".link-btn", { hasText: "Restore" }).click();
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  assert.equal((await session.status()).body.proposals[0].withdrawn, null);
+  assert.deepEqual(
+    (await cards()).map(({ id, declined }) => [id, declined]),
+    [
+      ["deck", false],
+      ["export", false],
+    ],
+  );
+});
+
 test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {
   const h = await hub(t);
   const parent = await h.session({ start: true });

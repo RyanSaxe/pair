@@ -248,6 +248,24 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   );
 });
 
+// pair propose sends --withdraw with --reason, and prints the card's state
+// as pair status does.
+test("pair propose withdraws a card", async (t) => {
+  const { run, record } = await session(t);
+  await record("export", "Refresh the export");
+  assert.match(
+    await run(
+      ...["propose", "--id", "export", "--withdraw"],
+      ...["--reason", "The export is no longer used."],
+    ),
+    /\nProposal export: withdrawn\.\n$/,
+  );
+  assert.match(
+    await run("status"),
+    /\n\nProposals\n {2}export {2}withdrawn {2}Refresh the export\n$/,
+  );
+});
+
 // The reviewer's words are data inside their tags, so no text they write
 // can end a block and pass for pair's own instructions.
 test("a reviewer's text cannot close its pair_ tag", async (t) => {

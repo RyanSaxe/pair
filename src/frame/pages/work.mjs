@@ -11,11 +11,11 @@ import {
 import { poll, remote } from "#frame/sync/rounds.mjs";
 
 /* The Work page holds every proposal of the session, from the agent's pair
-   propose until the work is done, in four tabs. The hub stores four facts
-   on each card, plan, started, declined and done, and the tab follows from
-   them and, for work in a linked session, from whether that session's
-   round waits for the reviewer. A page shows the same card with the
-   proposal component. */
+   propose until the work is done, in four tabs. The hub stores five facts
+   on each card, plan, started, declined, withdrawn and done, and the tab
+   follows from them and, for work in a linked session, from whether that
+   session's round waits for the reviewer. A page shows the same card with
+   the proposal component. */
 
 export const workTabs = [
   { id: "needs", label: "Needs you", empty: "Nothing needs you." },
@@ -30,12 +30,16 @@ export const workTabs = [
 const waits = (card, { linked = () => null } = {}) =>
   card.started.where !== "here" &&
   Boolean(linked(card.started.session?.id)?.needsYou);
+// A card the reviewer declined or the agent withdrew is listed with the
+// done ones.
+const finished = (card) =>
+  Boolean(card.declined || card.withdrawn || card.done);
 // A card needs the reviewer when its thread has an agent reply they have
 // not cleared from the bell, or when the linked session its work runs in
-// waits for them. A declined card is listed with the done ones.
+// waits for them.
 export function cardTab(card, context = {}) {
   if (context.unread?.has(card.id)) return "needs";
-  if (card.declined || card.done) return "done";
+  if (finished(card)) return "done";
   if (card.started) return waits(card, context) ? "needs" : "running";
   return "proposed";
 }
@@ -76,12 +80,13 @@ const element = (tag, className, text) => {
   return node;
 };
 // A card's state and the tone of its dot: Working here and Working in the
-// accent, Waiting for you in green, Done and Declined in grey, and a
-// proposed card, which its tab already names, by its plan with a hollow
-// dot. Work started in a sub-session or with a new agent reads Opening
-// until its session links, and the two look the same after that.
+// accent, Waiting for you in green, Done, Declined and Withdrawn in grey,
+// and a proposed card, which its tab already names, by its plan with a
+// hollow dot. Work started in a sub-session or with a new agent reads
+// Opening until its session links, and the two look the same after that.
 function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
+  if (card.withdrawn) return ["Withdrawn", "muted"];
   if (card.done) return ["Done", "muted"];
   if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
   if (!card.started)
@@ -266,14 +271,15 @@ function actions(card) {
     node.onclick = run;
     return node;
   };
+  const proposed = !card.started && !finished(card);
   const left = element("span", "proposal-foot-start");
-  if (card.declined)
+  if (card.declined || card.withdrawn)
     left.append(button("link-btn", "Restore", () => act(card, "restore")));
-  else if (!card.started)
+  else if (proposed)
     left.append(button("link-btn", "Decline", () => act(card, "decline")));
   const right = element("span", "proposal-actions");
   right.append(button("link-btn", "Comment", () => openCardNote(card)));
-  if (!card.started && !card.declined)
+  if (proposed)
     right.append(
       button("btn primary proposal-start", "Start", () =>
         openStart(card, (result) => changed(result, card.id)),
@@ -297,7 +303,7 @@ export function cardElement(card, shown = context()) {
   // The reviewer's words that started the card, or their message with
   // Start, quoted under what the card delivers, so the card shows
   // everything the reviewer approved.
-  const { started } = card;
+  const { started, withdrawn } = card;
   if (started?.by === "words") {
     const lead = element("p", "proposal-lead", "Started from your words");
     const place = wordsPlace(started);
@@ -306,6 +312,14 @@ export function cardElement(card, shown = context()) {
   }
   const quoted = started?.quote ?? started?.message;
   if (quoted) body.append(element("p", "proposal-message", `“${quoted}”`));
+  if (withdrawn)
+    body.append(
+      element(
+        "p",
+        "proposal-reason",
+        `The agent's reason: ${withdrawn.reason}`,
+      ),
+    );
   if (card.plan) body.append(planRow(card));
   root.append(body);
   // A card that cannot change has no buttons, and so no footer.

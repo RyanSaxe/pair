@@ -29,6 +29,8 @@ Change a proposal with its `--id` and one of these flags:
   add `--page ROUND/PAGE` or `--thread ID` for where they wrote them. WHERE
   is `here`, `sub-session` or `new-agent`: where they said the work runs,
   or where you recommend when they did not say.
+- `--withdraw` when a proposal nobody has started no longer applies, with
+  `--reason "…"` saying why.
 - `--done` after you publish the last page of work started here, and
   `--reopen` when later feedback asks for changes to that work.
 

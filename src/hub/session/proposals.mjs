@@ -12,10 +12,10 @@ import {
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
-// a card changes after the round that showed it is published. Four facts,
+// a card changes after the round that showed it is published. Five facts,
 // each null until it happens, say where a card stands: plan, started,
-// declined and done. The frame sorts the cards into the Work page's tabs
-// from those facts, so the hub stores no tab.
+// declined, withdrawn and done. The frame sorts the cards into the Work
+// page's tabs from those facts, so the hub stores no tab.
 export async function proposals(session) {
   const { directory, transition } = session;
   const folder = path.join(directory, "proposals");
@@ -94,6 +94,7 @@ export async function proposals(session) {
       plan: null,
       started: null,
       declined: null,
+      withdrawn: null,
       done: null,
     });
     // Every pair tab's bell announces the card.
@@ -116,6 +117,11 @@ export async function proposals(session) {
     requireValue(
       !card.declined,
       `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
+      409,
+    );
+    requireValue(
+      !card.withdrawn,
+      `Proposal ${card.id} is withdrawn, so it takes no --revise. Record further work as a new proposal.`,
       409,
     );
     const patch = Object.fromEntries(
@@ -144,6 +150,11 @@ export async function proposals(session) {
     requireValue(
       !card.declined,
       `The reviewer declined proposal ${card.id}`,
+      409,
+    );
+    requireValue(
+      !card.withdrawn,
+      `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
       409,
     );
     requireValue(!card.done, `Proposal ${card.id} is done`, 409);
@@ -252,8 +263,9 @@ export async function proposals(session) {
     );
     return { ...listed(), thread };
   }
-  // Decline takes a card out of Proposed, and Restore puts it back. Both
-  // leave a card already in that state as it is.
+  // Decline takes a proposed card out of Proposed, and Restore puts a
+  // declined or withdrawn card back. Both leave a card already in that
+  // state as it is.
   async function declineProposal(id) {
     open();
     const card = find(id);
@@ -262,14 +274,38 @@ export async function proposals(session) {
       `Proposal ${id} was started, so it cannot be declined`,
       409,
     );
-    if (!card.declined) await save(card, { declined: { at: timestamp() } });
+    if (!card.declined && !card.withdrawn)
+      await save(card, { declined: { at: timestamp() } });
     return listed();
   }
   async function restoreProposal(id) {
     open();
     const card = find(id);
-    if (card.declined) await save(card, { declined: null });
+    if (card.declined || card.withdrawn)
+      await save(card, { declined: null, withdrawn: null });
     return listed();
+  }
+  // The agent withdraws a card nobody has started that no longer applies,
+  // with its reason. Withdrawn and declined cards are both in Done, and the
+  // reviewer's Restore puts either back.
+  async function withdraw(card, data) {
+    requireValue(
+      !card.declined,
+      `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
+      409,
+    );
+    requireValue(
+      !card.started && !card.done && !card.withdrawn,
+      `Proposal ${card.id} ${card.withdrawn ? "is already withdrawn" : card.done ? "is done" : "was started"}, so it takes no --withdraw.`,
+      409,
+    );
+    requireValue(
+      data.reason !== undefined,
+      "--withdraw takes --reason with why the proposal no longer applies",
+    );
+    return save(card, {
+      withdrawn: { at: timestamp(), reason: words(data, "reason") },
+    });
   }
   // Work started here is done when the agent says so, and feedback that asks
   // for changes to it reopens it. Closing a linked session marks the card of
@@ -309,17 +345,23 @@ export async function proposals(session) {
     const card = find(id);
     if (action === "revise") return revise(card, data);
     if (action === "start") return startFromWords(card, data, holder);
+    if (action === "withdraw") return withdraw(card, data);
     if (action === "done") return done(card);
     return reopen(card);
   }
-  // pair plan attaches a plan to a card that is neither declined nor done,
-  // started or not, and a second pair plan replaces it.
+  // pair plan attaches a plan to a card that is neither declined, withdrawn
+  // nor done, started or not, and a second pair plan replaces it.
   function plannable(id) {
     open();
     const card = find(id);
     requireValue(
       !card.declined,
       `The reviewer declined proposal ${id}, so it takes no plan`,
+      409,
+    );
+    requireValue(
+      !card.withdrawn,
+      `Proposal ${id} was withdrawn, so it takes no plan`,
       409,
     );
     requireValue(

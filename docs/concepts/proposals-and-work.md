@@ -16,8 +16,8 @@ for its whole life, in four tabs with counts:
 | --------- | ---------------------------------------------------------------------------------------------------- |
 | Needs you | Work in its own session whose round waits for you, and any proposal with an agent reply in the bell. |
 | Running   | Started work the agent is building.                                                                  |
-| Proposed  | Proposals nobody has started or declined.                                                            |
-| Done      | Finished work, and declined proposals with **Restore**.                                              |
+| Proposed  | Proposals nobody has started, declined or withdrawn.                                                 |
+| Done      | Finished work, and declined and withdrawn proposals with **Restore**.                                |
 
 Work opens on the first tab with anything in it, and the number on its row
 counts what needs you. Each card shows what the work delivers, a started
@@ -26,12 +26,12 @@ its title links to where the proposal came from or where the work runs. A
 card started here reads Working here until the agent marks it done. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
-| To                  | Do this                                                               |
-| ------------------- | --------------------------------------------------------------------- |
-| Start the work      | Press **Start**, choose where it runs, and add a message if you want. |
-| Turn it down        | Press **Decline**. The agent drops it and does not propose it again.  |
-| Ask about it        | Press **Comment**, which starts a [thread](threads.md) on the card.   |
-| Take back a decline | Press **Restore** on the card in Done.                                |
+| To                | Do this                                                               |
+| ----------------- | --------------------------------------------------------------------- |
+| Start the work    | Press **Start**, choose where it runs, and add a message if you want. |
+| Turn it down      | Press **Decline**. The agent drops it and does not propose it again.  |
+| Ask about it      | Press **Comment**, which starts a [thread](threads.md) on the card.   |
+| Bring a card back | Press **Restore** on a declined or withdrawn card in Done.            |
 
 ## Where the work runs
 
@@ -86,6 +86,9 @@ without a plan.
 - Work in a sub-session or a new agent session is done when you close that
   session. The hub marks the card done, and this session's agent learns of
   it the next time it runs `pair read`, then builds on its result.
+- The agent withdraws a proposal nobody started when it no longer applies,
+  with its reason. The card moves to Done as Withdrawn and shows the
+  reason, and Restore puts it back in Proposed.
 
 ## Sub-sessions and new agent sessions
 

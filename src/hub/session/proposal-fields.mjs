@@ -15,18 +15,20 @@ const limits = {
   title: 80,
   delivers: 400,
   quote: 4000,
+  reason: 400,
 };
 export const written = ["title", "delivers"];
-const actions = ["revise", "start", "done", "reopen"];
+const actions = ["revise", "start", "withdraw", "done", "reopen"];
 // The flags each action takes besides --id. A new card and --revise take
 // the card's fields.
 const fields = [...written, "recommend", "thread", "page"];
 const takes = {
   start: ["quote", "thread", "page"],
+  withdraw: ["reason"],
   done: [],
   reopen: [],
 };
-const owners = { quote: "start" };
+const owners = { quote: "start", reason: "withdraw" };
 const flags = [...fields, ...Object.keys(owners)];
 
 export function words(data, name) {
@@ -64,7 +66,7 @@ export function proposeAction(data) {
   const chosen = actions.filter((name) => data[name] !== undefined);
   requireValue(
     chosen.length <= 1,
-    "pair propose takes one of --revise, --start, --done and --reopen",
+    "pair propose takes one of --revise, --start, --withdraw, --done and --reopen",
   );
   const [action] = chosen;
   const allowed = action && action !== "revise" ? takes[action] : fields;

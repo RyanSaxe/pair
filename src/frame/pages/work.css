@@ -54,7 +54,8 @@
    paragraphs name the card to keep its sizes inside a page too. */
 .proposal-card .proposal-title,
 .proposal-card .proposal-delivers,
-.proposal-card .proposal-message {
+.proposal-card .proposal-message,
+.proposal-card .proposal-reason {
   margin: 0;
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
@@ -62,8 +63,10 @@
 .proposal-card .proposal-title {
   margin-bottom: 2px;
 }
-/* The reviewer's words or message with Start keep their line breaks. */
-.proposal-card .proposal-message {
+/* The reviewer's words or message with Start, and the agent's reason for
+   withdrawing a card, keep their line breaks. */
+.proposal-card .proposal-message,
+.proposal-card .proposal-reason {
   margin-top: 6px;
   color: var(--muted);
   white-space: pre-line;
