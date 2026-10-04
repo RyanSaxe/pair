@@ -6,6 +6,7 @@ import {
   mode,
   noteEditable,
   page,
+  pages,
   plan,
   session,
   shownPage,
@@ -20,7 +21,7 @@ import {
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { pageOrder, show } from "#frame/pages/pages.mjs";
+import { pageOrder, reveal, show } from "#frame/pages/pages.mjs";
 import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
@@ -51,6 +52,19 @@ export function installEvents() {
     if (tab) {
       switchTab(tab.dataset.tab, null, { showPage: false });
       return;
+    }
+    // The address's # part names the page on screen, so a link to a section
+    // of this page scrolls to it instead of asking for a page by that name.
+    const link = event.target.closest('a[href^="#"]');
+    if (link && $("page-content").contains(link)) {
+      const id = decodeURIComponent(link.getAttribute("href").slice(1));
+      const section =
+        id && $("page-content").querySelector(`[id="${CSS.escape(id)}"]`);
+      if (section && !pages.some((item) => item.id === id)) {
+        event.preventDefault();
+        reveal(id);
+        return;
+      }
     }
     const navigation = event.target.closest("[data-page]");
     if (navigation) {

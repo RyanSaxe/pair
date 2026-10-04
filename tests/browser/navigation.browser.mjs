@@ -357,3 +357,33 @@ test("a linked session's line under the header leads back to its parent and stay
   await back.click();
   await page.waitForURL(`${h.server.origin}${a.base}/`);
 });
+
+test("a link to a section of the page scrolls to it and stays on the page", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const published = await session.publish({
+    ...planData("1"),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<p><a href="#later">Go to the later section</a></p>${"<p>Filler paragraph.</p>".repeat(60)}<h2 id="later">The later section</h2><p>Here.</p>`,
+      },
+    ],
+  });
+  assert.equal(published.code, 200, JSON.stringify(published.body));
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+    viewport: { width: 390, height: 700 },
+  });
+  if (!page) return;
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
+  await page.locator('#page-content a[href="#later"]').click();
+  await page.waitForFunction(() => {
+    const box = document
+      .querySelector("#page-content #later")
+      .getBoundingClientRect();
+    return box.top >= 0 && box.bottom <= window.innerHeight;
+  });
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
+  assert.equal(new URL(page.url()).hash, "#overview");
+});
