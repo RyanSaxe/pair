@@ -169,19 +169,11 @@ async function render(browser, html, check) {
   return png;
 }
 
-// --- The illustration: terminal ⇄ browser, and the card that starts work. ---
+// --- The illustration: the terminal ⇄ the browser. ---
 
-export function composeIllustration(
-  browser,
-  theme,
-  shot,
-  transcript,
-  geometry,
-) {
-  const browserWidth = 592;
-  const scale = browserWidth / 880;
+export function composeIllustration(browser, theme, shot, transcript) {
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>${tokens(theme)}
-.canvas{grid-template-columns:448px 144px 592px;row-gap:40px}
+.canvas{grid-template-columns:448px 144px 592px}
 .term{grid-column:1;grid-row:1;background:#16181c;display:flex;flex-direction:column;contain:size}
 .term .bar{height:32px;flex:none;display:flex;align-items:center;padding:0 12px;background:#202227;border-bottom:1px solid #2c2f35}
 .term .body{font-family:"SF Mono",SFMono-Regular,Menlo,monospace;font-size:12px;line-height:18px;color:#d6dbe1;padding:12px 16px;flex:1;min-height:0;overflow:hidden}
@@ -196,15 +188,6 @@ export function composeIllustration(
 .browser img{display:block;width:592px;height:auto}
 .arrows{grid-column:2;grid-row:1;position:relative}
 .p1{top:calc(50% - 96px)}.p2{top:50%}.p3{top:calc(50% + 96px)}
-.work{grid-column:3;grid-row:2;display:flex;align-items:flex-end;justify-content:space-between}
-.card{width:${geometry.cardWidth * scale}px;border-radius:${12 * scale}px;box-shadow:var(--shadow);overflow:hidden}
-.card img{display:block;width:100%;height:auto}
-.start-arrow{flex:1;align-self:stretch;position:relative}
-.sub{width:184px;background:var(--bar)}
-.sub .bar{height:18px;display:flex;align-items:center;padding:0 7px;border-bottom:1px solid var(--bar-line)}
-.sub .dots{gap:4px}.sub .dots i{width:6px;height:6px}
-.sub .shot{height:${(184 * 380) / 880}px;overflow:hidden}
-.sub .shot img{display:block;width:184px;height:auto}
 </style></head><body><div class="canvas" id="c">
 <div class="win term"><div class="bar"><div class="dots"><i></i><i></i><i></i></div></div><div class="body">${termHtml(transcript)}</div></div>
 <div class="arrows">
@@ -213,11 +196,6 @@ export function composeIllustration(
   <div class="arrow p3">${arrow("left")}<div class="lab up">feedback</div></div>
 </div>
 <div class="win browser"><div class="bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">127.0.0.1:4747</div><div></div></div><img src="${uri(shot.browser)}"></div>
-<div class="work">
-  <div class="card" id="card"><img src="${uri(shot.card)}"></div>
-  <div class="start-arrow" id="sa"></div>
-  <div class="win sub"><div class="bar"><div class="dots"><i></i><i></i><i></i></div></div><div class="shot"><img src="${uri(shot.sub)}"></div></div>
-</div>
 </div></body></html>`;
   return render(browser, html, async (page) => {
     // Unattended runs must not ship a clipped terminal or a broken word.
@@ -240,15 +218,6 @@ export function composeIllustration(
       throw new Error(
         `Terminal words wider than a line: ${fit.wide.join(", ")}`,
       );
-    // The Start arrow runs from the card's Start button to the sub-session.
-    await page.evaluate((startY) => {
-      const card = document.getElementById("card").getBoundingClientRect();
-      const sa = document.getElementById("sa");
-      const box = sa.getBoundingClientRect();
-      const y = card.top + startY * card.height - box.top;
-      const w = box.width;
-      sa.innerHTML = `<svg style="position:absolute;left:0;top:${y - 6}px;overflow:visible" width="${w}" height="12" viewBox="0 0 ${w} 12"><path d="M12 6 H${w - 14}" class="ln"/><path d="M${w - 8} 6 L${w - 16} 1.5 L${w - 16} 10.5 Z" class="hd"/></svg>`;
-    }, geometry.startY);
   });
 }
 
