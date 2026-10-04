@@ -1,8 +1,6 @@
-import { offers } from "#shared/offers.mjs";
 import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, plural } from "#frame/app/util.mjs";
 import { mode, online, session } from "#frame/app/view.mjs";
-import { handoffLine } from "#frame/pages/renderers.mjs";
 import { installCenter, renderCenter } from "#frame/sync/center.mjs";
 import { createReviewAlerts } from "#frame/sync/notifications.mjs";
 import {
@@ -40,29 +38,6 @@ export function installSessions() {
   });
 }
 export function status() {
-  // The hub exits once no session is live, so a tab keeps the stage it last
-  // saw: a saved or accepted round keeps its banner while the hub is gone.
-  const saved = remote?.stage === "saved";
-  const complete = remote?.stage === "complete" && remote?.accepted;
-  $("accepted").hidden = !saved && !complete;
-  // A saved round waits for an agent to build it, so the banner gives the
-  // line that hands it over.
-  if (saved) {
-    const { round, offer } = remote.current;
-    const chosen = offers[offer].accept.actions.find(
-      (item) => item.after === "saved",
-    );
-    const text = `Round ${round} accepted: ${chosen.label}.`;
-    if ($("accepted").firstChild?.textContent !== text)
-      $("accepted").replaceChildren(text, handoffLine(remote.handoff));
-  } else if (complete) {
-    const { round, offer, action, path } = remote.accepted;
-    const chosen = offers[offer].accept.actions.find(
-      (item) => item.id === action,
-    );
-    $("accepted").textContent =
-      `Round ${round} accepted: ${chosen.label}. Saved at ${path}`;
-  }
   $("connection-status").textContent = !online
     ? "Local viewing. Feedback can be exported; live submission requires the session URL."
     : !connected
@@ -97,11 +72,9 @@ export async function pollSessions() {
   void reviewAlerts.update(sessions);
 }
 export function stateWords(entry) {
-  if (entry.needsYou)
-    return entry.offer ? "Ready to accept" : "Waiting for you";
+  if (entry.needsYou) return "Waiting for you";
   if (entry.wakeFailed) return "Could not wake the agent";
   if (entry.paused) return "Paused";
-  if (entry.stage === "saved") return "Saved";
   if (!entry.round) return "Preparing the first round";
   if (entry.openRound)
     return `Working · ${entry.openRound.ready} pages readable`;
@@ -110,16 +83,13 @@ export function stateWords(entry) {
   return "Live";
 }
 /* A row's one short status, the first that applies: a round waiting for
-   you, a failed wake, pages this browser has not opened, paused or saved,
-   then the agent at work, which a session before its first round always
-   is. */
+   you, a failed wake, pages this browser has not opened, paused, then the
+   agent at work, which a session before its first round always is. */
 export function rowStatus(entry, unopened = 0) {
-  if (entry.needsYou)
-    return { text: entry.offer ? "Accept" : "Waiting", tone: "need" };
+  if (entry.needsYou) return { text: "Waiting", tone: "need" };
   if (entry.wakeFailed) return { text: "Can't wake", tone: "need" };
   if (unopened) return { text: `${unopened} new`, tone: "news" };
   if (entry.paused) return { text: "Paused", tone: "quiet" };
-  if (entry.stage === "saved") return { text: "Saved", tone: "quiet" };
   if (
     !entry.round ||
     entry.openRound ||

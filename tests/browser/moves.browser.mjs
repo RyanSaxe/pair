@@ -25,7 +25,7 @@ function slowComponent() {
   });
 }
 const round = (name) => ({
-  ...planData("1", undefined, name),
+  ...planData("1", name),
   pages: [
     { id: "overview", title: "Overview", html: "<p>The first page.</p>" },
     { id: "quick", title: "Quick", html: "<p>A page with no figures.</p>" },

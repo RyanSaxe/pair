@@ -179,16 +179,9 @@ test("drafts carry unsent items across rounds and drop what was sent", () => {
   );
   assert.equal("sentIn" in groups.notes[0], false);
   assert.equal("answers" in groups, false);
-  draft.acceptance = {
-    id: "accept-1",
-    action: "implement",
-    guidance: "Do this",
-  };
-  draft.acceptGuidance = "Do this";
   const same = loadDraft(JSON.parse(JSON.stringify(draft)), "1");
   assert.equal(same.notes.length, 2);
   assert.equal(same.submitted.id, "sub-1");
-  assert.equal(same.acceptGuidance, "Do this");
   const next = loadDraft(JSON.parse(JSON.stringify(draft)), "2");
   assert.deepEqual(
     next.notes.map((note) => note.id),
@@ -197,8 +190,6 @@ test("drafts carry unsent items across rounds and drop what was sent", () => {
   assert.deepEqual(next.choices, {});
   assert.deepEqual(next.answers, {});
   assert.equal(next.submitted, null);
-  assert.equal(next.acceptance, null);
-  assert.equal(next.acceptGuidance, "");
   assert.equal(next.round, "2");
   assert.deepEqual(loadDraft(null, "3"), emptyDraft("3"));
   assert.deepEqual(loadDraft({ notes: "bad" }, "3"), emptyDraft("3"));

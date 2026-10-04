@@ -1,16 +1,15 @@
 // The fields a page source may contain, as guide/pages.md and
 // guide/agreements.md list them. pair build refuses any other field, because
-// a field it ignored, such as an offer written inside page, would reach the
-// reviewer as a round without it.
-const topFields = ["name", "round", "offer", "title", "page"];
+// a field it ignored, such as css written at the top level instead of in
+// page, would reach the reviewer as a round without it.
+const topFields = ["name", "round", "title", "page"];
 const pageFields = ["id", "title", "file", "html", "css", "js", "prototypes"];
 const pageTakes =
   "A page takes id, title, file or html, css, js and prototypes; Agreed's page also takes task and agreements.";
 const levels = {
   source: {
     fields: topFields,
-    takes:
-      "A page source takes name, round, title and page, and Agreed's source also takes offer.",
+    takes: "A page source takes name, round, title and page.",
   },
   page: { fields: pageFields, takes: pageTakes },
   agreed: { fields: [...pageFields, "task", "agreements"], takes: pageTakes },
@@ -42,8 +41,6 @@ const list = (value) => (Array.isArray(value) ? value : []);
 // Where a field of the top level or of Agreed's page goes, when an author
 // writes it at the other one.
 function belongs(field) {
-  if (field === "offer")
-    return "offer goes at the top level of Agreed's source, next to name, round and title.";
   if (topFields.includes(field))
     return `${field} goes at the top level of the source.`;
   if (!levels.agreed.fields.includes(field)) return null;

@@ -18,8 +18,8 @@ export async function readThreads(directory) {
 }
 const text = (value) => typeof value === "string" && value.trim().length > 0;
 const optional = (value) => value === undefined || typeof value === "string";
-// A reply shows something. What the reviewer answers with Send feedback or
-// Finish review goes on a page instead.
+// A reply shows something. What the reviewer answers with Send feedback goes
+// on a page instead.
 const control =
   /<[a-zA-Z][^>]*\sdata-(?:choice|multiselect|question|drawing-question)=/;
 
@@ -176,7 +176,7 @@ export function threads(session) {
   async function checkReply(thread, html) {
     requireValue(
       !control.test(html),
-      "A reply cannot contain a decision, checklist or question, because the reviewer answers those with Send feedback, or with Finish review on a round with an offer. Say in the reply what you will ask, and put it on a page in the next round.",
+      "A reply cannot contain a decision, checklist or question, because the reviewer answers those with Send feedback. Say in the reply what you will ask, and put it on a page in the next round.",
     );
     const found = problems(
       {

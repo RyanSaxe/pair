@@ -39,8 +39,6 @@ export function loadDraft(saved, round) {
     draft.answers = filterValues(draft.answers, (answer) => !answer.sentIn);
     draft.submitted = null;
     draft.pending = null;
-    draft.acceptance = null;
-    draft.acceptGuidance = "";
     draft.round = round;
   }
   return draft;
@@ -92,21 +90,16 @@ export function submissionGroups(draft) {
   };
 }
 
-// An acceptance sends the drafted items too, so none of them carries over
-// to the next round's draft. A sent answer's typed text goes with it, so the
-// next round's question starts empty.
-export function markItemsSent(draft, id) {
+// A sent item does not carry over to the next round's draft. A sent answer's
+// typed text goes with it, so the next round's question starts empty.
+export function markSent(draft, id, at) {
+  const { count } = unsentItems(draft);
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
   for (const [key, answer] of Object.entries(draft.answers)) {
     answer.sentIn ||= id;
     delete draft.drafts[key];
   }
-}
-
-export function markSent(draft, id, at) {
-  const { count } = unsentItems(draft);
-  markItemsSent(draft, id);
   draft.submitted = { id, at, round: draft.round, count };
   draft.pending = null;
   return draft;

@@ -129,7 +129,7 @@ export function activityModel({
 
 // Outside a round that a send started, the card still tells the reviewer
 // about the agent: that another agent took the session over since their
-// last send, or that the wake for an acceptance failed.
+// last send, or that the wake for their send failed.
 export function agentNotice(remote) {
   if (!remote || remote.stage === "complete") return false;
   return (

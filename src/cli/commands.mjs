@@ -4,14 +4,7 @@ import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
 import { publish, runHub, start } from "./session.mjs";
-import {
-  complete,
-  pause,
-  progress,
-  read,
-  reply,
-  status,
-} from "./actions.mjs";
+import { pause, progress, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
   value: "DIR",
@@ -155,14 +148,6 @@ export const commands = {
       "Print where the session stands. Any agent may run it, and only the holder's output starts with the next step.",
     flags: { "session-dir": sessionDir, json },
     run: status,
-  },
-  complete: {
-    group: "session",
-    purpose: "End the session once the accepted work is done",
-    about:
-      "End the session once the reviewer accepts built work and the accepted action is done.",
-    flags: { "session-dir": sessionDir, json },
-    run: complete,
   },
   guide: {
     group: "pages",
