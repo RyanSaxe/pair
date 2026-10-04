@@ -2,7 +2,6 @@ import path from "node:path";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
-import { removeWorktrees } from "./worktrees.mjs";
 
 // Only the reviewer's feedback answers a round. A Start leaves the round as
 // it was, wherever its work runs.
@@ -108,12 +107,10 @@ export function agent(session) {
   }
   // The reviewer closes a session from the browser. The hub sends the agent
   // nothing, and refuses the agent's next command with the line that says
-  // the session is complete. Closing removes the session's scratch
-  // worktrees, and the hub's log names each one.
-  async function close(log) {
+  // the session is complete. Closing deletes no file, and the agent removes
+  // its scratch worktrees once the reviewer agrees.
+  async function close() {
     await transition({ stage: "complete", dismissedAt: timestamp() });
-    for (const line of await removeWorktrees(directory))
-      log(`closed ${directory}: ${line}`);
     await session.closeLinked();
     return { status: view() };
   }
