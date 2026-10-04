@@ -45,7 +45,7 @@ import {
 } from "#frame/notes/notes.mjs";
 import { renderAgreements } from "#frame/pages/agreed.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
-import { openWork, refreshWork, workCount } from "#frame/pages/work.mjs";
+import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -343,8 +343,8 @@ export function updateNavigation(force = false) {
     // The waiting Current lists Agreed alone.
     if (!showingWaiting()) pageList.append(separator());
     for (const item of pages.slice(1)) addPageButton(item);
-    // Work sits above Review, and its number counts the cards that need
-    // the reviewer.
+    // Work sits above Review, with two numbers: the cards that need the
+    // reviewer and the proposed cards.
     if (hasWork()) {
       const work = document.createElement("button");
       work.type = "button";
@@ -352,10 +352,15 @@ export function updateNavigation(force = false) {
       work.dataset.page = "work";
       const label = document.createElement("span");
       label.textContent = "Work";
-      const total = document.createElement("b");
-      total.className = "count";
-      total.hidden = true;
-      work.append(label, total);
+      const counts = document.createElement("span");
+      counts.className = "work-counts";
+      for (const kind of ["needs", "proposed"]) {
+        const total = document.createElement("b");
+        total.className = `count ${kind}`;
+        total.hidden = true;
+        counts.append(total);
+      }
+      work.append(label, counts);
       pageList.append(separator(), work);
     }
     if (hasFeedbackPage && !showingWaiting()) {
@@ -377,13 +382,25 @@ export function updateNavigation(force = false) {
   }
   const workRow = $("work-row");
   if (workRow) {
-    const count = workCount();
-    const mark = workRow.querySelector(".count");
-    mark.textContent = String(count);
-    mark.hidden = !count;
+    const counts = workCounts();
+    const said = {
+      needs: `${counts.needs} need${counts.needs === 1 ? "s" : ""} you`,
+      proposed: `${counts.proposed} proposed`,
+    };
+    for (const kind of ["needs", "proposed"]) {
+      const mark = workRow.querySelector(`.count.${kind}`);
+      mark.textContent = String(counts[kind]);
+      mark.hidden = !counts[kind];
+      mark.title = said[kind];
+    }
     workRow.setAttribute(
       "aria-label",
-      count ? `Work, ${count} need${count === 1 ? "s" : ""} you` : "Work",
+      [
+        "Work",
+        ...["needs", "proposed"]
+          .filter((kind) => counts[kind])
+          .map((kind) => said[kind]),
+      ].join(", "),
     );
   }
   const opened = newMarks();

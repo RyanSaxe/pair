@@ -61,8 +61,12 @@ const linkedWaits = () =>
 // Start, Decline, Restore and Comment need the live session.
 export const cardsEditable = () =>
   editable && online && Boolean(remote) && remote.stage !== "complete";
-// The number on the Work row.
-export const workCount = () => workGroups(cards(), context()).needs.length;
+// The two numbers on the Work row: the cards that need the reviewer and
+// the proposed cards.
+export function workCounts() {
+  const { needs, proposed } = workGroups(cards(), context());
+  return { needs: needs.length, proposed: proposed.length };
+}
 
 const element = (tag, className, text) => {
   const node = document.createElement(tag);
