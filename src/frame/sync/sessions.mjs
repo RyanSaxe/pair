@@ -14,7 +14,10 @@ import { connected, remote } from "#frame/sync/rounds.mjs";
 let sessions = [];
 // The rows of Sessions, closed parents included, from groupSessions().
 let grouped = [];
+// Every open session, in list order, for w and the badge.
 export let sessionOrder = [];
+// The open sessions the 1 to 9 keys reach: every one but a sub-session.
+export let numbered = [];
 let reviewAlerts;
 export function installSessions() {
   reviewAlerts = createReviewAlerts({
@@ -94,9 +97,9 @@ export async function pollSessions() {
   sessions = listed.filter((entry) => !entry.closed);
   grouped = groupSessions(listed);
   // A number opens the same open session from every tab.
-  sessionOrder = grouped
-    .filter(({ entry }) => !entry.closed)
-    .map(({ entry }) => entry);
+  const open = grouped.filter(({ entry }) => !entry.closed);
+  sessionOrder = open.map(({ entry }) => entry);
+  numbered = open.filter(({ depth }) => !depth).map(({ entry }) => entry);
   if (fromHub) syncOpened(sessions);
   renderSessions();
   renderCenter(listed, fromHub);
@@ -222,9 +225,23 @@ export function redraw(list, lines) {
 }
 // A closing session's row says so until the hub drops it or refuses.
 const closing = new Map();
-/* One session's row: its number, title and short status, then Copy
-   handoff line and Close in two fixed columns. */
-function sessionRow(entry, index, unopened, depth) {
+// A row's name, after an arrow when the session is a sub-session.
+function rowTitle(entry, depth) {
+  const title = document.createElement("span");
+  title.className = "t";
+  if (depth) {
+    const arrow = document.createElement("span");
+    arrow.className = "sub";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "↳";
+    title.append(arrow);
+  }
+  title.append(entry.title);
+  return title;
+}
+/* One session's row: its number, or none for a sub-session, its title and
+   short status, then Copy handoff line and Close in two fixed columns. */
+function sessionRow(entry, unopened, depth) {
   const current = entry.id === session.sessionId;
   const line = document.createElement("div");
   line.className = `sess-line${current ? " current" : ""}`;
@@ -243,11 +260,8 @@ function sessionRow(entry, index, unopened, depth) {
     .join(" · ");
   const number = document.createElement("span");
   number.className = "n";
-  number.textContent = index + 1;
-  const title = document.createElement("span");
-  title.className = "t";
-  title.textContent = entry.title;
-  row.append(number, title);
+  if (!depth) number.textContent = numbered.indexOf(entry) + 1;
+  row.append(number, rowTitle(entry, depth));
   const shown = closing.has(entry.id)
     ? { text: closing.get(entry.id), tone: "quiet" }
     : current
@@ -302,13 +316,10 @@ function closedHeading(entry, depth) {
   if (depth) line.style.setProperty("--depth", depth);
   const row = document.createElement("div");
   row.className = "sess-row";
-  const title = document.createElement("span");
-  title.className = "t";
-  title.textContent = entry.title;
   const state = document.createElement("span");
   state.className = "pill quiet";
   state.textContent = "Closed";
-  row.append(document.createElement("span"), title, state);
+  row.append(document.createElement("span"), rowTitle(entry, depth), state);
   line.append(row);
   return line;
 }
@@ -326,12 +337,7 @@ function renderSessions() {
     grouped.map(({ entry, depth }) =>
       entry.closed
         ? closedHeading(entry, depth)
-        : sessionRow(
-            entry,
-            sessionOrder.indexOf(entry),
-            unopened(entry),
-            depth,
-          ),
+        : sessionRow(entry, unopened(entry), depth),
     ),
   );
   const menu = $("menu-button");

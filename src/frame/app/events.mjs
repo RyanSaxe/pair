@@ -27,6 +27,7 @@ import { switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
+  numbered,
   sessionOrder,
   toggleSessions,
 } from "#frame/sync/sessions.mjs";
@@ -165,7 +166,7 @@ export function installEvents() {
       const entry = nextWaiting(sessionOrder, session.sessionId);
       if (entry) location.assign(entry.url);
     } else if (/^[1-9]$/.test(key)) {
-      const entry = sessionOrder[Number(key) - 1];
+      const entry = numbered[Number(key) - 1];
       if (entry && entry.id !== session.sessionId) location.assign(entry.url);
     } else if (mode === "home") {
       // Every key below acts on a page, and a home view has none.

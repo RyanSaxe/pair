@@ -77,18 +77,19 @@ directory, so your checkout and branches stay as they are.
 ## Sessions and notifications
 
 The Sessions button, second in the header, or <kbd>g</kbd>, opens the session
-list: every live session in the order it started, with
-[sub-sessions](proposals-and-work.md#sub-sessions-and-new-agent-sessions)
-indented under the session they came from. Each row has **Copy handoff
-line** and ✕, which closes the session.
+list: every live session in the order it started, with each
+[sub-session](proposals-and-work.md#sub-sessions-and-new-agent-sessions)
+under the session it came from, after an arrow, ↳, in place of a number.
+Each row has **Copy handoff line** and ✕, which closes the session.
 
 - The button's number counts the other sessions that need you. It is orange
   when one has a round waiting for you or an agent that could not be woken,
   and blue when the others that need you have pages you have not opened.
   When no other session needs you, a grey number counts your other live
   sessions. The session in this tab never counts.
-- <kbd>1</kbd>–<kbd>9</kbd> open a session by its number, and <kbd>w</kbd> opens the next one
-  waiting for you.
+- <kbd>1</kbd>–<kbd>9</kbd> open a session by its number. Only sessions that are not
+  sub-sessions have one. <kbd>w</kbd> opens the next session waiting for you,
+  sub-sessions included.
 - ✕ opens a dialog that asks before it closes the session. A closed session
   is read-only with every round kept, its agent gets no message, and the hub
   removes each git worktree inside the session's directory.

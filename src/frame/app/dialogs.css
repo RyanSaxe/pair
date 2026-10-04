@@ -452,10 +452,16 @@ dialog::backdrop {
 .sess-line.current {
   background: var(--accent-soft);
 }
-/* A sub-session's name sits one step in from the name of the session it
-   came from, and the numbers keep their column. */
+/* A sub-session has no number. Its name sits one step in from the name of
+   the session it came from, after an arrow that fills that step. */
 .sess-line[style*="--depth"] .sess-row .t {
-  padding-left: calc(var(--depth) * 18px);
+  padding-left: calc((var(--depth) - 1) * 18px);
+}
+.sess-row .sub {
+  display: inline-block;
+  width: 18px;
+  color: var(--muted);
+  font-weight: normal;
 }
 /* A closed session over its open sub-sessions reads in grey and has no
    buttons. */
