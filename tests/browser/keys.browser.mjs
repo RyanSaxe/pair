@@ -77,8 +77,10 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
   const reopen = async () => {
     await page.goto(ownUrl);
     await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
+    // The badge counts the other session, whose round waits for you, once
+    // the session list has loaded.
     await page.waitForFunction(
-      () => document.querySelector("#sessions-count")?.textContent === "2",
+      () => document.querySelector("#sessions-count")?.textContent === "1",
     );
   };
   await reopen();

@@ -37,16 +37,14 @@ function codexLine(codex) {
 // The checks pair start needs to pass, one line each. A check that fails
 // outright refuses with its error. A busy hub port and a missing Codex rules
 // file each add a next step.
-export async function check(options) {
+export async function check() {
   const codex = await codexReport();
   let directory;
   const server = http.createServer((_, response) => response.end("ready"));
   try {
     requireNode();
     // The hub writes under <state>/pair, so that is the directory to test.
-    const base = options.args[0]
-      ? path.resolve(options.args[0])
-      : settings().root;
+    const base = settings().root;
     await fs.mkdir(base, { recursive: true });
     directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
     await fs.writeFile(path.join(directory, "draft"), "ready");

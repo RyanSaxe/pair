@@ -27,10 +27,6 @@ tags. `--json` prints the result as one JSON object instead. A session
 command whose text is over 10,000 bytes writes it to a file in the session's
 `output/` directory and prints the file's path.
 
-`pair ack`, `pair reply --note`, `pair progress --start`, `pair read --id`,
-`pair check --codex-rules` and `pair check STATE_DIR` still work in this
-release, and each prints the command that replaces it.
-
 ## Environment variables
 
 All six are optional.

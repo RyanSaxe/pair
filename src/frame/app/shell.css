@@ -9,7 +9,10 @@ html {
 /* 100dvh is the height you can actually see, so a short page does not
    scroll by the height of a browser toolbar. The content scrolls inside
    the shell rather than the window. */
+/* The header has a fixed height, so the phone's sidebar can start under
+   it. */
 .app {
+  --header-height: 53px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -21,6 +24,7 @@ html {
 }
 .frame-header {
   flex: none;
+  height: var(--header-height);
   z-index: var(--z-header);
   display: flex;
   align-items: center;
@@ -36,20 +40,45 @@ html {
   flex: none;
   text-align: center;
 }
+/* The sidebar slides over the page and is never part of its layout, so
+   the page column changes width once per move: at once when the sidebar
+   closes, and only after it has slid in when it opens. At no point does
+   the column leave a gap where the sidebar was. The root's data-sidebar
+   says which state to draw. */
 .app-body {
+  --sidebar-width: 224px;
+  --slide: 0.2s;
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 .sidebar {
+  position: absolute;
+  inset: 0 auto 0 0;
   z-index: var(--z-sidebar);
+  width: var(--sidebar-width);
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
   background: var(--panel);
   border-right: 1px solid var(--line);
+  transition: transform var(--slide) ease;
+}
+:root[data-sidebar="closed"] .sidebar {
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--slide) ease,
+    visibility 0s var(--slide);
+}
+.sidebar-scrim {
+  display: none;
+}
+#sidebar-toggle[aria-expanded="true"] {
+  background: var(--accent-soft);
 }
 .side-label {
   display: flex;
@@ -68,6 +97,12 @@ html {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0s var(--slide);
+}
+:root[data-sidebar="closed"] .main-column {
+  margin-left: 0;
+  transition: none;
 }
 .main-column > main {
   flex: 1;
@@ -122,9 +157,9 @@ main {
   background: var(--attention);
   color: var(--attention-ink);
 }
-/* The sessions button, first in the header at every width. Its badge
-   counts the live sessions: grey, orange while another session needs you,
-   and blue while one has pages you have not opened. */
+/* The sessions button's badge counts the other sessions that need you,
+   orange for a waiting round and blue for pages not opened yet, or in
+   grey the other live sessions. */
 .icon-btn.menu {
   position: relative;
 }
@@ -215,17 +250,53 @@ main {
 #history-label .meta {
   color: var(--muted);
 }
-/* Narrow screens: the header stays and the page list moves from the sidebar
-   into a dialog behind the menu button. */
+/* Narrow screens: the sidebar starts closed and slides over the dimmed
+   page, under the header, and the page keeps its width. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-scrim,
+  .main-column {
+    --slide: 0s;
+  }
+}
 @media (max-width: 720px) {
   .app-body {
+    --sidebar-width: min(272px, calc(100vw - 48px));
     display: block;
     overflow-y: auto;
   }
-  .sidebar {
-    display: none;
+  .sidebar,
+  .sidebar-scrim {
+    position: fixed;
+    z-index: var(--z-sidebar-over-page);
+    top: var(--header-height);
+    bottom: 0;
+    left: 0;
   }
-  .main-column {
+  :root:not([data-sidebar="open"]) .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform var(--slide) ease,
+      visibility 0s var(--slide);
+  }
+  .sidebar-scrim {
+    display: block;
+    right: 0;
+    background: light-dark(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.5));
+    transition: opacity var(--slide) ease;
+  }
+  :root:not([data-sidebar="open"]) .sidebar-scrim {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity var(--slide) ease,
+      visibility 0s var(--slide);
+  }
+  .main-column,
+  :root[data-sidebar="closed"] .main-column {
+    margin-left: 0;
+    transition: none;
     min-height: 100%;
   }
   main {
