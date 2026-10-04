@@ -329,6 +329,24 @@ export async function proposals(session) {
       ...link(data),
     });
   }
+  // pair plan attaches a plan to a card that is neither declined nor done,
+  // started or not, and a second pair plan replaces it.
+  function plannable(id) {
+    open();
+    const card = find(id);
+    requireValue(
+      !card.declined,
+      `The reviewer declined proposal ${id}, so it takes no plan`,
+      409,
+    );
+    requireValue(
+      !card.done,
+      `Proposal ${id} is done, so it takes no plan`,
+      409,
+    );
+    return card;
+  }
+  const attachPlan = (id, plan) => save(plannable(id), { plan });
   // pair read prints each card the reviewer declined once, and the hub
   // sends no wake for a decline.
   async function reportDeclined() {
@@ -345,6 +363,8 @@ export async function proposals(session) {
     proposalItems,
     reportDeclined,
     propose,
+    plannable,
+    attachPlan,
     startProposal,
     declineProposal,
     restoreProposal,

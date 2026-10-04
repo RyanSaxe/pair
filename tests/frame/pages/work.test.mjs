@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { openingTab, workGroups } from "#frame/pages/work.mjs";
+import { openingTab, planLine, workGroups } from "#frame/pages/work.mjs";
 
 const card = (id, facts = {}) => ({
   id,
@@ -57,4 +57,19 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
   const proposedOnly = workGroups([card("a")], {});
   assert.equal(openingTab(proposedOnly), "proposed");
   assert.equal(openingTab(workGroups([], {})), "needs");
+});
+
+// A card's plan line names the round after which the plan last changed and
+// the rounds it came from, as pair plan's --rounds gave them.
+test("a card's plan line reads one round or a range", () => {
+  const plan = (rounds) => ({ at: here.at, round: "6", rounds, pages: [] });
+  assert.equal(planLine(null), "No plan yet.");
+  assert.equal(
+    planLine(plan("3-6")),
+    "Plan updated after round 6, from rounds 3 to 6.",
+  );
+  assert.equal(
+    planLine(plan("4")),
+    "Plan updated after round 6, from round 4.",
+  );
 });

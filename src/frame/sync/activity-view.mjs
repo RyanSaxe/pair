@@ -6,9 +6,11 @@ import {
   editable,
   mode,
   noteEditable,
+  online,
   page,
   pastRound,
   plan,
+  planFor,
   session,
   submittedRound,
   viewKey,
@@ -204,6 +206,7 @@ export function drawActivity(running) {
 // so the strip shows whenever that page belongs to the earlier round,
 // whichever tab is chosen.
 export function renderHistory() {
+  if (planFor) return renderPlanStrip();
   const old = mode === "readonly";
   const past = editable && displayedRound === pastRound;
   const strip = $("history-strip");
@@ -230,6 +233,41 @@ export function renderHistory() {
   button.onclick = old
     ? () => location.assign(`${base}/`)
     : () => switchTab("current");
+}
+// A plan's strip leads back to Work, names the card and offers Download
+// plan. A downloaded plan has no hub, so it names the card alone.
+let planStrip = "";
+function renderPlanStrip() {
+  const title =
+    remote?.proposals?.find((card) => card.id === planFor)?.title || plan.title;
+  if (planStrip === title) return;
+  planStrip = title;
+  $("history-strip").hidden = false;
+  $("history-return").hidden = true;
+  const crumbs = [];
+  if (online) {
+    const work = document.createElement("a");
+    work.href = `${base}/#work`;
+    work.textContent = "Work";
+    crumbs.push(work);
+  }
+  crumbs.push(document.createTextNode(title));
+  const here = document.createElement("b");
+  here.textContent = "Plan";
+  crumbs.push(here);
+  $("history-label").replaceChildren(
+    ...crumbs.flatMap((crumb, index) => {
+      if (!index) return [crumb];
+      const mark = document.createElement("span");
+      mark.className = "crumb";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = "›";
+      return [mark, crumb];
+    }),
+  );
+  const download = $("history-download");
+  download.hidden = !online;
+  download.href = `${base}/plans/${encodeURIComponent(planFor)}/download`;
 }
 // The Pages heading in the sidebar shows the page round's status. The text stays while the status fades out.
 export function renderRound() {

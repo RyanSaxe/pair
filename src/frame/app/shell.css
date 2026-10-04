@@ -234,11 +234,15 @@ main {
   color: var(--ink);
   font-size: var(--text-small);
 }
-.history-strip button {
+.history-strip button,
+#history-download {
   margin-left: auto;
   color: var(--accent);
   font-weight: var(--weight-strong);
   white-space: nowrap;
+}
+.history-strip a:not(:hover) {
+  text-decoration: none;
 }
 #round.older {
   color: var(--accent);
@@ -248,6 +252,14 @@ main {
   font-weight: var(--weight-strong);
 }
 #history-label .meta {
+  color: var(--muted);
+}
+/* A plan's strip: Work, the card's title and Plan. */
+#history-label a {
+  color: var(--accent);
+}
+#history-label .crumb {
+  margin: 0 6px;
   color: var(--muted);
 }
 /* Narrow screens: the sidebar starts closed and slides over the dimmed

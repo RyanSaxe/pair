@@ -37,3 +37,31 @@ Change a proposal with its `--id` and one of these flags:
 
 `pair read` prints each Start and each proposal the reviewer declined, with
 what to do next.
+
+## Plans
+
+When nothing about a proposal's work is left to decide, or the reviewer asks
+for its plan, write the plan and attach it to the proposal with `pair plan`.
+Write it so that an engineer or agent who saw none of the rounds builds
+exactly what the reviewer aligned on, without asking anything. Show every
+approved look and interface as the reviewer approved it: copy it from its
+page source in the session's `src/ROUND/PAGE/`, and change it to match what
+was agreed after it was shown. State each behavior exactly, and say how to
+check that the work is done. Include code where it makes the plan clearer,
+but write the plan from what the rounds decided, without building the work
+to find out. Settle every open question on a page before you attach the
+plan.
+
+Write each page of the plan as a page source, as `pair guide pages.md`
+describes, with `"round": "plan"`, in a directory named by the page's ID.
+Put the directories and a `pages.json` that lists the pages in order in one
+directory, build each page, and attach them:
+
+```sh
+pair plan --session-dir PATH --proposal phone-sidebar --rounds 13-15 \
+  --pages PLAN/pages.json --source PLAN \
+  --file OUT/overview.html --file OUT/steps.html
+```
+
+`--rounds` names the rounds the plan came from, one round or a range. Give
+one `--file` for each page in `pages.json`, in the same order.

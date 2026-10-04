@@ -6,25 +6,31 @@ import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 // The session this page belongs to and what it allows, read from the page
 // before anything renders.
 export let session, base, online, mode, editable, hasFeedbackPage, query;
+// The proposal whose plan this page is, which pair plan writes into the
+// page's plan data. Null on a round.
+export let planFor = null;
 // Browser storage is kept per session, and the draft per plan as well.
 export let storageKey, placeKey, prefsPrefix;
-export function useSession(config, name, url) {
+export function useSession(config, { name, proposal }, url) {
   session = config;
+  planFor = proposal || null;
   base = typeof session.base === "string" ? session.base : "";
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
   /* A closed session reads like an older round: nothing can be sent from
-     it. The strip below the header says which of the two it is. A session
-     with nothing published shows its home view. */
+     it. The strip below the header says which of the two it is. A plan is
+     read-only too, with or without a hub. A session with nothing published
+     shows its home view. */
   mode = session.home
     ? "home"
     : session.preview
       ? "preview"
-      : session.readonly || session.closed
+      : session.readonly || session.closed || planFor
         ? "readonly"
         : "live";
   editable = mode === "live";
   // A read-only round keeps a Feedback page that lists what was sent on it.
-  hasFeedbackPage = editable || mode === "readonly";
+  // A plan has none, because nothing is sent on a plan.
+  hasFeedbackPage = editable || (mode === "readonly" && !planFor);
   query = url.searchParams;
   storageKey = `pair:${session.sessionId || "offline"}:${name}`;
   placeKey = `pair:place:${session.sessionId || "offline"}`;
