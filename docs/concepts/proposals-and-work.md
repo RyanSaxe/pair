@@ -19,8 +19,9 @@ for its whole life, in four tabs with counts:
 | Done      | Finished work, and declined proposals with **Restore**.                                                               |
 
 Work opens on the first tab with anything in it, and the number on its row
-counts what needs you. Each card shows what the work delivers, and its
-footer links to where the proposal came from or where the work runs. A page
+counts what needs you. Each card shows what the work delivers, a started
+card quotes the message you sent with Start, if any, and the card's footer
+links to where the proposal came from or where the work runs. A page
 or a thread shows a proposal as the same card, with the same buttons.
 
 | To                  | Do this                                                               |

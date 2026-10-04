@@ -287,6 +287,10 @@ export function cardElement(card, shown = context()) {
     metaLine(state, tone, cardWhere(card, shown)),
     element("p", "proposal-delivers", card.delivers),
   );
+  // The reviewer's message with Start, quoted under what the card delivers,
+  // so the card shows everything the reviewer approved.
+  if (card.started?.message)
+    body.append(element("p", "proposal-message", `“${card.started.message}”`));
   if (card.plan) body.append(planRow(card));
   root.append(body);
   // A card that cannot change has no buttons, and so no footer.

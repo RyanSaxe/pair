@@ -52,7 +52,7 @@ const workRow = (page) =>
     };
   });
 
-test("Start sends where the work runs and the message, and the card runs", async (t) => {
+test("Start sends where the work runs and the message, and the running card quotes the message", async (t) => {
   const { session, page, tab, cards } = await work(t);
   if (!page) return;
   // With nothing started, Work opens on Proposed, and the Work row shows
@@ -87,6 +87,13 @@ test("Start sends where the work runs and the message, and the card runs", async
   await page
     .locator("[data-proposal-card=deck] .card-state", { hasText: "Working" })
     .waitFor();
+  // The card quotes the message, so it shows all the reviewer approved.
+  assert.equal(
+    await page
+      .locator("[data-proposal-card=deck] .proposal-message")
+      .textContent(),
+    "“Keep the header height.”",
+  );
   // The Start answered the round, and the reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
 });
