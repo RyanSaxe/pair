@@ -5,7 +5,13 @@ import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
 import { pageData } from "../../../src/shared/records.mjs";
-import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+import {
+  hub,
+  literal,
+  planData,
+  sleep,
+  waitUntil,
+} from "../../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -81,7 +87,7 @@ test("Open a new agent session starts the card with a new agent and asks the hol
   assert.equal(read.body.moment, "read-open-agent");
   assert.match(
     read.body.next,
-    new RegExp(`pair start --from ${a.directory} --proposal deck`),
+    new RegExp(`pair start --from ${literal(a.directory)} --proposal deck`),
   );
   // Once the new agent's session links, the thread is an ordinary one.
   await link("deck");
