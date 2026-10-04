@@ -10,12 +10,41 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cg transform='rotate(-10 60 60.28)'%3E%3Cpath d='M51.64 8.6H80.52A11.4 11.4 0 0 1 91.92 20V35.2A11.4 11.4 0 0 1 80.52 46.6H67.22L60 60.28L55.06 46.6H51.64A11.4 11.4 0 0 1 40.24 35.2V20A11.4 11.4 0 0 1 51.64 8.6Z' fill='%234d6ef2'/%3E%3Cpath d='M60.95 21.67L54.45 27.6L60.95 33.53M71.21 21.67L77.71 27.6L71.21 33.53M68.36 20.07L63.8 35.12' stroke='%23ffffff' fill='none' stroke-width='2.66' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/g%3E%3Cpath fill='%234d6ef2' transform='translate(45.85 117.15) scale(0.11 -0.11)' d='M134 -8Q97 -8 77.5 13.5Q58 35 58 74V416Q58 456 77.5 477.5Q97 499 134 499Q170 499 189.5 477.5Q209 456 209 416V74Q209 35 190.0 13.5Q171 -8 134 -8Z'/%3E%3C/svg%3E"
     />
     <!-- FRAME_STYLE -->
+    <!-- A sidebar closed in this browser starts closed, before the first
+         paint, so it never slides out as the page opens. sidebar.mjs keeps
+         the state from here on, under the same key. -->
+    <script>
+      try {
+        if (localStorage.getItem("pair:sidebar") === "closed")
+          document.documentElement.dataset.sidebar = "closed";
+      } catch {}
+    </script>
   </head>
   <body>
     <div class="app" id="app">
       <header class="frame-header" id="frame-header">
-        <!-- Above 720px this button opens the session list, and at 720px
-             and below it opens the menu sheet with Pages, then Sessions. -->
+        <button
+          class="icon-btn"
+          id="sidebar-toggle"
+          type="button"
+          aria-label="Sidebar"
+          aria-controls="sidebar"
+          aria-expanded="true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+            <path d="M9.5 4v16" />
+          </svg>
+        </button>
+        <!-- The session list opens under this button at every width. -->
         <button
           class="icon-btn menu"
           id="menu-button"
@@ -114,6 +143,9 @@
         </button>
       </header>
       <div class="app-body">
+        <!-- At 720px and below this dims the page under the open sidebar,
+             and a tap on it closes the sidebar. -->
+        <div class="sidebar-scrim" id="sidebar-scrim"></div>
         <aside class="sidebar" id="sidebar">
           <div class="side-label">
             <span>Pages</span
@@ -121,7 +153,7 @@
               ><i></i><span></span
             ></span>
           </div>
-          <div class="pages-slot" id="sidebar-slot">
+          <div class="pages-slot">
             <nav id="navigation" aria-label="Plan pages"></nav>
           </div>
         </aside>
@@ -144,15 +176,19 @@
                   ×
                 </button>
               </div>
-              <div
-                class="notice accepted"
-                id="accepted"
-                data-tone="success"
-                tabindex="-1"
-                hidden
-              ></div>
               <section id="reading">
-                <h1 tabindex="-1" id="page-title"></h1>
+                <div class="title-row">
+                  <h1 tabindex="-1" id="page-title"></h1>
+                  <button
+                    class="comment-page"
+                    id="comment-page"
+                    type="button"
+                    hidden
+                  >
+                    <span>Comment on this page</span>
+                    <kbd aria-hidden="true">c</kbd>
+                  </button>
+                </div>
                 <p class="home-agent" id="home-agent" hidden></p>
                 <div class="agent-activity" id="agent-activity" hidden>
                   <div class="activity-heading">
@@ -186,6 +222,15 @@
                 <p class="finished-line" id="finished-line" hidden></p>
                 <div class="note-bars" id="note-bars"></div>
                 <div class="chosen-bar" id="chosen-bar" hidden></div>
+                <button
+                  class="btn comment-here"
+                  id="comment-here"
+                  type="button"
+                  hidden
+                >
+                  <span>Comment</span>
+                  <kbd aria-hidden="true">c</kbd>
+                </button>
                 <div id="page-content"></div>
                 <section
                   class="sent-page-comments"
@@ -275,9 +320,6 @@
     <script type="application/json" id="drawing-editor-source">
       <!-- DRAWING_EDITOR -->
     </script>
-    <button class="btn primary quote-button" id="quote" type="button" hidden>
-      Comment on this page
-    </button>
     <div class="note-tip" id="note-tip" hidden></div>
 
     <script type="application/json" id="session-config">

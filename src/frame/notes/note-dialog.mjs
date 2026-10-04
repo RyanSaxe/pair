@@ -137,8 +137,7 @@ export function installNoteDialog() {
       if (type === "drop") attach(event.dataTransfer.files);
     });
   /* Start a thread sends the note to the agent now instead of keeping it
-     for Send feedback or Finish review, so the note leaves the draft and its
-     images stay. */
+     for Send feedback, so the note leaves the draft and its images stay. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
   $("note-thread").onclick = () => {
     const allowed = noteContext.proposal ? cardsEditable() : noteEditable();

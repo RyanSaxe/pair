@@ -259,9 +259,9 @@ function reconcilePages(view, manifest) {
   if (plan.round === view.plan.round && !showingWaiting()) useView(view);
 }
 // A round this reader has not loaded, which its page set then fills in.
-function emptyView(round, { name, offer, title }) {
+function emptyView(round, { name, title }) {
   const view = {
-    plan: { name, round, offer, title, pages: [] },
+    plan: { name, round, title, pages: [] },
     agreements: [],
     pages: [],
   };
@@ -342,7 +342,6 @@ function loadPastView(round) {
           const entry = remote?.rounds?.find((item) => item.round === round);
           return emptyView(round, {
             name: entry?.name || remote.current.name,
-            offer: (entry || remote.current).offer,
             title: entry?.title || remote.current.title,
           });
         },
@@ -384,7 +383,6 @@ export function currentDraft() {
 export function switchTab(tab, targetId = null, { showPage = true } = {}) {
   if (tab === "current" && !currentShown() && !submissionInFlight) return;
   if (tab === "past" && !pastAvailable()) return;
-  if ($("finish-dialog").open) $("finish-dialog").close();
   rememberHeight();
   const round = tab === "current" ? remote.current.round : pastRound;
   const view =

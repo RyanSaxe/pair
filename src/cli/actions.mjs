@@ -17,7 +17,7 @@ import {
 // reply with text, which prints as it is.
 
 export async function read(options) {
-  const submission = options.submission ?? options.id;
+  const { submission } = options;
   if (options.thread !== undefined && submission !== undefined)
     throw usageError(
       "read",
@@ -64,19 +64,15 @@ async function readThread(session, id) {
 }
 
 export async function reply(options) {
-  const id = options.thread ?? options.note;
+  const id = options.thread;
   if (options.text !== undefined && options.file !== undefined)
     throw usageError("reply", "pair reply takes --text or --file, not both.");
   const text = options.text !== undefined;
-  if (!text && options.file === undefined) {
-    // pair reply --note ID read the thread when it posted nothing.
-    if (options.note !== undefined)
-      return readThread(await openSession(options), id);
+  if (!text && options.file === undefined)
     throw usageError(
       "reply",
       "pair reply requires --text TEXT or --file HTML.",
     );
-  }
   const session = await openSession(options);
   const result = await session.request({
     action: "reply",
@@ -107,7 +103,7 @@ function noteText(options) {
 }
 
 export async function progress(options) {
-  const pages = options.page ?? options.start?.split("|");
+  const pages = options.page;
   const note = noteText(options);
   if (!pages && note === undefined)
     throw usageError(
@@ -139,25 +135,6 @@ export async function progress(options) {
   };
 }
 
-export async function ack(options) {
-  const session = await openSession(options);
-  const result = await session.request({
-    action: "ack",
-    note: options.note,
-    page: options.page,
-  });
-  const note = options.note?.trim();
-  return {
-    next: result.next,
-    data:
-      note &&
-      (options.page
-        ? `Noted on ${options.page}: ${note}`
-        : `Noted on the round: ${note}`),
-    json: result,
-  };
-}
-
 const sentence = (text) => (/[.!?]$/.test(text) ? text : `${text}.`);
 
 export async function pause(options) {
@@ -173,18 +150,11 @@ export async function pause(options) {
   };
 }
 
-export async function complete(options) {
-  const session = await openSession(options);
-  const result = await session.request({ action: "complete" });
-  return { next: result.next, data: "The session is complete.", json: result };
-}
-
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
 function stageText(status) {
   if (status.paused) return `paused: ${status.paused.reason}`;
   if (status.stage === "complete") return "complete";
-  if (status.stage === "saved") return "saved for later";
   if (status.openRound) return "the agent publishes its pages";
   if (status.stage === "submitted")
     return "a submission is waiting for pair read";
@@ -273,7 +243,7 @@ export async function status(options) {
         [
           "Round",
           round
-            ? `${round.round}${round.offer ? `, offer ${round.offer}` : ""}, ${stageText(state)}`
+            ? `${round.round}, ${stageText(state)}`
             : `none published yet, ${stageText(state)}`,
         ],
         [

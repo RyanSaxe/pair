@@ -6,6 +6,7 @@ import {
   restoreScroll,
 } from "#frame/app/places.mjs";
 import { createPlanUI, installRegistry } from "#frame/app/registry.mjs";
+import { installSidebar } from "#frame/app/sidebar.mjs";
 import { emptyDraft, savedDraft, setState, state } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -35,13 +36,7 @@ import { installDrawing } from "#frame/notes/drawing.mjs";
 import { installNoteDialog } from "#frame/notes/note-dialog.mjs";
 import { findQuote, highlight, installNotes } from "#frame/notes/notes.mjs";
 import { installThreads } from "#frame/notes/threads.mjs";
-import {
-  installPages,
-  narrow,
-  placeNavigation,
-  reveal,
-  show,
-} from "#frame/pages/pages.mjs";
+import { installPages, reveal, show } from "#frame/pages/pages.mjs";
 import { startHome } from "#frame/pages/home.mjs";
 import { installProgress } from "#frame/pages/progress.mjs";
 import { installStart } from "#frame/pages/start-popup.mjs";
@@ -108,6 +103,7 @@ function bootRound() {
   // Handlers for the same event run in the order they were added, so the
   // parts install in this order: the note click on #page-content, for one,
   // runs before the click that chooses a block.
+  installSidebar();
   installRenderers();
   installNotes();
   installSessions();
@@ -126,8 +122,6 @@ function bootRound() {
   installDraftSync();
   window.planUI = createPlanUI();
   document.title = plan.title;
-  narrow.addEventListener("change", placeNavigation);
-  placeNavigation();
   if (editable) initializeChecklists();
   theme();
   renderRounds();

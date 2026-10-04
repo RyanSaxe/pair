@@ -35,6 +35,8 @@ test("every command takes --help, prints its usage, exits 0 and runs nothing", a
   assert.deepEqual(await fs.readdir(state), []);
 });
 
+// ack is a command 0.3 deleted, which an agent that read an older guide may
+// still run.
 test("pair --version prints the version, and pair with no command or an unknown one exits 1", async (t) => {
   const { run } = await scratch(t);
   const { version } = JSON.parse(
@@ -42,9 +44,10 @@ test("pair --version prints the version, and pair with no command or an unknown 
   );
   assert.equal((await run("--version")).stdout, `${version}\n`);
   await assert.rejects(run(), { code: 1 });
-  await assert.rejects(run("nope"), (error) => {
-    assert.equal(error.code, 1);
-    assert.match(error.stderr, /\bnope\b/);
-    return true;
-  });
+  for (const name of ["nope", "ack"])
+    await assert.rejects(run(name), (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, new RegExp(`^pair: no command ${name}\\.\n`));
+      return true;
+    });
 });

@@ -8,12 +8,14 @@ import {
   settleScroll,
 } from "#frame/app/places.mjs";
 import { enhance } from "#frame/app/registry.mjs";
+import { openSidebar } from "#frame/app/sidebar.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
   current,
   currentShown,
   editable,
   hasFeedbackPage,
+  olderPast,
   online,
   page,
   pages,
@@ -92,7 +94,7 @@ const hasWork = () => online && hasFeedbackPage;
 // re-rendering the same page, restoring after a reload, and popstate itself
 // leave history alone.
 // inPlace re-renders the page on screen for an arrival, without closing the
-// Pages drawer or another menu, or moving focus.
+// sidebar over the page or another menu, or moving focus.
 export function show(
   id,
   targetId = null,
@@ -158,7 +160,6 @@ export function show(
     // page renders, so the marks are placed again once they settle.
     Promise.allSettled([...renders]).then(placeMarks);
   }
-  if (!inPlace) closeDrawer();
   for (const button of document.querySelectorAll("#page-list [data-page]")) {
     if (button.dataset.page === visiblePageId())
       button.setAttribute("aria-current", "page");
@@ -190,7 +191,6 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  $("quote").hidden = true;
   if (!inPlace) closeMenus();
   updateNavigation();
   review();
@@ -225,24 +225,6 @@ export function badge(count) {
   const mark = row.querySelector(".count");
   mark.textContent = count ? `(${count})` : "";
   mark.hidden = !count;
-}
-/* On a narrow screen the page list is a dialog, like every other panel.
-   The one navigation element moves between the sidebar and the dialog, so
-   the current page and the counts live in a single place. */
-export let narrow;
-export function placeNavigation() {
-  const target = narrow.matches ? $("pages-slot") : $("sidebar-slot");
-  if ($("navigation").parentElement !== target) target.append($("navigation"));
-  if (!narrow.matches) closeDrawer();
-}
-function openDrawer() {
-  $("pages-dialog").showModal();
-  $("menu-button").setAttribute("aria-expanded", "true");
-}
-export function closeDrawer() {
-  if (!$("pages-dialog").open) return;
-  $("pages-dialog").close();
-  $("menu-button").setAttribute("aria-expanded", "false");
 }
 // Agreed so far leads the order, as it leads the sidebar, and Feedback ends
 // it. The footer's links and the [ and ] keys use this one order.
@@ -287,8 +269,8 @@ export function renderFooter(feedback) {
   );
 }
 
-// Agreed so far reads before the pages, Review or Feedback after them, each
-// behind a separator, and the drawer shows the same list as the sidebar.
+// Agreed so far reads before the pages, and Review or Feedback after them,
+// each behind a separator.
 function separator() {
   const divider = document.createElement("div");
   divider.className = "separator";
@@ -345,7 +327,7 @@ function newMarks() {
 export function updateNavigation(force = false) {
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
-  $("past-tab").textContent = pastRound ? `Round ${pastRound}` : "Previous";
+  $("past-tab").textContent = olderPast() ? `Round ${pastRound}` : "Last round";
   for (const tab of ["past", "current"])
     $(`${tab}-tab`).setAttribute("aria-selected", String(selectedTab === tab));
   if (
@@ -435,7 +417,6 @@ export function updateNavigation(force = false) {
 }
 export function installPages() {
   displayedRound = plan.round;
-  narrow = matchMedia("(max-width: 720px)");
   const tabs = document.createElement("div");
   tabs.className = "page-tabs";
   tabs.setAttribute("role", "tablist");
@@ -448,7 +429,7 @@ export function installPages() {
     button.id = `${tab}-tab`;
     button.dataset.tab = tab;
     button.setAttribute("role", "tab");
-    button.textContent = tab === "current" ? "Current" : "Previous";
+    button.textContent = tab === "current" ? "Current" : "Last round";
     tabs.append(button);
   }
   // A read-only page shows one round, so there is nothing to switch to.
@@ -457,13 +438,5 @@ export function installPages() {
   pageList.id = "page-list";
   $("navigation").append(tabs, pageList);
   updateNavigation(true);
-  // Above 720px the button opens the session list through its
-  // popovertarget. At 720px and below it opens this drawer instead.
-  $("menu-button").addEventListener("click", (event) => {
-    if (!narrow.matches) return;
-    event.preventDefault();
-    if ($("pages-dialog").open) closeDrawer();
-    else openDrawer();
-  });
-  $("feedback-pages").addEventListener("click", openDrawer);
+  $("feedback-pages").addEventListener("click", openSidebar);
 }

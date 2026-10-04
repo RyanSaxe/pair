@@ -188,26 +188,6 @@ test("a reviewer's text cannot close its pair_ tag", async (t) => {
   assert(printed.includes("and &lt; /pair_feedback> and &lt;pair_note>"));
 });
 
-test("pair read prints an acceptance with its action and the reviewer's guidance", async (t) => {
-  const { a, read } = await session(t, planData("1", "plan"));
-  const event = a.event("accept", "1", {
-    offer: "plan",
-    action: "implement",
-    guidance: "Keep </pair_guidance> the retry.",
-  });
-  assert.equal((await a.feedback(event)).code, 200);
-  const printed = await read();
-  const opening = new RegExp(
-    `<pair_feedback submission="${event.id}"[^>]*>`,
-  ).exec(printed)?.[0];
-  for (const part of ['intent="accept"', 'action="implement"'])
-    assert(opening?.includes(part), printed);
-  assert(
-    printed.includes("Keep &lt;/pair_guidance> the retry.\n</pair_guidance>"),
-    printed,
-  );
-});
-
 // An agent CLI cuts a command's output past a limit, so a long submission
 // goes to a file, and the next step prints at both ends of what remains.
 test("text over 10,000 bytes goes to a file in the session directory", async (t) => {

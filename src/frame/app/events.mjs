@@ -20,7 +20,7 @@ import {
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { narrow, pageOrder, show } from "#frame/pages/pages.mjs";
+import { pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
@@ -146,12 +146,8 @@ export function installEvents() {
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
     else if (key === "n") toggleCenter(true);
-    else if (key === "g") {
-      // A home view has no menu sheet, so its button opens the session list
-      // at every width.
-      if (mode !== "home" && narrow.matches) $("menu-button").click();
-      else toggleSessions(undefined, true);
-    } else if (key === "w") {
+    else if (key === "g") toggleSessions(undefined, true);
+    else if (key === "w") {
       const entry = nextWaiting(sessionOrder, session.sessionId);
       if (entry) location.assign(entry.url);
     } else if (/^[1-9]$/.test(key)) {

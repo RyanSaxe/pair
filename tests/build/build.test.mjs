@@ -8,7 +8,7 @@ import { assemble } from "../../src/build/assemble.mjs";
 import { problems } from "../../src/build/lint.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
-import { exec, pair, root, task } from "../support/hub.mjs";
+import { exec, pair, root } from "../support/hub.mjs";
 
 const data = {
   name: "t",
@@ -149,19 +149,6 @@ test("a closing style tag in page CSS is refused", async () => {
   await assert.rejects(
     pageSource({ cssText: "</style><script>1</script>" }),
     /closing style/,
-  );
-});
-
-test("the build refuses an offer the registry does not define", async () => {
-  await assert.rejects(
-    buildPage(path.join(os.tmpdir(), "page.json"), {
-      name: "t",
-      round: "1",
-      offer: "ship",
-      title: "T",
-      page: { id: "agreed", title: "Agreed", agreements: [], task },
-    }),
-    /Unknown offer "ship"\. The offers are plan, finish\./,
   );
 });
 

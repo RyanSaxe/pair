@@ -128,3 +128,14 @@ export const showingWaiting = () =>
 export const viewKey = () =>
   showingWaiting() ? `${plan.round} waiting` : plan.round;
 export const pastAvailable = () => Boolean(pastRound && views.has(pastRound));
+// Whether the left tab holds a round older than the last one, as a round
+// opened from the Rounds dialog can be. The last round is the newest one
+// before Current's, or Current's own round once its feedback is sent.
+export function olderPast() {
+  if (!pastRound || !remote?.current) return false;
+  const last = waiting()
+    ? remote.current.round
+    : remote.rounds?.findLast((entry) => entry.round !== remote.current.round)
+        ?.round;
+  return pastRound !== last;
+}

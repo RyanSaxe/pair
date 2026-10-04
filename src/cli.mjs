@@ -20,8 +20,7 @@ async function main(argv) {
   // --help runs nothing else, whatever else the arguments contain.
   if (command.rest.includes("--help"))
     return process.stdout.write(helpText(command));
-  const { options, removed } = parse(command);
-  for (const line of removed) console.error(`pair: ${line}`);
+  const options = parse(command);
   const output = await command.entry.run(options);
   if (output) await print(output, { json: options.json, command: name });
 }

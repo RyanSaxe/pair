@@ -147,7 +147,6 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
           stage: "ready",
           current: null,
           acknowledged: [],
-          accepted: null,
           updatedAt: new Date().toISOString(),
         }),
       );
@@ -371,7 +370,6 @@ test("an unfinished round resumes after the hub restarts", async (t) => {
       buildPage(path.join(localDir, "source.json"), {
         name: "restart",
         round: "1",
-        ...(page.id === "agreed" ? { offer: "plan" } : {}),
         title: "Restart",
         page,
       });

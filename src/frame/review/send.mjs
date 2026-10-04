@@ -1,8 +1,5 @@
-import { offers } from "#shared/offers.mjs";
 import { places, scroller } from "#frame/app/places.mjs";
 import {
-  draftedWords,
-  markItemsSent,
   markSent,
   persist,
   save,
@@ -13,7 +10,6 @@ import {
 import { $, hubUnreachable, unreachable, uuid } from "#frame/app/util.mjs";
 import {
   base,
-  current,
   currentAvailable,
   feedbackEditable,
   pages,
@@ -41,74 +37,43 @@ import {
 
 export let submissionError = "";
 export let submissionInFlight = false;
-// A round can be accepted while it offers something and is Current, unsent
-// and with the reviewer. Drafted comments do not count, because an
-// acceptance sends them with it.
-export function canAccept({ offer, connected, current, submitted, stage }) {
-  return (
-    Boolean(offer) &&
-    connected &&
-    current &&
-    !submitted &&
-    ["ready", "updated"].includes(stage)
-  );
-}
-export const acceptable = () =>
-  canAccept({
-    offer: plan.offer,
-    connected,
-    current: current(),
-    submitted: submittedCurrent(),
-    stage: remote?.stage,
-  });
-// The header button. It finishes the review on a round with an offer, sends
-// feedback on any other round, and opens Feedback once Current's round is
-// sent. Its count is the drafted items that go with it.
+// The header button. It sends feedback, and opens Feedback once Current's
+// round is sent. Its count is the drafted items that go with it.
 export function submitButton({
   inFlight,
   opensFeedback,
   onSentFeedback,
-  finishes,
-  finishable,
   waitingForPages,
   sendable,
   pending,
   alignUnflagged,
 }) {
-  const hasFeedback = pending > 0 || (!finishes && alignUnflagged);
-  const label = finishes ? "Finish review" : "Send feedback";
+  const hasFeedback = pending > 0 || alignUnflagged;
   return {
     disabled:
       inFlight ||
       (opensFeedback
         ? onSentFeedback
-        : finishes
-          ? !finishable
-          : waitingForPages || !hasFeedback || !sendable),
+        : waitingForPages || !hasFeedback || !sendable),
     text: inFlight
       ? "Sending"
       : opensFeedback
         ? "Feedback"
         : pending
-          ? `${label} (${pending})`
-          : label,
+          ? `Send feedback (${pending})`
+          : "Send feedback",
     primary: !opensFeedback && !waitingForPages,
   };
 }
-function feedbackText(extraNotes = []) {
-  return [
+// The submission's text, which an export carries: every unsent item as the
+// agent reads it, each after a blank line.
+function feedbackText() {
+  const lines = [
     `Feedback: ${plan.title}`,
     `Round ${plan.round} of ${plan.name}`,
-    "Feedback only. No implementation approval.",
     `Everything else looks good: ${state.alignUnflagged ? "yes" : "no"}.`,
-    ...itemLines(extraNotes),
-  ].join("\n");
-}
-// Every unsent item as the agent reads it, each after a blank line.
-function itemLines(extraNotes = []) {
-  const { notes: unsent, choices, answers } = unsentItems(state);
-  const notes = [...unsent, ...extraNotes];
-  const lines = [];
+  ];
+  const { notes, choices, answers } = unsentItems(state);
   // A checklist the reviewer left alone reads like any other. An empty one
   // means none picked.
   const untouched = Object.values(state.choices).filter(
@@ -140,18 +105,17 @@ function itemLines(extraNotes = []) {
       ...(note.attachments || []).map((item) => `Image: ${item.path}`),
     );
   }
-  return lines;
+  return lines.join("\n");
 }
-function envelope(intent, text, extra = {}) {
+function envelope(text, groups) {
   return {
     sessionId: session.sessionId,
     id: uuid(),
     name: plan.name,
     round: plan.round,
-    intent,
-    groups: {},
+    intent: "feedback-only",
+    groups,
     text,
-    ...extra,
   };
 }
 async function send(event) {
@@ -168,19 +132,12 @@ async function send(event) {
   setRemote(result.status);
   return result;
 }
-// Sends Current's draft, with the overall comment typed in the Finish review
-// dialog when there is one, and leaves Current waiting on Agreed for the next
-// round. From the header, Agreed shows the send while it is in flight and
-// a failure returns the reader to where they were. From the dialog, the
-// dialog stays open and shows the failure itself.
-async function sendFeedback({ comment = null, fromDialog = false } = {}) {
+// Sends Current's draft and leaves Current waiting on Agreed for the next
+// round. Agreed shows the send while it is in flight, and a failure returns
+// the reader to where they were.
+async function sendFeedback() {
   if (remote?.openRound || !feedbackEditable()) return;
-  const extra = comment ? [comment] : [];
-  if (
-    unsentItems(state).count + extra.length === 0 &&
-    (plan.offer || !state.alignUnflagged)
-  )
-    return;
+  if (unsentItems(state).count === 0 && !state.alignUnflagged) return;
   submissionError = "";
   const origin = {
     page: shownPage(),
@@ -196,32 +153,20 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     );
     initializeChecklists();
     const groups = submissionGroups(state);
-    groups.notes.push(...extra);
     const snapshot = JSON.stringify(groups);
     if (state.pending?.snapshot !== snapshot)
-      state.pending = {
-        snapshot,
-        event: envelope("feedback-only", feedbackText(extra), { groups }),
-      };
+      state.pending = { snapshot, event: envelope(feedbackText(), groups) };
     persist();
-    if (!fromDialog) switchTab("current");
+    switchTab("current");
     const result = await send(state.pending.event);
-    state.notes.push(...extra);
-    state.requestComment = "";
-    delete state.requestCommentId;
     markSent(state, result.id, new Date().toISOString());
     submissionInFlight = false;
     setSubmittedRound(plan.round);
     setPastRound(plan.round);
-    if (fromDialog) switchTab("current");
     save();
     void loadSubmission().catch(() => {});
   } catch (error) {
     submissionInFlight = false;
-    if (fromDialog) {
-      review();
-      throw error;
-    }
     submissionError = submittedCurrent()
       ? ""
       : unreachable(
@@ -233,80 +178,6 @@ async function sendFeedback({ comment = null, fromDialog = false } = {}) {
     scroller().scrollTo(0, origin.top);
     review();
   }
-}
-/* Finish review: on a round with an offer the reader accepts it or requests
-   changes, and whatever they drafted goes with either decision. */
-const commentsDrafted = () => {
-  const { notes, answers } = unsentItems(state);
-  return notes.length + Object.keys(answers).length > 0;
-};
-function openFinish() {
-  if (!acceptable()) return;
-  renderFinish(document, plan, offers, acceptOffer);
-  const words = draftedWords(state);
-  if (words) {
-    const link = document.createElement("a");
-    link.href = "#feedback";
-    link.textContent = "Review it";
-    link.onclick = (event) => {
-      event.preventDefault();
-      $("finish-dialog").close();
-      show("feedback");
-    };
-    const goes = unsentItems(state).count === 1 ? "goes" : "go";
-    $("finish-drafted").replaceChildren(
-      `Your ${words} ${goes} with either decision. `,
-      link,
-    );
-  } else $("finish-drafted").textContent = "Nothing drafted.";
-  $("accept-guidance").value = state.acceptGuidance || "";
-  $("request-comment").value = state.requestComment || "";
-  $("request-comment-label").textContent = commentsDrafted()
-    ? "Overall comment, optional"
-    : "Overall comment";
-  $("request-comment").setAttribute(
-    "aria-required",
-    String(!commentsDrafted()),
-  );
-  finishError("");
-  chooseDecision("accept");
-  $("finish-dialog").showModal();
-}
-function chooseDecision(value) {
-  for (const row of document.querySelectorAll("[data-decision]")) {
-    const on = row.dataset.decision === value;
-    row.classList.toggle("current", on);
-    row.setAttribute("aria-checked", String(on));
-    row.tabIndex = on ? 0 : -1;
-    row.querySelector(".tick").textContent = on ? "●" : "○";
-  }
-  $("finish-accept").inert = value !== "accept";
-  $("finish-changes").inert = value !== "changes";
-  finishError("");
-  requestable();
-}
-// Request changes needs a comment, drafted before or typed here.
-function requestable() {
-  $("request-changes").disabled =
-    !commentsDrafted() && !$("request-comment").value.trim();
-}
-function finishError(message) {
-  $("finish-error").hidden = !message;
-  $("finish-error").textContent = message;
-}
-// Sending disables the pressed button, and Chromium then moves focus out of
-// the dialog. When the hub refuses and the dialog stays open with its error,
-// focus comes back to that button.
-let pressed = null;
-function finishBusy(busy) {
-  if (busy) pressed = document.activeElement;
-  for (const button of document.querySelectorAll(
-    "#accept-actions button, [data-decision]",
-  ))
-    button.disabled = busy;
-  if (busy) $("request-changes").disabled = true;
-  else requestable();
-  if (!busy && $("finish-dialog").open) pressed?.focus();
 }
 export function installSend() {
   $("align-unflagged").onchange = (event) => {
@@ -324,8 +195,7 @@ export function installSend() {
       }
       switchTab("current");
     }
-    if (plan.offer) openFinish();
-    else void sendFeedback();
+    void sendFeedback();
   };
   $("save-error-dismiss").onclick = () => {
     submissionError = "";
@@ -336,7 +206,7 @@ export function installSend() {
     const event =
       (state.pending?.snapshot === JSON.stringify(groups) &&
         state.pending.event) ||
-      envelope("feedback-only", feedbackText(), { groups });
+      envelope(feedbackText(), groups);
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(event, null, 2)], {
         type: "application/json",
@@ -348,117 +218,4 @@ export function installSend() {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
-  for (const row of document.querySelectorAll("[data-decision]")) {
-    row.onclick = () => chooseDecision(row.dataset.decision);
-    row.onkeydown = (event) => {
-      if (!/^Arrow(Up|Down|Left|Right)$/.test(event.key)) return;
-      event.preventDefault();
-      const next = row.dataset.decision === "accept" ? "changes" : "accept";
-      chooseDecision(next);
-      document.querySelector(`[data-decision="${next}"]`).focus();
-    };
-  }
-  $("accept-guidance").oninput = (event) => {
-    state.acceptGuidance = event.target.value;
-    persist();
-  };
-  $("request-comment").oninput = (event) => {
-    state.requestComment = event.target.value;
-    persist();
-    requestable();
-  };
-  $("request-changes").onclick = async () => {
-    const text = $("request-comment").value.trim();
-    // The id is kept until the send succeeds, so a retry sends the same note.
-    if (text) state.requestCommentId ||= uuid();
-    const comment = text
-      ? {
-          topic: "overall",
-          anchor: "Overall feedback",
-          quote: "",
-          id: state.requestCommentId,
-          text,
-          round: plan.round,
-        }
-      : null;
-    finishError("");
-    finishBusy(true);
-    try {
-      await sendFeedback({ comment, fromDialog: true });
-      $("finish-dialog").close();
-    } catch (error) {
-      finishError(unreachable(error));
-    } finally {
-      finishBusy(false);
-    }
-  };
-}
-async function acceptOffer(action) {
-  const guidance =
-    action.id === offers[plan.offer].accept.guidance.action
-      ? $("accept-guidance").value.trim()
-      : "";
-  const groups = submissionGroups(state);
-  const items = itemLines();
-  const text = `Accept round ${plan.round} of ${plan.name}: ${action.label}.${guidance ? `\n\nGuidance:\n${guidance}` : ""}${items.length ? `\n\nComments:\n${items.join("\n")}` : ""}`;
-  if (
-    state.acceptance?.action !== action.id ||
-    (state.acceptance?.guidance || "") !== guidance ||
-    JSON.stringify(state.acceptance?.groups) !== JSON.stringify(groups)
-  )
-    state.acceptance = envelope("accept", text, {
-      offer: plan.offer,
-      action: action.id,
-      groups,
-      ...(guidance ? { guidance } : {}),
-    });
-  persist();
-  finishError("");
-  finishBusy(true);
-  try {
-    await send(state.acceptance);
-    markItemsSent(state, state.acceptance.id);
-    save();
-    $("finish-dialog").close();
-    // Finish review, where the browser would return focus, is disabled once
-    // the round is accepted. Focus goes to the banner when the acceptance
-    // shows one, and otherwise to the heading of the page on screen, as a
-    // page change does.
-    (!$("accepted").hidden
-      ? $("accepted")
-      : $($("reading").hidden ? "feedback-title" : "page-title")
-    ).focus();
-  } catch (error) {
-    finishError(unreachable(error));
-  } finally {
-    finishBusy(false);
-  }
-}
-// Finish your review on a round with an offer. The round's entry in the
-// registry fills the Accept row, the hint under Request changes, and the
-// Accept section: its note, the guidance field's label and hint, and one
-// button per action, plain ones on the left and the primary one on the right.
-export function renderFinish(document, round, registry, accept) {
-  const $ = (id) => document.getElementById(id);
-  const offer = registry[round.offer];
-  const text = {
-    "finish-detail": `${round.title}, round ${round.round}`,
-    "accept-label": offer.accept.label,
-    "accept-hint": offer.accept.hint,
-    "changes-hint": offer.changes,
-    "accept-note": offer.accept.note,
-    "accept-guidance-label": offer.accept.guidance.label,
-    "accept-guidance-detail": offer.accept.guidance.hint,
-  };
-  for (const [id, value] of Object.entries(text)) $(id).textContent = value;
-  $("accept-actions").replaceChildren(
-    ...offer.accept.actions.map((action) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = action.primary ? "btn primary" : "btn";
-      button.textContent = action.label;
-      button.onclick = () => accept(action);
-      return button;
-    }),
-  );
 }
