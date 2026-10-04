@@ -192,8 +192,7 @@ export function redraw(list, lines) {
 // A closing session's row says so until the hub drops it or refuses.
 const closing = new Map();
 /* One session's row: its number, title and short status, then Copy
-   handoff line and Close in two fixed columns. This tab's row has no
-   Close. */
+   handoff line and Close in two fixed columns. */
 function sessionRow(entry, index, unopened) {
   const current = entry.id === session.sessionId;
   const line = document.createElement("div");
@@ -257,11 +256,9 @@ function sessionRow(entry, index, unopened) {
   line.append(
     row,
     copy,
-    current
-      ? document.createElement("span")
-      : lineButton(`close:${entry.id}`, `Close ${entry.title}`, "✕", () =>
-          dismiss(entry),
-        ),
+    lineButton(`close:${entry.id}`, `Close ${entry.title}`, "✕", () =>
+      confirmClose(entry),
+    ),
   );
   return line;
 }
@@ -326,9 +323,19 @@ export function toggleSessions(open = !isOpen(), focus = false) {
       .querySelector(`[data-key="open:${session.sessionId}"]`)
       ?.focus();
 }
-/* Two round trips, a dismiss and a poll, so the row says it is going
-   before either starts. Without it a slow hub looks like a dead control. */
-async function dismiss(entry) {
+// Close asks first, in a dialog that says what closing does.
+function confirmClose(entry) {
+  $("close-name").textContent = entry.title;
+  $("close-confirm").onclick = () => {
+    $("close-dialog").close();
+    void closeSession(entry);
+  };
+  $("close-dialog").showModal();
+}
+/* Two round trips, a close and a poll, so the row says it is going before
+   either starts. Without it a slow hub looks like a dead control. This
+   tab's own session reloads read-only. */
+async function closeSession(entry) {
   closing.set(entry.id, "Closing…");
   renderSessions();
   try {
@@ -336,6 +343,7 @@ async function dismiss(entry) {
       method: "POST",
     });
     if (!response.ok) throw Error();
+    if (entry.id === session.sessionId) return location.reload();
     await pollSessions();
   } catch {
     closing.set(entry.id, "Could not close");

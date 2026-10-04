@@ -133,6 +133,25 @@
   <p class="dialog-detail" id="round-plan"></p>
   <div class="dialog-list" id="round-list"></div>
 </dialog>
+<!-- Close on a row of the session list opens this dialog for that session,
+     and Close session closes it. -->
+<dialog class="dialog" id="close-dialog" aria-labelledby="close-title">
+  <div class="dialog-head">
+    <h2 id="close-title" tabindex="-1" autofocus>Close session</h2>
+  </div>
+  <p class="dialog-detail" id="close-name"></p>
+  <p>
+    The session becomes read-only, with every round kept. The hub removes each
+    git worktree inside the session's directory, and your checkout and branches
+    stay as they are. Its agent gets no message.
+  </p>
+  <div class="actions actions-right">
+    <button class="btn" type="button" data-close="close-dialog">Cancel</button>
+    <button class="btn primary" type="button" id="close-confirm">
+      Close session
+    </button>
+  </div>
+</dialog>
 <dialog class="dialog keys" id="keys-dialog" aria-labelledby="keys-title">
   <div class="dialog-head">
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
