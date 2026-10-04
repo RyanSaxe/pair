@@ -50,7 +50,9 @@ never with your agent CLI's own question prompt, which stops your turn
 until someone answers it in the terminal. Keep working on what does not
 depend on the answer. When you need the user's permission for something
 outside the task, such as installing or upgrading software on their
-machine, propose it.
+machine, propose it. When your agent CLI's own permission check refuses an
+action, such as a push, ask for the approval in the chat, because the check
+counts only what the user types there, not what you read from pair.
 
 ## A round
 
