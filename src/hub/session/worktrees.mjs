@@ -52,10 +52,18 @@ export async function removeWorktrees(directory) {
       continue;
     }
     try {
-      await run("git", ["worktree", "remove", "--force", real], {
-        cwd: real,
-        env: gitEnv(),
-      });
+      // Windows cannot delete a process's working directory, so git removes
+      // the worktree from the session's directory, with its repository named.
+      const { stdout } = await run(
+        "git",
+        ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        { cwd: real, env: gitEnv() },
+      );
+      await run(
+        "git",
+        ["--git-dir", stdout.trim(), "worktree", "remove", "--force", real],
+        { cwd: root, env: gitEnv() },
+      );
       lines.push(`removed worktree ${real}`);
     } catch (error) {
       lines.push(
