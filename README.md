@@ -15,8 +15,8 @@ course. You finish with a plan you trust and a solution you understand.
 **It runs on your machine, inside the agent CLI you already use.**
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/pair-dark.png">
-  <img alt="pair planning its own threads: code with a line selected, a side-by-side choice of where an answer appears, and a thread the agent answered, beside a phone showing the next round arriving" src="assets/pair-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/illustration-dark.png">
+  <img alt="The agent's terminal beside pair in a browser, with arrows between them: pages go to the browser, feedback comes back to the agent, and a thread goes both ways. The terminal shows the pair commands the agent ran and the feedback it read. The browser shows a page that asks where to retry a charge, and a thread on a selected line of code with the agent's answer." src="assets/illustration-light.png">
 </picture>
 
 ## Get started
@@ -42,26 +42,30 @@ agent CLI needs first.
 
 ## How it works
 
+<img alt="Working in pair: Explain, Decide, Plan and Build, in any order, each over the loop of every round, in which the agent publishes pages, you review them, and you send feedback. Start leads from that loop to a sub-session beside it, with the same loop of pages and feedback." src="guide/flow.svg">
+
+In a session, the agent can explain code, lay out the options for a
+decision, plan the work and build it, in any order. In every round, the agent
+publishes pages, you review them and send feedback, and the agent publishes
+the next round.
+
+Your agent shows its work as pages in your browser, and you point at exactly
+what to change, choose between options, or ask in a thread and get an answer
+right away. The agent changes your project only to do work you start.
+
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/session-dark.svg">
-  <img alt="A session: you ask, then work through rounds with feedback. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="docs/assets/session-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/work-dark.png">
+  <img alt="Three phone screens, with arrows between them. On the Work page, a proposal to add idempotency keys to charges, with Decline, Comment and Start. Then the Start popup, with In a sub-session chosen and a message to the agent. Then the sub-session, with the agent's pages in progress." src="assets/work-light.png">
 </picture>
 
-A session is a series of rounds. In each round the agent publishes pages and
-you respond: choose, comment, send feedback, or start a thread for an answer
-right away. The agent records the work it thinks is worth doing as
-proposals, and changes your project only when you start one or tell it to.
-Work you start runs in the same session, or in a sub-session you can move
-to and from, and a session runs until you close it.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
-  <img alt="What runs where: your agent CLI, the pair hub on your machine, and your browser" src="docs/assets/architecture-light.svg">
-</picture>
+The agent records the work it thinks is worth doing as proposals on the
+Work page. In these phone screens, you start a proposal in a sub-session,
+beside the session you are in, and follow the agent's progress there.
 
 Your agent runs `pair` commands in its own shell. The `pair` hub, on your
 machine, serves the pages to your browser and wakes the agent when you
-respond. [Concepts](docs/concepts/) explains each part in more depth.
+respond. [Architecture](docs/concepts/architecture.md) explains what runs
+where, and [Concepts](docs/concepts/) explains each part in more depth.
 
 ## Documentation
 
