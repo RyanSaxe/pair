@@ -48,8 +48,18 @@ jobs:
           node-version: 24
       - run: npm ci
       # The script writes no PNG and exits with an error when it cannot
-      # stage a picture, which fails the job.
+      # stage a picture, which fails the job. In that case it also saves a
+      # screenshot and the console log of each browser window in
+      # screenshots-failure/, which the next step uploads as an artifact of
+      # the run.
       - run: npm run screenshots
+      - name: Upload the failed run's browser windows
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-failure
+          path: screenshots-failure/
+          if-no-files-found: ignore
       - name: Commit the rewritten PNGs
         env:
           FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}

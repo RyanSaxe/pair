@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { buildPage } from "../../src/cli/build.mjs";
 import { open } from "../../tests/support/browser.mjs";
 import { hub } from "../../tests/support/hub.mjs";
+import { watch } from "./failure.mjs";
 
 const demo = fileURLToPath(new URL("../demo/", import.meta.url));
 const themes = ["light", "dark"];
@@ -315,10 +316,10 @@ export async function stage(t, scratch) {
   // Round 1: the reviewer chooses where a thread starts and notes what a
   // reply holds.
   await publish(session, await loadRound(1), sent);
-  const page = await open(t, url, {
-    viewport: desktop,
-    deviceScaleFactor: 2,
-  });
+  const page = watch(
+    await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
+    "demo",
+  );
   await load(page, url, "overview");
   // The bell's first poll marks every event it finds as seen, so the
   // second session starts after it.

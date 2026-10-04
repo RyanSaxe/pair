@@ -234,3 +234,8 @@ starts its own hub on a port the system assigns, with its state in a
 temporary directory, and takes each screenshot in the installed Google
 Chrome. The frame's text is the system font, so the script refuses to run on
 another system, where lines would break in other places.
+
+When `npm run screenshots` fails, it saves a screenshot and the console log
+of each of its browser windows in `screenshots-failure/`, which git ignores.
+The `screenshots` job uploads that directory as the `screenshots-failure`
+artifact of its run.
