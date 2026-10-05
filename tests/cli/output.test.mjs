@@ -271,6 +271,55 @@ test("pair propose withdraws a card and marks one done elsewhere", async (t) => 
   );
 });
 
+// pair propose sends --join. pair read prints the cards joined into a card
+// with its start and in the list of work started here, and pair status
+// prints them on the card's row, so the agent building the card covers
+// them.
+test("pair propose joins a card into a started one, and pair read and pair status print it under that card", async (t) => {
+  const { a, read, run, record } = await session(t);
+  await record("deck", "Build the deck");
+  await record("notes", "Write the notes");
+  await run(
+    ...["propose", "--id", "deck", "--start", "here"],
+    ...["--quote", "Build the deck with its notes."],
+  );
+  assert.match(
+    await run("propose", "--id", "notes", "--join", "deck"),
+    /\nProposal notes: done, joined into deck\.\n$/,
+  );
+  const started = await read();
+  assert(
+    started.includes(
+      [
+        "Delivers: Build the deck, delivered.",
+        "Proposals joined into deck, which its work covers:",
+        "  notes  Write the notes",
+        "         Delivers: Write the notes, delivered.",
+        "<pair_start ",
+      ].join("\n"),
+    ),
+    started,
+  );
+  assert.equal((await a.feedback(a.event())).code, 200);
+  const printed = await read();
+  const list = printed.slice(
+    printed.indexOf("Proposals started here that are not done:"),
+  );
+  assert.equal(
+    list.slice(0, list.indexOf("\n<pair_start ")),
+    [
+      "Proposals started here that are not done:",
+      "  deck  Build the deck",
+      "    Proposals joined into deck, which its work covers:",
+      "      notes  Write the notes",
+    ].join("\n"),
+  );
+  assert.match(
+    await run("status"),
+    /\n\nProposals\n {2}deck {3}started here, joined by notes {2}Build the deck\n {2}notes {2}done, joined into deck {9}Write the notes\n$/,
+  );
+});
+
 // The reviewer's words are data inside their tags, so no text they write
 // can end a block and pass for pair's own instructions.
 test("a reviewer's text cannot close its pair_ tag", async (t) => {

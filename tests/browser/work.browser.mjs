@@ -270,8 +270,9 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
 
 // The agent starts a card when the reviewer asks for the work in their own
 // words. The card quotes them, links to where they wrote them, and has no
-// button that stops the work.
-test("a card started on the reviewer's words quotes them and links to where they wrote them", async (t) => {
+// button that stops the work. It lists each card the agent joins into it,
+// and the joined card is in Done, naming it where its source was.
+test("a card started on the reviewer's words quotes them, links to where they wrote them and lists the cards joined into it", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
   await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
@@ -299,6 +300,26 @@ test("a card started on the reviewer's words quotes them and links to where they
   );
   assert.deepEqual(
     await card.locator(".proposal-foot button").allTextContents(),
+    ["Comment"],
+  );
+  const joined = await session.action("propose", {
+    id: "export",
+    join: "deck",
+  });
+  assert.equal(joined.code, 200, joined.body.error);
+  await card.locator(".proposal-joined").waitFor();
+  assert.deepEqual(
+    await card.locator(".proposal-joined :is(p, li)").allTextContents(),
+    ["Joined into this task", "Refresh the export"],
+  );
+  await tab("done").click();
+  const exported = page.locator("[data-proposal-card=export]");
+  assert.equal(
+    await exported.locator(".card-meta").textContent(),
+    "Done·Joined Build the deck",
+  );
+  assert.deepEqual(
+    await exported.locator(".proposal-foot button").allTextContents(),
     ["Comment"],
   );
 });

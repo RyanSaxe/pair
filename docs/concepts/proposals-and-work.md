@@ -17,7 +17,7 @@ for its whole life, in four tabs with counts:
 | Needs you | Work in its own session whose round waits for you, and any proposal with an agent reply in the bell. |
 | Running   | Started work the agent is building.                                                                  |
 | Proposed  | Proposals nobody has started, declined or withdrawn.                                                 |
-| Done      | Finished work, and declined and withdrawn proposals with **Restore**.                                |
+| Done      | Finished work, joined proposals, and declined and withdrawn proposals with **Restore**.              |
 
 Work opens on the first tab with anything in it, and the number on its row
 counts what needs you. Each card shows what the work delivers, a started
@@ -100,6 +100,16 @@ without a plan.
 - The agent withdraws a proposal nobody started when it no longer applies,
   with its reason. The card moves to Done as Withdrawn and shows the
   reason, and Restore puts it back in Proposed.
+- When the work of a started proposal covers a proposal nobody started,
+  the agent joins that proposal into it with `pair propose --join`, so you
+  follow one card. The started card lists the joined ones under Joined
+  into this task. Each joined card moves to Done, and the line under its
+  title reads Done and Joined with the started card's title, such as
+  Done · Joined Retry a charge on a timeout. `pair read`, `pair status`
+  and `pair start --from` print the joined proposals with the started one,
+  so the agent that builds it builds them too. The joined cards stay
+  joined when the started card finishes or reopens, and the agent's
+  `--reopen` on a joined card puts it back in Proposed.
 
 ## Sub-sessions and new agent sessions
 

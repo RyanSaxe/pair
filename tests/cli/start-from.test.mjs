@@ -44,8 +44,10 @@ async function parent(t) {
   return { h, a, cli, from };
 }
 
-test("pair start --from creates a session for a started proposal, linked both ways", async (t) => {
+test("pair start --from creates a session for a started proposal, linked both ways, and prints the cards joined into it", async (t) => {
   const { h, a, cli, from } = await parent(t);
+  const joined = await a.action("propose", { id: "notes", join: "deck" });
+  assert.equal(joined.code, 200, joined.body.error);
   const output = await from("--proposal", "deck");
   const child = (await fs.readdir(h.config.sessions))
     .map((name) => path.join(h.config.sessions, name))
@@ -62,14 +64,20 @@ test("pair start --from creates a session for a started proposal, linked both wa
     dir: child,
     url: `/s/${linked.sessionId}/`,
   });
-  // The output names both sessions and prints the card with the reviewer's
-  // message, for the agent that runs the new session.
+  // The output names both sessions and prints the card with the cards
+  // joined into it and the reviewer's message, for the agent that runs the
+  // new session.
   for (const line of [
     `Session   ${child}`,
     `Parent    ${a.directory}`,
     "Proposal  deck",
     'Proposal deck, "Build the deck", started in a sub-session by the reviewer.',
-    "Delivers: Build the deck, delivered.",
+    [
+      "Delivers: Build the deck, delivered.",
+      "Proposals joined into deck, which its work covers:",
+      "  notes  Write the speaker notes",
+      "         Delivers: Write the speaker notes, delivered.",
+    ].join("\n"),
     "Keep the header height.",
   ])
     assert.ok(output.includes(line), `${line} in:\n${output}`);

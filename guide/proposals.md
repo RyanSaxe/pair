@@ -29,6 +29,9 @@ Change a proposal with its `--id` and one of these flags:
   add `--page ROUND/PAGE` or `--thread ID` for where they wrote them. WHERE
   is `here`, `sub-session` or `new-agent`: where they said the work runs,
   or where you recommend when they did not say.
+- `--join TASK` when nobody has started this proposal and the work of TASK,
+  a started proposal that is not done, covers it. Build its work as part of
+  TASK.
 - `--withdraw` when a proposal nobody has started no longer applies, with
   `--reason "…"` saying why.
 - `--done` after you publish the last page of work started here. When the
