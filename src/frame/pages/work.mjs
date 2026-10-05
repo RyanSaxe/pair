@@ -9,6 +9,7 @@ import {
   threadLink,
   wordsPlace,
 } from "#frame/pages/card-links.mjs";
+import { statusBox } from "#frame/pages/card-status.mjs";
 import { openStart } from "#frame/pages/start-popup.mjs";
 import {
   listedSession,
@@ -282,11 +283,10 @@ export function cardElement(card, shown = context(), fresh = false) {
   if (fresh) head.append(element("span", "page-new", "New"));
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
-  body.append(
-    head,
-    metaLine(state, tone, cardWhere(card)),
-    element("p", "proposal-delivers", card.delivers),
-  );
+  body.append(head, metaLine(state, tone, cardWhere(card)));
+  // Approved work that is not finished shows its status.
+  if (card.started && !finished(card)) body.append(statusBox(card));
+  body.append(element("p", "proposal-delivers", card.delivers));
   // The reviewer's words that started the card, or their message with
   // Start, quoted under what the card delivers, so the card shows
   // everything the reviewer approved.
