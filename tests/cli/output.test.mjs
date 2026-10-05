@@ -271,21 +271,25 @@ test("pair propose withdraws a card and marks one done elsewhere", async (t) => 
   );
 });
 
-// pair propose sends --join. pair read prints the cards joined into a card
-// with its start and in the list of work started here, and pair status
-// prints them on the card's row, so the agent building the card covers
-// them.
-test("pair propose joins a card into a started one, and pair read and pair status print it under that card", async (t) => {
+// pair propose sends --join, which merges a card into a proposed one.
+// pair status prints the joined card on that card's row, and once the card
+// starts, pair read prints it with the start and in the list of work
+// started here, so the agent building the card covers it.
+test("pair propose merges a card into a proposed one, and pair read and pair status print it under that card", async (t) => {
   const { a, read, run, record } = await session(t);
   await record("deck", "Build the deck");
   await record("notes", "Write the notes");
-  await run(
-    ...["propose", "--id", "deck", "--start", "here"],
-    ...["--quote", "Build the deck with its notes."],
-  );
   assert.match(
     await run("propose", "--id", "notes", "--join", "deck"),
     /\nProposal notes: done, joined into deck\.\n$/,
+  );
+  assert.match(
+    await run("status"),
+    /\n\nProposals\n {2}deck {3}proposed, joined by notes {2}Build the deck\n {2}notes {2}done, joined into deck {5}Write the notes\n$/,
+  );
+  await run(
+    ...["propose", "--id", "deck", "--start", "here"],
+    ...["--quote", "Build the deck with its notes."],
   );
   const started = await read();
   assert(

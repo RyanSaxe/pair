@@ -1,6 +1,7 @@
 The reviewer started this proposal here. By starting it, the reviewer
-approved what it says it delivers, and nothing more. Where the reviewer's
-words in `<pair_start>` differ from the proposal, follow their words.
+approved what it and each proposal joined into it deliver, and nothing
+more. Where the reviewer's words in `<pair_start>` differ from the
+proposal, follow their words.
 
 - Begin the work now. When the proposal has a plan, build from the plan's
   page sources in `plans/ID/src/` in the session's directory.

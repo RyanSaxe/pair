@@ -100,19 +100,22 @@ without a plan.
 - The agent withdraws a proposal nobody started when it no longer applies,
   with its reason. The card moves to Done as Withdrawn and shows the
   reason, and Restore puts it back in Proposed.
-- When the work of a proposal started here covers a proposal nobody
-  started, the agent joins that proposal into it with
-  `pair propose --join`, so you follow one card. The started card lists
-  the joined ones under Joined into this task. Each joined card moves to
-  Done, and the line under its title reads Done and Joined with the
-  started card's title, such as Done · Joined Retry a charge on a timeout.
-  `pair read` and `pair status` print the joined proposals with the
-  started one, so the agent that builds it builds them too. The hub
-  refuses to join a proposal into one that runs in a sub-session or a new
-  agent session, so the work of every joined proposal is built in this
-  session's rounds. The joined cards stay joined when the started card
-  finishes or reopens, and the agent's `--reopen` on a joined card puts it
-  back in Proposed.
+- When the work of one proposal covers another that nobody started, the agent
+  merges the two with `pair propose --join`, so you follow one card. The hub
+  joins a proposal into one that is proposed or started here, and refuses one
+  running in a sub-session or a new agent session, because the agent that builds
+  a proposal learns of the joined ones when its work starts. The merged card
+  lists the joined ones under Joined into this task. Each joined card moves to
+  Done, and the line under its title reads Done and Joined with the other card's
+  title, such as Done · Joined Retry a charge on a timeout. `pair read` prints
+  the joined proposals with a Start and with the work started here,
+  `pair start --from` prints them with the proposal a linked session runs, and
+  `pair status` lists them, so the agent that builds the card builds them too.
+  The hub refuses to join a proposal into one that is itself joined, and when
+  the agent joins a card that others joined into, the hub moves those cards
+  along with it. The joined cards stay joined when the card they joined finishes
+  or reopens, and the agent's `--reopen` on a joined card puts it back in
+  Proposed.
 
 ## Sub-sessions and new agent sessions
 
