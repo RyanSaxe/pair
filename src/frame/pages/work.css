@@ -50,12 +50,17 @@
 .proposal-body {
   padding: 12px 14px 10px;
 }
-/* reading.css sizes every p on a page with #page-content p, so the card's
-   paragraphs name the card to keep its sizes inside a page too. */
+/* reading.css sizes every p and li on a page with #page-content p, and an
+   ID outranks a class, so each rule that sizes a card's text also names
+   #page-content, as Agreed's rules do, to keep the sizes inside a page. */
 .proposal-card .proposal-title,
 .proposal-card .proposal-delivers,
 .proposal-card .proposal-message,
-.proposal-card .proposal-reason {
+.proposal-card .proposal-reason,
+#page-content .proposal-card .proposal-title,
+#page-content .proposal-card .proposal-delivers,
+#page-content .proposal-card .proposal-message,
+#page-content .proposal-card .proposal-reason {
   margin: 0;
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
@@ -80,7 +85,8 @@
 }
 /* Above the reviewer's words that started a card: that they did, and
    where they wrote them. */
-.proposal-card .proposal-lead {
+.proposal-card .proposal-lead,
+#page-content .proposal-card .proposal-lead {
   margin: 6px 0 0;
   color: var(--muted);
   font-size: var(--text-meta);
@@ -138,7 +144,8 @@
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
-.proposal-card .proposal-joined-label {
+.proposal-card .proposal-joined-label,
+#page-content .proposal-card .proposal-joined-label {
   margin: 0;
   color: var(--muted);
   font-size: var(--text-meta);
@@ -148,7 +155,8 @@
   margin: 4px 0 0;
   padding-left: 20px;
 }
-.proposal-card .proposal-joined li {
+.proposal-card .proposal-joined li,
+#page-content .proposal-card .proposal-joined li {
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
   overflow-wrap: anywhere;

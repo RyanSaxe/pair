@@ -398,11 +398,18 @@ test("a card reads New until Work shows it", async (t) => {
     page.locator(`${where} [data-proposal-card=fresh] .page-new`);
   await label("#page-content").waitFor({ timeout: 8000 });
   assert.equal(await label("#page-content").textContent(), "New");
+  // A card's text keeps its size inside a page.
+  const size = (where) =>
+    page
+      .locator(`${where} [data-proposal-card=fresh] .proposal-delivers`)
+      .evaluate((node) => getComputedStyle(node).fontSize);
+  const inPage = await size("#page-content");
   await record(card("gone", "Gone work"));
   await record({ id: "gone", withdraw: true, reason: "Not needed." });
 
   await page.locator("#work-row").click();
   await label("#work-cards").waitFor();
+  assert.equal(inPage, await size("#work-cards"));
   assert.equal(
     await page
       .locator("#work-cards [data-proposal-card=deck] .page-new")
