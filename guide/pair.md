@@ -10,8 +10,9 @@ user the reviewer.
 You and the reviewer work through the task in rounds. In each round you
 publish the pages the reviewer needs to understand the work and decide on
 it. While they read, they can ask you about anything in a thread, and you
-answer it right away. When they have read the pages, they send feedback,
-and you choose the next round's pages from it.
+answer it right away. When they have read the pages, they send feedback, and
+you choose the next round's pages from it, from the threads, and from what
+the task still needs.
 
 The first page of every round is Agreed. On it, you write the task as you
 understand it and the decisions the reviewer has settled so far, each with
