@@ -100,11 +100,10 @@ already the session's summary, so do not add a summary page.
 Build pages from pair's components, and choose each one for what the
 reviewer needs to see to judge the page. `pair guide components.md`
 describes them. Use prose only for what no component can show, and keep it
-to short paragraphs. Put on one page what the reviewer would judge together,
-even when that is several related decisions, and give unrelated subjects
-their own pages. Order each page so the reviewer meets each decision or
-result before the detail behind it, the most important first. Leave out
-decoration that repeats nearby text.
+to short paragraphs. Keep related points together on one page, and put
+unrelated ones on separate pages. Start each page with what the reviewer has
+to decide or check, and put the detail after it. Leave out decoration that
+repeats nearby text.
 
 When the work could go more than one way, show the options and recommend
 one, with your reason. When only one way makes sense, recommend it without
