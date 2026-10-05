@@ -339,6 +339,7 @@ export async function loadSession(
     linkSession: session.linkSession,
     joinedInto: session.joinedInto,
     closedSession: session.closedSession,
+    writeStatus: session.writeStatus,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,

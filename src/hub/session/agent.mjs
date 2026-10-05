@@ -285,6 +285,8 @@ export function agent(session) {
     propose: async (data) => {
       const holder = sameAgent(session.state.holder, data.agent);
       const proposal = await session.propose(data, holder);
+      // A status from a linked session goes to the card in its parent.
+      const parent = session.cardOwner(proposal.id, "pair propose");
       const next =
         data.start === "new-agent"
           ? `Open a new agent session whose first command is: pair start --from ${directory} --proposal ${proposal.id}. Give the user that command in chat when you cannot open one, and go back to what you were doing.`
@@ -292,6 +294,7 @@ export function agent(session) {
       return {
         sessionId: session.state.sessionId,
         proposal,
+        ...(parent ? { parent: { id: parent.id, title: parent.title() } } : {}),
         ...(holder ? { next } : {}),
       };
     },

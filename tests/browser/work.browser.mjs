@@ -569,6 +569,88 @@ test("a withdrawn card shows the agent's reason and Restore brings it back, and 
   );
 });
 
+// A running card shows the agent's status: wider than 720px with every
+// part listed, and on a phone as the count and the next part until the
+// reviewer taps it open, where it stays when the agent writes a new
+// status. A card with no status says so, a status moves no card to
+// another tab, and a finished card shows none.
+test("a running card shows the agent's status, folded on a phone until tapped", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  for (const id of ["deck", "export"]) {
+    const started = await session.request(
+      `${session.base}/api/proposals/${id}/start`,
+      { where: "here" },
+    );
+    assert.equal(started.code, 200, started.body.error);
+  }
+  const status = async (done, left) => {
+    const written = await session.action("propose", {
+      id: "deck",
+      statusDone: done,
+      statusLeft: left,
+    });
+    assert.equal(written.code, 200, written.body.error);
+  };
+  await status(["Outline"], ["Slides", "Speaker notes"]);
+  const box = page.locator("[data-proposal-card=deck] .proposal-status");
+  // The parts on screen, each with its mark's label.
+  const parts = () =>
+    box
+      .locator("li")
+      .evaluateAll((items) =>
+        items
+          .filter((item) => item.checkVisibility())
+          .map((item) => [
+            item.querySelector("[role=img]").getAttribute("aria-label"),
+            item.textContent,
+          ]),
+      );
+  const summary = box.locator("summary");
+  const opened = async () => {
+    await tab("running").click();
+    await box.waitFor();
+  };
+  await tab("running").locator(".work-count", { hasText: "2" }).waitFor();
+  await opened();
+  assert.equal(await summary.textContent(), "1 of 3 done·Next: Slides");
+  assert.equal(await summary.innerText(), "1 of 3 done");
+  assert.deepEqual(await parts(), [
+    ["Done", "Outline"],
+    ["Left", "Slides"],
+    ["Left", "Speaker notes"],
+  ]);
+  assert.equal(
+    await page
+      .locator("[data-proposal-card=export] .proposal-status")
+      .textContent(),
+    "No status from the agent yet",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await opened();
+  assert.deepEqual(await parts(), []);
+  assert.match(await summary.innerText(), /^1 of 3 done\s*·\s*Next: Slides$/);
+  await summary.click();
+  assert.equal((await parts()).length, 3);
+  await status(["Outline", "Slides"], ["Speaker notes"]);
+  await summary.filter({ hasText: "2 of 3 done" }).waitFor();
+  assert.deepEqual(await parts(), [
+    ["Done", "Outline"],
+    ["Done", "Slides"],
+    ["Left", "Speaker notes"],
+  ]);
+  assert.equal(await tab("running").locator(".work-count").textContent(), "2");
+
+  const done = await session.action("propose", { id: "deck", done: true });
+  assert.equal(done.code, 200, done.body.error);
+  await tab("done").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("done").click();
+  await page.locator("[data-proposal-card=deck]").waitFor();
+  assert.equal(await box.count(), 0);
+});
+
 // A card reads New, with the sidebar's New label, until Work has shown it
 // on screen. A page's proposal component shows the label too but does not
 // count, and a card in Done never reads New.

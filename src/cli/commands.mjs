@@ -222,6 +222,16 @@ export const commands = {
       reopen: {
         text: "Undo your --done when feedback asks for changes to the work or the work is not done, or your --join when the work of TASK does not cover the card.",
       },
+      "status-done": {
+        value: "TEXT",
+        repeats: true,
+        text: "A part of the approved work that you have finished, in at most 80 characters. Give one flag for each part. Each run replaces the card's whole status, which has at most 12 parts.",
+      },
+      "status-left": {
+        value: "TEXT",
+        repeats: true,
+        text: "A part of the approved work that is left, in at most 80 characters. Give one flag for each part, the next one first.",
+      },
       json,
     },
     footer: "A new card takes --title, --delivers and --recommend.",

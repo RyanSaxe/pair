@@ -10,6 +10,7 @@ import {
   written,
 } from "./proposal-fields.mjs";
 import { joinable } from "./proposal-joins.mjs";
+import { statusable, statusParts } from "./proposal-status.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
@@ -366,7 +367,8 @@ export async function proposals(session) {
     });
   }
   // --reopen undoes the agent's own --done or --join, so the card returns
-  // to Running, or to Proposed when nobody started it.
+  // to Running, or to Proposed when nobody started it. It clears the
+  // status, because the feedback that reopens work changes its parts.
   async function reopen(card) {
     requireValue(card.done, `Proposal ${card.id} is not done`, 409);
     requireValue(
@@ -374,7 +376,16 @@ export async function proposals(session) {
       `Closing its linked session marked proposal ${card.id} done, so it takes no --reopen.`,
       409,
     );
-    return save(card, { done: null });
+    return save(card, { done: null, status: null });
+  }
+  // A linked session's agent writes the status of the work it runs to the
+  // card in the parent.
+  async function writeStatus(id, data) {
+    const owner = session.cardOwner(id, "pair propose");
+    if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
+    open();
+    const status = { at: timestamp(), ...statusParts(data) };
+    return save(statusable(find(id)), { status });
   }
   // pair propose, from any agent: it records a card, or with one action
   // flag changes the card that has the ID. holder says whether the holder
@@ -383,6 +394,7 @@ export async function proposals(session) {
     open();
     const { id, action } = proposeAction(data);
     if (!action) return add(id, data);
+    if (action === "status") return writeStatus(id, data);
     const card = find(id);
     if (action === "revise") return revise(card, data);
     if (action === "start") return startFromWords(card, data, holder);
@@ -454,6 +466,7 @@ export async function proposals(session) {
     closedSession,
     openAgent,
     propose,
+    writeStatus,
     startProposal,
     declineProposal,
     restoreProposal,
