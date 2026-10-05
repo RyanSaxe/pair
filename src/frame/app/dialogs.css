@@ -218,8 +218,7 @@ dialog::backdrop {
    of pixels right of the text. Below 1160px the max() is zero and the value
    is the 22px it has always been. */
 /* Start a thread on the left and Add to feedback on the right, on one row
-   at every width. A touch screen has no keys to hint at, and a window too
-   narrow for both hints drops them rather than wrap. */
+   at every width. */
 .note-actions {
   display: flex;
   justify-content: space-between;
@@ -228,21 +227,6 @@ dialog::backdrop {
 }
 .note-actions .btn.primary {
   margin-left: auto;
-}
-.note-actions kbd {
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: var(--text-tiny);
-  opacity: 0.9;
-}
-@media (pointer: coarse), (max-width: 400px) {
-  .note-actions kbd {
-    display: none;
-  }
 }
 /* The note's field is one bordered box: the text area, and under it a
    strip with the image button at its left, in line with the text. Text
