@@ -109,12 +109,12 @@ test("Open plan shows the plan's pages from its card, and Download saves a file 
 
 // On a phone, a card with a long title, a plan and every button keeps the
 // lines under its title to one line each and its buttons to one row:
-// Decline on the left, and Comment and Start on the right.
-test("a card with a plan keeps its meta line, plan line and buttons to one row each on a phone", async (t) => {
-  const { h, session } = await planned(
-    t,
-    "Merge the ten 0.3 pull requests into develop in order and release 0.3 to npm",
-  );
+// Decline on the left, and Comment and Start on the right. Its plan's strip
+// stays one line, and only the card's title is cut short.
+test("a card with a plan keeps its meta line, plan line and buttons to one row each on a phone, and its plan's strip to one line", async (t) => {
+  const title =
+    "Merge the ten 0.3 pull requests into develop in order and release 0.3 to npm";
+  const { h, session } = await planned(t, title);
   const page = await open(t, `${h.server.origin}${session.base}/#work`);
   if (!page) return;
   await page.setViewportSize({ width: 390, height: 844 });
@@ -154,4 +154,24 @@ test("a card with a plan keeps its meta line, plan line and buttons to one row e
     rows.foot.map(([text]) => text),
     ["Decline", "Comment", "Start"],
   );
+
+  await card.getByRole("link", { name: "Open plan" }).click();
+  await page.waitForURL(/\/plans\/deck\//);
+  await page.locator("#history-download").waitFor();
+  const strip = await page.locator("#history-strip").evaluate((root) => {
+    const label = root.querySelector("#history-label");
+    const parts = [
+      ...label.querySelectorAll(".crumb-name"),
+      root.querySelector("#history-download"),
+    ];
+    return {
+      height: label.getBoundingClientRect().height,
+      lineHeight: parseFloat(getComputedStyle(label).lineHeight),
+      cut: parts
+        .filter((part) => part.scrollWidth > part.clientWidth)
+        .map((part) => part.textContent),
+    };
+  });
+  assert.ok(strip.height < strip.lineHeight * 1.5, JSON.stringify(strip));
+  assert.deepEqual(strip.cut, [title]);
 });

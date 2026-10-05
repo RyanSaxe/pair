@@ -231,14 +231,17 @@ function drawHistoryLabel(label, old, past, parent) {
   if (old && session.closed) {
     const name = document.createElement("b");
     name.textContent = plan.title;
+    const state = document.createElement("span");
+    state.className = "state";
+    state.textContent = " is closed";
     return label.replaceChildren(
       ...crumbTrail([...parent.slice(0, 1), name]),
-      " is closed",
+      state,
     );
   }
   if (old || past) {
     const name = document.createElement("b");
-    name.className = "round";
+    name.className = "place";
     name.textContent = `Round ${old ? plan.round : pastRound}`;
     label.replaceChildren(...crumbTrail([...parent, name]));
     if (past || shownSubmission()) {
@@ -278,7 +281,6 @@ export function renderHistory() {
   ]);
   if (label.dataset.key !== key) {
     label.dataset.key = key;
-    label.classList.toggle("crumbs", Boolean(parent.length));
     drawHistoryLabel(label, old, past, parent);
   }
   const button = $("history-return");
@@ -307,6 +309,7 @@ function renderPlanStrip() {
   }
   crumbs.push(title);
   const here = document.createElement("b");
+  here.className = "place";
   here.textContent = "Plan";
   crumbs.push(here);
   $("history-label").replaceChildren(...crumbTrail(crumbs));
