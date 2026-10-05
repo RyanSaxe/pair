@@ -288,11 +288,6 @@ export async function start(options) {
         ["Title", started.title],
         ["Parent", started.parent?.sessionDir],
         ["Proposal", card?.id],
-        [
-          "Plan",
-          card?.plan &&
-            `${path.join(started.parent.sessionDir, "plans", card.id, "src")}${path.sep}, one directory per page`,
-        ],
       ]),
       card && proposalText(card, started.joined),
     ]
@@ -346,74 +341,6 @@ export async function publish(options) {
     json: result,
   };
 }
-
-// pair plan copies --source into the session's plans/ directory, with a
-// directory for each page of the plan, and the hub moves the copy beside the
-// plan it attaches.
-async function stagePlanSource(sessionDir, source, ids) {
-  const given = path.resolve(source);
-  const from = await fs.realpath(given);
-  requireValue(
-    (await fs.stat(from)).isDirectory(),
-    `--source must be a directory, and ${source} is not`,
-  );
-  for (const id of ids)
-    requireValue(
-      (await fs.stat(path.join(from, id)).catch(() => null))?.isDirectory(),
-      `--source ${source} has no directory ${id}. Keep each page's source in a directory named by the page's ID.`,
-    );
-  const copy = path.join(sessionDir, "plans", `.source-${crypto.randomUUID()}`);
-  await fs.mkdir(path.dirname(copy), { recursive: true, mode: 0o700 });
-  try {
-    await fs.cp(from, copy, { recursive: true });
-    await relinkInside(copy, [...new Set([from, given])]);
-    await fs.chmod(copy, ((await fs.stat(copy)).mode & 0o777) | 0o700);
-  } catch (error) {
-    await removeCopy(copy).catch(() => {});
-    throw error;
-  }
-  return copy;
-}
-
-export async function plan(options) {
-  const session = await openSession(options, { anyAgent: true });
-  const { pages } = await read(path.resolve(options.pages));
-  const records = [];
-  for (const file of options.file)
-    records.push(pageData(await fs.readFile(path.resolve(file), "utf8")));
-  const ids = Array.isArray(pages) ? pages.map((page) => page?.id) : [];
-  const source = await stagePlanSource(
-    session.directory,
-    options.source,
-    ids.filter((id) => typeof id === "string"),
-  );
-  let result;
-  try {
-    result = await session.request({
-      action: "plan",
-      proposal: options.proposal,
-      rounds: options.rounds,
-      pages,
-      records,
-      source,
-    });
-  } finally {
-    // The hub moved the copy when it attached the plan.
-    await removeCopy(source).catch(() => {});
-  }
-  const { proposal } = result;
-  return {
-    next: result.next,
-    moment: "plan",
-    data: [
-      `${result.replaced ? "Replaced the plan of" : "Attached the plan to"} proposal ${proposal.id}, from ${roundsText(proposal.plan.rounds)}: ${proposal.plan.pages.map((page) => page.id).join(", ")}.`,
-      `URL ${result.url}`,
-    ].join("\n"),
-    json: result,
-  };
-}
-const roundsText = (rounds) =>
-  /^\d+-\d+$/.test(rounds) ? `rounds ${rounds}` : `round ${rounds}`;
 
 // The hub process, which pair start spawns. It also closes itself once no
 // session has been live for a while.

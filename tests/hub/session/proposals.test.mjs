@@ -47,7 +47,6 @@ test("pair propose records one file per card and refuses an ID the session has",
       source: {},
       recordedAt: undefined,
       updatedAt: undefined,
-      plan: null,
       started: null,
       declined: null,
       withdrawn: null,
@@ -342,8 +341,8 @@ test("--withdraw moves a card to Done with its reason, and Restore brings it bac
     { at: undefined, reason },
   );
   assert.equal(withdrawn.body.proposal.declined, null);
-  // A withdrawn card takes no Start and no plan until it is restored, and
-  // pair read does not report it as declined.
+  // A withdrawn card takes no Start until it is restored, and pair read
+  // does not report it as declined.
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
     409,

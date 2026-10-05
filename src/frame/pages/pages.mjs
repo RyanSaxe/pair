@@ -23,7 +23,6 @@ import {
   pastAvailable,
   pastRound,
   plan,
-  planFor,
   session,
   setPage,
   showingWaiting,
@@ -466,12 +465,6 @@ export function installPages() {
   }
   // A read-only page shows one round, so there is nothing to switch to.
   tabs.hidden = !editable;
-  // A plan lists its pages under Plan. A downloaded plan has no session, so
-  // it has no rounds to list.
-  if (planFor) {
-    $("sidebar").querySelector(".side-label > span").textContent = "Plan";
-    $("round").hidden = !online;
-  }
   pageList = document.createElement("div");
   pageList.id = "page-list";
   $("navigation").append(tabs, pageList);

@@ -34,9 +34,9 @@ export function links(session) {
       parent.closedSession(link().proposal, session.state.sessionId),
     );
   }
-  // In a linked session, pair plan and a status from pair propose may name
-  // the proposal the session runs, whose card is in the parent. A card of
-  // this session's own with that ID takes them here.
+  // In a linked session, a status from pair propose may name the proposal
+  // the session runs, whose card is in the parent. A card of this session's
+  // own with that ID takes the status here.
   function cardOwner(id, command) {
     const own = session.proposalItems().some((card) => card.id === id);
     if (own || link()?.proposal !== id) return null;

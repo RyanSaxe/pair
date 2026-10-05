@@ -298,13 +298,6 @@ export function agent(session) {
         ...(holder ? { next } : {}),
       };
     },
-    plan: async (data) => ({
-      sessionId: session.state.sessionId,
-      ...(await session.attachPages(data)),
-      ...(sameAgent(session.state.holder, data.agent)
-        ? { next: await nextStep() }
-        : {}),
-    }),
   };
   async function act(data) {
     requireValue(
@@ -313,16 +306,15 @@ export function agent(session) {
       409,
     );
     // status only reads, so any agent, or none, may run it, on a closed
-    // session too. Any agent may record a proposal or attach a plan, such as
-    // a subagent that finds work worth doing or writes the plan.
+    // session too. Any agent may record a proposal, such as a subagent that
+    // finds work worth doing.
     if (data.action !== "status") {
       requireValue(
         session.state.stage !== "complete",
         "The session is complete.",
         409,
       );
-      if (!["propose", "plan"].includes(data.action))
-        await requireHolder(data.agent);
+      if (data.action !== "propose") await requireHolder(data.agent);
     }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     return actions[data.action](data);

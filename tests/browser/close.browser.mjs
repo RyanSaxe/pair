@@ -35,3 +35,31 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
     "Example work is closed",
   );
 });
+
+// On a phone, a closed session's line under the header stays one line:
+// only the session's long title is cut short, and "is closed" stays whole.
+test("a closed session's line under the header stays one line on a phone", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const title =
+    "Merge the ten 0.3 pull requests into develop in order and release 0.3 to npm";
+  assert.equal((await session.publish({ ...planData(), title })).code, 200);
+  assert.equal(
+    (await session.request(`${session.base}/api/dismiss`, {})).code,
+    200,
+  );
+  const page = await open(t, `${h.server.origin}${session.base}/`, {
+    viewport: { width: 390, height: 844 },
+  });
+  if (!page) return;
+  await page.locator("#history-strip:not([hidden])").waitFor();
+  const line = await page.locator("#history-label").evaluate((label) => ({
+    height: label.getBoundingClientRect().height,
+    lineHeight: parseFloat(getComputedStyle(label).lineHeight),
+    cut: [...label.children]
+      .filter((part) => part.scrollWidth > part.clientWidth)
+      .map((part) => part.textContent),
+  }));
+  assert.ok(line.height < line.lineHeight * 1.5, JSON.stringify(line));
+  assert.deepEqual(line.cut, [title]);
+});

@@ -1,4 +1,4 @@
-import { $, plural, unreachable } from "#frame/app/util.mjs";
+import { $, unreachable } from "#frame/app/util.mjs";
 import { base, editable, online, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
@@ -20,12 +20,12 @@ import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
 /* The Work page holds every proposal of the session, from the agent's pair
-   propose until the work is done, in four tabs. The hub stores five facts
-   on each card, plan, started, declined, withdrawn and done, and the tab
-   follows from them and, for work in a linked session, from whether that
-   session's round waits for the reviewer. A card the agent joined into
-   another is done, and its done fact names that card. A page shows the
-   same card with the proposal component. */
+   propose until the work is done, in four tabs. The hub stores four facts
+   on each card, started, declined, withdrawn and done, and the tab follows
+   from them and, for work in a linked session, from whether that session's
+   round waits for the reviewer. A card the agent joined into another is
+   done, and its done fact names that card. A page shows the same card with
+   the proposal component. */
 
 export const workTabs = [
   { id: "needs", label: "Needs you", empty: "Nothing needs you." },
@@ -95,16 +95,15 @@ const element = (tag, className, text) => {
 };
 // A card's state and the tone of its dot: Working here and Working in the
 // accent, Waiting for you in green, Done, Declined and Withdrawn in grey,
-// and a proposed card, which its tab already names, by its plan with a
-// hollow dot. Work started in a sub-session or with a new agent reads
-// Opening until its session links, and the two look the same after that.
+// and Proposed with a hollow dot. Work started in a sub-session or with a
+// new agent reads Opening until its session links, and the two look the
+// same after that.
 function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.withdrawn) return ["Withdrawn", "muted"];
   if (card.done) return ["Done", "muted"];
   if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
-  if (!card.started)
-    return [card.plan ? "Plan ready" : "No plan yet", "hollow"];
+  if (!card.started) return ["Proposed", "hollow"];
   if (card.started.where === "here") return ["Working here", "accent"];
   if (!card.started.session)
     return card.started.where === "new-agent"
@@ -157,55 +156,6 @@ function cardWhere(card) {
     else return null;
   }
   return box;
-}
-// A card's plan: its pages, when it last changed and, when it differs, the
-// rounds it came from, which pair plan names as one round or a range such
-// as 3-6.
-export function planLine(plan) {
-  const range = plan.rounds.match(/^(\d+)-(\d+)$/);
-  const from = range
-    ? `from rounds ${range[1]} to ${range[2]}`
-    : `from round ${plan.rounds}`;
-  const parts = plan.pages?.length ? [plural(plan.pages.length, "page")] : [];
-  // A plan from a linked session names that session's rounds.
-  if (plan.session) parts.push(`${from} of its own session`);
-  else if (!plan.round) parts.push(from);
-  else {
-    parts.push(`updated after round ${plan.round}`);
-    if (plan.rounds !== plan.round) parts.push(from);
-  }
-  return parts.join(" · ");
-}
-const icons = {
-  plan: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
-  download:
-    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
-};
-function icon(name) {
-  const box = element("span", "card-icon");
-  box.setAttribute("aria-hidden", "true");
-  box.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;
-  return box;
-}
-// The plan's line: Open shows the plan in this tab, and the download icon
-// saves its file.
-function planRow(card) {
-  const row = element("div", "proposal-plan");
-  const text = element("span", "card-rest");
-  text.append(element("b", "", "Plan"), ` · ${planLine(card.plan)}`);
-  text.title = text.textContent;
-  const plan = `${base}/plans/${encodeURIComponent(card.id)}/`;
-  const open = element("a", "proposal-plan-open", "Open");
-  open.href = plan;
-  open.setAttribute("aria-label", "Open plan");
-  const download = element("a", "proposal-plan-download");
-  download.href = `${plan}download`;
-  download.download = `${card.id}-plan.html`;
-  download.title = "Download plan";
-  download.setAttribute("aria-label", "Download plan");
-  download.append(icon("download"));
-  row.append(icon("plan"), text, open, download);
-  return row;
 }
 // The cards joined into a card, by title, under a rule at the foot of its
 // body.
@@ -307,7 +257,6 @@ export function cardElement(card, shown = context(), fresh = false) {
         `The agent's reason: ${withdrawn.reason}`,
       ),
     );
-  if (card.plan) body.append(planRow(card));
   const joined = joinedInto(card);
   if (joined.length) body.append(joinedList(joined));
   root.append(body);

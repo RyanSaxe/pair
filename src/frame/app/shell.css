@@ -237,8 +237,7 @@ main {
   color: var(--ink);
   font-size: var(--text-small);
 }
-.history-strip button,
-#history-download {
+.history-strip button {
   margin-left: auto;
   color: var(--accent);
   font-weight: var(--weight-strong);
@@ -257,7 +256,7 @@ main {
 #history-label .meta {
   color: var(--muted);
 }
-/* A plan's strip: Work, the card's title and Plan. */
+/* A linked session's strip: its parent's name, then its own. */
 #history-label a {
   color: var(--accent);
 }
@@ -265,8 +264,8 @@ main {
   margin: 0 6px;
   color: var(--muted);
 }
-/* The line stays one line at every width: the names of sessions and cards
-   give up their width first, each cut short with an ellipsis. */
+/* The line stays one line at every width: the names of sessions give up
+   their width first, each cut short with an ellipsis. */
 #history-label {
   display: flex;
   flex: 0 1 auto;
@@ -280,14 +279,13 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The way back, the parent's name or Work, keeps its width up to 45% of
-   the line. */
+/* The way back, the parent's name, keeps its width up to 45% of the
+   line. */
 #history-label a {
   flex-shrink: 0;
   max-width: 45%;
 }
-/* The chevrons, the round or plan the line names, and "is closed" stay
-   whole. */
+/* The chevrons, the round the line names, and "is closed" stay whole. */
 #history-label :is(.crumb, .place, .state) {
   flex: none;
 }

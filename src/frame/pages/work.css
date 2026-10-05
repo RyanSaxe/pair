@@ -186,39 +186,6 @@
 .proposal-status li.done .status-mark {
   color: var(--ok);
 }
-/* The plan's line, cut short like the meta line, with Open and the
-   download icon at its end. */
-.proposal-plan {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: var(--text-meta);
-  white-space: nowrap;
-}
-.proposal-plan > .card-icon {
-  color: var(--accent);
-}
-.proposal-plan b {
-  color: var(--ink);
-  font-weight: 500;
-}
-.proposal-plan a {
-  flex: none;
-  color: var(--accent);
-  font-weight: 500;
-}
-.proposal-plan-open {
-  margin-left: auto;
-  padding: 0 4px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.proposal-plan-download {
-  display: inline-flex;
-  padding: 2px 4px;
-}
 /* The cards joined into this one: a muted label and their titles, under a
    rule across the body. */
 .proposal-joined {
