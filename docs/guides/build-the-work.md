@@ -38,7 +38,7 @@ the card.
 ## Review the work
 
 On the last page about the work, the agent explains it well enough for you
-to review it and keep it. After the agent publishes that page, it marks the
+to review and maintain it. After the agent publishes that page, it marks the
 proposal done, and pair moves the card to Done. When your feedback asks for
 changes to the work, the agent reopens the proposal, pair moves the card
 back to Running, and the agent publishes the changes in the next round.

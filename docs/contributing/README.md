@@ -33,7 +33,7 @@ in the browser against a scratch hub with its own port and state directory.
 | Path              | Contents                                                                                                       |
 | ----------------- | -------------------------------------------------------------------------------------------------------------- |
 | `src/`            | The `pair` command, the hub, the page builder, and the browser frame with its components.                      |
-| `guide/`          | What the agent reads while it works: the core, `pair.md`, the moments in `moments/`, and the lookup files.     |
+| `guide/`          | What the agent reads while it works: the core, `pair.md`, the moments in `moments/`, and the reference files.  |
 | `skills/pair/`    | The skill an agent CLI loads. It tells the agent to run `pair guide`, then to follow what each command prints. |
 | `adapters/`       | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session of that CLI.           |
 | `tests/`          | The test suites, the browser tests in `tests/browser/`, and a fixture page with every component.               |

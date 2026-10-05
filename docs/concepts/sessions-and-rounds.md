@@ -136,7 +136,7 @@ anything left to do. Press ✕ on the session's row in the session list, and
 confirm in the dialog that opens. The session becomes read-only, with every
 round kept. The hub sends the agent no message. When the agent next runs a
 `pair` command other than `pair status`, the hub refuses it with a line that
-says the session is complete.
+says you closed the session.
 
 Closing deletes no files. The git worktrees where the agent tried ideas stay
 until the agent deletes them with your approval. When you close a

@@ -13,7 +13,7 @@ To move a session to another agent, give that agent the session's **handoff
 line**:
 
 ```text
-Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
+To take over pair session PATH, run pair start --session-dir PATH and follow what it prints.
 ```
 
 The agent runs the command in the line and becomes the holder. It can be an

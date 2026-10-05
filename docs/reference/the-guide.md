@@ -9,7 +9,7 @@ a session. They come in three parts:
   always match the installed `pair`, and the skill never needs reinstalling.
 - The moments, in `guide/moments/`. Each session command prints its next
   step first, then the text of the moment at which the agent runs it.
-- The lookup files. The core and the moments name each one by the
+- The reference files. The core and the moments name each one by the
   `pair guide` command that prints it, before the step that needs it.
 
 You can add your own text to any of these files. Put it in a file at the
@@ -34,8 +34,8 @@ moment is a Markdown file in `guide/moments/`, and
 | `start-from.md`             | `pair start --from`  | Creates a session for a proposal, after `start.md`.                                             |
 | `read-feedback.md`          | `pair read`          | Prints your feedback.                                                                           |
 | `read-thread.md`            | `pair read --thread` | Prints a thread.                                                                                |
-| `read-start-here.md`        | `pair read`          | Prints work started in this session, with Start or with `pair propose --start`.                 |
-| `read-start-sub-session.md` | `pair read`          | Prints work started in a sub-session.                                                           |
+| `read-start-here.md`        | `pair read`          | Prints work you approved to run in this session, with Start or in your own words.               |
+| `read-start-sub-session.md` | `pair read`          | Prints work you approved to run in a sub-session.                                               |
 | `read-open-agent.md`        | `pair read --thread` | Prints the thread that Open a new agent session started, until a session links to the proposal. |
 | `read-declined.md`          | `pair read`          | Prints the proposals you declined since the last `pair read`, each once.                        |
 | `read-closed.md`            | `pair read`          | Prints the proposals whose linked session you closed since the last `pair read`, each once.     |
@@ -44,7 +44,7 @@ moment is a Markdown file in `guide/moments/`, and
 | `publish-page.md`           | `pair publish`       | Publishes a page, and more pages remain.                                                        |
 | `publish-last-page.md`      | `pair publish`       | Publishes the round's last page.                                                                |
 
-## Lookup files
+## Reference files
 
 | File                                               | Command                    | The agent reads it                                        |
 | -------------------------------------------------- | -------------------------- | --------------------------------------------------------- |

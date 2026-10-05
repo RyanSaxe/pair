@@ -3,9 +3,9 @@
 The agent records each piece of work it thinks is worth doing as a
 **proposal**, including the main work of your task. A proposal is a card
 that describes what the work delivers and where the agent recommends it
-runs. You decide what happens to each one. To approve the work, you press
-**Start** on the card, which starts the work. You approve nothing beyond
-what the card describes.
+runs. You decide what happens to each one. You approve the work by
+pressing **Start** on the card, and you only approve what the card
+describes.
 
 When you ask the agent for work in your own words, the agent records a
 proposal for it, or uses one that already covers it, and starts it for you,
@@ -77,7 +77,7 @@ agent.
 Starting work never ends the round you are reading. Your drafts on the
 round stay, and you can start more work before you send feedback.
 
-Open a new agent session does not always work. The agent replies in a thread
+The agent cannot always open a new agent session. It replies in a thread
 on the card with what it opened, or with the command when it cannot open an
 agent. To tell the agent how to open one on your machine, such as in a tmux
 pane, write your instructions in `~/.config/pair/moments/read-open-agent.md`.
@@ -131,7 +131,7 @@ How work finishes depends on where it runs.
 
 - Work that runs here is finished when the agent publishes the last page
   about it. On that page, the agent explains the work well enough for you to
-  review it and keep it. The agent then marks the proposal done with
+  review and maintain it. The agent then marks the proposal done with
   `pair propose --done`, and pair moves the card to Done. Until then, the
   agent keeps building the work in every round your feedback starts,
   whether or not your feedback mentions it. When your feedback asks for
@@ -144,13 +144,13 @@ How work finishes depends on where it runs.
 
 The agent also keeps the cards up to date as the session goes on:
 
-- When the work of a proposal got done some other way, such as in a pull
+- When a proposal's work was finished some other way, such as in a pull
   request, the agent marks the proposal done with `pair propose --done` and
   `--where`. The status line then reads Done and where, such as Done · in
-  #86. The agent can do this for a proposal nobody has started or one that
+  #86. The agent can do this for a proposal you have not approved, or one that
   runs here, but not for one whose work runs in its own session. That work
   finishes when you close its session.
-- When a proposal nobody has started no longer applies, the agent withdraws
+- When a proposal you have not approved no longer applies, the agent withdraws
   it with `pair propose --withdraw` and gives a reason. pair moves the card
   to Done, marked Withdrawn, with the agent's reason. Press Restore to put
   it back in Proposed.
@@ -173,9 +173,9 @@ timeout. When the agent joins a card that other cards were joined into, the
 hub moves those cards to B as well.
 
 When you start B, you approve the work of every proposal joined into it, and
-the agent builds all of it. `pair read` prints the joined proposals with a
-Start and with the work running here, `pair start --from` prints them for a
-linked session, and `pair status` lists them. Joined cards stay joined when
+the agent builds all of it. The agent sees the joined proposals in
+`pair read` when you start B and while B's work runs here, in
+`pair start --from` when B runs in a linked session, and in `pair status`. Joined cards stay joined when
 B's work finishes or the agent reopens B. When the agent runs
 `pair propose --reopen` on a joined card, pair moves that card back to
 Proposed.
