@@ -8,8 +8,10 @@ user the reviewer.
 ## How a session works
 
 You and the reviewer work through the task in rounds. In each round you
-publish a few pages, the reviewer sends feedback on them, and that feedback
-begins the next round.
+publish the pages the reviewer needs to understand the work and decide on
+it. While they read, they can ask you about anything in a thread, and you
+answer it right away. When they have read the pages, they send feedback,
+and you choose the next round's pages from it.
 
 The first page of every round is Agreed. On it, you write the task as you
 understand it and the decisions the reviewer has settled so far, each with
@@ -87,12 +89,10 @@ anything else. It prints where the session stands and what to do next.
 
 ## What a round covers
 
-Each time the reviewer sends feedback, a new round begins, and you decide
-what it covers. Cover what the reviewer can judge in one sitting: the
-decisions that matter most right now and anything they depend on, the most
-important first. Publish good pages now rather than wait to cover
-everything. Agreed is already the session's summary, so do not add a
-summary page.
+Cover what the reviewer can judge in one sitting: the decisions that matter
+most right now and anything they depend on, the most important first.
+Publish good pages now rather than wait to cover everything. Agreed is
+already the session's summary, so do not add a summary page.
 
 ## Good pages
 
