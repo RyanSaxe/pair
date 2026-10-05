@@ -338,8 +338,10 @@ export async function proposals(session) {
       },
     });
   }
-  // The agent joins a card nobody has started into a started card whose
-  // work covers it. The joined card is done, and its done fact names the
+  // The agent joins a card nobody has started into a card started here
+  // whose work covers it. A card whose work runs in a linked session takes
+  // no joined card, so the work of every joined card is built in this
+  // session's rounds. The joined card is done, and its done fact names the
   // card it joined. Every list of a card's joined cards comes from those
   // facts, so finishing or reopening the started card leaves them joined.
   async function join(card, data) {
@@ -356,12 +358,17 @@ export async function proposals(session) {
     const task = find(data.join);
     requireValue(
       task.started,
-      `Proposal ${task.id} has not been started. --join takes a started proposal whose work covers proposal ${card.id}.`,
+      `Proposal ${task.id} has not been started. --join takes a proposal started here whose work covers proposal ${card.id}.`,
       409,
     );
     requireValue(
       !task.done,
       `Proposal ${task.id} is done, so no proposal can join it.`,
+      409,
+    );
+    requireValue(
+      task.started.where === "here",
+      `Proposal ${task.id} runs in ${task.started.where === "new-agent" ? "a new agent's session" : "a sub-session"}, so no proposal can join it.`,
       409,
     );
     return save(card, {
@@ -459,10 +466,6 @@ export async function proposals(session) {
     const card = linkable(id);
     return save(card, { started: { ...card.started, session: linked } });
   };
-  // The cards the agent joined into a card, which pair start --from prints
-  // with it.
-  const joinedInto = (id) =>
-    proposalItems().filter((card) => card.done?.joined === id);
   // Closing a linked session marks its card done, once.
   async function closedSession(id, sessionId) {
     const card = cards.get(id);
@@ -485,7 +488,6 @@ export async function proposals(session) {
     reportClosed,
     linkable,
     linkSession,
-    joinedInto,
     closedSession,
     openAgent,
     propose,

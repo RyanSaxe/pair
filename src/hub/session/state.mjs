@@ -340,7 +340,6 @@ export async function loadSession(
     linkParent: session.linkParent,
     linkable: session.linkable,
     linkSession: session.linkSession,
-    joinedInto: session.joinedInto,
     closedSession: session.closedSession,
     plannable: session.plannable,
     attachPlan: session.attachPlan,
