@@ -6,7 +6,6 @@ import {
   currentAvailable,
   mode,
   plan,
-  planFor,
   submittedRound,
 } from "#frame/app/view.mjs";
 import { chooseBlock } from "#frame/notes/blocks.mjs";
@@ -87,8 +86,7 @@ export function renderRounds() {
   // The plan's name lives in this dialog, because the frame shows it nowhere
   // else.
   $("round-plan").textContent = plan.title;
-  // A plan is no older round.
-  const older = (mode === "readonly" && !planFor) || selectedTab === "past";
+  const older = mode === "readonly" || selectedTab === "past";
   $("round").classList.toggle("older", older);
   renderHistory();
   $("round").setAttribute("aria-label", `Rounds, on round ${plan.round}`);

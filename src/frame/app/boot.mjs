@@ -17,7 +17,6 @@ import {
   online,
   pages,
   plan,
-  planFor,
   query,
   setPage,
   setPastRound,
@@ -57,7 +56,7 @@ import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 const planData = JSON.parse($("plan-data").textContent);
 useSession(
   JSON.parse($("session-config").textContent),
-  planData,
+  planData.name,
   new URL(location.href),
 );
 document.documentElement.dataset.mode = mode;
@@ -84,10 +83,10 @@ function bootRound() {
     plan: planData,
     agreements: planData.agreements || [],
     task: planData.task || null,
-    // A plan is its pages alone, with no Agreed.
-    pages: planFor
-      ? planData.pages
-      : [{ id: "agreed", title: "Agreed so far", html: "" }, ...planData.pages],
+    pages: [
+      { id: "agreed", title: "Agreed so far", html: "" },
+      ...planData.pages,
+    ],
   });
   views.set(plan.round, { plan, agreements, task: agreedTask, pages });
   setState(editable ? savedDraft(plan.round) : emptyDraft(plan.round));

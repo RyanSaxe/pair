@@ -159,6 +159,56 @@ test("Start here leaves the waiting round open with its drafts, so a second card
   );
 });
 
+// On a phone, a proposed card with a long title keeps the line under its
+// title to one row and its buttons to one row: Decline on the left, and
+// Start on the right.
+test("a proposed card keeps its meta line and its buttons to one row each on a phone", async (t) => {
+  const { session, page } = await work(t);
+  if (!page) return;
+  const title =
+    "Merge the ten 0.3 pull requests into develop in order and release 0.3 to npm";
+  const revised = await session.action("propose", {
+    id: "deck",
+    revise: true,
+    title,
+  });
+  assert.equal(revised.code, 200, revised.body.error);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const deck = page.locator("[data-proposal-card=deck]");
+  await deck.locator(".proposal-title", { hasText: title }).waitFor();
+  const rows = await deck.evaluate((root) => {
+    const box = (node) => node.getBoundingClientRect();
+    const line = (selector) =>
+      [...root.querySelectorAll(selector)].map((node) => [
+        node.textContent,
+        box(node).top + box(node).height / 2,
+      ]);
+    return {
+      title: box(root.querySelector(".proposal-title")).bottom,
+      metaTop: box(root.querySelector(".card-meta")).top,
+      meta: line(".card-meta > :not(.state-dot)"),
+      foot: line(".proposal-foot :not(:has(*))"),
+    };
+  });
+  // Each line's text sits on one row when their middles agree.
+  for (const name of ["meta", "foot"]) {
+    const middles = rows[name].map(([, middle]) => middle);
+    assert.ok(
+      Math.max(...middles) - Math.min(...middles) <= 2,
+      `${name} is one row: ${JSON.stringify(rows[name])}`,
+    );
+  }
+  assert.ok(rows.metaTop >= rows.title, "the meta line is under the title");
+  assert.deepEqual(
+    rows.meta.map(([text]) => text),
+    ["Proposed", "·", "From the Overview page"],
+  );
+  assert.deepEqual(
+    rows.foot.map(([text]) => text),
+    ["Decline", "Start"],
+  );
+});
+
 // The choices, the message box and the button row keep their places
 // whichever choice is selected, so the popup never changes size. Each
 // choice's buttons sit in one row, on a desktop and on a 375px phone.
