@@ -1,6 +1,8 @@
 `pair start --from` created this session for one approved proposal of the
-parent session, printed below. Where the reviewer's words in `<pair_start>` ask
-for something different from the proposal, or more, follow their words.
+parent session. It printed the proposal below, with each proposal joined
+into it, and the reviewer approved all of their work. Where the reviewer's
+words in `<pair_start>` ask for something different, or more, follow their
+words.
 
 - Build the work in this session's rounds, on a new branch, and name the
   branch on the first page about it. When the proposal has a plan, build

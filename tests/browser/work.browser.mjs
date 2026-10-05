@@ -270,9 +270,8 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
 
 // The agent starts a card when the reviewer asks for the work in their own
 // words. The card quotes them, links to where they wrote them, and has no
-// button that stops the work. It lists each card the agent joins into it,
-// and the joined card is in Done, naming it where its source was.
-test("a card started on the reviewer's words quotes them, links to where they wrote them and lists the cards joined into it", async (t) => {
+// button that stops the work.
+test("a card started on the reviewer's words quotes them and links to where they wrote them", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
   await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
@@ -302,16 +301,54 @@ test("a card started on the reviewer's words quotes them, links to where they wr
     await card.locator(".proposal-foot button").allTextContents(),
     ["Comment"],
   );
+});
+
+// The agent merges a card into a proposed one. The proposed card lists the
+// joined card, and so does its Start popup, under what the card delivers,
+// so the reviewer sees all they start. The joined card is in Done, naming
+// the card it joined where its source was, and the card still lists it
+// once it runs.
+test("a proposed card and its Start popup list the cards joined into it", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await tab("proposed").locator(".work-count", { hasText: "2" }).waitFor();
+  const added = await session.action("propose", card("notes", "Write notes"));
+  assert.equal(added.code, 200, added.body.error);
   const joined = await session.action("propose", {
     id: "export",
     join: "deck",
   });
   assert.equal(joined.code, 200, joined.body.error);
-  await card.locator(".proposal-joined").waitFor();
-  assert.deepEqual(
-    await card.locator(".proposal-joined :is(p, li)").allTextContents(),
-    ["Joined into this task", "Refresh the export"],
-  );
+  const deck = page.locator("[data-proposal-card=deck]");
+  const listed = (box) => box.locator(":is(p, li)").allTextContents();
+  await deck.locator(".proposal-joined").waitFor();
+  assert.deepEqual(await listed(deck.locator(".proposal-joined")), [
+    "Joined into this task",
+    "Refresh the export",
+  ]);
+  const dialog = page.locator("#start-dialog");
+  await deck.locator(".proposal-start").click();
+  await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
+  assert.deepEqual(await listed(dialog.locator("#start-joined")), [
+    "Joined into this task",
+    "Refresh the export",
+  ]);
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  // A card with no joined card shows no list in its popup.
+  await page.locator("[data-proposal-card=notes] .proposal-start").click();
+  await dialog.locator("#start-title", { hasText: "Write notes" }).waitFor();
+  assert.equal(await dialog.locator("#start-joined").isVisible(), false);
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  await deck.locator(".proposal-start").click();
+  await dialog.locator("#start-send").click();
+  await dialog.waitFor({ state: "hidden" });
+  await deck.locator(".card-state", { hasText: "Working here" }).waitFor();
+  assert.deepEqual(await listed(deck.locator(".proposal-joined")), [
+    "Joined into this task",
+    "Refresh the export",
+  ]);
   await tab("done").click();
   const exported = page.locator("[data-proposal-card=export]");
   assert.equal(

@@ -208,6 +208,24 @@
   margin: 0 0 14px;
   font-size: var(--text-small);
 }
+/* The titles of the cards joined into this one, under a muted label,
+   between what it delivers and the choices. */
+.start-joined {
+  margin: -6px 0 14px;
+  font-size: var(--text-small);
+}
+.start-joined p {
+  margin: 0;
+  color: var(--muted);
+}
+.start-joined ul {
+  margin: 2px 0 0;
+  padding-left: 20px;
+}
+.start-joined li {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .start-choices .dialog-row {
   align-items: start;
   text-align: left;

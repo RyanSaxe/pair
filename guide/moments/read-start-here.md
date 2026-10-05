@@ -1,6 +1,7 @@
-The reviewer approved this proposal's work, and it runs in this session.
-Where the reviewer's words in `<pair_start>` ask for something different
-from the proposal, or more, follow their words.
+The reviewer approved this proposal's work, including the work of each
+proposal joined into it, and it runs in this session. Where the reviewer's
+words in `<pair_start>` ask for something different from the proposal, or
+more, follow their words.
 
 - Start now, on a new branch. If the proposal has a plan, build from the
   plan's page sources in `plans/ID/src/` in the session's directory.

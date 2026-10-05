@@ -31,7 +31,9 @@ export async function startFrom(adopt, directory, created, data) {
       url: session.base + "/",
     }),
   );
-  return { session, card };
+  // The new session builds the work of the cards joined into the proposal
+  // too.
+  return { session, card, joined: parent.joinedInto(card.id) };
 }
 
 // The open sessions, and each closed session that a session linked to it,
