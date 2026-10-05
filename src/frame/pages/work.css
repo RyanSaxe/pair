@@ -131,6 +131,28 @@
   display: inline-flex;
   padding: 2px 4px;
 }
+/* The cards joined into this one: a muted label and their titles, under a
+   rule across the body. */
+.proposal-joined {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.proposal-card .proposal-joined-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+.proposal-joined ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.proposal-card .proposal-joined li {
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
+}
 /* The footer holds only buttons, so it stays one row: Decline or Restore
    on the left, and Comment and Start on the right. */
 .proposal-foot {

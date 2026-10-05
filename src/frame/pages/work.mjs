@@ -22,8 +22,9 @@ import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
    propose until the work is done, in four tabs. The hub stores five facts
    on each card, plan, started, declined, withdrawn and done, and the tab
    follows from them and, for work in a linked session, from whether that
-   session's round waits for the reviewer. A page shows the same card with
-   the proposal component. */
+   session's round waits for the reviewer. A card the agent joined into
+   another is done, and its done fact names that card. A page shows the
+   same card with the proposal component. */
 
 export const workTabs = [
   { id: "needs", label: "Needs you", empty: "Nothing needs you." },
@@ -61,6 +62,10 @@ export const openingTab = (groups) =>
   workTabs.find(({ id }) => groups[id].length)?.id || workTabs[0].id;
 
 const cards = () => remote?.proposals || [];
+// The cards the agent joined into a card, because that card's work covers
+// theirs.
+const joinedInto = (card) =>
+  cards().filter((item) => item.done?.joined === card.id);
 const context = () => ({
   unread: unreadCards(),
   linked: listedSession,
@@ -122,15 +127,20 @@ export function metaLine(state, tone, rest) {
   }
   return line;
 }
-// Where the card came from, for work started elsewhere where it runs, and
-// for work the agent marked done with --where, where it got done. Running
-// work started here has no line, since its state says where it runs, and a
-// card names no round.
+// Where the card came from, for work started elsewhere where it runs, for
+// work the agent marked done with --where, where it got done, and for a
+// card joined into another, that card's title. Running work started here
+// has no line, since its state says where it runs, and a card names no
+// round.
 function cardWhere(card) {
   if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
-  if (card.done?.where) {
+  if (card.done?.joined) {
+    const task = cards().find((item) => item.id === card.done.joined);
+    box.textContent = `Joined ${task?.title ?? card.done.joined}`;
+    box.title = box.textContent;
+  } else if (card.done?.where) {
     box.textContent = card.done.where;
     box.title = `Done ${card.done.where}`;
   } else if (card.started && card.started.where !== "here") {
@@ -195,6 +205,18 @@ function planRow(card) {
   download.append(icon("download"));
   row.append(icon("plan"), text, open, download);
   return row;
+}
+// The cards joined into a card, by title, under a rule at the foot of its
+// body.
+function joinedList(joined) {
+  const box = element("div", "proposal-joined");
+  const list = element("ul");
+  list.append(...joined.map((item) => element("li", "", item.title)));
+  box.append(
+    element("p", "proposal-joined-label", "Joined into this task"),
+    list,
+  );
+  return box;
 }
 let failure = "";
 async function act(card, action) {
@@ -285,6 +307,8 @@ export function cardElement(card, shown = context(), fresh = false) {
       ),
     );
   if (card.plan) body.append(planRow(card));
+  const joined = joinedInto(card);
+  if (joined.length) body.append(joinedList(joined));
   root.append(body);
   // A card that cannot change has no buttons, and so no footer.
   if (cardsEditable()) {
@@ -402,6 +426,7 @@ function paintProposal(root, seen = seenCards()) {
   const fresh = unseen(card, seen);
   const key = JSON.stringify([
     card,
+    joinedInto(card).map((item) => item.title),
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
     shown.unread.has(card.id),
     cardsEditable(),

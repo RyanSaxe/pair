@@ -192,7 +192,7 @@ export async function startHub(config = settings()) {
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
         const requested = path.resolve(data.sessionDir);
-        const { session, created, card } = await register(async () => {
+        const { session, created, card, joined } = await register(async () => {
           const created = !(await exists(path.join(requested, "status.json")));
           if (data.from === undefined)
             return { created, session: await adopt(requested) };
@@ -224,7 +224,9 @@ export async function startHub(config = settings()) {
           wake,
           ...(hostOrigin ? { hostUrl: hostOrigin + session.base + "/" } : {}),
           ...(session.state.title ? { title: session.state.title } : {}),
-          ...(card ? { parent: session.state.parent, proposal: card } : {}),
+          ...(card
+            ? { parent: session.state.parent, proposal: card, joined }
+            : {}),
           ...answer,
         });
       }
