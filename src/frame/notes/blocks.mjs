@@ -1,11 +1,19 @@
 import { persist, state } from "#frame/app/store.mjs";
 import { $, normalize } from "#frame/app/util.mjs";
-import { editable, noteEditable, page } from "#frame/app/view.mjs";
+import {
+  agreements,
+  editable,
+  feedbackEditable,
+  noteEditable,
+  page,
+} from "#frame/app/view.mjs";
 import {
   noteDraftKey,
   openNote,
   selectedOccurrence,
 } from "#frame/notes/notes.mjs";
+import { cardsEditable } from "#frame/pages/work.mjs";
+import { remote } from "#frame/sync/rounds.mjs";
 
 let selected = "";
 let selectedTarget = null;
@@ -89,21 +97,57 @@ export function blockTargets(root, topic) {
     block.id ||= `block-${topic}-${index}`;
   });
 }
-export function pageBlocks() {
-  return [...$("page-content").children];
+/* What a click, j or k can choose in the view on screen: the cards on
+   Work, the task and each alignment on Agreed, inside the No longer applies
+   fold too, and the blocks of any other page. Review has nothing to
+   choose. */
+const units =
+  "#work-cards > [data-proposal-card], #page-content .agreement-card, #page-content > *";
+export function choosable() {
+  if (!$("feedback").hidden) return [];
+  const found = !$("work").hidden
+    ? $("work-cards").querySelectorAll(":scope > [data-proposal-card]")
+    : page.id === "agreed"
+      ? $("page-content").querySelectorAll(".agreement-card")
+      : $("page-content").children;
+  return [...found].filter(
+    (unit) => !blockSkip.has(unit.tagName) && unit.offsetParent,
+  );
 }
-/* The bar marks the chosen block. placeMarks() calls this whenever the
-   page's layout changes, so it also places the comment control, which
-   centers itself in the page's margin beside its text. */
+function unitAt(node) {
+  // A thread's card is no block.
+  if (node.closest("pair-thread")) return null;
+  const unit = node.closest(units);
+  // Agreed's cards are its only blocks.
+  if (unit?.closest("#page-content") && page.id === "agreed")
+    return unit.matches(".agreement-card") ? unit : null;
+  // A paragraph, a heading or a list is commented on by selecting its words.
+  return unit && !blockSkip.has(unit.tagName) ? unit : null;
+}
+// The proposal a chosen card or proposal component shows, once the frame
+// has drawn the hub's card in it.
+const cardOf = (unit) =>
+  unit?.dataset.proposalCard &&
+  remote?.proposals?.find((card) => card.id === unit.dataset.proposalCard);
+// A comment on a proposal can start the card's thread wherever its Start
+// can, and a comment on anything else opens only while a note can.
+const opens = (unit) =>
+  cardOf(unit) ? feedbackEditable() || cardsEditable() : noteEditable();
+/* The bar marks the chosen block or card. placeMarks() calls this whenever
+   the page's layout changes, and Work after it draws its cards, so it also
+   places the comment control, which centers itself in the margin beside
+   the text. */
 export let chosen = null;
 export function placeBar() {
   const bar = $("chosen-bar");
   bar.hidden = !chosen;
   placeButton();
   if (!chosen) return;
-  const host = $("reading").getBoundingClientRect();
+  const host = chosen.closest("#reading, #work");
+  if (bar.parentElement !== host) host.prepend(bar);
+  const top = host.getBoundingClientRect().top;
   const box = chosen.getBoundingClientRect();
-  bar.style.top = `${Math.round(box.top - host.top)}px`;
+  bar.style.top = `${Math.round(box.top - top)}px`;
   bar.style.height = `${Math.round(box.height)}px`;
 }
 export function chooseBlock(block) {
@@ -135,41 +179,65 @@ function blockKind(block) {
   return "this block";
 }
 /* The c key and the comment control comment on the selection, then the
-   chosen block, then the page. */
-const target = () =>
-  selected.length > 3 ? "selection" : chosen ? "block" : "page";
+   chosen block or card, then the page. On Review they comment on the
+   round's feedback as a whole, and on Work on Work as a whole. */
+function target() {
+  if (!$("feedback").hidden) return "overall";
+  if (!$("work").hidden) return chosen ? "block" : "work";
+  return selected.length > 3 ? "selection" : chosen ? "block" : "page";
+}
+function usable(on) {
+  if (!editable || (!$("reading").hidden && page.pending)) return false;
+  return on === "block" ? opens(chosen) : noteEditable();
+}
+const names = {
+  selection: "Comment on selection",
+  page: "Comment on this page",
+  work: "Comment on Work",
+  overall: "Add overall comment",
+};
 export function commentTarget() {
+  // Work draws its cards again when they change, so the chosen card is
+  // found again by its ID, and the choice ends when it left the tab.
+  if (chosen && !chosen.isConnected) {
+    const id = chosen.dataset.proposalCard;
+    chosen =
+      (!$("work").hidden &&
+        id &&
+        $("work-cards").querySelector(
+          `:scope > [data-proposal-card="${CSS.escape(id)}"]`,
+        )) ||
+      null;
+  }
   const button = $("comment-here");
+  const on = target();
   /* An open dialog hides the control in CSS, which no open path can forget. */
-  const usable =
-    editable && !page.pending && !$("reading").hidden && noteEditable();
-  button.hidden = !usable;
-  const on = usable ? target() : "none";
-  button.dataset.on = on;
-  const name =
-    on === "selection"
-      ? "Comment on selection"
-      : on === "block"
-        ? `Comment on ${blockKind(chosen)}`
-        : "Comment on this page";
+  button.hidden = !usable(on);
+  // The control grows to name a selection or a chosen block or card, and
+  // stays an icon for a page, Review and Work.
+  const grows = on === "selection" || on === "block";
+  button.dataset.on = button.hidden ? "none" : grows ? on : "page";
+  const name = on === "block" ? `Comment on ${blockKind(chosen)}` : names[on];
   button.setAttribute("aria-label", name);
   /* The page's icon shows no label, and the label it shrinks from stays
      until it has shrunk. */
-  if (on === "selection" || on === "block")
-    button.querySelector(".comment-label span").textContent = name;
+  if (grows) button.querySelector(".comment-label span").textContent = name;
   placeBar();
 }
-/* On a window wide enough, the control sits in the page's white margin,
-   centered between the end of the text and the page's right edge, so it
-   never covers the text at rest. Where the margin is narrower than the
-   control, as on a phone, it sits at the bottom right over the page. It
-   grows leftward from its right edge, over the text. */
+/* On a window wide enough, the control sits in the white margin, centered
+   between the end of the text and the page's right edge, so it never covers
+   the text at rest. Where the margin is narrower than the control, as on a
+   phone, it sits at the bottom right over the page. It grows leftward from
+   its right edge, over the text. */
 function placeButton() {
   const button = $("comment-here");
   if (button.hidden) return;
   // At rest the control is a circle, so its height is its width.
   const size = parseFloat(getComputedStyle(button).height);
-  const text = $("page-content").getBoundingClientRect().right;
+  const shown = [$("reading"), $("feedback"), $("work")].find(
+    (view) => !view.hidden,
+  );
+  const text = shown.getBoundingClientRect().right;
   const edge = $("content").getBoundingClientRect().right;
   const fits = edge - text >= size;
   const width = document.documentElement.clientWidth;
@@ -178,35 +246,62 @@ function placeButton() {
     ? `${width - edge + (edge - text - size) / 2}px`
     : "";
 }
+// The note a comment on the chosen card or block starts.
+function chosenNote() {
+  const card = cardOf(chosen);
+  const onWork = !$("work").hidden;
+  /* A note on a proposal names the card, and its Start a thread starts the
+     card's own thread. On a page it keeps the component's ID, so Review
+     can open the page at it. */
+  if (card)
+    return onWork
+      ? { topic: "work", anchor: card.title, proposal: card.id }
+      : {
+          topic: page.id,
+          anchor: card.title,
+          proposal: card.id,
+          target: chosen.id,
+        };
+  if (chosen.matches(".agreement-card")) {
+    const entry =
+      chosen.id === "agreement-task"
+        ? { id: "task", title: "The task" }
+        : agreements.find((item) => `agreement-${item.id}` === chosen.id);
+    return {
+      topic: "agreed",
+      anchor: entry.title,
+      agreementId: entry.id,
+      target: chosen.id,
+    };
+  }
+  /* No quote: the note is about the block, and a quote would be searched
+     for in the page and highlighted, marking the block's opening words. A
+     figure the frame drew around a block has no ID of its own, so the note
+     takes the ID of the block inside it. */
+  return {
+    topic: page.id,
+    anchor: blockHeading(chosen),
+    target: chosen.id || chosen.querySelector("[id]")?.id || null,
+  };
+}
 /* The control and the c key comment on the same things, so they share the
    one function that opens the note. */
 export function commentOnTarget() {
-  if (!noteEditable() || page.pending) return;
   const on = target();
-  if (on === "selection")
-    openNote(
-      page.id,
-      page.title,
-      selected,
-      null,
-      null,
-      selectedTarget,
-      selectedOccurrence(getSelection(), selected, selectedTarget),
-    );
-  else if (on === "block") {
-    /* No quote: the note is about the block, and a quote would be searched
-       for in the page and highlighted, marking the block's opening words.
-       A figure the frame drew around a block has no ID of its own, so the
-       note takes the ID of the block inside it. */
-    openNote(
-      page.id,
-      blockHeading(chosen),
-      "",
-      null,
-      null,
-      chosen.id || chosen.querySelector("[id]")?.id || null,
-    );
-  } else openNote(page.id, page.title);
+  if (!usable(on)) return;
+  if (on === "overall")
+    openNote({ topic: "overall", anchor: "Overall feedback" });
+  else if (on === "work") openNote({ topic: "work", anchor: "Work" });
+  else if (on === "selection")
+    openNote({
+      topic: page.id,
+      anchor: page.title,
+      quote: selected,
+      target: selectedTarget,
+      occurrence: selectedOccurrence(getSelection(), selected, selectedTarget),
+    });
+  else if (on === "block") openNote(chosenNote());
+  else openNote({ topic: page.id, anchor: page.title });
   chooseBlock(null);
 }
 export function installBlocks() {
@@ -220,29 +315,28 @@ export function installBlocks() {
     selectedTarget = parent?.closest("#page-content [id]")?.id || null;
     commentTarget();
   });
-  /* A control does its own job, a block becomes the target, and anything else
-     clears it. A drag is a selection, so it never reaches here as a press. */
-  $("page-content").addEventListener("click", (event) => {
-    if (!noteEditable() || page.pending) return;
+  /* A control does its own job, a block or card becomes the target, and
+     anything else clears it. A drag is a selection, so it never reaches
+     here as a press. */
+  const choose = (event) => {
+    if (!editable || (!$("reading").hidden && page.pending)) return;
     if (
       event.target.closest("button, a, input, label, select, textarea, summary")
     )
       return;
     if (getSelection()?.toString().trim()) return;
-    // A thread's card is no block.
-    const block =
-      !event.target.closest("pair-thread") &&
-      event.target.closest("#page-content > *");
-    // A paragraph, a heading or a list is commented on by selecting its words.
-    chooseBlock(block && !blockSkip.has(block.tagName) ? block : null);
-  });
+    const unit = unitAt(event.target);
+    if (unit && !opens(unit)) return;
+    chooseBlock(unit);
+  };
+  $("page-content").addEventListener("click", choose);
+  $("work-cards").addEventListener("click", choose);
   // A press on the button would otherwise clear the selection it is for.
   $("comment-here").onpointerdown = (event) => event.preventDefault();
   $("comment-here").onclick = () => commentOnTarget();
   /* Once the frame is at its widest, a wider window moves the page's edge and
      leaves the page's size as it was, so no layout change places it. */
   addEventListener("resize", placeButton);
-  $("overall-note").onclick = () => openNote("overall", "Overall feedback");
   $("note-text").oninput = () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
     persist();

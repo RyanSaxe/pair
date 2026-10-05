@@ -128,6 +128,13 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
           occurrence: 2,
           text: "The second one.",
         },
+        {
+          id: "note-3",
+          topic: "work",
+          anchor: "Build the deck",
+          proposal: "deck",
+          text: "Start this first.",
+        },
       ],
     },
   });
@@ -171,6 +178,11 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   const opening = (id) => tag("note", id)[0].split("\n")[0];
   assert.match(opening("note-2"), / agreement="retry"/);
   assert.match(opening("note-2"), / occurrence="2"/);
+  // A note on a proposal names it.
+  assert.equal(
+    opening("note-3"),
+    '<pair_note id="note-3" page="work" on="Build the deck" proposal="deck">',
+  );
   assert(tag("thread", "after")[1].includes("retried once"));
   assert(!printed.includes('<pair_thread id="before"'), printed);
   const json = JSON.parse(await read("--submission", event.id, "--json"));

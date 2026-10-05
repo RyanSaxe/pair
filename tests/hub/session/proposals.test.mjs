@@ -267,21 +267,23 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   );
 
   // Another agent's start wakes the holder, as the reviewer's Start does.
+  // The reviewer's words can be in Review's overall comment, which --page
+  // names as the round's page overall.
   const briefed = (await h.inbox()).agent;
   const apart = await propose(
     {
       id: "board-qa",
       start: "sub-session",
       quote: "Do the Q&A prep apart.",
-      page: "1/overview",
+      page: "1/overall",
     },
     briefed,
   );
   assert.equal(apart.code, 200, apart.body.error);
   assert.deepEqual(apart.body.proposal.started.page, {
     round: "1",
-    id: "overview",
-    title: "Overview",
+    id: "overall",
+    title: "Review",
   });
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
   assert.equal(
@@ -295,14 +297,21 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
     `Run pair start --from ${a.directory} --proposal board-qa, then follow what it prints.`,
   );
   // Work with a new agent saves no start for pair read, so the holder's
-  // next step is to open that agent.
+  // next step is to open that agent. The reviewer's words here are on
+  // Work, which --page names as the round's page work.
   await add({ id: "deck", title: "Build the deck" });
   const agent = await propose({
     id: "deck",
     start: "new-agent",
     quote: "Have another agent build the deck.",
+    page: "1/work",
   });
   assert.equal(agent.code, 200, agent.body.error);
+  assert.deepEqual(agent.body.proposal.started.page, {
+    round: "1",
+    id: "work",
+    title: "Work",
+  });
   assert.match(
     agent.body.next,
     new RegExp(

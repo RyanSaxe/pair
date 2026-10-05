@@ -28,6 +28,9 @@ function threadName(thread, part, collapsed) {
     return part ? `On ${part}` : "On the words you selected";
   }
   if (thread.agreementId === "task") return "On the task";
+  // A thread on the overall comment or on Work names the place it is in.
+  if (thread.topic === "overall" || thread.topic === "work")
+    return `On ${thread.page}`;
   if (thread.anchor === thread.page) return "On this page";
   return `On ${thread.anchor}`;
 }

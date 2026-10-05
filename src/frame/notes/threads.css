@@ -1,7 +1,8 @@
 /* A thread: a card under the block its note is on, under the progress
-   card, or under a proposal's card on Work, in the frame's card style. The
-   #reading and #work prefix outranks the page's own p rule and reaches
-   cards outside the page's content. */
+   card, under a proposal's card on Work, or at the end of Review or Work,
+   in the frame's card style. The #reading, #work and #feedback prefix
+   outranks the page's own p rule and reaches cards outside the page's
+   content. */
 pair-thread {
   position: relative;
   display: grid;
@@ -15,7 +16,7 @@ pair-thread {
   font-size: var(--text-label);
   line-height: var(--leading-ui);
 }
-:is(#reading, #work) pair-thread p {
+:is(#reading, #work, #feedback) pair-thread p {
   margin: 0;
   font-size: var(--text-label);
 }
@@ -23,7 +24,7 @@ pair-thread {
    block past each card to its head. A block, or a card, keeps the next
    card 8px below it, so the line meets both. The card's data-thread makes
    the rule outrank the frame's margin for a component or a figure. */
-:is(#reading, #work) :has(+ pair-thread[data-thread]) {
+:is(#reading, #work, #feedback) :has(+ pair-thread[data-thread]) {
   margin-bottom: 8px;
 }
 pair-thread::before {
@@ -44,6 +45,18 @@ pair-thread:has(+ pair-thread)::after {
   bottom: -11px;
   left: -18px;
   border-left: 2px solid var(--accent);
+}
+/* A thread on the overall comment or on Work is on no block above it, so
+   its card sits in the column with no line from above. */
+.end-threads:not(:empty) {
+  margin-top: 22px;
+}
+.end-threads > pair-thread {
+  margin-left: 0;
+}
+.end-threads > pair-thread::before,
+.end-threads > pair-thread::after {
+  display: none;
 }
 pair-thread[collapsed] {
   padding-block: 7px;
@@ -116,11 +129,11 @@ pair-thread[collapsed] > :not(.thread-head) {
   gap: 6px;
   min-width: 0;
 }
-:is(#reading, #work) .thread-name {
+:is(#reading, #work, #feedback) .thread-name {
   font-size: var(--text-meta);
   font-weight: var(--weight-strong);
 }
-:is(#reading, #work) .thread-meta {
+:is(#reading, #work, #feedback) .thread-meta {
   color: var(--muted);
   font-size: var(--text-tiny);
   font-weight: 400;
@@ -251,7 +264,7 @@ pair-thread[collapsed] > :not(.thread-head) {
 .thread-info:is(:hover, :focus-visible) + .thread-tip {
   visibility: visible;
 }
-:is(#reading, #work) .thread-working {
+:is(#reading, #work, #feedback) .thread-working {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -276,7 +289,7 @@ pair-thread[collapsed] > :not(.thread-head) {
     animation: none;
   }
 }
-:is(#reading, #work) .thread-bad {
+:is(#reading, #work, #feedback) .thread-bad {
   color: var(--danger);
   font-size: var(--text-meta);
 }

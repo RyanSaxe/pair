@@ -54,7 +54,9 @@ export async function proposals(session) {
     );
   }
   // Where the work came from: a thread, or a page of a round with the
-  // page's title from the round's page list.
+  // page's title from the round's page list. The reviewer also writes on
+  // Review's overall comment and on Work, which every round has.
+  const framePages = { overall: "Review", work: "Work" };
   function source(data) {
     requireValue(
       data.thread === undefined || data.page === undefined,
@@ -75,7 +77,9 @@ export async function proposals(session) {
     );
     const slot =
       session.state.roundPages?.[round] &&
-      session.pageSet(round).pages.find((item) => item.id === id);
+      (Object.hasOwn(framePages, id)
+        ? { title: framePages[id] }
+        : session.pageSet(round).pages.find((item) => item.id === id));
     requireValue(slot, `Round ${round} has no page ${id}`);
     return { page: { round, id, title: slot.title } };
   }
