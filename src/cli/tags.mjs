@@ -120,29 +120,54 @@ function startMessage(card, started, submission) {
     ),
   ];
 }
-// A started card, which is the agent's own text, then the reviewer's words.
-function startedText(card, started, submission) {
+// The cards in cards that the agent joined into card with pair propose
+// --join.
+export const joinedInto = (card, cards = []) =>
+  cards.filter((item) => item.done?.joined === card.id);
+// The cards joined into a card, each by its ID and title, and with what it
+// delivers when delivers is set.
+function joinedText(card, cards, indent, delivers = false) {
+  const joined = joinedInto(card, cards);
+  if (!joined.length) return [];
+  const width = Math.max(...joined.map((item) => item.id.length));
+  return [
+    `${indent}Proposals joined into ${card.id}, which its work covers:`,
+    ...joined.flatMap((item) => [
+      `${indent}  ${item.id.padEnd(width)}  ${item.title}`,
+      ...(delivers
+        ? [`${indent}  ${" ".repeat(width)}  Delivers: ${item.delivers}`]
+        : []),
+    ]),
+  ];
+}
+// A started card, which is the agent's own text, with the cards joined into
+// it, then the reviewer's words.
+function startedText(card, started, submission, cards) {
   return [
     `Proposal ${card.id}, "${card.title}", started ${places[started.where]} ${started.by === "words" ? "on the reviewer's words" : "by the reviewer"}.`,
     `Delivers: ${card.delivers}`,
+    ...joinedText(card, cards, "", true),
     ...startMessage(card, started, submission),
   ].join("\n");
 }
 // A Start that pair read prints.
-export const startText = (event, card) =>
-  startedText(card, event.payload, event.id);
+export const startText = (event, card, cards) =>
+  startedText(card, event.payload, event.id, cards);
 // The card a session that pair start --from created runs.
-export const proposalText = (card) => startedText(card, card.started);
+export const proposalText = (card, cards) =>
+  startedText(card, card.started, undefined, cards);
 
-// Each proposal started here that is not done, with the reviewer's words
-// that started it, which pair read prints after a submission.
-export function runningText(cards) {
+// Each proposal started here that is not done, with the cards joined into
+// it from all, and the reviewer's words that started it, which pair read
+// prints after a submission.
+export function runningText(cards, all) {
   if (!cards?.length) return "";
   const width = Math.max(...cards.map((card) => card.id.length));
   return [
     "Proposals started here that are not done:",
     ...cards.flatMap((card) => [
       `  ${card.id.padEnd(width)}  ${card.title}`,
+      ...joinedText(card, all, "    "),
       ...startMessage(card, card.started),
     ]),
   ].join("\n");

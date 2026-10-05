@@ -338,8 +338,43 @@ export async function proposals(session) {
       },
     });
   }
-  // --reopen undoes the agent's own --done, so the card returns to Running,
-  // or to Proposed when nobody started it.
+  // The agent joins a card nobody has started into a started card whose
+  // work covers it. The joined card is done, and its done fact names the
+  // card it joined. Every list of a card's joined cards comes from those
+  // facts, so finishing or reopening the started card leaves them joined.
+  async function join(card, data) {
+    requireValue(
+      !card.declined,
+      `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
+      409,
+    );
+    requireValue(
+      !card.started && !card.done && !card.withdrawn,
+      `Proposal ${card.id} ${card.withdrawn ? "was withdrawn" : card.done?.joined ? `already joined ${card.done.joined}` : card.done ? "is done" : "was started"}, so it takes no --join.`,
+      409,
+    );
+    const task = find(data.join);
+    requireValue(
+      task.started,
+      `Proposal ${task.id} has not been started. --join takes a started proposal whose work covers proposal ${card.id}.`,
+      409,
+    );
+    requireValue(
+      !task.done,
+      `Proposal ${task.id} is done, so no proposal can join it.`,
+      409,
+    );
+    return save(card, {
+      done: {
+        at: timestamp(),
+        by: "agent",
+        round: session.state.current?.round ?? null,
+        joined: task.id,
+      },
+    });
+  }
+  // --reopen undoes the agent's own --done or --join, so the card returns
+  // to Running, or to Proposed when nobody started it.
   async function reopen(card) {
     requireValue(card.done, `Proposal ${card.id} is not done`, 409);
     requireValue(
@@ -361,6 +396,7 @@ export async function proposals(session) {
     if (action === "start") return startFromWords(card, data, holder);
     if (action === "withdraw") return withdraw(card, data);
     if (action === "done") return done(card, data);
+    if (action === "join") return join(card, data);
     return reopen(card);
   }
   // pair plan attaches a plan to a card that is neither declined, withdrawn
@@ -423,6 +459,10 @@ export async function proposals(session) {
     const card = linkable(id);
     return save(card, { started: { ...card.started, session: linked } });
   };
+  // The cards the agent joined into a card, which pair start --from prints
+  // with it.
+  const joinedInto = (id) =>
+    proposalItems().filter((card) => card.done?.joined === id);
   // Closing a linked session marks its card done, once.
   async function closedSession(id, sessionId) {
     const card = cards.get(id);
@@ -445,6 +485,7 @@ export async function proposals(session) {
     reportClosed,
     linkable,
     linkSession,
+    joinedInto,
     closedSession,
     openAgent,
     propose,

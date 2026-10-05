@@ -433,6 +433,118 @@ test("--done marks work started here done, --where marks any card done, and --re
   );
 });
 
+// The agent joins a card nobody started into a started card whose work
+// covers it. The joined card is done and names that card, finishing or
+// reopening the started card leaves it joined, and --reopen on the joined
+// card undoes the join.
+test("--join marks a card done as joined into a started card, and refuses every other card", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
+  await add();
+  for (const id of ["keys", "test", "gone", "no", "elsewhere"])
+    await add({ id, title: `Card ${id}` });
+  const join = (id, into = "churn-export") => propose({ id, join: into });
+  const refused = async (id, into, code, error) => {
+    const answer = await join(id, into);
+    assert.equal(answer.code, code, `${id} into ${into}`);
+    assert.equal(answer.body.error, error);
+  };
+  await refused(
+    "keys",
+    "churn-export",
+    409,
+    "Proposal churn-export has not been started. --join takes a started proposal whose work covers proposal keys.",
+  );
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  const joined = await join("keys");
+  assert.equal(joined.code, 200, joined.body.error);
+  assert.deepEqual(
+    { ...joined.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1", joined: "churn-export" },
+  );
+  assert.equal((await join("test")).code, 200);
+
+  await refused(
+    "churn-export",
+    "churn-export",
+    409,
+    "Proposal churn-export was started, so it takes no --join.",
+  );
+  await refused(
+    "keys",
+    "churn-export",
+    409,
+    "Proposal keys already joined churn-export, so it takes no --join.",
+  );
+  assert.equal((await reviewer("no", "decline")).code, 200);
+  await refused(
+    "no",
+    "churn-export",
+    409,
+    "The reviewer declined proposal no. Drop it and do not propose it again.",
+  );
+  const withdrawn = await propose({ id: "gone", withdraw: true, reason: "x" });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  await refused(
+    "gone",
+    "churn-export",
+    409,
+    "Proposal gone was withdrawn, so it takes no --join.",
+  );
+  const elsewhere = await propose({
+    id: "elsewhere",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(elsewhere.code, 200, elsewhere.body.error);
+  await refused(
+    "elsewhere",
+    "churn-export",
+    409,
+    "Proposal elsewhere is done, so it takes no --join.",
+  );
+  await add({ id: "late", title: "Card late" });
+  await refused("late", "nothing", 404, "No proposal nothing in this session");
+  const paired = await propose({
+    id: "late",
+    join: "churn-export",
+    done: true,
+  });
+  assert.equal(paired.code, 400);
+  const placed = await propose({
+    id: "late",
+    join: "churn-export",
+    where: "x",
+  });
+  assert.equal(placed.code, 400);
+  assert.equal(placed.body.error, "--where goes with --done.");
+
+  // Finishing and reopening the started card leave its cards joined, and
+  // a done card takes no more.
+  assert.equal((await propose({ id: "churn-export", done: true })).code, 200);
+  await refused(
+    "late",
+    "churn-export",
+    409,
+    "Proposal churn-export is done, so no proposal can join it.",
+  );
+  assert.equal((await propose({ id: "churn-export", reopen: true })).code, 200);
+  const joinedTo = async () =>
+    (await cards())
+      .filter((card) => card.done?.joined)
+      .map((card) => [card.id, card.done.joined]);
+  assert.deepEqual(await joinedTo(), [
+    ["keys", "churn-export"],
+    ["test", "churn-export"],
+  ]);
+  const back = await propose({ id: "test", reopen: true });
+  assert.equal(back.code, 200, back.body.error);
+  assert.equal(back.body.proposal.done, null);
+  assert.deepEqual(await joinedTo(), [["keys", "churn-export"]]);
+});
+
 test("a thread on a card wakes the holder with the card it is on", async (t) => {
   const { a, add } = await proposing(t);
   await add();

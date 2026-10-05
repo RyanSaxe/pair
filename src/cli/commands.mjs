@@ -161,11 +161,11 @@ export const commands = {
   propose: {
     group: "session",
     purpose:
-      "Record a proposal, or revise, start, withdraw, finish or reopen one",
+      "Record a proposal, or revise, start, withdraw, finish, join or reopen one",
     about:
-      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --start, --withdraw, --done and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
+      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --start, --withdraw, --done, --join and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
     usage:
-      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --withdraw | --done | --reopen] [FIELDS]",
+      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --withdraw | --done | --join TASK | --reopen] [FIELDS]",
     flags: {
       "session-dir": sessionDir,
       id: {
@@ -215,8 +215,12 @@ export const commands = {
         value: "TEXT",
         text: 'With --done, where the work got done, such as "in #86", in at most 120 characters.',
       },
+      join: {
+        value: "TASK",
+        text: "Mark a card nobody has started done as joined into TASK, a started proposal that is not done, whose work covers it.",
+      },
       reopen: {
-        text: "Undo your --done, when feedback asks for changes to the work or the work is not done.",
+        text: "Undo your --done when feedback asks for changes to the work or the work is not done, or your --join when the work of TASK does not cover the card.",
       },
       json,
     },
