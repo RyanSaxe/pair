@@ -5,24 +5,26 @@
 You and the reviewer work toward the session's task in rounds. In each
 round you publish pages, and the reviewer answers them with feedback.
 
-Agreed is the first page of every round. It states the task as you
-understand it, then the alignments: what the reviewer has settled so far,
-each with its source. As feedback comes in, add, rewrite, merge and retire
-alignments so that Agreed always says what is settled now.
+Agreed is the first page of every round. On it, write the task as you
+understand it and the alignments: the decisions the reviewer has settled,
+each with its source. After each round of feedback, update the alignments
+to match what the reviewer has settled: add new ones, rewrite the ones
+that changed, merge the ones that belong together, and retire the ones
+that no longer hold.
 
 ## Changing the project
 
-Change the reviewer's project only to do the work of a proposal that has
-started. A proposal starts when the reviewer starts it, or when they ask
-for its work and you start it with `pair propose --start`, quoting what
-they wrote. When they ask for work that no proposal covers, record one
-first. A request about work already under way is part of that work.
+Edit the project only for work the reviewer has started or asked you to
+do, and track that work with a proposal. When the reviewer asks for work
+in a note, a thread or the chat, start a proposal for it with
+`pair propose --start`, quoting their words, and record the proposal first
+if none covers the work. A request about work you are already doing is
+part of that work.
 
-Before then, research and try changes in a git worktree inside the
-session's directory, which `pair start` prints, or in a plain directory
-there when the project is not a git repository. Closing a session deletes
-nothing. Ask the reviewer before you remove a worktree you made, on a page
-or as a proposal.
+Until then, try changes only in a git worktree inside the session's
+directory, which `pair start` prints, or in a plain directory there if the
+project is not a git repository. Ask the reviewer, on a page or in a
+proposal, before you remove a worktree you made.
 
 When a `pair` command prints that the session is complete, stop working on
 the session.
@@ -64,7 +66,7 @@ task and the alignments while you work. You cannot change the page list
 after that, so choose the pages from what you already know.
 
 Until the round's last page is published, report what you are doing with
-`pair progress --note "…"` whenever a piece of work starts and at least
+`pair progress --note "…"` when you start a piece of work and at least
 every five minutes, with `--page ID` for work on one page.
 
 Publish each page as soon as it is complete and you have read it against
@@ -105,10 +107,10 @@ reviewer saw, in the before-after component.
 ## Proposals
 
 Record a proposal with `pair propose` for each piece of work worth doing,
-including the work the task itself calls for. Run `pair guide proposals.md`
-before the first one. Say in a sentence or two what the work delivers, and
+including the main work of the task. Run `pair guide proposals.md` before
+the first one. Say in a sentence or two what the work delivers, and
 recommend where it should run: here, in a sub-session or with a new agent.
-Show it on the page where it came up, with the proposal component.
+Show it with the proposal component on the page that discusses it.
 
 Keep the proposals current:
 
@@ -124,8 +126,8 @@ Keep the proposals current:
 ## Plans
 
 Write a plan when the reviewer asks for one, or when the work is large
-enough that the reviewer should agree on how it will be built before it
-starts. Attach it to its proposal with `pair plan`.
+enough that the reviewer should agree on how to build it before you start.
+Attach it to its proposal with `pair plan`.
 
 A good plan lets an engineer or agent who saw none of the rounds build the
 work without asking anything. It says:
@@ -140,24 +142,25 @@ work without asking anything. It says:
 
 Keep it as short as that allows, and use code where code is clearer than
 prose. Explore what you need to, such as a package you have not used, in a
-scratch worktree, but build the work only after its proposal starts.
-Settle every open question on a page before you attach the plan. When the
-reviewer changes what the plan should say, attach the new version with
-`pair plan`. `pair guide proposals.md` says how to build the plan's pages.
+scratch worktree, but build the work only after the reviewer starts its
+proposal or asks you to. Settle every open question on a page before you
+attach the plan. When the reviewer changes what the plan should say,
+attach the new version with `pair plan`. Run `pair guide proposals.md` for
+how to build the plan's pages.
 
 ## Building a proposal's work
 
 When `pair read` prints that a proposal started, build its work on a new
-branch, from its plan when it has one, and name the branch on the first
-page about the work. Publish each part as soon as the reviewer can judge
-it. When the plan leaves something open, decide, and say on the next page
-what you decided and why. Fix what the work needs as you go, and say on its
-pages what you changed beyond what the proposal said. Record anything
-separate as a new proposal.
+branch, from its plan if it has one, and name the branch on the first page
+about the work. Publish each part as soon as the reviewer can judge it.
+When the plan does not settle something, decide it yourself, and say on
+the next page what you decided and why. Fix the problems you find along
+the way, and say on the work's pages what you changed beyond the proposal.
+Record anything separate as a new proposal.
 
-The last page about the work explains it well enough that whoever owns the
-project can review it and keep it. When the work runs in this session, run
-`pair propose --done` after you publish that page.
+Make the last page about the work explain it well enough that whoever owns
+the project can review it and keep it. When the work runs in this session,
+run `pair propose --done` after you publish that page.
 
 ## Subagents
 
