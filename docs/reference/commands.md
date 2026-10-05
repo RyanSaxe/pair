@@ -42,14 +42,14 @@ records a new proposal. `--recommend` takes `here`, `sub-session` or
 up. With one of the flags below, the command changes the proposal that has
 the ID instead.
 
-| Flag                         | What it does                                                                                                                                                                                          |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--revise`                   | Replaces the fields given and keeps the rest. The hub refuses it once you have approved the work, or once the proposal is declined, withdrawn or marked done.                                         |
-| `--start WHERE --quote TEXT` | Marks the proposal started because you asked for the work in your own words, and quotes your words with `--quote`. WHERE is `here`, `sub-session` or `new-agent`.                                     |
-| `--withdraw --reason TEXT`   | Withdraws a proposal that you have not approved and that no longer applies.                                                                                                                           |
-| `--done`                     | Marks work that runs here done, after the agent publishes its last page. With `--where TEXT`, such as `--where "in #86"`, it marks a proposal done whose work was finished somewhere else.            |
-| `--join TASK`                | Joins a proposal that is still in Proposed into TASK, whose work covers it. The hub refuses it when TASK is declined, withdrawn, done or joined itself, or runs in a sub-session or with a new agent. |
-| `--reopen`                   | Undoes the agent's own `--done` or `--join`. The hub refuses it for a proposal that it marked done because you closed its linked session.                                                             |
+| Flag                         | What it does                                                                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--revise`                   | Replaces the fields given and keeps the rest. The hub refuses it once you have approved the work, or once the proposal is declined, withdrawn or marked done.                                           |
+| `--start WHERE --quote TEXT` | Marks the proposal started because you asked for the work in your own words, and quotes your words with `--quote`. WHERE is `here`, `sub-session` or `new-agent`.                                       |
+| `--withdraw --reason TEXT`   | Withdraws a proposal that you have not approved and that no longer applies.                                                                                                                             |
+| `--done`                     | Marks work that runs here done, after the agent publishes its last page. With `--where TEXT`, such as `--where "in #86"`, it marks a proposal done whose work was finished somewhere else.              |
+| `--join OTHER`               | Joins a proposal that is still in Proposed into OTHER, whose work covers it. The hub refuses it when OTHER is declined, withdrawn, done or joined itself, or runs in a sub-session or with a new agent. |
+| `--reopen`                   | Undoes the agent's own `--done` or `--join`. The hub refuses it for a proposal that it marked done because you closed its linked session.                                                               |
 
 The hub refuses `--done` for a proposal whose work runs in a sub-session or
 with a new agent. When you close that session, the hub marks the proposal

@@ -323,14 +323,14 @@ test("a proposed card and its Start popup list the cards joined into it", async 
   const listed = (box) => box.locator(":is(p, li)").allTextContents();
   await deck.locator(".proposal-joined").waitFor();
   assert.deepEqual(await listed(deck.locator(".proposal-joined")), [
-    "Joined into this task",
+    "Joined into this proposal",
     "Refresh the export",
   ]);
   const dialog = page.locator("#start-dialog");
   await deck.locator(".proposal-start").click();
   await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
   assert.deepEqual(await listed(dialog.locator("#start-joined")), [
-    "Joined into this task",
+    "Joined into this proposal",
     "Refresh the export",
   ]);
   await page.keyboard.press("Escape");
@@ -346,7 +346,7 @@ test("a proposed card and its Start popup list the cards joined into it", async 
   await dialog.waitFor({ state: "hidden" });
   await deck.locator(".card-state", { hasText: "Working here" }).waitFor();
   assert.deepEqual(await listed(deck.locator(".proposal-joined")), [
-    "Joined into this task",
+    "Joined into this proposal",
     "Refresh the export",
   ]);
   await tab("done").click();

@@ -213,7 +213,7 @@ function joinedList(joined) {
   const list = element("ul");
   list.append(...joined.map((item) => element("li", "", item.title)));
   box.append(
-    element("p", "proposal-joined-label", "Joined into this task"),
+    element("p", "proposal-joined-label", "Joined into this proposal"),
     list,
   );
   return box;

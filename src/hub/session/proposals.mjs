@@ -360,11 +360,11 @@ export async function proposals(session) {
   // The cards the agent joined into a card.
   const joinedInto = (id) =>
     proposalItems().filter((card) => card.done?.joined === id);
-  // The agent merges a card nobody has started into TASK, as
+  // The agent merges a card nobody has started into OTHER, as
   // proposal-joins.mjs describes. The joined card is done, and its done
-  // fact names TASK. No card joins a joined card, so the cards already
-  // joined into the card move to TASK with it. Every list of a card's
-  // joined cards comes from those facts, so finishing or reopening TASK
+  // fact names OTHER. No card joins a joined card, so the cards already
+  // joined into the card move to OTHER with it. Every list of a card's
+  // joined cards comes from those facts, so finishing or reopening OTHER
   // leaves them joined.
   async function join(card, data) {
     const task = find(data.join);

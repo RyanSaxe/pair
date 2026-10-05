@@ -1,9 +1,9 @@
 import { requireValue } from "../../shared/util.mjs";
 
-// pair propose --id X --join TASK merges X, a card nobody has started, into
-// TASK, a card whose work covers it that is proposed or started here. The
-// agent that builds TASK reads its joined cards when the work starts, with
-// the Start in pair read or in pair start --from, so TASK may not already
+// pair propose --id X --join OTHER merges X, a card nobody has started, into
+// OTHER, a card whose work covers it that is proposed or started here. The
+// agent that builds OTHER reads its joined cards when the work starts, with
+// the Start in pair read or in pair start --from, so OTHER may not already
 // run in a linked session. No card joins itself or a joined card.
 // joinable refuses every other pair of cards before the hub changes one.
 export function joinable(card, task) {

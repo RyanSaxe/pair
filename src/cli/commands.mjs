@@ -166,7 +166,7 @@ export const commands = {
     about:
       "Record a piece of work as a proposal, which the reviewer can approve, decline or comment on. With one of --revise, --start, --withdraw, --done, --join or --reopen, act on the proposal that --id names. Any agent may run it. The output starts with the next step only for the session's holder, the agent that last ran pair start on it.",
     usage:
-      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --withdraw | --done | --join TASK | --reopen] [FIELDS]",
+      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --withdraw | --done | --join OTHER | --reopen] [FIELDS]",
     flags: {
       "session-dir": sessionDir,
       id: {
@@ -217,11 +217,11 @@ export const commands = {
         text: 'With --done, where the work was finished, such as "in #86", in at most 120 characters.',
       },
       join: {
-        value: "TASK",
-        text: "Merge this proposal into proposal TASK when TASK's work covers it. Only join a proposal the reviewer has not approved, into a TASK that is not marked done and is not running in another session. The hub then marks this proposal done as joined into TASK.",
+        value: "OTHER",
+        text: "Merge this proposal into proposal OTHER when OTHER's work covers it. Only join a proposal the reviewer has not approved, and only into a proposal that is not marked done and is not running in another session. The hub then marks this proposal done as joined into OTHER.",
       },
       reopen: {
-        text: "Undo your --done when the reviewer asks for changes to the work or it is not finished, or undo your --join when TASK's work does not cover this proposal.",
+        text: "Undo your --done when the reviewer asks for changes to the work or it is not finished, or undo your --join when OTHER's work does not cover this proposal.",
       },
       json,
     },

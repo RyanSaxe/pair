@@ -30,10 +30,11 @@ these flags:
   `--page ROUND/PAGE` or `--thread ID` for where they wrote them. Set WHERE
   to `here`, `sub-session` or `new-agent`, wherever they said the work
   should run, or where you recommend if they did not say.
-- `--join TASK`, to merge this proposal into the proposal TASK when the two
-  belong together. Only join a proposal the reviewer has not approved, into
-  a TASK that is not finished and is not running in another session. When
-  you build TASK, also build the work of each proposal joined into it.
+- `--join OTHER`, to merge this proposal into the proposal OTHER when the
+  two belong together. Only join a proposal the reviewer has not approved,
+  and only into a proposal that is not finished and is not running in
+  another session. When you build OTHER, also build the work of each
+  proposal joined into it.
 - `--withdraw --reason "…"`, when a proposal the reviewer has not approved
   no longer applies, saying why.
 - `--done`, after you publish the last page about work you built in this
