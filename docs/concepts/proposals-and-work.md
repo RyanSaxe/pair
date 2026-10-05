@@ -27,15 +27,26 @@ Work opens on the first tab that has a card in it. The Work row in the
 sidebar shows two numbers. The grey number is the number of cards in
 Proposed, and the orange one is the number in Needs you.
 
+### Cards
+
 Each card shows the work's title, a status line, and what the work
-delivers. The status line names the state of the work. On most cards, it
-also links to where the proposal came from, or to the session the work runs
-in. When you started the work with a message, the card shows your message in
-quotes.
-When the agent started the work on your words, the card reads Started from
-your words, with a link to where you wrote them, and shows your words in
-quotes. When a page discusses a proposal, the agent puts the same card on
+delivers. When a page discusses a proposal, the agent puts the same card on
 the page, with the same buttons.
+
+- The status line names the state of the work. On most cards, it also links
+  to where the proposal came from, or to the session the work runs in.
+- When you started the work with a message, the card shows your message in
+  quotes.
+- When the agent started the work on your words, the card reads Started from
+  your words, with a link to where you wrote them, and shows your words in
+  quotes.
+
+pair labels a card **New** until you have seen it on Work, as it labels an
+unopened page in the sidebar. Your browser remembers which cards you have
+seen. Seeing a card on a page does not count until Work shows it, and pair
+never labels a card in Done as New.
+
+### Status lines
 
 | Status line                                        | Meaning                                                                                  |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -49,10 +60,7 @@ the page, with the same buttons.
 | Declined                                           | You declined the proposal.                                                               |
 | Withdrawn                                          | The agent withdrew the proposal, and the card shows its reason.                          |
 
-pair labels a card **New** until you have seen it on Work, as it labels an
-unopened page in the sidebar. Your browser remembers which cards you have
-seen. Seeing a card on a page does not count until Work shows it, and pair
-never labels a card in Done as New.
+### What you can do with a card
 
 | To                    | Do this                                                                                          |
 | --------------------- | ------------------------------------------------------------------------------------------------ |
@@ -101,25 +109,33 @@ work.
 
 For larger work, the agent writes a plan and attaches it to the proposal. A
 plan is a set of pages from which an engineer or agent who saw none of the
-rounds could build the work without asking questions. It covers what the
-work achieves and why, the approach and the alternatives set aside, each
-change with the files and interfaces it touches, every look and interface
-exactly as you approved it, what is out of scope, and how to check that the
-work is done.
+rounds could build the work without asking questions. It covers:
+
+- what the work achieves and why
+- the approach and the alternatives set aside
+- each change, with the files and interfaces it touches
+- every look and interface, exactly as you approved it
+- what is out of scope
+- how to check that the work is done
 
 The agent writes a plan when you ask for one, or when the work is big enough
 that you should agree on how it will be built before it starts. It settles
 every open question on a page before it attaches the plan. You can start
 work that has no plan.
 
+### Reading a plan
+
 A card with a plan has a Plan line, which shows how many pages the plan has
 and which rounds it came from. The line has **Open** and a download button.
-Press **Open** to read the plan in this tab, read-only, with its pages in
-the sidebar. The line under the header then reads Work, the card's title and
-Plan, and you click Work to go back. The download button, and **Download
-plan** in the plan view, download the plan as one HTML file, which you can
-open without the hub. When you change what the plan should say in later
-rounds, the agent attaches a new version, which replaces the old one.
+
+- Press **Open** to read the plan in this tab, read-only, with its pages in
+  the sidebar. The line under the header then reads Work, the card's title
+  and Plan, and you click Work to go back.
+- The download button, and **Download plan** in the plan view, download the
+  plan as one HTML file, which you can open without the hub.
+
+When you change what the plan should say in later rounds, the agent attaches
+a new version, which replaces the old one.
 
 The agent of a sub-session or a new agent session can attach a plan to the
 proposal it builds. The Plan line then shows that the plan came from rounds
@@ -142,6 +158,8 @@ How work finishes depends on where it runs.
   session's agent learns of it the next time it runs `pair read`, and builds
   on what that session produced.
 
+## Done elsewhere, withdrawn or joined
+
 The agent also keeps the cards up to date as the session goes on:
 
 - When a proposal's work was finished some other way, such as in a pull
@@ -160,11 +178,15 @@ The agent also keeps the cards up to date as the session goes on:
 ## Joined proposals
 
 The agent can join proposal A into proposal B when B's work covers A's. The
-hub only accepts the join when A is in Proposed, and when B's work has not
-started or runs here. The agent that builds B reads the proposals joined
-into it when the work starts, so the hub refuses to join a proposal into one
-whose work already runs in its own session. The hub also refuses to join a
-proposal into one that is declined, withdrawn, done or joined into another.
+hub only accepts the join when both of these hold:
+
+- A is in Proposed.
+- B's work has not started or runs here. The agent that builds B reads the
+  proposals joined into it when the work starts, so the hub refuses to join
+  a proposal into one whose work already runs in its own session.
+
+The hub also refuses to join a proposal into one that is declined,
+withdrawn, done or joined into another.
 
 B's card, and its Start popup, list the joined proposals under Joined into
 this task. pair moves each joined card to Done, and its status line reads
@@ -173,20 +195,24 @@ timeout. When the agent joins a card that other cards were joined into, the
 hub moves those cards to B as well.
 
 When you start B, you approve the work of every proposal joined into it, and
-the agent builds all of it. The agent sees the joined proposals in
-`pair read` when you start B and while B's work runs here, in
-`pair start --from` when B runs in a linked session, and in `pair status`. Joined cards stay joined when
-B's work finishes or the agent reopens B. When the agent runs
-`pair propose --reopen` on a joined card, pair moves that card back to
-Proposed.
+the agent builds all of it. The agent sees the joined proposals in these
+commands:
+
+- `pair read`, when you start B and while B's work runs here
+- `pair start --from`, when B runs in a linked session
+- `pair status`
+
+Joined cards stay joined when B's work finishes or the agent reopens B. When
+the agent runs `pair propose --reopen` on a joined card, pair moves that
+card back to Proposed.
 
 ## Sub-sessions and new agent sessions
 
 A sub-session and a new agent session are both sessions linked to this one,
-and the two sessions link to each other. This session's agent runs a sub-session
-alongside this one. A separate agent runs a new agent session. That agent
-can read this session for context, but never takes it over. In the browser,
-the two kinds work the same way:
+and the two sessions link to each other. This session's agent runs a
+sub-session alongside this one. A separate agent runs a new agent session.
+That agent can read this session for context, but never takes it over. In
+the browser, the two kinds work the same way:
 
 - The card reads Opening a sub-session, or Opening a new agent session,
   until the agent creates the session. Then the card's status line has an

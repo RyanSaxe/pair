@@ -12,14 +12,18 @@ a session. They come in three parts:
 - The reference files. The core and the moments name each one by the
   `pair guide` command that prints it, before the step that needs it.
 
-You can add your own text to any of these files. Put it in a file at the
-same path under `$XDG_CONFIG_HOME/pair/`, or `~/.config/pair/`, and `pair`
-prints it after pair's own text. For example, `pair` prints
+## Your own text
+
+You can add your own text to any of the guide's files. Put it in a file at
+the same path under `$XDG_CONFIG_HOME/pair/`, or `~/.config/pair/`, and
+`pair` prints it after pair's own text. For example, `pair` prints
 `~/.config/pair/pages.md` after `guide/pages.md`. In
 `~/.config/pair/moments/read-open-agent.md` you can say how the agent opens
-a new agent session on your machine. Where your text and pair's disagree,
-the agent follows yours, unless a command refuses. You do not need any of
-these files, and none of them replaces pair's text.
+a new agent session on your machine.
+
+Where your text and pair's disagree, the agent follows yours, unless a
+command refuses. You do not need any of these files, and none of them
+replaces pair's text.
 
 ## Moments
 
@@ -57,11 +61,14 @@ moment is a Markdown file in `guide/moments/`, and
 | [`guide/setup.md`](../../guide/setup.md)           | `pair guide setup.md`      | When a command fails                                      |
 | [`guide/proposals.md`](../../guide/proposals.md)   | `pair guide proposals.md`  | Before it records its first proposal, and to build a plan |
 
-`pair guide components/README.md` prints
-[`src/components/README.md`](../../src/components/README.md), which says how
-to write a component. The agent reads it when you ask it to keep a shape it
-built for a page as a component of your own, in
-`~/.config/pair/components/`. `pair guide components/NAME/markup.html`
-prints a component's markup, or yours when you have a component named NAME.
-`pair guide flow.svg` prints the hand-drawn diagram that
-`guide/components.md` gives as an example.
+## Other files `pair guide` prints
+
+- `pair guide components/README.md` prints
+  [`src/components/README.md`](../../src/components/README.md), which says
+  how to write a component. The agent reads it when you ask it to keep a
+  shape it built for a page as a component of your own, in
+  `~/.config/pair/components/`.
+- `pair guide components/NAME/markup.html` prints a component's markup, or
+  yours when you have a component named NAME.
+- `pair guide flow.svg` prints the hand-drawn diagram that
+  `guide/components.md` gives as an example.

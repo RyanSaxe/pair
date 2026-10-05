@@ -3,25 +3,33 @@
 Start a **thread** when you want the agent to answer a comment right away,
 before the next round.
 
+## Starting a thread
+
 Write a comment, then press **Start a thread** instead of **Add to
 feedback**. The shortcut is <kbd>⌘</kbd> <kbd>Enter</kbd> on a Mac, and
 <kbd>Ctrl</kbd> <kbd>Enter</kbd> elsewhere. The hub sends the comment to the
 agent at once, and pair shows the agent's reply in a card under the block
-you commented on. Pressing **Comment** on a
-[proposal](proposals-and-work.md) starts a thread on it, which pair shows
-under the proposal's card.
+you commented on.
+
+Pressing **Comment** on a [proposal](proposals-and-work.md) starts a thread
+on it, which pair shows under the proposal's card.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
   <img alt="The note dialog quoting a selected line of code, with Add to feedback and Start a thread" src="../assets/note-dialog-light.png">
 </picture>
 
+## The thread's card
+
 The first line of a thread's card shows what the thread is about. For a
 comment on a block, it shows the block's name. For words you selected, it
 shows the table row, line of code, option or checklist item that contains
-them, and the card shows the words in quotes. When a block has four or more
-threads, pair collapses all but the two newest. When you expand or collapse
-a card yourself, pair keeps it that way.
+them, and the card shows the words in quotes.
+
+When a block has four or more threads, pair collapses all but the two
+newest. When you expand or collapse a card yourself, pair keeps it that way.
+
+## Replies
 
 - The agent can reply with text, code, diffs, diagrams, charts, formulas or
   a prototype from this round. When an answer is too long for a thread, or
@@ -55,6 +63,8 @@ How soon the agent reads a thread depends on its agent CLI.
 A reply can take a minute while the agent finishes a long step. The tooltip
 on the ⓘ beside "Sent to the agent", and on **Message the agent** on the
 progress card, shows which of these applies.
+
+## Thread status
 
 The line under your message shows where the thread stands.
 

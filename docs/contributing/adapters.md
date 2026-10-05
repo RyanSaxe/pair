@@ -1,11 +1,20 @@
 # Adapters
 
 The hub wakes Claude Code, Codex, Copilot CLI, pi and opencode, each through
-the CLI's folder under `adapters/`. Each folder's `wake.mjs` exports the
-CLI's `name`, such as `Codex`, and the `command` that runs its executable.
-It also exports the `variables` the CLI gives the commands it runs, and the
-`unwakeable` message for a session that lacks any of them, and three
-functions:
+the CLI's folder under `adapters/`.
+
+## What `wake.mjs` exports
+
+Each folder's `wake.mjs` exports these values:
+
+| Export       | Value                                                    |
+| ------------ | -------------------------------------------------------- |
+| `name`       | The CLI's name, such as `Codex`.                         |
+| `command`    | The command that runs its executable.                    |
+| `variables`  | The variables the CLI gives the commands it runs.        |
+| `unwakeable` | The message for a session that lacks any of `variables`. |
+
+It also exports three functions:
 
 - `detect(env, tools)` returns the wake target for the adapter's agent CLI.
   `src/hub/wake.mjs` only calls it for the adapter it chose, once every one
@@ -25,14 +34,18 @@ functions:
   reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
   on Message the agent.
 
-`src/hub/wake.mjs` lists the adapters and chooses one for `pair start`. It
-compares each ancestor process of the `pair` command, nearest first, with
-every adapter's `command`. That way it chooses the agent CLI that ran the
-command over an outer CLI whose variables the inner one inherited. When no
-ancestor runs an adapter's `command`, it chooses the first adapter whose
-first variable is set. It then calls that adapter's `detect`, or refuses
-with the adapter's `unwakeable` message when one of its `variables` is
-unset.
+## How the hub chooses an adapter
+
+`src/hub/wake.mjs` lists the adapters and chooses one for `pair start`:
+
+1. It compares each ancestor process of the `pair` command, nearest first,
+   with every adapter's `command`. That way it chooses the agent CLI that
+   ran the command over an outer CLI whose variables the inner one
+   inherited.
+2. When no ancestor runs an adapter's `command`, it chooses the first
+   adapter whose first variable is set.
+3. It then calls that adapter's `detect`, or refuses with the adapter's
+   `unwakeable` message when one of its `variables` is unset.
 
 ## When the CLI reads the line
 
@@ -50,12 +63,15 @@ it.
 | pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension         | After the tool calls of the current model response               |
 | opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                           | After the tool calls of the current model response               |
 
-Codex's adapter only uses `turn/steer` while a turn of the thread is in
-progress on the daemon. In every other case, and after any error on the
-daemon's socket, it runs `codex queue`. Copilot's adapter only sends with
-`enqueue` after Copilot refuses `immediate`. Every Copilot CLI from 1.0.70
-to 1.0.91 lists `immediate` in its API schema. When the CLI is idle, the
-line starts a turn on every path except `turn/steer`.
+- Codex's adapter only uses `turn/steer` while a turn of the thread is in
+  progress on the daemon. In every other case, and after any error on the
+  daemon's socket, it runs `codex queue`.
+- Copilot's adapter only sends with `enqueue` after Copilot refuses
+  `immediate`. Every Copilot CLI from 1.0.70 to 1.0.91 lists `immediate` in
+  its API schema.
+
+When the CLI is idle, the line starts a turn on every path except
+`turn/steer`.
 
 `steerable` is `false` after a wake through `enqueue`, and after a wake
 through `codex queue` for a thread that the daemon does not run. It is
@@ -64,15 +80,24 @@ through `codex queue` for a thread that the daemon does not run. It is
 ## A listener inside the CLI
 
 Claude Code, Codex and Copilot CLI each accept a message from another
-process. Claude Code takes it through its inbox socket, Codex through
-`turn/steer` on its app-server daemon or through `codex queue`, and Copilot
-CLI through its SDK. pi and opencode accept no message from another
-process, so their adapters include code that runs inside the CLI. That code
-is the pi extension `adapters/pi/extension.js` and the opencode plugin
-`adapters/opencode/plugin.js`. The user registers the file once. When it is
-missing, `pair start` refuses with the `unwakeable` message, which contains
-the file's absolute path and the command or config file that registers it.
-pair writes nothing into another CLI's settings.
+process:
+
+- Claude Code takes it through its inbox socket.
+- Codex takes it through `turn/steer` on its app-server daemon or through
+  `codex queue`.
+- Copilot CLI takes it through its SDK.
+
+pi and opencode accept no message from another process, so their adapters
+include code that runs inside the CLI. That code is the pi extension
+`adapters/pi/extension.js` and the opencode plugin
+`adapters/opencode/plugin.js`.
+
+The user registers the file once. When it is missing, `pair start` refuses
+with the `unwakeable` message, which contains the file's absolute path and
+the command or config file that registers it. pair writes nothing into
+another CLI's settings.
+
+### The shared listener
 
 The extension and the plugin both use `adapters/listener.mjs`:
 
@@ -91,10 +116,14 @@ The extension and the plugin both use `adapters/listener.mjs`:
 Neither side half-closes the socket before the answer, because Bun, which
 runs opencode's plugins, closes a half-closed socket.
 
-A CLI that exits cleanly closes its listener, which deletes the socket, so
-`send` rejects with `the agent CLI has exited (ENOENT SOCKET)`. A CLI that is
-killed leaves the socket file with nothing listening on it, and `send`
-rejects with `the agent CLI has exited (ECONNREFUSED SOCKET)`.
+### When the CLI exits
+
+- A CLI that exits cleanly closes its listener, which deletes the socket, so
+  `send` rejects with `the agent CLI has exited (ENOENT SOCKET)`.
+- A CLI that is killed leaves the socket file with nothing listening on it,
+  and `send` rejects with `the agent CLI has exited (ECONNREFUSED SOCKET)`.
+
+### The session's variables
 
 The extension and the plugin set two variables for the commands the CLI
 runs, the socket and the ID of the CLI's session. The socket changes each

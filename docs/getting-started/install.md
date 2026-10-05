@@ -7,14 +7,6 @@ npm install -g @ryansaxe/pair             # the application and the pair command
 npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 ```
 
-To update, run `npm update -g @ryansaxe/pair`. You never need to reinstall
-the skill, because the skill only tells the agent to run `pair guide`, which
-prints the instructions of the `pair` you have installed.
-
-Before you update from 0.2 to 0.3, close every open session. Version 0.3
-cannot read the side work, offers or accepted plans that earlier versions
-stored.
-
 ## Your agent CLI
 
 Claude Code lists the skill as `/pair`, and Codex as `$pair`.
@@ -39,3 +31,13 @@ still running.
 - If you already have a different skill named pair, rename it first, both
   its folder and the `name` in its `SKILL.md`. Otherwise `npx skills add`
   replaces it after it asks "Proceed with installation?".
+
+## Update
+
+Run `npm update -g @ryansaxe/pair`. You never need to reinstall the skill,
+because the skill only tells the agent to run `pair guide`, which prints the
+instructions of the `pair` you have installed.
+
+Before you update from 0.2 to 0.3, close every open session. Version 0.3
+cannot read the side work, offers or accepted plans that earlier versions
+stored.

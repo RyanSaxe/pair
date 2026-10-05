@@ -6,8 +6,10 @@ Codex runs each command in a sandbox that blocks network sockets and writes
 outside your project. `pair` needs both to reach its hub and to save the
 session, so without an allow rule for `pair`, Codex asks you to approve every
 `pair` command. `pair start` refuses to run under Codex until the rule exists,
-and prints an instruction for the agent to ask you for it. To add the rule, run
-this once in a terminal, or say yes when the agent asks to run it:
+and prints an instruction for the agent to ask you for it.
+
+To add the rule, run this once in a terminal, or say yes when the agent asks
+to run it:
 
 ```sh
 pair setup-codex
