@@ -104,6 +104,88 @@
 .proposal-card .card-meta {
   margin-bottom: 6px;
 }
+/* The status of approved work, in a grey box under the meta line: the
+   count of its parts and, folded, the next part cut short on one line,
+   with a chevron at the right; open, every part with its mark. */
+.proposal-card .proposal-status,
+#page-content .proposal-card .proposal-status {
+  margin: 0 0 8px;
+  padding: 6px 10px 7px;
+  border-radius: 6px;
+  background: var(--ground);
+  font-size: var(--text-meta);
+  line-height: 1.5;
+}
+.proposal-status.empty {
+  color: var(--muted);
+}
+.proposal-status summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+}
+.proposal-status summary::-webkit-details-marker {
+  display: none;
+}
+.proposal-status summary b {
+  flex: none;
+  color: var(--ink);
+  font-weight: var(--weight-strong);
+}
+.status-next {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.proposal-status[open] :is(.status-sep, .status-next) {
+  display: none;
+}
+.status-mark {
+  display: inline-flex;
+  flex: none;
+}
+.status-mark svg {
+  width: 14px;
+  height: 14px;
+}
+.status-mark.fold {
+  margin-left: auto;
+}
+.proposal-status[open] .status-mark.fold svg {
+  transform: rotate(180deg);
+}
+.proposal-status ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.proposal-card .proposal-status li,
+#page-content .proposal-card .proposal-status li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
+}
+.proposal-card .proposal-status li.done,
+#page-content .proposal-card .proposal-status li.done {
+  color: var(--muted);
+}
+.proposal-status li .status-mark {
+  margin-top: 0.22em;
+  color: var(--line-strong);
+}
+.proposal-status li.done .status-mark {
+  color: var(--ok);
+}
 /* The plan's line, cut short like the meta line, with Open and the
    download icon at its end. */
 .proposal-plan {

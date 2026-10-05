@@ -74,7 +74,8 @@ export function createPlanUI() {
     define,
     diff,
     proposal: drawProposal,
-    comment: (anchor, quote = "") => openNote(page.id, anchor, quote),
+    comment: (anchor, quote = "") =>
+      openNote({ topic: page.id, anchor, quote }),
     enhance,
     prefs,
     mode,

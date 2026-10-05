@@ -13,7 +13,7 @@
   flex-direction: column;
 }
 #reading,
-#feedback {
+#review-view {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -311,7 +311,8 @@ mark.note-mark {
    element beside the page rather than a pseudo-element on the block, because
    a table, a code block and a figure each scroll inside their own box and
    would clip a bar that hung outside it. */
-#reading {
+#reading,
+#work-view {
   position: relative;
 }
 .chosen-bar,

@@ -1,6 +1,6 @@
 import { $, plural, unreachable } from "#frame/app/util.mjs";
 import { base, editable, online, session } from "#frame/app/view.mjs";
-import { openCardNote } from "#frame/notes/notes.mjs";
+import { commentTarget } from "#frame/notes/blocks.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import {
   fromPage,
@@ -9,6 +9,7 @@ import {
   threadLink,
   wordsPlace,
 } from "#frame/pages/card-links.mjs";
+import { statusBox } from "#frame/pages/card-status.mjs";
 import { openStart } from "#frame/pages/start-popup.mjs";
 import {
   listedSession,
@@ -76,7 +77,7 @@ const linkedWaits = () =>
   cards().map((card) =>
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
   );
-// Start, Decline, Restore and Comment need the live session.
+// Start, Decline and Restore need the live session.
 export const cardsEditable = () =>
   editable && online && Boolean(remote) && remote.stage !== "complete";
 // The two numbers on the Work row: the cards that need the reviewer and
@@ -240,14 +241,14 @@ function changed(result, follow = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
   const moved = follow && cards().find((card) => card.id === follow);
-  if (moved && !$("work").hidden) selected = cardTab(moved, context());
+  if (moved && !$("work-view").hidden) selected = cardTab(moved, context());
   refreshWork(true);
   // The next status shows the rest of what the action changed, such as the
   // thread that Open a new agent session starts.
   void poll();
 }
 // The footer holds only buttons, in one row: Decline or Restore on the
-// left, and Comment and Start on the right.
+// left, and Start on the right.
 function actions(card) {
   const button = (className, label, run) => {
     const node = element("button", className, label);
@@ -262,7 +263,6 @@ function actions(card) {
   else if (proposed)
     left.append(button("link-btn", "Decline", () => act(card, "decline")));
   const right = element("span", "proposal-actions");
-  right.append(button("link-btn", "Comment", () => openCardNote(card)));
   if (proposed)
     right.append(
       button("btn primary proposal-start", "Start", () =>
@@ -276,16 +276,17 @@ function actions(card) {
 export function cardElement(card, shown = context(), fresh = false) {
   const root = element("article", "proposal-card");
   root.dataset.proposalCard = card.id;
+  // The comment control names a chosen card by this.
+  root.dataset.kind = "proposal";
   const head = element("p", "proposal-title");
   head.append(element("b", "", card.title));
   if (fresh) head.append(element("span", "page-new", "New"));
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
-  body.append(
-    head,
-    metaLine(state, tone, cardWhere(card)),
-    element("p", "proposal-delivers", card.delivers),
-  );
+  body.append(head, metaLine(state, tone, cardWhere(card)));
+  // Approved work that is not finished shows its status.
+  if (card.started && !finished(card)) body.append(statusBox(card));
+  body.append(element("p", "proposal-delivers", card.delivers));
   // The reviewer's words that started the card, or their message with
   // Start, quoted under what the card delivers, so the card shows
   // everything the reviewer approved.
@@ -310,10 +311,11 @@ export function cardElement(card, shown = context(), fresh = false) {
   const joined = joinedInto(card);
   if (joined.length) body.append(joinedList(joined));
   root.append(body);
-  // A card that cannot change has no buttons, and so no footer.
-  if (cardsEditable()) {
+  // A card with no buttons, such as one that cannot change, has no footer.
+  const buttons = cardsEditable() ? actions(card) : [];
+  if (buttons.some((side) => side.children.length)) {
     const foot = element("div", "proposal-foot");
-    foot.append(...actions(card));
+    foot.append(...buttons);
     root.append(foot);
   }
   return root;
@@ -411,6 +413,8 @@ function renderWork(groups, shown, seen) {
         ]),
   );
   watchCards(list);
+  // The chosen card was drawn again, or left the tab.
+  commentTarget();
 }
 /* The component on a page: the card the hub has under the ID, or the text
    the author wrote where no hub has the card. */
@@ -445,7 +449,7 @@ export function refreshWork(force = false) {
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
-  if ($("work").hidden) return placeThreads();
+  if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards(), shown);
   // A card whose work runs in another session needs the session listing to

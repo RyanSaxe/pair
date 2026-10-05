@@ -71,6 +71,16 @@ export function proposeAction(data) {
     "pair propose takes one of --revise, --start, --withdraw, --done, --join and --reopen",
   );
   const [action] = chosen;
+  // A status replaces the whole status of approved work and changes
+  // nothing else, so it takes no action and no field.
+  if (data.statusDone !== undefined || data.statusLeft !== undefined) {
+    const extra = action ?? flags.find((name) => data[name] !== undefined);
+    requireValue(
+      !extra,
+      `A status takes no --${extra}. Give the status in a pair propose of its own.`,
+    );
+    return { id, action: "status" };
+  }
   const allowed = action && action !== "revise" ? takes[action] : fields;
   const extra = flags.find(
     (name) => data[name] !== undefined && !allowed.includes(name),

@@ -81,8 +81,9 @@ test("Start sends where the work runs and the message, and the running card quot
     await dialog.locator("[data-where=here]").getAttribute("aria-checked"),
     "true",
   );
+  // Shift+Enter in the message box presses Start.
   await dialog.locator("#start-message").fill("Keep the header height.");
-  await dialog.locator("#start-send").click();
+  await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
   assert.equal(
     await waitUntil(async () => (await cards())[0].started === "here"),
@@ -221,8 +222,10 @@ test("Open a new agent session starts the card with a new agent and shows its th
   await page.locator("[data-proposal-card=export] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("[data-where=new-agent]").click();
+  // With a new agent chosen, Shift+Enter in the message box presses Open a
+  // new agent session.
   await dialog.locator("#start-message").fill("Use the board template.");
-  await dialog.locator("#start-open").click();
+  await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
   assert.deepEqual((await cards())[1].started, "new-agent");
   // Work follows the card to Running, with the thread under it.
@@ -236,6 +239,123 @@ test("Open a new agent session starts the card with a new agent and shows its th
     .waitFor({ timeout: 5000 });
   const { threads } = (await session.status()).body;
   assert.equal(threads[0].kind, "open-agent");
+});
+
+// A tap chooses a card on Work or the proposal component on a page, and
+// the comment control then comments on that proposal: its note names the
+// proposal, and its Start a thread starts the card's own thread. With no
+// card chosen it comments on Work, and on Review it adds the overall
+// comment. Once the round's feedback is sent it only starts threads, so
+// Shift+Enter types a new line.
+test("the comment control comments on a chosen card, the proposal component, Work and Review", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const data = planData();
+  data.pages[0].html +=
+    '<div class="proposal" data-proposal="deck" data-kind="proposal"><p><b>Build the deck</b></p></div>';
+  assert.equal((await session.publish(data)).code, 200);
+  for (const [id, title] of [
+    ["deck", "Build the deck"],
+    ["export", "Refresh the export"],
+  ]) {
+    const added = await session.action("propose", card(id, title));
+    assert.equal(added.code, 200, added.body.error);
+  }
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const named = (label) =>
+    page.locator(`#comment-here[aria-label="${label}"]`).waitFor();
+  const comment = async (label, text, button) => {
+    await named(label);
+    await page.locator("#comment-here").click();
+    await page.locator("#note-text").fill(text);
+    await page.getByRole("button", { name: button }).click();
+    await page.locator("#note-dialog").waitFor({ state: "hidden" });
+  };
+  await page.locator("#page-content .proposal-delivers").click();
+  await comment(
+    "Comment on this proposal",
+    "Build it first.",
+    "Add to feedback",
+  );
+
+  await page.locator("#work-row").click();
+  await comment("Comment on Work", "Which ships first?", "Start a thread");
+  await page
+    .locator("#work-threads pair-thread", { hasText: "Which ships first?" })
+    .waitFor();
+  const exported = page.locator("#work-cards [data-proposal-card=export]");
+  await exported.locator(".proposal-delivers").click();
+  await comment(
+    "Comment on this proposal",
+    "Keep the columns.",
+    "Start a thread",
+  );
+  await exported
+    .locator("+ pair-thread", { hasText: "Keep the columns." })
+    .waitFor();
+  // j chooses the first card, and c comments on it.
+  await page.keyboard.press("j");
+  await named("Comment on this proposal");
+  await page.keyboard.press("c");
+  await page
+    .locator("#note-anchor", { hasText: "Work › Build the deck" })
+    .waitFor();
+  await page.locator("#note-text").fill("Start it before the export.");
+  await page.keyboard.press("Shift+Enter");
+  await page.locator("#note-dialog").waitFor({ state: "hidden" });
+  const threads = async () =>
+    (await session.status()).body.threads.map(({ topic, proposal }) => [
+      topic ?? proposal,
+    ]);
+  assert.equal(
+    await waitUntil(async () => (await threads()).length === 2),
+    true,
+  );
+  assert.deepEqual(await threads(), [["work"], ["export"]]);
+
+  // Review shows its Overall heading only once there is an overall comment.
+  await page.locator("#review-row").click();
+  assert.equal(await page.locator("#overall-group").isVisible(), false);
+  await comment("Add overall comment", "Ship it.", "Add to feedback");
+  await page.locator("#overall-group", { hasText: "Ship it." }).waitFor();
+  assert.deepEqual(
+    await page.locator("#feedback-review h2").allTextContents(),
+    ["Your feedback", "Overview", "Work", "Overall"],
+  );
+  await page.locator("#submit").click();
+  assert.equal(
+    await waitUntil(
+      async () => (await session.status()).body.latestSubmissionId,
+    ),
+    true,
+  );
+  const { event } = (await session.action("read")).body;
+  assert.deepEqual(
+    event.payload.groups.notes.map(({ topic, anchor, proposal }) => [
+      topic,
+      anchor,
+      proposal,
+    ]),
+    [
+      ["overview", "Build the deck", "deck"],
+      ["work", "Build the deck", "deck"],
+      ["overall", "Overall feedback", undefined],
+    ],
+  );
+
+  await page.locator("#work-row").click();
+  await named("Comment on Work");
+  await page.locator("#comment-here").click();
+  assert.equal(await page.locator("#note-save").isVisible(), false);
+  const text = page.locator("#note-text");
+  await text.fill("Keep the header height.");
+  await text.press("Shift+Enter");
+  await page.keyboard.type("Drop the footer.");
+  assert.equal(
+    await text.inputValue(),
+    "Keep the header height.\nDrop the footer.",
+  );
 });
 
 test("Decline takes a card out of Proposed, and Restore puts it back", async (t) => {
@@ -297,10 +417,7 @@ test("a card started on the reviewer's words quotes them and links to where they
     await card.locator(".proposal-message").innerText(),
     "“Build the deck now.\nKeep the header height.”",
   );
-  assert.deepEqual(
-    await card.locator(".proposal-foot button").allTextContents(),
-    ["Comment"],
-  );
+  assert.equal(await card.locator(".proposal-foot").count(), 0);
 });
 
 // The agent merges a card into a proposed one. The proposed card lists the
@@ -355,10 +472,7 @@ test("a proposed card and its Start popup list the cards joined into it", async 
     await exported.locator(".card-meta").textContent(),
     "Done·Joined Build the deck",
   );
-  assert.deepEqual(
-    await exported.locator(".proposal-foot button").allTextContents(),
-    ["Comment"],
-  );
+  assert.equal(await exported.locator(".proposal-foot").count(), 0);
 });
 
 // A withdrawn card is in Done with the agent's reason, and Restore puts it
@@ -392,10 +506,7 @@ test("a withdrawn card shows the agent's reason and Restore brings it back, and 
     await exported.locator(".card-meta").textContent(),
     "Done·in #86",
   );
-  assert.deepEqual(
-    await exported.locator(".proposal-foot button").allTextContents(),
-    ["Comment"],
-  );
+  assert.equal(await exported.locator(".proposal-foot").count(), 0);
   await deck.locator(".link-btn", { hasText: "Restore" }).click();
   await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
   assert.equal((await session.status()).body.proposals[0].withdrawn, null);
@@ -406,6 +517,88 @@ test("a withdrawn card shows the agent's reason and Restore brings it back, and 
       ["export", false],
     ],
   );
+});
+
+// A running card shows the agent's status: wider than 720px with every
+// part listed, and on a phone as the count and the next part until the
+// reviewer taps it open, where it stays when the agent writes a new
+// status. A card with no status says so, a status moves no card to
+// another tab, and a finished card shows none.
+test("a running card shows the agent's status, folded on a phone until tapped", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  for (const id of ["deck", "export"]) {
+    const started = await session.request(
+      `${session.base}/api/proposals/${id}/start`,
+      { where: "here" },
+    );
+    assert.equal(started.code, 200, started.body.error);
+  }
+  const status = async (done, left) => {
+    const written = await session.action("propose", {
+      id: "deck",
+      statusDone: done,
+      statusLeft: left,
+    });
+    assert.equal(written.code, 200, written.body.error);
+  };
+  await status(["Outline"], ["Slides", "Speaker notes"]);
+  const box = page.locator("[data-proposal-card=deck] .proposal-status");
+  // The parts on screen, each with its mark's label.
+  const parts = () =>
+    box
+      .locator("li")
+      .evaluateAll((items) =>
+        items
+          .filter((item) => item.checkVisibility())
+          .map((item) => [
+            item.querySelector("[role=img]").getAttribute("aria-label"),
+            item.textContent,
+          ]),
+      );
+  const summary = box.locator("summary");
+  const opened = async () => {
+    await tab("running").click();
+    await box.waitFor();
+  };
+  await tab("running").locator(".work-count", { hasText: "2" }).waitFor();
+  await opened();
+  assert.equal(await summary.textContent(), "1 of 3 done·Next: Slides");
+  assert.equal(await summary.innerText(), "1 of 3 done");
+  assert.deepEqual(await parts(), [
+    ["Done", "Outline"],
+    ["Left", "Slides"],
+    ["Left", "Speaker notes"],
+  ]);
+  assert.equal(
+    await page
+      .locator("[data-proposal-card=export] .proposal-status")
+      .textContent(),
+    "No status from the agent yet",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await opened();
+  assert.deepEqual(await parts(), []);
+  assert.match(await summary.innerText(), /^1 of 3 done\s*·\s*Next: Slides$/);
+  await summary.click();
+  assert.equal((await parts()).length, 3);
+  await status(["Outline", "Slides"], ["Speaker notes"]);
+  await summary.filter({ hasText: "2 of 3 done" }).waitFor();
+  assert.deepEqual(await parts(), [
+    ["Done", "Outline"],
+    ["Done", "Slides"],
+    ["Left", "Speaker notes"],
+  ]);
+  assert.equal(await tab("running").locator(".work-count").textContent(), "2");
+
+  const done = await session.action("propose", { id: "deck", done: true });
+  assert.equal(done.code, 200, done.body.error);
+  await tab("done").locator(".work-count", { hasText: "1" }).waitFor();
+  await tab("done").click();
+  await page.locator("[data-proposal-card=deck]").waitFor();
+  assert.equal(await box.count(), 0);
 });
 
 // A card reads New, with the sidebar's New label, until Work has shown it

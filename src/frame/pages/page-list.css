@@ -176,10 +176,29 @@
 }
 .pending-state {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   color: var(--ink);
+}
+/* The mark sits beside the first line of a note that wraps. */
+.pending-state .page-activity {
+  height: 1lh;
+}
+.pending-state > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pending-label {
   font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.pending-age {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.pending-age.late {
+  color: var(--attention);
 }
 .pending-skeleton {
   display: grid;

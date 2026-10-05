@@ -17,6 +17,14 @@ planUI.define("question", {
       save.hidden = answered;
       edit.hidden = !answered;
     };
+    // Shift+Enter in the box presses Answer, and the button shows the key.
+    // The hint is added here rather than in the markup, so a page whose
+    // author copied the markup before it had the hint shows it too.
+    if (!save.querySelector("kbd")) {
+      const hint = document.createElement("kbd");
+      hint.textContent = "⇧ ↵";
+      save.append(hint);
+    }
     save.disabled = !area.value.trim();
     area.addEventListener("input", () => {
       save.disabled = !area.value.trim();

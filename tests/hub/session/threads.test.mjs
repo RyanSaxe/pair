@@ -180,20 +180,28 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
 
 // The progress card's Message the agent button starts its thread on Agreed,
 // which the round's page list never names.
-test("a thread starts on Agreed from the progress card, and reading it names its block", async (t) => {
+// Besides the round's pages, a thread starts on Agreed's progress card, on
+// Review's overall comment and on Work, and its wake names where.
+test("a thread starts on Agreed's progress card, on the overall comment and on Work, and reading it names its place", async (t) => {
   const { a, start, settled } = await published(t);
-  const started = await start({
-    topic: "agreed",
-    anchor: "Progress",
-    target: "agent-activity",
-  });
-  assert.equal(started.code, 201, started.body.error);
-  const { id } = started.body.thread;
-  await settled(id);
-  const opened = await a.action("reply", { note: id });
-  assert.equal(opened.code, 200, opened.body.error);
-  assert.equal(opened.body.thread.page, "Agreed so far");
-  assert.equal(opened.body.thread.anchor, "Progress");
+  for (const [topic, anchor, target, page] of [
+    ["agreed", "Progress", "agent-activity", "Agreed so far"],
+    ["overall", "Overall feedback", undefined, "Overall feedback"],
+    ["work", "Work", undefined, "Work"],
+  ]) {
+    const started = await start({ topic, anchor, target });
+    assert.equal(started.code, 201, started.body.error);
+    const { id } = started.body.thread;
+    await settled(id);
+    assert.match(
+      a.inbox.wakes.at(-1).message.message.content,
+      new RegExp(`^pair: a thread on "${page}", session `),
+    );
+    const opened = await a.action("reply", { note: id });
+    assert.equal(opened.code, 200, opened.body.error);
+    assert.equal(opened.body.thread.page, page);
+    assert.equal(opened.body.thread.anchor, anchor);
+  }
 });
 
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {

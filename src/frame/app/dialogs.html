@@ -179,17 +179,20 @@
       <dt><kbd>]</kbd> <kbd>[</kbd></dt>
       <dd>Next and previous page</dd>
       <dt><kbd>j</kbd> <kbd>k</kbd></dt>
-      <dd>Choose the next and previous block on the page</dd>
+      <dd>Choose the next and previous block on a page, or card on Work</dd>
       <dt><kbd>c</kbd></dt>
-      <dd>Comment on the selection, the chosen block, or the page</dd>
+      <dd>Comment on the selection, the chosen block or card, or the page</dd>
       <dt><kbd>r</kbd></dt>
       <dd>Review your feedback</dd>
       <dt><kbd>s</kbd></dt>
       <dd>Focus Send feedback; Enter sends or opens it</dd>
       <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
-      <dd>Answer a question or add feedback from its textarea</dd>
+      <dd>
+        Add or save a note, answer a question, or start a card from the Start
+        popup
+      </dd>
       <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
-      <dd>Start a thread from a note or send a reply in a thread</dd>
+      <dd>Start a thread, or send a reply in one</dd>
       <dt><kbd>a</kbd></dt>
       <dd>Open Agreed</dd>
       <dt><kbd>Esc</kbd></dt>
@@ -291,7 +294,14 @@
   <p class="small" id="start-error" role="alert" hidden></p>
   <div class="start-stack start-actions">
     <div class="actions" data-start-for="here sub-session">
-      <button class="btn primary" type="button" id="start-send">Start</button>
+      <button
+        class="btn primary"
+        type="button"
+        id="start-send"
+        aria-keyshortcuts="Shift+Enter"
+      >
+        Start <kbd>⇧ ↵</kbd>
+      </button>
     </div>
     <div class="actions" data-start-for="new-agent">
       <button class="btn" type="button" id="start-copy">Copy command</button>
@@ -300,8 +310,10 @@
         type="button"
         id="start-open"
         aria-describedby="start-open-tip"
+        aria-keyshortcuts="Shift+Enter"
       >
-        Open a new agent session<span class="line-tip" id="start-open-tip"
+        Open a new agent session <kbd>⇧ ↵</kbd
+        ><span class="line-tip" id="start-open-tip"
           >This does not always work.</span
         >
       </button>

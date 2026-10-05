@@ -236,6 +236,25 @@ kbd {
     background: var(--ground);
   }
 }
+/* A button that a key presses shows the key after its label, in the
+   label's type. A touch screen has no keys to hint at, and a window too
+   narrow for the note dialog's two buttons with their hints drops every
+   hint rather than wrap. */
+.btn kbd {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-tiny);
+  opacity: 0.9;
+}
+@media (pointer: coarse), (max-width: 400px) {
+  .btn kbd {
+    display: none;
+  }
+}
 .icon-btn {
   display: inline-flex;
   align-items: center;

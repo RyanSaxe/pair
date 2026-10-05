@@ -284,3 +284,43 @@ test("pair plan in a linked session attaches its own rounds' plan to the parent'
     ).includes("Slides."),
   );
 });
+
+// The agent of a linked session writes the status of the work it runs
+// with its own session's directory, and the hub puts it on the card in
+// the parent, which the parent's directory also reaches.
+test("a status from a linked session goes to the parent's card", async (t) => {
+  const { h, a, reviewer, cardOf } = await linking(t);
+  assert.equal(
+    (await reviewer("deck", "start", { where: "sub-session" })).code,
+    200,
+  );
+  const child = await h.session({
+    start: true,
+    from: a.directory,
+    proposal: "deck",
+  });
+  const written = await child.action("propose", {
+    id: "deck",
+    statusDone: ["Outline"],
+    statusLeft: ["Slides"],
+  });
+  assert.equal(written.code, 200, written.body.error);
+  assert.deepEqual(written.body.parent, { id: a.id, title: "Example work" });
+  assert.deepEqual(
+    { ...(await cardOf("deck")).status, at: undefined },
+    { at: undefined, done: ["Outline"], left: ["Slides"] },
+  );
+  const fromParent = await a.action("propose", {
+    id: "deck",
+    statusDone: ["Outline", "Slides"],
+  });
+  assert.equal(fromParent.code, 200, fromParent.body.error);
+  assert.equal(fromParent.body.parent, undefined);
+  assert.deepEqual((await cardOf("deck")).status.done, ["Outline", "Slides"]);
+  // The linked session runs only deck, so it reaches no other card.
+  const other = await child.action("propose", {
+    id: "notes",
+    statusLeft: ["Draft"],
+  });
+  assert.equal(other.code, 404);
+});

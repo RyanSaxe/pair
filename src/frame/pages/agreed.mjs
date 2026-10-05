@@ -7,9 +7,8 @@ import {
   base,
   editable,
   online,
-  pages,
+  topicTitle,
 } from "#frame/app/view.mjs";
-import { openNote } from "#frame/notes/notes.mjs";
 import { metaLine } from "#frame/pages/work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
@@ -23,8 +22,7 @@ function agreementLabel(entry) {
   return null;
 }
 function describeRecord(record) {
-  const where =
-    pages.find((item) => item.id === record.topic)?.title || record.topic;
+  const where = topicTitle(record.topic) || record.topic;
   if (record.kind === "note") return `your note on ${where}`;
   if (record.kind === "thread") return `your thread on ${where}`;
   if (record.kind === "answer") return `your answer to “${record.label}”`;
@@ -77,6 +75,8 @@ function agreementCard(entry) {
   const card = document.createElement("section");
   card.className = "agreement-card";
   card.id = "agreement-" + entry.id;
+  // The comment control names a chosen card by this.
+  card.dataset.kind = "alignment";
   const body = document.createElement("div");
   body.className = "agreement-body";
   const title = document.createElement("h2");
@@ -108,8 +108,7 @@ function agreementCard(entry) {
     body.append(metaLine(label, tone, rest.textContent ? rest : null));
   body.append(content);
   card.append(body);
-  // The footer holds only buttons: the source's links on the left and
-  // Comment on the right.
+  // The footer holds only buttons: the source's links.
   const strip = document.createElement("div");
   strip.className = "agreement-source";
   const actions = document.createElement("div");
@@ -208,16 +207,8 @@ function agreementCard(entry) {
     );
     actions.append(more);
   }
-  const comment = document.createElement("div");
-  comment.className = "actions";
-  if (editable)
-    comment.append(
-      linkButton("Comment", () =>
-        openNote("agreed", entry.title, "", null, entry.id, card.id),
-      ),
-    );
-  strip.append(actions, comment);
-  strip.hidden = !actions.children.length && !comment.children.length;
+  strip.append(actions);
+  strip.hidden = !actions.children.length;
   card.append(strip, details, preview);
   return card;
 }
@@ -227,6 +218,7 @@ function taskCard() {
   const card = document.createElement("section");
   card.className = "agreement-card task-card";
   card.id = "agreement-task";
+  card.dataset.kind = "task";
   const body = document.createElement("div");
   body.className = "agreement-body";
   const title = document.createElement("h2");
@@ -247,16 +239,8 @@ function taskCard() {
       : agreedTask.change === "updated"
         ? "Updated in this round"
         : "";
-  const actions = document.createElement("div");
-  actions.className = "actions";
-  if (editable)
-    actions.append(
-      linkButton("Comment", () =>
-        openNote("agreed", "The task", "", null, "task", card.id),
-      ),
-    );
-  strip.append(text, actions);
-  strip.hidden = !text.textContent && !actions.children.length;
+  strip.append(text);
+  strip.hidden = !text.textContent;
   card.append(body, strip);
   return card;
 }

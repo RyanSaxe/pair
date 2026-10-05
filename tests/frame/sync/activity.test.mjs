@@ -5,6 +5,7 @@ import {
   agentNotice,
   finishedLine,
   messageTiming,
+  pendingLabel,
   roundModel,
   rowLabel,
 } from "../../../src/frame/sync/activity.mjs";
@@ -175,7 +176,7 @@ test("a session with nothing published prepares its first round, with the note i
   assert.equal(noted.note.text, "Reading the scroll code");
 });
 
-test("a working page's label counts from its note, or from its start, and turns late at five minutes", () => {
+test("a working page's label and the top of its page count from its note, or from its start, and turn late at five minutes", () => {
   const working = { stopped: false, failed: false };
   const at = (clock) => Date.parse(`2026-01-01T00:${clock}Z`);
   const noted = {
@@ -199,6 +200,23 @@ test("a working page's label counts from its note, or from its start, and turns 
   assert.deepEqual(rowLabel({ state: "active" }, working), { text: "Working" });
   assert.deepEqual(rowLabel({ state: "ready" }, working), { text: "Ready" });
   assert.deepEqual(rowLabel({ state: "queued" }, working), { text: "Queued" });
+  assert.deepEqual(pendingLabel(noted, working, at("09:59")), {
+    mark: "active",
+    text: "Drafting",
+    age: "Noted 5 min ago",
+    late: false,
+  });
+  assert.deepEqual(pendingLabel(silent, working, at("10:00")), {
+    mark: "active",
+    text: "Preparing this page",
+    age: "Started 5 min ago",
+    late: true,
+  });
+  assert.deepEqual(pendingLabel(noted, { stopped: true, failed: true }), {
+    mark: "active",
+    stopped: true,
+    text: "Agent stopped",
+  });
 });
 
 test("the round status counts pages until the last one and names a silent agent", () => {

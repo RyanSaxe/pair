@@ -4,9 +4,10 @@ import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
 // On a phone, an alignment agreed from a note keeps its label and source
-// on one line under its title, and its buttons in one row: the source's
-// links on the left and Comment on the right.
-test("an alignment keeps its meta line and its buttons to one row each on a phone", async (t) => {
+// on one line under its title, and the source's links in one row. A tap on
+// the alignment chooses it, and the comment control's note on it carries
+// its ID, so the card counts the note.
+test("an alignment keeps its meta line and its buttons to one row each on a phone, and counts a note from the comment control", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(planData())).code, 200);
@@ -72,6 +73,14 @@ test("an alignment keeps its meta line and its buttons to one row each on a phon
   );
   assert.deepEqual(
     rows.foot.map(([text]) => text),
-    ["Preview", "·", "Open", "Comment"],
+    ["Preview", "·", "Open"],
   );
+  await card.locator(".agreement-body p").click();
+  const control = page.locator(
+    '#comment-here[aria-label="Comment on this alignment"]',
+  );
+  await control.click();
+  await page.locator("#note-text").fill("Keep the order too.");
+  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await card.locator(".card-meta", { hasText: "1 note" }).waitFor();
 });

@@ -44,6 +44,11 @@ export function useView(view) {
   agreedTask = view.task || null;
   pages = view.pages;
 }
+// The title of a round's page, or of the places a note or thread can be on
+// besides the pages: Review's overall comment and Work.
+const placeTitles = { overall: "Overall feedback", work: "Work" };
+export const topicTitle = (topic) =>
+  pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
 // The last round this reader submitted, which keeps Current disabled until
 // the next one arrives, and the past round the left tab shows.
 export let submittedRound = null;
@@ -62,7 +67,7 @@ export function setPage(next) {
 }
 // What is on screen: a page of the round, the Work page or Review.
 export const shownPage = () =>
-  !$("work").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
+  !$("work-view").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
 export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&

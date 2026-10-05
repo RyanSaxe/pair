@@ -17,16 +17,19 @@ import {
   page,
   pages,
   showingWaiting,
+  topicTitle,
 } from "#frame/app/view.mjs";
 import { placeBar } from "#frame/notes/blocks.mjs";
 import { choiceTargets } from "#frame/notes/controls.mjs";
 import {
   drawNoteImages,
+  fitNoteText,
   imageError,
   setNoteImages,
   settleNoteImages,
 } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
+import { cardsEditable } from "#frame/pages/work.mjs";
 
 export const known = {
   choices: new Set(),
@@ -62,7 +65,8 @@ export function rebuildKnown() {
 }
 export function stale(kind, key, item) {
   if (kind === "note") {
-    if (item.topic === "overall") return false;
+    // Review's overall comment and Work are in every round.
+    if (item.topic === "overall" || item.topic === "work") return false;
     if (item.topic === "agreed")
       return Boolean(
         item.agreementId &&
@@ -271,16 +275,7 @@ export function installNotes() {
     )
       return;
     const notes = notesAt(event.clientX, event.clientY);
-    if (notes.length === 1)
-      openNote(
-        notes[0].topic,
-        notes[0].anchor,
-        notes[0].quote,
-        notes[0].id,
-        notes[0].agreementId,
-        notes[0].target,
-        notes[0].occurrence,
-      );
+    if (notes.length === 1) openNote(notes[0]);
     else if (notes.length > 1) show("feedback");
   });
   /* Rebuild the range after a close has finished any page replacement. */
@@ -317,31 +312,45 @@ export function installNotes() {
   new ResizeObserver(placeMarks).observe($("page-content"));
 }
 
-export function openNote(
+/* A note's dialog, for a new note on what it names or, with id, to edit
+   that note. A note on a proposal names the card, and its Start a thread
+   starts the card's own thread. */
+export function openNote({
   topic,
   anchor,
   quote = "",
   id = null,
-  entryId = null,
+  agreementId = null,
   target = null,
   occurrence = 1,
-) {
-  // After the round's feedback is sent, only a new note on a page opens,
-  // and it can only start a thread.
+  proposal = null,
+}) {
+  // After the round's feedback is sent, only a new note opens, and it can
+  // only start a thread: on the round, or on a card wherever its Start
+  // works.
   const feedback = feedbackEditable();
-  if (!noteEditable() || (!feedback && (id || topic === "overall"))) return;
+  const threads = proposal ? cardsEditable() : noteEditable();
+  if (!feedback && (id || !threads)) return;
   clearHighlight("plan-note");
   noteContext = {
     topic,
     anchor,
     quote,
-    ...(entryId ? { agreementId: entryId } : {}),
+    ...(agreementId ? { agreementId } : {}),
     ...(target ? { target } : {}),
     ...(occurrence > 1 ? { occurrence } : {}),
+    ...(proposal ? { proposal } : {}),
   };
   editing = id;
-  noteDraftKey = JSON.stringify([topic, anchor, quote, id, entryId]);
-  const pageTitle = pages.find((item) => item.id === topic)?.title || anchor;
+  noteDraftKey = JSON.stringify([
+    topic,
+    anchor,
+    quote,
+    id,
+    agreementId,
+    ...(proposal ? [proposal] : []),
+  ]);
+  const pageTitle = topicTitle(topic) || anchor;
   $("note-anchor").textContent =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;
   $("note-quote").textContent = quote;
@@ -359,8 +368,8 @@ export function openNote(
   imageError("");
   $("note-title").textContent = id ? "Edit note" : "Add note";
   $("note-save-label").textContent = id ? "Save changes" : "Add to feedback";
-  // A new note on a page can start a thread, when a hub can take it.
-  $("note-thread").hidden = Boolean(id) || topic === "overall" || !online;
+  // A new note can start a thread, when a hub can take it.
+  $("note-thread").hidden = Boolean(id) || !online || !threads;
   $("note-save").hidden = !feedback;
   // Every note opens the dialog in its usual form, whatever the last
   // opening changed.
@@ -369,38 +378,14 @@ export function openNote(
   $("note-thread").classList.remove("primary");
   opener = document.activeElement;
   $("note-dialog").showModal();
-  $("note-text").focus();
-}
-/* Comment on a proposal's card starts a thread on the card, which shows
-   under it. The dialog shows only Start a thread, because the message is
-   for the agent now and does not go into the round's feedback. */
-export function openCardNote(card) {
-  clearHighlight("plan-note");
-  noteContext = { proposal: card.id, title: card.title };
-  editing = null;
-  noteDraftKey = JSON.stringify(["proposal", card.id]);
-  $("note-anchor").textContent = card.title;
-  $("note-anchor").hidden = false;
-  $("note-quote").hidden = true;
-  $("note-text").value = state.noteDrafts?.[noteDraftKey] ?? "";
-  settleNoteImages();
-  setNoteImages([]);
-  drawNoteImages();
-  imageError("");
-  $("note-title").textContent = "Comment on this proposal";
-  $("note-label").textContent = "Message";
-  $("note-save").hidden = true;
-  $("note-thread").hidden = false;
-  $("note-thread").classList.add("primary");
-  opener = document.activeElement;
-  $("note-dialog").showModal();
+  fitNoteText();
   $("note-text").focus();
 }
 /* The progress card's button starts a thread about the work in progress.
    The dialog shows only Start a thread, because the message is for the
    agent now and does not go into the round's feedback. */
 export function openAgentMessage() {
-  openNote("agreed", "Progress", "", null, null, "agent-activity");
+  openNote({ topic: "agreed", anchor: "Progress", target: "agent-activity" });
   if (!$("note-dialog").open) return;
   $("note-title").textContent = "Message the agent";
   $("note-label").textContent = "Message";

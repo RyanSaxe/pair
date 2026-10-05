@@ -1,5 +1,6 @@
 import {
   endRestore,
+  holdInView,
   places,
   rememberPlace,
   restoreScroll,
@@ -43,7 +44,9 @@ import {
   markNotes,
   placeMarks,
 } from "#frame/notes/notes.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
 import { renderAgreements } from "#frame/pages/agreed.mjs";
+import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
@@ -53,7 +56,6 @@ import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
   loadPageRecord,
   pageStatus,
-  pendingState,
   selectedTab,
 } from "#frame/sync/rounds.mjs";
 
@@ -101,6 +103,9 @@ export function show(
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
+  // Review's overall comment is on Review, which a thread or a card names
+  // by the note's page, overall.
+  if (id === "overall") id = "feedback";
   if (!keepScroll && !inPlace) beginMove();
   displayedRound = viewKey();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
@@ -112,17 +117,22 @@ export function show(
   const work = id === "work" && hasWork();
   // Work opens on its first tab with a card, and keeps the tab the reader
   // chose while it stays on screen.
-  const stayed = work && !$("work").hidden;
+  const stayed = work && !$("work-view").hidden;
   let drawing = null;
   // A page whose record is still loading is shown again once it loads, and
   // the move ends with that.
   let loading = false;
   $("reading").hidden = feedback || work;
-  $("feedback").hidden = !feedback;
-  $("work").hidden = !work;
+  $("review-view").hidden = !feedback;
+  $("work-view").hidden = !work;
+  // A choice belongs to the view it was made in.
+  if (!stayed) chooseBlock(null);
   if (stayed) refreshWork(true);
   else if (work) openWork();
-  else if (!feedback) {
+  // The threads on the overall comment go at the end of Review only while
+  // it is on screen, so they are placed before a reply in one is revealed.
+  else if (feedback) placeThreads();
+  else {
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
     loading = page.status === "ready" && page.pending && page.id !== "agreed";
@@ -130,14 +140,11 @@ export function show(
       void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();
     $("page-title").textContent = page.title;
-    chooseBlock(null);
     $("page-content").dataset.pageId = page.id;
     $("page-content").dataset.round = plan.round;
-    const [mark, label] = pendingState(page);
-    $("page-content").innerHTML = page.pending
-      ? `<div class="pending-page ${mark === "active" ? "working" : "queued"}"><span class="pending-state">${pageIndicator(mark).outerHTML}${label}</span><div class="pending-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>`
-      : page.html;
-    if (!page.pending) {
+    $("page-content").innerHTML = page.pending ? pendingPage : page.html;
+    if (page.pending) updatePending();
+    else {
       blockTargets($("page-content"), page.id);
       choiceTargets($("page-content"), page.id);
     }
@@ -176,7 +183,7 @@ export function show(
     (work
       ? $("work-title")
       : feedback
-        ? $("feedback").querySelector("h1")
+        ? $("review-view").querySelector("h1")
         : $("page-title")
     ).focus({ preventScroll: true });
   // Returning to a page within a round lands where the reader left it.
@@ -199,7 +206,7 @@ export function show(
   // from it, so a target is revealed after them.
   whenDrawn(drawing, () => {
     if (!loading) arrived();
-    if (!feedback) reveal(targetId);
+    reveal(targetId);
   });
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
@@ -210,8 +217,12 @@ export function reveal(targetId) {
   const target = targetId && document.getElementById(targetId);
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
-  if (!target || ![$("reading"), $("work")].some((at) => at.contains(target)))
-    return;
+  const view =
+    target &&
+    [$("reading"), $("work-view"), $("review-view")].find((at) =>
+      at.contains(target),
+    );
+  if (!view) return;
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
   // A collapsed thread card shows only its head, so a reply inside it has no
@@ -221,6 +232,7 @@ export function reveal(targetId) {
   if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: "center" });
+  holdInView(target, view);
 }
 export function badge(count) {
   const row = $("review-row");
