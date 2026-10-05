@@ -154,8 +154,7 @@ function startedText(card, started, submission, cards) {
 export const startText = (event, card, cards) =>
   startedText(card, event.payload, event.id, cards);
 // The card a session that pair start --from created runs.
-export const proposalText = (card, cards) =>
-  startedText(card, card.started, undefined, cards);
+export const proposalText = (card) => startedText(card, card.started);
 
 // Each proposal started here that is not done, with the cards joined into
 // it from all, and the reviewer's words that started it, which pair read

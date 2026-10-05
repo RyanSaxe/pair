@@ -217,7 +217,7 @@ export const commands = {
       },
       join: {
         value: "TASK",
-        text: "Mark a card nobody has started done as joined into TASK, a started proposal that is not done, whose work covers it.",
+        text: "Mark a card nobody has started done as joined into TASK, a proposal started here that is not done, whose work covers it.",
       },
       reopen: {
         text: "Undo your --done when feedback asks for changes to the work or the work is not done, or your --join when the work of TASK does not cover the card.",
