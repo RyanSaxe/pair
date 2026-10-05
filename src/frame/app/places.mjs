@@ -104,7 +104,7 @@ export let restoring = null;
    position and then jump when they finish. */
 const heights = new Map();
 const shownBody = () =>
-  ({ work: $("work"), feedback: $("feedback") })[shownPage()] ||
+  ({ work: $("work-view"), feedback: $("review-view") })[shownPage()] ||
   $("page-content");
 export function rememberHeight() {
   const pageId = shownPage();
@@ -114,8 +114,8 @@ export function rememberHeight() {
 export function endRestore() {
   restoring = null;
   $("page-content").style.minHeight = "";
-  $("feedback").style.minHeight = "";
-  $("work").style.minHeight = "";
+  $("review-view").style.minHeight = "";
+  $("work-view").style.minHeight = "";
 }
 export function restoreScroll(top) {
   endRestore();
@@ -155,9 +155,10 @@ export function settleScroll() {
    HOLD_MS pass, anchoring is off and every change in the size of the
    target's view scrolls to the target again.
    The target keeps focus for as long. Once a page loads, the browser
-   focuses the element whose ID the address's # part names, such as Review's
-   section for #feedback, and clears focus when that element cannot take it,
-   so focus that leaves the target for no element goes back to it. */
+   focuses the element whose ID the address's # part names, such as a
+   heading that a page gives the page's own ID, and clears focus when that
+   element cannot take it, so focus that leaves the target for no element
+   goes back to it. */
 const HOLD_MS = 10000;
 const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
 let release = () => {};

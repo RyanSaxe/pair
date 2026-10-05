@@ -1,7 +1,7 @@
 import { ago } from "#frame/app/time.mjs";
 
 /* A page's markup can reuse an ID the frame uses, such as a section with
-   id="work". The page content comes before Work, Review and the dialogs in
+   id="reading". The page content comes before Work, Review and the dialogs in
    the document, so getElementById would return the page's element, and the
    frame would show and hide that element in place of its own. $ returns
    the frame's element whenever the frame has one. */

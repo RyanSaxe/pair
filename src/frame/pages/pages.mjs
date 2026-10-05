@@ -116,14 +116,14 @@ export function show(
   const work = id === "work" && hasWork();
   // Work opens on its first tab with a card, and keeps the tab the reader
   // chose while it stays on screen.
-  const stayed = work && !$("work").hidden;
+  const stayed = work && !$("work-view").hidden;
   let drawing = null;
   // A page whose record is still loading is shown again once it loads, and
   // the move ends with that.
   let loading = false;
   $("reading").hidden = feedback || work;
-  $("feedback").hidden = !feedback;
-  $("work").hidden = !work;
+  $("review-view").hidden = !feedback;
+  $("work-view").hidden = !work;
   // A choice belongs to the view it was made in.
   if (!stayed) chooseBlock(null);
   if (stayed) refreshWork(true);
@@ -182,7 +182,7 @@ export function show(
     (work
       ? $("work-title")
       : feedback
-        ? $("feedback").querySelector("h1")
+        ? $("review-view").querySelector("h1")
         : $("page-title")
     ).focus({ preventScroll: true });
   // Returning to a page within a round lands where the reader left it.
@@ -218,7 +218,9 @@ export function reveal(targetId) {
   // card or the finished line.
   const view =
     target &&
-    [$("reading"), $("work"), $("feedback")].find((at) => at.contains(target));
+    [$("reading"), $("work-view"), $("review-view")].find((at) =>
+      at.contains(target),
+    );
   if (!view) return;
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;

@@ -53,7 +53,7 @@ async function setup(t) {
       (await session.action("reply", { note: id, [as]: text })).code,
       200,
     );
-  return { url, publish, send, thread, reply };
+  return { session, url, publish, send, thread, reply };
 }
 
 const focused = (page, id, row = 1) =>
@@ -61,6 +61,18 @@ const focused = (page, id, row = 1) =>
     (target) => document.activeElement?.id === target,
     `thread-${id}-${row}`,
     { timeout: 5000 },
+  );
+// Once a page loads, the browser scrolls to the element whose ID the
+// address's # part names and focuses it, or clears focus when that element
+// cannot take it. By a task and two frames after the load, it has.
+const afterLoad = (page) =>
+  page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        setTimeout(() =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+      ),
   );
 // The reply sits whole between the header and the bottom of the window.
 async function inView(page, id, row = 1) {
@@ -122,10 +134,8 @@ test("a Progress reply's link opens its card and focuses the reply", async (t) =
 });
 
 // The bell links a reply on the overall comment to the thread's page,
-// overall, and the thread's card is at the end of Review. Once the page
-// loads, the browser focuses the element that the address's #feedback
-// names, Review's own section, or clears focus when it cannot take it.
-test("an overall reply's link opens Review with the thread at its end and keeps the reply focused, and so does the bell from another page", async (t) => {
+// overall, and the thread's card is at the end of Review.
+test("an overall reply's link opens Review with the thread at its end and focuses the reply, and so does the bell from another page", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const id = await s.thread("1", "overall");
@@ -137,23 +147,38 @@ test("an overall reply's link opens Review with the thread at its end and keeps 
     .waitFor();
   await page.locator("#feedback-title", { hasText: "Review" }).waitFor();
   await focused(page, id);
-  await page.evaluate(
-    () =>
-      new Promise((resolve) =>
-        setTimeout(() =>
-          requestAnimationFrame(() => requestAnimationFrame(resolve)),
-        ),
-      ),
-  );
-  assert.equal(
-    await page.evaluate(() => document.activeElement.id),
-    `thread-${id}-1`,
-  );
   await page.locator('#page-list [data-page="agreed"]').click();
   await title(page, "Agreed so far");
   await s.reply(id, "Here again.");
   await bell(page);
   await focused(page, id, 2);
+});
+
+// A reply's link names the reply's page, and the page can give one of its
+// own elements the page's ID.
+test("a reply's link keeps the reply focused after the page loads when an element of its page has the page's ID", async (t) => {
+  const s = await setup(t);
+  const published = await s.session.publish({
+    ...planData("1"),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: '<h2 id="overview">Overview</h2><p id="result">Preserve one result per input.</p>',
+      },
+    ],
+  });
+  assert.equal(published.code, 200);
+  const id = await s.thread("1", "page");
+  await s.reply(id);
+  const page = await open(t, s.url(`?target=thread-${id}-1#overview`));
+  if (!page) return;
+  await focused(page, id);
+  await afterLoad(page);
+  assert.equal(
+    await page.evaluate(() => document.activeElement.id),
+    `thread-${id}-1`,
+  );
 });
 
 test("a reply in the round just sent opens under Last round", async (t) => {
@@ -298,12 +323,12 @@ test("Back to current opens the waiting Agreed, not an empty Review", async (t) 
   const page = await open(t, s.url("#feedback"));
   if (!page) return;
   // The frame saves feedback as round 1's place.
-  await page.locator("#feedback").waitFor();
+  await page.locator("#review-view").waitFor();
   await s.send("1");
   const waiting = async () => {
     await page.locator("#reading").waitFor();
     assert.equal(await page.evaluate(() => location.hash), "#agreed");
-    assert.equal(await page.locator("#feedback").isVisible(), false);
+    assert.equal(await page.locator("#review-view").isVisible(), false);
   };
   await page.goto(s.url("r/1"));
   await page.locator("#history-return").click();
@@ -416,6 +441,57 @@ test("the sidebar opens and closes at 1280px, where it slides without drawing ou
   assert.equal(await sidebar.isVisible(), false);
 });
 
+// Review and Work are each a few screens tall here, with threads on the
+// overall comment and proposals.
+test("Review and Work opened from their addresses keep focus on their heading and stay at the top, on a phone and on desktop", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  for (let n = 1; n <= 6; n++) {
+    await s.thread("1", "overall");
+    const added = await s.session.action("propose", {
+      id: `card-${n}`,
+      title: `Proposal ${n}`,
+      delivers: `Proposal ${n}, delivered.`,
+      recommend: "here",
+    });
+    assert.equal(added.code, 200, added.body.error);
+  }
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  const seen = [];
+  const expected = [];
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 600 });
+    for (const [hash, heading] of [
+      ["#feedback", "feedback-title"],
+      ["#work", "work-title"],
+    ]) {
+      await page.goto("about:blank");
+      await page.goto(s.url(hash));
+      await page.locator(`#${heading}`).waitFor();
+      await afterLoad(page);
+      seen.push(
+        await page.evaluate(
+          ([width, hash]) => ({
+            width,
+            hash,
+            focus: document.activeElement.id,
+            // The page scrolls in main above 720px and in .app-body below.
+            tops: [
+              document.scrollingElement,
+              document.querySelector("main"),
+              document.querySelector(".app-body"),
+            ].map((box) => box.scrollTop),
+          }),
+          [width, hash],
+        ),
+      );
+      expected.push({ width, hash, focus: heading, tops: [0, 0, 0] });
+    }
+  }
+  assert.deepEqual(seen, expected);
+});
+
 // A page's headings can carry the IDs the frame gives Work and Review.
 test("the sidebar marks the page on screen when the page reuses the IDs of Work and Review", async (t) => {
   const h = await hub(t);
@@ -426,7 +502,7 @@ test("the sidebar marks the page on screen when the page reuses the IDs of Work 
       {
         id: "overview",
         title: "Overview",
-        html: '<h2 id="work">Work</h2><p>Proposals.</p><h2 id="feedback">Feedback</h2>',
+        html: '<h2 id="work-view">Work</h2><p>Proposals.</p><h2 id="review-view">Feedback</h2>',
       },
     ],
   });
