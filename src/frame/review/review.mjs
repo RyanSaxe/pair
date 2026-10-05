@@ -420,7 +420,7 @@ export function review() {
         else control.disabled = true;
       });
   commentTarget();
-  renderFooter(!$("feedback").hidden);
+  renderFooter(!$("review-view").hidden);
   const rendered = JSON.stringify([
     state.notes,
     state.choices,

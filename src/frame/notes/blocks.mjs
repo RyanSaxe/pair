@@ -104,8 +104,8 @@ export function blockTargets(root, topic) {
 const units =
   "#work-cards > [data-proposal-card], #page-content .agreement-card, #page-content > *";
 export function choosable() {
-  if (!$("feedback").hidden) return [];
-  const found = !$("work").hidden
+  if (!$("review-view").hidden) return [];
+  const found = !$("work-view").hidden
     ? $("work-cards").querySelectorAll(":scope > [data-proposal-card]")
     : page.id === "agreed"
       ? $("page-content").querySelectorAll(".agreement-card")
@@ -143,7 +143,7 @@ export function placeBar() {
   bar.hidden = !chosen;
   placeButton();
   if (!chosen) return;
-  const host = chosen.closest("#reading, #work");
+  const host = chosen.closest("#reading, #work-view");
   if (bar.parentElement !== host) host.prepend(bar);
   const top = host.getBoundingClientRect().top;
   const box = chosen.getBoundingClientRect();
@@ -182,8 +182,8 @@ function blockKind(block) {
    chosen block or card, then the page. On Review they comment on the
    round's feedback as a whole, and on Work on Work as a whole. */
 function target() {
-  if (!$("feedback").hidden) return "overall";
-  if (!$("work").hidden) return chosen ? "block" : "work";
+  if (!$("review-view").hidden) return "overall";
+  if (!$("work-view").hidden) return chosen ? "block" : "work";
   return selected.length > 3 ? "selection" : chosen ? "block" : "page";
 }
 function usable(on) {
@@ -202,7 +202,7 @@ export function commentTarget() {
   if (chosen && !chosen.isConnected) {
     const id = chosen.dataset.proposalCard;
     chosen =
-      (!$("work").hidden &&
+      (!$("work-view").hidden &&
         id &&
         $("work-cards").querySelector(
           `:scope > [data-proposal-card="${CSS.escape(id)}"]`,
@@ -234,7 +234,7 @@ function placeButton() {
   if (button.hidden) return;
   // At rest the control is a circle, so its height is its width.
   const size = parseFloat(getComputedStyle(button).height);
-  const shown = [$("reading"), $("feedback"), $("work")].find(
+  const shown = [$("reading"), $("review-view"), $("work-view")].find(
     (view) => !view.hidden,
   );
   const text = shown.getBoundingClientRect().right;
@@ -249,7 +249,7 @@ function placeButton() {
 // The note a comment on the chosen card or block starts.
 function chosenNote() {
   const card = cardOf(chosen);
-  const onWork = !$("work").hidden;
+  const onWork = !$("work-view").hidden;
   /* A note on a proposal names the card, and its Start a thread starts the
      card's own thread. On a page it keeps the component's ID, so Review
      can open the page at it. */
