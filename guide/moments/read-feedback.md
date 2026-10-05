@@ -3,9 +3,11 @@ This submission starts a new round. You choose what that round covers.
 - Open the file at the `path` of every `<pair_image>` and at the `preview`
   of every drawing's `<pair_answer>`, and read each thread listed below that
   is about a decision. Compare every note, and anything the user said in
-  chat, with the alignments on Agreed. A note with `occurrence="N"` is on the
-  Nth appearance of its quote in its block, and a note with `proposal="ID"`
-  is about that proposal.
+  chat, with the alignments on Agreed. A note with `occurrence="N"` is on
+  the Nth appearance of its quote in its block, and a note with
+  `proposal="ID"` is about that proposal. A note or thread with
+  `page="work"` and no `proposal` is about the session's proposals as a
+  whole.
 - Update the task first. Then mark each decision settled, reopened, retired
   or still open, and merge or retire what no longer stands, as Keep Agreed
   current in `pair guide agreements.md` says.
