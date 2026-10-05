@@ -43,7 +43,6 @@ moment is a Markdown file in `guide/moments/`, and
 | `read-open-agent.md`        | `pair read --thread` | Prints the thread that Open a new agent session started, until a session links to the proposal. |
 | `read-declined.md`          | `pair read`          | Prints the proposals you declined since the last `pair read`, each once.                        |
 | `read-closed.md`            | `pair read`          | Prints the proposals whose linked session you closed since the last `pair read`, each once.     |
-| `plan.md`                   | `pair plan`          | Attaches a plan to a proposal, or replaces the plan the proposal has.                           |
 | `publish-agreed.md`         | `pair publish`       | Publishes Agreed.                                                                               |
 | `publish-page.md`           | `pair publish`       | Publishes a page, and more pages remain.                                                        |
 | `publish-last-page.md`      | `pair publish`       | Publishes the round's last page.                                                                |

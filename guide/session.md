@@ -7,11 +7,11 @@ interrupted turn. Do not commit pages or feedback to the project.
 
 ## Taking over
 
-The agent that last ran `pair start` on a session is its holder, and the
-hub wakes only the holder. From any other agent, the hub accepts only
-`pair status`, `pair propose`, `pair plan` and `pair start`, and
-`pair start` makes that agent the holder. A subagent runs its commands in
-its parent's environment, so the hub treats it as its parent.
+The agent that last ran `pair start` on a session is its holder, and the hub
+wakes only the holder. From any other agent, the hub accepts only
+`pair status`, `pair propose` and `pair start`, and `pair start` makes that
+agent the holder. A subagent runs its commands in its parent's environment,
+so the hub treats it as its parent.
 
 Any agent, in any agent CLI, can take over a session by running the
 command in the session's handoff line:

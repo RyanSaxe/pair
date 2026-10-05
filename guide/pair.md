@@ -143,9 +143,10 @@ Keep the proposals tidy:
 
 ## Plans
 
-Write a plan when the reviewer asks for one, or when the work is big
-enough that the reviewer should agree on how you will build it before you
-begin. Attach it to its proposal with `pair plan`.
+Write a plan when the reviewer asks for one, or when the work is big enough
+that the reviewer should agree on how you will build it before you begin.
+Plan the work in this session's rounds, and only build it after the reviewer
+approves it. The plan is the round you publish just before you build.
 
 A good plan lets an engineer or agent who saw none of the rounds build the
 work without asking questions. It covers:
@@ -159,13 +160,12 @@ work without asking questions. It covers:
 - what is out of scope;
 - how to check that the work is done.
 
-Keep it as short as it can be while covering that, and use code where code
-is clearer than prose. To write it, explore whatever you need to in a
-scratch worktree, such as a package you have not used, but only build the
-work after the reviewer approves it. Settle every open question on a
-page before you attach the plan. When the reviewer changes what the plan
-should say, attach the new version with `pair plan`. Run
-`pair guide proposals.md` for how to build the plan's pages.
+Write it so that whoever builds the work never has to guess what the
+reviewer decided. Include every alignment about the work, and include code
+only where the code itself was decided, such as an approved interface. Leave
+out what any competent engineer would do anyway. Settle every open question
+before you publish the plan. When the reviewer changes what the plan should
+say, publish the changed pages in the next round.
 
 ## Doing the work
 

@@ -211,7 +211,7 @@
   overflow-wrap: anywhere;
 }
 /* The footer holds only buttons, so it stays one row: Decline or Restore
-   on the left, and Comment and Start on the right. */
+   on the left, and Start on the right. */
 .proposal-foot {
   display: flex;
   justify-content: space-between;

@@ -47,25 +47,3 @@ these flags:
 
 `pair read` prints each proposal the reviewer starts or declines, and each
 proposal whose session they close, with what to do next.
-
-## Plans
-
-Copy each look and interface the reviewer approved into the plan from its
-page source, in the session's `src/ROUND/PAGE/`, and update it to match
-every alignment settled after the reviewer saw it.
-
-Write each page of the plan as a page source, as `pair guide pages.md`
-describes, with `"round": "plan"`, in a directory named by the page's ID.
-Put the directories and a `pages.json` that lists the pages in order in one
-directory, build each page, and attach them:
-
-```sh
-pair plan --session-dir PATH --proposal phone-sidebar --rounds 13-15 \
-  --pages PLAN/pages.json --source PLAN \
-  --file OUT/overview.html --file OUT/steps.html
-```
-
-`--rounds` is the round, or the range of rounds, the plan came from. Give
-one `--file` for each page in `pages.json`, in the same order. In a session
-that `pair start --from` created, `--proposal` can name the proposal the
-session builds, and `--rounds` refers to this session's rounds.

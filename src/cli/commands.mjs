@@ -226,7 +226,7 @@ export const commands = {
       "status-done": {
         value: "TEXT",
         repeats: true,
-        text: "A part of the approved work that you have finished, in at most 80 characters. Give one flag for each part. Each run replaces the card's whole status, which has at most 12 parts.",
+        text: "A part of the approved work that you have finished, in at most 80 characters. Give one flag for each part. Each run replaces the proposal's whole status, which has at most 12 parts.",
       },
       "status-left": {
         value: "TEXT",

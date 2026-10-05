@@ -3,8 +3,7 @@ asked you to build the work in this session. Where the reviewer's words in
 `<pair_start>` ask for something different from the proposal, or more,
 follow their words.
 
-- Begin now, on a new branch. If the proposal has a plan, build from the
-  plan's page sources in `plans/ID/src/` in the session's directory.
+- Begin now, on a new branch.
 - Before you build, record the parts of the work with
   `pair propose --session-dir PATH --id ID --status-left "…"`, with one flag
   for each part.

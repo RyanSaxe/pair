@@ -60,7 +60,7 @@ The agent only edits your project for work you approve.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/work-dark.png">
-  <img alt="Three phone screens, with arrows between them. On the Work page, a proposal to add idempotency keys to charges, with Decline, Comment and Start. Then the Start popup, with In a sub-session chosen and a message to the agent. Then the sub-session, with the agent's pages in progress." src="assets/work-light.png">
+  <img alt="Three phone screens, with arrows between them. On the Work page, a proposal to add idempotency keys to charges, with Decline and Start. Then the Start popup, with In a sub-session chosen and a message to the agent. Then the sub-session, with the agent's pages in progress." src="assets/work-light.png">
 </picture>
 
 The agent records each piece of work it suggests as a proposal, and the Work

@@ -156,7 +156,6 @@ sessions/<dir>/      the directory name is not the session ID
   scenes/            editable shapes of drawing answers
   threads/           one file per thread
   proposals/         one file per proposal
-  plans/<id>/        a proposal's plan: plan.html, pages.json and each page's source
   activity.json      the last 50 events, for the bell
   output/            command output too long to print
 ```

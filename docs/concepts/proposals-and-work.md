@@ -62,12 +62,12 @@ never labels a card in Done as New.
 
 ### What you can do with a card
 
-| To                    | Do this                                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------ |
-| Approve the work      | Press **Start**, choose where the work runs, and add a message to the agent if you want.         |
-| Turn it down          | Press **Decline**. The agent drops the proposal and does not suggest it again.                   |
-| Ask about it          | Press **Comment**, which starts a [thread](threads.md) on the card.                              |
-| Bring a proposal back | Press **Restore** on a declined or withdrawn card in Done. pair moves the card back to Proposed. |
+| To                    | Do this                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Approve the work      | Press **Start**, choose where the work runs, and add a message to the agent if you want.                                                    |
+| Turn it down          | Press **Decline**. The agent drops the proposal and does not suggest it again.                                                              |
+| Ask about it          | Click the card, then press the comment button at the bottom right, or <kbd>c</kbd>. Send it as a [thread](threads.md) to get an answer now. |
+| Bring a proposal back | Press **Restore** on a declined or withdrawn card in Done. pair moves the card back to Proposed.                                            |
 
 ## Where the work runs
 

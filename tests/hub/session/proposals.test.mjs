@@ -461,7 +461,7 @@ test("a status replaces the parts of approved work, only while it runs, and --re
   assert.equal(early.code, 409);
   assert.equal(
     early.body.error,
-    "Proposal churn-export has not been started, so it takes no status.",
+    "The reviewer has not approved proposal churn-export, so you cannot record a status for it yet.",
   );
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
@@ -496,15 +496,15 @@ test("a status replaces the parts of approved work, only while it runs, and --re
       Array(13).fill("A part"),
       [],
       {},
-      "A status takes at most 12 parts, and this one has 13.",
+      "A status has at most 12 parts, and you gave 13.",
     ],
     [
       ["x".repeat(81)],
       [],
       {},
-      "--status-done takes text of at most 80 characters",
+      "Each --status-done is text of at most 80 characters.",
     ],
-    [[], [" "], {}, "--status-left takes text of at most 80 characters"],
+    [[], [" "], {}, "Each --status-left is text of at most 80 characters."],
     [
       ["Schema"],
       [],
@@ -529,7 +529,7 @@ test("a status replaces the parts of approved work, only while it runs, and --re
   assert.equal(finished.code, 409);
   assert.equal(
     finished.body.error,
-    "Proposal churn-export is done, so it takes no status.",
+    "Proposal churn-export is marked done, so you cannot record a status for it.",
   );
   const reopened = await propose({ id: "churn-export", reopen: true });
   assert.equal(reopened.code, 200, reopened.body.error);

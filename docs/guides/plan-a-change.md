@@ -1,9 +1,8 @@
 # Plan a change
 
 Plan a change in a session when you do not yet know how it should be built.
-Planning ends with a plan attached to the
-[proposal](../concepts/proposals-and-work.md) for the work, from which
-someone who saw none of the rounds could build it.
+Planning ends with a round that is the plan, from which someone who saw none
+of the rounds could build the work.
 
 ## Ask
 
@@ -36,17 +35,15 @@ write the plan straight away.
 
 ## Before you start the work
 
-When nothing is left to decide, the agent attaches the plan to the
-proposal. Open the plan with **Open** on the proposal's card on Work, and
-check these points:
+When nothing is left to decide, the agent publishes the plan as the next
+round. Check these points:
 
 - The plan shows every mock, wording and interface you approved, exactly as
   you approved it.
 - The plan says how to check that the work is done.
 - Every alignment on Agreed appears in the plan as you settled it.
 
-When something is wrong, say so with **Comment** on the card or in your
-feedback, and the agent attaches a new version of the plan. When the plan is
-right, press **Start** on the card and choose where the work runs. The
-download button on the card's Plan line downloads the plan as one HTML file
-to keep or send. [Build the work](build-the-work.md) covers what happens next.
+When something is wrong, say so in a note or a thread, and the agent
+publishes the corrected pages in the next round. When the plan is right,
+press **Start** on the work's card on Work and choose where the work runs.
+[Build the work](build-the-work.md) covers what happens next.

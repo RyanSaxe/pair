@@ -24,15 +24,15 @@ thread's card also show the line, with a button that copies it.
 
 ## What other agents can run
 
-| Command                     | When an agent that is not the holder runs it                                      |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| `pair start`                | That agent becomes the holder.                                                    |
-| `pair status`               | It works. You can also run it from a plain terminal while the hub is running.     |
-| `pair propose`, `pair plan` | They work, so a subagent or another agent can record a proposal or attach a plan. |
-| Any other command           | The hub refuses it.                                                               |
+| Command           | When an agent that is not the holder runs it                                  |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `pair start`      | That agent becomes the holder.                                                |
+| `pair status`     | It works. You can also run it from a plain terminal while the hub is running. |
+| `pair propose`    | It works, so a subagent or another agent can record a proposal.               |
+| Any other command | The hub refuses it.                                                           |
 
-`pair status`, `pair propose` and `pair plan` keep working for an agent
-after another agent takes its session over. The hub refuses the former
-holder's next command of any other kind, `pair start` included, with the
-time the takeover happened. The progress card shows which agent took over,
-and when, until you next send feedback.
+`pair status` and `pair propose` keep working for an agent after another
+agent takes its session over. The hub refuses the former holder's next
+command of any other kind, `pair start` included, with the time the
+takeover happened. The progress card shows which agent took over, and when,
+until you next send feedback.
