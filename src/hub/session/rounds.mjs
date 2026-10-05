@@ -48,11 +48,14 @@ export function rounds(session) {
           continue;
         }
         const event = events.find((item) => item.id === ref.submissionId);
-        requireValue(event, "Source submission not found");
+        requireValue(
+          event,
+          `Agreed cites submission ${ref.submissionId}, which this session does not have.`,
+        );
         const item = sourceItem(event.payload, ref);
         requireValue(
           item && typeof item.topic === "string",
-          "Source item not found",
+          `Agreed cites ${ref.kind} ${{ note: ref.noteId, choice: ref.choiceId, answer: ref.answerId }[ref.kind]}, which submission ${ref.submissionId} does not contain.`,
         );
         const text = ref.kind === "choice" ? choiceText(item) : item.text;
         const label = ref.kind === "note" ? item.anchor : item.label;
@@ -221,12 +224,12 @@ export function rounds(session) {
   async function publishPage(html, source, pages) {
     requireValue(
       !(await pending()).length,
-      "Read pending feedback before publishing",
+      `The reviewer sent something you have not read. Run pair read --session-dir ${directory} first, then publish.`,
       409,
     );
     requireValue(
       ["ready", "working"].includes(session.state.stage),
-      "Read feedback before publishing a page",
+      "You published every page of this round, and the reviewer has not sent feedback on it yet. Publish the next round after the hub wakes you with their feedback.",
       409,
     );
     requireValue(
@@ -237,17 +240,17 @@ export function rounds(session) {
     );
     requireValue(
       jsonScript("session-config").test(html),
-      "HTML requires a session-config JSON script",
+      "--file is not a page that pair build wrote. Build the page with pair build, then publish the file it writes.",
     );
     requireValue(
       jsonScript("page-data").test(html),
-      "HTML requires a page-data JSON script",
+      "--file is not a page that pair build wrote. Build the page with pair build, then publish the file it writes.",
     );
     const record = pageData(html);
     const { page } = record;
     requireValue(
       page.id === "agreed" || pages === undefined,
-      "--pages is only valid when publishing Agreed",
+      "Give --pages only when you publish Agreed.",
     );
     let set;
     if (page.id === "agreed") {
@@ -261,13 +264,13 @@ export function rounds(session) {
         !(session.state.rounds || []).some(
           (item) => item.round === record.round,
         ),
-        `Round ${record.round} is already used`,
+        `This session already has a round ${record.round}. Set "round" in Agreed's source to a new round number.`,
         409,
       );
       // pages.md makes the name a stable ID for the whole session.
       requireValue(
         !session.state.current || record.name === session.state.current.name,
-        `This session's plan is named ${session.state.current?.name}. Keep that name in every round.`,
+        `Every round of this session has the name "${session.state.current?.name}". Set "name" in the page source to "${session.state.current?.name}".`,
         409,
       );
       await resolvePageAgreements(page.agreements);
@@ -297,16 +300,20 @@ export function rounds(session) {
       set = structuredClone(session.state.openRound);
       requireValue(
         ["name", "round", "title"].every((key) => record[key] === set[key]),
-        "Page does not match this round",
+        `Page ${page.id} has a different name, round or title from this round's Agreed. Build it with name "${set.name}", round "${set.round}" and title "${set.title}".`,
         409,
       );
       const slot = set.pages?.find((item) => item.id === page.id);
       requireValue(
         slot && slot.title === page.title,
-        "Page is not in this round's list",
+        `Page ${page.id}, "${page.title}", is not in the page list you published with Agreed. Use an ID and title from that list.`,
         409,
       );
-      requireValue(!slot.recordPath, "Page is already published", 409);
+      requireValue(
+        !slot.recordPath,
+        `You already published page ${page.id} in this round.`,
+        409,
+      );
       // Agreed's list names every page of the round, so a page's links are
       // checked as it publishes. A bad link found only when the round
       // completes would sit in a page that can no longer change.
@@ -405,13 +412,13 @@ export function rounds(session) {
     const set = structuredClone(session.state.openRound);
     requireValue(
       Array.isArray(data.start) && data.start.length > 0,
-      "Name each page with --page ID. Publishing a page marks it done.",
+      "Name each page you start with --page ID. pair publish marks a page finished, so you never need to.",
     );
     for (const id of data.start) {
       const slot = set.pages.find((item) => item.id === id);
       requireValue(
         slot && !slot.recordPath,
-        `Unknown or ready page ${id}`,
+        `Page ${id} is not in this round's page list, or you already published it.`,
         409,
       );
       slot.state = "active";

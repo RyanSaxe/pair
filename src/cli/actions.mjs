@@ -46,7 +46,7 @@ export async function read(options) {
           : feedbackText(result.event)
         : declined || closed
           ? ""
-          : "No submission is waiting.",
+          : "You have read everything the reviewer sent.",
       runningText(result.running, cards),
       declinedText(declined),
       closedText(closed),
@@ -165,13 +165,22 @@ const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
 function stageText(status) {
   if (status.paused) return `paused: ${status.paused.reason}`;
-  if (status.stage === "complete") return "complete";
+  if (status.stage === "complete") return "closed by the reviewer";
   if (status.openRound) return "the agent publishes its pages";
   if (status.stage === "submitted")
-    return "a submission is waiting for pair read";
+    return "the reviewer sent something that pair read has not printed yet";
   if (status.stage === "working") return "the agent works on the next round";
-  return "waiting for the reviewer";
+  return status.current
+    ? "the reviewer has not sent feedback yet"
+    : "the agent publishes Agreed";
 }
+
+// The hub's page states, in the words pair status prints.
+const pageStates = {
+  queued: "not started",
+  active: "started",
+  ready: "published",
+};
 
 function holderText({ holder, wake }) {
   if (!holder) return "none";
@@ -201,7 +210,7 @@ function proposalState(card, cards) {
   if (card.done)
     return `done ${card.done.where ?? places[card.started.where]}${plan}${joins}`;
   if (card.started)
-    return `started ${places[card.started.where]}${plan}${joins}`;
+    return `approved to run ${places[card.started.where]}${plan}${joins}`;
   return `proposed${plan}${joins}`;
 }
 
@@ -273,7 +282,7 @@ export async function status(options) {
         [
           "Pages",
           state.openRound?.pages
-            .map((page) => `${page.id} (${page.state})`)
+            .map((page) => `${page.id} (${pageStates[page.state]})`)
             .join(", "),
         ],
         ["Holder", holderText(state)],
@@ -283,7 +292,7 @@ export async function status(options) {
           state.parent &&
             `${state.parent.sessionDir}, proposal ${state.parent.proposal}`,
         ],
-        ["Sub-sessions", linkedText(state.proposals)],
+        ["Linked sessions", linkedText(state.proposals)],
       ]),
       proposalsText(state.proposals),
     ]

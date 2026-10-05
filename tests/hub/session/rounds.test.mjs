@@ -104,7 +104,10 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
-  assert.match(result.body.next, /Pages still to publish: overview, detail\./);
+  assert.match(
+    result.body.next,
+    /You still have to publish these pages: overview, detail\./,
+  );
   assert.match(result.body.next, /pair progress --page ID --note "…"/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
@@ -480,10 +483,10 @@ test("the ack action says the agent has a submission without reading it, and car
   assert.equal(read.body.event.id, event.id);
   // Any other report clears the note, so the card never shows a stale one.
   assert.equal(read.body.status.report.note, null);
-  assert.match(read.body.next, /publish Agreed and the page list/);
+  assert.match(read.body.next, /publish Agreed with the round's page list/);
   const published = await a.publish(planData("2"));
   assert.equal(published.body.roundComplete, true);
-  assert.match(published.body.next, /^Round 2 is published\./);
+  assert.match(published.body.next, /^You published round 2\./);
 });
 
 // A page cannot change once it is published, so a bad link has to be found

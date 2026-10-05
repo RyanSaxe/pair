@@ -340,7 +340,9 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   const again = await cli("--submission", event.id);
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
-  assert.equal((await a.action("read", { id: "nope" })).code, 404);
+  const unknown = await a.action("read", { id: "nope" });
+  assert.equal(unknown.code, 404);
+  assert.match(unknown.body.error, /^This session has no submission nope\. /);
   const original = await fs.readFile(
     path.join(a.directory, "rounds/example.1.html"),
     "utf8",
@@ -366,12 +368,12 @@ test("a session keeps one plan name and uses each round number once", async (t) 
   await a.action("read");
   const duplicate = await a.publish(planData("1"));
   assert.equal(duplicate.code, 409);
-  assert.match(duplicate.body.error, /Round 1 is already used/);
+  assert.match(duplicate.body.error, /This session already has a round 1\./);
   const renamed = await a.publish(planData("2", "other"));
   assert.equal(renamed.code, 409);
   assert.equal(
     renamed.body.error,
-    "This session's plan is named example. Keep that name in every round.",
+    'Every round of this session has the name "example". Set "name" in the page source to "example".',
   );
   assert.equal(
     await exists(path.join(a.directory, "rounds/other.2.html")),

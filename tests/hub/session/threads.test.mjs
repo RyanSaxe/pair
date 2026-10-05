@@ -53,9 +53,9 @@ test("a thread wakes the holder once for each message the reviewer sends, with t
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
   const wakes = () => a.inbox.wakes.map((wake) => wake.message.message.content);
-  const line = `pair: a thread on "Overview", session ${a.directory}, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer.`;
+  const line = `pair: the reviewer wrote to you in a thread on "Overview" in session ${a.directory}. Between your current steps, run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer it, then go on with your work.`;
   assert.deepEqual(wakes(), [
-    `${line}\n\nThe reviewer's message, which pair read prints too:\nWhat happens to a failed item?\n\nThe reviewer attached an image to the message. pair read prints its path.`,
+    `${line}\n\nThe reviewer's message, which pair read also prints:\nWhat happens to a failed item?\n\nThe reviewer attached an image to the message. pair read prints its path.`,
   ]);
   const stored = JSON.parse(
     await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
@@ -87,7 +87,7 @@ test("a thread wakes the holder once for each message the reviewer sends, with t
   assert.equal((await send(id, { text: `${words}boundary` })).code, 201);
   assert.equal(await settled(id), true);
   assert.deepEqual(wakes().slice(1), [
-    `${line}\n\nThe reviewer's message, which pair read prints too:\nAnd a retry?`,
+    `${line}\n\nThe reviewer's message, which pair read also prints:\nAnd a retry?`,
     `${line}\n\nThe beginning of the reviewer's message, which pair read prints whole:\n${words.trimEnd()}…`,
   ]);
 });
@@ -110,7 +110,7 @@ test("the reply action marks the thread read, then posts text or a checked fragm
   const refusals = [
     [
       '<div data-choice="policy" data-label="Policy"><button data-value="a">A</button><button data-value="b">B</button></div>',
-      /A reply cannot contain a decision, checklist or question/,
+      /A reply cannot contain a decision, a checklist or a question/,
     ],
     [
       "<pre>no language</pre>",
@@ -241,7 +241,10 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
     agreements: [entry("no-such-thread")],
   });
   assert.equal(missing.code, 400);
-  assert.equal(missing.body.error, "Source thread not found");
+  assert.equal(
+    missing.body.error,
+    "Agreed cites thread no-such-thread, which this session does not have. Cite a thread ID that pair read printed.",
+  );
   const cited = await a.publish({ ...planData("2"), agreements: [entry(id)] });
   assert.equal(cited.code, 200, cited.body.error);
   const snapshot = await fs.readFile(

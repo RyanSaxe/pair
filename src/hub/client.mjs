@@ -102,8 +102,8 @@ async function spawnHub(config) {
   requireValue(
     started,
     process.env.CODEX_SANDBOX
-      ? `The hub did not start inside the sandbox (its log is ${config.hubLog}): ${sandboxAdvice}`
-      : `The hub did not start; see ${config.hubLog}`,
+      ? `The hub did not start inside the sandbox, and its log is ${config.hubLog}. ${sandboxAdvice}`
+      : `The hub did not start. Read ${config.hubLog} for the reason, then run pair check.`,
   );
   return started;
 }
@@ -122,7 +122,7 @@ async function ensureHub(config = settings()) {
       info = null;
     } else
       console.error(
-        `pair: the hub runs code version ${info.version}; this command is ${version}. It restarts when no session is live.`,
+        `pair: the hub runs code version ${info.version}, and this command is version ${version}. The next pair start that finds no live session replaces the hub with one on its own code.`,
       );
   }
   if (!info) {
@@ -130,12 +130,12 @@ async function ensureHub(config = settings()) {
     // sockets, keeps its record for the commands that can reach it.
     requireValue(
       !(record && hubRunning(record.pid)),
-      `The hub (pid ${record?.pid}) runs but does not answer on port ${record?.port}`,
+      `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
     );
     if (record) await fs.rm(config.hubFile, { force: true });
     requireValue(
       !(config.port && (await portOpen(config.port))),
-      `Port ${config.port} is in use by another program; set PAIR_HUB_PORT`,
+      `Another program is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
     );
     info = await spawnHub(config);
   }
@@ -148,7 +148,7 @@ export async function attach(directory, config, wake, extra = {}) {
   const record = await readRecord(config);
   requireValue(
     record && record.pid === hub.pid,
-    "The hub record is missing; stop the hub process and run `pair start` again",
+    `The hub (pid ${hub.pid}) left no record in ${config.hubFile}. Stop that process, then run pair start again.`,
   );
   const response = await fetch(hub.origin + "/agent/register", {
     method: "POST",

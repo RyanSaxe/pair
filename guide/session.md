@@ -17,7 +17,7 @@ Any agent, in any agent CLI, can take over a session by running the
 command in the session's handoff line:
 
 ```text
-Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
+To take over pair session PATH, run pair start --session-dir PATH and follow what it prints.
 ```
 
 Then follow the next step `pair start` prints. When you are already the
@@ -57,8 +57,8 @@ The hub does not wake you for feedback while the session is paused. When
 the reviewer asks you to continue, run `pair start --session-dir PATH`,
 then `pair read`, which prints any feedback that arrived in the meantime.
 
-Once a `pair` command prints that the session is complete, start a new
-session if the reviewer asks you to continue the work.
+After the reviewer closes the session, start a new session if they ask you
+to continue the work.
 
 When the hub is down, the reviewer can export their feedback from the
 browser as a JSON file. Treat that file as feedback.

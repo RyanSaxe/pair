@@ -54,6 +54,15 @@ export async function print(output, { json, command }) {
   if (parts.length) console.log(parts.join("\n\n"));
 }
 
+// pair build and pair diff write OUTPUT with the wx flag, so the write
+// fails when the file exists, and the agent reads why.
+export const refuseOverwrite = (output) => (error) => {
+  if (error.code !== "EEXIST") throw error;
+  throw new Error(
+    `${output} already exists, and pair never overwrites a file. Write to a new path, or delete that file first.`,
+  );
+};
+
 // Lines of a label and a value, with the values in one column.
 export function rows(pairs) {
   const shown = pairs.filter(([, value]) => value !== undefined && value);

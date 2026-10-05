@@ -104,7 +104,7 @@ test("closing a session deletes nothing inside its directory or in the user's re
   assert.deepEqual(await snapshot(), before);
 });
 
-test("after a close the agent's next command says the session is complete, and nothing wakes it", async (t) => {
+test("after a close the agent's next command says the reviewer closed the session, and nothing wakes it", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
@@ -115,10 +115,16 @@ test("after a close the agent's next command says the session is complete, and n
   for (const action of ["read", "ack", "publish"]) {
     const refused = await a.action(action);
     assert.equal(refused.code, 409);
-    assert.equal(refused.body.error, "The session is complete.");
+    assert.equal(
+      refused.body.error,
+      "The reviewer closed this session. Stop working on it.",
+    );
   }
   const status = await a.action("status");
-  assert.equal(status.body.next, "The session is complete.");
+  assert.equal(
+    status.body.next,
+    "The reviewer closed this session. Stop working on it.",
+  );
   assert.equal(status.body.status.stage, "complete");
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 1);

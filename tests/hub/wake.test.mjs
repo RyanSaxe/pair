@@ -41,7 +41,7 @@ test("a submission wakes the holder with the line that names the session", async
         type: "user",
         message: {
           role: "user",
-          content: `pair: the reviewer submitted round 1 of session ${a.directory}. Run first: pair read --session-dir ${a.directory}. It prints the feedback and the next step.`,
+          content: `pair: the reviewer sent feedback on round 1 of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints the feedback and your next step.`,
         },
       },
     },
@@ -174,7 +174,7 @@ const extension = fileURLToPath(
 test("start refuses without a wake path and says what to do", () => {
   assert.throws(() => detectWake({}, tools([])), {
     message:
-      "no wake path. This needs Claude Code, Codex, Copilot, pi or opencode, and none of their session variables is set.",
+      "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. Tell the user, and stop.",
   });
   // pi without pair's extension, found as an ancestor or, with no agent CLI
   // among the ancestors, by its first variable.

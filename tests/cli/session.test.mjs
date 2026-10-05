@@ -30,7 +30,10 @@ test("the CLI builds and publishes each page with its own saved source", async (
     html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
   });
   assert.equal(unsupported.code, 400);
-  assert.match(unsupported.body.error, /page-data/);
+  assert.match(
+    unsupported.body.error,
+    /--file is not a page that pair build wrote/,
+  );
   const command = (args) => cli.run(...args);
   const agreedSource = path.join(root, "agreed-source");
   await fs.mkdir(agreedSource);

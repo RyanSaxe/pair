@@ -319,7 +319,7 @@ test(
     await assert.rejects(start(), ({ stderr }) => {
       assert.equal(
         stderr,
-        `pair: The hub (pid ${pid}) runs but does not answer on port ${port}\n`,
+        `pair: The hub (pid ${pid}) is running but does not answer on port ${port}. Run pair guide setup.md and follow it.\n`,
       );
       return true;
     });

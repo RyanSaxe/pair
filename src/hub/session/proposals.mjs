@@ -82,7 +82,7 @@ export async function proposals(session) {
   async function add(id, data) {
     requireValue(
       !cards.has(id),
-      `This session already has proposal ${id}. Change it with --revise, or give a new proposal its own --id.`,
+      `This session already has proposal ${id}. Edit it with --revise, or give the new proposal its own --id.`,
       409,
     );
     const now = timestamp();
@@ -112,17 +112,17 @@ export async function proposals(session) {
   async function revise(card, data) {
     requireValue(
       !card.started,
-      `Proposal ${card.id} was started, which approved what it said, so it takes no --revise. Record any further change as a new proposal.`,
+      `The reviewer approved proposal ${card.id} as it stands, so you cannot revise it. Record any further work as a new proposal.`,
       409,
     );
     requireValue(
       !card.declined,
-      `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
+      `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
       409,
     );
     requireValue(
       !card.withdrawn && !card.done,
-      `Proposal ${card.id} is ${card.done ? "done" : "withdrawn"}, so it takes no --revise. Record further work as a new proposal.`,
+      `Proposal ${card.id} is ${card.done ? "marked done" : "withdrawn"}, so you cannot revise it. Record further work as a new proposal.`,
       409,
     );
     const patch = Object.fromEntries(
@@ -158,8 +158,16 @@ export async function proposals(session) {
       `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
       409,
     );
-    requireValue(!card.done, `Proposal ${card.id} is done`, 409);
-    requireValue(!card.started, `Proposal ${card.id} was already started`, 409);
+    requireValue(
+      !card.done,
+      `Proposal ${card.id} is already marked done.`,
+      409,
+    );
+    requireValue(
+      !card.started,
+      `Proposal ${card.id} is already approved.`,
+      409,
+    );
     const round = session.state.current?.round ?? null;
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
@@ -182,16 +190,16 @@ export async function proposals(session) {
     const fromWords = started.by === "words";
     const text = fromWords ? started.quote : started.message;
     const note = text
-      ? `\n\n${fromWords ? "The reviewer's words" : "The reviewer's message with Start"}, which pair read prints too:\n${text}`
+      ? `\n\nThe reviewer's words, which pair read also prints:\n${text}`
       : "";
     const place =
       started.where === "here"
-        ? `here in session ${directory}`
+        ? `in session ${directory}`
         : `in a sub-session of session ${directory}`;
     const what = fromWords
-      ? `an agent started proposal ${id}, "${card.title}", ${place}, on the reviewer's words`
-      : `the reviewer started proposal ${id}, "${card.title}", ${place}`;
-    const line = `pair: ${what}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
+      ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
+      : `the reviewer approved proposal ${id}, "${card.title}", to run ${place}`;
+    const line = `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`;
     const last = await session.sendWake(line);
     if (session.wake)
       await transition({ wake: { harness: session.wake.harness, last } });
@@ -292,12 +300,16 @@ export async function proposals(session) {
   async function withdraw(card, data) {
     requireValue(
       !card.declined,
-      `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
+      `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
       409,
     );
     requireValue(
       !card.started && !card.done && !card.withdrawn,
-      `Proposal ${card.id} ${card.withdrawn ? "is already withdrawn" : card.done ? "is done" : "was started"}, so it takes no --withdraw.`,
+      card.withdrawn
+        ? `Proposal ${card.id} is already withdrawn.`
+        : card.done
+          ? `Proposal ${card.id} is marked done, so you cannot withdraw it.`
+          : `The reviewer approved proposal ${card.id}, so you cannot withdraw it.`,
       409,
     );
     requireValue(
@@ -313,21 +325,27 @@ export async function proposals(session) {
   // started here or not started. Only closing a linked session marks the
   // card of work started there, so the card keeps its link to that session.
   async function done(card, data) {
-    requireValue(!card.done, `Proposal ${card.id} is already done`, 409);
+    requireValue(
+      !card.done,
+      `Proposal ${card.id} is already marked done.`,
+      409,
+    );
     requireValue(
       !card.declined && !card.withdrawn,
-      `Proposal ${card.id} was ${card.declined ? "declined" : "withdrawn"}, so it takes no --done.`,
+      card.declined
+        ? `The reviewer declined proposal ${card.id}, so you cannot mark it done.`
+        : `Proposal ${card.id} is withdrawn, so you cannot mark it done.`,
       409,
     );
     requireValue(
       !card.started || card.started.where === "here",
-      `Proposal ${card.id} runs in a ${card.started?.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done.`,
+      `Proposal ${card.id} runs in ${card.started?.where === "new-agent" ? "a new agent's session" : "a sub-session"}. The hub marks it done when the reviewer closes that session.`,
       409,
     );
     const where = data.where === undefined ? null : words(data, "where");
     requireValue(
       where || card.started,
-      `Proposal ${card.id} has not been started. When its work got done somewhere else, run --done with --where, such as --where "in #86".`,
+      `The reviewer has not approved proposal ${card.id}. If its work was finished somewhere else, add --where to say where, such as --where "in #86".`,
       409,
     );
     return save(card, {
@@ -365,10 +383,14 @@ export async function proposals(session) {
   // --reopen undoes the agent's own --done or --join, so the card returns
   // to Running, or to Proposed when nobody started it.
   async function reopen(card) {
-    requireValue(card.done, `Proposal ${card.id} is not done`, 409);
+    requireValue(
+      card.done,
+      `Proposal ${card.id} is not marked done, so there is nothing to reopen.`,
+      409,
+    );
     requireValue(
       card.done.by === "agent",
-      `Closing its linked session marked proposal ${card.id} done, so it takes no --reopen.`,
+      `The hub marked proposal ${card.id} done when the reviewer closed the session that built it, so you cannot reopen it.`,
       409,
     );
     return save(card, { done: null });
@@ -395,17 +417,17 @@ export async function proposals(session) {
     const card = find(id);
     requireValue(
       !card.declined,
-      `The reviewer declined proposal ${id}, so it takes no plan`,
+      `The reviewer declined proposal ${id}, so you cannot attach a plan to it.`,
       409,
     );
     requireValue(
       !card.withdrawn,
-      `Proposal ${id} was withdrawn, so it takes no plan`,
+      `Proposal ${id} is withdrawn, so you cannot attach a plan to it.`,
       409,
     );
     requireValue(
       !card.done,
-      `Proposal ${id} is done, so it takes no plan`,
+      `Proposal ${id} is marked done, so you cannot attach a plan to it.`,
       409,
     );
     return card;
@@ -434,12 +456,12 @@ export async function proposals(session) {
       `Proposal ${id} is already linked to session ${card.started?.session?.dir}`,
       409,
     );
-    requireValue(!card.done, `Proposal ${id} is done`, 409);
+    requireValue(!card.done, `Proposal ${id} is already marked done.`, 409);
     requireValue(
       card.started && card.started.where !== "here",
       card.started
-        ? `Proposal ${id} was started here, so it runs in this session's rounds`
-        : `The reviewer has not started proposal ${id}. pair start --from runs a proposal started in a sub-session or with a new agent.`,
+        ? `The reviewer approved proposal ${id} to run in session ${directory} itself, so build it in that session's rounds, not with pair start --from.`
+        : `The reviewer has not approved proposal ${id}. Only run pair start --from for a proposal the reviewer approved to run in a sub-session or with a new agent.`,
       409,
     );
     return card;

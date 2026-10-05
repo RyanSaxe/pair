@@ -30,7 +30,11 @@ async function readBody(req, limit) {
   let raw = "";
   for await (const chunk of req) {
     raw += chunk;
-    requireValue(Buffer.byteLength(raw) <= limit, "Request too large", 413);
+    requireValue(
+      Buffer.byteLength(raw) <= limit,
+      `The request is over the hub's limit of ${limit} bytes.`,
+      413,
+    );
   }
   return JSON.parse(raw);
 }

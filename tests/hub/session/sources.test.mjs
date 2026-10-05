@@ -87,7 +87,10 @@ test("publication resolves exact mixed sources from saved feedback before hashin
       agreements: [{ ...entry, sourceRefs: [ref] }],
     });
     assert.equal(rejected.code, 400);
-    assert.match(rejected.body.error, /Source .*not found/);
+    assert.match(
+      rejected.body.error,
+      /^Agreed cites \w+ missing, which .* does not (have|contain)\.$/,
+    );
   }
   for (const sourceRefs of [
     [],
@@ -239,7 +242,10 @@ test("answers travel with feedback and resolve as agreement sources", async (t) 
     ],
   });
   assert.equal(missing.code, 400);
-  assert.match(missing.body.error, /Source item not found/);
+  assert.match(
+    missing.body.error,
+    /^Agreed cites answer nope, which submission \S+ does not contain\.$/,
+  );
 });
 
 test("agreements survive topic changes and targeted feedback without rewriting snapshots", async (t) => {

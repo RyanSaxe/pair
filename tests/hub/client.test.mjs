@@ -44,7 +44,7 @@ test("start refuses another program's hub at once and creates no session, and ch
   await assert.rejects(start(), ({ stderr }) => {
     assert.match(
       stderr,
-      new RegExp(`Port ${other.port} is in use by another program`),
+      new RegExp(`Another program is using port ${other.port}\\.`),
     );
     return true;
   });

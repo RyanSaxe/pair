@@ -32,8 +32,8 @@ inside the session's directory, which `pair start` prints, or in a plain
 directory there when the project is not a git repository. Ask the reviewer
 before you delete a worktree you made.
 
-When a `pair` command prints that the session is complete, stop working on
-it.
+When a `pair` command prints that the reviewer closed the session, stop
+working on it.
 
 ## How pair tells you what to do
 

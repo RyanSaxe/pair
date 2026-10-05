@@ -9,12 +9,12 @@ import { requireValue } from "../../shared/util.mjs";
 export function joinable(card, task) {
   requireValue(
     !card.declined,
-    `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
+    `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
     409,
   );
   requireValue(
     !card.started && !card.done && !card.withdrawn,
-    `Proposal ${card.id} ${card.withdrawn ? "was withdrawn" : card.done?.joined ? `already joined ${card.done.joined}` : card.done ? "is done" : "was started"}, so it takes no --join.`,
+    `${card.withdrawn ? `Proposal ${card.id} is withdrawn` : card.done?.joined ? `Proposal ${card.id} is already joined into ${card.done.joined}` : card.done ? `Proposal ${card.id} is marked done` : `The reviewer approved proposal ${card.id}`}, so you cannot join it into another proposal.`,
     409,
   );
   requireValue(
@@ -26,12 +26,12 @@ export function joinable(card, task) {
     into === card.id ? "" : ` Join proposal ${card.id} into ${into}.`;
   requireValue(
     !into,
-    `Proposal ${task.id} already joined ${into}, so no proposal can join it.${instead}`,
+    `Proposal ${task.id} is joined into ${into}, so no proposal can join it.${instead}`,
     409,
   );
   const closed = task.declined
     ? `The reviewer declined proposal ${task.id}`
-    : `Proposal ${task.id} ${task.withdrawn ? "was withdrawn" : "is done"}`;
+    : `Proposal ${task.id} is ${task.withdrawn ? "withdrawn" : "marked done"}`;
   requireValue(
     !task.declined && !task.withdrawn && !task.done,
     `${closed}, so no proposal can join it.`,

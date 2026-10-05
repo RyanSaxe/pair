@@ -165,7 +165,7 @@ test("pair plan refuses a round the session does not have, a declined or done ca
   );
   const done = await attach([steps]);
   assert.equal(done.code, 409);
-  assert.match(done.body.error, /deck is done/);
+  assert.match(done.body.error, /deck is marked done/);
   assert.equal(
     (await a.request(`${a.base}/plans/none/`)).code,
     404,

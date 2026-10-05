@@ -21,7 +21,7 @@ test("start hands the session to its agent, and only the holder works on it and 
   // to take it over, not that anyone took it over.
   assert.equal(
     (await a.action("ack", { agent: three.agent })).body.error,
-    `Another agent has been this session's holder since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
+    `Another agent has run this session since ${clock(first.at)}, so stop working on it. If the reviewer asks you to take it over, run pair start --session-dir ${a.directory}.`,
   );
   // Another agent's start takes it over, and the reviewer's card says so.
   // That agent may never have read the core, so its next step starts there.
@@ -30,7 +30,7 @@ test("start hands the session to its agent, and only the holder works on it and 
   assert.equal(took.code, 200);
   assert.match(
     took.body.next,
-    /^Run pair guide first unless you have read it in this conversation\. /,
+    /^If you have not run pair guide in this conversation, run it first\. /,
   );
   const { holder, takeover } = (await a.status()).body;
   assert.equal(holder.harness, "claude-code");
@@ -52,7 +52,7 @@ test("start hands the session to its agent, and only the holder works on it and 
     assert.equal(refused.code, 409);
     assert.match(
       refused.body.error,
-      /^Another agent has been this session's holder/,
+      /^Another agent has run this session since /,
     );
   }
   assert.deepEqual((await a.status()).body.holder, holder);

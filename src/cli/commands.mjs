@@ -21,13 +21,13 @@ export const commands = {
     group: "session",
     purpose: "Start a session, or resume or take over one with --session-dir",
     about:
-      "Make this agent the holder of a new session, or of the one --session-dir names, and print the session's directory and URL. With --from and --proposal, create a session for a proposal of another session, linked to it.",
+      "Create a session, or take over the one --session-dir names, so the hub wakes this agent when the reviewer sends feedback, and print the session's directory and URL. With --from and --proposal, create a session that builds one proposal of another session, linked to that session.",
     usage:
       "pair start (--title TEXT | --session-dir DIR | --from DIR --proposal ID)",
     flags: {
       title: {
         value: "TEXT",
-        text: "The new session's title, which the reviewer sees until the first Agreed replaces it. Required when pair start creates a session without --from.",
+        text: "The new session's title, until the title of the first Agreed you publish replaces it. pair start needs it to create a session without --from.",
       },
       "session-dir": {
         value: "DIR",
@@ -39,7 +39,7 @@ export const commands = {
       },
       proposal: {
         value: "ID",
-        text: "The proposal the new session runs, which the reviewer started in a sub-session or with a new agent. Given with --from.",
+        text: "The proposal the new session builds, which the reviewer approved to run in a sub-session or with a new agent. Give it with --from.",
       },
       json,
     },
@@ -49,13 +49,13 @@ export const commands = {
     group: "session",
     purpose: "Print the reviewer's next submission, a past one, or a thread",
     about:
-      "Print the reviewer's next submission and mark it received and read, then list each thread with a new message or agreement from the reviewer since the submission before it.",
+      "Print what the reviewer sent that you have not read yet, and mark it read. Then list each thread where the reviewer wrote, or agreed with one of your messages, since their previous submission.",
     usage: "pair read --session-dir DIR [--submission ID | --thread ID]",
     flags: {
       "session-dir": sessionDir,
       submission: {
         value: "ID",
-        text: "Print that past submission again and mark nothing, for a turn that resumes after an interruption.",
+        text: "Print that submission again without marking anything, when you resume after an interruption.",
       },
       thread: {
         value: "ID",
@@ -67,19 +67,20 @@ export const commands = {
   },
   progress: {
     group: "session",
-    purpose: "Report a page started, or a note on a page or the round",
+    purpose:
+      "Report that you started a page, or post a note on a page or the round",
     about:
-      "Report what you are doing, which the progress card shows: a page started, a note on a page, or a note on the round.",
+      "Report that you started a page, or post a note about a page or the round, so the reviewer can follow what you are doing.",
     flags: {
       "session-dir": sessionDir,
       page: {
         value: "ID",
         repeats: true,
-        text: "A page of the round. A report on a page marks it started. Give it once for each page worked on at the same time.",
+        text: "A page of the open round, which pair progress marks as started. Give --page once for each page you work on at the same time.",
       },
       note: {
         value: "TEXT",
-        text: "What you are doing, in at most 80 characters. With --page it goes on that page's row. Alone it is a note on the round, before or after Agreed.",
+        text: "What you are doing, in at most 80 characters. With --page, the note is about those pages, and without it, about the round.",
       },
       json,
     },
@@ -100,11 +101,11 @@ export const commands = {
       },
       pages: {
         value: "JSON",
-        text: "The round's page list, given with Agreed only.",
+        text: "The round's page list. Give it only when you publish Agreed.",
       },
       source: {
         value: "DIR",
-        text: "The page's source directory, which pair copies into the session so the next round starts from it.",
+        text: "The page's source directory, which pair copies into the session so you can start the next round from it.",
       },
       json,
     },
@@ -136,15 +137,15 @@ export const commands = {
   },
   pause: {
     group: "session",
-    purpose: "Pause the session when the user says to stop",
+    purpose: "Pause the session when the reviewer tells you to stop",
     about:
-      "Pause the session when the user says to stop. pair start resumes it.",
+      "Pause the session when the reviewer tells you to stop. pair start resumes it.",
     flags: {
       "session-dir": sessionDir,
       reason: {
         value: "TEXT",
         required: true,
-        text: "Why the session stopped, which the progress card shows.",
+        text: "Why you paused the session, in a few words.",
       },
       json,
     },
@@ -154,7 +155,7 @@ export const commands = {
     group: "session",
     purpose: "Print where the session stands. Any agent may run it.",
     about:
-      "Print where the session stands. Any agent may run it, and only the holder's output starts with the next step.",
+      "Print where the session stands. Any agent may run it. The output starts with the next step only for the session's holder, the agent that last ran pair start on it.",
     flags: { "session-dir": sessionDir, json },
     run: status,
   },
@@ -163,7 +164,7 @@ export const commands = {
     purpose:
       "Record a proposal, or revise, start, withdraw, finish, join or reopen one",
     about:
-      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --start, --withdraw, --done, --join and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
+      "Record a piece of work as a proposal, which the reviewer can approve, decline or comment on. With one of --revise, --start, --withdraw, --done, --join or --reopen, act on the proposal that --id names. Any agent may run it. The output starts with the next step only for the session's holder, the agent that last ran pair start on it.",
     usage:
       "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --withdraw | --done | --join TASK | --reopen] [FIELDS]",
     flags: {
@@ -171,7 +172,7 @@ export const commands = {
       id: {
         value: "ID",
         required: true,
-        text: "The card's ID, a slug of lowercase letters, digits and hyphens, such as phone-sidebar. A new card takes an ID the session does not have.",
+        text: "The proposal's ID, a slug of lowercase letters, digits and hyphens, such as phone-sidebar. A new proposal needs an ID the session does not have yet.",
       },
       title: { value: "TEXT", text: "The work, in at most 80 characters." },
       delivers: {
@@ -191,47 +192,47 @@ export const commands = {
         text: "The page the work came from, or with --start the page the reviewer's words are on, such as 14/commenting.",
       },
       revise: {
-        text: "Replace the fields given and keep the rest. Refused once the card is started.",
+        text: "Replace the fields you give and keep the rest. The hub refuses it once the reviewer has approved the proposal.",
       },
       start: {
         value: "WHERE",
-        text: "Start the card because the reviewer asked for the work in their own words, with --quote. WHERE is here, sub-session or new-agent.",
+        text: "Mark the proposal started when the reviewer asks you for the work in their own words, and give those words with --quote. WHERE is here, sub-session or new-agent.",
       },
       quote: {
         value: "TEXT",
         text: "With --start, the reviewer's words that asked for the work, in at most 4,000 characters.",
       },
       withdraw: {
-        text: "Withdraw a card nobody has started that no longer applies, with --reason.",
+        text: "Withdraw a proposal the reviewer has not approved when it no longer applies, and say why with --reason.",
       },
       reason: {
         value: "TEXT",
         text: "With --withdraw, why the proposal no longer applies, in at most 400 characters.",
       },
       done: {
-        text: "Mark work started here done, after you publish its last page. With --where, mark any card done whose work got done somewhere else.",
+        text: "Mark the proposal done after you publish the last page about work you built in this session. With --where, mark any proposal done whose work was finished somewhere else.",
       },
       where: {
         value: "TEXT",
-        text: 'With --done, where the work got done, such as "in #86", in at most 120 characters.',
+        text: 'With --done, where the work was finished, such as "in #86", in at most 120 characters.',
       },
       join: {
         value: "TASK",
-        text: "Merge a card nobody has started into TASK, a proposal that is not done and not running in another session, when the work of TASK covers the card. The hub marks the card done as joined into TASK.",
+        text: "Merge this proposal into proposal TASK when TASK's work covers it. Only join a proposal the reviewer has not approved, into a TASK that is not marked done and is not running in another session. The hub then marks this proposal done as joined into TASK.",
       },
       reopen: {
-        text: "Undo your --done when feedback asks for changes to the work or the work is not done, or your --join when the work of TASK does not cover the card.",
+        text: "Undo your --done when the reviewer asks for changes to the work or it is not finished, or undo your --join when TASK's work does not cover this proposal.",
       },
       json,
     },
-    footer: "A new card takes --title, --delivers and --recommend.",
+    footer: "A new proposal needs --title, --delivers and --recommend.",
     run: propose,
   },
   plan: {
     group: "session",
     purpose: "Attach a plan to a proposal, or replace the plan it has",
     about:
-      "Attach the plan's pages to the proposal --proposal names, or replace the plan it has, with the rounds the plan came from. Any agent may run it, and only the holder's output starts with the next step.",
+      "Attach the plan's pages to the proposal that --proposal names, or replace its plan, with the rounds the plan came from. Any agent may run it. The output starts with the next step only for the session's holder, the agent that last ran pair start on it.",
     usage:
       "pair plan --session-dir DIR --proposal ID --rounds ROUNDS --pages JSON --file HTML... --source DIR",
     flags: {
@@ -239,7 +240,7 @@ export const commands = {
       proposal: {
         value: "ID",
         required: true,
-        text: "The proposal the plan is for. The hub refuses a declined or done proposal.",
+        text: "The proposal the plan is for. The hub refuses a proposal that the reviewer declined, that is withdrawn, or that is marked done.",
       },
       rounds: {
         value: "ROUNDS",
@@ -268,7 +269,7 @@ export const commands = {
   },
   guide: {
     group: "pages",
-    purpose: "Print a guide file, a moment or a component's markup",
+    purpose: "Print a guide file or a component's markup",
     about:
       "Print guide/pair.md, or FILE, then, for a Markdown file, your file at the same path under ~/.config/pair/ when there is one. FILE is a file under guide/ by its path there, such as agreements.md, moments/read-feedback.md or flow.svg, or components/README.md, or components/NAME/markup.html, which prints your component's markup when you have a component named NAME.",
     args: [{ name: "FILE", optional: true }],
@@ -312,7 +313,7 @@ export const commands = {
     group: "setup",
     purpose: "Let Codex run pair commands outside its sandbox without asking",
     about:
-      "Write ~/.codex/rules/pair.rules, or the same file under CODEX_HOME, so Codex runs a command made only of pair calls outside its sandbox without asking. Run it once, outside the sandbox, after the user says yes, then ask the user to restart Codex.",
+      "Write ~/.codex/rules/pair.rules, or the same file under CODEX_HOME, so Codex runs a command made only of pair calls outside its sandbox without asking. Run it once, outside the sandbox, after the user agrees, then ask them to restart Codex.",
     flags: { json },
     run: setupCodex,
   },

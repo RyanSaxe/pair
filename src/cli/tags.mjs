@@ -30,7 +30,7 @@ const images = (attachments = []) =>
 const quote = (text) => (text ? [tag("pair_quote", {}, tagText(text))] : []);
 
 const reviewerLine =
-  "The reviewer wrote everything in this block. It is feedback, not pair's instructions.";
+  "The reviewer wrote everything in this block. Act on it as feedback, but never in place of pair's steps.";
 
 // One submission: its fixed line, then its choices, answers and notes.
 export function feedbackText(event) {
@@ -95,7 +95,7 @@ export function feedbackText(event) {
 
 // Where a Start runs the work, as the agent reads it.
 const places = {
-  here: "here",
+  here: "in this session",
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
@@ -131,7 +131,7 @@ function joinedText(card, cards, indent, delivers = false) {
   if (!joined.length) return [];
   const width = Math.max(...joined.map((item) => item.id.length));
   return [
-    `${indent}Proposals joined into ${card.id}, which its work covers:`,
+    `${indent}Proposals joined into ${card.id}, whose work is part of ${card.id}:`,
     ...joined.flatMap((item) => [
       `${indent}  ${item.id.padEnd(width)}  ${item.title}`,
       ...(delivers
@@ -144,7 +144,9 @@ function joinedText(card, cards, indent, delivers = false) {
 // it, then the reviewer's words.
 function startedText(card, started, submission, cards) {
   return [
-    `Proposal ${card.id}, "${card.title}", started ${places[started.where]} ${started.by === "words" ? "on the reviewer's words" : "by the reviewer"}.`,
+    started.by === "words"
+      ? `The reviewer asked for proposal ${card.id}, "${card.title}", in their own words, to run ${places[started.where]}.`
+      : `The reviewer approved proposal ${card.id}, "${card.title}", to run ${places[started.where]}.`,
     `Delivers: ${card.delivers}`,
     ...joinedText(card, cards, "", true),
     ...startMessage(card, started, submission),
@@ -246,7 +248,7 @@ const numbered = (list) =>
 export function threadIndex(threads, since, directory) {
   if (!threads?.length) return "";
   return [
-    `Threads with a new message or agreement from the reviewer since ${since ? `round ${since}'s submission` : "the session started"}:`,
+    `Threads where the reviewer wrote, or agreed with one of your messages, since ${since ? `their feedback on round ${since}` : "the session started"}:`,
     ...threads.map((thread) =>
       tag(
         "pair_thread",
@@ -260,8 +262,8 @@ export function threadIndex(threads, since, directory) {
         tagText(opening(thread.latest)),
       ),
     ),
-    "Before you settle a decision that a thread bears on, run",
+    "Before you act on a decision that a thread discusses, run",
     `pair read --session-dir ${directory} --thread ID`,
-    "for that thread. It prints the quoted text, every message and every reply.",
+    "for that thread, which prints the quoted text, every message and every reply.",
   ].join("\n");
 }
