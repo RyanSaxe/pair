@@ -44,7 +44,9 @@ html {
    the page column changes width once per move: at once when the sidebar
    closes, and only after it has slid in when it opens. At no point does
    the column leave a gap where the sidebar was. The root's data-sidebar
-   says which state to draw. */
+   says which state to draw. The body clips the sidebar as it slides past
+   the frame's left border, so on a window wider than the frame it never
+   draws over the ground beside the frame. */
 .app-body {
   --sidebar-width: 224px;
   --slide: 0.2s;
@@ -53,6 +55,7 @@ html {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  overflow: clip;
 }
 .sidebar {
   position: absolute;
@@ -303,7 +306,7 @@ main {
   .app-body {
     --sidebar-width: min(272px, calc(100vw - 48px));
     display: block;
-    overflow-y: auto;
+    overflow: auto;
   }
   .sidebar,
   .sidebar-scrim {

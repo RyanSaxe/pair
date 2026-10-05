@@ -236,7 +236,7 @@ test("the left tab reads Last round for the round before Current's, and Round 1 
   await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
 });
 
-test("the sidebar opens and closes at 1280px and at 375px, where it slides over the page", async (t) => {
+test("the sidebar opens and closes at 1280px, where it slides without drawing outside the frame, and at 375px, where it slides over the page", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const page = await open(t, s.url("#agreed"), {
@@ -247,6 +247,25 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   const sidebar = page.locator("#sidebar");
   const expanded = async (value) =>
     assert.equal(await toggle.getAttribute("aria-expanded"), String(value));
+  // Holds the sidebar's slide at its midpoint and reports what shows 10px
+  // left of the frame, where a 1280px window has ground beside the frame.
+  const leftOfFrameMidSlide = () =>
+    page.evaluate(() => {
+      const slides = document.getElementById("sidebar").getAnimations();
+      const slide = slides.find(
+        (item) => item.transitionProperty === "transform",
+      );
+      if (!slide) return "no slide";
+      const midpoint = slide.effect.getComputedTiming().duration / 2;
+      for (const item of slides) {
+        item.pause();
+        item.currentTime = midpoint;
+      }
+      const frame = document.getElementById("app").getBoundingClientRect();
+      const hit = document.elementFromPoint(frame.left - 10, frame.top + 200);
+      for (const item of slides) item.play();
+      return hit?.closest("#sidebar") ? "sidebar" : "ground";
+    });
   // Where the page column starts, from the frame's left edge.
   const columnAt = (left) =>
     page.waitForFunction(
@@ -264,6 +283,7 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   await expanded(true);
   await columnAt(border + width);
   await toggle.click();
+  assert.equal(await leftOfFrameMidSlide(), "ground");
   await sidebar.waitFor({ state: "hidden" });
   await expanded(false);
   await columnAt(border);
@@ -274,6 +294,7 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   assert.equal(await sidebar.isVisible(), false);
   await columnAt(border);
   await toggle.click();
+  assert.equal(await leftOfFrameMidSlide(), "ground");
   await sidebar.waitFor();
   await columnAt(border + width);
 
