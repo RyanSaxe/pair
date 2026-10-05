@@ -303,18 +303,3 @@ pair-thread[collapsed] > :not(.thread-head) {
   background: var(--ground);
   font-size: var(--text-label);
 }
-.thread-reply kbd {
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: var(--text-tiny);
-  opacity: 0.9;
-}
-@media (pointer: coarse) {
-  .thread-reply kbd {
-    display: none;
-  }
-}
