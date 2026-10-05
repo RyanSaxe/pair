@@ -33,15 +33,9 @@ Use the words a person would say. Introduce a term from the project once, in
 plain words, before you rely on it, and never use a state's name as if the
 reader knew what it means. Write "the nightly job that re-sends failed
 receipts", not "the replayer", until the page has said what the replayer is.
-Put "only" right before the verb it limits: "Only retry a request the server
-did not receive", not "Retry a request only when the server did not receive
-it".
 
 Give a reason with every judgment. Write "One Redis cache is simpler because
 four web processes read one copy" instead of "One Redis cache is simpler".
-
-Put one idea in a sentence. Two half-thoughts joined by a semicolon are two
-sentences.
 
 A heading and an option's `data-label` are labels. Make the claim in a
 sentence under the label. Write "Retry policy", not "Retries are the risk here".
@@ -53,6 +47,22 @@ Write so a stranger to the project can repeat any sentence back as a fact
 about the plan or the code on the page.
 
 Say each thing once. Do not open a section by restating its heading.
+
+## Build plain sentences
+
+Write sentences the way you would say them to the reviewer.
+
+- Use the usual order: who acts, the action, then what it acts on.
+- Put each limiting or qualifying word, such as "only", "never", "also" or
+  "not", next to what it changes, and put a limit at the start of an
+  instruction.
+- Use a verb for an action, not a noun made from one. Write "the hub retries
+  the charge", not "the hub performs a retry of the charge".
+- Keep a sentence to one idea and about twenty words.
+- Use one word for one thing on a page, and keep it.
+- Put a condition before the action it controls.
+- Keep the small words, such as "the", "a", "is" and "that", that make a
+  sentence read as spoken.
 
 ## Avoid these
 
