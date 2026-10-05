@@ -241,7 +241,7 @@ function changed(result, follow = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
   const moved = follow && cards().find((card) => card.id === follow);
-  if (moved && !$("work").hidden) selected = cardTab(moved, context());
+  if (moved && !$("work-view").hidden) selected = cardTab(moved, context());
   refreshWork(true);
   // The next status shows the rest of what the action changed, such as the
   // thread that Open a new agent session starts.
@@ -449,7 +449,7 @@ export function refreshWork(force = false) {
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
-  if ($("work").hidden) return placeThreads();
+  if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards(), shown);
   // A card whose work runs in another session needs the session listing to

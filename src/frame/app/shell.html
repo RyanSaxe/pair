@@ -248,7 +248,11 @@
                   <a id="footer-next" hidden></a>
                 </nav>
               </section>
-              <section id="feedback" hidden>
+              <!-- The address names Review #feedback and Work #work, and no
+                   element has either ID, because once a page loads, the
+                   browser scrolls to the element whose ID the address's #
+                   part names and focuses it. -->
+              <section id="review-view" hidden>
                 <h1 tabindex="-1" id="feedback-title">Review</h1>
                 <section class="sent-feedback" id="sent-feedback" hidden>
                   <h2>Your feedback</h2>
@@ -299,7 +303,7 @@
               </section>
               <!-- Every proposal of the session, in four tabs. The frame
                    draws the tabs and the cards. -->
-              <section id="work" hidden>
+              <section id="work-view" hidden>
                 <h1 tabindex="-1" id="work-title">Work</h1>
                 <p
                   class="notice"

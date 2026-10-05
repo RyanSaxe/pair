@@ -67,7 +67,7 @@ export function setPage(next) {
 }
 // What is on screen: a page of the round, the Work page or Review.
 export const shownPage = () =>
-  !$("work").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
+  !$("work-view").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
 export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&
