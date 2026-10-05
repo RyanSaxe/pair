@@ -10,13 +10,14 @@ import {
   written,
 } from "./proposal-fields.mjs";
 import { joinable } from "./proposal-joins.mjs";
+import { statusable, statusParts } from "./proposal-status.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
-// a card changes after the round that showed it is published. Five facts,
-// each null until it happens, say where a card stands: plan, started,
-// declined, withdrawn and done. The frame sorts the cards into the Work
-// page's tabs from those facts, so the hub stores no tab.
+// a card changes after the round that showed it is published. Four facts,
+// each null until it happens, say where a card stands: started, declined,
+// withdrawn and done. The frame sorts the cards into the Work page's tabs
+// from those facts, so the hub stores no tab.
 export async function proposals(session) {
   const { directory, transition } = session;
   const folder = path.join(directory, "proposals");
@@ -54,7 +55,9 @@ export async function proposals(session) {
     );
   }
   // Where the work came from: a thread, or a page of a round with the
-  // page's title from the round's page list.
+  // page's title from the round's page list. The reviewer also writes on
+  // Review's overall comment and on Work, which every round has.
+  const framePages = { overall: "Review", work: "Work" };
   function source(data) {
     requireValue(
       data.thread === undefined || data.page === undefined,
@@ -75,7 +78,9 @@ export async function proposals(session) {
     );
     const slot =
       session.state.roundPages?.[round] &&
-      session.pageSet(round).pages.find((item) => item.id === id);
+      (Object.hasOwn(framePages, id)
+        ? { title: framePages[id] }
+        : session.pageSet(round).pages.find((item) => item.id === id));
     requireValue(slot, `Round ${round} has no page ${id}`);
     return { page: { round, id, title: slot.title } };
   }
@@ -92,7 +97,6 @@ export async function proposals(session) {
       recommend: place(data.recommend, "--recommend"),
       source: source(data),
       recordedAt: now,
-      plan: null,
       started: null,
       declined: null,
       withdrawn: null,
@@ -381,7 +385,8 @@ export async function proposals(session) {
     });
   }
   // --reopen undoes the agent's own --done or --join, so the card returns
-  // to Running, or to Proposed when nobody started it.
+  // to Running, or to Proposed when nobody started it. It clears the
+  // status, because the feedback that reopens work changes its parts.
   async function reopen(card) {
     requireValue(
       card.done,
@@ -393,7 +398,16 @@ export async function proposals(session) {
       `The hub marked proposal ${card.id} done when the reviewer closed the session that built it, so you cannot reopen it.`,
       409,
     );
-    return save(card, { done: null });
+    return save(card, { done: null, status: null });
+  }
+  // A linked session's agent writes the status of the work it runs to the
+  // card in the parent.
+  async function writeStatus(id, data) {
+    const owner = session.cardOwner(id, "pair propose");
+    if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
+    open();
+    const status = { at: timestamp(), ...statusParts(data) };
+    return save(statusable(find(id)), { status });
   }
   // pair propose, from any agent: it records a card, or with one action
   // flag changes the card that has the ID. holder says whether the holder
@@ -402,6 +416,7 @@ export async function proposals(session) {
     open();
     const { id, action } = proposeAction(data);
     if (!action) return add(id, data);
+    if (action === "status") return writeStatus(id, data);
     const card = find(id);
     if (action === "revise") return revise(card, data);
     if (action === "start") return startFromWords(card, data, holder);
@@ -410,29 +425,6 @@ export async function proposals(session) {
     if (action === "join") return join(card, data);
     return reopen(card);
   }
-  // pair plan attaches a plan to a card that is neither declined, withdrawn
-  // nor done, started or not, and a second pair plan replaces it.
-  function plannable(id) {
-    open();
-    const card = find(id);
-    requireValue(
-      !card.declined,
-      `The reviewer declined proposal ${id}, so you cannot attach a plan to it.`,
-      409,
-    );
-    requireValue(
-      !card.withdrawn,
-      `Proposal ${id} is withdrawn, so you cannot attach a plan to it.`,
-      409,
-    );
-    requireValue(
-      !card.done,
-      `Proposal ${id} is marked done, so you cannot attach a plan to it.`,
-      409,
-    );
-    return card;
-  }
-  const attachPlan = (id, plan) => save(plannable(id), { plan });
   // pair read prints each card the reviewer declined once, and the hub
   // sends no wake for a decline.
   async function reportDeclined() {
@@ -496,8 +488,7 @@ export async function proposals(session) {
     closedSession,
     openAgent,
     propose,
-    plannable,
-    attachPlan,
+    writeStatus,
     startProposal,
     declineProposal,
     restoreProposal,

@@ -50,7 +50,7 @@ async function session(t, data = planData()) {
       anchor: "Overview",
       text,
     });
-  return { a, read, run, record, post, thread };
+  return { h, cli, a, read, run, record, post, thread };
 }
 
 test("pair read prints each part of the submission in a pair_ tag between the next steps, then the threads since the previous submission", async (t) => {
@@ -128,6 +128,13 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
           occurrence: 2,
           text: "The second one.",
         },
+        {
+          id: "note-3",
+          topic: "work",
+          anchor: "Build the deck",
+          proposal: "deck",
+          text: "Start this first.",
+        },
       ],
     },
   });
@@ -171,6 +178,11 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   const opening = (id) => tag("note", id)[0].split("\n")[0];
   assert.match(opening("note-2"), / agreement="retry"/);
   assert.match(opening("note-2"), / occurrence="2"/);
+  // A note on a proposal names it.
+  assert.equal(
+    opening("note-3"),
+    '<pair_note id="note-3" page="work" on="Build the deck" proposal="deck">',
+  );
   assert(tag("thread", "after")[1].includes("retried once"));
   assert(!printed.includes('<pair_thread id="before"'), printed);
   const json = JSON.parse(await read("--submission", event.id, "--json"));
@@ -321,6 +333,58 @@ test("pair propose merges a card into a proposed one, and pair read and pair sta
   assert.match(
     await run("status"),
     /\n\nProposals\n {2}deck {3}approved to run here, joined by notes {2}Build the deck\n {2}notes {2}done, joined into deck {17}Write the notes\n$/,
+  );
+});
+
+// After a status, pair propose prints the count and the parts left, or
+// how the work finishes when none is left, and pair status prints the
+// count after the card's state. A linked session's agent writes to the
+// card in the parent, which pair propose names.
+test("pair propose prints a status's count and what is left, and pair status prints the count", async (t) => {
+  const { h, cli, a, run, record } = await session(t);
+  await record("deck", "Build the deck");
+  await run(
+    ...["propose", "--id", "deck", "--start", "here"],
+    ...["--quote", "Build the deck."],
+  );
+  const status = (...parts) => run("propose", "--id", "deck", ...parts);
+  assert.match(
+    await status(
+      ...["--status-done", "Outline"],
+      ...["--status-left", "Slides", "--status-left", "Speaker notes"],
+    ),
+    /\nProposal deck: approved to run here, 1 of 3 parts done\.\nLeft: Slides; Speaker notes\.\n$/,
+  );
+  assert.match(
+    await run("status"),
+    /\n {2}deck {2}approved to run here, 1 of 3 parts done {2}Build the deck\n$/,
+  );
+  const finished = await status(
+    ...["--status-done", "Outline", "--status-done", "Slides"],
+  );
+  assert(
+    finished.endsWith(
+      `\nProposal deck: approved to run here, 2 of 2 parts done.\nNothing is left. After you publish the work's last page, run pair propose --session-dir ${a.directory} --id deck --done.\n`,
+    ),
+    finished,
+  );
+
+  await record("notes", "Write the notes");
+  const started = await a.request(`${a.base}/api/proposals/notes/start`, {
+    where: "sub-session",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const child = await h.session({
+    start: true,
+    from: a.directory,
+    proposal: "notes",
+  });
+  assert.equal(
+    await cli.run(
+      ...["propose", "--session-dir", child.directory, "--id", "notes"],
+      ...["--status-done", "Draft"],
+    ),
+    "Proposal notes in session \"Example work\": approved to run in a sub-session, 1 of 1 parts done.\nNothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.\n",
   );
 });
 

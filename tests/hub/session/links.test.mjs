@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { buildPage } from "../../../src/cli/build.mjs";
-import { pageData } from "../../../src/shared/records.mjs";
 import {
   hub,
   literal,
@@ -44,7 +41,7 @@ async function linking(t) {
       proposal,
     });
     assert.equal(registered.code, 200, registered.body.error);
-    return { ...registered.body, box, base: `/s/${registered.body.sessionId}` };
+    return { ...registered.body, base: `/s/${registered.body.sessionId}` };
   }
   return { h, a, reviewer, cardOf, link };
 }
@@ -183,104 +180,42 @@ test("closing a linked session marks its card done once with no wake, and a clos
   assert.deepEqual(await listing(), {});
 });
 
-test("pair plan in a linked session attaches its own rounds' plan to the parent's card", async (t) => {
-  const { h, a, reviewer, cardOf, link } = await linking(t);
+// The agent of a linked session writes the status of the work it runs
+// with its own session's directory, and the hub puts it on the card in
+// the parent, which the parent's directory also reaches.
+test("a status from a linked session goes to the parent's card", async (t) => {
+  const { h, a, reviewer, cardOf } = await linking(t);
   assert.equal(
     (await reviewer("deck", "start", { where: "sub-session" })).code,
     200,
   );
-  const child = await link("deck");
-  const directory = child.sessionDir;
-  const connection = JSON.parse(
-    await fs.readFile(path.join(directory, "connection.json"), "utf8"),
-  );
-  const action = async (name, data) => {
-    const response = await fetch(
-      `${h.server.origin}/agent/${child.sessionId}/action`,
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${connection.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: name,
-          sessionId: child.sessionId,
-          agent: child.box.agent,
-          ...data,
-        }),
-      },
-    );
-    return { code: response.status, body: await response.json() };
-  };
-  // The child publishes rounds 1 and 2, and the parent has only round 1.
-  for (const round of ["1", "2"]) {
-    for (const page of [
-      {
-        id: "agreed",
-        title: "Agreed so far",
-        task: { title: "T", html: "<p>T</p>" },
-        agreements: [],
-      },
-      { id: "overview", title: "Overview", html: "<p>A page.</p>" },
-    ]) {
-      const html = await buildPage(path.join(directory, "source.json"), {
-        name: "deck",
-        round,
-        title: "Build the deck",
-        page,
-      });
-      const published = await action("publish", {
-        html,
-        ...(page.id === "agreed"
-          ? { pages: [{ id: "overview", title: "Overview" }] }
-          : {}),
-      });
-      assert.equal(published.code, 200, published.body.error);
-    }
-    if (round === "1") {
-      const sent = await a.request(`${child.base}/api/feedback`, {
-        sessionId: child.sessionId,
-        name: "deck",
-        round: "1",
-        intent: "feedback-only",
-        id: crypto.randomUUID(),
-        groups: {},
-        text: "Keep it.",
-      });
-      assert.equal(sent.code, 200, JSON.stringify(sent.body));
-      assert.equal((await action("read")).code, 200);
-    }
-  }
-  const page = { id: "overview", title: "Overview", html: "<p>Slides.</p>" };
-  const source = path.join(directory, "plans", ".source-1");
-  await fs.mkdir(path.join(source, "overview"), { recursive: true });
-  const record = pageData(
-    await buildPage(path.join(source, "source.json"), {
-      name: "deck",
-      round: "plan",
-      title: "Build the deck",
-      page,
-    }),
-  );
-  const attached = await action("plan", {
+  const child = await h.session({
+    start: true,
+    from: a.directory,
     proposal: "deck",
-    rounds: "1-2",
-    pages: [{ id: "overview", title: "Overview" }],
-    records: [record],
-    source,
   });
-  assert.equal(attached.code, 200, attached.body.error);
-  assert.equal(attached.body.url, `${h.server.origin}${a.base}/plans/deck/`);
-  const { plan } = await cardOf("deck");
-  assert.equal(plan.rounds, "1-2");
-  assert.equal(plan.session, child.sessionId);
-  assert.ok(
-    (
-      await fs.readFile(
-        path.join(a.directory, "plans", "deck", "plan.html"),
-        "utf8",
-      )
-    ).includes("Slides."),
+  const written = await child.action("propose", {
+    id: "deck",
+    statusDone: ["Outline"],
+    statusLeft: ["Slides"],
+  });
+  assert.equal(written.code, 200, written.body.error);
+  assert.deepEqual(written.body.parent, { id: a.id, title: "Example work" });
+  assert.deepEqual(
+    { ...(await cardOf("deck")).status, at: undefined },
+    { at: undefined, done: ["Outline"], left: ["Slides"] },
   );
+  const fromParent = await a.action("propose", {
+    id: "deck",
+    statusDone: ["Outline", "Slides"],
+  });
+  assert.equal(fromParent.code, 200, fromParent.body.error);
+  assert.equal(fromParent.body.parent, undefined);
+  assert.deepEqual((await cardOf("deck")).status.done, ["Outline", "Slides"]);
+  // The linked session runs only deck, so it reaches no other card.
+  const other = await child.action("propose", {
+    id: "notes",
+    statusLeft: ["Draft"],
+  });
+  assert.equal(other.code, 404);
 });

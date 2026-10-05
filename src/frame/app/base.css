@@ -172,16 +172,6 @@ kbd {
   background: none;
   box-shadow: inset 0 0 0 1.5px var(--muted);
 }
-.card-icon {
-  display: inline-flex;
-  flex: none;
-  width: 16px;
-  height: 16px;
-}
-.card-icon svg {
-  width: 16px;
-  height: 16px;
-}
 .notice {
   padding: 10px 14px;
   border: 1px solid var(--notice-border);
@@ -234,6 +224,25 @@ kbd {
   .btn.quiet:hover {
     color: var(--ink);
     background: var(--ground);
+  }
+}
+/* A button that a key presses shows the key after its label, in the
+   label's type. A touch screen has no keys to hint at, and a window too
+   narrow for the note dialog's two buttons with their hints drops every
+   hint rather than wrap. */
+.btn kbd {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-tiny);
+  opacity: 0.9;
+}
+@media (pointer: coarse), (max-width: 400px) {
+  .btn kbd {
+    display: none;
   }
 }
 .icon-btn {

@@ -6,31 +6,25 @@ import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 // The session this page belongs to and what it allows, read from the page
 // before anything renders.
 export let session, base, online, mode, editable, hasFeedbackPage, query;
-// The proposal whose plan this page is, which pair plan writes into the
-// page's plan data. Null on a round.
-export let planFor = null;
 // Browser storage is kept per session, and the draft per plan as well.
 export let storageKey, placeKey, prefsPrefix;
-export function useSession(config, { name, proposal }, url) {
+export function useSession(config, name, url) {
   session = config;
-  planFor = proposal || null;
   base = typeof session.base === "string" ? session.base : "";
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
   /* A closed session reads like an older round: nothing can be sent from
-     it. The strip below the header says which of the two it is. A plan is
-     read-only too, with or without a hub. A session with nothing published
-     shows its home view. */
+     it. The strip below the header says which of the two it is. A session
+     with nothing published shows its home view. */
   mode = session.home
     ? "home"
     : session.preview
       ? "preview"
-      : session.readonly || session.closed || planFor
+      : session.readonly || session.closed
         ? "readonly"
         : "live";
   editable = mode === "live";
   // A read-only round keeps a Feedback page that lists what was sent on it.
-  // A plan has none, because nothing is sent on a plan.
-  hasFeedbackPage = editable || (mode === "readonly" && !planFor);
+  hasFeedbackPage = editable || mode === "readonly";
   query = url.searchParams;
   storageKey = `pair:${session.sessionId || "offline"}:${name}`;
   placeKey = `pair:place:${session.sessionId || "offline"}`;
@@ -44,6 +38,11 @@ export function useView(view) {
   agreedTask = view.task || null;
   pages = view.pages;
 }
+// The title of a round's page, or of the places a note or thread can be on
+// besides the pages: Review's overall comment and Work.
+const placeTitles = { overall: "Overall feedback", work: "Work" };
+export const topicTitle = (topic) =>
+  pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
 // The last round this reader submitted, which keeps Current disabled until
 // the next one arrives, and the past round the left tab shows.
 export let submittedRound = null;

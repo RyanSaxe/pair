@@ -291,6 +291,8 @@ export function agent(session) {
     propose: async (data) => {
       const holder = sameAgent(session.state.holder, data.agent);
       const proposal = await session.propose(data, holder);
+      // A status from a linked session goes to the card in its parent.
+      const parent = session.cardOwner(proposal.id, "pair propose");
       const next =
         data.start === "new-agent"
           ? `Open a new agent session and have it run pair start --from ${directory} --proposal ${proposal.id} first. If you cannot open one, give the reviewer that command in the chat. Then go back to what you were doing.`
@@ -298,16 +300,10 @@ export function agent(session) {
       return {
         sessionId: session.state.sessionId,
         proposal,
+        ...(parent ? { parent: { id: parent.id, title: parent.title() } } : {}),
         ...(holder ? { next } : {}),
       };
     },
-    plan: async (data) => ({
-      sessionId: session.state.sessionId,
-      ...(await session.attachPages(data)),
-      ...(sameAgent(session.state.holder, data.agent)
-        ? { next: await nextStep() }
-        : {}),
-    }),
   };
   async function act(data) {
     requireValue(
@@ -316,12 +312,11 @@ export function agent(session) {
       409,
     );
     // status only reads, so any agent, or none, may run it, on a closed
-    // session too. Any agent may record a proposal or attach a plan, such as
-    // a subagent that finds work worth doing or writes the plan.
+    // session too. Any agent may record a proposal, such as a subagent that
+    // finds work worth doing.
     if (data.action !== "status") {
       requireValue(session.state.stage !== "complete", closed, 409);
-      if (!["propose", "plan"].includes(data.action))
-        await requireHolder(data.agent);
+      if (data.action !== "propose") await requireHolder(data.agent);
     }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     return actions[data.action](data);

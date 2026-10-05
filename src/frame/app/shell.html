@@ -163,7 +163,6 @@
           <div class="history-strip" id="history-strip" hidden>
             <span id="history-label"></span>
             <button type="button" id="history-return"></button>
-            <a id="history-download" hidden>Download plan</a>
           </div>
           <main>
             <div class="content" id="content">
@@ -177,6 +176,30 @@
                   ×
                 </button>
               </div>
+              <button
+                class="comment-here"
+                id="comment-here"
+                type="button"
+                aria-keyshortcuts="c"
+                hidden
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.6a8 8 0 1 1 15.6-3.9z"
+                  />
+                </svg>
+                <span class="comment-label"
+                  ><span></span><kbd aria-hidden="true">c</kbd></span
+                >
+              </button>
               <section id="reading">
                 <h1 tabindex="-1" id="page-title"></h1>
                 <p class="home-agent" id="home-agent" hidden></p>
@@ -212,30 +235,6 @@
                 <p class="finished-line" id="finished-line" hidden></p>
                 <div class="note-bars" id="note-bars"></div>
                 <div class="chosen-bar" id="chosen-bar" hidden></div>
-                <button
-                  class="comment-here"
-                  id="comment-here"
-                  type="button"
-                  aria-keyshortcuts="c"
-                  hidden
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.6a8 8 0 1 1 15.6-3.9z"
-                    />
-                  </svg>
-                  <span class="comment-label"
-                    ><span></span><kbd aria-hidden="true">c</kbd></span
-                  >
-                </button>
                 <div id="page-content"></div>
                 <section
                   class="sent-page-comments"
@@ -276,12 +275,9 @@
                     />
                   </label>
                   <div id="feedback-groups"></div>
-                  <section class="feedback-group">
+                  <section class="feedback-group" id="overall-group" hidden>
                     <div class="group-head">
                       <h2>Overall</h2>
-                      <button class="btn quiet" id="overall-note" type="button">
-                        Add overall comment
-                      </button>
                     </div>
                     <div id="overall-notes"></div>
                   </section>
@@ -293,6 +289,9 @@
                   <p class="small" id="storage-status"></p>
                   <p class="small" id="connection-status"></p>
                 </div>
+                <!-- The threads on the overall comment, before and after the
+                     round's feedback is sent. -->
+                <div class="end-threads" id="overall-threads"></div>
                 <nav class="page-footer" aria-label="Pages">
                   <button id="feedback-pages" type="button">Pages →</button>
                 </nav>
@@ -315,6 +314,8 @@
                   aria-label="Work"
                 ></div>
                 <div class="work-cards" id="work-cards" role="tabpanel"></div>
+                <!-- The threads on Work as a whole, on every tab. -->
+                <div class="end-threads" id="work-threads"></div>
               </section>
             </div>
           </main>

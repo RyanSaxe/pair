@@ -67,8 +67,15 @@ export function threads(session) {
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .map(shown);
+  // A thread starts on a page of the round, or on Review's overall comment
+  // or on Work, which the frame names overall and work.
+  const ownTitles = {
+    agreed: "Agreed so far",
+    overall: "Overall feedback",
+    work: "Work",
+  };
   function pageTitle(round, topic) {
-    if (topic === "agreed") return "Agreed so far";
+    if (Object.hasOwn(ownTitles, topic)) return ownTitles[topic];
     return session.state.roundPages?.[round]?.pages.find(
       (slot) => slot.id === topic,
     )?.title;

@@ -201,17 +201,20 @@ const places = {
   "new-agent": "with a new agent",
 };
 function proposalState(card, cards) {
-  const plan = card.plan ? ", with a plan" : "";
+  const { status } = card;
+  const parts = status
+    ? `, ${status.done.length} of ${status.done.length + status.left.length} parts done`
+    : "";
   const joined = joinedInto(card, cards).map((item) => item.id);
   const joins = joined.length ? `, joined by ${listing(joined)}` : "";
   if (card.declined) return `declined${joins}`;
   if (card.withdrawn) return `withdrawn${joins}`;
-  if (card.done?.joined) return `done, joined into ${card.done.joined}${plan}`;
+  if (card.done?.joined) return `done, joined into ${card.done.joined}`;
   if (card.done)
-    return `done ${card.done.where ?? places[card.started.where]}${plan}${joins}`;
+    return `done ${card.done.where ?? places[card.started.where]}${joins}`;
   if (card.started)
-    return `approved to run ${places[card.started.where]}${plan}${joins}`;
-  return `proposed${plan}${joins}`;
+    return `approved to run ${places[card.started.where]}${parts}${joins}`;
+  return `proposed${joins}`;
 }
 
 function proposalsText(cards) {
@@ -252,13 +255,31 @@ export async function propose(options) {
   const result = await session.request({
     action: "propose",
     ...Object.fromEntries(flags.map((name) => [name, options[name]])),
+    statusDone: options["status-done"],
+    statusLeft: options["status-left"],
   });
   const card = result.proposal;
+  const where = result.parent ? ` in session "${result.parent.title}"` : "";
+  const status = options["status-done"] || options["status-left"];
   return {
     next: result.next,
-    data: `Proposal ${card.id}: ${proposalState(card)}.`,
+    data: [
+      `Proposal ${card.id}${where}: ${proposalState(card)}.`,
+      status && leftText(card, session.directory),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     json: result,
   };
+}
+
+// After a status, the parts left, or how the work finishes when none is.
+function leftText(card, directory) {
+  const { left } = card.status;
+  if (left.length) return `Left: ${sentence(left.join("; "))}`;
+  if (card.started.where === "here")
+    return `Nothing is left. After you publish the work's last page, run pair propose --session-dir ${directory} --id ${card.id} --done.`;
+  return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";
 }
 
 export async function status(options) {

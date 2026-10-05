@@ -599,6 +599,21 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
     await cli.run("read", ...dir),
     new RegExp(`<pair_thread id="${id}"[^>]* agreed="message 2">`),
   );
+  // A thread on an alignment names it.
+  const aligned = await session.request(`${session.base}/api/threads`, {
+    id: "question-2",
+    round: "1",
+    topic: "agreed",
+    anchor: "One result per input",
+    agreementId: "results",
+    target: "agreement-results",
+    text: "Keep the order too?",
+  });
+  assert.equal(aligned.code, 201, aligned.body.error);
+  assert.match(
+    await cli.run("read", ...dir, "--thread", "question-2"),
+    /<pair_thread id="question-2" page="agreed" on="One result per input" round="1" agreement="results">/,
+  );
 });
 
 // Builds Agreed for round 1 with the page list given, as the agent does,

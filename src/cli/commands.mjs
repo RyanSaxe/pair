@@ -3,7 +3,7 @@ import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
-import { plan, publish, runHub, start } from "./session.mjs";
+import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
@@ -223,49 +223,20 @@ export const commands = {
       reopen: {
         text: "Undo your --done when the reviewer asks for changes to the work or it is not finished, or undo your --join when OTHER's work does not cover this proposal.",
       },
+      "status-done": {
+        value: "TEXT",
+        repeats: true,
+        text: "A part of the approved work that you have finished, in at most 80 characters. Give one flag for each part. Each run replaces the card's whole status, which has at most 12 parts.",
+      },
+      "status-left": {
+        value: "TEXT",
+        repeats: true,
+        text: "A part of the approved work that is left, in at most 80 characters. Give one flag for each part, the next one first.",
+      },
       json,
     },
     footer: "A new proposal needs --title, --delivers and --recommend.",
     run: propose,
-  },
-  plan: {
-    group: "session",
-    purpose: "Attach a plan to a proposal, or replace the plan it has",
-    about:
-      "Attach the plan's pages to the proposal that --proposal names, or replace its plan, with the rounds the plan came from. Any agent may run it. The output starts with the next step only for the session's holder, the agent that last ran pair start on it.",
-    usage:
-      "pair plan --session-dir DIR --proposal ID --rounds ROUNDS --pages JSON --file HTML... --source DIR",
-    flags: {
-      "session-dir": sessionDir,
-      proposal: {
-        value: "ID",
-        required: true,
-        text: "The proposal the plan is for. The hub refuses a proposal that the reviewer declined, that is withdrawn, or that is marked done.",
-      },
-      rounds: {
-        value: "ROUNDS",
-        required: true,
-        text: "The rounds the plan came from: one round, such as 4, or a range, such as 13-15.",
-      },
-      pages: {
-        value: "JSON",
-        required: true,
-        text: "The plan's page list, in the shape of a round's pages.json.",
-      },
-      file: {
-        value: "HTML",
-        required: true,
-        repeats: true,
-        text: "A page that pair build wrote. Give one for each page in --pages, in the same order.",
-      },
-      source: {
-        value: "DIR",
-        required: true,
-        text: "The plan's source directory, with each page's source in a directory named by the page's ID. pair copies it into the session beside the plan.",
-      },
-      json,
-    },
-    run: plan,
   },
   guide: {
     group: "pages",

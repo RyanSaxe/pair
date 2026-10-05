@@ -69,6 +69,7 @@ export function feedbackText(event) {
           page: note.topic,
           on: note.anchor || undefined,
           agreement: note.agreementId,
+          proposal: note.proposal,
           occurrence: note.occurrence,
         },
         [
@@ -223,6 +224,7 @@ export function threadText(thread) {
       on: thread.anchor,
       round: thread.round,
       proposal: thread.proposal,
+      agreement: thread.agreementId,
       kind: thread.kind,
     },
     [...quote(thread.quote), ...messages].join("\n"),

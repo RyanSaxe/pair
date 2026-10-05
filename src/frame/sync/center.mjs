@@ -212,7 +212,7 @@ function openEvent(event) {
     own &&
     round === plan.round &&
     !showingWaiting() &&
-    pages.some((item) => item.id === event.page)
+    (event.page === "overall" || pages.some((item) => item.id === event.page))
   )
     show(event.page, target);
   // A round other than Current's, or the sent round while Current waits,

@@ -43,12 +43,8 @@ import {
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
-import {
-  displayedRound,
-  pageIndicator,
-  show,
-  updateNavigation,
-} from "#frame/pages/pages.mjs";
+import { displayedRound, show, updateNavigation } from "#frame/pages/pages.mjs";
+import { updatePending } from "#frame/pages/pending.mjs";
 import { refreshWork } from "#frame/pages/work.mjs";
 import {
   renderSentFeedback,
@@ -230,13 +226,6 @@ export function pageStatus(item) {
       ? "active"
       : "queued";
 }
-// A ready page whose record has not arrived yet shows as loading, not queued.
-export function pendingState(item) {
-  if (item.status === "ready") return ["active", "Loading this page"];
-  return item.working
-    ? ["active", "Preparing this page"]
-    : ["queued", "Waiting to start"];
-}
 function reconcilePages(view, manifest) {
   for (const slot of manifest.pages) {
     let entry = view.pages.find((item) => item.id === slot.id);
@@ -311,15 +300,6 @@ async function syncPageSet() {
         const selected = manifest.pages.find((item) => item.id === page.id);
         if (selected?.state === "ready" && page.pending)
           void loadPageRecord(round, page.id).catch(() => {});
-        else if (selected && page.pending && !$("reading").hidden) {
-          const [mark, label] = pendingState(page);
-          $("page-content")
-            .querySelector(".pending-state")
-            ?.replaceChildren(
-              pageIndicator(mark),
-              document.createTextNode(label),
-            );
-        }
       }
     } else updateNavigation();
   })().finally(() => {
@@ -492,6 +472,7 @@ export async function poll() {
   }
   renderRounds();
   updateNavigation();
+  updatePending();
   renderRound();
   review();
   refreshWork();

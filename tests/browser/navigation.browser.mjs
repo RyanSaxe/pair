@@ -20,6 +20,7 @@ const round = (number, filler = "") => ({
 const kinds = {
   page: { topic: "overview", anchor: "Result line", target: "result" },
   progress: { topic: "agreed", anchor: "Progress", target: "agent-activity" },
+  overall: { topic: "overall", anchor: "Overall feedback" },
 };
 
 async function setup(t) {
@@ -45,18 +46,38 @@ async function setup(t) {
     assert.equal(started.code, 201, JSON.stringify(started.body));
     return id;
   };
-  // The agent's first reply is the thread's row 1.
-  const reply = async (id, text = "Here.") =>
-    assert.equal((await session.action("reply", { note: id, text })).code, 200);
+  // The agent's first reply is the thread's row 1. With as set to "html",
+  // text is the reply's markup.
+  const reply = async (id, text = "Here.", as = "text") =>
+    assert.equal(
+      (await session.action("reply", { note: id, [as]: text })).code,
+      200,
+    );
   return { url, publish, send, thread, reply };
 }
 
-const focused = (page, id) =>
+const focused = (page, id, row = 1) =>
   page.waitForFunction(
-    (row) => document.activeElement?.id === row,
-    `thread-${id}-1`,
+    (target) => document.activeElement?.id === target,
+    `thread-${id}-${row}`,
     { timeout: 5000 },
   );
+// The reply sits whole between the header and the bottom of the window.
+async function inView(page, id, row = 1) {
+  const place = await page
+    .locator(`#thread-${id}-${row}`)
+    .evaluate((reply) => ({
+      top: reply.getBoundingClientRect().top,
+      bottom: reply.getBoundingClientRect().bottom,
+      header: document.getElementById("frame-header").getBoundingClientRect()
+        .bottom,
+      window: innerHeight,
+    }));
+  assert.ok(
+    place.top >= place.header && place.bottom <= place.window,
+    JSON.stringify(place),
+  );
+}
 const selected = (page, tab) =>
   page.locator(`#${tab}-tab[aria-selected="true"]`).waitFor({ timeout: 5000 });
 const cards = (page, id) =>
@@ -98,6 +119,41 @@ test("a Progress reply's link opens its card and focuses the reply", async (t) =
   await focused(page, id);
   const card = page.locator(`pair-thread[data-thread="${id}"]`);
   assert.equal(await card.getAttribute("collapsed"), null);
+});
+
+// The bell links a reply on the overall comment to the thread's page,
+// overall, and the thread's card is at the end of Review. Once the page
+// loads, the browser focuses the element that the address's #feedback
+// names, Review's own section, or clears focus when it cannot take it.
+test("an overall reply's link opens Review with the thread at its end and keeps the reply focused, and so does the bell from another page", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  const id = await s.thread("1", "overall");
+  await s.reply(id);
+  const page = await open(t, s.url(`?target=thread-${id}-1#overall`));
+  if (!page) return;
+  await page
+    .locator(`#overall-threads > pair-thread[data-thread="${id}"]`)
+    .waitFor();
+  await page.locator("#feedback-title", { hasText: "Review" }).waitFor();
+  await focused(page, id);
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        setTimeout(() =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+      ),
+  );
+  assert.equal(
+    await page.evaluate(() => document.activeElement.id),
+    `thread-${id}-1`,
+  );
+  await page.locator('#page-list [data-page="agreed"]').click();
+  await title(page, "Agreed so far");
+  await s.reply(id, "Here again.");
+  await bell(page);
+  await focused(page, id, 2);
 });
 
 test("a reply in the round just sent opens under Last round", async (t) => {
@@ -155,18 +211,58 @@ test("a long reply opened from the bell lands whole between the header and the b
   await focused(page, id);
   const reply = page.locator(`#thread-${id}-1`);
   await reply.locator(".thread-more").waitFor();
-  const place = await reply.evaluate((row) => ({
-    top: row.getBoundingClientRect().top,
-    bottom: row.getBoundingClientRect().bottom,
-    header: document.getElementById("frame-header").getBoundingClientRect()
-      .bottom,
-    window: innerHeight,
-  }));
-  assert.ok(
-    place.top >= place.header && place.bottom <= place.window,
-    JSON.stringify(place),
-  );
+  await inView(page, id);
 });
+
+// Each screenshot loads only after the bell has scrolled to the reply it
+// opens, and has no height until it loads. In the agent's earlier reply, the
+// text under the screenshots cuts that reply to its usual height before they
+// load. On the page, the screenshots above the thread are never cut.
+const screenshot = (n) =>
+  `<figure><img src="http://images.localhost/${n}.svg" width="370" alt="Screenshot ${n}"><figcaption>Screenshot ${n}.</figcaption></figure>`;
+const shots = [1, 2, 3].map(screenshot).join("");
+const words =
+  "<p>The note dialog at 390px with the image button at the right end of the Feedback label row.</p>";
+for (const [where, filler, earlier] of [
+  ["an earlier reply", "", shots + words.repeat(6)],
+  ["the page above the thread", shots + words, words],
+])
+  test(`a reply opened from the bell on a phone stays in view while screenshots in ${where} load`, async (t) => {
+    const s = await setup(t);
+    await s.publish("1", filler + "<p>Filler paragraph.</p>".repeat(40));
+    const id = await s.thread("1", "page");
+    await s.reply(id, earlier, "html");
+    const page = await open(t, "about:blank", {
+      viewport: { width: 390, height: 844 },
+    });
+    if (!page) return;
+    let release;
+    const released = new Promise((resolve) => (release = resolve));
+    await page.route(/^http:\/\/images\.localhost\//, async (route) => {
+      await released;
+      await route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="370" height="800"/>',
+      });
+    });
+    await page.goto(s.url("#agreed"));
+    await bellReady(page);
+    await s.reply(id, "The retry runs once after a short wait. ".repeat(30));
+    await bell(page);
+    await focused(page, id, 2);
+    release();
+    await page.waitForFunction(() =>
+      [...document.images].every((image) => image.complete),
+    );
+    // A screenshot's height and the cut of its reply each take a frame.
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await inView(page, id, 2);
+  });
 
 test("each Progress thread has one card, and none while Current waits", async (t) => {
   const s = await setup(t);
@@ -236,7 +332,7 @@ test("the left tab reads Last round for the round before Current's, and Round 1 
   await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
 });
 
-test("the sidebar opens and closes at 1280px and at 375px, where it slides over the page", async (t) => {
+test("the sidebar opens and closes at 1280px, where it slides without drawing outside the frame, and at 375px, where it slides over the page", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const page = await open(t, s.url("#agreed"), {
@@ -247,6 +343,25 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   const sidebar = page.locator("#sidebar");
   const expanded = async (value) =>
     assert.equal(await toggle.getAttribute("aria-expanded"), String(value));
+  // Holds the sidebar's slide at its midpoint and reports what shows 10px
+  // left of the frame, where a 1280px window has ground beside the frame.
+  const leftOfFrameMidSlide = () =>
+    page.evaluate(() => {
+      const slides = document.getElementById("sidebar").getAnimations();
+      const slide = slides.find(
+        (item) => item.transitionProperty === "transform",
+      );
+      if (!slide) return "no slide";
+      const midpoint = slide.effect.getComputedTiming().duration / 2;
+      for (const item of slides) {
+        item.pause();
+        item.currentTime = midpoint;
+      }
+      const frame = document.getElementById("app").getBoundingClientRect();
+      const hit = document.elementFromPoint(frame.left - 10, frame.top + 200);
+      for (const item of slides) item.play();
+      return hit?.closest("#sidebar") ? "sidebar" : "ground";
+    });
   // Where the page column starts, from the frame's left edge.
   const columnAt = (left) =>
     page.waitForFunction(
@@ -264,6 +379,7 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   await expanded(true);
   await columnAt(border + width);
   await toggle.click();
+  assert.equal(await leftOfFrameMidSlide(), "ground");
   await sidebar.waitFor({ state: "hidden" });
   await expanded(false);
   await columnAt(border);
@@ -274,6 +390,7 @@ test("the sidebar opens and closes at 1280px and at 375px, where it slides over 
   assert.equal(await sidebar.isVisible(), false);
   await columnAt(border);
   await toggle.click();
+  assert.equal(await leftOfFrameMidSlide(), "ground");
   await sidebar.waitFor();
   await columnAt(border + width);
 

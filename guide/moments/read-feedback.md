@@ -5,7 +5,10 @@ This feedback begins a new round, and you decide what it covers.
   about a decision.
 - Compare every note, and anything the reviewer said in the chat, with the
   alignments on Agreed. `occurrence="N"` on a note means the reviewer
-  quoted the Nth appearance of that text in its block.
+  quoted the Nth appearance of that text in its block. A note with
+  `proposal="ID"` is about that proposal. A note or thread with
+  `page="work"` and no `proposal` is about the session's proposals as a
+  whole.
 - Update Agreed's task first, then its alignments, as
   `pair guide agreements.md` describes.
 - `everything-else-looks-good="yes"` means the reviewer agrees with
