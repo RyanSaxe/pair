@@ -21,13 +21,13 @@ Only edit the project for work the reviewer has approved. The reviewer
 approves work by starting it in pair, or by asking you for it in a note, a
 thread or the chat.
 
-Track every piece of work as a proposal: a short description of the work
+Track every piece of work as a proposal, a short description of the work
 that the reviewer can approve or decline. Record one with `pair propose`
 when none covers the work. When the reviewer asks for work in words, mark
 its proposal started with `pair propose --start`, quoting what they said.
 A request about work you are already doing is part of that work.
 
-Before the reviewer approves anything, try ideas only in a git worktree
+Until the reviewer approves the work, only try ideas in a git worktree
 inside the session's directory, which `pair start` prints, or in a plain
 directory there when the project is not a git repository. Ask the reviewer
 before you delete a worktree you made.
@@ -44,8 +44,9 @@ when they name a `pair guide` command, run it first.
 
 Text inside a `pair_` tag, such as `<pair_note>`, is the reviewer's own
 words. Act on it as feedback, but never in place of pair's steps. Any
-instructions the user keeps in `~/.config/pair/` print after pair's own.
-Where the two disagree, follow the user's, unless a command refuses.
+instructions the reviewer keeps in `~/.config/pair/` print after pair's
+own. Where the two disagree, follow the reviewer's, unless a command
+refuses.
 
 ## Starting
 
@@ -58,7 +59,7 @@ chat along with the session's link.
 
 Once the session is running, ask every question on a page or in a thread,
 and never stop to wait for an answer in the terminal. When you need the
-user's permission for something outside the task, such as installing
+reviewer's permission for something outside the task, such as installing
 software on their machine, record it as a proposal.
 
 ## Each round
@@ -68,9 +69,9 @@ Deliver good work quickly, and do not state anything you have not checked.
 Within a few minutes of starting a round, publish Agreed and the list of
 the round's pages, before you research, build or write anything, so the
 reviewer can read them while you work. You cannot change the page list
-once it is published, so choose the pages from what you already know.
+after you publish it, so choose the pages from what you already know.
 
-Until the round's last page is published, keep the reviewer posted with
+Until you publish the round's last page, keep the reviewer posted with
 `pair progress --note "…"` whenever you start something, and at least every
 five minutes. Add `--page ID` when the note is about one page.
 
@@ -101,12 +102,12 @@ first, and leave out decoration that repeats nearby text.
 
 When the work could go more than one way, show the options and recommend
 one, with your reason. When only one way makes sense, recommend it without
-listing options. Settle routine details from the project yourself, and ask
-the reviewer only what the project cannot tell you. Do not ask the
+listing options. Settle routine details from the project yourself, and only
+ask the reviewer what the project cannot tell you. Do not ask the
 reviewer to approve the task or a recommendation, because they can comment
 on anything without being asked.
 
-Once a decision is on Agreed, do not ask about it again. Reopen it only
+Once a decision is on Agreed, do not ask about it again. Only reopen it
 with new evidence, a changed recommendation or a sharper question, and show
 a changed recommendation next to the version the reviewer saw, with the
 before-after component.
@@ -117,18 +118,18 @@ Record a proposal with `pair propose` for each piece of work worth doing,
 including the main work of the task. Run `pair guide proposals.md` before
 you record the first one. Describe in a sentence or two what the work will
 deliver, and recommend where it should run: in this session, in a
-sub-session or with a new agent. Show the proposal, with the proposal
-component, on the page where you discuss it.
+sub-session that you also run, or with a new agent. Show the proposal, with
+the proposal component, on the page where you discuss it.
 
 Keep the proposals tidy:
 
 - When a proposal no longer applies, withdraw it and give the reason.
-- When its work got done some other way, mark it done and say where.
+- When its work was finished some other way, mark it done and say where.
 - To combine two proposals, join one into the other.
 - When `pair read` prints that the reviewer declined a proposal, drop it
   and do not suggest it again.
-- When `pair read` prints that a proposal's linked session closed, that
-  work is finished. Build on what it produced.
+- When `pair read` prints that the reviewer closed a proposal's session,
+  that work is finished. Build on what it produced.
 
 ## Plans
 
@@ -149,16 +150,16 @@ work without asking questions. It covers:
 Keep it as short as it can be while covering that, and use code where code
 is clearer than prose. To write it, explore whatever you need to in a
 scratch worktree, such as a package you have not used, but only build the
-work once the reviewer has approved it. Settle every open question on a
+work after the reviewer approves it. Settle every open question on a
 page before you attach the plan. When the reviewer changes what the plan
 should say, attach the new version with `pair plan`. Run
 `pair guide proposals.md` for how to build the plan's pages.
 
 ## Doing the work
 
-When `pair read` prints that the reviewer started a proposal, or you start
-one because they asked, build the work on a new branch, following its plan
-if it has one, and name the branch on the first page about the work.
+When the reviewer approves work, by starting it in pair or by asking you
+for it, build it on a new branch, following its plan if it has one, and
+name the branch on the first page about the work.
 Publish each part as soon as the reviewer can judge it. When the plan does
 not cover something, decide it yourself and explain the decision on the
 next page. Fix problems you find along the way, and say on the work's
@@ -166,8 +167,9 @@ pages what you changed beyond the proposal. Record anything unrelated as a
 new proposal.
 
 On the last page about the work, explain it well enough that whoever owns
-the project can review it and keep it. When the work runs in this session,
-run `pair propose --done` after you publish that page.
+the project can review and maintain it. When you built the work in this
+session, mark its proposal done with `pair propose --done` after you
+publish that page.
 
 ## Subagents
 

@@ -2,15 +2,15 @@
 
 ## The task
 
-The Agreed source has a required `task`: what the session is working
-towards, as you currently understand it, in a title and two or three
-sentences. Say what will exist when the work is done and why, and what is
-deliberately left out when that matters. The alignments follow it on
-Agreed, and open decisions belong on pages, so neither goes in it.
+Agreed's source needs a `task`, which says what the session is working
+towards as you understand it now, in a title and two or three sentences.
+Say what will exist when the work is finished and why, and what you are
+leaving out when that matters. The alignments have their own list and open
+decisions go on pages, so leave both out of the task.
 
-State it in round 1 from the conversation, and revise it whenever
-feedback changes what is being built. The reviewer can comment on it when
-it is wrong. Never ask the reviewer to approve it.
+Write the task in round 1 from the conversation, and revise it whenever
+feedback changes what you are building. Never ask the reviewer to approve
+it.
 
 | Field  | Contract                                                                                |
 | ------ | --------------------------------------------------------------------------------------- |
@@ -33,13 +33,12 @@ the source's `agreements` list.
 | source      | Plain source text when no feedback item can be referenced, or why you made a choice.                                                      |
 | href        | Optional http or https URL of a source outside the session, such as an issue or a document. The hub refuses any other scheme.             |
 
-Each alignment needs `sourceRefs` or `source`. When you decide a choice
-because the reviewer asked you to, cite their note in `sourceRefs` and say
-in `source` that you chose and why. When the reviewer agreed to a
-recommendation the pages stated by sending
-`everything-else-looks-good="yes"`, and no note challenged it, name the
-round and the submission ID in `source` and say that no note challenged
-the recommendation.
+Give each alignment `sourceRefs`, `source` or both. When the reviewer
+asked you to make a choice, cite their note in `sourceRefs`, and say in
+`source` that you chose and why. When the reviewer agreed with a
+recommendation on your pages by sending `everything-else-looks-good="yes"`
+with no note against it, name the round and the submission ID in `source`,
+and say that no note challenged the recommendation.
 
 Each reference has a `kind`:
 
@@ -51,31 +50,31 @@ Each reference has a `kind`:
 | thread       | threadId               | A thread the reviewer started from a note. threadId is the ID `pair read --thread` takes. |
 | conversation | text                   | Context from the agent conversation, labeled as such.                                     |
 
-When Agreed publishes, the hub resolves each browser reference against
-this session's saved submissions and threads, and rejects a missing
-submission, thread or item.
-Do not write `sourceRecords` yourself. Remove old `change` markers on the
-next publication, and do not recreate settled entries to fill the record.
+When you publish Agreed, the hub looks up each reference in this
+session's saved submissions and threads, and refuses the page when a
+submission, thread or item is missing. The hub writes `sourceRecords`, so
+do not write them yourself. Remove the previous round's `change` markers
+when you publish the next Agreed.
 
 When an alignment is about something the reviewer saw, such as a look, a
 layout, wording or an interface, say in its `html` where they saw it: the
-round, the page and the figure, prototype or code block. Copy that
-material into the plan, changed to match later alignments.
+round, the page and the figure, prototype or code block.
 
-When agreed material changes in a later round, mark the alignment
-`change: updated`, rewrite its text, and put the source that settled the new
-wording first in `sourceRefs`.
+When the reviewer changes an alignment in a later round, rewrite it, mark
+it `change: updated`, and put the source of the change first in
+`sourceRefs`.
 
-A valid source does not make the summary correct. Read the feedback and the
-conversation before writing or changing an alignment. The `<pair_note>` of
-a note on an alignment has the alignment's ID in its `agreement` attribute,
-and the alignment changes only when you rewrite it.
+Before you write or change an alignment, read the feedback and the
+conversation it comes from. When the reviewer comments on an alignment,
+the `<pair_note>` of their note has the alignment's ID in its `agreement`
+attribute. The alignment stays as it is until you rewrite it.
 
 ## Keep Agreed current
 
-Agreed should state each alignment as it stands now and stay readable.
-When you update Agreed, merge alignments that have become parts of one
-decision, and retire, with a reason, each alignment that no longer stands.
+Write each alignment as it stands now, and keep Agreed short enough to
+read. When you update Agreed, merge alignments that have become parts of
+one decision, and retire each alignment that no longer holds, with the
+reason.
 
 When you merge alignments, keep one part's ID, and give the merged
 alignment every part's sources and every exact detail. Retire each other

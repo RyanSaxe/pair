@@ -1,7 +1,8 @@
 # Writing
 
-A page explains code, puts a decision to the reviewer or shows built work.
-Put the facts, choices, reasons and consequences on the page. Remove
+You write a page to explain code, to put a decision to the reviewer or to
+show built work. Put the facts, choices, reasons and consequences on the
+page. Remove
 commentary about the page itself.
 
 Most context is short: one line of consequence under an option, a caption, a
@@ -28,6 +29,14 @@ is clearer than "The draft is stored" because it names the actor.
 Use the real name. Write "`problems()` refuses an option label over 24
 characters", not "the build enforces a limit on labels".
 
+Use the words a person would say. Introduce a term from the project once,
+in plain words, before you rely on it, and never use a state's name as if
+the reader knew what it means. Write "orders the warehouse has not shipped
+yet", not "pending orders", until the page has said what pending means.
+Put "only" right before the verb it limits: "Only retry a request the
+server did not receive", not "Retry a request only when the server did not
+receive it".
+
 Give a reason with every judgment. Write "One Redis cache is simpler because
 four web processes read one copy" instead of "One Redis cache is simpler".
 
@@ -41,7 +50,7 @@ write "The body contains the request payload."
 Use a decision heading for the question the reviewer must answer.
 
 Write so a stranger to the project can repeat any sentence back as a fact
-about the plan or the code the page explains.
+about the plan or the code on the page.
 
 Say each thing once. Do not open a section by restating its heading.
 

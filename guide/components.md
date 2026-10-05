@@ -1,14 +1,14 @@
 # Components
 
 A component is a directory that `pair build` bundles into every page. Copy
-its `markup.html` into a page and replace the content and IDs. Its styles
-and behavior are already in the frame, so they do not belong in the page's
+its `markup.html` into a page and replace the content and IDs. pair adds
+its styles and behavior to every page, so do not copy them into the page's
 `css` or `js`. Component CSS outranks page CSS, so do not restyle a
 component. A component is as wide as the reading column.
 
-`pair components` lists every component, pair's and the user's, with its use
+`pair components` lists every component, pair's and the reviewer's, with its use
 and the `pair guide` command that prints its markup. Before you choose a
-component, print the markup of each one you might use. The user's own
+component, print the markup of each one you might use. The reviewer's own
 components are in `$XDG_CONFIG_HOME/pair/components/`, or in
 `~/.config/pair/components/` when `XDG_CONFIG_HOME` is not set, and one with
 the same name as one of pair's components replaces it.
@@ -23,9 +23,10 @@ Never suggest this to the reviewer.
 
 A code block, a diagram's Mermaid text and the before-after JSON in
 `textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
-`&amp;` for each `&` in them. Nothing checks this, and the browser reads an
-unescaped `<` as the start of a tag: `<T>` in code hides the rest of its
-line, and `<br/>` in a Mermaid label loses its line break, with no error.
+`&amp;` for each `&` in them. `pair build` does not catch a missed one, and
+the browser reads a bare `<` as the start of a tag. So `<T>` in code hides
+the rest of its line, and `<br/>` in a Mermaid label loses its line break,
+with no error.
 Leave `>` as it is, so `-->` and `->>` stay as written. In a formula inside
 a JSON string, write each backslash twice.
 
@@ -35,7 +36,7 @@ a JSON string, write each backslash twice.
 `python`, `shell`, `json`, or `text` for plain text. `pair build` refuses a
 name that is not a Shiki language ID and suggests the nearest one.
 
-`data-file` on a code block names its file above the code. `data-caption` on
+`data-file` on a code block puts the file's name above the code. `data-caption` on
 code, a diagram or a chart adds a caption line, and `data-title` on a chart
 adds a header.
 
@@ -49,17 +50,17 @@ adds a header.
 Line numbers count from the block's first line, so name a quoted excerpt's
 real range in `data-caption`, such as `Lines 611-621`.
 
-Use `data-lines` only when the selected range is the subject of the review,
-and `data-notes` only when the exact line needs an explanation. Leave both
-off routine code examples.
+Only use `data-lines` when the selected range is the subject of the
+review, and only use `data-notes` when the exact line needs an explanation.
+Leave both off routine code examples.
 
 Write a multi-line code block as a `<pre>`, which keeps its line breaks. Use
 the code component for source code, never a bare block.
 
 A formula term takes its colour from a literal in the source, because KaTeX
 refuses `\htmlClass`: write `\textcolor{#1d4ed8}`, `\textcolor{#a16207}`,
-`\textcolor{#047857}` or `\textcolor{#9333ea}`. The frame follows the theme
-only for these four.
+`\textcolor{#047857}` or `\textcolor{#9333ea}`. Only these four colors
+change with the light and dark themes.
 
 A prototype's markup names an entry in the page's `prototypes`. Run
 `pair guide prototypes.md` for that entry's fields.
@@ -70,8 +71,9 @@ Use the visual decision whenever the options differ in something the
 reviewer could see: a layout, a flow, a structure, code, a chart or a
 prototype. Put that figure in each option: a diagram, code, a chart, an
 image, a prototype, or a mock drawn in the page's own HTML and CSS with the
-frame's tokens. Use the plain decision only when a title and one line are
-enough to judge each option. Put the recommended option first, with the tag.
+frame's tokens. Only use the plain decision when a title and one line are
+enough to judge each option. Put the recommended option first, with the
+Recommended tag.
 Give each option one line of consequence that is specific to it.
 
 ## Questions and checklists
@@ -80,8 +82,8 @@ Use a question when the answer is prose, not a selection. Keep it to one
 sentence, and say what you will decide with the answer. Use a drawing
 question when the reviewer needs to sketch a boundary, flow or layout.
 
-Start each checklist with no boxes checked, because the agent cannot tell a
-box the reviewer checked from one that started checked. Mark the items you
+Start each checklist with no boxes checked, because you cannot tell a box
+the reviewer checked from one that started checked. Mark the items you
 recommend with the `Recommended` tag. Keep the count line above the rows.
 The component updates it.
 

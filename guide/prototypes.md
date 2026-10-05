@@ -1,8 +1,8 @@
 # Prototypes
 
 A prototype is a self-contained HTML document that shows an interaction
-working, so the implementer sees the behavior instead of a description of
-it.
+working, so the reviewer and whoever builds the work can try the behavior
+instead of reading about it.
 
 | Field  | Contract                                                                 |
 | ------ | ------------------------------------------------------------------------ |
@@ -12,16 +12,16 @@ it.
 | file   | Page-source alternative to html, resolved relative to the page JSON.     |
 | height | Positive preview height in pixels.                                       |
 
-Put a prototype in its page's `prototypes` array. IDs are unique within the
-round. Put `data-prototype="ID"` on the element where the prototype
-belongs. The document runs in a sandboxed iframe with no same-origin access
-to the review frame, so its controls cannot submit real feedback. Scripts,
-forms and popup links work inside the sandbox. The embed has no background,
-so give the document its own and follow the viewer's theme with a
-`prefers-color-scheme` rule.
+Put each prototype in its page's `prototypes` array, with an ID that no
+other prototype in the round uses, and put `data-prototype="ID"` on the
+element where it belongs. The frame runs the document in a sandboxed
+iframe with no access to the frame itself, so the prototype's controls
+cannot send real feedback. Scripts, forms and popup links work inside it.
+The iframe has no background, so give the document one, and match the
+reviewer's light or dark theme with a `prefers-color-scheme` rule.
 
-An embed is about 820px wide. A component mock renders at its natural width
-without scaling. A layout mock designed wider than the embed collapses
-unless it scales. Give it a stage at the design width (1120 works for a
-three-column layout) with `transform: scale(min(1, innerWidth / 1120))`
-and a control to switch to 100%.
+The iframe is about 820px wide. A mock of one component fits at its natural
+width. A layout designed wider than that collapses unless you scale it. Put
+it on a stage at its design width, such as 1120px for three columns, with
+`transform: scale(min(1, innerWidth / 1120))`, and add a control that
+switches to 100%.
