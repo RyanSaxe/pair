@@ -19,19 +19,18 @@ sandbox blocks either, allow the `pair` command to run outside it. Do not
 switch to a different state directory, because the hub on the usual port
 cannot find a session stored anywhere else.
 
-- Under Codex, the sandbox blocks both. The first `pair` command fails with
-  an error that names the sandbox, and Codex asks for approval to run it
-  again outside the sandbox. Codex may approve that retry by itself.
-  `pair start` refuses under Codex until `~/.codex/rules/pair.rules`
-  exists. With the reviewer's permission, run `pair setup-codex` once
-  outside the sandbox. It writes that file, which contains only pair's
-  allow rule, so a `pair` command then runs outside the sandbox on the
-  first try. Codex reads the file when it starts, so ask the reviewer to
-  restart Codex.
-- Under Claude Code in auto mode, nothing is needed. In any other mode,
-  allow the `pair` command in the permission settings.
-- Under Copilot CLI, pi and opencode, nothing is needed beyond the allow
-  flags the session already uses.
+Under Codex, the sandbox blocks both. The first `pair` command fails with an
+error that names the sandbox, and Codex asks for approval to run it again
+outside the sandbox. Codex may approve that retry by itself. `pair start`
+refuses under Codex until `~/.codex/rules/pair.rules` exists. With the
+reviewer's permission, run `pair setup-codex` once outside the sandbox. It
+writes that file, which contains only pair's allow rule, so a `pair` command
+then runs outside the sandbox on the first try. Codex reads the file when it
+starts, so ask the reviewer to restart Codex.
+
+If your agent CLI asks for approval before each `pair` command, ask the
+reviewer to allow `pair` in its settings, so a round doesn't stall on
+prompts.
 
 ## When feedback did not wake you
 
