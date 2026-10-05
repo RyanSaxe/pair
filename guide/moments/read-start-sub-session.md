@@ -1,4 +1,4 @@
-The reviewer started this proposal in a sub-session.
+This proposal started in a sub-session.
 
 - Run the `pair start --from` command in the next step now. It creates the
   sub-session, linked to this one, and makes you its holder.

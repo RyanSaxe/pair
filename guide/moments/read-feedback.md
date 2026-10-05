@@ -5,18 +5,13 @@ This submission starts a new round. You choose what that round covers.
   is about a decision. Compare every note, and anything the user said in
   chat, with the alignments on Agreed. A note with `occurrence="N"` is on the
   Nth appearance of its quote in its block.
-- Update the task first, then the alignments: add what the reviewer
-  settled, rewrite what they changed, merge alignments that have become
-  parts of one decision, and retire what no longer stands, as Keep Agreed
-  current in `pair guide agreements.md` says.
+- Update the task first, then the alignments, as Keep Agreed current in
+  `pair guide agreements.md` says.
 - `everything-else-looks-good="yes"` means the reviewer agrees with what
-  your pages stated, except where a note says otherwise. Add each
-  recommendation they agreed to this way to the alignment of the decision
-  it belongs to, and give it an alignment of its own only when it is a
-  decision of its own. A decision on which the reviewer chose no option
-  stays open, even when you recommended one, and so does a question they
-  did not answer. Without that attribute, a recommendation the reviewer did
-  not comment on stays open too.
+  your pages stated, except where a note says otherwise. A decision on
+  which the reviewer chose no option stays open, even when you recommended
+  one, and so does a question they did not answer. Without that attribute,
+  a recommendation the reviewer did not comment on stays open too.
 - When the reviewer asks you to decide, take the option you recommended
   unless a note names another, and say in the alignment's `source` that you
   chose it.
