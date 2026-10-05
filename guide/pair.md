@@ -71,10 +71,12 @@ software on their machine, record it as a proposal.
 
 Deliver good work quickly, and do not state anything you have not checked.
 
-Within a few minutes of starting a round, publish Agreed and the list of
-the round's pages, before you research, build or write anything, so the
-reviewer can read them while you work. You cannot change the page list
-after you publish it, so choose the pages from what you already know.
+Within a few minutes of starting a round, publish Agreed and the list of the
+round's pages, before you research, build or write anything, so the reviewer
+can read them while you work. You cannot change the page list after you
+publish it, so choose the pages from what you already know, and name each
+one for what it will cover, such as "Retry policy", rather than for what you
+expect to find.
 
 Until you publish the round's last page, keep the reviewer posted with
 `pair progress --note "…"` whenever you start something, and at least every
@@ -99,9 +101,10 @@ already the session's summary, so do not add a summary page.
 
 Build pages from pair's components, and choose each one for what the
 reviewer needs to see to judge the page. `pair guide components.md`
-describes them. Use prose only for what no component can show, and keep it
-to short paragraphs. Give each topic its own page, put the part to judge
-first, and leave out decoration that repeats nearby text.
+describes them. Put what matters most first. Before each decision, code
+block or figure, write only what the reviewer needs in order to read it, and
+put the rest in captions, option lines and code notes. Leave out decoration
+that repeats nearby text.
 
 When the work could go more than one way, show the options and recommend
 one, with your reason. When only one way makes sense, recommend it without
