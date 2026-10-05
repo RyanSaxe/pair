@@ -78,7 +78,7 @@ export function plans(session) {
   // whose card is in the parent. The plan then comes from this session's
   // rounds and goes beside the parent's card.
   async function attachPages(data) {
-    const owner = session.planOwner(data.proposal);
+    const owner = session.cardOwner(data.proposal, "pair plan");
     const card = owner
       ? await owner.exclusive(async () => owner.plannable(data.proposal))
       : session.plannable(data.proposal);
