@@ -65,7 +65,7 @@ The agent only edits your project for work you approve.
 
 The agent records each piece of work it suggests as a proposal, and the Work
 page lists them all. You approve a proposal by pressing Start on it, or by
-asking the agent for the work in your own words. On these phone screens, you
+asking the agent for the work in your own words. In the picture above, you
 start a proposal in a sub-session, a second session beside the one you are
 in, and follow the agent's progress there.
 
