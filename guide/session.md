@@ -28,11 +28,6 @@ stop working on it and tell the reviewer. After another agent takes over,
 the hub refuses your first command, even `pair start`. Only run
 `pair start` again when the reviewer asks you to take the session back.
 
-The hub identifies a Claude Code agent by its inbox socket, and each Claude
-Code process has its own. When Claude Code restarts, a resumed conversation
-runs in a new process, so the hub treats it as a new agent that is not the
-holder.
-
 ## Resuming
 
 To resume a session, run `pair start --session-dir PATH`, which keeps its
