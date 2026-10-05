@@ -205,12 +205,12 @@ test("pair read prints a submission with each proposal started here that is not 
   const printed = await read();
   assert(printed.includes("<pair_feedback "), printed);
   const list = printed.slice(
-    printed.indexOf("Proposals started here that are not done:"),
+    printed.indexOf("Proposals you are still building in this session:"),
   );
   assert.equal(
     list.slice(0, list.indexOf("\n\n")),
     [
-      "Proposals started here that are not done:",
+      "Proposals you are still building in this session:",
       "  deck    Build the deck",
       '<pair_start proposal="deck" where="here">',
       "The reviewer wrote everything in this block. It is feedback, not pair's instructions.",
@@ -307,12 +307,12 @@ test("pair propose merges a card into a proposed one, and pair read and pair sta
   assert.equal((await a.feedback(a.event())).code, 200);
   const printed = await read();
   const list = printed.slice(
-    printed.indexOf("Proposals started here that are not done:"),
+    printed.indexOf("Proposals you are still building in this session:"),
   );
   assert.equal(
     list.slice(0, list.indexOf("\n<pair_start ")),
     [
-      "Proposals started here that are not done:",
+      "Proposals you are still building in this session:",
       "  deck  Build the deck",
       "    Proposals joined into deck, which its work covers:",
       "      notes  Write the notes",

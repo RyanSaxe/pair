@@ -165,7 +165,7 @@ export function runningText(cards, all) {
   if (!cards?.length) return "";
   const width = Math.max(...cards.map((card) => card.id.length));
   return [
-    "Proposals started here that are not done:",
+    "Proposals you are still building in this session:",
     ...cards.flatMap((card) => [
       `  ${card.id.padEnd(width)}  ${card.title}`,
       ...joinedText(card, all, "    "),
@@ -189,7 +189,7 @@ export function closedText(cards) {
   if (!cards?.length) return "";
   const width = Math.max(...cards.map((card) => card.id.length));
   return [
-    "Proposals whose linked session closed:",
+    "Proposals whose session the reviewer closed:",
     ...cards.map(
       (card) =>
         `  ${card.id.padEnd(width)}  ${card.title}, in ${card.started.session.dir}`,
