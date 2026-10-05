@@ -58,6 +58,16 @@ the header. The tab then shows that round and reads **Round N**.
 | Review what you will send | Press <kbd>r</kbd>.                                                                                                                     |
 | See every key             | Press <kbd>?</kbd>.                                                                                                                     |
 
+## Feedback
+
+Your browser keeps everything you do on the pages as a draft until you send
+it.
+
+**Everything else looks good** is a switch on the Review page, and it is on
+by default. When it is on, the agent treats everything the pages stated as
+agreed, except where one of your comments challenges it. The switch never
+chooses an option or answers a question for you.
+
 ## Agreed
 
 Agreed is the first page of every round, and the sidebar lists it as Agreed
@@ -88,6 +98,8 @@ they are. The agent asks you before it deletes a worktree it made.
 
 ## Sessions and notifications
 
+### The session list
+
 The Sessions button, second in the header, or <kbd>g</kbd>, opens the
 session list. It lists every live session in the order the sessions
 started. A
@@ -111,23 +123,32 @@ the session.
   agent publishes the first Agreed, the session's page shows its title, its
   agent and the progress card.
 
-The bell, or <kbd>n</kbd>, opens a list of notifications. The list has a
-line for each agent reply in a thread and each proposal an agent records,
-from every live session. It also has a line for each other session that
-starts or has a round waiting for you. Clicking a line or its ✕ removes the
-line. Sending a waiting round removes that round's line, replying in a
-thread removes that thread's lines, and a thumbs up on an agent's reply
-removes that reply's line. **Clear all** empties the list. The orange number
-on the bell, also shown in the browser tab's title, is the number of lines.
+### The bell
 
-When you turn notifications on in Settings, your browser also shows a system
-notification for each new line and for each agent the hub cannot wake,
-except for the session in the tab you are using.
+The bell, or <kbd>n</kbd>, opens a list of notifications. The orange number
+on the bell, also shown in the browser tab's title, is the number of lines.
+The list has a line for each agent reply in a thread and each proposal an
+agent records, from every live session. It also has a line for each other
+session that starts or has a round waiting for you.
+
+| When you                          | pair removes        |
+| --------------------------------- | ------------------- |
+| Click a line or its ✕             | That line           |
+| Send a waiting round              | That round's line   |
+| Reply in a thread                 | That thread's lines |
+| Give an agent's reply a thumbs up | That reply's line   |
+| Press **Clear all**               | Every line          |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
   <img alt="The bell's list with another session's start and waiting round and an agent's reply, and the session button in orange because that session waits for you" src="../assets/bell-light.png">
 </picture>
+
+### System notifications
+
+When you turn notifications on in Settings, your browser also shows a system
+notification for each new line and for each agent the hub cannot wake,
+except for the session in the tab you are using.
 
 ## Closing a session
 
@@ -144,13 +165,3 @@ sub-session, the hub marks its proposal done in the session it came from. A
 closed session that still has open sub-sessions stays in the list as a grey
 heading above them, and pair removes it from the list once you close the
 last of them.
-
-## Feedback
-
-Your browser keeps everything you do on the pages as a draft until you send
-it.
-
-**Everything else looks good** is a switch on the Review page, and it is on
-by default. When it is on, the agent treats everything the pages stated as
-agreed, except where one of your comments challenges it. The switch never
-chooses an option or answers a question for you.
