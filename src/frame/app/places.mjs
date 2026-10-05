@@ -146,6 +146,40 @@ export function settleScroll() {
     if ($("reading").hidden || !page.pending) endRestore();
   });
 }
+/* What is above a target can still change height after the scroll to it:
+   an image gets its height only once it loads, and a long reply is cut
+   short once its images have one. The browser's scroll anchoring does not
+   keep the target in place through that. It follows content that an image
+   pushes down inside a cut reply, and it does not undo its move when the
+   reply is then cut. So until the reader scrolls, taps or presses a key, or
+   HOLD_MS pass, anchoring is off and every change in the size of the
+   target's view scrolls to the target again. */
+const HOLD_MS = 10000;
+const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
+let release = () => {};
+export function holdInView(target, view) {
+  release();
+  const box = scroller();
+  const observer = new ResizeObserver(() => {
+    if (target.isConnected && target.getClientRects().length)
+      target.scrollIntoView({ block: "center" });
+    else stop();
+  });
+  let timer;
+  function stop() {
+    observer.disconnect();
+    clearTimeout(timer);
+    box.style.overflowAnchor = "";
+    for (const type of readerInputs) removeEventListener(type, stop, true);
+    release = () => {};
+  }
+  release = stop;
+  timer = setTimeout(stop, HOLD_MS);
+  box.style.overflowAnchor = "none";
+  for (const type of readerInputs)
+    addEventListener(type, stop, { capture: true, passive: true });
+  observer.observe(view);
+}
 export function installPlaces() {
   document.addEventListener("scroll", rememberHeight, true);
   document.addEventListener("scroll", rememberPlace, true);
