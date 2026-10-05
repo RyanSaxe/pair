@@ -238,6 +238,53 @@ test("the note's image button stays outside its text area on a wide window and o
   }
 });
 
+// The height of the note's box, and whether its text scrolls inside it.
+const noteBox = (page) =>
+  page.evaluate(() => {
+    const text = document.getElementById("note-text");
+    return {
+      height: text.closest(".note-field").getBoundingClientRect().height,
+      scrolls: text.scrollHeight > text.clientHeight,
+    };
+  });
+
+// The box starts 120px tall and grows with the note to half the window's
+// height, where the text starts to scroll inside it. A draft opens in a
+// reloaded frame at its own size, and deleting the text shrinks the box.
+test("the note's box grows with its text up to half the window, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  assert.deepEqual(await noteBox(page), { height: 120, scrolls: false });
+
+  const text = page.locator("#note-text");
+  await text.fill("A line of the note.\n".repeat(6));
+  const grown = await noteBox(page);
+  assert.ok(
+    grown.height > 120 && grown.height < 400 && !grown.scrolls,
+    JSON.stringify(grown),
+  );
+
+  await text.fill("A line of the note.\n".repeat(60));
+  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+
+  await page.reload();
+  await page.locator('#page-list [data-page="decisions"]').click();
+  await page.getByRole("heading", { name: "Decisions" }).waitFor();
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  assert.equal(await text.inputValue(), "A line of the note.\n".repeat(60));
+  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("Backspace");
+  assert.equal(await text.inputValue(), "");
+  assert.deepEqual(await noteBox(page), { height: 120, scrolls: false });
+});
+
 test(`a note's highlight is cleared while its page or the note dialog changes, and comes back`, async (t) => {
   const page = await openDecisions(t);
   if (!page) return;

@@ -245,28 +245,29 @@ dialog::backdrop {
   }
 }
 /* The note's field is one bordered box: the text area, and under it a
-   strip with the image button at its right. Text scrolls only inside the
-   text area, so the line being typed never runs under the button. The box,
-   not the text area, takes the resize grip, and the button's 20px right
-   margin leaves the grip its corner. */
+   strip with the image button at its left, in line with the text. Text
+   scrolls only inside the text area, so the line being typed never runs
+   under the button. fitNoteText sets the text area's height to its text,
+   so the box grows from 120px to half the window, and past that the text
+   area shrinks to fit and scrolls. */
 .note-field {
   position: relative;
   display: flex;
   flex-direction: column;
   min-height: 120px;
+  max-height: 50dvh;
   margin: var(--space-field) 0;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: var(--panel);
   overflow: hidden;
-  resize: vertical;
 }
 .note-field:has(> textarea:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .note-field textarea {
-  flex: 1;
+  flex: auto;
   min-height: 0;
   margin: 0;
   border: 0;
@@ -275,12 +276,13 @@ dialog::backdrop {
   outline: none;
   resize: none;
 }
+/* The left margin is the text area's side padding. */
 .note-image-pick {
   flex: none;
-  align-self: flex-end;
+  align-self: flex-start;
   width: 28px;
   height: 28px;
-  margin: 0 20px 7px 0;
+  margin: 0 0 7px 12px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--panel);

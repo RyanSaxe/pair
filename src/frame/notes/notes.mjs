@@ -22,6 +22,7 @@ import { placeBar } from "#frame/notes/blocks.mjs";
 import { choiceTargets } from "#frame/notes/controls.mjs";
 import {
   drawNoteImages,
+  fitNoteText,
   imageError,
   setNoteImages,
   settleNoteImages,
@@ -369,6 +370,7 @@ export function openNote(
   $("note-thread").classList.remove("primary");
   opener = document.activeElement;
   $("note-dialog").showModal();
+  fitNoteText();
   $("note-text").focus();
 }
 /* Comment on a proposal's card starts a thread on the card, which shows
@@ -394,6 +396,7 @@ export function openCardNote(card) {
   $("note-thread").classList.add("primary");
   opener = document.activeElement;
   $("note-dialog").showModal();
+  fitNoteText();
   $("note-text").focus();
 }
 /* The progress card's button starts a thread about the work in progress.
