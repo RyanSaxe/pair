@@ -25,14 +25,19 @@ it. `pair --version` prints the version.
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
 | `pair setup-codex`                                     | Writes the Codex allow rule for `pair` to `~/.codex/rules/pair.rules`, which `pair start` requires under Codex.                                                                                                                                                                                                        |
 
+## Session commands
+
 Every session command takes `--session-dir DIR`, except `pair start` when it
-creates a session. A session command prints the next step first, then the
-instructions for that moment of the session, then its result, with your
-words inside `pair_` tags. When the output is long, it prints the next step
-again at the end. `--json` prints the result as one JSON object instead.
-When the output of `pair read` or `pair status` is over 10,000 bytes, the
-command writes its result to a file in the session's `output/` directory and
-prints the file's path.
+creates a session. A session command prints these, in order:
+
+1. The next step.
+2. The instructions for that moment of the session.
+3. Its result, with your words inside `pair_` tags.
+
+When the output is long, it prints the next step again at the end. `--json`
+prints the result as one JSON object instead. When the output of `pair read`
+or `pair status` is over 10,000 bytes, the command writes its result to a
+file in the session's `output/` directory and prints the file's path.
 
 ## pair propose
 
