@@ -2,7 +2,14 @@ import { enhance } from "#frame/app/registry.mjs";
 import { prefs } from "#frame/app/store.mjs";
 import { ago } from "#frame/app/time.mjs";
 import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
-import { base, editable, page, pages, plan } from "#frame/app/view.mjs";
+import {
+  base,
+  editable,
+  page,
+  plan,
+  shownPage,
+  topicTitle,
+} from "#frame/app/view.mjs";
 import { findText, placeMarks } from "#frame/notes/notes.mjs";
 import { ackButton, syncAcks } from "#frame/notes/thread-ack.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
@@ -87,9 +94,7 @@ export function startThread(context, text, attachments) {
       };
   sent.set(fields.id, {
     ...fields,
-    page: context.proposal
-      ? context.title
-      : pages.find((item) => item.id === context.topic)?.title,
+    page: context.proposal ? context.anchor : topicTitle(context.topic),
     state: "sending",
     createdAt: now,
     messages: [{ from: "reviewer", at: now, text, attachments }],
@@ -436,6 +441,34 @@ const cardOf = (id) =>
   [
     ...document.querySelectorAll(`[data-proposal-card="${CSS.escape(id)}"]`),
   ].find((node) => !node.closest("[hidden]"));
+// A thread on the overall comment goes at the end of its round's Review,
+// and a thread on Work after Work's cards, whatever round it started in.
+function endOf(thread) {
+  if (thread.topic === "work" && shownPage() === "work")
+    return $("work-threads");
+  if (
+    thread.topic === "overall" &&
+    shownPage() === "feedback" &&
+    thread.round === plan.round
+  )
+    return $("overall-threads");
+  return null;
+}
+const folds = (threads, index) =>
+  threads.length >= 4 && index < threads.length - 2;
+function placeEnds(threads) {
+  for (const box of [$("overall-threads"), $("work-threads")]) {
+    const listed = threads.filter((thread) => endOf(thread) === box);
+    listed.forEach((thread, index) => {
+      if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
+      const entry = cards.get(thread.id);
+      drawCard(entry, thread, null, folds(listed, index));
+      if (box.children[index] !== entry.card)
+        box.insertBefore(entry.card, box.children[index] ?? null);
+    });
+    for (const card of [...box.children].slice(listed.length)) card.remove();
+  }
+}
 // Each thread goes under its block or its proposal's card, after the
 // threads started there before it. With four or more threads in one place,
 // all but the two newest start collapsed.
@@ -447,16 +480,19 @@ export function placeThreads() {
     groups.set(at, [...(groups.get(at) || []), thread]);
   const ids = new Set();
   const list = [];
+  const ends = [];
   for (const thread of allThreads().sort((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
   )) {
     const host = thread.proposal && cardOf(thread.proposal);
     if (host) group(host, thread);
     else if (thread.proposal) cards.get(thread.id)?.card.remove();
+    else if (endOf(thread)) ends.push(thread);
     else if (reading && thread.round === plan.round && thread.topic === page.id)
       list.push(thread);
     if (host || list.at(-1) === thread) ids.add(thread.id);
   }
+  placeEnds(ends);
   if (reading) {
     for (const card of $("reading").querySelectorAll("pair-thread"))
       if (!ids.has(card.dataset.thread)) card.remove();
@@ -469,8 +505,7 @@ export function placeThreads() {
     threads.forEach((thread, index) => {
       if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
       const entry = cards.get(thread.id);
-      const folded = threads.length >= 4 && index < threads.length - 2;
-      drawCard(entry, thread, partOf(block, thread), folded);
+      drawCard(entry, thread, partOf(block, thread), folds(threads, index));
       let after =
         block ||
         [...root.children]

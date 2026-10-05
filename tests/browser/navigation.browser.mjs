@@ -20,6 +20,7 @@ const round = (number, filler = "") => ({
 const kinds = {
   page: { topic: "overview", anchor: "Result line", target: "result" },
   progress: { topic: "agreed", anchor: "Progress", target: "agent-activity" },
+  overall: { topic: "overall", anchor: "Overall feedback" },
 };
 
 async function setup(t) {
@@ -118,6 +119,21 @@ test("a Progress reply's link opens its card and focuses the reply", async (t) =
   await focused(page, id);
   const card = page.locator(`pair-thread[data-thread="${id}"]`);
   assert.equal(await card.getAttribute("collapsed"), null);
+});
+
+// The bell links a reply on the overall comment to the thread's page,
+// overall, and the thread's card is at the end of Review.
+test("an overall reply's link opens Review, with the thread at its end", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  const id = await s.thread("1", "overall");
+  await s.reply(id);
+  const page = await open(t, s.url(`?target=thread-${id}-1#overall`));
+  if (!page) return;
+  await page
+    .locator(`#overall-threads > pair-thread[data-thread="${id}"]`)
+    .waitFor();
+  await page.locator("#feedback-title", { hasText: "Review" }).waitFor();
 });
 
 test("a reply in the round just sent opens under Last round", async (t) => {

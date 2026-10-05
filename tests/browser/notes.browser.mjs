@@ -127,7 +127,9 @@ test("selecting words grows the corner icon into Comment on selection, which ope
   assert.deepEqual(await noteDialog(page), { anchor: "Decisions", quote });
 });
 
-test("with nothing selected, the corner icon and the c key comment on the page", async (t) => {
+// A page's own control opens a note with planUI.comment, which takes the
+// note's label and quote.
+test("with nothing selected, the corner icon and the c key comment on the page, and planUI.comment opens a note", async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
 
@@ -142,6 +144,13 @@ test("with nothing selected, the corner icon and the c key comment on the page",
   assert.deepEqual(await noteDialog(page), {
     anchor: "Decisions",
     quote: null,
+  });
+  await page.keyboard.press("Escape");
+  await page.locator("#note-dialog").waitFor({ state: "hidden" });
+  await page.evaluate(() => window.planUI.comment("Retry", "one retry"));
+  assert.deepEqual(await noteDialog(page), {
+    anchor: "Decisions › Retry",
+    quote: "one retry",
   });
 });
 

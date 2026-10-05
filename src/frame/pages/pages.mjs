@@ -102,6 +102,9 @@ export function show(
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
+  // Review's overall comment is on Review, which a thread or a card names
+  // by the note's page, overall.
+  if (id === "overall") id = "feedback";
   if (!keepScroll && !inPlace) beginMove();
   displayedRound = viewKey();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
@@ -121,6 +124,8 @@ export function show(
   $("reading").hidden = feedback || work;
   $("feedback").hidden = !feedback;
   $("work").hidden = !work;
+  // A choice belongs to the view it was made in.
+  if (!stayed) chooseBlock(null);
   if (stayed) refreshWork(true);
   else if (work) openWork();
   else if (!feedback) {
@@ -131,7 +136,6 @@ export function show(
       void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();
     $("page-title").textContent = page.title;
-    chooseBlock(null);
     $("page-content").dataset.pageId = page.id;
     $("page-content").dataset.round = plan.round;
     const [mark, label] = pendingState(page);
@@ -200,7 +204,7 @@ export function show(
   // from it, so a target is revealed after them.
   whenDrawn(drawing, () => {
     if (!loading) arrived();
-    if (!feedback) reveal(targetId);
+    reveal(targetId);
   });
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
@@ -212,7 +216,8 @@ export function reveal(targetId) {
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
   const view =
-    target && [$("reading"), $("work")].find((at) => at.contains(target));
+    target &&
+    [$("reading"), $("work"), $("feedback")].find((at) => at.contains(target));
   if (!view) return;
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;

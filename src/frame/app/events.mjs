@@ -4,7 +4,6 @@ import {
   editable,
   feedbackEditable,
   mode,
-  noteEditable,
   page,
   pages,
   plan,
@@ -12,11 +11,10 @@ import {
   shownPage,
 } from "#frame/app/view.mjs";
 import {
-  blockSkip,
   chooseBlock,
+  choosable,
   chosen,
   commentOnTarget,
-  pageBlocks,
 } from "#frame/notes/blocks.mjs";
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
@@ -118,14 +116,11 @@ export function installEvents() {
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");
     if (comment && $("page-content").contains(comment))
-      openNote(
-        page.id,
-        comment.dataset.comment || page.title,
-        "",
-        null,
-        null,
-        comment.closest("[id]")?.id || null,
-      );
+      openNote({
+        topic: page.id,
+        anchor: comment.dataset.comment || page.title,
+        target: comment.closest("[id]")?.id || null,
+      });
     const choice = event.target.closest("[data-choice] [data-value]");
     if (choice && $("page-content").contains(choice)) {
       const group = choice.closest("[data-choice]"),
@@ -202,11 +197,10 @@ export function installEvents() {
       const next = order[index + (key === "]" ? 1 : -1)];
       if (next) show(next);
     } else if (key === "j" || key === "k") {
-      /* The same blocks a click can choose, so the keys reach the comment
-         control's target. Tab still steps through the controls inside one. */
-      const blocks = pageBlocks().filter(
-        (block) => !blockSkip.has(block.tagName) && block.offsetParent,
-      );
+      /* The same blocks and cards a click can choose, so the keys reach the
+         comment control's target. Tab still steps through the controls
+         inside one. */
+      const blocks = choosable();
       if (!blocks.length) return;
       const index = blocks.indexOf(chosen);
       const next =
@@ -222,8 +216,7 @@ export function installEvents() {
       next.tabIndex = -1;
       next.focus({ preventScroll: true });
       next.scrollIntoView({ block: "center" });
-    } else if (key === "c" && noteEditable() && !$("reading").hidden)
-      commentOnTarget();
+    } else if (key === "c") commentOnTarget();
     else if (key === "r" && editable) show("feedback");
     else if (key === "s" && editable) {
       if ($("submit").disabled) return;

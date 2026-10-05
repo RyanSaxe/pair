@@ -152,6 +152,6 @@ test("a card with a plan keeps its meta line, plan line and buttons to one row e
   );
   assert.deepEqual(
     rows.foot.map(([text]) => text),
-    ["Decline", "Comment", "Start"],
+    ["Decline", "Start"],
   );
 });

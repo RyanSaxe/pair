@@ -153,17 +153,7 @@ function itemCard({ kind, key, item }) {
   };
   if (!item.sentIn) {
     if (kind === "note") {
-      action("Edit", () =>
-        openNote(
-          item.topic,
-          item.anchor,
-          item.quote,
-          item.id,
-          item.agreementId,
-          item.target,
-          item.occurrence,
-        ),
-      );
+      action("Edit", () => openNote(item));
       action("Remove", () => {
         forgetImages(item.attachments);
         state.notes = state.notes.filter((note) => note.id !== item.id);
@@ -175,14 +165,12 @@ function itemCard({ kind, key, item }) {
       });
     } else if (kind === "choice") {
       action("Add comment", () =>
-        openNote(
-          item.topic,
-          item.label,
-          choiceText(item),
-          null,
-          null,
-          item.target,
-        ),
+        openNote({
+          topic: item.topic,
+          anchor: item.label,
+          quote: choiceText(item),
+          target: item.target,
+        }),
       );
       action("Clear choice", () => {
         delete state.choices[key];
@@ -248,16 +236,23 @@ function renderFeedback() {
     );
   const orphans = items.filter(
     (entry) =>
-      entry.topic !== "overall" && !pages.some((p) => p.id === entry.topic),
+      !["overall", "work"].includes(entry.topic) &&
+      !pages.some((p) => p.id === entry.topic),
   );
   for (const round of new Set(orphans.map((entry) => entry.item.round)))
     group(
       round ? `From round ${round}` : "From an earlier round",
       orphans.filter((entry) => entry.item.round === round),
     );
-  $("overall-notes").replaceChildren(
-    ...items.filter((entry) => entry.topic === "overall").map(itemCard),
+  // The comments on Work and its cards come after the pages, and the
+  // overall comments last, under a heading only when there are any.
+  group(
+    "Work",
+    items.filter((entry) => entry.topic === "work"),
   );
+  const overall = items.filter((entry) => entry.topic === "overall");
+  $("overall-group").hidden = !overall.length;
+  $("overall-notes").replaceChildren(...overall.map(itemCard));
 }
 function sentEntries(submission) {
   if (!submission) return [];
@@ -288,7 +283,8 @@ function sentCard(entry) {
   card.className = "sent-card";
   const where =
     pages.find((item) => item.id === entry.topic)?.title ||
-    (entry.topic === "overall" ? "Overall" : entry.topic) ||
+    { overall: "Overall", work: "Work" }[entry.topic] ||
+    entry.topic ||
     "Overall";
   const label = document.createElement("small");
   label.textContent = `${where} · ${entry.label}`;
@@ -412,7 +408,6 @@ export function review() {
   $("submit-error").textContent = submissionError;
   $("save-error").hidden = !submissionError || $("reading").hidden;
   $("save-error-text").textContent = submissionError;
-  $("overall-note").disabled = locked;
   $("align-unflagged").checked = state.alignUnflagged;
   $("align-unflagged").disabled = locked;
   if (locked)
