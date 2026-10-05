@@ -3,7 +3,7 @@ import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
-import { plan, publish, runHub, start } from "./session.mjs";
+import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
@@ -226,45 +226,6 @@ export const commands = {
     },
     footer: "A new card takes --title, --delivers and --recommend.",
     run: propose,
-  },
-  plan: {
-    group: "session",
-    purpose: "Attach a plan to a proposal, or replace the plan it has",
-    about:
-      "Attach the plan's pages to the proposal --proposal names, or replace the plan it has, with the rounds the plan came from. Any agent may run it, and only the holder's output starts with the next step.",
-    usage:
-      "pair plan --session-dir DIR --proposal ID --rounds ROUNDS --pages JSON --file HTML... --source DIR",
-    flags: {
-      "session-dir": sessionDir,
-      proposal: {
-        value: "ID",
-        required: true,
-        text: "The proposal the plan is for. The hub refuses a declined or done proposal.",
-      },
-      rounds: {
-        value: "ROUNDS",
-        required: true,
-        text: "The rounds the plan came from: one round, such as 4, or a range, such as 13-15.",
-      },
-      pages: {
-        value: "JSON",
-        required: true,
-        text: "The plan's page list, in the shape of a round's pages.json.",
-      },
-      file: {
-        value: "HTML",
-        required: true,
-        repeats: true,
-        text: "A page that pair build wrote. Give one for each page in --pages, in the same order.",
-      },
-      source: {
-        value: "DIR",
-        required: true,
-        text: "The plan's source directory, with each page's source in a directory named by the page's ID. pair copies it into the session beside the plan.",
-      },
-      json,
-    },
-    run: plan,
   },
   guide: {
     group: "pages",

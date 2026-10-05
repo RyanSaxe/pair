@@ -40,7 +40,7 @@ same name under `tests/`:
   no live session. It wakes the holder, the agent that last ran `pair start`
   on a session. `src/hub/session/` has one session's state and actions: its
   rounds, its holder, the reviewer's submissions and uploads, its threads,
-  its proposals and their plans, and its link to the session it came from.
+  its proposals, and its link to the session it came from.
 - The builder, `src/build/`, turns a page source into a page. `problems()`
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.

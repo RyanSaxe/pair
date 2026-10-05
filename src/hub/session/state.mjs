@@ -15,7 +15,6 @@ import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
 import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
-import { plans } from "./plans.mjs";
 import { proposals } from "./proposals.mjs";
 import { rounds } from "./rounds.mjs";
 import { submissions } from "./submissions.mjs";
@@ -166,7 +165,6 @@ export async function loadSession(
     threads(session),
     await activity(session),
     await proposals(session),
-    plans(session),
     links(session),
   );
   function view() {
@@ -335,15 +333,12 @@ export async function loadSession(
     openAgent: session.openAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
-    planFile: session.planFile,
     parentView: session.parentView,
     linkParent: session.linkParent,
     linkable: session.linkable,
     linkSession: session.linkSession,
     joinedInto: session.joinedInto,
     closedSession: session.closedSession,
-    plannable: session.plannable,
-    attachPlan: session.attachPlan,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,

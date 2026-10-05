@@ -13,10 +13,10 @@ import { joinable } from "./proposal-joins.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
-// a card changes after the round that showed it is published. Five facts,
-// each null until it happens, say where a card stands: plan, started,
-// declined, withdrawn and done. The frame sorts the cards into the Work
-// page's tabs from those facts, so the hub stores no tab.
+// a card changes after the round that showed it is published. Four facts,
+// each null until it happens, say where a card stands: started, declined,
+// withdrawn and done. The frame sorts the cards into the Work page's tabs
+// from those facts, so the hub stores no tab.
 export async function proposals(session) {
   const { directory, transition } = session;
   const folder = path.join(directory, "proposals");
@@ -96,7 +96,6 @@ export async function proposals(session) {
       recommend: place(data.recommend, "--recommend"),
       source: source(data),
       recordedAt: now,
-      plan: null,
       started: null,
       declined: null,
       withdrawn: null,
@@ -392,29 +391,6 @@ export async function proposals(session) {
     if (action === "join") return join(card, data);
     return reopen(card);
   }
-  // pair plan attaches a plan to a card that is neither declined, withdrawn
-  // nor done, started or not, and a second pair plan replaces it.
-  function plannable(id) {
-    open();
-    const card = find(id);
-    requireValue(
-      !card.declined,
-      `The reviewer declined proposal ${id}, so it takes no plan`,
-      409,
-    );
-    requireValue(
-      !card.withdrawn,
-      `Proposal ${id} was withdrawn, so it takes no plan`,
-      409,
-    );
-    requireValue(
-      !card.done,
-      `Proposal ${id} is done, so it takes no plan`,
-      409,
-    );
-    return card;
-  }
-  const attachPlan = (id, plan) => save(plannable(id), { plan });
   // pair read prints each card the reviewer declined once, and the hub
   // sends no wake for a decline.
   async function reportDeclined() {
@@ -478,8 +454,6 @@ export async function proposals(session) {
     closedSession,
     openAgent,
     propose,
-    plannable,
-    attachPlan,
     startProposal,
     declineProposal,
     restoreProposal,

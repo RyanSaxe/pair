@@ -299,18 +299,6 @@ export async function startHub(config = settings()) {
               readonly: true,
             }),
           );
-        // A proposal's plan: the plan view, read-only, and Download, the
-        // same file without the session's config, which opens with no hub.
-        if (method === "GET" && rest[0] === "plans" && rest.length === 3) {
-          const id = decodeURIComponent(rest[1]);
-          const plan = await session.planFile(id);
-          if (rest[2] === "")
-            return html(framePage(session, plan, { readonly: true }, ""));
-          if (rest[2] === "download")
-            return html(plan, {
-              "Content-Disposition": `attachment; filename="${id}-plan.html"`,
-            });
-        }
         if (method === "GET" && rest[0] === "preview" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {

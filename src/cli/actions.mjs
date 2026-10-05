@@ -192,17 +192,15 @@ const places = {
   "new-agent": "with a new agent",
 };
 function proposalState(card, cards) {
-  const plan = card.plan ? ", with a plan" : "";
   const joined = joinedInto(card, cards).map((item) => item.id);
   const joins = joined.length ? `, joined by ${listing(joined)}` : "";
   if (card.declined) return `declined${joins}`;
   if (card.withdrawn) return `withdrawn${joins}`;
-  if (card.done?.joined) return `done, joined into ${card.done.joined}${plan}`;
+  if (card.done?.joined) return `done, joined into ${card.done.joined}`;
   if (card.done)
-    return `done ${card.done.where ?? places[card.started.where]}${plan}${joins}`;
-  if (card.started)
-    return `started ${places[card.started.where]}${plan}${joins}`;
-  return `proposed${plan}${joins}`;
+    return `done ${card.done.where ?? places[card.started.where]}${joins}`;
+  if (card.started) return `started ${places[card.started.where]}${joins}`;
+  return `proposed${joins}`;
 }
 
 function proposalsText(cards) {
