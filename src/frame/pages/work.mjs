@@ -266,7 +266,7 @@ function actions(card) {
   if (proposed)
     right.append(
       button("btn primary proposal-start", "Start", () =>
-        openStart(card, (result) => changed(result, card.id)),
+        openStart(card, joinedInto(card), (result) => changed(result, card.id)),
       ),
     );
   return [left, right];

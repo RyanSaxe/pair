@@ -17,9 +17,9 @@ const proposal = async (directory, id) =>
     await fs.readFile(path.join(directory, "proposals", `${id}.json`), "utf8"),
   );
 
-// A parent session with round 1 published and two cards: deck, which the
-// reviewer started in a sub-session, and notes, which nobody started. The
-// CLI runs as a separate agent.
+// A parent session with round 1 published and three cards: deck, which the
+// reviewer started in a sub-session after the agent joined outline into
+// it, and notes, which nobody started. The CLI runs as a separate agent.
 async function parent(t) {
   const h = await hub(t);
   const home = path.join(h.home, "cli");
@@ -33,8 +33,11 @@ async function parent(t) {
   for (const [id, title] of [
     ["deck", "Build the deck"],
     ["notes", "Write the speaker notes"],
+    ["outline", "Outline the talk"],
   ])
     assert.equal((await a.action("propose", card(id, title))).code, 200);
+  const joined = await a.action("propose", { id: "outline", join: "deck" });
+  assert.equal(joined.code, 200, joined.body.error);
   const started = await a.request(`${a.base}/api/proposals/deck/start`, {
     where: "sub-session",
     message: "Keep the header height.",
@@ -44,7 +47,7 @@ async function parent(t) {
   return { h, a, cli, from };
 }
 
-test("pair start --from creates a session for a started proposal, linked both ways", async (t) => {
+test("pair start --from creates a session for a started proposal, linked both ways, and prints the cards joined into it", async (t) => {
   const { h, a, cli, from } = await parent(t);
   const output = await from("--proposal", "deck");
   const child = (await fs.readdir(h.config.sessions))
@@ -62,14 +65,20 @@ test("pair start --from creates a session for a started proposal, linked both wa
     dir: child,
     url: `/s/${linked.sessionId}/`,
   });
-  // The output names both sessions and prints the card with the reviewer's
-  // message, for the agent that runs the new session.
+  // The output names both sessions and prints the card with the cards
+  // joined into it and the reviewer's message, for the agent that runs the
+  // new session.
   for (const line of [
     `Session   ${child}`,
     `Parent    ${a.directory}`,
     "Proposal  deck",
     'Proposal deck, "Build the deck", started in a sub-session by the reviewer.',
-    "Delivers: Build the deck, delivered.",
+    [
+      "Delivers: Build the deck, delivered.",
+      "Proposals joined into deck, which its work covers:",
+      "  outline  Outline the talk",
+      "           Delivers: Outline the talk, delivered.",
+    ].join("\n"),
     "Keep the header height.",
   ])
     assert.ok(output.includes(line), `${line} in:\n${output}`);

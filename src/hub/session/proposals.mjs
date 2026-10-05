@@ -9,6 +9,7 @@ import {
   words,
   written,
 } from "./proposal-fields.mjs";
+import { joinable } from "./proposal-joins.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
@@ -338,39 +339,20 @@ export async function proposals(session) {
       },
     });
   }
-  // The agent joins a card nobody has started into a card started here
-  // whose work covers it. A card whose work runs in a linked session takes
-  // no joined card, so the work of every joined card is built in this
-  // session's rounds. The joined card is done, and its done fact names the
-  // card it joined. Every list of a card's joined cards comes from those
-  // facts, so finishing or reopening the started card leaves them joined.
+  // The cards the agent joined into a card.
+  const joinedInto = (id) =>
+    proposalItems().filter((card) => card.done?.joined === id);
+  // The agent merges a card nobody has started into TASK, as
+  // proposal-joins.mjs describes. The joined card is done, and its done
+  // fact names TASK. No card joins a joined card, so the cards already
+  // joined into the card move to TASK with it. Every list of a card's
+  // joined cards comes from those facts, so finishing or reopening TASK
+  // leaves them joined.
   async function join(card, data) {
-    requireValue(
-      !card.declined,
-      `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
-      409,
-    );
-    requireValue(
-      !card.started && !card.done && !card.withdrawn,
-      `Proposal ${card.id} ${card.withdrawn ? "was withdrawn" : card.done?.joined ? `already joined ${card.done.joined}` : card.done ? "is done" : "was started"}, so it takes no --join.`,
-      409,
-    );
     const task = find(data.join);
-    requireValue(
-      task.started,
-      `Proposal ${task.id} has not been started. --join takes a proposal started here whose work covers proposal ${card.id}.`,
-      409,
-    );
-    requireValue(
-      !task.done,
-      `Proposal ${task.id} is done, so no proposal can join it.`,
-      409,
-    );
-    requireValue(
-      task.started.where === "here",
-      `Proposal ${task.id} runs in ${task.started.where === "new-agent" ? "a new agent's session" : "a sub-session"}, so no proposal can join it.`,
-      409,
-    );
+    joinable(card, task);
+    for (const item of joinedInto(card.id))
+      await save(item, { done: { ...item.done, joined: task.id } });
     return save(card, {
       done: {
         at: timestamp(),
@@ -488,6 +470,7 @@ export async function proposals(session) {
     reportClosed,
     linkable,
     linkSession,
+    joinedInto,
     closedSession,
     openAgent,
     propose,

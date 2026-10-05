@@ -294,7 +294,7 @@ export async function start(options) {
             `${path.join(started.parent.sessionDir, "plans", card.id, "src")}${path.sep}, one directory per page`,
         ],
       ]),
-      card && proposalText(card),
+      card && proposalText(card, started.joined),
     ]
       .filter(Boolean)
       .join("\n\n"),
