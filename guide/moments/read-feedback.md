@@ -16,10 +16,8 @@ This feedback begins a new round, and you decide what it covers.
 - When the reviewer asks you to decide, take the option you recommended
   unless a note names another, and say in the alignment's `source` that you
   chose it.
-- Keep building each proposal listed under "Proposals you are still
-  building in this session", whether or not the feedback mentions it. List
-  a page in this round for each part of that work the reviewer can judge
-  by the end of the round.
+- Keep building each proposal listed under "Proposals you are still building
+  in this session", whether or not the feedback mentions it.
 - When a note asks you for a piece of work, record a proposal for it unless
   one already covers it. Before you build the work, mark that proposal
   started with

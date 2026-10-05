@@ -1,8 +1,7 @@
 # Writing
 
-You write a page to explain code, to put a decision to the reviewer or to
-show built work. Put the facts, choices, reasons and consequences on the
-page. Remove
+Every page helps the reviewer understand something or decide something. Put
+the facts, choices, reasons and consequences on the page, and leave out
 commentary about the page itself.
 
 Most context is short: one line of consequence under an option, a caption, a
@@ -30,8 +29,8 @@ Use the real name. Write "`problems()` refuses an option label over 24
 characters", not "the build enforces a limit on labels".
 
 Use the words a person would say. Introduce a term from the project once, in
-plain words, before you rely on it, and never use a state's name as if the
-reader knew what it means. Write "the nightly job that re-sends failed
+plain words, before you rely on it, and never use a name from the project as
+if the reader already knows it. Write "the nightly job that re-sends failed
 receipts", not "the replayer", until the page has said what the replayer is.
 
 Give a reason with every judgment. Write "One Redis cache is simpler because

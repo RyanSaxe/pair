@@ -27,10 +27,11 @@ approves work by starting it in pair, or by asking you for it in a note, a
 thread or the chat.
 
 Track every piece of work as a proposal, a short description of the work
-that the reviewer can approve or decline. Record one with `pair propose`
-when none covers the work. When the reviewer asks for work in words, mark
-its proposal started with `pair propose --start`, quoting what they said.
-A request about work you are already doing is part of that work.
+that the reviewer can approve or decline. Record a proposal with `pair
+propose` for any work that does not have one yet. When the reviewer asks for
+work in words, mark its proposal started with `pair propose --start`,
+quoting what they said. A request about work you are already doing is part
+of that work.
 
 Until the reviewer approves the work, only try ideas in a git worktree
 inside the session's directory, which `pair start` prints, or in a plain
@@ -129,9 +130,12 @@ the proposal component, on the page where you discuss it.
 
 Keep the proposals tidy:
 
-- When a proposal no longer applies, withdraw it and give the reason.
-- When its work was finished some other way, mark it done and say where.
-- To combine two proposals, join one into the other.
+- When a proposal no longer applies, withdraw it with
+  `pair propose --id ID --withdraw --reason "…"`.
+- When its work was finished some other way, mark it done with
+  `pair propose --id ID --done --where "…"`.
+- To merge two proposals, join one into the other with
+  `pair propose --id ID --join OTHER`.
 - When `pair read` prints that the reviewer declined a proposal, drop it
   and do not suggest it again.
 - When `pair read` prints that the reviewer closed a proposal's session,
@@ -148,8 +152,10 @@ work without asking questions. It covers:
 
 - what the work achieves and why;
 - the approach, and the alternatives you set aside, with the reasons;
-- each change, with the files, interfaces and data it touches, and every
-  look and interface exactly as the reviewer approved it;
+- each change, with the files, interfaces and data it touches;
+- every mock, interface and piece of wording the reviewer approved, exactly
+  as they approved it. When a later decision changed part of something they
+  approved, update that part and keep the rest as it was;
 - what is out of scope;
 - how to check that the work is done.
 
@@ -163,19 +169,19 @@ should say, attach the new version with `pair plan`. Run
 
 ## Doing the work
 
-When the reviewer approves work, by starting it in pair or by asking you
-for it, build it on a new branch, following its plan if it has one, and
-name the branch on the first page about the work.
-Publish each part as soon as the reviewer can judge it. When the plan does
-not cover something, decide it yourself and explain the decision on the
-next page. Fix problems you find along the way, and say on the work's
-pages what you changed beyond the proposal. Record anything unrelated as a
-new proposal.
+Build approved work on a new branch, and name the branch on the first page
+about it. If the work has a plan, follow it. Publish a page whenever part of
+the work is ready for the reviewer to check. Show what changed and what it
+does, with the evidence that it works, such as a screenshot, the diff that
+matters or a test result. On the same page, say what you decided where the
+plan was silent, and anything you fixed that the proposal did not mention.
+Record unrelated work as a new proposal.
 
-On the last page about the work, explain it well enough that whoever owns
-the project can review and maintain it. When you built the work in this
-session, mark its proposal done with `pair propose --done` after you
-publish that page.
+On the last page about the work, give whoever owns the project what they
+need to review and maintain it. Show it with diagrams, screenshots and the
+diffs that matter, and write prose only for what those cannot show. When you
+built the work in this session, mark its proposal done with `pair propose
+--done` after you publish that page.
 
 ## Subagents
 
