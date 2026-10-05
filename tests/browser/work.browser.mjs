@@ -81,8 +81,9 @@ test("Start sends where the work runs and the message, and the running card quot
     await dialog.locator("[data-where=here]").getAttribute("aria-checked"),
     "true",
   );
+  // Shift+Enter in the message box presses Start.
   await dialog.locator("#start-message").fill("Keep the header height.");
-  await dialog.locator("#start-send").click();
+  await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
   assert.equal(
     await waitUntil(async () => (await cards())[0].started === "here"),
@@ -221,8 +222,10 @@ test("Open a new agent session starts the card with a new agent and shows its th
   await page.locator("[data-proposal-card=export] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("[data-where=new-agent]").click();
+  // With a new agent chosen, Shift+Enter in the message box presses Open a
+  // new agent session.
   await dialog.locator("#start-message").fill("Use the board template.");
-  await dialog.locator("#start-open").click();
+  await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
   assert.deepEqual((await cards())[1].started, "new-agent");
   // Work follows the card to Running, with the thread under it.

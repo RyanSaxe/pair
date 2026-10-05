@@ -1,4 +1,4 @@
-import { $, copyText, unreachable } from "#frame/app/util.mjs";
+import { $, copyText, shiftEnter, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
@@ -123,4 +123,11 @@ export function installStart() {
   $("start-send").onclick = () => send("start", $("start-send"));
   $("start-copy").onclick = copy;
   $("start-open").onclick = () => send("open-agent", $("start-open"));
+  // Shift+Enter in the message presses the selected choice's main button.
+  $("start-message").addEventListener("keydown", (event) => {
+    if (!shiftEnter(event)) return;
+    event.preventDefault();
+    const main = $(where === "new-agent" ? "start-open" : "start-send");
+    if (!main.disabled) main.click();
+  });
 }
