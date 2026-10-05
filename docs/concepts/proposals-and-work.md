@@ -189,7 +189,7 @@ The hub also refuses to join a proposal into one that is declined,
 withdrawn, done or joined into another.
 
 B's card, and its Start popup, list the joined proposals under Joined into
-this task. pair moves each joined card to Done, and its status line reads
+this proposal. pair moves each joined card to Done, and its status line reads
 Done and Joined with B's title, such as Done · Joined Retry a charge on a
 timeout. When the agent joins a card that other cards were joined into, the
 hub moves those cards to B as well.
