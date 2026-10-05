@@ -45,6 +45,7 @@ import {
   placeMarks,
 } from "#frame/notes/notes.mjs";
 import { renderAgreements } from "#frame/pages/agreed.mjs";
+import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
@@ -54,7 +55,6 @@ import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
   loadPageRecord,
   pageStatus,
-  pendingState,
   selectedTab,
 } from "#frame/sync/rounds.mjs";
 
@@ -138,11 +138,9 @@ export function show(
     $("page-title").textContent = page.title;
     $("page-content").dataset.pageId = page.id;
     $("page-content").dataset.round = plan.round;
-    const [mark, label] = pendingState(page);
-    $("page-content").innerHTML = page.pending
-      ? `<div class="pending-page ${mark === "active" ? "working" : "queued"}"><span class="pending-state">${pageIndicator(mark).outerHTML}${label}</span><div class="pending-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>`
-      : page.html;
-    if (!page.pending) {
+    $("page-content").innerHTML = page.pending ? pendingPage : page.html;
+    if (page.pending) updatePending();
+    else {
       blockTargets($("page-content"), page.id);
       choiceTargets($("page-content"), page.id);
     }
