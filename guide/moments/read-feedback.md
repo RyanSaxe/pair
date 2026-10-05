@@ -22,7 +22,8 @@ This feedback begins a new round, and you decide what it covers.
 - Keep building each proposal listed under "Proposals you are still building
   in this session", whether or not the feedback mentions it. When you choose
   this round's pages, include one for each part of that work you will finish
-  in this round.
+  in this round. When the feedback changes the parts, update the work's
+  status to match.
 - When a note asks you for a piece of work, record a proposal for it unless
   one already covers it. Before you build the work, mark that proposal
   started with

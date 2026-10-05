@@ -5,6 +5,9 @@ follow their words.
 
 - Begin now, on a new branch. If the proposal has a plan, build from the
   plan's page sources in `plans/ID/src/` in the session's directory.
+- Before you build, record the parts of the work with
+  `pair propose --session-dir PATH --id ID --status-left "…"`, with one flag
+  for each part.
 - If you are in the middle of a round and have not published its Agreed
   yet, list the pages about this work in that round. Otherwise, publish
   them in the next round, which begins when the reviewer sends feedback.

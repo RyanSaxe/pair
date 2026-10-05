@@ -353,7 +353,7 @@ test("pair propose prints a status's count and what is left, and pair status pri
       ...["--status-done", "Outline"],
       ...["--status-left", "Slides", "--status-left", "Speaker notes"],
     ),
-    /\nProposal deck: approved to run here, 1 of 3 parts done\.\nLeft: Slides; Speaker notes\.\n$/,
+    /\nProposal deck: approved to run here, 1 of 3 parts done\.\nLeft: Slides; Speaker notes\.\nBuild the next part\. When you finish it, or the parts change, run the same command again with the whole list\.\n$/,
   );
   assert.match(
     await run("status"),

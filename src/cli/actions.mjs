@@ -276,7 +276,8 @@ export async function propose(options) {
 // After a status, the parts left, or how the work finishes when none is.
 function leftText(card, directory) {
   const { left } = card.status;
-  if (left.length) return `Left: ${sentence(left.join("; "))}`;
+  if (left.length)
+    return `Left: ${sentence(left.join("; "))}\nBuild the next part. When you finish it, or the parts change, run the same command again with the whole list.`;
   if (card.started.where === "here")
     return `Nothing is left. After you publish the work's last page, run pair propose --session-dir ${directory} --id ${card.id} --done.`;
   return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";

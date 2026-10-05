@@ -66,7 +66,8 @@ export function agent(session) {
         ids.length === 1
           ? `proposal ${ids[0]}`
           : `proposals ${ids.slice(0, -1).join(", ")} and ${ids.at(-1)}`;
-      return `You published round ${round}, and the reviewer has not sent feedback on it yet. If you have not told the reviewer in the chat what changed, tell them now. Then build ${named}, which the reviewer approved for this session, and end your turn when you have done what you can. When the reviewer sends feedback, the hub wakes you, and you publish the pages about this work in the next round.`;
+      const its = ids.length === 1 ? "its" : "their";
+      return `You published round ${round}, and the reviewer has not sent feedback on it yet. If you have not told the reviewer in the chat what changed, tell them now. Then build ${named}, which the reviewer approved for this session, and end your turn when you have done what you can. Update ${its} status each time you finish a part. When the reviewer sends feedback, the hub wakes you, and you publish the pages about this work in the next round.`;
     }
     return `You published round ${round}. If you have not told the reviewer in the chat what changed, tell them, then end your turn. The hub wakes you when the reviewer sends feedback.`;
   }

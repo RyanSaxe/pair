@@ -170,12 +170,15 @@ should say, attach the new version with `pair plan`. Run
 ## Doing the work
 
 Build approved work on a new branch, and name the branch on the first page
-about it. If the work has a plan, follow it. Publish a page whenever part of
-the work is ready for the reviewer to check. Show what changed and what it
-does, with the evidence that it works, such as a screenshot, the diff that
-matters or a test result. On the same page, say what you decided where the
-plan was silent, and anything you fixed that the proposal did not mention.
-Record unrelated work as a new proposal.
+about it. If the work has a plan, follow it. When you begin the work, and
+each time you finish a part or the parts change, record what is done and
+what is left with `pair propose --session-dir PATH --id ID --status-done "…"
+--status-left "…"`, with one flag for each part. Publish a page whenever
+part of the work is ready for the reviewer to check. Show what changed and
+what it does, with the evidence that it works, such as a screenshot, the
+diff that matters or a test result. On the same page, say what you decided
+where the plan was silent, and anything you fixed that the proposal did not
+mention. Record unrelated work as a new proposal.
 
 On the last page about the work, give whoever owns the project what they
 need to review and maintain it. Show it with diagrams, screenshots and the
