@@ -40,8 +40,9 @@ in Done never reads New.
 
 ## Where the work runs
 
-The Start popup shows what the proposal delivers, the three places the work
-can run, with the agent's recommendation marked, and a message to the agent.
+The Start popup shows what the proposal delivers, the titles of the
+proposals joined into it, the three places the work can run, with the
+agent's recommendation marked, and a message to the agent.
 
 | Choice           | What happens                                                                                                                                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
