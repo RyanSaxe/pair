@@ -45,7 +45,7 @@ in the browser against a scratch hub with its own port and state directory.
 [AGENTS.md](../../AGENTS.md) names the modules inside `src/` and the rules an
 agent follows when it changes them.
 
-## Development
+## Checks
 
 ```sh
 node --test
@@ -56,9 +56,13 @@ npm run test:browser
 
 CI runs all four on every push and pull request. ESLint reports an error for a
 JavaScript file over 1000 lines, and CI also lists each file over 500 lines, the
-size a file should stay under where it can. The fixture under `tests/fixture/`
-is a page with every component, and its [README](../../tests/fixture/README.md)
-says how to build it and what to check in it.
+size a file should stay under where it can.
+
+The fixture under `tests/fixture/` is a page with every component, and its
+[README](../../tests/fixture/README.md) says how to build it and what to check
+in it.
+
+## Browser tests
 
 The browser tests open built pages in the installed Google Chrome through
 `playwright-core`, a devDependency. `npm install -g` skips devDependencies,
@@ -71,23 +75,36 @@ test fails instead.
 runs it in a separate `figures` job, because a figure whose library loads
 from esm.sh or jsDelivr fails the test while that CDN is down.
 
+## Screenshots
+
 `npm run screenshots` writes the README's and the docs' PNGs from a demo
 session, in Google Chrome through the same `playwright-core`. It only runs
 on macOS, because the frame uses the system font, and lines break in other
 places on another system.
 
+### The screenshots workflow
+
 The `screenshots` workflow runs the script on GitHub's macOS 26 runner for a
-pull request into a branch other than `main` that changes `src/frame/`,
-`src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
-`scripts/demo/`. The workflow pushes the PNGs that the script rewrote to the
-pull request's branch, as a commit by `github-actions[bot]`. The illustration's
-terminal shows IDs that each run creates anew, so the workflow pushes one of
-these commits after every push to such a pull request. Pull that commit before
-you push again. GitHub only runs the checks on that commit after someone with
-write access selects **Approve workflows to run** on the pull request. When the
-script fails, it saves a screenshot and the console log of each of its browser
-windows in `screenshots-failure/`, and the workflow uploads that directory as an
-artifact of the run.
+pull request into a branch other than `main` that changes any of these:
+
+- `src/frame/`
+- `src/components/`
+- `scripts/screenshots.mjs`
+- `scripts/screenshots/`
+- `scripts/demo/`
+
+The workflow pushes the PNGs that the script rewrote to the pull request's
+branch, as a commit by `github-actions[bot]`. The illustration's terminal
+shows IDs that each run creates anew, so the workflow pushes one of these
+commits after every push to such a pull request.
+
+Pull that commit before you push again. GitHub only runs the checks on that
+commit after someone with write access selects **Approve workflows to run**
+on the pull request.
+
+When the script fails, it saves a screenshot and the console log of each of
+its browser windows in `screenshots-failure/`, and the workflow uploads that
+directory as an artifact of the run.
 
 The workflow runs the script for a pull request from a fork, but pushes no
 commit to it. For a fork's pull request, and for a change elsewhere that
