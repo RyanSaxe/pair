@@ -15,17 +15,17 @@ export function statusParts(data) {
       const text = typeof part === "string" ? part.trim() : "";
       requireValue(
         text && text.length <= most.characters,
-        `--${flag} takes text of at most ${most.characters} characters`,
+        `Each --${flag} is text of at most ${most.characters} characters.`,
       );
       return text;
     });
   const done = parts("statusDone", "status-done");
   const left = parts("statusLeft", "status-left");
   const count = done.length + left.length;
-  requireValue(count, "A status takes --status-done or --status-left");
+  requireValue(count, "Give at least one --status-done or --status-left.");
   requireValue(
     count <= most.parts,
-    `A status takes at most ${most.parts} parts, and this one has ${count}.`,
+    `A status has at most ${most.parts} parts, and you gave ${count}.`,
   );
   return { done, left };
 }
@@ -35,22 +35,22 @@ export function statusable(card) {
   const { id } = card;
   requireValue(
     !card.declined,
-    `The reviewer declined proposal ${id}, so it takes no status.`,
+    `The reviewer declined proposal ${id}, so you cannot record a status for it.`,
     409,
   );
   requireValue(
     !card.withdrawn,
-    `Proposal ${id} was withdrawn, so it takes no status.`,
+    `Proposal ${id} is withdrawn, so you cannot record a status for it.`,
     409,
   );
   requireValue(
     !card.done,
-    `Proposal ${id} is done, so it takes no status.`,
+    `Proposal ${id} is marked done, so you cannot record a status for it.`,
     409,
   );
   requireValue(
     card.started,
-    `Proposal ${id} has not been started, so it takes no status.`,
+    `The reviewer has not approved proposal ${id}, so you cannot record a status for it yet.`,
     409,
   );
   return card;

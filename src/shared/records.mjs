@@ -22,8 +22,14 @@ export function readPlanData(html) {
   return validPlan(JSON.parse(match[1]));
 }
 function validPlan(data) {
-  requireValue(idPattern.test(data.name || ""), "Invalid name");
-  requireValue(roundPattern.test(data.round || ""), "Invalid round");
+  requireValue(
+    idPattern.test(data.name || ""),
+    '"name" in the page source takes 1 to 80 letters, digits, "_" or "-", starting with a letter or digit.',
+  );
+  requireValue(
+    roundPattern.test(data.round || ""),
+    '"round" in the page source takes 1 to 80 letters, digits, ".", "_" or "-", starting with a letter or digit, such as "3".',
+  );
   requireValue(
     typeof data.title === "string" && data.title.trim(),
     "title is required",
@@ -43,19 +49,19 @@ function validPlan(data) {
           typeof entry.id === "string" &&
           idPattern.test(entry.id) &&
           !agreementIds.has(entry.id),
-        "Agreement IDs must be valid and unique",
+        `Alignment ID ${JSON.stringify(entry?.id)} is not valid or is used twice. Give each alignment its own ID of 1 to 80 letters, digits, "_" or "-".`,
       );
       agreementIds.add(entry.id);
       requireValue(
         ["title", "html"].every(
           (key) => typeof entry[key] === "string" && entry[key].trim(),
         ),
-        "Agreements require title and html",
+        `Alignment ${entry.id} needs a title and html.`,
       );
       requireValue(
         (typeof entry.source === "string" && entry.source.trim()) ||
           (Array.isArray(entry.sourceRefs) && entry.sourceRefs.length > 0),
-        "Agreements require source text or sourceRefs",
+        `Alignment ${entry.id} needs source text or sourceRefs.`,
       );
       if (entry.sourceRefs !== undefined) {
         requireValue(
@@ -68,7 +74,7 @@ function validPlan(data) {
               ["note", "choice", "answer", "conversation", "thread"].includes(
                 ref.kind,
               ),
-            "Invalid source reference kind",
+            "A source reference's kind is note, choice, answer, conversation or thread.",
           );
           if (ref.kind === "conversation")
             requireValue(
@@ -88,7 +94,7 @@ function validPlan(data) {
             const key = sourceItemKey(ref.kind);
             requireValue(
               typeof ref[key] === "string" && ref[key].length > 0,
-              "Source reference requires an item ID",
+              `A ${ref.kind} source reference needs ${key}.`,
             );
           }
         }
@@ -96,11 +102,11 @@ function validPlan(data) {
       requireValue(
         entry.state === undefined ||
           ["agreed", "reopened", "retired"].includes(entry.state),
-        "Invalid agreement state",
+        "An alignment's state is agreed, reopened or retired.",
       );
       requireValue(
         entry.change === undefined || ["new", "updated"].includes(entry.change),
-        "Invalid agreement change",
+        "An alignment's change is new or updated.",
       );
       if (entry.href !== undefined) {
         requireValue(
@@ -142,7 +148,7 @@ function validPlan(data) {
   for (const page of data.pages) {
     requireValue(
       freePageId(page.id, ids),
-      `Page IDs must be unique; ${reserved}`,
+      `Page ID ${JSON.stringify(page.id)} cannot be used. A page ID is 1 to 80 letters, digits, "_" or "-", no two pages share one, and ${reserved}.`,
     );
     requireValue(
       titled(page) && typeof page.html === "string",
@@ -157,7 +163,7 @@ function validPlan(data) {
     ))
       requireValue(
         prototypeIds.has(match[1] ?? match[2] ?? match[3]),
-        "Unknown prototype reference",
+        `data-prototype="${match[1] ?? match[2] ?? match[3]}" names no prototype in the page's prototypes.`,
       );
   }
   return data;
@@ -196,7 +202,10 @@ export function pageData(html) {
 export function validPage(record) {
   const page = record?.page;
   requireValue(page && typeof page === "object", "Page record requires page");
-  requireValue(idPattern.test(page.id || ""), "Invalid page ID");
+  requireValue(
+    idPattern.test(page.id || ""),
+    `Page ID ${JSON.stringify(page.id)} is not valid. A page ID is 1 to 80 letters, digits, "_" or "-".`,
+  );
   requireValue(titled(page), "Page title is required");
   requireValue(
     page.id === "agreed"
@@ -247,7 +256,7 @@ export function pageList(items) {
   for (const item of items) {
     requireValue(
       item && freePageId(item.id, ids) && titled(item),
-      `Page IDs and titles must be valid and unique; ${reserved}`,
+      `Give each page in pages.json a title and an ID that no other page has, and remember that ${reserved}.`,
     );
     ids.add(item.id);
   }

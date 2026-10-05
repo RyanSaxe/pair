@@ -72,10 +72,10 @@ test("pair start --from creates a session for a started proposal, linked both wa
     `Session   ${child}`,
     `Parent    ${a.directory}`,
     "Proposal  deck",
-    'Proposal deck, "Build the deck", started in a sub-session by the reviewer.',
+    'The reviewer approved proposal deck, "Build the deck", to run in a sub-session.',
     [
       "Delivers: Build the deck, delivered.",
-      "Proposals joined into deck, which its work covers:",
+      "Proposals joined into deck, whose work is part of deck:",
       "  outline  Outline the talk",
       "           Delivers: Outline the talk, delivered.",
     ].join("\n"),
@@ -86,13 +86,16 @@ test("pair start --from creates a session for a started proposal, linked both wa
   // The new session's holder is this agent, and pair status names the
   // parent in the new session and the link in the parent.
   const own = await cli.run("status", "--session-dir", child);
-  assert.match(own, /^Next: Publish round 1's Agreed/);
+  assert.match(own, /^Next: Publish Agreed with round 1's page list/);
   assert.match(
     own,
     new RegExp(`Parent +${literal(a.directory)}, proposal deck`),
   );
   const theirs = await cli.run("status", "--session-dir", a.directory);
-  assert.match(theirs, new RegExp(`Sub-sessions +deck in ${literal(child)}`));
+  assert.match(
+    theirs,
+    new RegExp(`Linked sessions +deck in ${literal(child)}`),
+  );
 });
 
 test("pair start --from refuses a missing --proposal, a directory with no session, an unknown proposal, and one already linked, and creates nothing", async (t) => {
@@ -116,7 +119,7 @@ test("pair start --from refuses a missing --proposal, a directory with no sessio
   );
   await refuses(from("--proposal", "slides"), /No proposal slides/);
   // A card the reviewer has not started is not an instruction to run it.
-  await refuses(from("--proposal", "notes"), /has not started proposal notes/);
+  await refuses(from("--proposal", "notes"), /has not approved proposal notes/);
   await from("--proposal", "deck");
   const linked = (await sessions()).length;
   await assert.rejects(from("--proposal", "deck"), /already linked to session/);

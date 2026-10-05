@@ -1,64 +1,59 @@
-# Run the review session
+# Running a session
 
-`pair` runs from any directory. A session's files are in its session
-directory under pair's state directory, not in the project. Keep the session
-directory's path in the conversation so that an interrupted turn can resume
-it. Keep generated files and feedback outside the project's history.
+`pair` runs from any directory. A session's files are in its own directory
+under pair's state directory, not in the project. Keep the session
+directory's path in the conversation, so you can resume after an
+interrupted turn. Do not commit pages or feedback to the project.
 
 ## Taking over
 
-The agent that runs `pair start` is the session's holder. The hub sends wake
-messages only to the holder. From any other agent it takes `pair status`,
-`pair propose`, `pair plan` and `pair start`, which makes that agent the
-holder, and refuses every other command. A subagent runs commands in its parent's
-environment, so the hub treats it as its parent.
+The agent that last ran `pair start` on a session is its holder, and the hub
+wakes only the holder. From any other agent, the hub accepts only
+`pair status`, `pair propose` and `pair start`, and `pair start` makes that
+agent the holder. A subagent runs its commands in its parent's environment,
+so the hub treats it as its parent.
 
-Any agent in any harness becomes the holder by running the command in the
-session's handoff line:
+Any agent, in any agent CLI, can take over a session by running the
+command in the session's handoff line:
 
 ```text
-Take over pair session PATH: run pair start --session-dir PATH and follow what it prints.
+To take over pair session PATH, run pair start --session-dir PATH and follow what it prints.
 ```
 
-Then follow the next step that `pair start` prints. When the holder runs
-`pair start` again, it stays the holder.
+Then follow the next step `pair start` prints. When you are already the
+holder, running `pair start` again keeps you the holder.
 
-When a command fails because another agent is the session's holder, stop
-working on the session and tell the user. The hub refuses the first command
-from an agent the session was taken from, `pair start` included. Run
-`pair start` again only when the user asks you to take the session back.
-
-The hub identifies a Claude Code agent by its inbox socket, and each Claude
-Code process has its own. A conversation resumed after Claude Code restarts
-is therefore a new agent, and it is not the holder.
+When a command fails because another agent has taken over the session,
+stop working on it and tell the reviewer. After another agent takes over,
+the hub refuses your first command, even `pair start`. Only run
+`pair start` again when the reviewer asks you to take the session back.
 
 ## Resuming
 
-If a session already exists, resume it with `pair start --session-dir PATH`,
-which keeps its URL. Do not create a replacement. The directory name under
-`sessions/` is not the session ID in the URL. `connection.json` in the
-directory contains the ID.
+To resume a session, run `pair start --session-dir PATH`, which keeps its
+URL. Do not start a new session in its place. The session's directory name
+is not the ID in its URL. The ID is in `connection.json` in that directory.
 
-After an interrupted turn, `pair read` prints where the session stands.
-`pair publish` refuses while a submission is unread, and
-`pair read --submission ID` prints again a submission that you read in the
-interrupted turn.
+After an interrupted turn, run `pair read`, which prints where the session
+stands. `pair publish` refuses while there is feedback you have not read.
+To see feedback again that you read in the interrupted turn, run
+`pair read --submission ID`.
 
 When a command cannot reach the hub, run `pair guide setup.md` and follow
-it, then run the same command again on the same session. Do not start a
-replacement session.
+it, then run the command again. Do not start a new session in its place.
 
-When the user says in words to stop, run `pair pause`. The hub sends no
-wake message for a submission to a paused session. When the user asks you
-to continue, `pair start --session-dir PATH` resumes the session, and
-`pair read` returns any submission that arrived while it was paused.
+When the reviewer tells you to stop, run `pair pause`:
 
 ```sh
 pair pause --session-dir PATH --reason "asked to stop"
 ```
 
-After a `pair` command prints that the session is complete, start a new
-session when the user asks you to continue the work.
+The hub does not wake you for feedback while the session is paused. When
+the reviewer asks you to continue, run `pair start --session-dir PATH`,
+then `pair read`, which prints any feedback that arrived in the meantime.
 
-If the hub is unavailable, the reviewer can export their feedback from the
-browser as a JSON file. Treat an exported file as feedback.
+After the reviewer closes the session, start a new session if they ask you
+to continue the work.
+
+When the hub is down, the reviewer can export their feedback from the
+browser as a JSON file. Treat that file as feedback.

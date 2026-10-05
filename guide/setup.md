@@ -1,42 +1,39 @@
-# Check the environment
+# Setup
 
-pair requires Node 20.1.0 or newer and has no dependencies. `pair start`
+pair needs Node 20.1.0 or newer and has no dependencies. `pair start`
 checks what a session needs and refuses with the reason: Node too old, the
 hub port taken by another program, storage it cannot write, or a sandbox
-that blocks the hub. If Node is unavailable or too old, explain the
-requirement and ask the reviewer how they want to provide it.
+that blocks the hub. If Node is missing or too old, tell the reviewer that
+pair needs Node 20.1.0 or newer, and ask how they want to install it.
 
-When `pair start` or another command fails, run `pair check`. It checks each
-part on its own and prints one line each: that session storage is writable,
-that a local HTTP endpoint works, which process owns the hub port and, where
-Codex is installed, Codex's rules file. It reports the port as `free`, as
-running a pair hub (with the hub's code version and live session count), or
-as in use by another program.
+When `pair start` or another command fails, run `pair check`. It prints one
+line for each thing a session needs: the Node version, whether it can write
+session storage, whether 127.0.0.1 answers, whether the hub port is free,
+in use by a pair hub or in use by another program, and, when Codex is
+installed, whether Codex's rules file matches pair's rule.
 
 ## Sandboxes
 
-The hub needs a writable state directory and a listener on loopback. If the
-sandbox blocks either operation, allow the `pair` command. Do not switch to
-a different state directory. A session under a temp directory is invisible
-to other sessions and to the hub on the fixed port.
+The hub needs to write its state directory and listen on 127.0.0.1. If a
+sandbox blocks either, allow the `pair` command to run outside it. Do not
+switch to a different state directory, because the hub on the usual port
+cannot find a session stored anywhere else.
 
-- Codex: the sandbox blocks both operations. The first `pair` command fails
-  with an error that names the sandbox, and Codex runs it again with
-  approval. Codex's approval reviewer may grant that retry without a prompt.
-  `pair start` refuses under Codex until `~/.codex/rules/pair.rules`
-  exists. With the user's yes, run `pair setup-codex` once outside the
-  sandbox. It writes that file, a separate file that contains only pair's
-  allow rule. A command that matches it runs outside the sandbox on the
-  first try with nothing to approve. Codex reads the file when it starts, so
-  ask the user to restart Codex. `pair check` reports whether the file is
-  present.
-- Claude Code: nothing in auto mode. Otherwise allow the `pair` command in
-  the permission settings.
-- Copilot CLI: nothing beyond the allow flags the session already needs.
-- pi and opencode: nothing beyond the allow flags the session already needs.
+Under Codex, the sandbox blocks both. The first `pair` command fails with an
+error that names the sandbox, and Codex asks for approval to run it again
+outside the sandbox. Codex may approve that retry by itself. `pair start`
+refuses under Codex until `~/.codex/rules/pair.rules` exists. With the
+reviewer's permission, run `pair setup-codex` once outside the sandbox. It
+writes that file, which contains only pair's allow rule, so a `pair` command
+then runs outside the sandbox on the first try. Codex reads the file when it
+starts, so ask the reviewer to restart Codex.
 
-## A submission that did not wake you
+If your agent CLI asks for approval before each `pair` command, ask the
+reviewer to allow `pair` in its settings, so a round doesn't stall on
+prompts.
 
-When the reviewer says in chat that a submission did not reach you, run
-`pair read`, which prints the submission and the next step. `pair status`
-shows the holder and the last wake, and when the wake failed, the reason.
+## When feedback did not wake you
+
+When the reviewer says in the chat that their feedback did not reach you,
+run `pair read`, which prints it and the next step. `pair status` prints
+the holder and the last wake, with the reason if the wake failed.

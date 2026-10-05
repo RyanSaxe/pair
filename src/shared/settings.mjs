@@ -70,7 +70,7 @@ export function settings(env = process.env) {
   requireValue(
     env.PAIR_WAKE !== "off" ||
       root !== path.join(os.homedir(), ".local", "state", "pair"),
-    "PAIR_WAKE=off is only for a scratch hub. Give it its own XDG_STATE_HOME.",
+    "Set PAIR_WAKE=off only for a scratch hub, and give that hub its own XDG_STATE_HOME.",
   );
   const seconds = (name, fallback) => {
     if (env[name] === undefined) return fallback;

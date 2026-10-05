@@ -2,19 +2,26 @@
 
 ## Codex asks to approve every pair command
 
-Codex runs commands in a sandbox that blocks pair's hub. With Codex's default
-approval, a `pair` command the sandbox blocks runs again outside the sandbox
-without asking. `pair start` refuses under Codex until Codex has an allow rule
-for `pair`, and asks the agent to ask you for it. Run this once in a terminal,
-or say yes to the agent running it:
+Codex runs each command in a sandbox that blocks network sockets and writes
+outside your project. `pair` needs both to reach its hub and to save the
+session, so without an allow rule for `pair`, Codex asks you to approve every
+`pair` command. `pair start` refuses to run under Codex until the rule exists,
+and prints an instruction for the agent to ask you for it.
+
+To add the rule, run this once in a terminal, or say yes when the agent asks
+to run it:
 
 ```sh
 pair setup-codex
 ```
 
-It writes `~/.codex/rules/pair.rules`, which allows `pair`. A command made only
-of `pair` calls, including several joined with `&&`, then runs outside the
-sandbox on its first try, with no retry and nothing to approve. A pipeline
-such as `pair guide | head -3` does not match the rule and still runs in the
-sandbox. Codex reads its rules when it starts, so restart Codex afterwards.
-pair never writes this file on its own.
+The command writes the rule to `~/.codex/rules/pair.rules`, or to the same
+file under `CODEX_HOME` when you set that variable. With the rule, Codex
+runs a command made only of `pair` calls outside the sandbox on its first
+try, with nothing for you to approve. That includes several `pair` calls
+joined with `&&`. A pipeline such as `pair guide | head -3` does not match
+the rule, so Codex still runs it in the sandbox.
+
+Codex only reads its rules when it starts, so restart Codex after you run
+`pair setup-codex`. `pair` only writes this file when you or the agent run
+`pair setup-codex`.

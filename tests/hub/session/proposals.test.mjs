@@ -132,7 +132,7 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
   );
   assert.equal(
     a.inbox.wakes[0].message.message.content,
-    `pair: the reviewer started proposal churn-export, "${card.title}", here in session ${a.directory}. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's message with Start, which pair read prints too:\n${message}`,
+    `pair: the reviewer approved proposal churn-export, "${card.title}", to run in session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\n${message}`,
   );
   // Only the reviewer's feedback answers round 1, so it still waits for
   // them.
@@ -141,14 +141,17 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
 
   const second = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(second.code, 409);
-  assert.equal(second.body.error, "Proposal churn-export was already started");
+  assert.equal(second.body.error, "Proposal churn-export is already approved.");
   const revise = await propose({
     id: "churn-export",
     revise: true,
     title: "Changed",
   });
   assert.equal(revise.code, 409);
-  assert.match(revise.body.error, /was started, which approved what it said/);
+  assert.match(
+    revise.body.error,
+    /approved proposal churn-export as it stands, so you cannot revise it/,
+  );
   assert.equal((await reviewer("churn-export", "decline")).code, 409);
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 1);
@@ -164,7 +167,7 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
   assert.equal(await waits(), true);
   assert.match(
     answer.next,
-    /^Round 1 is published and waits for the reviewer\. .*build proposal churn-export, .*Publish the work's pages in the next round, which begins when the reviewer sends feedback\./,
+    /^You published round 1, and the reviewer has not sent feedback on it yet\. .*build proposal churn-export, .*you publish the pages about this work in the next round\./,
   );
 });
 
@@ -250,7 +253,7 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   // hub sends it no wake.
   assert.equal(
     started.body.next,
-    `Run: pair read --session-dir ${a.directory}`,
+    `Run pair read --session-dir ${a.directory} to see what the reviewer sent.`,
   );
   const answer = await read();
   assert.equal(answer.moment, "read-start-here");
@@ -287,7 +290,7 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
   assert.equal(
     a.inbox.wakes[1].message.message.content,
-    `pair: an agent started proposal board-qa, "Board Q&A prep", in a sub-session of session ${a.directory}, on the reviewer's words. Run first: pair read --session-dir ${a.directory}. It prints the start and the next step.\n\nThe reviewer's words, which pair read prints too:\nDo the Q&A prep apart.`,
+    `pair: the reviewer asked for proposal board-qa, "Board Q&A prep", in their own words, to run in a sub-session of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\nDo the Q&A prep apart.`,
   );
   const sub = await read();
   assert.equal(sub.moment, "read-start-sub-session");
@@ -314,7 +317,7 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   assert.match(
     agent.body.next,
     new RegExp(
-      `^Open a new agent session whose first command is: pair start --from ${literal(a.directory)} --proposal deck\\. `,
+      `^Open a new agent session and have it run pair start --from ${literal(a.directory)} --proposal deck first\\. `,
     ),
   );
   assert.equal((await read()).event, null);
@@ -375,7 +378,7 @@ test("--withdraw moves a card to Done with its reason, and Restore brings it bac
 // Work started here is done when the agent says so. Any other card is done
 // with --where, when its work got done somewhere else, and --reopen undoes
 // the agent's own --done.
-test("--done marks work started here done, --where marks any card done, and --reopen undoes either", async (t) => {
+test("--done marks work approved to run here done, --where marks any card done, and --reopen undoes either", async (t) => {
   const { propose, add, reviewer, cards } = await proposing(t);
   await add();
   await add({ id: "board-qa", title: "Board Q&A prep" });
@@ -383,7 +386,7 @@ test("--done marks work started here done, --where marks any card done, and --re
   assert.equal(early.code, 409);
   assert.equal(
     early.body.error,
-    'Proposal churn-export has not been started. When its work got done somewhere else, run --done with --where, such as --where "in #86".',
+    'The reviewer has not approved proposal churn-export. If its work was finished somewhere else, add --where to say where, such as --where "in #86".',
   );
   const elsewhere = await propose({
     id: "churn-export",
@@ -416,7 +419,7 @@ test("--done marks work started here done, --where marks any card done, and --re
   assert.equal(linked.code, 409);
   assert.equal(
     linked.body.error,
-    "Proposal board-qa runs in a sub-session, so closing that session marks it done.",
+    "Proposal board-qa runs in a sub-session. The hub marks it done when the reviewer closes that session.",
   );
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
@@ -458,7 +461,7 @@ test("a status replaces the parts of approved work, only while it runs, and --re
   assert.equal(early.code, 409);
   assert.equal(
     early.body.error,
-    "Proposal churn-export has not been started, so it takes no status.",
+    "The reviewer has not approved proposal churn-export, so you cannot record a status for it yet.",
   );
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
@@ -493,15 +496,15 @@ test("a status replaces the parts of approved work, only while it runs, and --re
       Array(13).fill("A part"),
       [],
       {},
-      "A status takes at most 12 parts, and this one has 13.",
+      "A status has at most 12 parts, and you gave 13.",
     ],
     [
       ["x".repeat(81)],
       [],
       {},
-      "--status-done takes text of at most 80 characters",
+      "Each --status-done is text of at most 80 characters.",
     ],
-    [[], [" "], {}, "--status-left takes text of at most 80 characters"],
+    [[], [" "], {}, "Each --status-left is text of at most 80 characters."],
     [
       ["Schema"],
       [],
@@ -526,7 +529,7 @@ test("a status replaces the parts of approved work, only while it runs, and --re
   assert.equal(finished.code, 409);
   assert.equal(
     finished.body.error,
-    "Proposal churn-export is done, so it takes no status.",
+    "Proposal churn-export is marked done, so you cannot record a status for it.",
   );
   const reopened = await propose({ id: "churn-export", reopen: true });
   assert.equal(reopened.code, 200, reopened.body.error);
@@ -539,7 +542,7 @@ test("a status replaces the parts of approved work, only while it runs, and --re
 // --reopen on a joined card undoes the join. A card whose work runs in a
 // linked session, the card itself and a joined card take no joined card,
 // so the cards joined into a card move with it when it joins another.
-test("--join merges a card into a proposed card or one started here, and refuses every other card", async (t) => {
+test("--join merges a card into a proposed card or one approved to run here, and refuses every other card", async (t) => {
   const { propose, add, reviewer, cards } = await proposing(t);
   await add();
   for (const id of [
@@ -573,7 +576,7 @@ test("--join merges a card into a proposed card or one started here, and refuses
     "test",
     "keys",
     409,
-    "Proposal keys already joined churn-export, so no proposal can join it. Join proposal test into churn-export.",
+    "Proposal keys is joined into churn-export, so no proposal can join it. Join proposal test into churn-export.",
   );
   assert.equal(
     (await reviewer("sub", "start", { where: "sub-session" })).code,
@@ -605,20 +608,20 @@ test("--join merges a card into a proposed card or one started here, and refuses
     "churn-export",
     "outline",
     409,
-    "Proposal churn-export was started, so it takes no --join.",
+    "The reviewer approved proposal churn-export, so you cannot join it into another proposal.",
   );
   await refused(
     "keys",
     "churn-export",
     409,
-    "Proposal keys already joined churn-export, so it takes no --join.",
+    "Proposal keys is already joined into churn-export, so you cannot join it into another proposal.",
   );
   assert.equal((await reviewer("no", "decline")).code, 200);
   await refused(
     "no",
     "churn-export",
     409,
-    "The reviewer declined proposal no. Drop it and do not propose it again.",
+    "The reviewer declined proposal no. Drop its work and do not suggest it again.",
   );
   await refused(
     "late",
@@ -632,13 +635,13 @@ test("--join merges a card into a proposed card or one started here, and refuses
     "gone",
     "churn-export",
     409,
-    "Proposal gone was withdrawn, so it takes no --join.",
+    "Proposal gone is withdrawn, so you cannot join it into another proposal.",
   );
   await refused(
     "late",
     "gone",
     409,
-    "Proposal gone was withdrawn, so no proposal can join it.",
+    "Proposal gone is withdrawn, so no proposal can join it.",
   );
   const elsewhere = await propose({
     id: "elsewhere",
@@ -650,7 +653,7 @@ test("--join merges a card into a proposed card or one started here, and refuses
     "elsewhere",
     "churn-export",
     409,
-    "Proposal elsewhere is done, so it takes no --join.",
+    "Proposal elsewhere is marked done, so you cannot join it into another proposal.",
   );
   await refused("late", "nothing", 404, "No proposal nothing in this session");
   const paired = await propose({
@@ -674,7 +677,7 @@ test("--join merges a card into a proposed card or one started here, and refuses
     "late",
     "churn-export",
     409,
-    "Proposal churn-export is done, so no proposal can join it.",
+    "Proposal churn-export is marked done, so no proposal can join it.",
   );
   assert.equal((await propose({ id: "churn-export", reopen: true })).code, 200);
   assert.deepEqual(await joinedTo(), [
@@ -693,7 +696,7 @@ test("--join merges a card into a proposed card or one started here, and refuses
     "outline",
     "late",
     409,
-    "Proposal late already joined outline, so no proposal can join it.",
+    "Proposal late is joined into outline, so no proposal can join it.",
   );
   assert.equal((await join("outline")).code, 200);
   assert.deepEqual(await joinedTo(), [
@@ -723,7 +726,7 @@ test("a thread on a card wakes the holder with the card it is on", async (t) => 
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
   assert.match(
     a.inbox.wakes[0].message.message.content,
-    /^pair: a thread on proposal churn-export, "Refresh the churn data export", session /,
+    /^pair: the reviewer wrote to you in a thread on proposal churn-export, "Refresh the churn data export" in session /,
   );
   const missing = await a.request(`${a.base}/api/threads`, {
     id: "lost",

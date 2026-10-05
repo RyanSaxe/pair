@@ -1,17 +1,16 @@
-The reviewer started this proposal here. By starting it, the reviewer
-approved what it and each proposal joined into it deliver, and nothing
-more. Where the reviewer's words in `<pair_start>` differ from the
-proposal, follow their words.
+The reviewer approved this proposal, and each proposal joined into it, and
+asked you to build the work in this session. Where the reviewer's words in
+`<pair_start>` ask for something different from the proposal, or more,
+follow their words.
 
-- Begin the work now. When the proposal has a plan, build from the plan's
-  page sources in `plans/ID/src/` in the session's directory.
-- When you are building a round and have not published its Agreed, list
-  the work's pages in that round. Otherwise publish them in the next round,
-  which begins when the reviewer sends feedback.
-- Publish each part the reviewer can judge as soon as it exists.
-- Fix a problem you find while building only when the work needs the fix.
-  Record anything else with `pair propose`.
-- After you publish the work's last page, run
-  `pair propose --session-dir PATH --id ID --done`. When later feedback asks
-  for changes to the work, run the same command with `--reopen` in place of
+- Begin now, on a new branch.
+- Before you build, record the parts of the work with
+  `pair propose --session-dir PATH --id ID --status-left "…"`, with one flag
+  for each part.
+- If you are in the middle of a round and have not published its Agreed
+  yet, list the pages about this work in that round. Otherwise, publish
+  them in the next round, which begins when the reviewer sends feedback.
+- After you publish the last page about the work, run
+  `pair propose --session-dir PATH --id ID --done`. If later feedback asks
+  for changes to the work, run the same command with `--reopen` instead of
   `--done`.

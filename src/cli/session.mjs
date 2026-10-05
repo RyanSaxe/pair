@@ -95,10 +95,10 @@ async function keepSource(sessionDir, source, html) {
     const entries = await fs.readdir(target).catch(() => undefined);
     const stopped =
       entries?.length === 0
-        ? " It is empty, so another publish of this page is still copying, or one was stopped while it copied. Run pair status: if the page is not published and no other publish is running, delete that directory and publish again."
-        : "";
+        ? " It is empty, so another publish of this page is still copying, or one was stopped while it copied. Run pair status. If the page is not published and no other publish is running, delete that directory and publish again."
+        : " Run pair status to see whether you already published it.";
     throw new Error(
-      `Source for round ${record.round} already exists at ${target}.${stopped}`,
+      `Page ${record.page.id} of round ${record.round} already has a source at ${target}.${stopped}`,
     );
   }
   // The copy takes the target's place only once it is complete, so a copy
@@ -216,7 +216,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
     mayHaveActed = true;
     requireValue(
       (result.status?.sessionId || result.sessionId) === connection.sessionId,
-      "Helper identity changed; resume the intended session",
+      `The hub answered for a different session than the one in ${directory}. Run pair start --session-dir ${directory} to resume it.`,
       409,
     );
     return result;
@@ -232,7 +232,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
 // pair start refuses under Codex until the allow rule exists, because
 // without it Codex asks the user to approve every pair command.
 const codexRefusal = (file) =>
-  `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
+  `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
 
 export async function start(options) {
   requireNode();
@@ -319,7 +319,7 @@ export async function publish(options) {
     }
     // A timeout's error cannot take a longer message, so a new one does.
     throw new Error(
-      `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${action.source}. Run pair status: if the page is not published, delete that directory and publish again.`,
+      `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${action.source}. Run pair status. If the page is not published, delete that directory and publish again.`,
       { cause: error },
     );
   }
@@ -334,7 +334,9 @@ export async function publish(options) {
       [
         `Published ${page.id} in round ${page.round}.`,
         `URL ${result.url}`,
-        ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
+        ...(result.roundComplete
+          ? [`Every page of round ${page.round} is published.`]
+          : []),
       ].join("\n"),
       ...(choosing ? [(await components()).data] : []),
     ].join("\n\n"),

@@ -68,7 +68,7 @@ export function proposeAction(data) {
   const chosen = actions.filter((name) => data[name] !== undefined);
   requireValue(
     chosen.length <= 1,
-    "pair propose takes one of --revise, --start, --withdraw, --done, --join and --reopen",
+    "pair propose takes at most one of --revise, --start, --withdraw, --done, --join or --reopen.",
   );
   const [action] = chosen;
   // A status replaces the whole status of approved work and changes
@@ -89,7 +89,7 @@ export function proposeAction(data) {
     !extra,
     owners[extra]
       ? `--${extra} goes with --${owners[extra]}.`
-      : `--${action} changes no field. Run --revise for --${extra}.`,
+      : `--${action} takes no --${extra}. To edit that field, run pair propose with --revise and --${extra}.`,
   );
   return { id, action };
 }

@@ -1,37 +1,39 @@
-This submission starts a new round. You choose what that round covers.
+This feedback begins a new round, and you decide what it covers.
 
 - Open the file at the `path` of every `<pair_image>` and at the `preview`
-  of every drawing's `<pair_answer>`, and read each thread listed below that
-  is about a decision. Compare every note, and anything the user said in
-  chat, with the alignments on Agreed. A note with `occurrence="N"` is on
-  the Nth appearance of its quote in its block, and a note with
+  of every drawing's `<pair_answer>`. Read each thread listed below that is
+  about a decision.
+- Compare every note, and anything the reviewer said in the chat, with the
+  alignments on Agreed. `occurrence="N"` on a note means the reviewer
+  quoted the Nth appearance of that text in its block. A note with
   `proposal="ID"` is about that proposal. A note or thread with
   `page="work"` and no `proposal` is about the session's proposals as a
   whole.
-- Update the task first. Then mark each decision settled, reopened, retired
-  or still open, and merge or retire what no longer stands, as Keep Agreed
-  current in `pair guide agreements.md` says.
-- `everything-else-looks-good="yes"` means the reviewer agrees with what the
-  pages stated and no note challenged. An option the reviewer did not choose
-  stays open, even when you recommended it, and so does a question they did
-  not answer. Without that attribute, a recommendation the reviewer did not
-  comment on also stays open. A recommendation is never an alignment.
+- Update Agreed's task first, then its alignments, as
+  `pair guide agreements.md` describes.
+- `everything-else-looks-good="yes"` means the reviewer agrees with
+  everything your pages said, except where a note says otherwise. A
+  decision where they chose no option is still not settled, even one you
+  recommended, and neither is a question they did not answer. Without that
+  attribute, treat a recommendation they did not comment on as unsettled.
 - When the reviewer asks you to decide, take the option you recommended
   unless a note names another, and say in the alignment's `source` that you
   chose it.
-- When `pair read` lists proposals started here that are not done, keep
-  building each one in this round, whether or not the feedback mentions it.
-  List a page in this round for each part of that work that will be ready
-  for the reviewer to judge.
-- When a note tells you to do a piece of work, record a proposal for it
-  unless one already covers it. Before you build it, start that proposal
-  with `pair propose --session-dir PATH --id ID --start WHERE --quote "…"`,
-  quoting the note, with `--page ROUND/PAGE` for the note's round and page.
-- Withdraw each proposal nobody has started that no longer applies, with
-  `pair propose --session-dir PATH --id ID --withdraw --reason "…"`. When a
-  proposal's work got done some other way, run the same command with
-  `--done --where "…"` in place of `--withdraw --reason "…"`, with where it
-  got done.
-- Run `pair progress --note "…"` now, then with `--page ID` as you start
-  each page and at least every five minutes after. Give each subagent that
-  command for its page.
+- Keep building each proposal listed under "Proposals you are still building
+  in this session", whether or not the feedback mentions it. When you choose
+  this round's pages, include one for each part of that work you will finish
+  in this round. When the feedback changes the parts, update the work's
+  status to match.
+- When a note asks you for a piece of work, record a proposal for it unless
+  one already covers it. Before you build the work, mark that proposal
+  started with
+  `pair propose --session-dir PATH --id ID --start WHERE --quote "…"`,
+  quoting the note, and add `--page ROUND/PAGE` with the note's round and
+  page.
+- When a proposal the reviewer has not approved no longer applies, withdraw
+  it with `pair propose --session-dir PATH --id ID --withdraw --reason "…"`.
+  When its work was finished some other way, run the same command with
+  `--done --where "…"` instead, saying where.
+- Run `pair progress --note "…"` now. After that, run it with `--page ID`
+  when you start each page and at least every five minutes until you
+  publish it, and give each subagent that command for its page.

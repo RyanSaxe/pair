@@ -33,7 +33,7 @@ function wakeNote(message) {
   const words = message.text;
   let note;
   if (words.length <= quoted)
-    note = `The reviewer's message, which pair read prints too:\n${words}`;
+    note = `The reviewer's message, which pair read also prints:\n${words}`;
   else {
     const space = words.slice(0, quoted + 1).search(/\s\S*$/);
     const opening = words.slice(0, space > 0 ? space : quoted).trimEnd();
@@ -126,7 +126,7 @@ export function threads(session) {
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
-    const line = `pair: a thread on ${on}, session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${readCommand(thread.id)}, which prints the thread and how to answer.${wakeNote(message)}`;
+    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Between your current steps, run ${readCommand(thread.id)}, which prints the thread and how to answer it, then go on with your work.${wakeNote(message)}`;
     thread.wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
     if (thread.state === "sending")
@@ -295,7 +295,7 @@ export function threads(session) {
   async function checkReply(thread, html) {
     requireValue(
       !control.test(html),
-      "A reply cannot contain a decision, checklist or question, because the reviewer answers those with Send feedback. Say in the reply what you will ask, and put it on a page in the next round.",
+      "A reply cannot contain a decision, a checklist or a question, because the reviewer answers those only in a round's feedback. Say in the reply what you will ask, and put the question on a page in the next round.",
     );
     const found = problems(
       {
@@ -312,7 +312,7 @@ export function threads(session) {
   async function reply(data) {
     requireValue(
       idPattern.test(data.note || ""),
-      "A reply names its thread with --thread ID",
+      "Give --thread the ID of a thread that pair read printed.",
     );
     const thread = threadFor(data.note);
     requireValue(
@@ -334,14 +334,14 @@ export function threads(session) {
         return {
           status: session.view(),
           thread: shown(thread),
-          next: `Open a new agent session whose first command is: pair start --from ${directory} --proposal ${thread.proposal}. Then post what you opened with ${replyCommand(thread.id)} --text "…", or post that command when you cannot open one, and go back to what you were doing.`,
+          next: `Open a new agent session and have it run pair start --from ${directory} --proposal ${thread.proposal} first, then post what you opened with ${replyCommand(thread.id)} --text "…". If you cannot open one, post that command instead. Then go back to what you were doing.`,
           moment: "read-open-agent",
         };
       return {
         status: session.view(),
         thread: shown(thread),
         next: thread.messages.at(-1).acknowledgedAt
-          ? "The reviewer agreed with your last message, so the thread needs no answer. Go back to what you were doing."
+          ? "The reviewer agreed with your last message, so do not reply. Go back to what you were doing."
           : `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
         moment: "read-thread",
       };
@@ -412,7 +412,10 @@ export function threads(session) {
   // Agreed cites a thread that settled a decision, as it cites a note.
   function threadSource(id) {
     const thread = records.get(id);
-    requireValue(thread, "Source thread not found");
+    requireValue(
+      thread,
+      `Agreed cites thread ${id}, which this session does not have. Cite a thread ID that pair read printed.`,
+    );
     return thread;
   }
   return {

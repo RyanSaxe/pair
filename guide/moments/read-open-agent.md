@@ -1,9 +1,9 @@
-The reviewer asked you to open a new agent session for this proposal: a
-separate agent, not a subagent, where the user can see it and answer its
-questions. Its first command is the `pair start --from` command in the next
-step.
+The reviewer asked for this proposal's work to run in a new agent session.
+That is a separate agent, not a subagent, running where the reviewer can
+watch it and answer its questions. Its first command is the
+`pair start --from` command in the next step.
 
-- When you can open one, open it with that command, then reply in the
-  thread with what you opened.
-- When you cannot, reply in the thread with that command, so the user can
+- If you can open a new agent session, open one with that command, then
+  reply in the thread with what you opened.
+- If you cannot, reply in the thread with that command, so the reviewer can
   give it to an agent.

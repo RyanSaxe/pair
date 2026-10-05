@@ -27,7 +27,7 @@ function hubLine(hub) {
   if (hub.state === "busy")
     return `port ${hub.port} is in use by another program`;
   const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
-  return `port ${hub.port} runs a pair hub with ${sessions}, code ${hub.version}`;
+  return `port ${hub.port} is in use by a pair hub with ${sessions}, code ${hub.version}`;
 }
 function codexLine(codex) {
   if (codex.present) return `${codex.rules} matches pair's rule`;
@@ -72,7 +72,7 @@ export async function check() {
         : []),
       ...(codex && !codex.exists
         ? [
-            `Ask the user whether pair may write ${codex.rules}. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
+            `Ask the user whether pair may write ${codex.rules}. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
           ]
         : []),
     ];

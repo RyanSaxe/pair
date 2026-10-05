@@ -83,7 +83,7 @@ test("pair diff refuses to overwrite an existing output", async (t) => {
     exec(process.execPath, [pair, "diff", before, after, output], {
       env: withoutGit,
     }),
-    /EEXIST/,
+    /already exists, and pair never overwrites a file/,
   );
   assert.equal(await fs.readFile(output, "utf8"), "keep");
 });

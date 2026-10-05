@@ -92,7 +92,9 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       // The frame draws the page title as the page's only h1, so a second
       // one is always a duplicate heading, whatever it says.
       if (/^<h1[\s>]/i.test(tag))
-        list.push(`${at}: the frame draws the page title, so a page has no h1`);
+        list.push(
+          `${at}: remove the h1, because the frame shows the page title as the page's only h1. Start headings at h2.`,
+        );
       if (/^<pre\b/i.test(tag) || /^<div\b/i.test(tag)) {
         const named = attribute(tag, "data-file") !== undefined;
         const source = attribute(tag, "data-diff-source") !== undefined;
@@ -139,7 +141,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
           list.push(`${at}: an option in "${id}" has no data-value`);
       if (kind === "data-choice" && options.length < 2)
         list.push(
-          `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}`,
+          `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}. Give it at least two.`,
         );
       if (kind === "data-question" && !/<textarea\b/i.test(part))
         list.push(`${at}: question "${id}" has no textarea`);

@@ -1,9 +1,9 @@
-The reviewer started this proposal in a sub-session. By starting it, the
-reviewer approved what it and each proposal joined into it deliver, and
-nothing more.
+The reviewer approved this proposal, and each proposal joined into it, and
+asked you to build the work in a sub-session. A sub-session is a separate
+pair session, linked to this one, that you also run.
 
-- Run the `pair start --from` command in the next step now. It creates the
-  sub-session, linked to this one, and makes you its holder.
-- Give the sub-session's steps to subagents, each with the sub-session's
-  directory and `pair progress --page ID --note "…"` for its page, so you
-  can keep working on this session's rounds while they build it.
+- Now run the `pair start --from` command from the next step. It creates
+  the sub-session.
+- Hand the sub-session's pages to subagents, and give each one the
+  sub-session's directory and `pair progress --page ID --note "…"` for its
+  page, so you can keep working on this session while they build.
