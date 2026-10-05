@@ -1,5 +1,5 @@
-`pair start --from` created this session for one proposal of the parent
-session, printed below. Where the reviewer's words in `<pair_start>` ask for
+`pair start --from` created this session for one approved proposal of the
+parent session, printed below. Where the reviewer's words in `<pair_start>` ask for
 something different from the proposal, or more, follow their words.
 
 - Build the work in this session's rounds, on a new branch, and name the
