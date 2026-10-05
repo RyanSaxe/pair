@@ -1,8 +1,9 @@
 # Plan a change
 
-Planning ends with a plan that someone who saw none of the rounds could
-build, attached to the [proposal](../concepts/proposals-and-work.md) for the
-work. Use it for any change where how to build it is not obvious yet.
+Plan a change in a session when you do not yet know how it should be built.
+Planning ends with a plan attached to the
+[proposal](../concepts/proposals-and-work.md) for the work, from which
+someone who saw none of the rounds could build it.
 
 ## Ask
 
@@ -10,8 +11,8 @@ work. Use it for any change where how to build it is not obvious yet.
 /pair plan retrying a charge when the payment gateway times out
 ```
 
-Say what the agent cannot learn from the code: why the change is needed,
-and anything you already know you do or do not want.
+Tell the agent what it cannot learn from the code, such as why you need the
+change, and anything you already know you want or do not want.
 
 ## Each round
 
@@ -20,31 +21,32 @@ and anything you already know you do or do not want.
   <img alt="A plan page on a phone, with a decision's options as tabs and the first option open" src="../assets/plan-phone-light.png" width="390">
 </picture>
 
-- **Read the task first.** It is at the top of Agreed. Everything else
-  depends on it, so correct it as soon as it is wrong.
-- **Choose every option you care about.** An option marked Recommended stays
-  open until you choose it.
+- **Read the task first.** It is at the top of Agreed. The agent builds
+  every page on the task, so correct it as soon as it is wrong.
+- **Choose every option you care about.** The agent does not count an
+  option marked Recommended as your choice until you press it.
 - **Ask to see it.** When a page describes a layout, a flow or an interface
   in words, comment and ask for a mock or the code.
-- **Ask a quick question as a thread**, so the answer arrives before you
-  send the round.
+- **Ask quick questions in a thread**, so you get the answer before you send
+  the round.
 
-To go faster, ask the agent to decide what is still open, or to write the
-plan. It takes its recommendations and records them on Agreed.
+To go faster, ask the agent to decide what is still open. It takes the
+options it recommended and records them on Agreed. You can also ask it to
+write the plan straight away.
 
 ## Before you start the work
 
 When nothing is left to decide, the agent attaches the plan to the
-proposal. Open it from the proposal's card on Work with **Open plan**, and
-check that:
+proposal. Open the plan with **Open** on the proposal's card on Work, and
+check these points:
 
-- every mock, wording and interface you approved is shown in it, not
-  described;
-- each page says how its part will be checked;
-- every alignment on Agreed appears as you settled it.
+- The plan shows every mock, wording and interface you approved, exactly as
+  you approved it.
+- The plan says how to check that the work is done.
+- Every alignment on Agreed appears in the plan as you settled it.
 
 When something is wrong, say so with **Comment** on the card or in your
-feedback, and the agent attaches a revised plan.
-When the plan is right, press **Start** on the card and choose where the
-work runs. **Download plan** saves it as one HTML file to keep or send.
-[Build the work](build-the-work.md) follows what happens next.
+feedback, and the agent attaches a new version of the plan. When the plan is
+right, press **Start** on the card and choose where the work runs. The
+download button on the card's Plan line downloads the plan as one HTML file
+to keep or send. [Build the work](build-the-work.md) covers what happens next.
