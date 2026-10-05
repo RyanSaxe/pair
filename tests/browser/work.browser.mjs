@@ -238,6 +238,27 @@ test("Open a new agent session starts the card with a new agent and shows its th
   assert.equal(threads[0].kind, "open-agent");
 });
 
+// Comment on a card only starts a thread, so the note dialog hides Add to
+// feedback, and Shift+Enter types a new line as it does in any text box.
+test("Shift+Enter types a new line in a comment on a card", async (t) => {
+  const { page } = await work(t);
+  if (!page) return;
+  await page
+    .locator("[data-proposal-card=deck] .link-btn", { hasText: "Comment" })
+    .click();
+  await page
+    .locator("#note-title", { hasText: "Comment on this proposal" })
+    .waitFor();
+  const text = page.locator("#note-text");
+  await text.fill("Keep the header height.");
+  await text.press("Shift+Enter");
+  await page.keyboard.type("Drop the footer.");
+  assert.equal(
+    await text.inputValue(),
+    "Keep the header height.\nDrop the footer.",
+  );
+});
+
 test("Decline takes a card out of Proposed, and Restore puts it back", async (t) => {
   const { page, tab, cards } = await work(t);
   if (!page) return;

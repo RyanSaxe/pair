@@ -1,5 +1,5 @@
 import { save, state } from "#frame/app/store.mjs";
-import { $, controlKey } from "#frame/app/util.mjs";
+import { $, controlKey, shiftEnter } from "#frame/app/util.mjs";
 import {
   editable,
   feedbackEditable,
@@ -150,16 +150,11 @@ export function installEvents() {
   });
   /* Keys */
   document.addEventListener("keydown", (event) => {
-    /* Textareas keep Enter for newlines. Shift+Enter is the explicit submit
-       gesture for the two text actions a reviewer otherwise has to click. */
-    if (
-      event.key === "Enter" &&
-      event.shiftKey &&
-      !event.metaKey &&
-      !event.ctrlKey &&
-      !event.altKey &&
-      feedbackEditable()
-    ) {
+    /* Textareas keep Enter for newlines. Shift+Enter presses a question's
+       Answer and the note dialog's Add to feedback. The note dialog hides
+       Add to feedback when it only starts a thread, and Shift+Enter then
+       types a newline. */
+    if (shiftEnter(event) && feedbackEditable()) {
       const area = event.target.closest("textarea");
       const answer = area
         ?.closest("[data-question]")
@@ -169,7 +164,11 @@ export function installEvents() {
         answer.click();
         return;
       }
-      if (area === $("note-text") && area.value.trim()) {
+      if (
+        area === $("note-text") &&
+        !$("note-save").hidden &&
+        area.value.trim()
+      ) {
         event.preventDefault();
         $("note-form").requestSubmit();
         return;
