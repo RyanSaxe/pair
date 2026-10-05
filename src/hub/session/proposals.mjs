@@ -2,48 +2,21 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
-
-// The agent names each proposal with a slug, such as phone-sidebar.
-const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-// Where the work runs once it starts: in this session's rounds, or in a
-// session linked to this one, which this session's holder or a separate
-// agent creates with pair start --from.
-const places = ["here", "sub-session", "new-agent"];
-const limits = { title: 80, delivers: 400 };
-const written = ["title", "delivers"];
-const actions = ["revise", "done", "reopen"];
-
-function words(data, name) {
-  const value = typeof data[name] === "string" ? data[name].trim() : "";
-  requireValue(
-    value && value.length <= limits[name],
-    `--${name} takes text of at most ${limits[name]} characters`,
-  );
-  return value;
-}
-function place(value, name) {
-  requireValue(
-    places.includes(value),
-    `${name} takes here, sub-session or new-agent`,
-  );
-  return value;
-}
-// The reviewer's optional message with Start, at most 4,000 characters as
-// an overall comment is.
-function message(data) {
-  if (data?.message === undefined) return "";
-  requireValue(typeof data.message === "string", "A message must be text");
-  const text = data.message.trim();
-  requireValue(text.length <= 4000, "The message exceeds 4,000 characters");
-  return text;
-}
+import {
+  message,
+  place,
+  proposeAction,
+  words,
+  written,
+} from "./proposal-fields.mjs";
+import { joinable } from "./proposal-joins.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
-// a card changes after the round that showed it is published. Four facts,
+// a card changes after the round that showed it is published. Five facts,
 // each null until it happens, say where a card stands: plan, started,
-// declined and done. The frame sorts the cards into the Work page's tabs
-// from those facts, so the hub stores no tab.
+// declined, withdrawn and done. The frame sorts the cards into the Work
+// page's tabs from those facts, so the hub stores no tab.
 export async function proposals(session) {
   const { directory, transition } = session;
   const folder = path.join(directory, "proposals");
@@ -122,6 +95,7 @@ export async function proposals(session) {
       plan: null,
       started: null,
       declined: null,
+      withdrawn: null,
       done: null,
     });
     // Every pair tab's bell announces the card.
@@ -146,6 +120,11 @@ export async function proposals(session) {
       `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
       409,
     );
+    requireValue(
+      !card.withdrawn && !card.done,
+      `Proposal ${card.id} is ${card.done ? "done" : "withdrawn"}, so it takes no --revise. Record further work as a new proposal.`,
+      409,
+    );
     const patch = Object.fromEntries(
       written
         .filter((name) => data[name] !== undefined)
@@ -161,17 +140,22 @@ export async function proposals(session) {
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button. Work here or in a sub-session saves a
-  // Start event, which the agent reads with pair read. Work with a new agent
-  // saves no event, because a separate agent runs pair start --from for it.
-  // A Start leaves the round as it was, wherever the work runs: only the
-  // reviewer's feedback answers a round, so a round that waits for them
-  // keeps waiting.
+  // Start, from the reviewer's button or from their words. Work here or in
+  // a sub-session saves a Start event, which the agent reads with pair
+  // read. Work with a new agent saves no event, because a separate agent
+  // runs pair start --from for it. A Start leaves the round as it was,
+  // wherever the work runs: only the reviewer's feedback answers a round,
+  // so a round that waits for them keeps waiting.
   async function start(card, started) {
     open();
     requireValue(
       !card.declined,
       `The reviewer declined proposal ${card.id}`,
+      409,
+    );
+    requireValue(
+      !card.withdrawn,
+      `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
       409,
     );
     requireValue(!card.done, `Proposal ${card.id} is done`, 409);
@@ -185,29 +169,37 @@ export async function proposals(session) {
       id: crypto.randomUUID(),
       intent: "start",
       proposal: card.id,
-      where: started.where,
       round,
-      by: started.by,
-      ...(started.message ? { message: started.message } : {}),
+      ...started,
     });
     return changed;
   }
-  // Runs after the reviewer's request is answered, as the wake after a
-  // submission does.
+  // Runs after the request that started the card is answered, as the wake
+  // after a submission does.
   async function wakeFor(id) {
     const card = find(id);
-    const note = card.started.message
-      ? `\n\nThe reviewer's message with Start, which pair read prints too:\n${card.started.message}`
+    const { started } = card;
+    const fromWords = started.by === "words";
+    const text = fromWords ? started.quote : started.message;
+    const note = text
+      ? `\n\n${fromWords ? "The reviewer's words" : "The reviewer's message with Start"}, which pair read prints too:\n${text}`
       : "";
     const place =
-      card.started.where === "here"
+      started.where === "here"
         ? `here in session ${directory}`
         : `in a sub-session of session ${directory}`;
-    const line = `pair: the reviewer started proposal ${id}, "${card.title}", ${place}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
+    const what = fromWords
+      ? `an agent started proposal ${id}, "${card.title}", ${place}, on the reviewer's words`
+      : `the reviewer started proposal ${id}, "${card.title}", ${place}`;
+    const line = `pair: ${what}. Run first: pair read --session-dir ${directory}. It prints the start and the next step.${note}`;
     const last = await session.sendWake(line);
     if (session.wake)
       await transition({ wake: { harness: session.wake.harness, last } });
   }
+  const wakeLater = (id) => {
+    if (session.wake && !session.state.paused)
+      setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
+  };
   const listed = () => ({ proposals: proposalItems() });
   // The Start button on a card, with where the work runs and the reviewer's
   // optional message. With a new agent, the answer carries the command the
@@ -221,9 +213,28 @@ export async function proposals(session) {
       ...(text ? { message: text } : {}),
     });
     if (where === "new-agent") return { ...listed(), command: fromCommand(id) };
-    if (session.wake && !session.state.paused)
-      setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
+    wakeLater(id);
     return listed();
+  }
+  // pair propose --start: the agent starts a card because the reviewer
+  // asked for the work in a note, a thread or the chat, with their words
+  // and, when it gives them, where they wrote them. The holder that runs it
+  // reads the start with pair read, which its next step names, so the hub
+  // wakes the holder only for a start another agent sends.
+  async function startFromWords(card, data, holder) {
+    const where = place(data.start, "--start");
+    requireValue(
+      data.quote !== undefined,
+      "--start takes --quote with the reviewer's words",
+    );
+    const started = await start(card, {
+      where,
+      by: "words",
+      quote: words(data, "quote"),
+      ...source(data),
+    });
+    if (!holder && where !== "new-agent") wakeLater(card.id);
+    return started;
   }
   const fromCommand = (id) => `pair start --from ${directory} --proposal ${id}`;
   // Open a new agent session on a card asks this session's holder, in a
@@ -253,89 +264,143 @@ export async function proposals(session) {
     );
     return { ...listed(), thread };
   }
-  // Decline takes a card out of Proposed, and Restore puts it back. Both
-  // leave a card already in that state as it is.
+  // Decline takes a proposed card out of Proposed, and Restore puts a
+  // declined or withdrawn card back. Both leave a card already in that
+  // state as it is.
   async function declineProposal(id) {
     open();
     const card = find(id);
     requireValue(
-      !card.started,
-      `Proposal ${id} was started, so it cannot be declined`,
+      !card.started && !card.done,
+      `Proposal ${id} was ${card.done ? "done" : "started"}, so it cannot be declined`,
       409,
     );
-    if (!card.declined) await save(card, { declined: { at: timestamp() } });
+    if (!card.declined && !card.withdrawn)
+      await save(card, { declined: { at: timestamp() } });
     return listed();
   }
   async function restoreProposal(id) {
     open();
     const card = find(id);
-    if (card.declined) await save(card, { declined: null });
+    if (card.declined || card.withdrawn)
+      await save(card, { declined: null, withdrawn: null });
     return listed();
   }
-  // Work started here is done when the agent says so, and feedback that asks
-  // for changes to it reopens it. Closing a linked session marks the card of
-  // work started anywhere else.
-  function startedHere(card, flag) {
+  // The agent withdraws a card nobody has started that no longer applies,
+  // with its reason. Withdrawn and declined cards are both in Done, and the
+  // reviewer's Restore puts either back.
+  async function withdraw(card, data) {
     requireValue(
-      card.started?.where === "here",
-      card.started
-        ? `Proposal ${card.id} runs in a ${card.started.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done, and it takes no --${flag}.`
-        : `Proposal ${card.id} has not been started, so it takes no --${flag}.`,
+      !card.declined,
+      `The reviewer declined proposal ${card.id}. Drop it and do not propose it again.`,
       409,
     );
+    requireValue(
+      !card.started && !card.done && !card.withdrawn,
+      `Proposal ${card.id} ${card.withdrawn ? "is already withdrawn" : card.done ? "is done" : "was started"}, so it takes no --withdraw.`,
+      409,
+    );
+    requireValue(
+      data.reason !== undefined,
+      "--withdraw takes --reason with why the proposal no longer applies",
+    );
+    return save(card, {
+      withdrawn: { at: timestamp(), reason: words(data, "reason") },
+    });
   }
-  async function done(card) {
-    startedHere(card, "done");
+  // The agent marks work started here done after its last page. With
+  // --where, it marks a card done whose work got done somewhere else,
+  // started here or not started. Only closing a linked session marks the
+  // card of work started there, so the card keeps its link to that session.
+  async function done(card, data) {
     requireValue(!card.done, `Proposal ${card.id} is already done`, 409);
+    requireValue(
+      !card.declined && !card.withdrawn,
+      `Proposal ${card.id} was ${card.declined ? "declined" : "withdrawn"}, so it takes no --done.`,
+      409,
+    );
+    requireValue(
+      !card.started || card.started.where === "here",
+      `Proposal ${card.id} runs in a ${card.started?.where === "new-agent" ? "new agent's session" : "sub-session"}, so closing that session marks it done.`,
+      409,
+    );
+    const where = data.where === undefined ? null : words(data, "where");
+    requireValue(
+      where || card.started,
+      `Proposal ${card.id} has not been started. When its work got done somewhere else, run --done with --where, such as --where "in #86".`,
+      409,
+    );
     return save(card, {
       done: {
         at: timestamp(),
         by: "agent",
         round: session.state.current?.round ?? null,
+        ...(where ? { where } : {}),
       },
     });
   }
+  // The cards the agent joined into a card.
+  const joinedInto = (id) =>
+    proposalItems().filter((card) => card.done?.joined === id);
+  // The agent merges a card nobody has started into TASK, as
+  // proposal-joins.mjs describes. The joined card is done, and its done
+  // fact names TASK. No card joins a joined card, so the cards already
+  // joined into the card move to TASK with it. Every list of a card's
+  // joined cards comes from those facts, so finishing or reopening TASK
+  // leaves them joined.
+  async function join(card, data) {
+    const task = find(data.join);
+    joinable(card, task);
+    for (const item of joinedInto(card.id))
+      await save(item, { done: { ...item.done, joined: task.id } });
+    return save(card, {
+      done: {
+        at: timestamp(),
+        by: "agent",
+        round: session.state.current?.round ?? null,
+        joined: task.id,
+      },
+    });
+  }
+  // --reopen undoes the agent's own --done or --join, so the card returns
+  // to Running, or to Proposed when nobody started it.
   async function reopen(card) {
-    startedHere(card, "reopen");
     requireValue(card.done, `Proposal ${card.id} is not done`, 409);
+    requireValue(
+      card.done.by === "agent",
+      `Closing its linked session marked proposal ${card.id} done, so it takes no --reopen.`,
+      409,
+    );
     return save(card, { done: null });
   }
   // pair propose, from any agent: it records a card, or with one action
-  // flag changes the card that has the ID.
-  async function propose(data) {
+  // flag changes the card that has the ID. holder says whether the holder
+  // sent it.
+  async function propose(data, holder) {
     open();
-    const id = typeof data.id === "string" ? data.id : "";
-    requireValue(
-      slug.test(id) && id.length <= 60,
-      "--id takes a slug of lowercase letters, digits and hyphens, at most 60 characters, such as phone-sidebar",
-    );
-    const chosen = actions.filter((name) => data[name] !== undefined);
-    requireValue(
-      chosen.length <= 1,
-      "pair propose takes one of --revise, --done and --reopen",
-    );
-    const [action] = chosen;
+    const { id, action } = proposeAction(data);
     if (!action) return add(id, data);
     const card = find(id);
     if (action === "revise") return revise(card, data);
-    const fields = [...written, "recommend"].filter(
-      (name) => data[name] !== undefined,
-    );
-    requireValue(
-      !fields.length,
-      `--${action} changes no field. Run --revise for --${fields[0]}.`,
-    );
-    if (action === "done") return done(card);
+    if (action === "start") return startFromWords(card, data, holder);
+    if (action === "withdraw") return withdraw(card, data);
+    if (action === "done") return done(card, data);
+    if (action === "join") return join(card, data);
     return reopen(card);
   }
-  // pair plan attaches a plan to a card that is neither declined nor done,
-  // started or not, and a second pair plan replaces it.
+  // pair plan attaches a plan to a card that is neither declined, withdrawn
+  // nor done, started or not, and a second pair plan replaces it.
   function plannable(id) {
     open();
     const card = find(id);
     requireValue(
       !card.declined,
       `The reviewer declined proposal ${id}, so it takes no plan`,
+      409,
+    );
+    requireValue(
+      !card.withdrawn,
+      `Proposal ${id} was withdrawn, so it takes no plan`,
       409,
     );
     requireValue(
@@ -358,8 +423,8 @@ export async function proposals(session) {
       });
     return unreported;
   }
-  // pair start --from links one session to a card the reviewer started in
-  // a sub-session or with a new agent. Starting the card is the reviewer's
+  // pair start --from links one session to a card started in a
+  // sub-session or with a new agent. Starting the card is the reviewer's
   // instruction, so a card nobody started links to no session.
   function linkable(id) {
     open();
@@ -369,6 +434,7 @@ export async function proposals(session) {
       `Proposal ${id} is already linked to session ${card.started?.session?.dir}`,
       409,
     );
+    requireValue(!card.done, `Proposal ${id} is done`, 409);
     requireValue(
       card.started && card.started.where !== "here",
       card.started
@@ -404,6 +470,7 @@ export async function proposals(session) {
     reportClosed,
     linkable,
     linkSession,
+    joinedInto,
     closedSession,
     openAgent,
     propose,

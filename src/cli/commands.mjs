@@ -160,11 +160,12 @@ export const commands = {
   },
   propose: {
     group: "session",
-    purpose: "Record a proposal, or revise, finish or reopen one",
+    purpose:
+      "Record a proposal, or revise, start, withdraw, finish, join or reopen one",
     about:
-      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --done and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
+      "Record a proposal of work as a card, which the reviewer starts, declines or comments on. With one of --revise, --start, --withdraw, --done, --join and --reopen, change the card that has --id. Any agent may run it, and only the holder's output starts with the next step.",
     usage:
-      "pair propose --session-dir DIR --id ID [--revise | --done | --reopen] [FIELDS]",
+      "pair propose --session-dir DIR --id ID [--revise | --start WHERE | --withdraw | --done | --join TASK | --reopen] [FIELDS]",
     flags: {
       "session-dir": sessionDir,
       id: {
@@ -183,20 +184,43 @@ export const commands = {
       },
       thread: {
         value: "ID",
-        text: "The thread the work came from.",
+        text: "The thread the work came from, or with --start the thread the reviewer's words are in.",
       },
       page: {
         value: "ROUND/PAGE",
-        text: "The page the work came from, such as 14/commenting.",
+        text: "The page the work came from, or with --start the page the reviewer's words are on, such as 14/commenting.",
       },
       revise: {
         text: "Replace the fields given and keep the rest. Refused once the card is started.",
       },
+      start: {
+        value: "WHERE",
+        text: "Start the card because the reviewer asked for the work in their own words, with --quote. WHERE is here, sub-session or new-agent.",
+      },
+      quote: {
+        value: "TEXT",
+        text: "With --start, the reviewer's words that asked for the work, in at most 4,000 characters.",
+      },
+      withdraw: {
+        text: "Withdraw a card nobody has started that no longer applies, with --reason.",
+      },
+      reason: {
+        value: "TEXT",
+        text: "With --withdraw, why the proposal no longer applies, in at most 400 characters.",
+      },
       done: {
-        text: "Mark work started here done, after you publish its last page.",
+        text: "Mark work started here done, after you publish its last page. With --where, mark any card done whose work got done somewhere else.",
+      },
+      where: {
+        value: "TEXT",
+        text: 'With --done, where the work got done, such as "in #86", in at most 120 characters.',
+      },
+      join: {
+        value: "TASK",
+        text: "Merge a card nobody has started into TASK, a proposal that is not done and not running in another session, when the work of TASK covers the card. The hub marks the card done as joined into TASK.",
       },
       reopen: {
-        text: "Put work started here back to running, when feedback asks for changes to it.",
+        text: "Undo your --done when feedback asks for changes to the work or the work is not done, or your --join when the work of TASK does not cover the card.",
       },
       json,
     },

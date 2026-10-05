@@ -1,7 +1,14 @@
 import { $, plural, unreachable } from "#frame/app/util.mjs";
-import { base, editable, online } from "#frame/app/view.mjs";
+import { base, editable, online, session } from "#frame/app/view.mjs";
 import { openCardNote } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
+import {
+  fromPage,
+  pageLink,
+  sessionLink,
+  threadLink,
+  wordsPlace,
+} from "#frame/pages/card-links.mjs";
 import { openStart } from "#frame/pages/start-popup.mjs";
 import {
   listedSession,
@@ -9,13 +16,15 @@ import {
   unreadCards,
 } from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
+import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
 /* The Work page holds every proposal of the session, from the agent's pair
-   propose until the work is done, in four tabs. The hub stores four facts
-   on each card, plan, started, declined and done, and the tab follows from
-   them and, for work in a linked session, from whether that session's
-   round waits for the reviewer. A page shows the same card with the
-   proposal component. */
+   propose until the work is done, in four tabs. The hub stores five facts
+   on each card, plan, started, declined, withdrawn and done, and the tab
+   follows from them and, for work in a linked session, from whether that
+   session's round waits for the reviewer. A card the agent joined into
+   another is done, and its done fact names that card. A page shows the
+   same card with the proposal component. */
 
 export const workTabs = [
   { id: "needs", label: "Needs you", empty: "Nothing needs you." },
@@ -30,12 +39,16 @@ export const workTabs = [
 const waits = (card, { linked = () => null } = {}) =>
   card.started.where !== "here" &&
   Boolean(linked(card.started.session?.id)?.needsYou);
+// A card the reviewer declined or the agent withdrew is listed with the
+// done ones.
+const finished = (card) =>
+  Boolean(card.declined || card.withdrawn || card.done);
 // A card needs the reviewer when its thread has an agent reply they have
 // not cleared from the bell, or when the linked session its work runs in
-// waits for them. A declined card is listed with the done ones.
+// waits for them.
 export function cardTab(card, context = {}) {
   if (context.unread?.has(card.id)) return "needs";
-  if (card.declined || card.done) return "done";
+  if (finished(card)) return "done";
   if (card.started) return waits(card, context) ? "needs" : "running";
   return "proposed";
 }
@@ -49,6 +62,10 @@ export const openingTab = (groups) =>
   workTabs.find(({ id }) => groups[id].length)?.id || workTabs[0].id;
 
 const cards = () => remote?.proposals || [];
+// The cards the agent joined into a card, because that card's work covers
+// theirs.
+const joinedInto = (card) =>
+  cards().filter((item) => item.done?.joined === card.id);
 const context = () => ({
   unread: unreadCards(),
   linked: listedSession,
@@ -76,12 +93,13 @@ const element = (tag, className, text) => {
   return node;
 };
 // A card's state and the tone of its dot: Working here and Working in the
-// accent, Waiting for you in green, Done and Declined in grey, and a
-// proposed card, which its tab already names, by its plan with a hollow
-// dot. Work started in a sub-session or with a new agent reads Opening
-// until its session links, and the two look the same after that.
+// accent, Waiting for you in green, Done, Declined and Withdrawn in grey,
+// and a proposed card, which its tab already names, by its plan with a
+// hollow dot. Work started in a sub-session or with a new agent reads
+// Opening until its session links, and the two look the same after that.
 function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
+  if (card.withdrawn) return ["Withdrawn", "muted"];
   if (card.done) return ["Done", "muted"];
   if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
   if (!card.started)
@@ -109,51 +127,23 @@ export function metaLine(state, tone, rest) {
   }
   return line;
 }
-// A link to the session work runs in, which opens in this tab.
-function sessionLink(text, session) {
-  const link = element("a", "", text);
-  link.href = session.url;
-  return link;
-}
-// A link to a page of a round: in place for the round on screen, and on
-// the round's read-only page for an earlier one.
-function pageLink(text, round, id) {
-  const link = element("a", "", text);
-  if (round === remote?.current?.round && editable) {
-    link.href = `#${id}`;
-    link.dataset.page = id;
-  } else link.href = `${base}/r/${encodeURIComponent(round)}#${id}`;
-  return link;
-}
-// The page a card came up on, by the title the hub recorded with the card.
-// A card recorded before the hub kept the title reads From a page.
-const fromPage = ({ id, title }) =>
-  id === "agreed"
-    ? "From Agreed so far"
-    : title
-      ? `From the ${title} page`
-      : "From a page";
-function threadLink(text, id) {
-  const thread = remote?.threads?.find((item) => item.id === id);
-  if (!thread) return element("span", "", text);
-  const link = element("a", "", text);
-  const target = `?target=thread-${encodeURIComponent(id)}`;
-  if (thread.proposal) link.href = `${target}#work`;
-  else
-    link.href =
-      thread.round === remote.current?.round
-        ? `${base}/${target}#${thread.topic}`
-        : `${base}/r/${encodeURIComponent(thread.round)}${target}#${thread.topic}`;
-  return link;
-}
-// Where the card came from, or for work started elsewhere where it runs.
-// Running work started here has no line, since its state says where it
-// runs, and a card names no round.
+// Where the card came from, for work started elsewhere where it runs, for
+// work the agent marked done with --where, where it got done, and for a
+// card joined into another, that card's title. Running work started here
+// has no line, since its state says where it runs, and a card names no
+// round.
 function cardWhere(card) {
   if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
-  if (card.started && card.started.where !== "here") {
+  if (card.done?.joined) {
+    const task = cards().find((item) => item.id === card.done.joined);
+    box.textContent = `Joined ${task?.title ?? card.done.joined}`;
+    box.title = box.textContent;
+  } else if (card.done?.where) {
+    box.textContent = card.done.where;
+    box.title = `Done ${card.done.where}`;
+  } else if (card.started && card.started.where !== "here") {
     if (card.done) box.append(sessionLink("Done in its own session", linked));
     else if (linked)
       box.append("In its own session · ", sessionLink("Open", linked));
@@ -216,6 +206,18 @@ function planRow(card) {
   row.append(icon("plan"), text, open, download);
   return row;
 }
+// The cards joined into a card, by title, under a rule at the foot of its
+// body.
+function joinedList(joined) {
+  const box = element("div", "proposal-joined");
+  const list = element("ul");
+  list.append(...joined.map((item) => element("li", "", item.title)));
+  box.append(
+    element("p", "proposal-joined-label", "Joined into this task"),
+    list,
+  );
+  return box;
+}
 let failure = "";
 async function act(card, action) {
   try {
@@ -253,27 +255,30 @@ function actions(card) {
     node.onclick = run;
     return node;
   };
+  const proposed = !card.started && !finished(card);
   const left = element("span", "proposal-foot-start");
-  if (card.declined)
+  if (card.declined || card.withdrawn)
     left.append(button("link-btn", "Restore", () => act(card, "restore")));
-  else if (!card.started)
+  else if (proposed)
     left.append(button("link-btn", "Decline", () => act(card, "decline")));
   const right = element("span", "proposal-actions");
   right.append(button("link-btn", "Comment", () => openCardNote(card)));
-  if (!card.started && !card.declined)
+  if (proposed)
     right.append(
       button("btn primary proposal-start", "Start", () =>
-        openStart(card, (result) => changed(result, card.id)),
+        openStart(card, joinedInto(card), (result) => changed(result, card.id)),
       ),
     );
   return [left, right];
 }
-// One card, the same on Work and in the proposal component.
-export function cardElement(card, shown = context()) {
+// One card, the same on Work and in the proposal component, with the New
+// label when fresh.
+export function cardElement(card, shown = context(), fresh = false) {
   const root = element("article", "proposal-card");
   root.dataset.proposalCard = card.id;
   const head = element("p", "proposal-title");
   head.append(element("b", "", card.title));
+  if (fresh) head.append(element("span", "page-new", "New"));
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
   body.append(
@@ -281,11 +286,29 @@ export function cardElement(card, shown = context()) {
     metaLine(state, tone, cardWhere(card)),
     element("p", "proposal-delivers", card.delivers),
   );
-  // The reviewer's message with Start, quoted under what the card delivers,
-  // so the card shows everything the reviewer approved.
-  if (card.started?.message)
-    body.append(element("p", "proposal-message", `“${card.started.message}”`));
+  // The reviewer's words that started the card, or their message with
+  // Start, quoted under what the card delivers, so the card shows
+  // everything the reviewer approved.
+  const { started, withdrawn } = card;
+  if (started?.by === "words") {
+    const lead = element("p", "proposal-lead", "Started from your words");
+    const place = wordsPlace(started);
+    if (place) lead.append(" ", place);
+    body.append(lead);
+  }
+  const quoted = started?.quote ?? started?.message;
+  if (quoted) body.append(element("p", "proposal-message", `“${quoted}”`));
+  if (withdrawn)
+    body.append(
+      element(
+        "p",
+        "proposal-reason",
+        `The agent's reason: ${withdrawn.reason}`,
+      ),
+    );
   if (card.plan) body.append(planRow(card));
+  const joined = joinedInto(card);
+  if (joined.length) body.append(joinedList(joined));
   root.append(body);
   // A card that cannot change has no buttons, and so no footer.
   if (cardsEditable()) {
@@ -294,6 +317,36 @@ export function cardElement(card, shown = context()) {
     root.append(foot);
   }
   return root;
+}
+
+/* New: a card in a live session that this browser has not had on screen
+   on Work, unless it is in Done. A card on a page counts as seen only once
+   Work shows it. On Work, a card keeps the label until Work opens again, so
+   it does not lose it while the reviewer reads it. */
+const labelled = (card) => cardsEditable() && !finished(card);
+const unseen = (card, seen) =>
+  labelled(card) &&
+  Boolean(seen) &&
+  !seen.has(cardKey(session.sessionId, card.id));
+let marked = new Set();
+let watcher = null;
+// Records each card on screen on Work as seen, once half of it shows.
+function watchCards(list) {
+  watcher?.disconnect();
+  watcher = new IntersectionObserver(
+    (entries, observer) => {
+      const shown = entries.filter((entry) => entry.isIntersecting);
+      for (const entry of shown) observer.unobserve(entry.target);
+      if (shown.length)
+        markSeen(
+          session.sessionId,
+          shown.map((entry) => entry.target.dataset.proposalCard),
+        );
+    },
+    { threshold: 0.5 },
+  );
+  for (const node of list.querySelectorAll("[data-proposal-card]"))
+    watcher.observe(node);
 }
 
 /* The page */
@@ -305,6 +358,7 @@ let drawnKey = "";
 export function openWork() {
   opening = true;
   failure = "";
+  marked = new Set();
   refreshWork(true);
 }
 function selectTab(id) {
@@ -312,7 +366,7 @@ function selectTab(id) {
   refreshWork(true);
   $(`work-tab-${id}`)?.focus();
 }
-function renderWork(groups, shown) {
+function renderWork(groups, shown, seen) {
   const tabs = $("work-tabs");
   tabs.replaceChildren(
     ...workTabs.map(({ id, label }) => {
@@ -342,9 +396,12 @@ function renderWork(groups, shown) {
   const list = $("work-cards");
   list.setAttribute("aria-labelledby", `work-tab-${selected}`);
   const chosen = groups[selected];
+  for (const card of chosen) if (unseen(card, seen)) marked.add(card.id);
   list.replaceChildren(
     ...(chosen.length
-      ? chosen.map((card) => cardElement(card, shown))
+      ? chosen.map((card) =>
+          cardElement(card, shown, marked.has(card.id) && labelled(card)),
+        )
       : [
           element(
             "p",
@@ -353,6 +410,7 @@ function renderWork(groups, shown) {
           ),
         ]),
   );
+  watchCards(list);
 }
 /* The component on a page: the card the hub has under the ID, or the text
    the author wrote where no hub has the card. */
@@ -361,26 +419,31 @@ export function drawProposal(root) {
   mounted.set(root, "");
   paintProposal(root);
 }
-function paintProposal(root) {
+function paintProposal(root, seen = seenCards()) {
   const card = cards().find((item) => item.id === root.dataset.proposal);
   if (!card) return;
   const shown = context();
+  const fresh = unseen(card, seen);
   const key = JSON.stringify([
     card,
+    joinedInto(card).map((item) => item.title),
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
     shown.unread.has(card.id),
     cardsEditable(),
     remote?.current?.round,
+    fresh,
   ]);
   if (mounted.get(root) === key) return;
   mounted.set(root, key);
   root.dataset.proposalCard = card.id;
-  root.replaceChildren(cardElement(card, shown));
+  root.replaceChildren(cardElement(card, shown, fresh));
 }
 // Every poll and every action draws the cards again when they changed.
 export function refreshWork(force = false) {
+  if (remote) adoptCards(session.sessionId, cards());
+  const seen = seenCards();
   for (const root of mounted.keys())
-    if (root.isConnected) paintProposal(root);
+    if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
   if ($("work").hidden) return placeThreads();
   const shown = context();
@@ -405,7 +468,7 @@ export function refreshWork(force = false) {
   ]);
   if (force || key !== drawnKey) {
     drawnKey = key;
-    renderWork(groups, shown);
+    renderWork(groups, shown, seen);
   }
   placeThreads();
 }

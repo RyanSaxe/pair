@@ -152,6 +152,15 @@ test("a closing style tag in page CSS is refused", async () => {
   );
 });
 
+// The frame opens its Work page at #work, so a page with that ID would never
+// show.
+test("a page whose ID names one of the frame's own pages is refused", async () => {
+  await assert.rejects(
+    pageSource({ id: "work", title: "Clearing Work" }),
+    /Page IDs must be unique; agreed, feedback and work are reserved/,
+  );
+});
+
 test("page JavaScript may read the frame's root elements but not change them", async () => {
   await assert.doesNotReject(
     pageSource({

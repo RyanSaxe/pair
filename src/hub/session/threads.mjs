@@ -23,6 +23,30 @@ const optional = (value) => value === undefined || typeof value === "string";
 // on a page instead.
 const control =
   /<[a-zA-Z][^>]*\sdata-(?:choice|multiselect|question|drawing-question)=/;
+// The hub quotes the reviewer's message in a thread's wake, as it does in a
+// Start's wake, so the holder can read a short message before it runs pair
+// read. A thread message has no length limit, so the hub quotes at most the
+// first 500 characters of a longer message, cut at a space, and pair read
+// prints the message whole.
+const quoted = 500;
+function wakeNote(message) {
+  const words = message.text;
+  let note;
+  if (words.length <= quoted)
+    note = `The reviewer's message, which pair read prints too:\n${words}`;
+  else {
+    const space = words.slice(0, quoted + 1).search(/\s\S*$/);
+    const opening = words.slice(0, space > 0 ? space : quoted).trimEnd();
+    note = `The beginning of the reviewer's message, which pair read prints whole:\n${opening}…`;
+  }
+  const count = message.attachments?.length ?? 0;
+  if (count === 1)
+    note +=
+      "\n\nThe reviewer attached an image to the message. pair read prints its path.";
+  else if (count > 1)
+    note += `\n\nThe reviewer attached ${count} images to the message. pair read prints their paths.`;
+  return `\n\n${note}`;
+}
 
 // Threads: a note the reviewer sends to the agent at once, and the replies
 // under it. A thread never changes the round.
@@ -82,16 +106,20 @@ export function threads(session) {
     };
   }
   // The hub wakes the holder once for each message the reviewer sends,
-  // after the browser's request has its answer.
+  // after the browser's request has its answer, with that message.
   function wakeLater(thread) {
-    setTimeout(() => session.exclusive(() => wakeHolder(thread.id)), 0);
+    const message = thread.messages.at(-1);
+    setTimeout(
+      () => session.exclusive(() => wakeHolder(thread.id, message)),
+      0,
+    );
   }
-  async function wakeHolder(id) {
+  async function wakeHolder(id, message) {
     const thread = records.get(id);
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
-    const line = `pair: a thread on ${on}, session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${readCommand(thread.id)}, which prints the thread and how to answer.`;
+    const line = `pair: a thread on ${on}, session ${directory}, needs an answer. Answer it between your current steps without dropping your work: run ${readCommand(thread.id)}, which prints the thread and how to answer.${wakeNote(message)}`;
     thread.wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
     if (thread.state === "sending")

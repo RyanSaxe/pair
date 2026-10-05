@@ -1,13 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { adapters } from "../hub/wake.mjs";
-import { usageError } from "./arguments.mjs";
+import { listing, usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
 import {
   closedText,
   declinedText,
   feedbackText,
+  joinedInto,
   runningText,
   startText,
   threadIndex,
@@ -30,6 +31,7 @@ export async function read(options) {
   const result = await session.request({ action: "read", id: submission });
   const declined = result.declined?.length ? result.declined : null;
   const closed = result.closed?.length ? result.closed : null;
+  const cards = result.status?.proposals;
   return {
     next: result.next,
     moment: [
@@ -40,12 +42,12 @@ export async function read(options) {
     data: [
       result.event
         ? result.event.payload.intent === "start"
-          ? startText(result.event, result.proposal)
+          ? startText(result.event, result.proposal, cards)
           : feedbackText(result.event)
         : declined || closed
           ? ""
           : "No submission is waiting.",
-      runningText(result.running),
+      runningText(result.running, cards),
       declinedText(declined),
       closedText(closed),
       threadIndex(result.threads, result.threadsSince, session.directory),
@@ -182,24 +184,30 @@ function holderText({ holder, wake }) {
   return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent}`;
 }
 
-// A proposal's state, from its facts, as pair propose and pair status print
-// it.
+// A proposal's state, from its facts and the cards joined into it, as pair
+// propose and pair status print it.
 const places = {
   here: "here",
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
-function proposalState(card) {
+function proposalState(card, cards) {
   const plan = card.plan ? ", with a plan" : "";
-  if (card.declined) return "declined";
-  if (card.done) return `done ${places[card.started.where]}${plan}`;
-  if (card.started) return `started ${places[card.started.where]}${plan}`;
-  return `proposed${plan}`;
+  const joined = joinedInto(card, cards).map((item) => item.id);
+  const joins = joined.length ? `, joined by ${listing(joined)}` : "";
+  if (card.declined) return `declined${joins}`;
+  if (card.withdrawn) return `withdrawn${joins}`;
+  if (card.done?.joined) return `done, joined into ${card.done.joined}${plan}`;
+  if (card.done)
+    return `done ${card.done.where ?? places[card.started.where]}${plan}${joins}`;
+  if (card.started)
+    return `started ${places[card.started.where]}${plan}${joins}`;
+  return `proposed${plan}${joins}`;
 }
 
 function proposalsText(cards) {
   if (!cards?.length) return "";
-  const states = cards.map(proposalState);
+  const states = cards.map((card) => proposalState(card, cards));
   const width = (values) => Math.max(...values.map((value) => value.length));
   const idWidth = width(cards.map((card) => card.id));
   const stateWidth = width(states);
@@ -225,14 +233,16 @@ function linkedText(cards = []) {
 
 export async function propose(options) {
   const session = await openSession(options, { anyAgent: true });
-  const fields = ["title", "delivers", "recommend", "page", "thread"];
+  // The hub checks that each flag goes with the action given.
+  const flags = [
+    "id",
+    ...["title", "delivers", "recommend", "page", "thread", "revise"],
+    ...["start", "quote", "withdraw", "reason", "done", "where", "join"],
+    "reopen",
+  ];
   const result = await session.request({
     action: "propose",
-    id: options.id,
-    ...Object.fromEntries(fields.map((name) => [name, options[name]])),
-    revise: options.revise,
-    done: options.done,
-    reopen: options.reopen,
+    ...Object.fromEntries(flags.map((name) => [name, options[name]])),
   });
   const card = result.proposal;
   return {

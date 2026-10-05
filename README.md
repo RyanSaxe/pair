@@ -61,7 +61,7 @@ working. The agent changes your project only to do work you approve.
 </picture>
 
 When the agent sees work worth doing, it proposes it on the Work page, and
-nothing happens until you approve it with Start. On these phone screens, you
+nothing happens until you approve it, with Start or in your own words. On these phone screens, you
 send a proposal to a sub-session beside the one you're in, and watch the
 agent's progress there.
 

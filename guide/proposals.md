@@ -23,8 +23,24 @@ Change a proposal with its `--id` and one of these flags:
 
 - `--revise` with the fields to replace. The hub refuses it once the
   proposal is started, so record further work as a new proposal.
-- `--done` after you publish the last page of work started here, and
-  `--reopen` when later feedback asks for changes to that work.
+- `--start WHERE --quote "…"` when the reviewer tells you in their own
+  words, in a note, a thread or the chat, to do the work. Record a proposal
+  for the work first unless one already covers it. Quote their words, and
+  add `--page ROUND/PAGE` or `--thread ID` for where they wrote them. WHERE
+  is `here`, `sub-session` or `new-agent`: where they said the work runs,
+  or where you recommend when they did not say.
+- `--join TASK` when nobody has started this proposal and the work of TASK
+  covers it, to merge this proposal into TASK. TASK is any proposal that is
+  not done and not running in another session. When you build TASK, build
+  the work of each proposal joined into it too.
+- `--withdraw` when a proposal nobody has started no longer applies, with
+  `--reason "…"` saying why.
+- `--done` after you publish the last page of work started here. When the
+  work of a proposal that is not started, or started here, got done some
+  other way, run `--done` with `--where` and where it got done, such as
+  `--where "in #86"`. Closing its session finishes work started elsewhere.
+  `--reopen` undoes your `--done` when later feedback asks for changes to
+  that work.
 
 `pair read` prints each Start, each proposal the reviewer declined and
 each proposal whose linked session closed, with what to do next.

@@ -72,8 +72,9 @@ const unix = {
 };
 const thread = "thread-1";
 // A thread's wake line names the session's directory and the command that
-// prints the thread, so a line can pass the 125 bytes of a short frame.
-const line = `pair: a thread on "Overview", session /s, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir /s --thread 6f1c2a9e-5b7d-4e3a-9c2f-8a1b3d4e5f60, which prints the thread and how to answer.`;
+// prints the thread, so a line can pass the 125 bytes of a short frame. It
+// ends with the reviewer's message on lines of its own.
+const line = `pair: a thread on "Overview", session /s, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir /s --thread 6f1c2a9e-5b7d-4e3a-9c2f-8a1b3d4e5f60, which prints the thread and how to answer.\n\nThe reviewer's message, which pair read prints too:\nWhat happens to a failed item?`;
 const queued = ["queue", "--thread", thread, "--message", line];
 
 test("a Codex wake steers the turn in progress", unix, async (t) => {

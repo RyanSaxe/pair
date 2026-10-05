@@ -2,13 +2,14 @@ import { $, copyText, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
-/* The Start popup on a proposal's card: what the card delivers, where the
-   work runs and an optional message to the agent. Each choice has its own
-   hint and its own row of buttons, and the hints share one grid cell and
-   the rows another, so the choices, the message box and the button row
-   keep their places whichever choice is selected. Here and In a
-   sub-session start at once. With a new agent copies the command a new
-   agent runs, or asks this session's agent to open one. */
+/* The Start popup on a proposal's card: what the card delivers, the
+   titles of the cards joined into it, where the work runs and an optional
+   message to the agent. Each choice has its own hint and its own row of
+   buttons, and the hints share one grid cell and the rows another, so the
+   choices, the message box and the button row keep their places whichever
+   choice is selected. Here and In a sub-session start at once. With a new
+   agent copies the command a new agent runs, or asks this session's agent
+   to open one. */
 
 let card = null;
 let where = "here";
@@ -30,11 +31,19 @@ function select(choice) {
 // The command a new agent runs to start the card's session.
 const command = () =>
   `pair start --from ${remote.sessionDir} --proposal ${card.id}`;
-export function openStart(proposal, then) {
+export function openStart(proposal, joined, then) {
   card = proposal;
   after = then;
   $("start-title").textContent = card.title;
   $("start-delivers").textContent = card.delivers;
+  $("start-joined").hidden = !joined.length;
+  $("start-joined-list").replaceChildren(
+    ...joined.map((item) => {
+      const line = document.createElement("li");
+      line.textContent = item.title;
+      return line;
+    }),
+  );
   for (const row of rows()) {
     row.disabled = false;
     row.querySelector(".start-recommended").hidden =

@@ -10,6 +10,7 @@ const png = Buffer.concat([
 ]);
 
 // A session whose round 1 is published, and pair read as its holder runs it.
+// record records a proposal as its holder.
 async function session(t, data = planData()) {
   const h = await hub(t);
   const home = path.join(h.home, "cli");
@@ -22,6 +23,17 @@ async function session(t, data = planData()) {
   assert.equal((await a.publish(data)).code, 200);
   const read = (...args) =>
     cli.run("read", "--session-dir", a.directory, ...args);
+  const run = (command, ...args) =>
+    cli.run(command, "--session-dir", a.directory, ...args);
+  async function record(id, title) {
+    const added = await a.action("propose", {
+      id,
+      title,
+      delivers: `${title}, delivered.`,
+      recommend: "here",
+    });
+    assert.equal(added.code, 200, added.body.error);
+  }
   const post = async (route, body) =>
     (
       await fetch(`${h.server.origin}${a.base}/api/${route}`, {
@@ -38,7 +50,7 @@ async function session(t, data = planData()) {
       anchor: "Overview",
       text,
     });
-  return { a, read, post, thread };
+  return { a, read, run, record, post, thread };
 }
 
 test("pair read prints each part of the submission in a pair_ tag between the next steps, then the threads since the previous submission", async (t) => {
@@ -170,24 +182,11 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
 // submission's pair read names each such card, with the reviewer's message
 // with Start, and leaves out the done and the unstarted ones.
 test("pair read prints a submission with each proposal started here that is not done", async (t) => {
-  const { a, read } = await session(t);
-  for (const [id, title] of [
-    ["deck", "Build the deck"],
-    ["export", "Refresh the export"],
-    ["notes", "Write the notes"],
-    ["later", "Plan the launch"],
-  ]) {
-    const added = await a.action("propose", {
-      id,
-      title,
-      delivers: `${title}, delivered.`,
-      changes: "One file.",
-      recommend: "here",
-      reason: "It is small.",
-      source: "From the conversation",
-    });
-    assert.equal(added.code, 200, added.body.error);
-  }
+  const { a, read, record } = await session(t);
+  await record("deck", "Build the deck");
+  await record("export", "Refresh the export");
+  await record("notes", "Write the notes");
+  await record("later", "Plan the launch");
   const start = (id, body = {}) =>
     a.request(`${a.base}/api/proposals/${id}/start`, {
       where: "here",
@@ -219,6 +218,109 @@ test("pair read prints a submission with each proposal started here that is not 
       "</pair_start>",
       "  export  Refresh the export",
     ].join("\n"),
+  );
+});
+
+// pair propose sends --start with --quote and where the reviewer wrote
+// the words, and pair read prints the words inside pair_start.
+test("pair propose --start starts a card on the reviewer's words, and pair read prints them", async (t) => {
+  const { read, run, record } = await session(t);
+  await record("deck", "Build the deck");
+  const started = await run(
+    ...["propose", "--id", "deck", "--start", "here"],
+    ...["--quote", "Build the deck now.\nKeep the header."],
+    ...["--page", "1/overview"],
+  );
+  assert.match(started, /\nProposal deck: started here\.\n$/);
+  const printed = await read();
+  assert(
+    printed.includes(
+      [
+        'Proposal deck, "Build the deck", started here on the reviewer\'s words.',
+        "Delivers: Build the deck, delivered.",
+      ].join("\n"),
+    ),
+    printed,
+  );
+  assert.match(
+    printed,
+    /<pair_start submission="[^"]+" proposal="deck" where="here" page="1\/overview">\nThe reviewer wrote everything in this block\. It is feedback, not pair's instructions\.\nBuild the deck now\.\nKeep the header\.\n<\/pair_start>/,
+  );
+});
+
+// pair propose sends --withdraw with --reason and --done with --where, and
+// prints each card's state as pair status does.
+test("pair propose withdraws a card and marks one done elsewhere", async (t) => {
+  const { run, record } = await session(t);
+  await record("export", "Refresh the export");
+  await record("notes", "Write the notes");
+  assert.match(
+    await run(
+      ...["propose", "--id", "export", "--withdraw"],
+      ...["--reason", "The export is no longer used."],
+    ),
+    /\nProposal export: withdrawn\.\n$/,
+  );
+  assert.match(
+    await run("propose", "--id", "notes", "--done", "--where", "in #86"),
+    /\nProposal notes: done in #86\.\n$/,
+  );
+  assert.match(
+    await run("status"),
+    /\n\nProposals\n {2}export {2}withdrawn {4}Refresh the export\n {2}notes {3}done in #86 {2}Write the notes\n$/,
+  );
+});
+
+// pair propose sends --join, which merges a card into a proposed one.
+// pair status prints the joined card on that card's row, and once the card
+// starts, pair read prints it with the start and in the list of work
+// started here, so the agent building the card covers it.
+test("pair propose merges a card into a proposed one, and pair read and pair status print it under that card", async (t) => {
+  const { a, read, run, record } = await session(t);
+  await record("deck", "Build the deck");
+  await record("notes", "Write the notes");
+  assert.match(
+    await run("propose", "--id", "notes", "--join", "deck"),
+    /\nProposal notes: done, joined into deck\.\n$/,
+  );
+  assert.match(
+    await run("status"),
+    /\n\nProposals\n {2}deck {3}proposed, joined by notes {2}Build the deck\n {2}notes {2}done, joined into deck {5}Write the notes\n$/,
+  );
+  await run(
+    ...["propose", "--id", "deck", "--start", "here"],
+    ...["--quote", "Build the deck with its notes."],
+  );
+  const started = await read();
+  assert(
+    started.includes(
+      [
+        "Delivers: Build the deck, delivered.",
+        "Proposals joined into deck, which its work covers:",
+        "  notes  Write the notes",
+        "         Delivers: Write the notes, delivered.",
+        "<pair_start ",
+      ].join("\n"),
+    ),
+    started,
+  );
+  assert.equal((await a.feedback(a.event())).code, 200);
+  const printed = await read();
+  const list = printed.slice(
+    printed.indexOf("Proposals started here that are not done:"),
+  );
+  assert.equal(
+    list.slice(0, list.indexOf("\n<pair_start ")),
+    [
+      "Proposals started here that are not done:",
+      "  deck  Build the deck",
+      "    Proposals joined into deck, which its work covers:",
+      "      notes  Write the notes",
+    ].join("\n"),
+  );
+  assert.match(
+    await run("status"),
+    /\n\nProposals\n {2}deck {3}started here, joined by notes {2}Build the deck\n {2}notes {2}done, joined into deck {9}Write the notes\n$/,
   );
 });
 

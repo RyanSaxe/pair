@@ -44,7 +44,7 @@ async function published(t) {
   return { h, a, upload, start, send, thread, settled };
 }
 
-test("a thread wakes the holder once for each message the reviewer sends", async (t) => {
+test("a thread wakes the holder once for each message the reviewer sends, with the message", async (t) => {
   const { a, upload, start, send, thread, settled } = await published(t);
   const image = await upload();
   const started = await start({ attachments: [image] });
@@ -52,12 +52,11 @@ test("a thread wakes the holder once for each message the reviewer sends", async
   const { id } = started.body.thread;
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
-  assert.deepEqual(
-    a.inbox.wakes.map((wake) => wake.message.message.content),
-    [
-      `pair: a thread on "Overview", session ${a.directory}, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer.`,
-    ],
-  );
+  const wakes = () => a.inbox.wakes.map((wake) => wake.message.message.content);
+  const line = `pair: a thread on "Overview", session ${a.directory}, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer.`;
+  assert.deepEqual(wakes(), [
+    `${line}\n\nThe reviewer's message, which pair read prints too:\nWhat happens to a failed item?\n\nThe reviewer attached an image to the message. pair read prints its path.`,
+  ]);
   const stored = JSON.parse(
     await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
   );
@@ -78,11 +77,19 @@ test("a thread wakes the holder once for each message the reviewer sends", async
   const answered = await send(id, { text: "And a retry?" });
   assert.equal(answered.code, 201, answered.body.error);
   assert.equal(await settled(id), true);
-  assert.equal(a.inbox.wakes.length, 2);
   assert.deepEqual(
     (await thread(id)).messages.map((message) => message.from),
     ["reviewer", "agent", "reviewer"],
   );
+  // The hub cuts a message over 500 characters at a space, so the word
+  // across the 500th character is left out.
+  const words = "word ".repeat(99);
+  assert.equal((await send(id, { text: `${words}boundary` })).code, 201);
+  assert.equal(await settled(id), true);
+  assert.deepEqual(wakes().slice(1), [
+    `${line}\n\nThe reviewer's message, which pair read prints too:\nAnd a retry?`,
+    `${line}\n\nThe beginning of the reviewer's message, which pair read prints whole:\n${words.trimEnd()}…`,
+  ]);
 });
 
 // pair read --thread sends the reply action without text, and pair reply
