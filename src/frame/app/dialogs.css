@@ -244,22 +244,43 @@ dialog::backdrop {
     display: none;
   }
 }
+/* The note's field is one bordered box: the text area, and under it a
+   strip with the image button at its right. Text scrolls only inside the
+   text area, so the line being typed never runs under the button. The box,
+   not the text area, takes the resize grip, and the button's 20px right
+   margin leaves the grip its corner. */
 .note-field {
   position: relative;
-}
-/* The image button sits inside the text field, in room the field's own
-   padding leaves at its foot, so the note's field is taller than a
-   dialog's other fields. */
-.note-field textarea {
+  display: flex;
+  flex-direction: column;
   min-height: 120px;
-  padding-bottom: 40px;
+  margin: var(--space-field) 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--panel);
+  overflow: hidden;
+  resize: vertical;
+}
+.note-field:has(> textarea:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.note-field textarea {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  outline: none;
+  resize: none;
 }
 .note-image-pick {
-  position: absolute;
-  left: 7px;
-  bottom: 7px;
+  flex: none;
+  align-self: flex-end;
   width: 28px;
   height: 28px;
+  margin: 0 20px 7px 0;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--panel);

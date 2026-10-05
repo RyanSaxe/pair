@@ -207,6 +207,37 @@ test("a chosen block's Comment button opens a note on the block", async (t) => {
   });
 });
 
+// Text shows only inside the note's text area, so a button outside it
+// never covers the line being typed, even once the text scrolls.
+test("the note's image button stays outside its text area on a wide window and on a phone", async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  await page
+    .locator("#note-text")
+    .fill("A note long enough to scroll its field. ".repeat(20));
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const [text, button] = await Promise.all(
+      ["#note-text", "#note-image-pick"].map((selector) =>
+        page.locator(selector).boundingBox(),
+      ),
+    );
+    const overlap =
+      button.x < text.x + text.width &&
+      text.x < button.x + button.width &&
+      button.y < text.y + text.height &&
+      text.y < button.y + button.height;
+    assert.equal(
+      overlap,
+      false,
+      `${width}px: ${JSON.stringify({ text, button })}`,
+    );
+  }
+});
+
 test(`a note's highlight is cleared while its page or the note dialog changes, and comes back`, async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
