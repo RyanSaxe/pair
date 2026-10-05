@@ -45,18 +45,38 @@ async function setup(t) {
     assert.equal(started.code, 201, JSON.stringify(started.body));
     return id;
   };
-  // The agent's first reply is the thread's row 1.
-  const reply = async (id, text = "Here.") =>
-    assert.equal((await session.action("reply", { note: id, text })).code, 200);
+  // The agent's first reply is the thread's row 1. With as set to "html",
+  // text is the reply's markup.
+  const reply = async (id, text = "Here.", as = "text") =>
+    assert.equal(
+      (await session.action("reply", { note: id, [as]: text })).code,
+      200,
+    );
   return { url, publish, send, thread, reply };
 }
 
-const focused = (page, id) =>
+const focused = (page, id, row = 1) =>
   page.waitForFunction(
-    (row) => document.activeElement?.id === row,
-    `thread-${id}-1`,
+    (target) => document.activeElement?.id === target,
+    `thread-${id}-${row}`,
     { timeout: 5000 },
   );
+// The reply sits whole between the header and the bottom of the window.
+async function inView(page, id, row = 1) {
+  const place = await page
+    .locator(`#thread-${id}-${row}`)
+    .evaluate((reply) => ({
+      top: reply.getBoundingClientRect().top,
+      bottom: reply.getBoundingClientRect().bottom,
+      header: document.getElementById("frame-header").getBoundingClientRect()
+        .bottom,
+      window: innerHeight,
+    }));
+  assert.ok(
+    place.top >= place.header && place.bottom <= place.window,
+    JSON.stringify(place),
+  );
+}
 const selected = (page, tab) =>
   page.locator(`#${tab}-tab[aria-selected="true"]`).waitFor({ timeout: 5000 });
 const cards = (page, id) =>
@@ -155,18 +175,58 @@ test("a long reply opened from the bell lands whole between the header and the b
   await focused(page, id);
   const reply = page.locator(`#thread-${id}-1`);
   await reply.locator(".thread-more").waitFor();
-  const place = await reply.evaluate((row) => ({
-    top: row.getBoundingClientRect().top,
-    bottom: row.getBoundingClientRect().bottom,
-    header: document.getElementById("frame-header").getBoundingClientRect()
-      .bottom,
-    window: innerHeight,
-  }));
-  assert.ok(
-    place.top >= place.header && place.bottom <= place.window,
-    JSON.stringify(place),
-  );
+  await inView(page, id);
 });
+
+// Each screenshot loads only after the bell has scrolled to the reply it
+// opens, and has no height until it loads. In the agent's earlier reply, the
+// text under the screenshots cuts that reply to its usual height before they
+// load. On the page, the screenshots above the thread are never cut.
+const screenshot = (n) =>
+  `<figure><img src="http://images.localhost/${n}.svg" width="370" alt="Screenshot ${n}"><figcaption>Screenshot ${n}.</figcaption></figure>`;
+const shots = [1, 2, 3].map(screenshot).join("");
+const words =
+  "<p>The note dialog at 390px with the image button at the right end of the Feedback label row.</p>";
+for (const [where, filler, earlier] of [
+  ["an earlier reply", "", shots + words.repeat(6)],
+  ["the page above the thread", shots + words, words],
+])
+  test(`a reply opened from the bell on a phone stays in view while screenshots in ${where} load`, async (t) => {
+    const s = await setup(t);
+    await s.publish("1", filler + "<p>Filler paragraph.</p>".repeat(40));
+    const id = await s.thread("1", "page");
+    await s.reply(id, earlier, "html");
+    const page = await open(t, "about:blank", {
+      viewport: { width: 390, height: 844 },
+    });
+    if (!page) return;
+    let release;
+    const released = new Promise((resolve) => (release = resolve));
+    await page.route(/^http:\/\/images\.localhost\//, async (route) => {
+      await released;
+      await route.fulfill({
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="370" height="800"/>',
+      });
+    });
+    await page.goto(s.url("#agreed"));
+    await bellReady(page);
+    await s.reply(id, "The retry runs once after a short wait. ".repeat(30));
+    await bell(page);
+    await focused(page, id, 2);
+    release();
+    await page.waitForFunction(() =>
+      [...document.images].every((image) => image.complete),
+    );
+    // A screenshot's height and the cut of its reply each take a frame.
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await inView(page, id, 2);
+  });
 
 test("each Progress thread has one card, and none while Current waits", async (t) => {
   const s = await setup(t);

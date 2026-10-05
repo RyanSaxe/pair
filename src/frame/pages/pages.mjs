@@ -1,5 +1,6 @@
 import {
   endRestore,
+  holdInView,
   places,
   rememberPlace,
   restoreScroll,
@@ -210,8 +211,9 @@ export function reveal(targetId) {
   const target = targetId && document.getElementById(targetId);
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
-  if (!target || ![$("reading"), $("work")].some((at) => at.contains(target)))
-    return;
+  const view =
+    target && [$("reading"), $("work")].find((at) => at.contains(target));
+  if (!view) return;
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
   // A collapsed thread card shows only its head, so a reply inside it has no
@@ -221,6 +223,7 @@ export function reveal(targetId) {
   if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: "center" });
+  holdInView(target, view);
 }
 export function badge(count) {
   const row = $("review-row");
