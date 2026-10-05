@@ -122,8 +122,10 @@ test("a Progress reply's link opens its card and focuses the reply", async (t) =
 });
 
 // The bell links a reply on the overall comment to the thread's page,
-// overall, and the thread's card is at the end of Review.
-test("an overall reply's link opens Review, with the thread at its end", async (t) => {
+// overall, and the thread's card is at the end of Review. Once the page
+// loads, the browser focuses the element that the address's #feedback
+// names, Review's own section, or clears focus when it cannot take it.
+test("an overall reply's link opens Review with the thread at its end and keeps the reply focused, and so does the bell from another page", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const id = await s.thread("1", "overall");
@@ -134,6 +136,24 @@ test("an overall reply's link opens Review, with the thread at its end", async (
     .locator(`#overall-threads > pair-thread[data-thread="${id}"]`)
     .waitFor();
   await page.locator("#feedback-title", { hasText: "Review" }).waitFor();
+  await focused(page, id);
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        setTimeout(() =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+      ),
+  );
+  assert.equal(
+    await page.evaluate(() => document.activeElement.id),
+    `thread-${id}-1`,
+  );
+  await page.locator('#page-list [data-page="agreed"]').click();
+  await title(page, "Agreed so far");
+  await s.reply(id, "Here again.");
+  await bell(page);
+  await focused(page, id, 2);
 });
 
 test("a reply in the round just sent opens under Last round", async (t) => {

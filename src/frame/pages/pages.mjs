@@ -44,6 +44,7 @@ import {
   markNotes,
   placeMarks,
 } from "#frame/notes/notes.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
 import { renderAgreements } from "#frame/pages/agreed.mjs";
 import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
@@ -128,7 +129,10 @@ export function show(
   if (!stayed) chooseBlock(null);
   if (stayed) refreshWork(true);
   else if (work) openWork();
-  else if (!feedback) {
+  // The threads on the overall comment go at the end of Review only while
+  // it is on screen, so they are placed before a reply in one is revealed.
+  else if (feedback) placeThreads();
+  else {
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
     loading = page.status === "ready" && page.pending && page.id !== "agreed";

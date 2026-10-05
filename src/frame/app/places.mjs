@@ -153,7 +153,11 @@ export function settleScroll() {
    pushes down inside a cut reply, and it does not undo its move when the
    reply is then cut. So until the reader scrolls, taps or presses a key, or
    HOLD_MS pass, anchoring is off and every change in the size of the
-   target's view scrolls to the target again. */
+   target's view scrolls to the target again.
+   The target keeps focus for as long. Once a page loads, the browser
+   focuses the element whose ID the address's # part names, such as Review's
+   section for #feedback, and clears focus when that element cannot take it,
+   so focus that leaves the target for no element goes back to it. */
 const HOLD_MS = 10000;
 const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
 let release = () => {};
@@ -165,17 +169,24 @@ export function holdInView(target, view) {
       target.scrollIntoView({ block: "center" });
     else stop();
   });
+  const refocus = () =>
+    queueMicrotask(() => {
+      if (document.activeElement === document.body && target.isConnected)
+        target.focus({ preventScroll: true });
+    });
   let timer;
   function stop() {
     observer.disconnect();
     clearTimeout(timer);
     box.style.overflowAnchor = "";
+    target.removeEventListener("blur", refocus);
     for (const type of readerInputs) removeEventListener(type, stop, true);
     release = () => {};
   }
   release = stop;
   timer = setTimeout(stop, HOLD_MS);
   box.style.overflowAnchor = "none";
+  target.addEventListener("blur", refocus);
   for (const type of readerInputs)
     addEventListener(type, stop, { capture: true, passive: true });
   observer.observe(view);
