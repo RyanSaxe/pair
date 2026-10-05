@@ -433,14 +433,15 @@ test("--done marks work started here done, --where marks any card done, and --re
   );
 });
 
-// The agent joins a card nobody started into a started card whose work
-// covers it. The joined card is done and names that card, finishing or
+// The agent joins a card nobody started into a card started here whose
+// work covers it. The joined card is done and names that card, finishing or
 // reopening the started card leaves it joined, and --reopen on the joined
-// card undoes the join.
-test("--join marks a card done as joined into a started card, and refuses every other card", async (t) => {
+// card undoes the join. A card whose work runs in a linked session takes
+// no joined card.
+test("--join marks a card done as joined into a card started here, and refuses every other card", async (t) => {
   const { propose, add, reviewer, cards } = await proposing(t);
   await add();
-  for (const id of ["keys", "test", "gone", "no", "elsewhere"])
+  for (const id of ["keys", "test", "gone", "no", "elsewhere", "sub", "agent"])
     await add({ id, title: `Card ${id}` });
   const join = (id, into = "churn-export") => propose({ id, join: into });
   const refused = async (id, into, code, error) => {
@@ -452,7 +453,27 @@ test("--join marks a card done as joined into a started card, and refuses every 
     "keys",
     "churn-export",
     409,
-    "Proposal churn-export has not been started. --join takes a started proposal whose work covers proposal keys.",
+    "Proposal churn-export has not been started. --join takes a proposal started here whose work covers proposal keys.",
+  );
+  assert.equal(
+    (await reviewer("sub", "start", { where: "sub-session" })).code,
+    200,
+  );
+  await refused(
+    "keys",
+    "sub",
+    409,
+    "Proposal sub runs in a sub-session, so no proposal can join it.",
+  );
+  assert.equal(
+    (await reviewer("agent", "start", { where: "new-agent" })).code,
+    200,
+  );
+  await refused(
+    "keys",
+    "agent",
+    409,
+    "Proposal agent runs in a new agent's session, so no proposal can join it.",
   );
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
