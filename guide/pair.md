@@ -1,13 +1,15 @@
 # Pair
 
+pair keeps the user in charge of work you do for them. You show your
+reasoning and your work on pages they read and answer in the browser, so
+they can understand it and decide what happens next. This guide calls the
+user the reviewer.
+
 ## How a session works
 
-In a pair session, you and the user work through a task together. You
-publish pages, and the user reads and answers them in the browser. This
-guide calls the user the reviewer.
-
-You work in rounds. In each round you publish a few pages, the reviewer
-sends feedback on them, and that feedback begins the next round.
+You and the reviewer work through the task in rounds. In each round you
+publish a few pages, the reviewer sends feedback on them, and that feedback
+begins the next round.
 
 The first page of every round is Agreed. On it, you write the task as you
 understand it and the decisions the reviewer has settled so far, each with
