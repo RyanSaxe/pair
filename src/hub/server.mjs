@@ -537,16 +537,26 @@ export async function startHub(config = settings()) {
       /* The record is already gone or belongs to a newer hub. */
     }
   }
+  let quietCheckedAt = Date.now();
   timer = setInterval(
     async () => {
       const now = Date.now();
+      if (now - quietCheckedAt >= config.quietCheckMs) {
+        quietCheckedAt = now;
+        for (const session of active())
+          session
+            .exclusive(() => session.wakeIfQuiet(now))
+            .catch((error) =>
+              log(`quiet check of session ${session.id}: ${error.message}`),
+            );
+      }
       if (active().length) lastLiveAt = now;
       else if (now - lastLiveAt > config.idleMs) {
         log("no live sessions; exiting");
         await close();
       }
     },
-    Math.min(5000, Math.max(50, config.idleMs / 4)),
+    Math.max(50, Math.min(5000, config.idleMs / 4, config.quietCheckMs)),
   );
   log(
     `hub ${version} listening on ${origin}${hostOrigin ? ` and ${hostOrigin}` : ""}`,

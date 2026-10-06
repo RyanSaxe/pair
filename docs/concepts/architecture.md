@@ -57,10 +57,36 @@ The hub wakes the holder at these moments:
   `pair read` as its next step, so the hub sends no wake.
 - When you press Open a new agent session, which starts a thread on the
   card.
+- When a page or a proposal has had no update for 10 minutes and no `pair`
+  command has run on the session for 10 minutes, unless the session is
+  paused, as [Quiet work](#quiet-work) describes.
 
 The hub sends no wake when you decline a proposal, give a reply a thumbs
 up, or close a linked session. The holder's next `pair read` prints the
 proposals you declined and the linked sessions you closed.
+
+### Quiet work
+
+A page of the open round that the agent started is quiet when its last
+note, or its start when it has no note, is more than 10 minutes old. A
+proposal started here that is not done is quiet when its parts last
+changed, or it started when it has no parts, more than 10 minutes ago.
+Agents often post no note and mark no part while a subagent does the work,
+and the progress card and Work then show you no progress.
+
+- While a page or a proposal is quiet, every session command's next step
+  ends with a line that names it, with the time of its last update, and the
+  `pair progress` or `pair propose` command that updates it.
+- The hub checks the live sessions once a minute. When a page or a proposal
+  is quiet and no `pair` command has run on the session for 10 minutes, the
+  hub wakes the holder with a line that names the quiet work. A subagent's
+  commands count, because a subagent runs them in its parent's environment.
+- The hub sends no second wake for a page or a proposal until it gets an
+  update: a new note on the page, or a change to the proposal's parts.
+  Another command is not an update. When another page or proposal becomes quiet, the hub
+  sends a new wake that names all the quiet work.
+- The hub keeps the time of the last command in memory, so after a restart
+  it counts from its own start.
 
 ## How the hub wakes each agent CLI
 
