@@ -1,5 +1,5 @@
 import { ago } from "#frame/app/time.mjs";
-import { $ } from "#frame/app/util.mjs";
+import { $, installPanel } from "#frame/app/util.mjs";
 import {
   editable,
   mode,
@@ -233,14 +233,6 @@ function openEvent(event) {
   else location.assign(eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");
-// The list opens under the bell, inside the window.
-function placeCenter() {
-  const box = $("bell").getBoundingClientRect();
-  const width = Math.min(340, innerWidth - 16);
-  $("center-pop").style.top = `${box.bottom + 6}px`;
-  $("center-pop").style.left =
-    `${Math.max(8, Math.min(box.left, innerWidth - width - 8))}px`;
-}
 export function toggleCenter(open = !isOpen()) {
   if (!open) {
     if (isOpen()) $("center-pop").hidePopover();
@@ -250,13 +242,8 @@ export function toggleCenter(open = !isOpen()) {
   $("center-pop").showPopover();
 }
 export function installCenter() {
-  $("center-pop").addEventListener("beforetoggle", (event) => {
-    if (event.newState === "open") placeCenter();
-  });
-  $("center-pop").addEventListener("toggle", (event) => {
-    $("bell").setAttribute("aria-expanded", String(event.newState === "open"));
-    drawCenter();
-  });
+  installPanel($("center-pop"), $("bell"));
+  $("center-pop").addEventListener("toggle", drawCenter);
   $("center-clear-all").onclick = () => clear(lines.map(({ id }) => id));
   // Another tab on the hub removed a line.
   window.addEventListener("storage", (event) => {

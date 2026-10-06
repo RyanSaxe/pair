@@ -96,3 +96,18 @@ export async function copyText(text) {
     }
   }
 }
+/* A top bar panel opens 6px under its button, lined up with the button's
+   left edge and kept 8px inside the window, and the button says whether
+   it is open. The button opens and closes it through popovertarget. */
+export function installPanel(panel, button) {
+  panel.addEventListener("beforetoggle", (event) => {
+    if (event.newState !== "open") return;
+    const box = button.getBoundingClientRect();
+    const width = Math.min(340, innerWidth - 16);
+    panel.style.top = `${box.bottom + 6}px`;
+    panel.style.left = `${Math.max(8, Math.min(box.left, innerWidth - width - 8))}px`;
+  });
+  panel.addEventListener("toggle", (event) => {
+    button.setAttribute("aria-expanded", String(event.newState === "open"));
+  });
+}

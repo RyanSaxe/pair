@@ -1,5 +1,5 @@
 import { ago, since } from "#frame/app/time.mjs";
-import { $, copyText, plural } from "#frame/app/util.mjs";
+import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
 import { mode, online, session } from "#frame/app/view.mjs";
 import { installCenter, renderCenter } from "#frame/sync/center.mjs";
 import { createReviewAlerts } from "#frame/sync/notifications.mjs";
@@ -28,15 +28,7 @@ export function installSessions() {
     open: (href) => location.assign(new URL(href, location.href).href),
   });
   installCenter();
-  $("sessions-pop").addEventListener("toggle", (event) => {
-    $("menu-button").setAttribute(
-      "aria-expanded",
-      String(event.newState === "open"),
-    );
-  });
-  $("sessions-pop").addEventListener("beforetoggle", (event) => {
-    if (event.newState === "open") placeSessions();
-  });
+  installPanel($("sessions-pop"), $("menu-button"));
   // This tab or another one on the hub opened a page.
   window.addEventListener("pair:opened", renderSessions);
   window.addEventListener("storage", (event) => {
@@ -371,14 +363,6 @@ function renderSessions() {
         ? `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`
         : `Sessions, ${plural(count, "other session")}`,
   );
-}
-// The popover opens under the button, inside the window.
-function placeSessions() {
-  const box = $("menu-button").getBoundingClientRect();
-  const width = Math.min(340, innerWidth - 16);
-  $("sessions-pop").style.top = `${box.bottom + 6}px`;
-  $("sessions-pop").style.left =
-    `${Math.max(8, Math.min(box.left, innerWidth - width - 8))}px`;
 }
 const isOpen = () => $("sessions-pop").matches(":popover-open");
 /* Open or close the session list. Opening it from a key moves focus to
