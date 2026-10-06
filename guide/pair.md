@@ -23,8 +23,8 @@ what belongs together, and remove what is no longer true.
 ## Changing the project
 
 Only edit the project for work the reviewer has approved. The reviewer
-approves work by starting it in pair, or by asking you for it in a note, a
-thread or the chat.
+approves work by choosing Build it when they send a round, by starting a
+proposal in pair, or by asking you for it in a note, a thread or the chat.
 
 Track every piece of work as a proposal, a short description of the work
 that the reviewer can approve or decline. Record a proposal with `pair
@@ -75,9 +75,9 @@ Deliver good work quickly, and do not state anything you have not checked.
 Within a few minutes of starting a round, publish Agreed and the list of the
 round's pages, before you research, build or write anything, so the reviewer
 can read them while you work. You cannot change the page list after you
-publish it, so choose the pages from what you already know, and name each
-one for what it will cover, such as "Retry policy", rather than for what you
-expect to find.
+publish it, so choose the pages from what you already know. Give each topic
+its own page, and name each one for what it will cover, such as "Retry
+policy", rather than for what you expect to find.
 
 Until you publish the round's last page, keep the reviewer posted with
 `pair progress --note "…"` whenever you start something, and at least every
@@ -143,10 +143,10 @@ Keep the proposals tidy:
 
 ## Plans
 
-Write a plan when the reviewer asks for one, or when the work is big enough
-that the reviewer should agree on how you will build it before you begin.
-Plan the work in this session's rounds, and only build it after the reviewer
-approves it. The plan is the round you publish just before you build.
+A round can be a plan. Make a round a plan when the reviewer asks for one,
+or when you judge that you know enough to write one, and mark it with
+`"plan": true` in Agreed's source. Only build the work after the reviewer
+chooses Build it, or approves it in words.
 
 A good plan lets an engineer or agent who saw none of the rounds build the
 work without asking questions. It covers:
@@ -170,15 +170,15 @@ say, publish the changed pages in the next round.
 ## Doing the work
 
 Build approved work on a new branch, and name the branch on the first page
-about it. If the work has a plan, follow it. When you begin the work, and
-each time you finish a part or the parts change, record what is done and
-what is left with `pair propose --session-dir PATH --id ID --status-done "…"
---status-left "…"`, with one flag for each part. Publish a page whenever
-part of the work is ready for the reviewer to check. Show what changed and
-what it does, with the evidence that it works, such as a screenshot, the
-diff that matters or a test result. On the same page, say what you decided
-where the plan was silent, and anything you fixed that the proposal did not
-mention. Record unrelated work as a new proposal.
+about it. If the work has a plan, follow it. When the work is a proposal,
+record what is done and what is left with `pair propose --session-dir PATH
+--id ID --status-done "…" --status-left "…"` when you begin, and each time
+you finish a part or the parts change, with one flag for each part. Publish
+a page whenever part of the work is ready for the reviewer to check. Show
+what changed and what it does, with the evidence that it works, such as a
+screenshot, the diff that matters or a test result. On the same page, say
+what you decided where the plan was silent, and anything you fixed that the
+proposal did not mention. Record unrelated work as a new proposal.
 
 On the last page about the work, give whoever owns the project what they
 need to review and maintain it. Show it with diagrams, screenshots and the
