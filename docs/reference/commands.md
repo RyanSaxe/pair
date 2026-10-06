@@ -33,6 +33,10 @@ creates a session. A session command prints these, in order:
 2. The instructions for that moment of the session.
 3. Its result, with your words inside `pair_` tags.
 
+While a page or a proposal has had no update for 10 minutes, the next step
+ends with a line that names it, as
+[Quiet work](../concepts/architecture.md#quiet-work) describes.
+
 When the output is long, it prints the next step again at the end. `--json`
 prints the result as one JSON object instead. When the output of `pair read`
 or `pair status` is over 10,000 bytes, the command writes its result to a

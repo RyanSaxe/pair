@@ -37,8 +37,13 @@ export function agent(session) {
       .proposalItems()
       .filter((card) => card.started?.where === "here" && !card.done);
   // Every agent command prints the step after it, so an agent that lost its
-  // place is told where the session stands.
+  // place is told where the session stands, and then the line that names
+  // any quiet work.
   async function nextStep() {
+    const quiet = session.quietLine();
+    return quiet ? `${await step()}\n${quiet}` : step();
+  }
+  async function step() {
     if (session.state.stage === "complete") return closed;
     const [event] = await pending();
     if (event) return `Run ${command("read")} to see what the reviewer sent.`;
@@ -343,6 +348,7 @@ export function agent(session) {
       if (data.action !== "propose") await requireHolder(data.agent);
     }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
+    session.commandRan();
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
@@ -361,6 +367,7 @@ export function agent(session) {
     // status keeps its takeover notice.
     if (!start && held && !same) return {};
     await requireHolder(agent, start);
+    session.commandRan();
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {

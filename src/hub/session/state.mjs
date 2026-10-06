@@ -16,6 +16,7 @@ import { agent, answersRound } from "./agent.mjs";
 import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { proposals } from "./proposals.mjs";
+import { quiet } from "./quiet.mjs";
 import { rounds } from "./rounds.mjs";
 import { nextOf, submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
@@ -166,6 +167,7 @@ export async function loadSession(
     await activity(session),
     await proposals(session),
     links(session),
+    quiet(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -353,6 +355,7 @@ export async function loadSession(
     listing,
     active,
     hold: session.hold,
+    wakeIfQuiet: session.wakeIfQuiet,
     roundEntry: session.roundEntry,
     pageSet: session.pageSet,
     pageRecord: session.pageRecord,
