@@ -198,6 +198,7 @@ the agent builds all of it. The agent sees the joined proposals in these
 commands:
 
 - `pair read`, when you start B and while B's work runs here
+- `pair propose --start`, when the holder starts B on your words
 - `pair start --from`, when B runs in a linked session
 - `pair status`
 

@@ -154,10 +154,12 @@ export async function proposals(session) {
   // Start, from the reviewer's button or from their words. Work here or in
   // a sub-session saves a Start event, which the agent reads with pair
   // read. Work with a new agent saves no event, because a separate agent
-  // runs pair start --from for it. A Start leaves the round as it was,
-  // wherever the work runs: only the reviewer's feedback answers a round,
-  // so a round that waits for them keeps waiting.
-  async function start(card, started) {
+  // runs pair start --from for it. A start the holder records saves no
+  // event either, because the holder's pair propose prints the start. A
+  // Start leaves the round as it was, wherever the work runs: only the
+  // reviewer's feedback answers a round, so a round that waits for them
+  // keeps waiting.
+  async function start(card, started, holder = false) {
     open();
     requireValue(
       !card.declined,
@@ -183,7 +185,7 @@ export async function proposals(session) {
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
     });
-    if (started.where === "new-agent") return changed;
+    if (started.where === "new-agent" || holder) return changed;
     await session.saveEvent({
       id: crypto.randomUUID(),
       intent: "start",
@@ -240,20 +242,19 @@ export async function proposals(session) {
   // pair propose --start: the agent starts a card because the reviewer
   // asked for the work in a note, a thread or the chat, with their words
   // and, when it gives them, where they wrote them. The holder that runs it
-  // reads the start with pair read, which its next step names, so the hub
-  // wakes the holder only for a start another agent sends.
+  // reads the start in that command's output, so the hub saves a start for
+  // pair read and wakes the holder only when another agent sends it.
   async function startFromWords(card, data, holder) {
     const where = place(data.start, "--start");
     requireValue(
       data.quote !== undefined,
       "--start takes --quote with the reviewer's words",
     );
-    const started = await start(card, {
-      where,
-      by: "words",
-      quote: words(data, "quote"),
-      ...source(data),
-    });
+    const started = await start(
+      card,
+      { where, by: "words", quote: words(data, "quote"), ...source(data) },
+      holder,
+    );
     if (!holder && where !== "new-agent") wakeLater(card.id);
     return started;
   }

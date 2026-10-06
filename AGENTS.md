@@ -205,13 +205,23 @@ Check every fixture page in the light and dark themes, at a wide window and at
 For anything that talks to the hub, such as sending feedback, the progress
 card, rounds, sessions or notifications, run a scratch hub. Give every command
 the same new state directory, a free port from 4880 to 4899 and
-`PAIR_WAKE=off`:
+`PAIR_WAKE=off`, with `env` in front of the command:
 
 ```sh
 state=$(mktemp -d)
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
 ```
+
+A Codex from version 0.160 started with no `-c` override runs each command on
+its app-server daemon, with the daemon's environment, so a variable exported in
+the terminal that started Codex does not reach the command. Without the
+variables in front of it, `start` creates the session in the default state
+directory, on the hub at port 4747. `start` writes the address of its hub to the
+session's `connection.json`, and every other command with `--session-dir` sends
+its request to that address. When no hub answers there, the command registers
+the session with the hub that its own environment names, so keep the variables
+on every command.
 
 `check` must report the hub port as `free`. `start` prints the session's
 directory and URL. Build and publish a round in that session as
