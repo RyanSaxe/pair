@@ -75,3 +75,19 @@ All six are optional.
 The hub's browser routes need no token, so the hub only listens on an extra
 address when you set `PAIR_HUB_HOST`. The routes that agents use need the
 session's bearer token on every address.
+
+A Codex from version 0.160 started with no `-c` override runs the agent's
+commands on its app-server daemon, with the daemon's environment, so a variable
+you export in the terminal before you start Codex does not reach `pair`. To run
+a session under Codex on another port or state directory, ask the agent to put
+the variables in front of `pair start` with `env`:
+
+```sh
+env XDG_STATE_HOME=/tmp/pair-state PAIR_HUB_PORT=4800 pair start --title "Try pair"
+```
+
+`pair start` writes the address of its hub to the session's
+`connection.json`, and every other command with `--session-dir` sends its
+request to that address. A `pair start` that resumes the session, and a
+command that finds no hub at that address, use the hub that their own
+environment names, so they need the variables in front of them too.
