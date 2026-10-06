@@ -48,7 +48,7 @@ import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
-import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
+import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
   loadPageRecord,
   pageStatus,

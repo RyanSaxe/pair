@@ -80,7 +80,7 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
   await page.locator("#send-message").fill("Plan the retry.");
   await page.locator("#send-button").click();
   assert.equal((await sent(session)).next, "plan");
-  // The plan round reaches the open tab, whose Agreed and Rounds dialog
+  // The plan round reaches the open tab, whose Agreed and Rounds panel
   // mark it.
   assert.equal(
     (await session.publish({ ...planData("2"), plan: true })).code,
@@ -88,12 +88,12 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
   );
   await page.locator("#page-title .tag.plan", { hasText: "Plan" }).waitFor();
   await page.locator("#round").click();
-  const rows = page.locator("#round-list .dialog-row");
+  const rows = page.locator("#round-list .sess-row");
   await rows.nth(1).waitFor();
   assert.deepEqual(
     await rows.evaluateAll((list) =>
       list.map((row) => [
-        row.querySelector("span:not(.tick)").firstChild.textContent,
+        row.querySelector(".t").firstChild.textContent,
         row.querySelector(".tag")?.textContent ?? null,
       ]),
     ),

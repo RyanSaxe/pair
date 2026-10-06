@@ -121,8 +121,9 @@ kbd {
 }
 /* A plan round's tag is grey, so it does not read like the blue
    Recommended tag. Its background stays visible on a row drawn in
-   --ground, such as the Rounds dialog's current row, and the text, darker
-   than --muted, keeps a contrast of at least 4.5:1 on it in both themes. */
+   --accent-soft, such as the Rounds panel's current row, and the text,
+   darker than --muted, keeps a contrast of at least 4.5:1 on it in both
+   themes. */
 .tag.plan {
   color: color-mix(in srgb, var(--muted), var(--ink) 25%);
   background: var(--line);

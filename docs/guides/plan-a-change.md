@@ -38,7 +38,7 @@ The agent can also make a round a plan without your asking, when it judges
 that it knows enough to write one.
 
 pair marks a plan round with a grey **Plan** tag, beside the title of its
-Agreed and beside the round in the Rounds dialog.
+Agreed and beside the round in the Rounds panel.
 
 ## Before you build
 

@@ -338,7 +338,7 @@ test("Back to current opens the waiting Agreed, not an empty Review", async (t) 
   await waiting();
 });
 
-test("the left tab reads Last round for the round before Current's, and Round 1 once opened from the Rounds dialog", async (t) => {
+test("the left tab reads Last round for the round before Current's, and Round 1 once opened from the Rounds panel", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   await s.send("1");

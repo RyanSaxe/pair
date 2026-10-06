@@ -102,7 +102,7 @@ far, each with a link to where you settled it. When something on Agreed is
 wrong, comment on it.
 
 A plan round has a grey **Plan** tag beside the title of its Agreed, and
-beside the round in the Rounds dialog.
+beside the round in the Rounds panel.
 
 | Tag               | Meaning                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------ |

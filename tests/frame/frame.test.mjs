@@ -58,10 +58,10 @@ test("page tabs leave the reader in place, while round choices open a page", asy
   );
   assert.doesNotMatch(tabClick, /\bshow\(/);
 
-  const dialog = await read("sync/rounds-dialog.mjs");
-  const roundClick = dialog.slice(
-    dialog.indexOf("row.onclick = () => {"),
-    dialog.indexOf("list.append(row);"),
+  const panel = await read("sync/rounds-panel.mjs");
+  const roundClick = panel.slice(
+    panel.indexOf("row.onclick = () => {"),
+    panel.indexOf("list.append(line);"),
   );
   assert.match(
     roundClick,
