@@ -35,7 +35,9 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: node --test
 
-  # The browser tests drive the runner image's Google Chrome.
+  # The browser tests drive the runner image's Google Chrome. The landing
+  # tests also drive WebKit, which Playwright installs, with the system
+  # libraries it needs, for the playwright-core version that npm ci installs.
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +46,7 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
+      - run: npx playwright-core install --with-deps webkit
       - run: npm run test:browser
 
   # Every figure in the test fixture, in the light and dark themes. A figure

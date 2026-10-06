@@ -1,12 +1,8 @@
 import {
-  endRestore,
-  holdInView,
-  places,
-  rememberPlace,
-  restoreScroll,
-  restoring,
-  scroller,
-  settleScroll,
+  flushPlace,
+  land,
+  placeOnScreen,
+  savedPlace,
 } from "#frame/app/places.mjs";
 import { enhance } from "#frame/app/registry.mjs";
 import { openSidebar } from "#frame/app/sidebar.mjs";
@@ -107,10 +103,11 @@ export function show(
   // by the note's page, overall.
   if (id === "overall") id = "feedback";
   if (!keepScroll && !inPlace) beginMove();
+  // A re-render keeps the reader's place, and any other show() is an
+  // arrival, which notes the place it leaves first.
+  const kept = keepScroll ? placeOnScreen() : null;
+  if (!keepScroll) flushPlace();
   displayedRound = viewKey();
-  const resuming = restoring?.round === displayedRound && restoring.page === id;
-  if (!resuming) endRestore();
-  const top = scroller().scrollTop;
   // The waiting view has no Review page, because its round's feedback is
   // sent, so a saved place or a #feedback link opens its Agreed.
   const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
@@ -182,60 +179,17 @@ export function show(
   if (targetId) url.searchParams.set("target", targetId);
   if (push && url.href !== location.href) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
-  if (!inPlace)
-    (work
-      ? $("work-title")
-      : feedback
-        ? $("review-view").querySelector("h1")
-        : $("page-title")
-    ).focus({ preventScroll: true });
-  // Returning to a page within a round lands where the reader left it.
-  if (!keepScroll) {
-    const saved = targetId ? 0 : places[displayedRound]?.tops?.[shownPage()];
-    if (saved) restoreScroll(saved);
-    else scroller().scrollTo(0, 0);
-  } else if (resuming) settleScroll();
-  else if (!targetId) {
-    // Replacing the page shortens it until the renderers finish, and the
-    // browser clamps the scroll position meanwhile; restore it after they do.
-    scroller().scrollTo(0, top);
-    Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
-  }
-  rememberPlace();
   if (!inPlace) closeMenus();
   updateNavigation();
   review();
   // review() places the page's thread cards, and moving a card takes focus
-  // from it, so a target is revealed after them.
+  // from it, so the page lands after them.
+  land(keepScroll ? kept : targetId ? { target: targetId } : savedPlace(), {
+    focusHeading: !inPlace,
+  });
   whenDrawn(drawing, () => {
     if (!loading) arrived();
-    reveal(targetId);
   });
-}
-// Scrolls to an element of the page on screen and focuses it, opening any
-// details around it.
-export function reveal(targetId) {
-  // A target is usually on the page, so a page block that reuses a frame ID
-  // is the one revealed.
-  const target = targetId && document.getElementById(targetId);
-  // A Progress thread's card is above the page content, under the progress
-  // card or the finished line.
-  const view =
-    target &&
-    [$("reading"), $("work-view"), $("review-view")].find((at) =>
-      at.contains(target),
-    );
-  if (!view) return;
-  for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
-    if (ancestor.tagName === "DETAILS") ancestor.open = true;
-  // A collapsed thread card shows only its head, so a reply inside it has no
-  // box to scroll to until the card expands, as its Expand button does.
-  const card = target.closest("pair-thread[collapsed]");
-  if (card) card.querySelector(".thread-fold").click();
-  if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
-  target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "center" });
-  holdInView(target, view);
 }
 export function badge(count) {
   const row = $("review-row");

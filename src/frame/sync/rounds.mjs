@@ -1,12 +1,4 @@
-import {
-  placeIn,
-  places,
-  rememberHeight,
-  restoreScroll,
-  restoring,
-  savePlaces,
-  scroller,
-} from "#frame/app/places.mjs";
+import { flushPlace, placeIn, places, savePlaces } from "#frame/app/places.mjs";
 import {
   markSent,
   persist,
@@ -90,10 +82,11 @@ async function loadPastSubmission(round) {
   const draft = onScreen ? state : views.get(round)?.draft;
   if (submission && draft && !draft.submitted) showSent(draft, submission);
   if (!onScreen) return;
-  // A reply the reader followed here stays in view through the redraw.
+  // The redraw keeps the reader's place, or the landing still under way,
+  // and the address's target.
   const target = new URLSearchParams(location.search).get("target");
   if (!$("reading").hidden)
-    show(page.id, target, { keepScroll: !target, push: false });
+    show(page.id, target, { keepScroll: true, push: false });
   renderSentFeedback();
   renderHistory();
 }
@@ -192,16 +185,10 @@ export async function loadPageRecord(round, id) {
       page.id === id &&
       !$("reading").hidden
     ) {
-      // The page on screen was a placeholder, so the target in the address,
-      // such as a notification's, is reached now.
+      // The page on screen was a placeholder, so the landing that opened
+      // it, such as on a notification's target, reaches its anchor now.
       const target = new URL(location.href).searchParams.get("target");
-      const top = scroller().scrollTop;
-      const focused = document.activeElement;
-      show(id, target, { keepScroll: true, push: false });
-      if (!(target && $(target))) {
-        if (focused?.isConnected) focused.focus({ preventScroll: true });
-        if (!restoring) scroller().scrollTo(0, top);
-      }
+      show(id, target, { keepScroll: true, push: false, inPlace: true });
     }
     return record;
   })().catch((error) => {
@@ -351,7 +338,7 @@ export async function openPast(round, { pageId = null, targetId = null } = {}) {
     return;
   }
   setPastRound(round);
-  if (pageId) places[round] = { page: pageId, top: 0 };
+  if (pageId) places[round] = { page: pageId, at: {} };
   switchTab("past", targetId, { showPage: true });
 }
 // Current's draft while a past round is on screen: the one set aside when
@@ -366,7 +353,7 @@ export function currentDraft() {
 export function switchTab(tab, targetId = null, { showPage = true } = {}) {
   if (tab === "current" && !currentShown() && !submissionInFlight) return;
   if (tab === "past" && !pastAvailable()) return;
-  rememberHeight();
+  flushPlace();
   const round = tab === "current" ? remote.current.round : pastRound;
   const view =
     tab === "current" && (waiting() || submissionInFlight)
@@ -391,7 +378,6 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
       ? null
       : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
     show(place?.page || "agreed", targetId);
-    if (place?.top && !targetId) restoreScroll(place.top);
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();
