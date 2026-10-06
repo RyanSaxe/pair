@@ -58,6 +58,7 @@ it.
 | Claude Code | `inbox`     | A user message over the inbox socket                                     | Between the steps of the turn                                    |
 | Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                | Between the steps of the turn                                    |
 | Codex       | `queue`     | `codex queue --thread ID --message TEXT`                                 | When the turn ends                                               |
+| Codex       | `parent`    | `turn/steer` or `codex queue` to the parent thread of a spawned subagent | After the parent passes the line on with `followup_task`         |
 | Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI | At once. Copilot moves a running shell command to the background |
 | Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                       | When the turn ends                                               |
 | pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension         | After the tool calls of the current model response               |
@@ -66,6 +67,17 @@ it.
 - Codex's adapter only uses `turn/steer` while a turn of the thread is in
   progress on the daemon. In every other case, and after any error on the
   daemon's socket, it runs `codex queue`.
+- Codex refuses input from another process to a subagent that another
+  thread spawned when the daemon has not loaded the subagent, as when the
+  parent runs in-process. When `thread/read` gives the thread a
+  `subAgent.thread_spawn` source, Codex's adapter sends the parent thread,
+  by `turn/steer` or `codex queue` as above, a line that names the subagent
+  and asks the parent to pass the hub's line on to it with `followup_task`,
+  or with `send_input` in Codex's older multi-agent tools. `send_message`
+  would leave the line in the subagent's mailbox without starting a turn.
+  A parent that runs in-process reads the line only when its own turn ends,
+  so a parent that waits on its subagent passes the line on after the
+  subagent finishes.
 - Copilot's adapter only sends with `enqueue` after Copilot refuses
   `immediate`. Every Copilot CLI from 1.0.70 to 1.0.91 lists `immediate` in
   its API schema.
@@ -73,9 +85,10 @@ it.
 When the CLI is idle, the line starts a turn on every path except
 `turn/steer`.
 
-`steerable` is `false` after a wake through `enqueue`, and after a wake
-through `codex queue` for a thread that the daemon does not run. It is
-`true` after every other wake.
+`steerable` is `false` after a wake through `enqueue`, after a wake
+through `codex queue` for a thread that the daemon does not run, and after
+a wake through a Codex subagent's parent. It is `true` after every other
+wake.
 
 ## A listener inside the CLI
 

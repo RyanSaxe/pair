@@ -30,8 +30,10 @@ function frame(message) {
 // A stand-in for the app-server daemon of Codex 0.160: a WebSocket server on
 // a Unix socket. It answers each request from the table the test passes,
 // with the entry as the result, or as the error when the entry has an
-// `error`, and records every message the client sends. Like the daemon, it
-// closes the connection on a frame that is not one masked text frame.
+// `error`, and records every message the client sends. An entry that is a
+// function answers with what it returns for the request's params. Like the
+// daemon, it closes the connection on a frame that is not one masked text
+// frame.
 export async function codexDaemon(t, answers) {
   // macOS refuses a socket path over 104 bytes, so the socket sits in a
   // short directory of its own.
@@ -90,7 +92,10 @@ export async function codexDaemon(t, answers) {
         const message = JSON.parse(payload);
         received.push(message);
         if (message.id === undefined) continue;
-        const answer = table[message.method] ?? {
+        const entry = table[message.method];
+        const answer = (typeof entry === "function"
+          ? entry(message.params)
+          : entry) ?? {
           error: { code: -32601, message: `no method ${message.method}` },
         };
         client.write(

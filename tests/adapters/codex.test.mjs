@@ -127,3 +127,77 @@ test("a Codex wake falls back to codex queue", unix, async (t) => {
     /^Error: thread gone$/,
   );
 });
+
+// Codex refuses input from another process to a spawned subagent that its
+// daemon has not loaded, so the hub's line goes to the parent thread with
+// the subagent's ID, and the parent passes it on.
+test(
+  "a Codex wake for a spawned subagent goes to its parent thread",
+  unix,
+  async (t) => {
+    const codex = await codexCommand(t);
+    const parent = "thread-parent";
+    // thread/read as Codex 0.160 answers it for a subagent that a parent
+    // running in-process spawned.
+    const subagent = {
+      id: thread,
+      parentThreadId: parent,
+      source: {
+        subAgent: {
+          thread_spawn: {
+            parent_thread_id: parent,
+            depth: 1,
+            agent_path: null,
+            agent_nickname: "Dalton",
+            agent_role: null,
+          },
+        },
+      },
+      agentNickname: "Dalton",
+      status: { type: "notLoaded" },
+    };
+    const daemon = (parentAnswers) =>
+      codexDaemon(t, {
+        ...parentAnswers,
+        "thread/read": ({ threadId }) =>
+          threadId === thread
+            ? { thread: subagent }
+            : parentAnswers["thread/read"],
+      });
+    const relayed = (text) => {
+      assert(text.endsWith(`\n\n${line}`), text);
+      for (const part of ["Dalton", `target ${thread}`, "followup_task"])
+        assert(text.includes(part), text);
+    };
+
+    const steered = await daemon(turnInProgress(parent, "turn-7"));
+    const result = await wakeRunner(
+      { harness: "codex", thread, socket: steered.socket },
+      line,
+    );
+    assert.deepEqual(result, { via: "parent", steerable: false });
+    const steer = steered.received.find(
+      ({ method }) => method === "turn/steer",
+    );
+    assert.equal(steer.params.threadId, parent);
+    assert.equal(steer.params.expectedTurnId, "turn-7");
+    relayed(steer.params.input[0].text);
+    assert.deepEqual(await codex.runs(), []);
+
+    const idle = await daemon({
+      "thread/read": { thread: { id: parent, status: { type: "notLoaded" } } },
+    });
+    assert.deepEqual(
+      await wakeRunner({ harness: "codex", thread, socket: idle.socket }, line),
+      { via: "parent", steerable: false },
+    );
+    const [args] = await codex.runs();
+    assert.deepEqual(args.slice(0, 4), [
+      "queue",
+      "--thread",
+      parent,
+      "--message",
+    ]);
+    relayed(args[4]);
+  },
+);
