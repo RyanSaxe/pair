@@ -1,11 +1,12 @@
 # Proposals and Work
 
 The agent records each piece of work it thinks is worth doing as a
-**proposal**, including the main work of your task. A proposal is a card
-that describes what the work delivers and where the agent recommends it
-runs. You decide what happens to each one. You approve the work by
-pressing **Start** on the card, and you only approve what the card
-describes.
+**proposal**, apart from the session's own task. The session's task moves
+through the rounds, and you build it by choosing Build it when you send a
+round. A proposal is a card that describes what the work delivers and where
+the agent recommends it runs. You decide what happens to each one. You
+approve the work by pressing **Start** on the card, and you only approve
+what the card describes.
 
 When you ask the agent for work in your own words, the agent records a
 proposal for it, or uses one that already covers it, and starts it for you,
@@ -48,23 +49,24 @@ never labels a card in Done as New.
 
 ### Status lines
 
-| Status line                                        | Meaning                                                                                  |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| No plan yet, Plan ready                            | Nobody has started the work. Plan ready means the agent attached a plan.                 |
-| Working here                                       | The work runs in this session's rounds.                                                  |
-| Opening a sub-session, Opening a new agent session | You started the work in its own session, and the agent has not created that session yet. |
-| Working                                            | The work runs in its own session.                                                        |
-| Waiting for you                                    | The session the work runs in has a round waiting for you.                                |
-| Agent replied                                      | The agent replied in a thread on the card, and you have not cleared it from the bell.    |
-| Done                                               | The work is finished.                                                                    |
-| Declined                                           | You declined the proposal.                                                               |
-| Withdrawn                                          | The agent withdrew the proposal, and the card shows its reason.                          |
+| Status line                                          | Meaning                                                                                  |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Proposed                                             | Nobody has started the work.                                                             |
+| Working here                                         | The work runs in this session's rounds.                                                  |
+| Opening a sub-session, Opening a new agent session   | You started the work in its own session, and the agent has not created that session yet. |
+| Planning in a sub-session, Planning with a new agent | You started the work with Plan it first, and have not chosen Build it in its session.    |
+| Working                                              | The work runs in its own session.                                                        |
+| Waiting for you                                      | The session the work runs in has a round waiting for you.                                |
+| Agent replied                                        | The agent replied in a thread on the card, and you have not cleared it from the bell.    |
+| Done                                                 | The work is finished.                                                                    |
+| Declined                                             | You declined the proposal.                                                               |
+| Withdrawn                                            | The agent withdrew the proposal, and the card shows its reason.                          |
 
 ### What you can do with a card
 
 | To                    | Do this                                                                                                                                     |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve the work      | Press **Start**, choose where the work runs, and add a message to the agent if you want.                                                    |
+| Approve the work      | Press **Start**, choose where the work runs, and add a message to the agent or check Plan it first if you want.                             |
 | Turn it down          | Press **Decline**. The agent drops the proposal and does not suggest it again.                                                              |
 | Ask about it          | Click the card, then press the comment button at the bottom right, or <kbd>c</kbd>. Send it as a [thread](threads.md) to get an answer now. |
 | Bring a proposal back | Press **Restore** on a declined or withdrawn card in Done. pair moves the card back to Proposed.                                            |
@@ -81,6 +83,12 @@ agent.
 | Here             | This session's agent starts the work right away. It publishes the work's pages in the session's next round, or in the round it is writing when it has not yet published that round's Agreed.                                                                                                           |
 | In a sub-session | This session's agent creates a session linked to this one and builds the work there, with subagents doing the steps, so this session's rounds carry on.                                                                                                                                                |
 | With a new agent | A separate agent builds the work in its own session, linked to this one. Pressing **Copy command** approves the work and copies `pair start --from DIR --proposal ID` for you to paste into any agent. **Open a new agent session** asks this session's agent to open that agent where you can see it. |
+
+Below the message box, **Plan it first** makes the work's own session plan
+the work before it builds. That session iterates towards a plan in its own
+rounds, and builds nothing until you choose Build it in one of them. The
+card reads Planning until then. Choosing Here turns the checkbox off,
+because a plan round in this session would mix with its other work.
 
 Starting work never ends the round you are reading. Your drafts on the
 round stay, and you can start more work before you send feedback.
@@ -107,8 +115,7 @@ work.
 
 ## Plans
 
-For larger work, the agent writes a plan and attaches it to the proposal. A
-plan is a set of pages from which an engineer or agent who saw none of the
+A plan is a round from which an engineer or agent who saw none of the
 rounds could build the work without asking questions. It covers:
 
 - what the work achieves and why
@@ -118,28 +125,12 @@ rounds could build the work without asking questions. It covers:
 - what is out of scope
 - how to check that the work is done
 
-The agent writes a plan when you ask for one, or when the work is big enough
-that you should agree on how it will be built before it starts. It settles
-every open question on a page before it attaches the plan. You can start
-work that has no plan.
-
-### Reading a plan
-
-A card with a plan has a Plan line, which shows how many pages the plan has
-and which rounds it came from. The line has **Open** and a download button.
-
-- Press **Open** to read the plan in this tab, read-only, with its pages in
-  the sidebar. The line under the header then reads Work, the card's title
-  and Plan, and you click Work to go back.
-- The download button, and **Download plan** in the plan view, download the
-  plan as one HTML file, which you can open without the hub.
-
-When you change what the plan should say in later rounds, the agent attaches
-a new version, which replaces the old one.
-
-The agent of a sub-session or a new agent session can attach a plan to the
-proposal it builds. The Plan line then shows that the plan came from rounds
-of that session.
+The agent makes a round a plan when you choose Write a plan as you send a
+round, or when it judges that it knows enough to write one. pair marks a
+plan round with a grey Plan tag. [Plan a change](../guides/plan-a-change.md)
+explains how you read a plan and build from it. For a proposal that runs in
+its own session, check Plan it first when you start it, and that session
+plans the work before it builds.
 
 ## When work is finished
 

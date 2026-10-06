@@ -21,8 +21,8 @@ feedback.
    as soon as the agent publishes Agreed.
 2. You respond on the pages. You choose between options, answer questions
    and comment.
-3. You press **Send feedback**. The agent reads your feedback and publishes
-   the next round.
+3. You press **Send feedback**, choose what comes next, and send. The agent
+   reads your feedback and publishes the next round.
 
 While the agent works, a progress card at the top of Agreed shows what it is
 doing and how many pages are ready. Once the agent has published every page,
@@ -61,12 +61,37 @@ the header. The tab then shows that round and reads **Round N**.
 ## Feedback
 
 Your browser keeps everything you do on the pages as a draft until you send
-it.
+it. **Send feedback** in the header opens a popup where you choose what the
+agent does next, and the popup's button sends the round.
 
-**Everything else looks good** is a switch on the Review page, and it is on
-by default. When it is on, the agent treats everything the pages stated as
-agreed, except where one of your comments challenges it. The switch never
-chooses an option or answers a question for you.
+In most rounds, the choices are:
+
+- **Keep iterating**: the agent takes your comments into the next pages.
+- **Write a plan**: the agent makes the next round a plan you can build
+  from.
+- **Build it**: the agent applies your comments, then builds what Agreed
+  describes, in this session.
+
+In a plan round, the choices are:
+
+- **Update the plan**: the agent revises the plan with your comments.
+- **Back to iterating**: the agent sets the plan aside and keeps exploring.
+- **Build it**: the agent applies your comments, then builds the plan, in
+  this session.
+
+The popup starts on the first choice, and never on Build it. The button
+reads **Build it** when you choose Build it, and **Send** otherwise. The
+agent can also make a round a plan without your asking, when it judges that
+it knows enough to write one.
+
+The popup also has a box for a message to the agent, which stays in your
+draft until you send it, and the switch **Everything else looks good**,
+which is on by default. When the switch is on, the agent treats everything
+the pages stated as agreed, except where one of your comments challenges
+it. The switch never chooses an option or answers a question for you.
+
+After you send, the Review page lists what you sent, with your choice and
+your message.
 
 ## Agreed
 
@@ -75,6 +100,9 @@ so far. It shows the **task**, which says what you and the agent are working
 towards. Under **Alignments**, it lists every decision you have settled so
 far, each with a link to where you settled it. When something on Agreed is
 wrong, comment on it.
+
+A plan round has a grey **Plan** tag beside the title of its Agreed, and
+beside the round in the Rounds dialog.
 
 | Tag               | Meaning                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------ |
@@ -85,11 +113,12 @@ wrong, comment on it.
 ## When the agent edits your project
 
 The agent only edits your project for work you have approved. You approve
-work by starting one of its [proposals](proposals-and-work.md), or by asking
-the agent for the work in your own words, in a comment, a thread, your
-feedback or the chat. When you ask in words, the agent records the request as
-a proposal and starts it, quoting you, so the Work page lists every piece of
-work you approved.
+work by choosing **Build it** when you send a round, by starting one of its
+[proposals](proposals-and-work.md), or by asking the agent for the work in
+your own words, in a comment, a thread, your feedback or the chat. When you
+ask in words for work beside the session's task, the agent records the
+request as a proposal and starts it, quoting you, so the Work page lists
+every piece of work you approved.
 
 Before you approve anything, the agent only tries ideas in a git worktree
 inside the session's directory, or in a plain directory there when your
