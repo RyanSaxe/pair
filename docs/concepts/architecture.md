@@ -67,13 +67,13 @@ proposals you declined and the linked sessions you closed.
 `pair start` records how to wake the agent that ran it. When it finds no way
 to wake the agent, it refuses and prints what to do.
 
-| Agent CLI   | What `pair start` records                                              | How the hub wakes the agent                                                                                                      |
-| ----------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | It sends a message over the inbox socket.                                                                                        |
-| Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | It sends `turn/steer` over the daemon's socket into the turn in progress, or else runs `codex queue --thread ID --message TEXT`. |
-| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.      |
-| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                  |
-| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                      |
+| Agent CLI   | What `pair start` records                                              | How the hub wakes the agent                                                                                                                                                                   |
+| ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | It sends a message over the inbox socket.                                                                                                                                                     |
+| Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | It sends `turn/steer` over the daemon's socket into the turn in progress, queues the line and starts a turn with it on an idle thread, or else runs `codex queue --thread ID --message TEXT`. |
+| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.                                                                   |
+| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                                                                               |
+| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                                                                                   |
 
 Most agent CLIs read a wake message in the middle of a turn. A Codex whose
 daemon does not run the thread, and a Copilot CLI that refuses `immediate`,
@@ -91,6 +91,11 @@ Codex calls threads, on a shared app-server daemon. The daemon listens on
 - When a turn of the agent's thread is in progress, the hub connects to that
   socket and sends the line with `turn/steer`, and Codex reads it between
   the steps of the turn.
+- When the daemon runs the thread and no turn is in progress, the hub adds
+  the line to the thread's queue with `thread/queue/add`, then starts a
+  turn with the line through `thread/queue/start`. Codex leaves a queued
+  line in the queue after you interrupt a turn, until you send a message,
+  so the hub starts the turn itself.
 - In every other case the hub runs `codex queue`. When Codex is idle, it
   then starts a turn with the line at once. When the daemon does not run
   the thread, as with a Codex older than 0.160, Codex reads the line when
