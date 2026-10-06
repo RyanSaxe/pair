@@ -127,11 +127,15 @@ export function threads(session) {
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
     const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Between your current steps, run ${readCommand(thread.id)}, which prints the thread and how to answer it, then go on with your work.${wakeNote(message)}`;
-    thread.wake = await session.sendWake(line);
+    const wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
-    if (thread.state === "sending")
-      thread.state = thread.wake.ok ? "sent" : "failed";
-    await saveThread(thread);
+    const state =
+      thread.state === "sending" ? (wake.ok ? "sent" : "failed") : thread.state;
+    // The status reads the thread in memory, so it shows the wake's result
+    // only once the file has it.
+    const settled = { ...thread, wake, state };
+    await saveThread(settled);
+    Object.assign(thread, settled);
   }
   function open() {
     requireValue(
