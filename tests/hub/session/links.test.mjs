@@ -201,17 +201,20 @@ test("a status from a linked session goes to the parent's card", async (t) => {
   });
   assert.equal(written.code, 200, written.body.error);
   assert.deepEqual(written.body.parent, { id: a.id, title: "Example work" });
-  assert.deepEqual(
-    { ...(await cardOf("deck")).status, at: undefined },
-    { at: undefined, done: ["Outline"], left: ["Slides"] },
-  );
+  assert.deepEqual((await cardOf("deck")).status.parts, [
+    { text: "Outline", state: "done" },
+    { text: "Slides", state: "left" },
+  ]);
   const fromParent = await a.action("propose", {
     id: "deck",
-    statusDone: ["Outline", "Slides"],
+    statusDone: ["Slides"],
   });
   assert.equal(fromParent.code, 200, fromParent.body.error);
   assert.equal(fromParent.body.parent, undefined);
-  assert.deepEqual((await cardOf("deck")).status.done, ["Outline", "Slides"]);
+  assert.deepEqual((await cardOf("deck")).status.parts, [
+    { text: "Outline", state: "done" },
+    { text: "Slides", state: "done" },
+  ]);
   // The linked session runs only deck, so it reaches no other card.
   const other = await child.action("propose", {
     id: "notes",

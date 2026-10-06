@@ -186,6 +186,11 @@
 .proposal-status li.done .status-mark {
   color: var(--ok);
 }
+.proposal-card .proposal-status li.dropped,
+#page-content .proposal-card .proposal-status li.dropped,
+.proposal-status li.dropped .status-mark {
+  color: var(--muted);
+}
 /* The cards joined into this one: a muted label and their titles, under a
    rule across the body. */
 .proposal-joined {

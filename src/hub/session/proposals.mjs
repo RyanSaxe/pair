@@ -11,7 +11,12 @@ import {
   written,
 } from "./proposal-fields.mjs";
 import { joinable } from "./proposal-joins.mjs";
-import { statusable, statusParts } from "./proposal-status.mjs";
+import {
+  changedParts,
+  loadedStatus,
+  statusable,
+  statusChange,
+} from "./proposal-status.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
@@ -27,6 +32,7 @@ export async function proposals(session) {
     for (const name of (await fs.readdir(folder)).sort())
       if (name.endsWith(".json")) {
         const card = await read(path.join(folder, name));
+        if (card.status) card.status = loadedStatus(card.status);
         cards.set(card.id, card);
       }
   } catch (error) {
@@ -407,13 +413,18 @@ export async function proposals(session) {
     return save(card, { done: null, status: null });
   }
   // A linked session's agent writes the status of the work it runs to the
-  // card in the parent.
+  // card in the parent. A status that changes no part leaves the card as
+  // it was, so status.at is the time of the last change to the parts.
   async function writeStatus(id, data) {
     const owner = session.cardOwner(id, "pair propose");
     if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
     open();
-    const status = { at: timestamp(), ...statusParts(data) };
-    return save(statusable(find(id)), { status });
+    const change = statusChange(data);
+    const card = statusable(find(id));
+    const parts = changedParts(card, change);
+    if (JSON.stringify(parts) === JSON.stringify(card.status?.parts))
+      return card;
+    return save(card, { status: { at: timestamp(), parts } });
   }
   // pair propose, from any agent: it records a card, or with one action
   // flag changes the card that has the ID. holder says whether the holder
