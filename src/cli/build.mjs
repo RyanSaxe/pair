@@ -6,6 +6,7 @@ import { sizeImages } from "../build/image-size.mjs";
 import { problems } from "../build/lint.mjs";
 import { pageData, pagePlan, validPage } from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
+import { refuseOverwrite } from "./output.mjs";
 
 export async function buildPage(source, input) {
   const unknown = fieldProblems(input);
@@ -76,7 +77,9 @@ export async function build(source) {
 // the pages.json beside that directory, where guide/pages.md puts it.
 export async function main({ args: [source, output] }) {
   const html = await build(path.resolve(source));
-  await fs.writeFile(output, html, { flag: "wx", mode: 0o600 });
+  await fs
+    .writeFile(output, html, { flag: "wx", mode: 0o600 })
+    .catch(refuseOverwrite(output));
   const built = path.resolve(output);
   const directory = path.dirname(path.resolve(source));
   const pages =

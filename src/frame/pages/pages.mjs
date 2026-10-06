@@ -1,5 +1,6 @@
 import {
   endRestore,
+  holdInView,
   places,
   rememberPlace,
   restoreScroll,
@@ -8,12 +9,16 @@ import {
   settleScroll,
 } from "#frame/app/places.mjs";
 import { enhance } from "#frame/app/registry.mjs";
+import { openSidebar } from "#frame/app/sidebar.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
   current,
   currentShown,
   editable,
   hasFeedbackPage,
+  isPlanRound,
+  olderPast,
+  online,
   page,
   pages,
   pastAvailable,
@@ -22,6 +27,7 @@ import {
   session,
   setPage,
   showingWaiting,
+  shownPage,
   submittedCurrent,
   submittedRound,
   viewKey,
@@ -38,8 +44,11 @@ import {
   markNotes,
   placeMarks,
 } from "#frame/notes/notes.mjs";
-import { renderAgreements, showAgreedTab } from "#frame/pages/agreed.mjs";
+import { placeThreads } from "#frame/notes/threads.mjs";
+import { renderAgreements, tag } from "#frame/pages/agreed.mjs";
+import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
+import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -47,7 +56,6 @@ import { closeMenus } from "#frame/sync/rounds-dialog.mjs";
 import {
   loadPageRecord,
   pageStatus,
-  pendingState,
   selectedTab,
 } from "#frame/sync/rounds.mjs";
 
@@ -81,18 +89,23 @@ function whenDrawn(drawing, then) {
 }
 function visiblePageId() {
   if (displayedRound !== viewKey()) return null;
-  return $("reading").hidden ? "feedback" : page.id;
+  return shownPage();
 }
+// Work is on every round of a session the hub serves.
+const hasWork = () => online && hasFeedbackPage;
 // Page changes push history so the back button and a pasted hash both work;
 // re-rendering the same page, restoring after a reload, and popstate itself
 // leave history alone.
 // inPlace re-renders the page on screen for an arrival, without closing the
-// Pages drawer or another menu, or moving focus.
+// sidebar over the page or another menu, or moving focus.
 export function show(
   id,
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
+  // Review's overall comment is on Review, which a thread or a card names
+  // by the note's page, overall.
+  if (id === "overall") id = "feedback";
   if (!keepScroll && !inPlace) beginMove();
   displayedRound = viewKey();
   const resuming = restoring?.round === displayedRound && restoring.page === id;
@@ -101,13 +114,25 @@ export function show(
   // The waiting view has no Review page, because its round's feedback is
   // sent, so a saved place or a #feedback link opens its Agreed.
   const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
+  const work = id === "work" && hasWork();
+  // Work opens on its first tab with a card, and keeps the tab the reader
+  // chose while it stays on screen.
+  const stayed = work && !$("work-view").hidden;
   let drawing = null;
   // A page whose record is still loading is shown again once it loads, and
   // the move ends with that.
   let loading = false;
-  $("reading").hidden = feedback;
-  $("feedback").hidden = !feedback;
-  if (!feedback) {
+  $("reading").hidden = feedback || work;
+  $("review-view").hidden = !feedback;
+  $("work-view").hidden = !work;
+  // A choice belongs to the view it was made in.
+  if (!stayed) chooseBlock(null);
+  if (stayed) refreshWork(true);
+  else if (work) openWork();
+  // The threads on the overall comment go at the end of Review only while
+  // it is on screen, so they are placed before a reply in one is revealed.
+  else if (feedback) placeThreads();
+  else {
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
     loading = page.status === "ready" && page.pending && page.id !== "agreed";
@@ -115,14 +140,14 @@ export function show(
       void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();
     $("page-title").textContent = page.title;
-    chooseBlock(null);
+    // A plan round's Agreed has the Plan tag beside its title.
+    if (page.id === "agreed" && !page.waiting && isPlanRound())
+      $("page-title").append(" ", tag("Plan", "plan"));
     $("page-content").dataset.pageId = page.id;
     $("page-content").dataset.round = plan.round;
-    const [mark, label] = pendingState(page);
-    $("page-content").innerHTML = page.pending
-      ? `<div class="pending-page ${mark === "active" ? "working" : "queued"}"><span class="pending-state">${pageIndicator(mark).outerHTML}${label}</span><div class="pending-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>`
-      : page.html;
-    if (!page.pending) {
+    $("page-content").innerHTML = page.pending ? pendingPage : page.html;
+    if (page.pending) updatePending();
+    else {
       blockTargets($("page-content"), page.id);
       choiceTargets($("page-content"), page.id);
     }
@@ -146,27 +171,27 @@ export function show(
     // page renders, so the marks are placed again once they settle.
     Promise.allSettled([...renders]).then(placeMarks);
   }
-  if (!inPlace) closeDrawer();
   for (const button of document.querySelectorAll("#page-list [data-page]")) {
     if (button.dataset.page === visiblePageId())
       button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   }
   const url = new URL(location.href);
-  url.hash = feedback ? "feedback" : page.id;
+  url.hash = shownPage();
   url.searchParams.delete("target");
   if (targetId) url.searchParams.set("target", targetId);
   if (push && url.href !== location.href) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
   if (!inPlace)
-    (feedback ? $("feedback").querySelector("h1") : $("page-title")).focus({
-      preventScroll: true,
-    });
+    (work
+      ? $("work-title")
+      : feedback
+        ? $("review-view").querySelector("h1")
+        : $("page-title")
+    ).focus({ preventScroll: true });
   // Returning to a page within a round lands where the reader left it.
   if (!keepScroll) {
-    const saved = targetId
-      ? 0
-      : places[displayedRound]?.tops?.[feedback ? "feedback" : page.id];
+    const saved = targetId ? 0 : places[displayedRound]?.tops?.[shownPage()];
     if (saved) restoreScroll(saved);
     else scroller().scrollTo(0, 0);
   } else if (resuming) settleScroll();
@@ -177,7 +202,6 @@ export function show(
     Promise.allSettled([...renders]).then(() => scroller().scrollTo(0, top));
   }
   rememberPlace();
-  $("quote").hidden = true;
   if (!inPlace) closeMenus();
   updateNavigation();
   review();
@@ -185,18 +209,23 @@ export function show(
   // from it, so a target is revealed after them.
   whenDrawn(drawing, () => {
     if (!loading) arrived();
-    if (!feedback) reveal(targetId);
+    reveal(targetId);
   });
 }
 // Scrolls to an element of the page on screen and focuses it, opening any
-// details around it and the Agreed tab that holds it.
+// details around it.
 export function reveal(targetId) {
-  const target = targetId && $(targetId);
+  // A target is usually on the page, so a page block that reuses a frame ID
+  // is the one revealed.
+  const target = targetId && document.getElementById(targetId);
   // A Progress thread's card is above the page content, under the progress
   // card or the finished line.
-  if (!target || !$("reading").contains(target)) return;
-  const panel = target.closest(".agreed-panel");
-  if (panel) showAgreedTab(panel.id);
+  const view =
+    target &&
+    [$("reading"), $("work-view"), $("review-view")].find((at) =>
+      at.contains(target),
+    );
+  if (!view) return;
   for (let ancestor = target; ancestor; ancestor = ancestor.parentElement)
     if (ancestor.tagName === "DETAILS") ancestor.open = true;
   // A collapsed thread card shows only its head, so a reply inside it has no
@@ -206,6 +235,7 @@ export function reveal(targetId) {
   if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
   target.focus({ preventScroll: true });
   target.scrollIntoView({ block: "center" });
+  holdInView(target, view);
 }
 export function badge(count) {
   const row = $("review-row");
@@ -213,24 +243,6 @@ export function badge(count) {
   const mark = row.querySelector(".count");
   mark.textContent = count ? `(${count})` : "";
   mark.hidden = !count;
-}
-/* On a narrow screen the page list is a dialog, like every other panel.
-   The one navigation element moves between the sidebar and the dialog, so
-   the current page and the counts live in a single place. */
-export let narrow;
-export function placeNavigation() {
-  const target = narrow.matches ? $("pages-slot") : $("sidebar-slot");
-  if ($("navigation").parentElement !== target) target.append($("navigation"));
-  if (!narrow.matches) closeDrawer();
-}
-function openDrawer() {
-  $("pages-dialog").showModal();
-  $("menu-button").setAttribute("aria-expanded", "true");
-}
-export function closeDrawer() {
-  if (!$("pages-dialog").open) return;
-  $("pages-dialog").close();
-  $("menu-button").setAttribute("aria-expanded", "false");
 }
 // Agreed so far leads the order, as it leads the sidebar, and Feedback ends
 // it. The footer's links and the [ and ] keys use this one order.
@@ -275,8 +287,8 @@ export function renderFooter(feedback) {
   );
 }
 
-// Agreed so far reads before the pages, Review or Feedback after them, each
-// behind a separator, and the drawer shows the same list as the sidebar.
+// Agreed so far reads before the pages, and Review or Feedback after them,
+// each behind a separator.
 function separator() {
   const divider = document.createElement("div");
   divider.className = "separator";
@@ -333,7 +345,7 @@ function newMarks() {
 export function updateNavigation(force = false) {
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
-  $("past-tab").textContent = pastRound ? `Round ${pastRound}` : "Previous";
+  $("past-tab").textContent = olderPast() ? `Round ${pastRound}` : "Last round";
   for (const tab of ["past", "current"])
     $(`${tab}-tab`).setAttribute("aria-selected", String(selectedTab === tab));
   if (
@@ -346,6 +358,26 @@ export function updateNavigation(force = false) {
     // The waiting Current lists Agreed alone.
     if (!showingWaiting()) pageList.append(separator());
     for (const item of pages.slice(1)) addPageButton(item);
+    // Work sits above Review, with two numbers: the proposed cards, then
+    // the cards that need the reviewer at the row's right edge.
+    if (hasWork()) {
+      const work = document.createElement("button");
+      work.type = "button";
+      work.id = "work-row";
+      work.dataset.page = "work";
+      const label = document.createElement("span");
+      label.textContent = "Work";
+      const counts = document.createElement("span");
+      counts.className = "work-counts";
+      for (const kind of ["proposed", "needs"]) {
+        const total = document.createElement("b");
+        total.className = `count ${kind}`;
+        total.hidden = true;
+        counts.append(total);
+      }
+      work.append(label, counts);
+      pageList.append(separator(), work);
+    }
     if (hasFeedbackPage && !showingWaiting()) {
       const review = document.createElement("button");
       review.type = "button";
@@ -362,6 +394,29 @@ export function updateNavigation(force = false) {
     }
     pageList.dataset.round = plan.round;
     pageList.dataset.tab = selectedTab;
+  }
+  const workRow = $("work-row");
+  if (workRow) {
+    const counts = workCounts();
+    const said = {
+      needs: `${counts.needs} need${counts.needs === 1 ? "s" : ""} you`,
+      proposed: `${counts.proposed} proposed`,
+    };
+    for (const kind of ["needs", "proposed"]) {
+      const mark = workRow.querySelector(`.count.${kind}`);
+      mark.textContent = String(counts[kind]);
+      mark.hidden = !counts[kind];
+      mark.title = said[kind];
+    }
+    workRow.setAttribute(
+      "aria-label",
+      [
+        "Work",
+        ...["needs", "proposed"]
+          .filter((kind) => counts[kind])
+          .map((kind) => said[kind]),
+      ].join(", "),
+    );
   }
   const opened = newMarks();
   for (const item of pages) {
@@ -397,7 +452,6 @@ export function updateNavigation(force = false) {
 }
 export function installPages() {
   displayedRound = plan.round;
-  narrow = matchMedia("(max-width: 720px)");
   const tabs = document.createElement("div");
   tabs.className = "page-tabs";
   tabs.setAttribute("role", "tablist");
@@ -410,7 +464,7 @@ export function installPages() {
     button.id = `${tab}-tab`;
     button.dataset.tab = tab;
     button.setAttribute("role", "tab");
-    button.textContent = tab === "current" ? "Current" : "Previous";
+    button.textContent = tab === "current" ? "Current" : "Last round";
     tabs.append(button);
   }
   // A read-only page shows one round, so there is nothing to switch to.
@@ -419,13 +473,5 @@ export function installPages() {
   pageList.id = "page-list";
   $("navigation").append(tabs, pageList);
   updateNavigation(true);
-  // Above 720px the button opens the session list through its
-  // popovertarget. At 720px and below it opens this drawer instead.
-  $("menu-button").addEventListener("click", (event) => {
-    if (!narrow.matches) return;
-    event.preventDefault();
-    if ($("pages-dialog").open) closeDrawer();
-    else openDrawer();
-  });
-  $("feedback-pages").addEventListener("click", openDrawer);
+  $("feedback-pages").addEventListener("click", openSidebar);
 }

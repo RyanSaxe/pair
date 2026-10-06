@@ -1,14 +1,18 @@
+import { closeSidebarOverPage } from "#frame/app/sidebar.mjs";
 import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
   base,
   currentAvailable,
+  isPlanRound,
   mode,
   plan,
   submittedRound,
+  views,
 } from "#frame/app/view.mjs";
 import { chooseBlock } from "#frame/notes/blocks.mjs";
-import { closeDrawer, displayedRound } from "#frame/pages/pages.mjs";
+import { tag } from "#frame/pages/agreed.mjs";
+import { displayedRound } from "#frame/pages/pages.mjs";
 import { renderHistory } from "#frame/sync/activity-view.mjs";
 import {
   openPast,
@@ -20,6 +24,10 @@ import { toggleCenter } from "#frame/sync/center.mjs";
 import { toggleSessions } from "#frame/sync/sessions.mjs";
 
 let renderedRounds = "";
+// A round in the list is a plan when the hub's entry says so, or, for a
+// round whose entry is not in yet, when its loaded Agreed does.
+const planEntry = (entry) =>
+  isPlanRound(entry) || isPlanRound(views.get(entry.round)?.plan);
 export function renderRounds() {
   const entries = (
     remote?.rounds?.length
@@ -36,7 +44,7 @@ export function renderRounds() {
   const latest = remote?.current?.round ?? entries[0].round;
   const signature = JSON.stringify([
     latest,
-    entries.map((entry) => [entry.round, entry.publishedAt]),
+    entries.map((entry) => [entry.round, entry.publishedAt, planEntry(entry)]),
     displayedRound,
     mode,
     selectedTab,
@@ -56,6 +64,7 @@ export function renderRounds() {
     tick.textContent = here ? "✓" : "";
     const label = document.createElement("span");
     label.textContent = `Round ${entry.round}`;
+    if (planEntry(entry)) label.append(" ", tag("Plan", "plan"));
     const status = document.createElement("small");
     status.textContent =
       entry.round === latest && latest !== submittedRound
@@ -99,7 +108,7 @@ export function toggleRoundMenu(open = !$("round-dialog").open) {
 export function closeMenus() {
   chooseBlock(null);
   window.dispatchEvent(new CustomEvent("plan:dismiss"));
-  closeDrawer();
+  closeSidebarOverPage();
   toggleRoundMenu(false);
   toggleCenter(false);
   toggleSessions(false);

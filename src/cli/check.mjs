@@ -27,7 +27,7 @@ function hubLine(hub) {
   if (hub.state === "busy")
     return `port ${hub.port} is in use by another program`;
   const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
-  return `port ${hub.port} runs a pair hub with ${sessions}, code ${hub.version}`;
+  return `port ${hub.port} is in use by a pair hub with ${sessions}, code ${hub.version}`;
 }
 function codexLine(codex) {
   if (codex.present) return `${codex.rules} matches pair's rule`;
@@ -37,16 +37,14 @@ function codexLine(codex) {
 // The checks pair start needs to pass, one line each. A check that fails
 // outright refuses with its error. A busy hub port and a missing Codex rules
 // file each add a next step.
-export async function check(options) {
+export async function check() {
   const codex = await codexReport();
   let directory;
   const server = http.createServer((_, response) => response.end("ready"));
   try {
     requireNode();
     // The hub writes under <state>/pair, so that is the directory to test.
-    const base = options.args[0]
-      ? path.resolve(options.args[0])
-      : settings().root;
+    const base = settings().root;
     await fs.mkdir(base, { recursive: true });
     directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
     await fs.writeFile(path.join(directory, "draft"), "ready");
@@ -74,7 +72,7 @@ export async function check(options) {
         : []),
       ...(codex && !codex.exists
         ? [
-            `Ask the user whether pair may write ${codex.rules}. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
+            `Ask the user whether pair may write ${codex.rules}. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
           ]
         : []),
     ];

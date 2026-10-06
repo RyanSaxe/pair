@@ -9,7 +9,7 @@
 /* reading.css sizes every p and li on a page with #page-content p, and an ID
    outranks a class, so each rule here that sizes Agreed's paragraphs and list
    items names #page-content too. */
-/* The task opens Agreed, above the decisions. */
+/* The task and the alignments each have a heading. */
 #page-content .agreed-label {
   margin: 4px 0 8px;
   font-size: var(--text-caps);
@@ -17,27 +17,6 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-}
-.agreed-tabs {
-  margin-bottom: 14px;
-}
-.agreed-tab-count {
-  margin-left: 6px;
-  color: var(--muted);
-  font-size: var(--text-meta);
-  font-weight: normal;
-}
-.agreed-tabs-plain {
-  align-items: center;
-  min-height: 35px;
-}
-.agreed-tabs-plain .agreed-tab-label {
-  padding: 8px 10px;
-  font-size: var(--text-ui);
-  color: var(--muted);
-}
-.agreed-tabs-plain .agreed-tab-count {
-  padding: 8px 0;
 }
 .task-card {
   margin-bottom: 18px;
@@ -63,28 +42,40 @@
 .agreement-body h2 .tag {
   margin-left: 6px;
 }
+.agreement-body > .card-meta {
+  margin: 0 0 6px;
+}
 .agreement-body p {
   margin: 4px 0 0;
 }
 #page-content .agreement-body :is(p, li) {
   font-size: var(--text-ui);
 }
+/* The footer stays one row: an alignment's holds only buttons, and the
+   task's text is cut short before its Comment moves. */
 .agreement-source {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
   padding: 8px 14px;
   border-top: 1px solid var(--line);
   background: var(--ground);
   font-size: var(--text-meta);
   color: var(--muted);
 }
+.agreement-source > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .agreement-source .actions {
   display: flex;
+  flex: none;
   gap: 4px;
   align-items: center;
+  white-space: nowrap;
 }
 .agreement-source .link-btn,
 .agreement-source a {

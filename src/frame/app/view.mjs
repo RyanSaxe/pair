@@ -1,4 +1,5 @@
 import { state } from "#frame/app/store.mjs";
+import { $ } from "#frame/app/util.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
@@ -37,6 +38,15 @@ export function useView(view) {
   agreedTask = view.task || null;
   pages = view.pages;
 }
+// Whether a round is a plan: Agreed's source marks it with "plan": true,
+// which the hub copies into the round's data. A round's data already has
+// the name plan, so this asks it.
+export const isPlanRound = (data = plan) => data?.plan === true;
+// The title of a round's page, or of the places a note or thread can be on
+// besides the pages: Review's overall comment and Work.
+const placeTitles = { overall: "Overall feedback", work: "Work" };
+export const topicTitle = (topic) =>
+  pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
 // The last round this reader submitted, which keeps Current disabled until
 // the next one arrives, and the past round the left tab shows.
 export let submittedRound = null;
@@ -53,6 +63,9 @@ export let page;
 export function setPage(next) {
   page = next;
 }
+// What is on screen: a page of the round, the Work page or Review.
+export const shownPage = () =>
+  !$("work-view").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
 export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&
@@ -124,3 +137,14 @@ export const showingWaiting = () =>
 export const viewKey = () =>
   showingWaiting() ? `${plan.round} waiting` : plan.round;
 export const pastAvailable = () => Boolean(pastRound && views.has(pastRound));
+// Whether the left tab holds a round older than the last one, as a round
+// opened from the Rounds dialog can be. The last round is the newest one
+// before Current's, or Current's own round once its feedback is sent.
+export function olderPast() {
+  if (!pastRound || !remote?.current) return false;
+  const last = waiting()
+    ? remote.current.round
+    : remote.rounds?.findLast((entry) => entry.round !== remote.current.round)
+        ?.round;
+  return pastRound !== last;
+}

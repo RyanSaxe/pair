@@ -12,16 +12,25 @@ import {
 } from "../../shared/util.mjs";
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
-import { agent } from "./agent.mjs";
+import { agent, answersRound } from "./agent.mjs";
+import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
+import { proposals } from "./proposals.mjs";
 import { rounds } from "./rounds.mjs";
-import { sideWork } from "./side-work.mjs";
-import { submissions } from "./submissions.mjs";
+import { nextOf, submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
-// tabOpen says whether a pair tab on this machine polled the hub recently.
-export async function loadSession(directory, config, origin, tabOpen) {
+// tabOpen says whether a pair tab on this machine polled the hub recently,
+// and peer finds another session on the hub by its ID, for the session a
+// linked session came from.
+export async function loadSession(
+  directory,
+  config,
+  origin,
+  tabOpen,
+  peer = () => null,
+) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
@@ -31,7 +40,6 @@ export async function loadSession(directory, config, origin, tabOpen) {
         stage: "ready",
         current: null,
         acknowledged: [],
-        accepted: null,
         startedAt: timestamp(),
         // Round 1 starts with the pair start that creates the session.
         roundStartedAt: timestamp(),
@@ -104,9 +112,9 @@ export async function loadSession(directory, config, origin, tabOpen) {
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  // A saved round keeps its acceptance unread until an agent reads it, and
-  // stays saved. A closed session stays closed with feedback unread.
-  if ((await pending()).length && !["saved", "complete"].includes(state.stage))
+  // A closed session stays closed with feedback unread. A Start leaves the
+  // round as it is.
+  if ((await pending()).some(answersRound) && state.stage !== "complete")
     await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
   const sameRound = (event) =>
@@ -117,9 +125,11 @@ export async function loadSession(directory, config, origin, tabOpen) {
     Boolean(state.current) &&
     !state.openRound &&
     ["ready", "updated"].includes(state.stage);
-  // A saved session waits for an agent, so it does not keep the hub running.
-  const active = () =>
-    !["complete", "saved"].includes(state.stage) && !state.paused;
+  // A session's name: its round's title, or before its first round the
+  // title in its status.
+  const title = () =>
+    state.current ? state.current.title : state.title || "New session";
+  const active = () => state.stage !== "complete" && !state.paused;
   // The parts of a session share this context. A part calls another part's
   // function through it, so no part depends on the order they are made in.
   const session = {
@@ -127,6 +137,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     config,
     origin,
     tabOpen,
+    peer,
     base,
     exclusive,
     transition,
@@ -134,6 +145,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     saveEvent,
     pending,
     sameRound,
+    needsYou,
     view,
     browserView,
     wakeFile,
@@ -150,9 +162,10 @@ export async function loadSession(directory, config, origin, tabOpen) {
     agent(session),
     rounds(session),
     pageNotes(session),
-    await sideWork(session),
     threads(session),
     await activity(session),
+    await proposals(session),
+    links(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -195,7 +208,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
       wake: state.wake || null,
       paused: state.paused || null,
       needsYou: needsYou(),
-      sideWork: session.sideWorkItems(),
+      proposals: session.proposalItems(),
     };
   }
   // The browser draws every thread's card from its status. An agent reads a
@@ -206,6 +219,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
       ...view(),
       sessionDir: directory,
       threads: session.threadView(),
+      parent: session.parentView(),
     };
   }
   async function latestFeedback(requestedRound) {
@@ -215,11 +229,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     );
     const event = requestedRound
       ? events
-          .filter(
-            (item) =>
-              item.payload.intent === "feedback-only" &&
-              item.payload.round === requestedRound,
-          )
+          .filter((item) => item.payload.round === requestedRound)
           .sort((a, b) => b.sequence - a.sequence)[0]
       : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
         ? await read(
@@ -231,12 +241,13 @@ export async function loadSession(directory, config, origin, tabOpen) {
           )
         : null;
     if (!event) return null;
-    if (event.payload.intent !== "feedback-only") return null;
-    const { groups, round } = event.payload;
+    const { groups, round, message } = event.payload;
     return {
       id: event.id,
       round,
       receivedAt: event.receivedAt,
+      next: nextOf(event.payload),
+      ...(message ? { message } : {}),
       groups: {
         alignUnflagged: groups.alignUnflagged,
         notes: (groups.notes || []).map(
@@ -260,8 +271,11 @@ export async function loadSession(directory, config, origin, tabOpen) {
     const set = state.roundPages?.[round];
     return {
       id: state.sessionId,
-      title: state.current ? state.current.title : state.title || "New session",
-      offer: state.current?.offer,
+      title: title(),
+      // A linked session names the session and the proposal it came from.
+      parentId: state.parent?.sessionId ?? null,
+      proposal: state.parent?.proposal ?? null,
+      closed: state.stage === "complete",
       round,
       stage: state.stage,
       needsYou: needsYou(),
@@ -295,7 +309,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
       updatedAt: state.updatedAt,
       url: base + "/",
       handoff: session.handoff,
-      events: session.activityItems(),
+      events: session.withAcknowledgements(session.activityItems()),
     };
   }
   return {
@@ -308,6 +322,7 @@ export async function loadSession(directory, config, origin, tabOpen) {
     get state() {
       return state;
     },
+    title,
     exclusive,
     submit: session.submit,
     upload: session.upload,
@@ -315,11 +330,23 @@ export async function loadSession(directory, config, origin, tabOpen) {
     uploadScene: session.uploadScene,
     readScene: session.readScene,
     removeUpload: session.removeUpload,
-    dismiss: session.dismiss,
-    startSideWork: session.startSideWork,
-    dropSideWork: session.dropSideWork,
+    close: session.close,
+    startProposal: session.startProposal,
+    openAgent: session.openAgent,
+    declineProposal: session.declineProposal,
+    restoreProposal: session.restoreProposal,
+    parentView: session.parentView,
+    linkParent: session.linkParent,
+    linkable: session.linkable,
+    linkSession: session.linkSession,
+    joinedInto: session.joinedInto,
+    closedSession: session.closedSession,
+    built: session.built,
+    proposalItems: session.proposalItems,
+    writeStatus: session.writeStatus,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
+    acknowledge: session.acknowledge,
     act: session.act,
     browserView,
     latestFeedback,

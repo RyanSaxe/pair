@@ -79,11 +79,10 @@ export const sessionConfig = (html) =>
 
 export const task = { title: "The task", html: "<p>What the plan builds.</p>" };
 
-export function planData(round = "1", offer, name = "example") {
+export function planData(round = "1", name = "example") {
   return {
     name,
     round,
-    ...(offer ? { offer } : {}),
     title: "Example work",
     pages: [
       {
@@ -161,15 +160,19 @@ export async function hub(t, extra = {}, options = {}) {
   };
   // A session registered by an inbox, or by the agent a pairCli runs as,
   // so that the command can work on it. With start, it registers as pair
-  // start does.
-  async function session({ cli, box, start } = {}) {
+  // start does, and with from and proposal as pair start --from does.
+  async function session({ cli, box, start, from, proposal } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
       ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
       : mailbox.target;
     const agent = cli ? cli.agent : mailbox.agent;
     const directory = path.join(config.sessions, crypto.randomUUID());
-    const registered = await register(directory, wake, start ? { start } : {});
+    const registered = await register(
+      directory,
+      wake,
+      start ? { start, ...(from ? { from, proposal } : {}) } : {},
+    );
     assert.equal(registered.code, 200, registered.body.error);
     const info = registered.body;
     const connection = JSON.parse(
@@ -206,13 +209,14 @@ export async function hub(t, extra = {}, options = {}) {
       );
     // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
+    // data.plan marks the round a plan in Agreed's source.
     const publish = async (data) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
           name: data.name,
           round: data.round,
-          ...(page.id === "agreed" ? { offer: data.offer } : {}),
           title: data.title,
+          ...(page.id === "agreed" && data.plan ? { plan: true } : {}),
           page,
         });
       let result = await action("publish", {
@@ -275,11 +279,12 @@ export async function hub(t, extra = {}, options = {}) {
 // the suite passes the same way under Claude Code, Codex, Copilot CLI or none
 // of them. With harness "codex" they run under a process named codex with a
 // thread ID instead. run returns stdout, output returns stdout and stderr,
-// and start creates a session and returns what start --json prints.
+// and start creates a session and returns what start --json prints. With
+// cwd, every command runs in that directory.
 export async function pairCli(
   home,
   extra = {},
-  { cli = pair, harness = "claude-code" } = {},
+  { cli = pair, harness = "claude-code", cwd } = {},
 ) {
   const relay =
     'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
@@ -303,7 +308,7 @@ export async function pairCli(
     ...extra,
   };
   const output = (...args) =>
-    exec(agentCli, ["-e", relay, cli, ...args], { env });
+    exec(agentCli, ["-e", relay, cli, ...args], { env, cwd });
   const run = async (...args) => (await output(...args)).stdout;
   return {
     config: settings(env),

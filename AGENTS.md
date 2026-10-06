@@ -39,14 +39,14 @@ same name under `tests/`:
   command starts it when none is running, and it exits after 15 minutes with
   no live session. It wakes the holder, the agent that last ran `pair start`
   on a session. `src/hub/session/` has one session's state and actions: its
-  rounds, its holder, the reviewer's submissions and uploads, its threads
-  and its side work.
+  rounds, its holder, the reviewer's submissions and uploads, its threads,
+  its proposals, and its link to the session it came from.
 - The builder, `src/build/`, turns a page source into a page. `problems()`
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.
 - The frame, `src/frame/`, runs in the browser. `app/` starts it and keeps the
-  state every other part reads, `pages/` shows the pages, Agreed and the home
-  view of a session with nothing published, `notes/` has the code for the
+  state every other part reads, `pages/` shows the pages, Agreed, Work and
+  the home view of a session with nothing published, `notes/` has the code for the
   reviewer's notes, threads, choices, answers and drawings, `review/` is the
   Review page and sending, and `sync/` reads rounds, sessions, activity and
   notifications from the hub.
@@ -54,8 +54,8 @@ same name under `tests/`:
   `markup.html` that a page author copies and the component's styles and
   behavior.
 - The shared modules, `src/shared/`, are the ones that more than one of the
-  command, the hub, the builder and the frame import, such as the offer
-  registry in `src/shared/offers.mjs`.
+  command, the hub, the builder and the frame import, such as
+  `src/shared/choices.mjs`, which writes a reviewer's choice as text.
 - The adapters, `adapters/`, have one folder per agent CLI. Each folder's
   `wake.mjs` finds a running session of that CLI and wakes it. For a CLI
   that takes no message from another process, the folder also contains the
@@ -149,8 +149,8 @@ Read `.agents/skills/test-audit/SKILL.md` before writing, changing or deleting
 a test, and when asked to audit the tests.
 
 Read `.agents/skills/writing/SKILL.md` before writing or changing `guide/`,
-`skills/pair/`, a line the hub or a command prints, `src/shared/offers.mjs`,
-the README, `docs/`, this file or a skill in `.agents/skills/`.
+`skills/pair/`, a line the hub or a command prints, the README, `docs/`, this
+file or a skill in `.agents/skills/`.
 
 ## Tests
 
@@ -176,7 +176,7 @@ In `tests/support/browser.mjs`, `launch()` starts Chrome, and
 
 ## Checking the frame in a browser
 
-The browser tests check what the frame does, such as Finish your review, a
+The browser tests check what the frame does, such as sending feedback, a
 note's highlight and the keys, and that every fixture figure renders. No test
 checks how a page looks, so open a frame or component change in a browser
 before calling it done.
@@ -205,10 +205,9 @@ XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 
 `check` must report the hub port as `free`. `start` prints the session's
 directory and URL. Build and publish a round in that session as
 `guide/pages.md` describes, open the URL, and use the change. With
-`PAIR_WAKE=off` the hub sends no wake message when you send feedback, start a
-thread or press Start in parallel. It saves the submission, thread
-message or start as usual and writes the line it would have sent to
-`$state/pair/hub/hub.log`. Leave `PAIR_WAKE` unset only to check a change to
+`PAIR_WAKE=off` the hub sends no wake message when you send feedback, start
+a thread or start a proposal. It saves the submission, thread message or
+start as usual and writes the line it would have sent to `$state/pair/hub/hub.log`. Leave `PAIR_WAKE` unset only to check a change to
 the wake itself, and then the hub wakes the agent that ran `start`. Finish with
 `node src/cli.mjs pause --session-dir DIR --reason "Done"` under the same
 variables, and the hub exits 60 seconds later.
@@ -218,9 +217,25 @@ They belong to the person using pair on this machine: a session started there
 shows in their Live sessions, and a hub started there from your checkout serves
 their sessions with your code.
 
-When a change alters what the README's or the docs' screenshots show, run
+When a pull request into a branch other than `main` changes `src/frame/`,
+`src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
+`scripts/demo/`, the `screenshots` job in `.github/workflows/screenshots.yml`
+runs `npm run screenshots` on GitHub's macOS 26 runner and pushes the PNGs
+it rewrote to the pull request's branch. The illustration's terminal shows
+IDs that each run creates anew, so the job pushes a commit after every push
+to such a pull request. Pull that commit before you push to the branch again.
+GitHub runs the checks on the job's commit only after someone with write
+access selects Approve workflows to run on the pull request.
+
+For a change elsewhere that alters what the README's or the docs'
+screenshots show, and for a pull request from a fork, run
 `npm run screenshots` on macOS and commit the PNGs it rewrites. The script
 starts its own hub on a port the system assigns, with its state in a
 temporary directory, and takes each screenshot in the installed Google
 Chrome. The frame's text is the system font, so the script refuses to run on
 another system, where lines would break in other places.
+
+When `npm run screenshots` fails, it saves a screenshot and the console log
+of each of its browser windows in `screenshots-failure/`, which git ignores.
+The `screenshots` job uploads that directory as the `screenshots-failure`
+artifact of its run.

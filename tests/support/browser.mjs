@@ -6,9 +6,10 @@ import "./env.mjs";
 // skipping.
 const missing = "Google Chrome is not installed";
 
-export async function launch() {
+// args are switches for Chrome.
+export async function launch({ args } = {}) {
   try {
-    return await chromium.launch({ channel: "chrome" });
+    return await chromium.launch({ channel: "chrome", args });
   } catch (error) {
     const message = error.message || String(error);
     if (
@@ -22,11 +23,12 @@ export async function launch() {
 }
 
 // Opens url in a new page of the installed Chrome, and closes Chrome when
-// the test ends. With html, the page is served at http://pair.localhost/.
-export async function open(t, url, { html, ...pageOptions } = {}) {
+// the test ends. With html, the page is served at http://pair.localhost/,
+// and args are switches for Chrome.
+export async function open(t, url, { html, args, ...pageOptions } = {}) {
   let browser;
   try {
-    browser = await launch();
+    browser = await launch({ args });
   } catch (error) {
     if (process.env.CI || error.message !== missing) throw error;
     t.skip(missing);
@@ -41,3 +43,26 @@ export async function open(t, url, { html, ...pageOptions } = {}) {
   await page.goto(url);
   return page;
 }
+
+// Stands in for Mermaid from jsDelivr, so a test runs offline. Like
+// Mermaid, render() draws a full-size element to measure the diagram, in
+// the container it is given or else at the end of the body, and removes it
+// when the render ends.
+const mermaid = `export default {
+  initialize() {},
+  registerLayoutLoaders() {},
+  async render(id, source, container = document.body) {
+    const drawing = document.createElement("div");
+    drawing.id = "d" + id;
+    drawing.style.height = "3000px";
+    container.append(drawing);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    drawing.remove();
+    return { svg: '<svg viewBox="0 0 120 40"></svg>' };
+  },
+};`;
+
+export const stubMermaid = (page) =>
+  page.route(/mermaid\.esm\.min\.mjs$|mermaid-layout-elk/, (route) =>
+    route.fulfill({ body: mermaid, contentType: "text/javascript" }),
+  );

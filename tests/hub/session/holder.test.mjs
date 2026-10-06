@@ -1,21 +1,6 @@
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
-import { buildPage } from "../../../src/cli/build.mjs";
-import {
-  alive,
-  freePort,
-  hub,
-  killHub,
-  literal,
-  pairCli,
-  planData,
-  sleep,
-  waitUntil,
-} from "../../support/hub.mjs";
+import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
 
 test("start hands the session to its agent, and only the holder works on it and is woken", async (t) => {
   const h = await hub(t);
@@ -36,11 +21,17 @@ test("start hands the session to its agent, and only the holder works on it and 
   // to take it over, not that anyone took it over.
   assert.equal(
     (await a.action("ack", { agent: three.agent })).body.error,
-    `Another agent has been this session's holder since ${clock(first.at)}. Stop working on it unless the user asks you to take it over with: pair start --session-dir ${a.directory}`,
+    `Another agent has run this session since ${clock(first.at)}, so stop working on it. If the reviewer asks you to take it over, run pair start --session-dir ${a.directory}.`,
   );
   // Another agent's start takes it over, and the reviewer's card says so.
+  // That agent may never have read the core, so its next step starts there.
   await sleep(5);
-  assert.equal((await register(two, true)).code, 200);
+  const took = await register(two, true);
+  assert.equal(took.code, 200);
+  assert.match(
+    took.body.next,
+    /^If you have not run pair guide in this conversation, run it first\. /,
+  );
   const { holder, takeover } = (await a.status()).body;
   assert.equal(holder.harness, "claude-code");
   assert.notEqual(holder.at, first.at);
@@ -61,7 +52,7 @@ test("start hands the session to its agent, and only the holder works on it and 
     assert.equal(refused.code, 409);
     assert.match(
       refused.body.error,
-      /^Another agent has been this session's holder/,
+      /^Another agent has run this session since /,
     );
   }
   assert.deepEqual((await a.status()).body.holder, holder);
@@ -98,114 +89,4 @@ test("status answers any agent or none, and keeps the takeover notice", async (t
   const lost = await a.action("ack");
   assert.equal(lost.code, 409);
   assert.match(lost.body.error, /^Another agent took this session over at /);
-});
-
-test("a saved plan outlives its hub until another agent takes it over", async (t) => {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-handoff-"));
-  const port = await freePort();
-  const env = {
-    XDG_STATE_HOME: home,
-    PAIR_HUB_PORT: String(port),
-    PAIR_HUB_IDLE_SECONDS: "1",
-  };
-  const agent = async (name) => {
-    await fs.mkdir(path.join(home, name));
-    return pairCli(path.join(home, name), env);
-  };
-  const one = await agent("one");
-  const two = await agent("two");
-  t.after(async () => {
-    await killHub(one.config);
-    await fs.rm(home, { recursive: true, force: true });
-  });
-  const saved = await one.start();
-  const run = (cli, ...args) =>
-    cli.run(...args, "--session-dir", saved.sessionDir);
-  const plan = { name: "example", round: "1", title: "Plan" };
-  const files = {
-    agreed: {
-      id: "agreed",
-      title: "Agreed so far",
-      agreements: [],
-      task: { title: "The task", html: "<p>What the plan builds.</p>" },
-    },
-    overview: { id: "overview", title: "Overview", html: "<p>Build it.</p>" },
-  };
-  for (const [id, page] of Object.entries(files))
-    await fs.writeFile(
-      path.join(home, `${id}.html`),
-      await buildPage(path.join(home, "source.json"), {
-        ...plan,
-        ...(id === "agreed" ? { offer: "plan" } : {}),
-        page,
-      }),
-    );
-  await fs.writeFile(
-    path.join(home, "pages.json"),
-    JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
-  );
-  await run(
-    one,
-    "publish",
-    "--file",
-    path.join(home, "agreed.html"),
-    "--pages",
-    path.join(home, "pages.json"),
-  );
-  await run(one, "publish", "--file", path.join(home, "overview.html"));
-  const hubRecord = JSON.parse(await fs.readFile(one.config.hubFile, "utf8"));
-  const origin = `http://127.0.0.1:${port}`;
-  const accepted = await fetch(`${origin}/s/${saved.sessionId}/api/feedback`, {
-    method: "POST",
-    headers: { Origin: origin, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...plan,
-      sessionId: saved.sessionId,
-      id: crypto.randomUUID(),
-      intent: "accept",
-      offer: "plan",
-      action: "save",
-      groups: {},
-      text: "Save it",
-    }),
-  });
-  assert.equal(accepted.status, 200);
-  // A saved session is not live, so the hub exits with only it left.
-  assert.equal(await waitUntil(() => !alive(hubRecord.pid), 5000), true);
-  // A new hub loads it from disk at the URL it had.
-  const fresh = await two.start();
-  const listed = await fetch(`${origin}/api/sessions`).then((response) =>
-    response.json(),
-  );
-  // The new session is listed from its start, before it publishes.
-  assert.deepEqual(
-    listed.sessions.map(({ url, stage }) => [url, stage]).sort(),
-    [
-      [`/s/${fresh.sessionId}/`, "ready"],
-      [`/s/${saved.sessionId}/`, "saved"],
-    ].sort(),
-  );
-  assert.equal(fresh.url, `${origin}/s/${fresh.sessionId}/`);
-  // Another agent takes it over with the handoff line and is sent to build it.
-  const handoff = JSON.parse(await run(one, "status", "--json")).handoff;
-  assert.equal(
-    handoff,
-    `Take over pair session ${saved.sessionDir}: run pair start --session-dir ${saved.sessionDir} and follow what it prints.`,
-  );
-  const took = JSON.parse(await run(two, "start", "--json"));
-  assert.equal(took.url, saved.url);
-  // The new holder reads the core first, then the Save, and builds the plan.
-  assert.match(
-    took.next,
-    new RegExp(
-      `^Run pair guide first unless you have read it in this conversation\\. Round 1 was saved for later, and you now build it\\. Run pair read --session-dir ${literal(saved.sessionDir)}, .* its action stays save\\. Then build the plan as the Start implementation section of pair guide offers/plan\\.md describes\\.$`,
-    ),
-  );
-  const status = JSON.parse(await run(two, "status", "--json"));
-  assert.equal(status.stage, "working");
-  assert.equal(status.latestSubmissionRound, "1");
-  await assert.rejects(
-    run(one, "read"),
-    /Another agent took this session over at \d\d:\d\d\. Stop working on it\./,
-  );
 });

@@ -1,12 +1,11 @@
 /* The side offsets are padding rather than margin: a margin adds to the
    full width of main and scrolls the page sideways below a 1100px window.
-   The 56px on the left holds the bar that marks a chosen block, the right
-   side matches it so the column sits evenly in main, and the last line
-   clears the comment control, which is always on screen. */
+   The 56px on the left holds the bar that marks a chosen block, and the
+   right side matches it so the column sits evenly in main. */
 .content {
   flex: 1 0 auto;
   margin: 0;
-  padding: 24px 56px 90px;
+  padding: 24px 56px 40px;
   width: 100%;
   min-width: 0;
   min-height: 100%;
@@ -14,7 +13,7 @@
   flex-direction: column;
 }
 #reading,
-#feedback {
+#review-view {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -73,10 +72,6 @@
 #footer-next {
   margin-left: auto;
   text-align: right;
-}
-.accepted {
-  margin: 10px 0 16px;
-  overflow-wrap: anywhere;
 }
 /* Notes on the text */
 ::highlight(plan-note),
@@ -221,18 +216,103 @@ mark.note-mark {
 .figure-caption b {
   color: var(--ink);
 }
-.quote-button {
+/* The comment control stays in a corner of the window. With nothing chosen
+   it is a quiet round icon that comments on the page, and for a selection
+   or a chosen block it grows leftward into a blue button that names its
+   target. The label's column widens from 0fr to 1fr, so the button grows to
+   the label's own width with no width measured in script. blocks.mjs sets
+   data-place, and on a wide window the right offset that centers the icon in
+   the gutter beside the page's text. */
+/* Growing, the shape and colour change first and the label fades in once
+   the button has its full width. Shrinking runs the same steps backward. So
+   the label is never drawn cut off by the edge of a button still changing
+   size. */
+.comment-here {
+  --grow: 180ms;
+  --fade: 90ms;
   position: fixed;
-  right: calc(max(0px, (100% - 1160px) / 2) + 22px);
-  bottom: calc(22px + env(safe-area-inset-bottom));
-  z-index: var(--z-selection);
+  z-index: var(--z-comment);
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 18px minmax(0, 0fr);
+  align-items: center;
+  column-gap: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  box-shadow: 0 2px 8px light-dark(#0000001f, #00000066);
+  font-size: var(--text-body);
+  font-weight: var(--weight-strong);
+  transition-property:
+    grid-template-columns, column-gap, padding, background-color, border-color,
+    color;
+  transition-duration: var(--grow);
+  transition-timing-function: ease-out;
+  transition-delay: var(--fade);
+}
+.comment-here[data-place="gutter"] {
+  bottom: 24px;
+}
+.comment-here svg {
+  width: 18px;
+  height: 18px;
+}
+.comment-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--fade);
+}
+.comment-here:is([data-on="selection"], [data-on="block"]) {
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 8px;
+  padding: 0 14px 0 13px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  transition-delay: 0s;
+}
+.comment-here:is([data-on="selection"], [data-on="block"]) .comment-label {
+  opacity: 1;
+  transition: opacity var(--fade) var(--grow);
+}
+.comment-here kbd {
+  min-width: 0;
+  padding: 0 5px;
+  border-color: color-mix(in srgb, currentColor 55%, transparent);
+  background: none;
+  color: inherit;
+}
+@media (hover: hover) {
+  .comment-here[data-on="page"]:hover {
+    color: var(--accent);
+  }
+}
+@media (pointer: coarse) {
+  .comment-here kbd {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .comment-here,
+  .comment-label {
+    transition: none !important;
+  }
 }
 /* The bar sits in the padding the column already has: 56px on a desktop and
    16px on a phone, so marking a block never narrows the text. It is one
    element beside the page rather than a pseudo-element on the block, because
    a table, a code block and a figure each scroll inside their own box and
    would clip a bar that hung outside it. */
-#reading {
+#reading,
+#work-view {
   position: relative;
 }
 .chosen-bar,
@@ -255,16 +335,17 @@ mark.note-mark {
   font-size: var(--text-small);
 }
 /* Dialogs cover the current page, so its comment control steps aside. */
-body:has(dialog[open]) .quote-button {
+body:has(dialog[open]) .comment-here {
   display: none;
 }
 @media (max-width: 720px) {
   #feedback-pages {
     display: inline-block;
   }
+  /* The bottom padding lets the last line scroll clear of the comment
+     control in the corner: its 16px offset, its 44px and 16px between. */
   .content {
-    /* The last line clears the comment control, which is always on screen. */
-    padding: 20px 16px calc(90px + env(safe-area-inset-bottom));
+    padding: 20px 16px calc(76px + env(safe-area-inset-bottom));
   }
 }
 /* progress.mjs draws the bar along the top of the reading column while a

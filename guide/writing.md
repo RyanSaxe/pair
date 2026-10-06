@@ -1,7 +1,7 @@
 # Writing
 
-A page explains code, puts a decision to the reviewer or shows built work.
-Put the facts, choices, reasons and consequences on the page. Remove
+Every page helps the reviewer understand something or decide something. Put
+the facts, choices, reasons and consequences on the page, and leave out
 commentary about the page itself.
 
 Most context is short: one line of consequence under an option, a caption, a
@@ -28,11 +28,13 @@ is clearer than "The draft is stored" because it names the actor.
 Use the real name. Write "`problems()` refuses an option label over 24
 characters", not "the build enforces a limit on labels".
 
+Use the words a person would say. Introduce a term from the project once, in
+plain words, before you rely on it, and never use a name from the project as
+if the reader already knows it. Write "the nightly job that re-sends failed
+receipts", not "the replayer", until the page has said what the replayer is.
+
 Give a reason with every judgment. Write "One Redis cache is simpler because
 four web processes read one copy" instead of "One Redis cache is simpler".
-
-Put one idea in a sentence. Two half-thoughts joined by a semicolon are two
-sentences.
 
 A heading and an option's `data-label` are labels. Make the claim in a
 sentence under the label. Write "Retry policy", not "Retries are the risk here".
@@ -41,16 +43,34 @@ write "The body contains the request payload."
 Use a decision heading for the question the reviewer must answer.
 
 Write so a stranger to the project can repeat any sentence back as a fact
-about the plan or the code the page explains.
+about the plan or the code on the page.
 
 Say each thing once. Do not open a section by restating its heading.
 
+## Build plain sentences
+
+Write sentences the way you would say them to the reviewer.
+
+- Use the usual order: who acts, the action, then what it acts on.
+- Put each limiting or qualifying word, such as "only", "never", "also" or
+  "not", next to what it changes, and put a limit at the start of an
+  instruction.
+- Use a verb for an action, not a noun made from one. Write "the hub retries
+  the charge", not "the hub performs a retry of the charge".
+- Keep a sentence to one idea and about twenty words.
+- Use one word for one thing on a page, and keep it.
+- Put a condition before the action it controls.
+- Keep the small words, such as "the", "a", "is" and "that", that make a
+  sentence read as spoken.
+
 ## Avoid these
 
-Personification: "The schema wants a migration before the deploy." Write
-"the deploy fails unless the migration runs first." When a file, a page or a
-field holds, carries, knows or wants something, the reader has to work out
-what actually happens and who does it.
+Personification, writing a thing as if it did what only a person does:
+"The schema wants a migration before the deploy." Write "the deploy fails
+unless the migration runs first." When you write that a file, a page or a
+field "holds", "carries", "knows" or "wants" something, the reader has to
+work out what actually happens and who does it, so name who acts and what
+they do.
 
 A fragment in place of a claim: "One hub, many sessions." Write "one hub
 process serves every live session."

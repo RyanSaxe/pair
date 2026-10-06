@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { buildPage } from "../../src/cli/build.mjs";
 import { open } from "../../tests/support/browser.mjs";
 import { hub } from "../../tests/support/hub.mjs";
+import { watch } from "./failure.mjs";
 
 const demo = fileURLToPath(new URL("../demo/", import.meta.url));
 const themes = ["light", "dark"];
@@ -105,7 +106,7 @@ async function publish(session, round, sent, count = round.pages.length) {
 }
 
 // Waits for a condition in the page, and names the step when it times out.
-async function until(page, step, predicate, arg) {
+export async function until(page, step, predicate, arg) {
   try {
     await page.waitForFunction(predicate, arg);
   } catch (error) {
@@ -116,7 +117,7 @@ async function until(page, step, predicate, arg) {
 // Waits until every code block, diagram, formula and chart on the shown
 // page has rendered or shown its error. Then it refuses a visible renderer
 // error.
-async function ready(page) {
+export async function ready(page) {
   await until(page, "Rendering the page's figures", () =>
     [
       ...document.querySelectorAll(
@@ -137,7 +138,7 @@ async function ready(page) {
 
 // Loads the session's page with this ID afresh, because the frame reads the
 // page from the address's hash only when it loads.
-async function load(page, url, id) {
+export async function load(page, url, id) {
   await page.goto("about:blank");
   await page.goto(`${url}#${id}`);
   await until(
@@ -150,21 +151,22 @@ async function load(page, url, id) {
 }
 
 // The frame learns of the second session and of the agent's reply from a
-// poll of the hub every 5 s, so a capture waits for both counts: the second
-// session's start and waiting round, and the reply.
+// poll of the hub every 5 s, so a capture waits for both counts: the
+// sessions badge's count of the second session, whose round waits for you,
+// and the bell's lines for that session's start and round and the reply.
 async function counted(page) {
   await until(
     page,
     "Counting the sessions and the notifications",
     () =>
-      document.getElementById("sessions-count").textContent === "2" &&
+      document.getElementById("sessions-count").textContent === "1" &&
       document.getElementById("bell-count").textContent === "3",
   );
 }
 
 // Takes one screenshot in each theme. The screenshot stops the frame's
 // animations, so the same state always gives the same pixels.
-async function inThemes(page, clip) {
+export async function inThemes(page, clip) {
   // The pointer rests on the middle of the header's top edge, where no
   // control shows a hover state.
   await page.mouse.move(page.viewportSize().width / 2, 1);
@@ -205,8 +207,14 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
 }
 
 // Selects the words in the page's content, as a reader's drag does, and
-// waits for the frame's Comment on selection button.
-async function select(page, words) {
+// waits for the comment control to name the selection. A saved note redraws
+// the page, and Shiki then replaces each code block's text, which empties a
+// selection made in the block before then, so select waits for the page's
+// figures first. Chrome fires no selectionchange for that emptying, and the
+// control would keep naming the lost words, so the wait also checks the
+// selected range.
+export async function select(page, words) {
+  await ready(page);
   await page.evaluate((words) => {
     const content = document.getElementById("page-content");
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
@@ -233,26 +241,32 @@ async function select(page, words) {
   await until(
     page,
     `Selecting "${words}"`,
-    () =>
-      document.getElementById("quote").textContent.trim() ===
-      "Comment on selection",
+    (words) =>
+      getSelection().rangeCount === 1 &&
+      getSelection().getRangeAt(0).toString() === words &&
+      document.getElementById("comment-here").dataset.on === "selection",
+    words,
   );
 }
 
-// Opens the note dialog from the floating comment button and types a note.
-async function writeNote(page, text) {
-  await page.locator("#quote").click();
+// Opens the note dialog from the comment control, which names the selection
+// or the chosen block, and types a note.
+export async function writeNote(page, text) {
+  await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
   await page.locator("#note-text").fill(text);
 }
 
-// Sends the round's feedback with the header's Send feedback button, and
+// Sends the round's feedback with the header's Send feedback button and
+// the Send popup's button, which keeps the popup's first choice, and
 // returns the submission that pair read gives the agent.
 async function send(page, session) {
   const response = page.waitForResponse((response) =>
     response.url().endsWith("/api/feedback"),
   );
   await page.locator("#submit").click();
+  await page.locator("#send-dialog[open]").waitFor();
+  await page.locator("#send-button").click();
   if (!(await response).ok())
     throw new Error(
       `The hub refused the feedback: ${await (await response).text()}`,
@@ -305,10 +319,10 @@ export async function stage(t, scratch) {
   // Round 1: the reviewer chooses where a thread starts and notes what a
   // reply holds.
   await publish(session, await loadRound(1), sent);
-  const page = await open(t, url, {
-    viewport: desktop,
-    deviceScaleFactor: 2,
-  });
+  const page = watch(
+    await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
+    "demo",
+  );
   await load(page, url, "overview");
   // The bell's first poll marks every event it finds as seen, so the
   // second session starts after it.
@@ -337,7 +351,7 @@ export async function stage(t, scratch) {
     page,
     "Commenting on the decision",
     () =>
-      document.getElementById("quote").textContent.trim() ===
+      document.getElementById("comment-here").getAttribute("aria-label") ===
       "Comment on this decision",
   );
   await writeNote(page, "Does the agent stop what it's doing to answer?");

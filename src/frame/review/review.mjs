@@ -11,6 +11,7 @@ import {
   current,
   currentAvailable,
   feedbackEditable,
+  isPlanRound,
   mode,
   page,
   pages,
@@ -19,7 +20,6 @@ import {
   submittedCurrent,
   submittedRound,
   viewKey,
-  views,
 } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
@@ -33,11 +33,11 @@ import {
   show,
 } from "#frame/pages/pages.mjs";
 import {
-  acceptable,
   submissionError,
   submissionInFlight,
   submitButton,
 } from "#frame/review/send.mjs";
+import { choiceLabel } from "#frame/review/send-popup.mjs";
 import { renderActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import {
   connected,
@@ -155,18 +155,7 @@ function itemCard({ kind, key, item }) {
   };
   if (!item.sentIn) {
     if (kind === "note") {
-      action("Edit", () =>
-        openNote(
-          item.topic,
-          item.anchor,
-          item.quote,
-          item.id,
-          item.agreementId,
-          item.target,
-          item.sideWorkId,
-          item.occurrence,
-        ),
-      );
+      action("Edit", () => openNote(item));
       action("Remove", () => {
         forgetImages(item.attachments);
         state.notes = state.notes.filter((note) => note.id !== item.id);
@@ -178,14 +167,12 @@ function itemCard({ kind, key, item }) {
       });
     } else if (kind === "choice") {
       action("Add comment", () =>
-        openNote(
-          item.topic,
-          item.label,
-          choiceText(item),
-          null,
-          null,
-          item.target,
-        ),
+        openNote({
+          topic: item.topic,
+          anchor: item.label,
+          quote: choiceText(item),
+          target: item.target,
+        }),
       );
       action("Clear choice", () => {
         delete state.choices[key];
@@ -251,16 +238,23 @@ function renderFeedback() {
     );
   const orphans = items.filter(
     (entry) =>
-      entry.topic !== "overall" && !pages.some((p) => p.id === entry.topic),
+      !["overall", "work"].includes(entry.topic) &&
+      !pages.some((p) => p.id === entry.topic),
   );
   for (const round of new Set(orphans.map((entry) => entry.item.round)))
     group(
       round ? `From round ${round}` : "From an earlier round",
       orphans.filter((entry) => entry.item.round === round),
     );
-  $("overall-notes").replaceChildren(
-    ...items.filter((entry) => entry.topic === "overall").map(itemCard),
+  // The comments on Work and its cards come after the pages, and the
+  // overall comments last, under a heading only when there are any.
+  group(
+    "Work",
+    items.filter((entry) => entry.topic === "work"),
   );
+  const overall = items.filter((entry) => entry.topic === "overall");
+  $("overall-group").hidden = !overall.length;
+  $("overall-notes").replaceChildren(...overall.map(itemCard));
 }
 function sentEntries(submission) {
   if (!submission) return [];
@@ -286,15 +280,28 @@ function sentEntries(submission) {
     })),
   ];
 }
+// What the reviewer chose in the Send popup and their message, which go
+// above what they sent on the pages. A submission from before the popup
+// has neither.
+function sentChoice(submission) {
+  const label = choiceLabel(submission.next, isPlanRound());
+  return [
+    ...(label ? [{ heading: "What comes next", text: label }] : []),
+    ...(submission.message
+      ? [{ heading: "Message to the agent", text: submission.message }]
+      : []),
+  ];
+}
 function sentCard(entry) {
   const card = document.createElement("div");
   card.className = "sent-card";
   const where =
     pages.find((item) => item.id === entry.topic)?.title ||
-    (entry.topic === "overall" ? "Overall" : entry.topic) ||
+    { overall: "Overall", work: "Work" }[entry.topic] ||
+    entry.topic ||
     "Overall";
   const label = document.createElement("small");
-  label.textContent = `${where} · ${entry.label}`;
+  label.textContent = entry.heading ?? `${where} · ${entry.label}`;
   const body = document.createElement("p");
   body.textContent = entry.text;
   card.append(label);
@@ -357,7 +364,8 @@ export function renderSentFeedback() {
     return;
   }
   const entries = sentEntries(sent);
-  for (const entry of entries) list.append(sentCard(entry));
+  for (const entry of [...sentChoice(sent), ...entries])
+    list.append(sentCard(entry));
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -415,9 +423,6 @@ export function review() {
   $("submit-error").textContent = submissionError;
   $("save-error").hidden = !submissionError || $("reading").hidden;
   $("save-error-text").textContent = submissionError;
-  $("overall-note").disabled = locked;
-  $("align-unflagged").checked = state.alignUnflagged;
-  $("align-unflagged").disabled = locked;
   if (locked)
     $("page-content")
       .querySelectorAll(
@@ -428,7 +433,7 @@ export function review() {
         else control.disabled = true;
       });
   commentTarget();
-  renderFooter(!$("feedback").hidden);
+  renderFooter(!$("review-view").hidden);
   const rendered = JSON.stringify([
     state.notes,
     state.choices,
@@ -445,28 +450,18 @@ export function review() {
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;
-  const offer = forCurrent
-    ? views.get(remote.current.round).plan.offer
-    : plan.offer;
   const button = submitButton({
     inFlight: submissionInFlight,
     opensFeedback: sent && !forCurrent,
     onSentFeedback:
       $("reading").hidden &&
       (mode === "readonly" || plan.round === submittedRound),
-    finishes: Boolean(offer),
-    finishable: forCurrent
-      ? connected &&
-        !remote.openRound &&
-        ["ready", "updated"].includes(remote.stage)
-      : acceptable(),
     waitingForPages: Boolean(remote?.openRound),
     sendable:
       connected &&
       !remote?.openRound &&
       (forCurrent || (current() && feedbackEditable())),
     pending: pending.count,
-    alignUnflagged: draft.alignUnflagged,
   });
   $("submit").disabled = button.disabled;
   $("submit").textContent = button.text;

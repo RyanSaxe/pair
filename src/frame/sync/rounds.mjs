@@ -32,6 +32,7 @@ import {
   setPastRound,
   setSubmittedRound,
   showingWaiting,
+  shownPage,
   storageKey,
   submittedRound,
   useView,
@@ -42,13 +43,9 @@ import {
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
-import {
-  displayedRound,
-  pageIndicator,
-  show,
-  updateNavigation,
-} from "#frame/pages/pages.mjs";
-import { refreshSideWork } from "#frame/pages/side-work.mjs";
+import { displayedRound, show, updateNavigation } from "#frame/pages/pages.mjs";
+import { updatePending } from "#frame/pages/pending.mjs";
+import { refreshWork } from "#frame/pages/work.mjs";
 import {
   renderSentFeedback,
   review,
@@ -148,6 +145,9 @@ export async function loadPageRecord(round, id) {
       throw Error("Wrong page record.");
     const entry = view.pages.find((item) => item.id === id);
     if (id === "agreed") {
+      // Agreed's source marks a plan round, so the round's data takes the
+      // mark when its Agreed loads.
+      view.plan.plan = record.plan === true;
       view.agreements = record.page.agreements;
       view.task = record.page.task || null;
       entry.loaded = true;
@@ -229,13 +229,6 @@ export function pageStatus(item) {
       ? "active"
       : "queued";
 }
-// A ready page whose record has not arrived yet shows as loading, not queued.
-export function pendingState(item) {
-  if (item.status === "ready") return ["active", "Loading this page"];
-  return item.working
-    ? ["active", "Preparing this page"]
-    : ["queued", "Waiting to start"];
-}
 function reconcilePages(view, manifest) {
   for (const slot of manifest.pages) {
     let entry = view.pages.find((item) => item.id === slot.id);
@@ -258,9 +251,9 @@ function reconcilePages(view, manifest) {
   if (plan.round === view.plan.round && !showingWaiting()) useView(view);
 }
 // A round this reader has not loaded, which its page set then fills in.
-function emptyView(round, { name, offer, title }) {
+function emptyView(round, { name, title }) {
   const view = {
-    plan: { name, round, offer, title, pages: [] },
+    plan: { name, round, title, pages: [] },
     agreements: [],
     pages: [],
   };
@@ -310,15 +303,6 @@ async function syncPageSet() {
         const selected = manifest.pages.find((item) => item.id === page.id);
         if (selected?.state === "ready" && page.pending)
           void loadPageRecord(round, page.id).catch(() => {});
-        else if (selected && page.pending && !$("reading").hidden) {
-          const [mark, label] = pendingState(page);
-          $("page-content")
-            .querySelector(".pending-state")
-            ?.replaceChildren(
-              pageIndicator(mark),
-              document.createTextNode(label),
-            );
-        }
       }
     } else updateNavigation();
   })().finally(() => {
@@ -341,7 +325,6 @@ function loadPastView(round) {
           const entry = remote?.rounds?.find((item) => item.round === round);
           return emptyView(round, {
             name: entry?.name || remote.current.name,
-            offer: (entry || remote.current).offer,
             title: entry?.title || remote.current.title,
           });
         },
@@ -383,7 +366,6 @@ export function currentDraft() {
 export function switchTab(tab, targetId = null, { showPage = true } = {}) {
   if (tab === "current" && !currentShown() && !submissionInFlight) return;
   if (tab === "past" && !pastAvailable()) return;
-  if ($("finish-dialog").open) $("finish-dialog").close();
   rememberHeight();
   const round = tab === "current" ? remote.current.round : pastRound;
   const view =
@@ -454,23 +436,29 @@ export async function poll() {
       await loadPastView(pastRound).catch(() => {});
     }
     // Current's round was sent, here or in another browser: the left tab
-    // takes it, and Current waits for the next round.
+    // takes it, and a reader on Work stays there.
     if (waiting() && !submissionInFlight) {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
-        switchTab("current");
+        const onWork = shownPage() === "work";
+        switchTab("current", null, { showPage: !onWork });
+        if (onWork) show("work", null, { keepScroll: true, push: false });
       }
     }
     // The next round's Agreed arrived while Current waited. It replaces
     // the pending Agreed without moving the reader or the scroll position.
     if (showingWaiting() && currentAvailable() && !submissionInFlight) {
       switchTab("current", null, { showPage: false });
-      show($("reading").hidden ? "feedback" : "agreed", null, {
-        keepScroll: true,
-        push: false,
-        inPlace: true,
-      });
+      show(
+        ["feedback", "work"].includes(shownPage()) ? shownPage() : "agreed",
+        null,
+        {
+          keepScroll: true,
+          push: false,
+          inPlace: true,
+        },
+      );
     }
     void loadSubmission().catch(() => {});
     placeThreads();
@@ -487,7 +475,8 @@ export async function poll() {
   }
   renderRounds();
   updateNavigation();
+  updatePending();
   renderRound();
-  refreshSideWork();
   review();
+  refreshWork();
 }

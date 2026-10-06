@@ -46,6 +46,6 @@ test("PAIR_WAKE=off turns wakes off only with a state directory of its own", () 
   );
   assert.throws(
     () => settings({ PAIR_WAKE: "off" }),
-    /PAIR_WAKE=off is only for a scratch hub/,
+    /Set PAIR_WAKE=off only for a scratch hub/,
   );
 });

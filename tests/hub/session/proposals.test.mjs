@@ -1,0 +1,737 @@
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import test from "node:test";
+import {
+  hub,
+  literal,
+  planData,
+  sleep,
+  waitUntil,
+} from "../../support/hub.mjs";
+
+const card = {
+  id: "churn-export",
+  title: "Refresh the churn data export",
+  delivers: "The export uses the September schema.",
+  recommend: "here",
+};
+// A session with round 1 published and waiting for the reviewer. propose
+// runs pair propose's action as the holder, and reviewer posts a card's
+// route from the browser.
+async function proposing(t) {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const propose = (fields, agent = a.agent) =>
+    a.action("propose", { ...fields, agent });
+  const add = async (fields = {}) => {
+    const added = await propose({ ...card, ...fields });
+    assert.equal(added.code, 200, added.body.error);
+    return added.body.proposal;
+  };
+  const reviewer = (id, action, body = {}) =>
+    a.request(`${a.base}/api/proposals/${id}/${action}`, body);
+  const cards = async () => (await a.status()).body.proposals;
+  const read = async () => (await a.action("read")).body;
+  return { h, a, propose, add, reviewer, cards, read };
+}
+
+test("pair propose records one file per card and refuses an ID the session has", async (t) => {
+  const { h, a, propose, add, cards } = await proposing(t);
+  const added = await add();
+  assert.deepEqual(
+    { ...added, recordedAt: undefined, updatedAt: undefined },
+    {
+      ...card,
+      source: {},
+      recordedAt: undefined,
+      updatedAt: undefined,
+      started: null,
+      declined: null,
+      withdrawn: null,
+      done: null,
+    },
+  );
+  assert.deepEqual(
+    JSON.parse(
+      await fs.readFile(
+        path.join(a.directory, "proposals", "churn-export.json"),
+        "utf8",
+      ),
+    ),
+    added,
+  );
+  // Any agent may record a card, such as one the holder briefed.
+  const briefed = (await h.inbox()).agent;
+  const other = await propose(
+    { ...card, id: "board-qa", title: "Board Q&A prep", page: "1/overview" },
+    briefed,
+  );
+  assert.equal(other.code, 200, other.body.error);
+  // A card from a page keeps the page's title, which the card shows.
+  assert.deepEqual(other.body.proposal.source, {
+    page: { round: "1", id: "overview", title: "Overview" },
+  });
+  assert.equal(other.body.next, undefined);
+  const again = await propose({ ...card, title: "Another title" });
+  assert.equal(again.code, 409);
+  assert.match(again.body.error, /already has proposal churn-export.*--revise/);
+  assert.deepEqual(
+    (await cards()).map(({ id, title }) => [id, title]),
+    [
+      ["churn-export", card.title],
+      ["board-qa", "Board Q&A prep"],
+    ],
+  );
+  const revised = await propose({
+    id: "churn-export",
+    revise: true,
+    title: "Refresh the export",
+  });
+  assert.equal(revised.code, 200, revised.body.error);
+  assert.equal(revised.body.proposal.title, "Refresh the export");
+  assert.equal(revised.body.proposal.delivers, card.delivers);
+  assert.equal(
+    (await propose({ ...card, id: "Churn Export" })).code,
+    400,
+    "an ID that is not a slug",
+  );
+  assert.equal((await propose({ ...card, id: "x", page: "1/none" })).code, 400);
+  // Every pair tab's bell announces each card.
+  const listed = await a.request("/api/sessions");
+  assert.deepEqual(
+    listed.body.sessions[0].events
+      .filter((event) => event.kind === "proposal")
+      .map(({ proposal, page }) => [proposal, page]),
+    [
+      ["churn-export", "work"],
+      ["board-qa", "work"],
+    ],
+  );
+});
+
+test("Start wakes the holder with the reviewer's message, and the round still waits for the reviewer", async (t) => {
+  const { a, propose, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  const message = "Keep the old column names.\nAsk before dropping any.";
+  const started = await reviewer("churn-export", "start", {
+    where: "here",
+    message: `  ${message} `,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const [entry] = started.body.proposals;
+  assert.deepEqual(
+    { ...entry.started, at: undefined },
+    { at: undefined, round: "1", where: "here", by: "reviewer", message },
+  );
+  assert.equal(
+    await waitUntil(() => a.inbox.wakes.length === 1),
+    true,
+    "one wake",
+  );
+  assert.equal(
+    a.inbox.wakes[0].message.message.content,
+    `pair: the reviewer approved proposal churn-export, "${card.title}", to run in session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\n${message}`,
+  );
+  // Only the reviewer's feedback answers round 1, so it still waits for
+  // them.
+  const waits = async () => (await a.status()).body.needsYou;
+  assert.equal(await waits(), true);
+
+  const second = await reviewer("churn-export", "start", { where: "here" });
+  assert.equal(second.code, 409);
+  assert.equal(second.body.error, "Proposal churn-export is already approved.");
+  const revise = await propose({
+    id: "churn-export",
+    revise: true,
+    title: "Changed",
+  });
+  assert.equal(revise.code, 409);
+  assert.match(
+    revise.body.error,
+    /approved proposal churn-export as it stands, so you cannot revise it/,
+  );
+  assert.equal((await reviewer("churn-export", "decline")).code, 409);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
+
+  const answer = await read();
+  assert.equal(answer.moment, "read-start-here");
+  assert.equal(answer.event.payload.proposal, "churn-export");
+  assert.equal(answer.event.payload.message, message);
+  assert.equal(answer.proposal.title, card.title);
+  assert.equal((await cards())[0].started.where, "here");
+  // Reading the Start leaves round 1 waiting, so the next step builds the
+  // work now and publishes it in the next round, not in round 1.
+  assert.equal(await waits(), true);
+  assert.match(
+    answer.next,
+    /^You published round 1, and the reviewer has not sent feedback on it yet\. .*build proposal churn-export, .*you publish the pages about this work in the next round\./,
+  );
+});
+
+test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {
+  const { a, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const declined = await reviewer("churn-export", "decline");
+  assert.equal(declined.code, 200, declined.body.error);
+  assert.ok(declined.body.proposals[0].declined.at);
+  assert.equal((await reviewer("churn-export", "decline")).code, 200);
+  const start = await reviewer("churn-export", "start", { where: "here" });
+  assert.equal(start.code, 409);
+  // A decline sends the agent nothing until it runs pair read, which
+  // prints it once.
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 0);
+  assert.deepEqual(
+    (await read()).declined.map(({ id }) => id),
+    ["churn-export"],
+  );
+  assert.deepEqual((await read()).declined, []);
+
+  const restored = await reviewer("churn-export", "restore");
+  assert.equal(restored.code, 200, restored.body.error);
+  assert.equal(restored.body.proposals[0].declined, null);
+  assert.equal((await reviewer("board-qa", "decline")).code, 200);
+  assert.equal((await reviewer("churn-export", "decline")).code, 200);
+  assert.deepEqual((await read()).declined.map(({ id }) => id).sort(), [
+    "board-qa",
+    "churn-export",
+  ]);
+  assert.deepEqual(
+    (await cards()).map((item) => Boolean(item.declined?.reported)),
+    [true, true],
+  );
+});
+
+// The agent starts a card when the reviewer asks for the work in their own
+// words, and the start then runs as a Start does: the holder reads it with
+// pair read, and the round still waits for the reviewer.
+test("pair propose --start starts a card on the reviewer's words, and pair read prints the start", async (t) => {
+  const { h, a, propose, add, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const thread = await a.request(`${a.base}/api/threads`, {
+    id: "go",
+    proposal: "churn-export",
+    text: "Go ahead and refresh the export.",
+  });
+  assert.equal(thread.code, 201, thread.body.error);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  const unquoted = await propose({ id: "churn-export", start: "here" });
+  assert.equal(unquoted.code, 400);
+  assert.equal(
+    unquoted.body.error,
+    "--start takes --quote with the reviewer's words",
+  );
+  const loose = await propose({ id: "churn-export", quote: "Go ahead." });
+  assert.equal(loose.code, 400);
+  assert.equal(loose.body.error, "--quote goes with --start.");
+  assert.equal((await cards())[0].started, null);
+
+  const started = await propose({
+    id: "churn-export",
+    start: "here",
+    quote: "Go ahead and refresh the export.",
+    thread: "go",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  assert.deepEqual(
+    { ...started.body.proposal.started, at: undefined },
+    {
+      at: undefined,
+      round: "1",
+      where: "here",
+      by: "words",
+      quote: "Go ahead and refresh the export.",
+      thread: "go",
+    },
+  );
+  // The holder ran the command, and its next step reads the start, so the
+  // hub sends it no wake.
+  assert.equal(
+    started.body.next,
+    `Run pair read --session-dir ${a.directory} to see what the reviewer sent.`,
+  );
+  const answer = await read();
+  assert.equal(answer.moment, "read-start-here");
+  assert.equal(answer.event.payload.quote, "Go ahead and refresh the export.");
+  assert.equal(answer.event.payload.thread, "go");
+  assert.equal((await a.status()).body.needsYou, true);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
+  assert.equal(
+    (await propose({ id: "churn-export", start: "here", quote: "Again." }))
+      .code,
+    409,
+  );
+
+  // Another agent's start wakes the holder, as the reviewer's Start does.
+  // The reviewer's words can be in Review's overall comment, which --page
+  // names as the round's page overall.
+  const briefed = (await h.inbox()).agent;
+  const apart = await propose(
+    {
+      id: "board-qa",
+      start: "sub-session",
+      quote: "Do the Q&A prep apart.",
+      page: "1/overall",
+    },
+    briefed,
+  );
+  assert.equal(apart.code, 200, apart.body.error);
+  assert.deepEqual(apart.body.proposal.started.page, {
+    round: "1",
+    id: "overall",
+    title: "Review",
+  });
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
+  assert.equal(
+    a.inbox.wakes[1].message.message.content,
+    `pair: the reviewer asked for proposal board-qa, "Board Q&A prep", in their own words, to run in a sub-session of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\nDo the Q&A prep apart.`,
+  );
+  const sub = await read();
+  assert.equal(sub.moment, "read-start-sub-session");
+  assert.equal(
+    sub.next,
+    `Run pair start --from ${a.directory} --proposal board-qa, then follow what it prints.`,
+  );
+  // Work with a new agent saves no start for pair read, so the holder's
+  // next step is to open that agent. The reviewer's words here are on
+  // Work, which --page names as the round's page work.
+  await add({ id: "deck", title: "Build the deck" });
+  const agent = await propose({
+    id: "deck",
+    start: "new-agent",
+    quote: "Have another agent build the deck.",
+    page: "1/work",
+  });
+  assert.equal(agent.code, 200, agent.body.error);
+  assert.deepEqual(agent.body.proposal.started.page, {
+    round: "1",
+    id: "work",
+    title: "Work",
+  });
+  assert.match(
+    agent.body.next,
+    new RegExp(
+      `^Open a new agent session and have it run pair start --from ${literal(a.directory)} --proposal deck first\\. `,
+    ),
+  );
+  assert.equal((await read()).event, null);
+});
+
+// The agent clears a card nobody started with --withdraw and its reason.
+// The card is in Done as the declined ones are, and the reviewer's Restore
+// puts it back.
+test("--withdraw moves a card to Done with its reason, and Restore brings it back", async (t) => {
+  const { propose, add, reviewer, cards, read } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const bare = await propose({ id: "churn-export", withdraw: true });
+  assert.equal(bare.code, 400);
+  const reason = "The September schema change was reverted.";
+  const withdrawn = await propose({
+    id: "churn-export",
+    withdraw: true,
+    reason,
+  });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  assert.deepEqual(
+    { ...withdrawn.body.proposal.withdrawn, at: undefined },
+    { at: undefined, reason },
+  );
+  assert.equal(withdrawn.body.proposal.declined, null);
+  // A withdrawn card takes no Start until it is restored, and pair read
+  // does not report it as declined.
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    409,
+  );
+  assert.equal(
+    (await propose({ id: "churn-export", start: "here", quote: "Do it." }))
+      .code,
+    409,
+  );
+  assert.deepEqual((await read()).declined, []);
+  const restored = await reviewer("churn-export", "restore");
+  assert.equal(restored.code, 200, restored.body.error);
+  assert.equal(restored.body.proposals[0].withdrawn, null);
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  // A started card takes no --withdraw.
+  const late = await propose({ id: "churn-export", withdraw: true, reason });
+  assert.equal(late.code, 409);
+  assert.deepEqual(
+    (await cards()).map(({ id, withdrawn: gone }) => [id, gone]),
+    [
+      ["churn-export", null],
+      ["board-qa", null],
+    ],
+  );
+});
+
+// Work started here is done when the agent says so. Any other card is done
+// with --where, when its work got done somewhere else, and --reopen undoes
+// the agent's own --done.
+test("--done marks work approved to run here done, --where marks any card done, and --reopen undoes either", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
+  await add();
+  await add({ id: "board-qa", title: "Board Q&A prep" });
+  const early = await propose({ id: "churn-export", done: true });
+  assert.equal(early.code, 409);
+  assert.equal(
+    early.body.error,
+    'The reviewer has not approved proposal churn-export. If its work was finished somewhere else, add --where to say where, such as --where "in #86".',
+  );
+  const elsewhere = await propose({
+    id: "churn-export",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(elsewhere.code, 200, elsewhere.body.error);
+  assert.deepEqual(
+    { ...elsewhere.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1", where: "in #86" },
+  );
+  assert.equal(elsewhere.body.proposal.started, null);
+  // A done card takes no Start, and --reopen puts it back in Proposed.
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    409,
+  );
+  const back = await propose({ id: "churn-export", reopen: true });
+  assert.equal(back.code, 200, back.body.error);
+  assert.equal(back.body.proposal.done, null);
+
+  assert.equal(
+    (await reviewer("board-qa", "start", { where: "sub-session" })).code,
+    200,
+  );
+  // A card whose work runs in its own session finishes only when that
+  // session closes, so it keeps its link to the session.
+  assert.equal((await propose({ id: "board-qa", done: true })).code, 409);
+  const linked = await propose({ id: "board-qa", done: true, where: "in #87" });
+  assert.equal(linked.code, 409);
+  assert.equal(
+    linked.body.error,
+    "Proposal board-qa runs in a sub-session. The hub marks it done when the reviewer closes that session.",
+  );
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  assert.equal((await propose({ id: "churn-export", reopen: true })).code, 409);
+  const done = await propose({ id: "churn-export", done: true });
+  assert.equal(done.code, 200, done.body.error);
+  assert.deepEqual(
+    { ...done.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1" },
+  );
+  assert.equal((await propose({ id: "churn-export", done: true })).code, 409);
+  const reopened = await propose({ id: "churn-export", reopen: true });
+  assert.equal(reopened.code, 200, reopened.body.error);
+  assert.deepEqual(
+    (await cards()).map((card) => [card.id, card.done?.where ?? null]),
+    [
+      ["churn-export", null],
+      ["board-qa", null],
+    ],
+  );
+});
+
+// A status lists the parts of approved work that are done and left. Each
+// one replaces the last whole, adds nothing to the bell, and is refused
+// for work nobody started or that is finished. --reopen clears it.
+test("a status replaces the parts of approved work, only while it runs, and --reopen clears it", async (t) => {
+  const { a, propose, add, reviewer, cards } = await proposing(t);
+  await add();
+  const status = (done, left, extra = {}) =>
+    propose({
+      id: "churn-export",
+      statusDone: done,
+      statusLeft: left,
+      ...extra,
+    });
+  const early = await status(["Schema"], ["Export"]);
+  assert.equal(early.code, 409);
+  assert.equal(
+    early.body.error,
+    "The reviewer has not approved proposal churn-export, so you cannot record a status for it yet.",
+  );
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  const events = async () =>
+    (await a.request("/api/sessions")).body.sessions[0].events.length;
+  const before = await events();
+  const first = await status(
+    [" Read the September schema "],
+    ["Map the columns", "Write the export"],
+  );
+  assert.equal(first.code, 200, first.body.error);
+  assert.deepEqual(
+    { ...first.body.proposal.status, at: undefined },
+    {
+      at: undefined,
+      done: ["Read the September schema"],
+      left: ["Map the columns", "Write the export"],
+    },
+  );
+  const second = await status(undefined, ["Write the export"]);
+  assert.equal(second.code, 200, second.body.error);
+  assert.deepEqual(
+    { ...(await cards())[0].status, at: undefined },
+    { at: undefined, done: [], left: ["Write the export"] },
+  );
+  assert.equal(await events(), before, "a status adds nothing to the bell");
+
+  for (const [done, left, extra, error] of [
+    [
+      Array(13).fill("A part"),
+      [],
+      {},
+      "A status has at most 12 parts, and you gave 13.",
+    ],
+    [
+      ["x".repeat(81)],
+      [],
+      {},
+      "Each --status-done is text of at most 80 characters.",
+    ],
+    [[], [" "], {}, "Each --status-left is text of at most 80 characters."],
+    [
+      ["Schema"],
+      [],
+      { done: true },
+      "A status takes no --done. Give the status in a pair propose of its own.",
+    ],
+    [
+      ["Schema"],
+      [],
+      { title: "New title" },
+      "A status takes no --title. Give the status in a pair propose of its own.",
+    ],
+  ]) {
+    const refused = await status(done, left, extra);
+    assert.equal(refused.code, 400, error);
+    assert.equal(refused.body.error, error);
+  }
+  assert.deepEqual((await cards())[0].status.left, ["Write the export"]);
+
+  assert.equal((await propose({ id: "churn-export", done: true })).code, 200);
+  const finished = await status(["Write the export"], []);
+  assert.equal(finished.code, 409);
+  assert.equal(
+    finished.body.error,
+    "Proposal churn-export is marked done, so you cannot record a status for it.",
+  );
+  const reopened = await propose({ id: "churn-export", reopen: true });
+  assert.equal(reopened.code, 200, reopened.body.error);
+  assert.equal(reopened.body.proposal.status, null);
+});
+
+// The agent merges a card nobody started into a card whose work covers
+// it, proposed or started here. The joined card is done and names that
+// card. Finishing or reopening that card leaves its cards joined, and
+// --reopen on a joined card undoes the join. A card whose work runs in a
+// linked session, the card itself and a joined card take no joined card,
+// so the cards joined into a card move with it when it joins another.
+test("--join merges a card into a proposed card or one approved to run here, and refuses every other card", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
+  await add();
+  for (const id of [
+    ...["keys", "test", "gone", "no", "elsewhere"],
+    ...["sub", "agent", "outline", "late"],
+  ])
+    await add({ id, title: `Card ${id}` });
+  const join = (id, into = "churn-export") => propose({ id, join: into });
+  const refused = async (id, into, code, error) => {
+    const answer = await join(id, into);
+    assert.equal(answer.code, code, `${id} into ${into}`);
+    assert.equal(answer.body.error, error);
+  };
+  const joinedTo = async () =>
+    (await cards())
+      .filter((card) => card.done?.joined)
+      .map((card) => [card.id, card.done.joined]);
+  const joined = await join("keys");
+  assert.equal(joined.code, 200, joined.body.error);
+  assert.deepEqual(
+    { ...joined.body.proposal.done, at: undefined },
+    { at: undefined, by: "agent", round: "1", joined: "churn-export" },
+  );
+  await refused(
+    "test",
+    "test",
+    400,
+    "Proposal test cannot join itself. --join takes another proposal whose work covers it.",
+  );
+  await refused(
+    "test",
+    "keys",
+    409,
+    "Proposal keys is joined into churn-export, so no proposal can join it. Join proposal test into churn-export.",
+  );
+  assert.equal(
+    (await reviewer("sub", "start", { where: "sub-session" })).code,
+    200,
+  );
+  await refused(
+    "test",
+    "sub",
+    409,
+    "Proposal sub runs in a sub-session, so no proposal can join it.",
+  );
+  assert.equal(
+    (await reviewer("agent", "start", { where: "new-agent" })).code,
+    200,
+  );
+  await refused(
+    "test",
+    "agent",
+    409,
+    "Proposal agent runs in a new agent's session, so no proposal can join it.",
+  );
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  assert.equal((await join("test")).code, 200);
+
+  await refused(
+    "churn-export",
+    "outline",
+    409,
+    "The reviewer approved proposal churn-export, so you cannot join it into another proposal.",
+  );
+  await refused(
+    "keys",
+    "churn-export",
+    409,
+    "Proposal keys is already joined into churn-export, so you cannot join it into another proposal.",
+  );
+  assert.equal((await reviewer("no", "decline")).code, 200);
+  await refused(
+    "no",
+    "churn-export",
+    409,
+    "The reviewer declined proposal no. Drop its work and do not suggest it again.",
+  );
+  await refused(
+    "late",
+    "no",
+    409,
+    "The reviewer declined proposal no, so no proposal can join it.",
+  );
+  const withdrawn = await propose({ id: "gone", withdraw: true, reason: "x" });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  await refused(
+    "gone",
+    "churn-export",
+    409,
+    "Proposal gone is withdrawn, so you cannot join it into another proposal.",
+  );
+  await refused(
+    "late",
+    "gone",
+    409,
+    "Proposal gone is withdrawn, so no proposal can join it.",
+  );
+  const elsewhere = await propose({
+    id: "elsewhere",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(elsewhere.code, 200, elsewhere.body.error);
+  await refused(
+    "elsewhere",
+    "churn-export",
+    409,
+    "Proposal elsewhere is marked done, so you cannot join it into another proposal.",
+  );
+  await refused("late", "nothing", 404, "No proposal nothing in this session");
+  const paired = await propose({
+    id: "late",
+    join: "churn-export",
+    done: true,
+  });
+  assert.equal(paired.code, 400);
+  const placed = await propose({
+    id: "late",
+    join: "churn-export",
+    where: "x",
+  });
+  assert.equal(placed.code, 400);
+  assert.equal(placed.body.error, "--where goes with --done.");
+
+  // Finishing and reopening the started card leave its cards joined, and
+  // a done card takes no more.
+  assert.equal((await propose({ id: "churn-export", done: true })).code, 200);
+  await refused(
+    "late",
+    "churn-export",
+    409,
+    "Proposal churn-export is marked done, so no proposal can join it.",
+  );
+  assert.equal((await propose({ id: "churn-export", reopen: true })).code, 200);
+  assert.deepEqual(await joinedTo(), [
+    ["keys", "churn-export"],
+    ["test", "churn-export"],
+  ]);
+  const back = await propose({ id: "test", reopen: true });
+  assert.equal(back.code, 200, back.body.error);
+  assert.equal(back.body.proposal.done, null);
+  assert.deepEqual(await joinedTo(), [["keys", "churn-export"]]);
+
+  // A card joined into outline moves with outline to the card outline
+  // joins.
+  assert.equal((await join("late", "outline")).code, 200);
+  await refused(
+    "outline",
+    "late",
+    409,
+    "Proposal late is joined into outline, so no proposal can join it.",
+  );
+  assert.equal((await join("outline")).code, 200);
+  assert.deepEqual(await joinedTo(), [
+    ["keys", "churn-export"],
+    ["outline", "churn-export"],
+    ["late", "churn-export"],
+  ]);
+});
+
+test("a thread on a card wakes the holder with the card it is on", async (t) => {
+  const { a, add } = await proposing(t);
+  await add();
+  const started = await a.request(`${a.base}/api/threads`, {
+    id: "why",
+    proposal: "churn-export",
+    text: "Why September?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  assert.deepEqual(
+    {
+      proposal: started.body.thread.proposal,
+      page: started.body.thread.page,
+      round: started.body.thread.round,
+    },
+    { proposal: "churn-export", page: card.title, round: undefined },
+  );
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  assert.match(
+    a.inbox.wakes[0].message.message.content,
+    /^pair: the reviewer wrote to you in a thread on proposal churn-export, "Refresh the churn data export" in session /,
+  );
+  const missing = await a.request(`${a.base}/api/threads`, {
+    id: "lost",
+    proposal: "nothing",
+    text: "Hello?",
+  });
+  assert.equal(missing.code, 404);
+});

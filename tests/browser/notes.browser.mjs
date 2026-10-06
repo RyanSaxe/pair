@@ -30,10 +30,65 @@ async function select(page) {
   }, quote);
   // The frame reads the selection on selectionchange, which the browser
   // fires after this call returns. Until then, c comments on the page.
+  await commentButton(page, "Comment on selection").waitFor();
+}
+
+// The comment control in the corner, by the target it names.
+const commentButton = (page, name) =>
+  page.getByRole("button", { name, exact: true });
+
+// The control's box once it names the target and has finished growing or
+// shrinking.
+async function settledControl(page, name) {
+  await commentButton(page, name).waitFor();
   await page.waitForFunction(
     () =>
-      document.querySelector("#quote")?.textContent === "Comment on selection",
+      document.getElementById("comment-here").getAnimations({ subtree: true })
+        .length === 0,
   );
+  return page.locator("#comment-here").boundingBox();
+}
+
+// The control's box, the right edges of the page's text and of the page,
+// and the window's size, read in one frame.
+const placement = (page) =>
+  page.evaluate(() => {
+    const box = document.getElementById("comment-here").getBoundingClientRect();
+    return {
+      left: box.left,
+      right: box.right,
+      top: box.top,
+      bottom: box.bottom,
+      text: document.getElementById("page-content").getBoundingClientRect()
+        .right,
+      edge: document.getElementById("content").getBoundingClientRect().right,
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+    };
+  });
+// Wholly in the page's white margin, centered between the text and the
+// page's right edge.
+const inGutter = ({ left, right, text, edge }) =>
+  left >= text && right <= edge && Math.abs(left - text - (edge - right)) <= 1;
+
+async function openDecisions(t) {
+  const page = await open(t, "http://pair.localhost/", {
+    html: await fixtureHtml(),
+  });
+  if (!page) return null;
+  await page.locator('#page-list [data-page="decisions"]').click();
+  await page.getByRole("heading", { name: "Decisions" }).waitFor();
+  return page;
+}
+
+async function noteDialog(page) {
+  await page.locator("#note-dialog[open]").waitFor();
+  return {
+    anchor: await page.locator("#note-anchor").textContent(),
+    quote: (await page.locator("#note-quote").isVisible())
+      ? await page.locator("#note-quote").textContent()
+      : null,
+  };
 }
 
 const noteHighlight = () =>
@@ -48,13 +103,201 @@ async function highlighted(page, expected) {
   assert.deepEqual(await page.evaluate(noteHighlight), expected);
 }
 
-test(`a note's highlight is cleared while its page or the note dialog changes, and comes back`, async (t) => {
-  const html = await fixtureHtml();
-  const page = await open(t, "http://pair.localhost/", { html });
+test("selecting words grows the corner icon into Comment on selection, which opens the note with the quote, and clearing them shrinks it back", async (t) => {
+  const page = await openDecisions(t);
   if (!page) return;
 
+  const icon = await settledControl(page, "Comment on this page");
+  assert.equal(icon.width, icon.height, "a round icon");
+  await select(page);
+  const grown = await settledControl(page, "Comment on selection");
+  assert.match(
+    await page.locator("#comment-here").innerText(),
+    /^Comment on selection/,
+  );
+  assert.ok(grown.width > 3 * icon.width, "grown to fit its label");
+  assert.equal(grown.x + grown.width, icon.x + icon.width, "grown leftward");
+  assert.equal(grown.y, icon.y);
+
+  await page.evaluate(() => getSelection().removeAllRanges());
+  assert.deepEqual(await settledControl(page, "Comment on this page"), icon);
+
+  await select(page);
+  await commentButton(page, "Comment on selection").click();
+  assert.deepEqual(await noteDialog(page), { anchor: "Decisions", quote });
+});
+
+// A page's own control opens a note with planUI.comment, which takes the
+// note's label and quote.
+test("with nothing selected, the corner icon and the c key comment on the page, and planUI.comment opens a note", async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+
+  await commentButton(page, "Comment on this page").click();
+  assert.deepEqual(await noteDialog(page), {
+    anchor: "Decisions",
+    quote: null,
+  });
+  await page.keyboard.press("Escape");
+  await page.locator("#note-dialog").waitFor({ state: "hidden" });
+  await page.keyboard.press("c");
+  assert.deepEqual(await noteDialog(page), {
+    anchor: "Decisions",
+    quote: null,
+  });
+  await page.keyboard.press("Escape");
+  await page.locator("#note-dialog").waitFor({ state: "hidden" });
+  await page.evaluate(() => window.planUI.comment("Retry", "one retry"));
+  assert.deepEqual(await noteDialog(page), {
+    anchor: "Decisions › Retry",
+    quote: "one retry",
+  });
+});
+
+test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize and the sidebar closing", async (t) => {
+  // Agreed draws no figure, so nothing on it changes size with the window.
+  const page = await open(t, "http://pair.localhost/", {
+    html: await fixtureHtml(),
+  });
+  if (!page) return;
+  await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
+
+  await settledControl(page, "Comment on this page");
+  const centered = async () => {
+    await waitUntil(async () => inGutter(await placement(page)));
+    const place = await placement(page);
+    assert.ok(inGutter(place), JSON.stringify(place));
+    assert.ok(place.height - place.bottom < 40, "near the bottom");
+  };
+  await centered();
+  // Past the frame's widest, the gutter widens and the page keeps its size.
+  await page.setViewportSize({ width: 1600, height: 720 });
+  await centered();
+  await page.locator("#sidebar-toggle").click();
+  await centered();
+});
+
+test("on a phone the corner icon sits at the bottom right over the page, and the page's last line scrolls clear of it", async (t) => {
+  const page = await open(t, "http://pair.localhost/#decisions", {
+    html: await fixtureHtml(),
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  if (!page) return;
+  await page.getByRole("heading", { name: "Decisions" }).waitFor();
+
+  await settledControl(page, "Comment on this page");
+  const place = await placement(page);
+  assert.ok(place.left < place.text, "over the page's text column");
+  assert.ok(place.width - place.right <= 24, "at the right");
+  assert.ok(place.height - place.bottom <= 24, "at the bottom");
+
+  await page.evaluate(() => {
+    const column = document.querySelector(".app-body");
+    column.scrollTop = column.scrollHeight;
+  });
+  const footer = await page
+    .getByRole("navigation", { name: "Previous and next" })
+    .boundingBox();
+  assert.ok(footer.y + footer.height <= place.top, "the last line clears it");
+});
+
+test("a chosen block's Comment button opens a note on the block", async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+
+  const heading = "How should the payment client retry a failed charge?";
+  await page.getByRole("heading", { name: heading }).click();
+  await commentButton(page, "Comment on this decision").click();
+  assert.deepEqual(await noteDialog(page), {
+    anchor: `Decisions › ${heading}`,
+    quote: null,
+  });
+});
+
+// Text shows only inside the note's text area, so a button outside it
+// never covers the line being typed, even once the text scrolls.
+test("the note's image button stays outside its text area on a wide window and on a phone", async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  await page
+    .locator("#note-text")
+    .fill("A note long enough to scroll its field. ".repeat(20));
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const [text, button] = await Promise.all(
+      ["#note-text", "#note-image-pick"].map((selector) =>
+        page.locator(selector).boundingBox(),
+      ),
+    );
+    const overlap =
+      button.x < text.x + text.width &&
+      text.x < button.x + button.width &&
+      button.y < text.y + text.height &&
+      text.y < button.y + button.height;
+    assert.equal(
+      overlap,
+      false,
+      `${width}px: ${JSON.stringify({ text, button })}`,
+    );
+  }
+});
+
+// The height of the note's box, and whether its text scrolls inside it.
+const noteBox = (page) =>
+  page.evaluate(() => {
+    const text = document.getElementById("note-text");
+    return {
+      height: text.closest(".note-field").getBoundingClientRect().height,
+      scrolls: text.scrollHeight > text.clientHeight,
+    };
+  });
+
+// The box starts 120px tall and grows with the note to half the window's
+// height, where the text starts to scroll inside it. A draft opens in a
+// reloaded frame at its own size, and deleting the text shrinks the box.
+test("the note's box grows with its text up to half the window, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  assert.deepEqual(await noteBox(page), { height: 120, scrolls: false });
+
+  const text = page.locator("#note-text");
+  await text.fill("A line of the note.\n".repeat(6));
+  const grown = await noteBox(page);
+  assert.ok(
+    grown.height > 120 && grown.height < 400 && !grown.scrolls,
+    JSON.stringify(grown),
+  );
+
+  await text.fill("A line of the note.\n".repeat(60));
+  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+
+  await page.reload();
   await page.locator('#page-list [data-page="decisions"]').click();
   await page.getByRole("heading", { name: "Decisions" }).waitFor();
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  assert.equal(await text.inputValue(), "A line of the note.\n".repeat(60));
+  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("Backspace");
+  assert.equal(await text.inputValue(), "");
+  assert.deepEqual(await noteBox(page), { height: 120, scrolls: false });
+});
+
+test(`a note's highlight is cleared while its page or the note dialog changes, and comes back`, async (t) => {
+  const page = await openDecisions(t);
+  if (!page) return;
+
   await select(page);
   await page.keyboard.press("c");
   await page.locator("#note-quote", { hasText: quote }).waitFor();

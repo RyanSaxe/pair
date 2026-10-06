@@ -147,7 +147,6 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
           stage: "ready",
           current: null,
           acknowledged: [],
-          accepted: null,
           updatedAt: new Date().toISOString(),
         }),
       );
@@ -320,7 +319,7 @@ test(
     await assert.rejects(start(), ({ stderr }) => {
       assert.equal(
         stderr,
-        `pair: The hub (pid ${pid}) runs but does not answer on port ${port}\n`,
+        `pair: The hub (pid ${pid}) is running but does not answer on port ${port}. Run pair guide setup.md and follow it.\n`,
       );
       return true;
     });
@@ -371,7 +370,6 @@ test("an unfinished round resumes after the hub restarts", async (t) => {
       buildPage(path.join(localDir, "source.json"), {
         name: "restart",
         round: "1",
-        ...(page.id === "agreed" ? { offer: "plan" } : {}),
         title: "Restart",
         page,
       });

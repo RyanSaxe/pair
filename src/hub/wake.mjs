@@ -63,7 +63,7 @@ export function detectWake(env = process.env, tools = { ancestors }) {
     }
   requireValue(
     false,
-    "no wake path. This needs Claude Code, Codex, Copilot, pi or opencode, and none of their session variables is set.",
+    "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. Tell the user, and stop.",
   );
 }
 function run(file, args) {

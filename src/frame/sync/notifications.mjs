@@ -1,18 +1,19 @@
 // The events the bell lists and alerts for: a session that starts, a round
-// that waits for the reviewer, an agent's reply and side work's pull
-// request. A waiting round's line lasts while that round waits.
-const listedKinds = ["session", "waiting", "reply", "side-work"];
+// that waits for the reviewer, an agent's reply and an agent's proposal. A
+// waiting round's line lasts while that round waits, and a reply's until
+// the reviewer gives it a thumbs up.
+const listedKinds = ["session", "waiting", "reply", "proposal"];
 export const announced = (entry, event) =>
   listedKinds.includes(event.kind) &&
+  !event.acknowledged &&
   (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
 // What an event in a session says, in the bell and in its alert.
 export function eventTitle(event) {
   if (event.kind === "session") return `${event.agent} started a session`;
   if (event.kind === "waiting")
-    return `Round ${event.round} is ${event.offer ? "ready to accept" : "waiting for you"}`;
-  if (event.kind === "reply") return `Agent replied on ${event.name}`;
-  const pull = /\/pull\/(\d+)/.exec(event.url || "");
-  return `Side work opened ${pull ? `pull request #${pull[1]}` : "a pull request"}`;
+    return `Round ${event.round} is waiting for you`;
+  if (event.kind === "proposal") return `Agent proposed ${event.name}`;
+  return `Agent replied on ${event.name}`;
 }
 // The element an event opens at: the reply itself, the thread card for a
 // reply event from before replies named their message, or the block the
@@ -122,7 +123,7 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         ? "Allow notifications in your browser's site settings."
         : failed
           ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a session starts, a round waits for you, an agent cannot be woken, an agent replies, or side work opens a pull request, in any session.";
+          : "Alerts when a session starts, a round waits for you, an agent cannot be woken, replies or proposes work, in any session.";
   }
   function enable() {
     write("enabledAt", String(Date.now()));

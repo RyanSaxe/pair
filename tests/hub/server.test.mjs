@@ -172,34 +172,18 @@ test("closing a session from the session list completes it and drops it from the
 });
 
 // A tab opened before the session closed can still send, after ✕ on its
-// line in the session list or after pair complete.
+// line in the session list.
 test("a closed session refuses feedback and wakes no agent", async (t) => {
   const h = await hub(t);
-  const dismissed = await h.session();
-  await dismissed.publish(planData());
-  assert.equal(
-    (await dismissed.request(`${dismissed.base}/api/dismiss`, {})).code,
-    200,
-  );
-  const completed = await h.session();
-  await completed.publish(planData("1", "finish"));
-  const accepted = completed.event("accept", "1", {
-    offer: "finish",
-    action: "finish",
-  });
-  assert.equal((await completed.feedback(accepted)).code, 200);
-  assert.equal(await waitUntil(() => completed.inbox.wakes.length === 1), true);
-  assert.equal((await completed.action("read")).code, 200);
-  assert.equal((await completed.action("complete")).code, 200);
-  for (const session of [dismissed, completed]) {
-    const sent = await session.feedback(session.event());
-    assert.equal(sent.code, 409);
-    assert.equal(sent.body.error, "This session is closed");
-    assert.equal((await session.status()).body.stage, "complete");
-  }
+  const a = await h.session();
+  await a.publish(planData());
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  const sent = await a.feedback(a.event());
+  assert.equal(sent.code, 409);
+  assert.equal(sent.body.error, "This session is closed");
+  assert.equal((await a.status()).body.stage, "complete");
   await sleep(50);
-  assert.equal(dismissed.inbox.wakes.length, 0);
-  assert.equal(completed.inbox.wakes.length, 1);
+  assert.equal(a.inbox.wakes.length, 0);
 });
 
 test("the root URL opens the session that most needs you, then the last viewed, else says so", async (t) => {
@@ -226,10 +210,21 @@ test("the root URL opens the session that most needs you, then the last viewed, 
   result = await open();
   assert.equal(result.code, 302);
   assert.equal(result.location, `${b.base}/`);
+  // The hub wakes the agent after it answers the feedback request, and the
+  // wake's write sets updatedAt. Waiting for each wake, and 5 ms after each
+  // read, puts every write to a in an earlier millisecond than the writes to
+  // b, which the fallback to b below depends on.
   for (const session of [a, b]) {
     const event = session.event();
     await session.feedback(event);
+    assert.equal(
+      await waitUntil(async () =>
+        Boolean((await session.status()).body.wake?.last),
+      ),
+      true,
+    );
     await session.action("read");
+    await sleep(5);
   }
   assert.equal((await open(`pair-last=${a.id}`)).location, `${a.base}/`);
   assert.equal((await open(`pair-last=nope`)).location, `${b.base}/`);
@@ -345,7 +340,9 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   const again = await cli("--submission", event.id);
   assert.deepEqual(again.event.payload, event);
   assert.equal((await a.status()).body.acknowledgedAt, acked.acknowledgedAt);
-  assert.equal((await a.action("read", { id: "nope" })).code, 404);
+  const unknown = await a.action("read", { id: "nope" });
+  assert.equal(unknown.code, 404);
+  assert.match(unknown.body.error, /^This session has no submission nope\. /);
   const original = await fs.readFile(
     path.join(a.directory, "rounds/example.1.html"),
     "utf8",
@@ -371,12 +368,12 @@ test("a session keeps one plan name and uses each round number once", async (t) 
   await a.action("read");
   const duplicate = await a.publish(planData("1"));
   assert.equal(duplicate.code, 409);
-  assert.match(duplicate.body.error, /Round 1 is already used/);
-  const renamed = await a.publish(planData("2", undefined, "other"));
+  assert.match(duplicate.body.error, /This session already has a round 1\./);
+  const renamed = await a.publish(planData("2", "other"));
   assert.equal(renamed.code, 409);
   assert.equal(
     renamed.body.error,
-    "This session's plan is named example. Keep that name in every round.",
+    'Every round of this session has the name "example". Set "name" in the page source to "example".',
   );
   assert.equal(
     await exists(path.join(a.directory, "rounds/other.2.html")),

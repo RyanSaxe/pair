@@ -30,7 +30,10 @@ test("the CLI builds and publishes each page with its own saved source", async (
     html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
   });
   assert.equal(unsupported.code, 400);
-  assert.match(unsupported.body.error, /page-data/);
+  assert.match(
+    unsupported.body.error,
+    /--file is not a page that pair build wrote/,
+  );
   const command = (args) => cli.run(...args);
   const agreedSource = path.join(root, "agreed-source");
   await fs.mkdir(agreedSource);
@@ -39,7 +42,6 @@ test("the CLI builds and publishes each page with its own saved source", async (
     JSON.stringify({
       name: "cli",
       round: "1",
-      offer: "plan",
       title: "CLI plan",
       page: {
         id: "agreed",
@@ -92,23 +94,6 @@ test("the CLI builds and publishes each page with its own saved source", async (
     "<p>Ready by CLI</p>",
   );
   const overviewHtml = path.join(root, "overview-built.html");
-  // Only Agreed's source names the round's offer.
-  await fs.writeFile(
-    overviewJson,
-    JSON.stringify({ ...overview, offer: "plan" }),
-  );
-  await assert.rejects(
-    command(["build", overviewJson, overviewHtml]),
-    (error) => {
-      assert.equal(error.code, 1);
-      assert.equal(
-        error.stderr,
-        `pair: page "overview" names an offer. Only Agreed's source names the round's offer.\n`,
-      );
-      return true;
-    },
-  );
-  assert.equal(await exists(overviewHtml), false);
   await fs.writeFile(overviewJson, JSON.stringify(overview));
   await command(["build", overviewJson, overviewHtml]);
   await command([
@@ -126,11 +111,6 @@ test("the CLI builds and publishes each page with its own saved source", async (
       "utf8",
     ),
     /Ready by CLI/,
-  );
-  // The round takes its offer from Agreed.
-  assert.deepEqual(
-    (await registered.status()).body.rounds.map((item) => item.offer),
-    ["plan"],
   );
 });
 
@@ -174,6 +154,12 @@ test("a command refuses an unknown flag, an extra argument, a repeated flag and 
     [["progress", ...dir, "--note", "a", "--note", "b"], "--note"],
     [["publish", ...dir], "--file"],
     [["status", ...dir, "--page", "overview"], "--page"],
+    // pair propose takes no --changes, --reason or --source, which an agent
+    // that read an older guide may still pass.
+    [
+      ["propose", ...dir, "--id", "x", "--changes", "y"],
+      "--changes is not a flag of pair propose",
+    ],
   ])
     await assert.rejects(run(...args), (error) => {
       assert.equal(error.code, 1);
@@ -184,51 +170,16 @@ test("a command refuses an unknown flag, an extra argument, a repeated flag and 
   assert.equal((await status()).report.note, "Reading");
 });
 
-// pair side-work names its change before the options, and update names the
-// item, so a misplaced word is refused like a misspelt option.
-test("pair side-work adds an item from any agent and names it on update", async (t) => {
-  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-side-work-"));
-  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+// An agent the holder briefs may have no inbox socket of its own, and its
+// pair status and pair propose still reach the hub.
+test("pair status and pair propose run from an agent that cannot be woken", async (t) => {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-status-"));
+  const { config, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
     await killHub(config);
     await fs.rm(scratch, { recursive: true, force: true });
   });
   const { sessionDir } = await start();
-  const add = ["side-work", "add", "--session-dir", sessionDir];
-  const { item } = JSON.parse(
-    await run(
-      ...add,
-      "--title",
-      "Delete visual-review",
-      "--text",
-      "The skill is deprecated but still installed.",
-      "--source",
-      "From the conversation",
-      "--json",
-    ),
-  );
-  assert.equal(item.id, "1");
-  assert.equal(item.state, "recorded");
-  const refused = async (args, named) =>
-    assert.rejects(run(...args), (error) => {
-      assert.equal(error.code, 1);
-      assert(error.stderr.includes(named), error.stderr);
-      return true;
-    });
-  await refused([...add, "--state", "working"], "--state");
-  await refused(
-    ["side-work", "update", "--session-dir", sessionDir, "--state", "working"],
-    "ID",
-  );
-  await refused(["side-work", "--session-dir", sessionDir], "add or update");
-  // The item reaches the hub by its ID, which refuses to move it before the
-  // reviewer starts it.
-  await refused(
-    ["side-work", "update", "1", "--session-dir", sessionDir, "--state", "pr"],
-    "Side work 1 has not been started. It starts when the reviewer presses Start in parallel on Agreed.",
-  );
-  // An agent the holder briefs may have no inbox socket of its own, and its
-  // command still reaches the hub.
   const briefed = path.join(scratch, "briefed");
   await fs.mkdir(briefed);
   const unwakeable = await pairCli(briefed, {
@@ -236,51 +187,22 @@ test("pair side-work adds an item from any agent and names it on update", async 
     XDG_STATE_HOME: scratch,
     CLAUDE_CODE_MESSAGING_SOCKET: "",
   });
-  const { item: second } = JSON.parse(
-    await unwakeable.run(
-      ...add,
-      "--title",
-      "Say why a command fails on an older hub",
-      "--text",
-      'A hub on older code answers ack with "Unknown agent action".',
-      "--source",
-      "Found while restarting the hub",
-      "--json",
-    ),
+  const recorded = await unwakeable.run(
+    ...["propose", "--session-dir", sessionDir, "--id", "churn-export"],
+    ...["--title", "Refresh the churn data export"],
+    ...["--delivers", "The export uses the September schema."],
+    ...["--recommend", "here"],
   );
-  assert.equal(second.id, "2");
-});
-
-// A side-work item's source is text such as a file name, never a path the
-// CLI owns, so a refused add leaves it alone.
-test("a refused pair side-work add leaves the path its source names", async (t) => {
-  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-side-work-"));
-  const { config, run, start } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
-  t.after(async () => {
-    await killHub(config);
-    await fs.rm(scratch, { recursive: true, force: true });
-  });
-  const { sessionDir } = await start();
-  const named = path.join(scratch, "README.md");
-  await fs.writeFile(named, "kept\n");
-  await assert.rejects(
-    run(
-      "side-work",
-      "add",
-      "--session-dir",
-      sessionDir,
-      "--title",
-      "Fix the intro",
-      "--source",
-      named,
-    ),
-    (error) => {
-      assert.equal(error.code, 1);
-      assert.match(error.stderr, /--text/);
-      return true;
-    },
+  // Only the holder's output starts with the next step.
+  assert.equal(recorded, "Proposal churn-export: proposed.\n");
+  const status = JSON.parse(
+    await unwakeable.run("status", "--session-dir", sessionDir, "--json"),
   );
-  assert.equal(await fs.readFile(named, "utf8"), "kept\n");
+  assert.equal(status.title, "Test");
+  assert.match(
+    await unwakeable.run("status", "--session-dir", sessionDir),
+    /\n\nProposals\n {2}churn-export {2}proposed {2}Refresh the churn data export\n$/,
+  );
 });
 
 // publish copies its --source into the session before the hub sees the page,
@@ -307,7 +229,6 @@ async function sessionWithAgreed(t) {
     return { source, built };
   };
   const agreed = await page("agreed", {
-    offer: "plan",
     page: {
       id: "agreed",
       title: "Agreed so far",
@@ -665,6 +586,34 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
   ]);
   const status = JSON.parse(await cli.run("status", ...dir, "--json"));
   assert.equal(status.threads, undefined);
+  // The thread and pair read's list name the reply with a thumbs up.
+  await session.request(`${session.base}/api/threads/${id}/acknowledge`, {
+    message: 1,
+    acknowledged: true,
+  });
+  const agent = (await cli.run("read", ...dir, "--thread", id))
+    .match(/<pair_message from="agent"[^>]*>/g)
+    .map((opening) => opening.includes(' agreed="yes"'));
+  assert.deepEqual(agent, [true, false]);
+  assert.match(
+    await cli.run("read", ...dir),
+    new RegExp(`<pair_thread id="${id}"[^>]* agreed="message 2">`),
+  );
+  // A thread on an alignment names it.
+  const aligned = await session.request(`${session.base}/api/threads`, {
+    id: "question-2",
+    round: "1",
+    topic: "agreed",
+    anchor: "One result per input",
+    agreementId: "results",
+    target: "agreement-results",
+    text: "Keep the order too?",
+  });
+  assert.equal(aligned.code, 201, aligned.body.error);
+  assert.match(
+    await cli.run("read", ...dir, "--thread", "question-2"),
+    /<pair_thread id="question-2" page="agreed" on="One result per input" round="1" agreement="results">/,
+  );
 });
 
 // Builds Agreed for round 1 with the page list given, as the agent does,

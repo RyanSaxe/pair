@@ -15,6 +15,7 @@ import {
 } from "#frame/notes/notes.mjs";
 import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
+import { cardsEditable } from "#frame/pages/work.mjs";
 
 /* Images on a note. A screenshot pasted from the clipboard has no filename
    and no path, and a file dropped from Finder arrives as a File the browser
@@ -58,6 +59,22 @@ export function imageError(message) {
   line.textContent = message;
   line.hidden = !message;
 }
+/* The note's text area is as tall as its text, within the heights its box
+   allows. Safari and Firefox have no field-sizing, so the text is measured:
+   at height auto, the text area's scrollHeight is its text's height. The
+   scrollbar is hidden while measuring so it cannot narrow the text, and the
+   scroll positions the short measuring height moved are put back. */
+export function fitNoteText() {
+  const area = $("note-text");
+  const body = area.closest(".dialog-body");
+  const scrolled = [area.scrollTop, body.scrollTop];
+  area.style.height = "auto";
+  area.style.overflowY = "hidden";
+  const height = area.scrollHeight;
+  area.style.overflowY = "";
+  area.style.height = `${height}px`;
+  [area.scrollTop, body.scrollTop] = scrolled;
+}
 /* Paste, drop and the picker all arrive here. */
 async function attach(files) {
   const images = [...files].filter((file) => imageTypes.includes(file.type));
@@ -90,10 +107,10 @@ export function forgetImages(items) {
     }).catch(() => {});
 }
 /* A dialog the reviewer abandoned drops what it uploaded, so the session
-   never keeps bytes no note refers to. This runs when the dialog is closed
-   by its own control and again before the next one opens, rather than on
-   the dialog's close event, which a note saved by Escape would also raise
-   and which this frame cannot observe. */
+   never keeps bytes no note refers to. This runs when the reviewer backs
+   out of the dialog, by its ×, Escape or a click outside, and again before
+   the next one opens, rather than on the dialog's close event, which
+   saving a note also raises. */
 export function settleNoteImages() {
   if (!noteImagesSaved)
     forgetImages(
@@ -105,6 +122,11 @@ export function settleNoteImages() {
 }
 
 export function installNoteDialog() {
+  $("note-text").addEventListener("input", fitNoteText);
+  // A new window width wraps the text again.
+  addEventListener("resize", () => {
+    if ($("note-dialog").open) fitNoteText();
+  });
   $("note-image-pick").onclick = () => $("note-image-input").click();
   $("note-image-input").onchange = (event) => {
     attach(event.target.files);
@@ -136,11 +158,11 @@ export function installNoteDialog() {
       if (type === "drop") attach(event.dataTransfer.files);
     });
   /* Start a thread sends the note to the agent now instead of keeping it
-     for Send feedback or Finish review, so the note leaves the draft and its
-     images stay. */
+     for Send feedback, so the note leaves the draft and its images stay. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
   $("note-thread").onclick = () => {
-    if (!noteEditable() || $("note-thread").hidden) return;
+    const allowed = noteContext.proposal ? cardsEditable() : noteEditable();
+    if (!allowed || $("note-thread").hidden) return;
     const text = $("note-text").value.trim();
     if (!text) {
       $("note-form").reportValidity();

@@ -1,10 +1,14 @@
 :root {
   color-scheme: light;
   /* One order for every layer, so a new piece of chrome cannot quietly
-     cover something. The selection control sits above all of it. */
-  --z-sidebar: 5;
+     cover something. The sidebar slides over the page column and its
+     strip, never over the header. At 720px and below, the open sidebar and
+     the dimmed page cover the whole page. The comment control floats over
+     the page, under the header and the sidebar. */
+  --z-comment: 5;
   --z-header: 6;
-  --z-selection: 40;
+  --z-sidebar: 8;
+  --z-sidebar-over-page: 41;
   --ground: light-dark(#f6f6f8, #121417);
   --panel: light-dark(#ffffff, #1a1d22);
   --line: light-dark(#e3e4e8, #2a2e35);
@@ -52,6 +56,11 @@
   --space-label: 12px;
   --space-field: 6px;
   --field-height: 64px;
+  /* Every dialog stays this far from each edge of the window. At 10px,
+     with a dialog's 16px padding on a phone, the Start popup's Copy
+     command and Open a new agent session fit in one row at 375px with 9px
+     to spare. */
+  --dialog-margin: 10px;
   font:
     var(--text-body) / var(--leading-body) -apple-system,
     BlinkMacSystemFont,

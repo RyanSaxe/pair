@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { refuseOverwrite } from "./output.mjs";
 
 const run = promisify(execFile);
 
@@ -11,7 +12,9 @@ export async function compareFiles(beforePath, afterPath) {
     paths.map((file) => fs.readFile(file, "utf8")),
   );
   if (before.includes("\0") || after.includes("\0"))
-    throw Error("The diff viewer accepts text files, not binary files.");
+    throw Error(
+      "pair diff compares text files, and BEFORE or AFTER is a binary file.",
+    );
   let patch;
   try {
     ({ stdout: patch } = await run(
@@ -51,10 +54,12 @@ function named(patch, name) {
 
 export async function main({ args: [before, after, output] }) {
   const input = await compareFiles(before, after);
-  await fs.writeFile(output, JSON.stringify(input, null, 2) + "\n", {
-    flag: "wx",
-    mode: 0o600,
-  });
+  await fs
+    .writeFile(output, JSON.stringify(input, null, 2) + "\n", {
+      flag: "wx",
+      mode: 0o600,
+    })
+    .catch(refuseOverwrite(output));
   const written = path.resolve(output);
   return {
     next: `Put the file's JSON in the data-diff-input textarea of a before-after component, as pair guide components/before-after/markup.html shows.`,

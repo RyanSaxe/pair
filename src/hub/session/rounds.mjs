@@ -26,6 +26,8 @@ import {
   requireValue,
   timestamp,
 } from "../../shared/util.mjs";
+import { answersRound } from "./agent.mjs";
+import { nextOf } from "./submissions.mjs";
 
 // Publishing a round's pages, and reading the rounds a session keeps.
 export function rounds(session) {
@@ -48,11 +50,14 @@ export function rounds(session) {
           continue;
         }
         const event = events.find((item) => item.id === ref.submissionId);
-        requireValue(event, "Source submission not found");
+        requireValue(
+          event,
+          `Agreed cites submission ${ref.submissionId}, which this session does not have.`,
+        );
         const item = sourceItem(event.payload, ref);
         requireValue(
           item && typeof item.topic === "string",
-          "Source item not found",
+          `Agreed cites ${ref.kind} ${{ note: ref.noteId, choice: ref.choiceId, answer: ref.answerId }[ref.kind]}, which submission ${ref.submissionId} does not contain.`,
         );
         const text = ref.kind === "choice" ? choiceText(item) : item.text;
         const label = ref.kind === "note" ? item.anchor : item.label;
@@ -132,8 +137,8 @@ export function rounds(session) {
     const data = {
       name: set.name,
       round: set.round,
-      offer: set.offer,
       title: set.title,
+      ...(set.plan ? { plan: true } : {}),
       ...(complete ? {} : { pageMode: "partial" }),
       pages,
       agreements: agreed.page.agreements,
@@ -172,8 +177,8 @@ export function rounds(session) {
       current = {
         name: set.name,
         round: set.round,
-        offer: set.offer,
         title: set.title,
+        ...(set.plan ? { plan: true } : {}),
         path: file,
         url: base + "/",
         sha256: crypto.createHash("sha256").update(stored).digest("hex"),
@@ -187,8 +192,8 @@ export function rounds(session) {
           {
             name: set.name,
             round: set.round,
-            offer: set.offer,
             title: set.title,
+            ...(set.plan ? { plan: true } : {}),
             publishedAt: current.publishedAt,
             url: `${base}/r/${encodeURIComponent(set.round)}`,
           },
@@ -203,7 +208,6 @@ export function rounds(session) {
       current,
       title: set.title,
       rounds,
-      accepted: null,
     });
     // The hub served the open round from the live file while its pages
     // arrived, and serves the complete file from now on. The round waits
@@ -213,11 +217,7 @@ export function rounds(session) {
         path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
         { force: true },
       );
-      await session.addActivity({
-        kind: "waiting",
-        round: set.round,
-        offer: set.offer,
-      });
+      await session.addActivity({ kind: "waiting", round: set.round });
     }
     return {
       status: view(),
@@ -226,15 +226,38 @@ export function rounds(session) {
       next: await session.nextStep(),
     };
   }
+  // The reviewer's choice on the round before decides whether this round
+  // is a plan: Write a plan and Update the plan ask for one, and Back to
+  // iterating sets one aside. Otherwise the agent decides.
+  function requirePlanMark(plan) {
+    const before = session.state.current;
+    if (!before) return;
+    const [feedback] = events
+      .filter(
+        (item) => answersRound(item) && item.payload.round === before.round,
+      )
+      .sort((a, b) => b.sequence - a.sequence);
+    const next = feedback && nextOf(feedback.payload);
+    requireValue(
+      plan || next !== "plan",
+      'The reviewer asked for a plan, so this round is a plan. Set "plan": true at the top level of Agreed\'s source.',
+      409,
+    );
+    requireValue(
+      !plan || next !== "iterate" || !before.plan,
+      `The reviewer chose Back to iterating on plan round ${before.round}, so this round is not a plan. Leave "plan" out of Agreed's source.`,
+      409,
+    );
+  }
   async function publishPage(html, source, pages) {
     requireValue(
       !(await pending()).length,
-      "Read pending feedback before publishing",
+      `The reviewer sent something you have not read. Run pair read --session-dir ${directory} first, then publish.`,
       409,
     );
     requireValue(
       ["ready", "working"].includes(session.state.stage),
-      "Read feedback before publishing a page",
+      "You published every page of this round, and the reviewer has not sent feedback on it yet. Publish the next round after the hub wakes you with their feedback.",
       409,
     );
     requireValue(
@@ -245,21 +268,21 @@ export function rounds(session) {
     );
     requireValue(
       jsonScript("session-config").test(html),
-      "HTML requires a session-config JSON script",
+      "--file is not a page that pair build wrote. Build the page with pair build, then publish the file it writes.",
     );
     requireValue(
       jsonScript("page-data").test(html),
-      "HTML requires a page-data JSON script",
+      "--file is not a page that pair build wrote. Build the page with pair build, then publish the file it writes.",
     );
     const record = pageData(html);
     const { page } = record;
     requireValue(
       page.id === "agreed" || pages === undefined,
-      "--pages is only valid when publishing Agreed",
+      "Give --pages only when you publish Agreed.",
     );
     let set;
     if (page.id === "agreed") {
-      const slots = pageList(pages, record.offer);
+      const slots = pageList(pages);
       requireValue(
         !session.state.openRound,
         "Agreed is already published for this round",
@@ -269,15 +292,16 @@ export function rounds(session) {
         !(session.state.rounds || []).some(
           (item) => item.round === record.round,
         ),
-        `Round ${record.round} is already used`,
+        `This session already has a round ${record.round}. Set "round" in Agreed's source to a new round number.`,
         409,
       );
       // pages.md makes the name a stable ID for the whole session.
       requireValue(
         !session.state.current || record.name === session.state.current.name,
-        `This session's plan is named ${session.state.current?.name}. Keep that name in every round.`,
+        `Every round of this session has the name "${session.state.current?.name}". Set "name" in the page source to "${session.state.current?.name}".`,
         409,
       );
+      requirePlanMark(record.plan === true);
       await resolvePageAgreements(page.agreements);
       const previous = session.state.roundPages?.[session.state.current?.round];
       orderAgreements(
@@ -290,8 +314,8 @@ export function rounds(session) {
       set = {
         name: record.name,
         round: record.round,
-        offer: record.offer,
         title: record.title,
+        ...(record.plan ? { plan: true } : {}),
         agreed: null,
         pages: slots,
         bundlePath: null,
@@ -304,20 +328,22 @@ export function rounds(session) {
         409,
       );
       set = structuredClone(session.state.openRound);
-      // The round's offer comes from Agreed, and validPage refuses one on
-      // any other page.
       requireValue(
         ["name", "round", "title"].every((key) => record[key] === set[key]),
-        "Page does not match this round",
+        `Page ${page.id} has a different name, round or title from this round's Agreed. Build it with name "${set.name}", round "${set.round}" and title "${set.title}".`,
         409,
       );
       const slot = set.pages?.find((item) => item.id === page.id);
       requireValue(
         slot && slot.title === page.title,
-        "Page is not in this round's list",
+        `Page ${page.id}, "${page.title}", is not in the page list you published with Agreed. Use an ID and title from that list.`,
         409,
       );
-      requireValue(!slot.recordPath, "Page is already published", 409);
+      requireValue(
+        !slot.recordPath,
+        `You already published page ${page.id} in this round.`,
+        409,
+      );
       // Agreed's list names every page of the round, so a page's links are
       // checked as it publishes. A bad link found only when the round
       // completes would sit in a page that can no longer change.
@@ -393,7 +419,12 @@ export function rounds(session) {
     }
     return {
       ...result,
-      ...session.afterPublish(result, page.id, set.offer),
+      moment:
+        page.id === "agreed"
+          ? "publish-agreed"
+          : result.roundComplete
+            ? "publish-last-page"
+            : "publish-page",
       page: {
         id: page.id,
         round: record.round,
@@ -411,13 +442,13 @@ export function rounds(session) {
     const set = structuredClone(session.state.openRound);
     requireValue(
       Array.isArray(data.start) && data.start.length > 0,
-      "Name each page with --page ID. Publishing a page marks it done.",
+      "Name each page you start with --page ID. pair publish marks a page finished, so you never need to.",
     );
     for (const id of data.start) {
       const slot = set.pages.find((item) => item.id === id);
       requireValue(
         slot && !slot.recordPath,
-        `Unknown or ready page ${id}`,
+        `Page ${id} is not in this round's page list, or you already published it.`,
         409,
       );
       slot.state = "active";

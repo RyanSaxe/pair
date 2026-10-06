@@ -5,6 +5,7 @@ import { drawingAnswer, recordAnswer } from "#frame/notes/controls.mjs";
 import { openDrawing } from "#frame/notes/drawing.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { chart, charts, diff, failed, track } from "#frame/pages/renderers.mjs";
+import { drawProposal } from "#frame/pages/work.mjs";
 
 // The names component behaviors use without importing them. The page's
 // module script imports them from here before the behaviors run.
@@ -72,7 +73,9 @@ export function createPlanUI() {
     chart,
     define,
     diff,
-    comment: (anchor, quote = "") => openNote(page.id, anchor, quote),
+    proposal: drawProposal,
+    comment: (anchor, quote = "") =>
+      openNote({ topic: page.id, anchor, quote }),
     enhance,
     prefs,
     mode,

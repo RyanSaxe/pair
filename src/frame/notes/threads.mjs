@@ -2,8 +2,16 @@ import { enhance } from "#frame/app/registry.mjs";
 import { prefs } from "#frame/app/store.mjs";
 import { ago } from "#frame/app/time.mjs";
 import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
-import { base, editable, page, pages, plan } from "#frame/app/view.mjs";
+import {
+  base,
+  editable,
+  page,
+  plan,
+  shownPage,
+  topicTitle,
+} from "#frame/app/view.mjs";
 import { findText, placeMarks } from "#frame/notes/notes.mjs";
+import { ackButton, syncAcks } from "#frame/notes/thread-ack.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
@@ -71,19 +79,22 @@ async function post(id, url, body) {
 }
 export function startThread(context, text, attachments) {
   const now = new Date().toISOString();
-  const fields = {
-    id: uuid(),
-    round: plan.round,
-    topic: context.topic,
-    anchor: context.anchor,
-    ...(context.quote ? { quote: context.quote } : {}),
-    ...(context.target ? { target: context.target } : {}),
-    ...(context.occurrence ? { occurrence: context.occurrence } : {}),
-    ...(context.agreementId ? { agreementId: context.agreementId } : {}),
-  };
+  // A thread on a proposal's card names the card in place of a page.
+  const fields = context.proposal
+    ? { id: uuid(), proposal: context.proposal }
+    : {
+        id: uuid(),
+        round: plan.round,
+        topic: context.topic,
+        anchor: context.anchor,
+        ...(context.quote ? { quote: context.quote } : {}),
+        ...(context.target ? { target: context.target } : {}),
+        ...(context.occurrence ? { occurrence: context.occurrence } : {}),
+        ...(context.agreementId ? { agreementId: context.agreementId } : {}),
+      };
   sent.set(fields.id, {
     ...fields,
-    page: pages.find((item) => item.id === context.topic)?.title,
+    page: context.proposal ? context.anchor : topicTitle(context.topic),
     state: "sending",
     createdAt: now,
     messages: [{ from: "reviewer", at: now, text, attachments }],
@@ -159,6 +170,10 @@ function contents(html) {
 }
 // A long message opens cut at about twelve lines, under a fade.
 const clampHeight = 250;
+// What cuts each agent message, or shows it whole, by its clamp.
+const fits = new WeakMap();
+// The cards drawn since their messages were last cut.
+const unfitted = new Set();
 function agentBody(thread, message, index) {
   const clamp = element("div", "thread-clamp");
   const content = element("div", "thread-content");
@@ -190,6 +205,7 @@ function agentBody(thread, message, index) {
     fit();
   };
   new ResizeObserver(fit).observe(content);
+  fits.set(clamp, fit);
   if (message.html !== undefined) enhance(content);
   return [clamp, more];
 }
@@ -222,6 +238,7 @@ function messageRow(thread, message, index) {
   const time = element("span", "thread-meta thread-when", when(message.at));
   time.dataset.at = message.at;
   name.append(time);
+  if (agent) name.prepend(ackButton(thread, index));
   body.append(name);
   if (agent) body.append(...agentBody(thread, message, index));
   else {
@@ -349,8 +366,10 @@ function drawCard(entry, thread, part, folded) {
     part,
     remote?.handoff,
   ]);
+  syncAcks(entry.messages, thread);
   if (key === entry.key) return;
   entry.key = key;
+  unfitted.add(entry.card);
   const { card, title, fold, quote, messages, form } = entry;
   card.toggleAttribute("collapsed", collapsed);
   const head = threadTitle(thread, part, collapsed);
@@ -374,23 +393,20 @@ function drawCard(entry, thread, part, folded) {
     Boolean(thread.error) ||
     !["replied", "failed"].includes(thread.state);
 }
-// The decision or side-work item a note named, the top-level block that
-// holds its target or quote, or none, which puts the card at the end.
+// The decision a note named, the top-level block that holds its target or
+// quote, or none, which puts the card at the end.
 function blockOf(root, thread) {
   const top = (node) => {
     let at = node?.nodeType === 1 ? node : node?.parentElement;
     while (
       at &&
       at.parentElement !== root &&
-      !at.classList.contains("agreement-card") &&
-      !at.parentElement?.matches(".agreed-panel")
+      !at.classList.contains("agreement-card")
     )
       at = at.parentElement;
     return at && at.localName !== "pair-thread" ? at : null;
   };
   const target = thread.target && document.getElementById(thread.target);
-  const item = target?.closest("#side-work .agreement-card");
-  if (item && root.contains(item)) return item;
   const named = top(target);
   if (named) return named;
   const range = thread.quote && findText(root, thread.quote);
@@ -419,31 +435,77 @@ function placeProgress(threads) {
   // The cards sit above the page's content, so the note bars move with it.
   if (moved) placeMarks();
 }
-// Each card goes under its block, after the cards started there before it.
-// With four or more threads on one block, all but the two newest start
-// collapsed.
+// The card a thread on a proposal goes under: the card on Work, or the
+// proposal component on a page, whichever is on screen.
+const cardOf = (id) =>
+  [
+    ...document.querySelectorAll(`[data-proposal-card="${CSS.escape(id)}"]`),
+  ].find((node) => !node.closest("[hidden]"));
+// A thread on the overall comment goes at the end of its round's Review,
+// and a thread on Work after Work's cards, whatever round it started in.
+function endOf(thread) {
+  if (thread.topic === "work" && shownPage() === "work")
+    return $("work-threads");
+  if (
+    thread.topic === "overall" &&
+    shownPage() === "feedback" &&
+    thread.round === plan.round
+  )
+    return $("overall-threads");
+  return null;
+}
+const folds = (threads, index) =>
+  threads.length >= 4 && index < threads.length - 2;
+function placeEnds(threads) {
+  for (const box of [$("overall-threads"), $("work-threads")]) {
+    const listed = threads.filter((thread) => endOf(thread) === box);
+    listed.forEach((thread, index) => {
+      if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
+      const entry = cards.get(thread.id);
+      drawCard(entry, thread, null, folds(listed, index));
+      if (box.children[index] !== entry.card)
+        box.insertBefore(entry.card, box.children[index] ?? null);
+    });
+    for (const card of [...box.children].slice(listed.length)) card.remove();
+  }
+}
+// Each thread goes under its block or its proposal's card, after the
+// threads started there before it. With four or more threads in one place,
+// all but the two newest start collapsed.
 export function placeThreads() {
   const root = $("page-content");
-  if (!page || page.pending || $("reading").hidden) return;
-  const list = allThreads()
-    .filter((item) => item.round === plan.round && item.topic === page.id)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const ids = new Set(list.map((item) => item.id));
-  for (const card of $("reading").querySelectorAll("pair-thread"))
-    if (!ids.has(card.dataset.thread)) card.remove();
-  placeProgress(list.filter(onProgress));
+  const reading = page && !page.pending && !$("reading").hidden;
   const groups = new Map();
-  for (const thread of list.filter((item) => !onProgress(item))) {
-    const block = blockOf(root, thread);
-    groups.set(block, [...(groups.get(block) || []), thread]);
+  const group = (at, thread) =>
+    groups.set(at, [...(groups.get(at) || []), thread]);
+  const ids = new Set();
+  const list = [];
+  const ends = [];
+  for (const thread of allThreads().sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  )) {
+    const host = thread.proposal && cardOf(thread.proposal);
+    if (host) group(host, thread);
+    else if (thread.proposal) cards.get(thread.id)?.card.remove();
+    else if (endOf(thread)) ends.push(thread);
+    else if (reading && thread.round === plan.round && thread.topic === page.id)
+      list.push(thread);
+    if (host || list.at(-1) === thread) ids.add(thread.id);
+  }
+  placeEnds(ends);
+  if (reading) {
+    for (const card of $("reading").querySelectorAll("pair-thread"))
+      if (!ids.has(card.dataset.thread)) card.remove();
+    placeProgress(list.filter(onProgress));
+    for (const thread of list.filter((item) => !onProgress(item)))
+      group(blockOf(root, thread), thread);
   }
   const placed = new Set();
   for (const [block, threads] of groups)
     threads.forEach((thread, index) => {
       if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
       const entry = cards.get(thread.id);
-      const folded = threads.length >= 4 && index < threads.length - 2;
-      drawCard(entry, thread, partOf(block, thread), folded);
+      drawCard(entry, thread, partOf(block, thread), folds(threads, index));
       let after =
         block ||
         [...root.children]
@@ -458,6 +520,14 @@ export function placeThreads() {
       }
       placed.add(entry.card);
     });
+  // A message's observer would cut it only at the next frame, after a
+  // scroll to a reply had measured every long message at its full height,
+  // so each card drawn here cuts its messages now that it is on the page.
+  for (const card of unfitted)
+    if (card.isConnected)
+      for (const clamp of card.querySelectorAll(".thread-clamp"))
+        fits.get(clamp)();
+  unfitted.clear();
 }
 // The times on the cards on screen count up between polls.
 function tick() {

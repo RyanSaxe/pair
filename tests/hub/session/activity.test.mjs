@@ -13,12 +13,12 @@ const listedEvents = async (origin, id) =>
 // What each event says, without the ID and time the hub gives it.
 const described = (events) => events.map(({ id, at, ...rest }) => rest);
 
-test("a session's start, a round that finishes, a reply and side work's pull request each add one event, and a new hub keeps them", async (t) => {
+test("a session's start, a round that finishes and a reply each add one event, and a new hub keeps them", async (t) => {
   const h = await hub(t);
   const a = await h.session({ start: true });
   // pair start again on the session it started adds nothing.
   await h.register(a.directory, a.inbox.target, { start: true });
-  assert.equal((await a.publish(planData("1", "plan"))).code, 200);
+  assert.equal((await a.publish(planData("1"))).code, 200);
   const thread = crypto.randomUUID();
   const started = await a.request(`${a.base}/api/threads`, {
     id: thread,
@@ -35,32 +35,11 @@ test("a session's start, a round that finishes, a reply and side work's pull req
     (await a.action("reply", { note: thread, text: "It is retried." })).code,
     200,
   );
-  await a.action("side-work", {
-    change: "add",
-    title: "Delete visual-review",
-    text: "The skill is deprecated but still installed.",
-    source: "From the conversation",
-  });
-  assert.equal(
-    (await a.request(`${a.base}/api/side-work/1/start`, {})).code,
-    200,
-  );
-  const update = (fields) =>
-    a.action("side-work", { change: "update", id: "1", ...fields });
-  assert.equal((await update({ state: "working" })).code, 200);
-  const url = "https://github.com/RyanSaxe/pair/pull/12";
-  assert.equal((await update({ state: "pr", url: url + "0" })).code, 200);
-  const announced = (await listedEvents(h.server.origin, a.id)).at(-1);
-  // Correcting the link changes the event it added, and finishing the work
-  // adds nothing.
-  assert.equal((await update({ state: "pr", url })).code, 200);
-  assert.equal((await update({ state: "done" })).code, 200);
 
   const events = await listedEvents(h.server.origin, a.id);
-  assert.equal(events.at(-1).id, announced.id);
   assert.deepEqual(described(events), [
     { kind: "session", agent: "Claude Code" },
-    { kind: "waiting", round: "1", offer: "plan" },
+    { kind: "waiting", round: "1" },
     {
       kind: "reply",
       name: "Overview",
@@ -70,15 +49,8 @@ test("a session's start, a round that finishes, a reply and side work's pull req
       thread,
       message: 1,
     },
-    {
-      kind: "side-work",
-      name: "Delete visual-review",
-      url,
-      page: "agreed",
-      target: "side-work-1",
-    },
   ]);
-  assert.equal(new Set(events.map((event) => event.id)).size, 4);
+  assert.equal(new Set(events.map((event) => event.id)).size, 3);
   assert.ok(events.every((event) => Date.parse(event.at)));
   assert.deepEqual(
     JSON.parse(

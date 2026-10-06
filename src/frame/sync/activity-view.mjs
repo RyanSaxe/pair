@@ -124,9 +124,8 @@ export function drawActivity(running) {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  // The hub records when the agent's round started: the send, the
-  // acceptance, the pair start that builds a saved plan, or for round 1 the
-  // pair start that created the session.
+  // The hub records when the agent's round started: the send, or for round 1
+  // the pair start that created the session.
   const startedAt = remote?.roundStartedAt;
   $("activity-elapsed").textContent =
     running && startedAt ? since(startedAt) : "";
@@ -199,38 +198,96 @@ export function drawActivity(running) {
   if (model.failed && !handoff.firstChild)
     handoff.append(handoffLine(remote.handoff));
 }
-// Every page of a past round, its Feedback page included, names the
-// round. Current never has the strip. A tab click leaves the page on screen,
-// so the strip shows whenever that page belongs to the earlier round,
-// whichever tab is chosen.
-export function renderHistory() {
-  const old = mode === "readonly";
-  const past = editable && displayedRound === pastRound;
-  const strip = $("history-strip");
-  strip.hidden = !(old || past);
-  if (strip.hidden) return;
-  const label = $("history-label");
-  if (old && session.closed) label.textContent = "This plan is closed";
-  else {
+// Crumbs separated by chevrons.
+function crumbTrail(crumbs) {
+  return crumbs.flatMap((crumb, index) => {
+    const node =
+      typeof crumb === "string" ? document.createElement("span") : crumb;
+    if (typeof crumb === "string") node.textContent = crumb;
+    node.classList.add("crumb-name");
+    if (!index) return [node];
+    const mark = document.createElement("span");
+    mark.className = "crumb";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = "›";
+    return [mark, node];
+  });
+}
+// Inside a linked session, the line under the header names the session it
+// came from, as the way back, then this session. The hub names the parent
+// in the page and in each status.
+function parentCrumbs() {
+  const parent = remote?.parent || session.parent;
+  if (!parent) return [];
+  const link = document.createElement("a");
+  link.href = parent.url;
+  link.textContent = parent.title;
+  return [link, remote?.current?.title || plan.title];
+}
+function drawHistoryLabel(label, old, past, parent) {
+  // A closed session names itself, after its parent when it has one.
+  if (old && session.closed) {
     const name = document.createElement("b");
+    name.textContent = plan.title;
+    const state = document.createElement("span");
+    state.className = "state";
+    state.textContent = " is closed";
+    return label.replaceChildren(
+      ...crumbTrail([...parent.slice(0, 1), name]),
+      state,
+    );
+  }
+  if (old || past) {
+    const name = document.createElement("b");
+    name.className = "place";
     name.textContent = `Round ${old ? plan.round : pastRound}`;
-    label.replaceChildren(name);
+    label.replaceChildren(...crumbTrail([...parent, name]));
     if (past || shownSubmission()) {
       const meta = document.createElement("span");
       meta.className = "meta";
       meta.textContent = " · Feedback sent";
       label.append(meta);
     }
+    return;
+  }
+  const here = document.createElement("b");
+  here.textContent = parent[1];
+  label.replaceChildren(...crumbTrail([parent[0], here]));
+}
+// Every page of a past round, its Feedback page included, names the
+// round. Current never has the strip. A tab click leaves the page on screen,
+// so the strip shows whenever that page belongs to the earlier round,
+// whichever tab is chosen. A linked session always shows the strip, with
+// its parent's name first.
+export function renderHistory() {
+  const old = mode === "readonly";
+  const past = editable && displayedRound === pastRound;
+  const parent = parentCrumbs();
+  const strip = $("history-strip");
+  strip.hidden = !(old || past || parent.length);
+  if (strip.hidden) return;
+  const label = $("history-label");
+  // A poll redraws the line only when it changed, so a pointer on the
+  // parent's name keeps its hover.
+  const key = JSON.stringify([
+    old,
+    past && pastRound,
+    plan.round,
+    Boolean(shownSubmission()),
+    parent.map((crumb) => crumb.textContent ?? crumb),
+  ]);
+  if (label.dataset.key !== key) {
+    label.dataset.key = key;
+    drawHistoryLabel(label, old, past, parent);
   }
   const button = $("history-return");
-  button.hidden = old ? session.closed : !currentShown();
+  button.hidden = old ? session.closed : !past || !currentShown();
   button.textContent = "Back to current";
   button.onclick = old
     ? () => location.assign(`${base}/`)
     : () => switchTab("current");
 }
-// The Pages heading in the sidebar and in the phone drawer shows the page
-// round's status. The text stays while the status fades out.
+// The Pages heading in the sidebar shows the page round's status. The text stays while the status fades out.
 export function renderRound() {
   const model = editable ? roundModel({ remote }) : null;
   for (const status of document.querySelectorAll("[data-round-status]")) {

@@ -7,28 +7,22 @@ import {
   base,
   editable,
   online,
-  pages,
-  plan,
+  topicTitle,
 } from "#frame/app/view.mjs";
-import { openNote } from "#frame/notes/notes.mjs";
-import {
-  openCount,
-  sideWorkItems,
-  sideWorkSection,
-} from "#frame/pages/side-work.mjs";
+import { metaLine } from "#frame/pages/work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
 /* Agreed */
+// An alignment's label and the tone of its dot.
 function agreementLabel(entry) {
   if (entry.state === "reopened") return ["Revisiting", "attention"];
   if (entry.state === "retired") return ["No longer applies", "muted"];
-  if (entry.change === "new") return ["New", ""];
-  if (entry.change === "updated") return ["Updated", ""];
+  if (entry.change === "new") return ["New", "accent"];
+  if (entry.change === "updated") return ["Updated", "accent"];
   return null;
 }
 function describeRecord(record) {
-  const where =
-    pages.find((item) => item.id === record.topic)?.title || record.topic;
+  const where = topicTitle(record.topic) || record.topic;
   if (record.kind === "note") return `your note on ${where}`;
   if (record.kind === "thread") return `your thread on ${where}`;
   if (record.kind === "answer") return `your answer to “${record.label}”`;
@@ -81,32 +75,42 @@ function agreementCard(entry) {
   const card = document.createElement("section");
   card.className = "agreement-card";
   card.id = "agreement-" + entry.id;
+  // The comment control names a chosen card by this.
+  card.dataset.kind = "alignment";
   const body = document.createElement("div");
   body.className = "agreement-body";
   const title = document.createElement("h2");
   title.textContent = entry.title;
-  const label = agreementLabel(entry);
-  if (label) title.append(tag(label[0], label[1]));
+  const records = entry.sourceRecords || [];
+  const first = records.find((record) => record.kind !== "conversation");
+  // The meta line under the title: the label, the reviewer's notes on the
+  // alignment and where it was agreed.
   const noteCount = state.notes.filter(
     (note) => note.agreementId === entry.id,
   ).length;
-  if (noteCount) title.append(tag(plural(noteCount, "note"), "muted"));
-  const content = document.createElement("div");
-  content.innerHTML = entry.html;
-  body.append(title, content);
-  card.append(body);
-  const records = entry.sourceRecords || [];
-  const first = records.find((record) => record.kind !== "conversation");
-  const strip = document.createElement("div");
-  strip.className = "agreement-source";
-  const text = document.createElement("span");
-  text.textContent = first
-    ? `Agreed in round ${first.round} · ${describeRecord(first)}`
+  const source = first
+    ? `Round ${first.round}, ${describeRecord(first)}`
     : records.length
       ? "From the conversation"
       : entry.source
         ? "Source noted by the agent"
         : "";
+  const rest = document.createElement("span");
+  rest.textContent = [noteCount ? plural(noteCount, "note") : "", source]
+    .filter(Boolean)
+    .join(" · ");
+  rest.title = rest.textContent;
+  const [label, tone] = agreementLabel(entry) || [];
+  const content = document.createElement("div");
+  content.innerHTML = entry.html;
+  body.append(title);
+  if (label || rest.textContent)
+    body.append(metaLine(label, tone, rest.textContent ? rest : null));
+  body.append(content);
+  card.append(body);
+  // The footer holds only buttons: the source's links.
+  const strip = document.createElement("div");
+  strip.className = "agreement-source";
   const actions = document.createElement("div");
   actions.className = "actions";
   const separator = () => {
@@ -203,15 +207,8 @@ function agreementCard(entry) {
     );
     actions.append(more);
   }
-  if (editable) {
-    if (actions.children.length) actions.append(separator());
-    actions.append(
-      linkButton("Comment", () =>
-        openNote("agreed", entry.title, "", null, entry.id, card.id),
-      ),
-    );
-  }
-  strip.append(text, actions);
+  strip.append(actions);
+  strip.hidden = !actions.children.length;
   card.append(strip, details, preview);
   return card;
 }
@@ -221,6 +218,7 @@ function taskCard() {
   const card = document.createElement("section");
   card.className = "agreement-card task-card";
   card.id = "agreement-task";
+  card.dataset.kind = "task";
   const body = document.createElement("div");
   body.className = "agreement-body";
   const title = document.createElement("h2");
@@ -241,16 +239,8 @@ function taskCard() {
       : agreedTask.change === "updated"
         ? "Updated in this round"
         : "";
-  const actions = document.createElement("div");
-  actions.className = "actions";
-  if (editable)
-    actions.append(
-      linkButton("Comment", () =>
-        openNote("agreed", "The task", "", null, "task", card.id),
-      ),
-    );
-  strip.append(text, actions);
-  strip.hidden = !text.textContent && !actions.children.length;
+  strip.append(text);
+  strip.hidden = !text.textContent;
   card.append(body, strip);
   return card;
 }
@@ -260,172 +250,22 @@ function agreedLabel(text) {
   label.textContent = text;
   return label;
 }
-const decisionsPanel = "agreed-decisions";
-const sideWorkPanel = "side-work";
-const tabsByRound = new Map();
-
-function tabCount(count) {
-  const number = document.createElement("span");
-  number.className = "agreed-tab-count";
-  number.textContent = count ? String(count) : "";
-  number.hidden = !count;
-  return number;
-}
-function defaultAgreedTab(items) {
-  return !agreements.length && items.length ? sideWorkPanel : decisionsPanel;
-}
-function agreedTabs() {
-  const items = sideWorkItems();
-  const activeCount = agreements.filter(
-    (entry) => entry.state !== "retired",
-  ).length;
-  const tabs = document.createElement("div");
-  tabs.id = "agreed-tabs";
-  tabs.className = "vd-tablist agreed-tabs";
-
-  if (!items.length) {
-    tabs.classList.add("agreed-tabs-plain");
-    const label = document.createElement("span");
-    label.className = "agreed-tab-label";
-    label.textContent = "Decisions";
-    label.tabIndex = -1;
-    tabs.append(label, tabCount(activeCount));
-    return tabs;
-  }
-
-  tabs.setAttribute("role", "tablist");
-  tabs.setAttribute("aria-label", "Agreed");
-  for (const [panel, label, count] of [
-    [decisionsPanel, "Decisions", activeCount],
-    [sideWorkPanel, "Side work", openCount(items)],
-  ]) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.id = `agreed-tab-${panel === decisionsPanel ? "decisions" : "side-work"}`;
-    button.setAttribute("role", "tab");
-    button.setAttribute("aria-controls", panel);
-    button.setAttribute("aria-selected", "false");
-    button.tabIndex = -1;
-    const title = document.createElement("span");
-    title.className = "agreed-tab-label";
-    title.textContent = label;
-    button.append(title, tabCount(count));
-    tabs.append(button);
-  }
-  tabs.addEventListener("click", (event) => {
-    const tab = event.target.closest('[role="tab"]');
-    if (tab && tabs.contains(tab))
-      showAgreedTab(tab.getAttribute("aria-controls"));
-  });
-  tabs.addEventListener("keydown", (event) => {
-    const list = [...tabs.querySelectorAll('[role="tab"]')];
-    const index = list.indexOf(event.target.closest('[role="tab"]'));
-    if (index < 0) return;
-    let next;
-    if (event.key === "ArrowLeft")
-      next = (index - 1 + list.length) % list.length;
-    if (event.key === "ArrowRight") next = (index + 1) % list.length;
-    if (event.key === "Home") next = 0;
-    if (event.key === "End") next = list.length - 1;
-    if (next === undefined) return;
-    event.preventDefault();
-    list[next].focus();
-    showAgreedTab(list[next].getAttribute("aria-controls"));
-  });
-  return tabs;
-}
-export function showAgreedTab(panelId) {
-  const root = $("page-content");
-  const panels = [...root.querySelectorAll(":scope > .agreed-panel")];
-  if (!panels.some((panel) => panel.id === panelId)) return;
-  const tabs = [...($("agreed-tabs")?.querySelectorAll('[role="tab"]') || [])];
-  if (!tabs.length) {
-    if (panelId !== decisionsPanel) return;
-    for (const panel of panels) {
-      panel.hidden = panel.id !== decisionsPanel;
-      panel.removeAttribute("role");
-      panel.removeAttribute("aria-labelledby");
-    }
-    return;
-  }
-  if (!tabs.some((tab) => tab.getAttribute("aria-controls") === panelId))
-    return;
-  for (const panel of panels) {
-    panel.hidden = panel.id !== panelId;
-    panel.setAttribute("role", "tabpanel");
-    panel.setAttribute(
-      "aria-labelledby",
-      `agreed-tab-${panel.id === decisionsPanel ? "decisions" : "side-work"}`,
-    );
-  }
-  for (const tab of tabs) {
-    const selected = tab.getAttribute("aria-controls") === panelId;
-    tab.setAttribute("aria-selected", String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-  }
-  tabsByRound.set(plan.round, panelId);
-}
-export function refreshAgreedTabs() {
-  const tabs = $("agreed-tabs");
-  if (!tabs) return;
-  const items = sideWorkItems();
-  const hadSideWorkTab = Boolean($("agreed-tab-side-work"));
-  const hasSideWorkTab = items.length > 0;
-  const selectedPanel = tabs
-    .querySelector('[role="tab"][aria-selected="true"]')
-    ?.getAttribute("aria-controls");
-  const focusInTabs = tabs.contains(document.activeElement);
-  const focusedPanel = document.activeElement?.getAttribute("aria-controls");
-
-  if (hadSideWorkTab !== hasSideWorkTab) {
-    const replacement = agreedTabs();
-    tabs.replaceWith(replacement);
-    const panelId = hasSideWorkTab
-      ? selectedPanel || tabsByRound.get(plan.round) || defaultAgreedTab(items)
-      : decisionsPanel;
-    showAgreedTab(panelId);
-    if (focusInTabs) {
-      const focusId = hasSideWorkTab ? focusedPanel || panelId : decisionsPanel;
-      const target = [...replacement.querySelectorAll('[role="tab"]')].find(
-        (tab) => tab.getAttribute("aria-controls") === focusId,
-      );
-      (target || replacement.querySelector(".agreed-tab-label"))?.focus({
-        preventScroll: true,
-      });
-    }
-    return;
-  }
-
-  if (hasSideWorkTab) {
-    const number = tabs.querySelector(
-      "#agreed-tab-side-work .agreed-tab-count",
-    );
-    const count = openCount(items);
-    number.textContent = count ? String(count) : "";
-    number.hidden = !count;
-    showAgreedTab(
-      selectedPanel || tabsByRound.get(plan.round) || defaultAgreedTab(items),
-    );
-  } else showAgreedTab(decisionsPanel);
-}
+// The task, then one list of alignments, with those that no longer apply
+// folded at its end.
 export function renderAgreements() {
   const root = $("page-content");
   root.replaceChildren();
   if (agreedTask) root.append(agreedLabel("The task"), taskCard());
-  const decisions = document.createElement("div");
-  decisions.id = decisionsPanel;
-  decisions.className = "agreed-panel";
+  root.append(agreedLabel("Alignments"));
   if (!agreements.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = agreedTask
-      ? "No decisions recorded yet."
-      : "No agreements recorded yet.";
-    decisions.append(empty);
+    empty.textContent = "No alignments recorded yet.";
+    root.append(empty);
   } else {
     const active = agreements.filter((entry) => entry.state !== "retired");
     const retired = agreements.filter((entry) => entry.state === "retired");
-    for (const entry of active) decisions.append(agreementCard(entry));
+    for (const entry of active) root.append(agreementCard(entry));
     if (retired.length) {
       const details = document.createElement("details");
       details.className = "agreement-retired";
@@ -433,14 +273,8 @@ export function renderAgreements() {
       summary.textContent = `No longer applies · ${retired.length}`;
       details.append(summary);
       for (const entry of retired) details.append(agreementCard(entry));
-      decisions.append(details);
+      root.append(details);
     }
   }
-  const sideWork = sideWorkSection();
-  root.append(agreedTabs(), decisions, sideWork);
-  const items = sideWorkItems();
-  showAgreedTab(
-    (items.length && tabsByRound.get(plan.round)) || defaultAgreedTab(items),
-  );
   return enhance(root);
 }

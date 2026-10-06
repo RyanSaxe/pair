@@ -11,7 +11,7 @@ that follow Agreed, in order, as
 `{ "pages": [{ "id": "policy", "title": "Retry policy" }] }`.
 
 Build Agreed and publish it with the page list, then build and publish each
-page as soon as it is done. In the commands, `SRC` is `WORK/src/N` and `OUT`
+page as soon as it is ready. In the commands, `SRC` is `WORK/src/N` and `OUT`
 is `WORK/out/N`:
 
 ```sh
@@ -27,23 +27,23 @@ or delete the old output first. `pair publish --source SRC/policy` copies
 that directory to the session's `src/<round>/<page-id>/`, so keep built
 pages, previews and scratch files out of it. To revise an earlier round's
 page, copy its source from there and change its `round` to this one. Embed
-every local resource a page uses. Do not install packages to author a plan.
+every local resource a page uses.
 
-A published page cannot change in its round. `pair publish` checks each `#`
-link on the pages after Agreed, and refuses a page whose link names neither
-a page of the round nor an element on its own page. Open a page in a browser
-only when it has CSS or a script you wrote and you cannot judge it from the
-source.
+You cannot change a page in its round after you publish it.
+`pair publish` checks each `#` link on the pages after Agreed, and refuses
+a page with a link that points to neither a page of the round nor an
+element on that page. Only open a page in a browser when it has CSS or a
+script you wrote and you cannot judge it from the source.
 
-In a round, you change the pages, their CSS, JavaScript and prototypes, and
-Agreed. The frame, pair's components, the `pair` command and the hub are
-pair's own code. If the reviewer asks to change one of them, say so in the
-chat and plan it as work on pair.
+In a round, you write Agreed and the pages, with their CSS, JavaScript and
+prototypes. The frame, pair's components, the `pair` command and the hub
+are pair's own code. If the reviewer asks you to change one of them, say so
+in the chat and plan it as work on pair.
 
 ## Source fields
 
 Agreed and every other page share the outer fields `name`, `round` and
-`title`. Agreed also requires a `task`. Run `pair guide agreements.md` for
+`title`. Agreed also needs a `task`. Run `pair guide agreements.md` for
 its fields.
 
 ```json
@@ -83,28 +83,27 @@ its fields.
 | ---------- | ------------------------------------------------------------------------------------------------- |
 | name       | Stable ID for the whole session, using letters, digits, underscores or hyphens.                   |
 | round      | The same value on every page of a round, and a new value for each round: `"1"`, `"2"`.            |
-| offer      | Agreed's source only, and optional: `plan` or `finish`. `pair guide` prints when to name each.    |
 | title      | The plan's title.                                                                                 |
+| plan       | Agreed's source only, and optional: `true` when the round is a plan.                              |
 | page.file  | An HTML fragment, relative to the JSON file. `page.html` may contain the fragment inline instead. |
 | page.css   | Optional page CSS. `pair build` scopes it to this page.                                           |
 | page.js    | Optional module that exports `setup(root, planUI)`.                                               |
 | prototypes | Optional prototypes for this page. Run `pair guide prototypes.md` for their fields.               |
 
-Page IDs are unique within a round. `agreed` is only for the Agreed page,
-and `feedback` is reserved.
+Give each page an ID that no other page in the round uses. `agreed` is
+only for the Agreed page, and you cannot use `feedback` or `work`.
 
-Page HTML is trusted markup written by the agent. Reviewer comments are
-plain text. Never put them into executable HTML or JavaScript, and never put
-the agent token in a page.
+Page HTML runs as you wrote it, and the reviewer's comments are plain text.
+Never put a comment into a page's HTML or JavaScript where it could run,
+and never put the agent token in a page.
 
 ## Page content
 
 The frame draws the header, the navigation, the page title and the comment
-control. Page HTML is a fragment that starts below the title and must not
-contain an `h1`. `pair build` refuses a page that contains one. Lay the page
-out with its own HTML and CSS. The frame provides basic typography, tables,
-code, theme colors, focus and selected-choice states, and no card or column
-layouts.
+control. Write page HTML as a fragment that starts below the title, with no
+`h1`, which `pair build` refuses. The frame styles text, tables, code,
+theme colors, focus and selected choices, but has no card or column
+layouts, so lay the page out with its own HTML and CSS.
 
 `pair build` scopes a page's CSS to that page and puts it in a cascade layer
 beneath the components, so page CSS does not restyle another page, and does
@@ -146,12 +145,14 @@ titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
 | plan:page, plan:theme                | Window events after each page render (detail has page, element and round) and after a theme change.                                                                |
 
 The frame sets `aria-pressed` and checkbox state from the reviewer's draft,
-so do not author `aria-pressed` or `checked`. Group IDs are unique within a
-page across all kinds, and option IDs within a group. When a topic continues
+so do not set `aria-pressed` or `checked` yourself. Give each group an ID
+that no other group on the page uses, of any kind, and give each option an
+ID that no other option in its group uses. When a topic continues
 in the next round, keep its page ID, control IDs and labels, so the frame
 keeps the reviewer's unsent draft on it. Put checklist markup in the page
-HTML, not in a script, so every checklist is in the submission, including
-lists on pages the reviewer never opened. Keep authored controls focusable.
+HTML, not in a script, so the reviewer's feedback includes every
+checklist, even on pages they never opened. Keep every control you add
+focusable.
 
 ## Page JavaScript
 
@@ -159,7 +160,7 @@ Page JavaScript exports `setup(root, planUI)`, which the frame calls each
 time the page renders, with the page's content element as `root`. Script
 elements inside page HTML do not execute.
 
-Change only elements inside `root`. `pair build` refuses a script that
+Only change elements inside `root`. `pair build` refuses a script that
 writes to `document.body` or `document.documentElement`, such as setting
 their `style`, `className`, `classList`, `dataset` or `innerHTML` or calling
 their `setAttribute`, `append`, `prepend` or `remove`, because those change
@@ -167,11 +168,11 @@ the whole frame. Reading them, such as the body's width, is allowed.
 
 ## Comments
 
-The reviewer can comment on the page, on any block or on selected text, and
-needs no authored control to do it. A note on a block is filed under the
-block's heading, `data-title`, `data-file`, figure title or caption, and
-otherwise under the heading above it. Give each block a distinct name so
-every note identifies its block.
+The reviewer can comment on the whole page, on any block or on selected
+text, without any control you add. The frame files a note on a block under
+the block's heading, `data-title`, `data-file`, figure title or caption,
+or else under the heading above it. Give each block a distinct name, so
+you can tell which block each note is about.
 
 ## Figures
 

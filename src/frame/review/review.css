@@ -16,7 +16,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-top: 18px;
+  margin: 18px 0 20px;
 }
 .draft-head h2 {
   margin: 0;
@@ -72,6 +72,14 @@
   font-size: var(--text-card);
   font-weight: var(--weight-strong);
   cursor: pointer;
+}
+/* In the Send popup the switch sits under the choices. dialogs.css comes
+   later in the cascade, so the rule names the dialog to outrank its
+   .dialog label. */
+.dialog .send-switch {
+  display: flex;
+  margin: 14px 0 0;
+  font-size: var(--text-card);
 }
 .alignment-switch input {
   appearance: none;

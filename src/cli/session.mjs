@@ -11,6 +11,7 @@ import { exists, read, requireValue } from "../shared/util.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
 import { rows } from "./output.mjs";
+import { proposalText } from "./tags.mjs";
 
 // fs.cp gives each copied directory its source's mode, and rm cannot empty
 // a read-only directory, so the copy is made writable before it goes. A
@@ -94,10 +95,10 @@ async function keepSource(sessionDir, source, html) {
     const entries = await fs.readdir(target).catch(() => undefined);
     const stopped =
       entries?.length === 0
-        ? " It is empty, so another publish of this page is still copying, or one was stopped while it copied. Run pair status: if the page is not published and no other publish is running, delete that directory and publish again."
-        : "";
+        ? " It is empty, so another publish of this page is still copying, or one was stopped while it copied. Run pair status. If the page is not published and no other publish is running, delete that directory and publish again."
+        : " Run pair status to see whether you already published it.";
     throw new Error(
-      `Source for round ${record.round} already exists at ${target}.${stopped}`,
+      `Page ${record.page.id} of round ${record.round} already has a source at ${target}.${stopped}`,
     );
   }
   // The copy takes the target's place only once it is complete, so a copy
@@ -120,8 +121,8 @@ async function keepSource(sessionDir, source, html) {
   return target;
 }
 // The session a command names, and request(), which sends it one action.
-// status and side-work may come from an agent that cannot be woken, such as
-// one the holder briefed, unless the session has to register with a new hub.
+// status may come from an agent that cannot be woken, such as one the holder
+// briefed, unless the session has to register with a new hub.
 // status still names the agent when there is one, because a hub that runs
 // older code answers status only for the holder.
 export async function openSession(options, { anyAgent = false } = {}) {
@@ -215,7 +216,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
     mayHaveActed = true;
     requireValue(
       (result.status?.sessionId || result.sessionId) === connection.sessionId,
-      "Helper identity changed; resume the intended session",
+      `The hub answered for a different session than the one in ${directory}. Run pair start --session-dir ${directory} to resume it.`,
       409,
     );
     return result;
@@ -231,17 +232,30 @@ export async function openSession(options, { anyAgent = false } = {}) {
 // pair start refuses under Codex until the allow rule exists, because
 // without it Codex asks the user to approve every pair command.
 const codexRefusal = (file) =>
-  `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. With their yes, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
+  `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
 
 export async function start(options) {
   requireNode();
   const resuming = options["session-dir"] !== undefined;
+  const from = options.from !== undefined;
+  if (from && (resuming || options.title !== undefined))
+    throw usageError(
+      "start",
+      "pair start --from takes no --title and no --session-dir. It creates a session with the proposal's title.",
+    );
+  if (from !== (options.proposal !== undefined))
+    throw usageError(
+      "start",
+      from
+        ? "pair start --from takes --proposal ID, the proposal the new session runs."
+        : "pair start takes --proposal only with --from.",
+    );
   if (resuming && options.title !== undefined)
     throw usageError(
       "start",
       "pair start takes --title only when it creates a session, not with --session-dir.",
     );
-  if (!resuming && !options.title?.trim())
+  if (!resuming && !from && !options.title?.trim())
     throw usageError(
       "start",
       "pair start requires --title TEXT when it creates a session.",
@@ -255,18 +269,30 @@ export async function start(options) {
     : path.join(config.sessions, crypto.randomUUID());
   const started = await attach(directory, config, wake, {
     start: true,
-    ...(resuming ? {} : { title: options.title.trim() }),
+    ...(from
+      ? { from: path.resolve(options.from), proposal: options.proposal }
+      : resuming
+        ? {}
+        : { title: options.title.trim() }),
   });
+  const card = started.proposal;
   return {
     next: started.next,
     // A hub of the previous release names no moment for a new session.
     moment: started.moment || (resuming ? undefined : "start"),
-    data: rows([
-      ["Session", started.sessionDir],
-      ["URL", started.url],
-      ["Phone URL", started.hostUrl],
-      ["Title", started.title],
-    ]),
+    data: [
+      rows([
+        ["Session", started.sessionDir],
+        ["URL", started.url],
+        ["Phone URL", started.hostUrl],
+        ["Title", started.title],
+        ["Parent", started.parent?.sessionDir],
+        ["Proposal", card?.id],
+      ]),
+      card && proposalText(card, started.joined),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     json: started,
   };
 }
@@ -293,16 +319,14 @@ export async function publish(options) {
     }
     // A timeout's error cannot take a longer message, so a new one does.
     throw new Error(
-      `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${action.source}. Run pair status: if the page is not published, delete that directory and publish again.`,
+      `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${action.source}. Run pair status. If the page is not published, delete that directory and publish again.`,
       { cause: error },
     );
   }
   const { page } = result;
   // The agent chooses each page's components from this list, which follows
-  // the Agreed of every round but a build round.
-  const choosing = ["publish-agreed", "publish-agreed-plan"].includes(
-    result.moment,
-  );
+  // every Agreed.
+  const choosing = result.moment === "publish-agreed";
   return {
     next: result.next,
     moment: result.moment,
@@ -310,9 +334,10 @@ export async function publish(options) {
       [
         `Published ${page.id} in round ${page.round}.`,
         `URL ${result.url}`,
-        ...(result.roundComplete ? [`Round ${page.round} is complete.`] : []),
+        ...(result.roundComplete
+          ? [`Every page of round ${page.round} is published.`]
+          : []),
       ].join("\n"),
-      ...(result.warning ? [`Warning: ${result.warning}`] : []),
       ...(choosing ? [(await components()).data] : []),
     ].join("\n\n"),
     json: result,

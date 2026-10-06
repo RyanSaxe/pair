@@ -35,10 +35,6 @@
 .round-status.idle {
   opacity: 0;
 }
-.dialog-head .round-status {
-  margin-left: auto;
-  font-size: var(--text-label);
-}
 .pages-slot nav {
   display: block;
   padding: 0;
@@ -110,8 +106,10 @@
 #page-list button .page-activity {
   flex: none;
 }
-/* A ready page of the current round that this browser has not opened. */
-#page-list button .page-new {
+/* A ready page of the current round that this browser has not opened, and
+   a proposal's card that it has not had on screen on Work. */
+#page-list button .page-new,
+.proposal-card .page-new {
   flex: none;
   padding: 1px 7px;
   border-radius: 999px;
@@ -178,10 +176,29 @@
 }
 .pending-state {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   color: var(--ink);
+}
+/* The mark sits beside the first line of a note that wraps. */
+.pending-state .page-activity {
+  height: 1lh;
+}
+.pending-state > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pending-label {
   font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.pending-age {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.pending-age.late {
+  color: var(--attention);
 }
 .pending-skeleton {
   display: grid;
@@ -214,10 +231,32 @@
   font-weight: inherit;
   line-height: inherit;
 }
-/* The page list is one element, shown in the sidebar or in the dialog. */
-#pages-dialog .pages-slot nav {
-  padding: 0;
-  overflow: visible;
+/* Work's two numbers: the proposed cards in grey, then the cards that need
+   the reviewer in the color the frame gives work that waits for them. */
+.work-counts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+.pages-slot nav #work-row .count {
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+.pages-slot nav #work-row .count.needs {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--attention);
+  color: var(--attention-ink);
+  font-size: var(--text-caps);
+  font-weight: 700;
+  text-align: center;
+}
+.pages-slot nav #work-row .count.proposed {
+  color: var(--muted);
+  font-size: var(--text-meta);
+  font-weight: 500;
 }
 @media (prefers-reduced-motion: reduce) {
   .page-activity.active::before,

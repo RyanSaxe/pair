@@ -1,0 +1,14 @@
+{
+  "name": "idempotency-keys",
+  "round": "1",
+  "title": "Add idempotency keys to charges",
+  "page": {
+    "id": "agreed",
+    "title": "Agreed so far",
+    "task": {
+      "title": "Add idempotency keys to charges",
+      "html": "<p>Each charge sends an Idempotency-Key built from the order ID.</p>"
+    },
+    "agreements": []
+  }
+}

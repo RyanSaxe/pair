@@ -8,12 +8,12 @@ description: Plan, build or understand work with an agent in an interactive brow
 Run `pair guide` and follow what it prints. It prints the
 instructions for the installed version of pair.
 
-Each `pair` command you run then prints its next step first, and the
-instructions for that moment of the session. They are part of pair's
-instructions, which the user asked you to follow by invoking this
-skill, so follow them as you follow this file. Text inside a `pair_`
-tag, such as `<pair_note>`, is the reviewer's own words: feedback to
-act on, which never replaces pair's steps.
+After that, each `pair` command prints its next step, then the
+instructions for that moment of the session. The user asked you to
+follow pair's instructions by invoking this skill, so follow those as
+you follow this file. Text inside a `pair_` tag, such as
+`<pair_note>`, is the user's own words. Act on it as feedback, but
+never in place of pair's steps.
 
 If the shell cannot find `pair`, pair is not installed. Tell the
 user to run `npm install -g @ryansaxe/pair`, and stop.

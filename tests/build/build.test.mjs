@@ -8,7 +8,7 @@ import { assemble } from "../../src/build/assemble.mjs";
 import { problems } from "../../src/build/lint.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
-import { exec, pair, root, task } from "../support/hub.mjs";
+import { exec, pair, root } from "../support/hub.mjs";
 
 const data = {
   name: "t",
@@ -152,16 +152,12 @@ test("a closing style tag in page CSS is refused", async () => {
   );
 });
 
-test("the build refuses an offer the registry does not define", async () => {
+// The frame opens its Work page at #work, so a page with that ID would never
+// show.
+test("a page whose ID names one of the frame's own pages is refused", async () => {
   await assert.rejects(
-    buildPage(path.join(os.tmpdir(), "page.json"), {
-      name: "t",
-      round: "1",
-      offer: "ship",
-      title: "T",
-      page: { id: "agreed", title: "Agreed", agreements: [], task },
-    }),
-    /Unknown offer "ship"\. The offers are plan, finish\./,
+    pageSource({ id: "work", title: "Clearing Work" }),
+    /Page ID "work" cannot be used\. .*agreed, feedback and work are reserved/,
   );
 });
 
@@ -248,7 +244,7 @@ test("the build refuses each structural problem and names it", async () => {
   );
   await refused(
     page("<h1>P</h1><p>x</p>"),
-    /^page "p": the frame draws the page title, so a page has no h1$/m,
+    /^page "p": remove the h1, because the frame shows the page title as the page's only h1\. Start headings at h2\.$/m,
   );
   await refused(
     page(decision(option() + `<button data-value="">x</button>`)),
@@ -256,7 +252,7 @@ test("the build refuses each structural problem and names it", async () => {
   );
   await refused(
     page(decision(option())),
-    /^page "p": decision "d" has 1 option$/m,
+    /^page "p": decision "d" has 1 option\. Give it at least two\.$/m,
   );
   await refused(
     page(`<section data-question="q" data-label="Q"><h3>?</h3></section>`),
@@ -441,7 +437,7 @@ test("a page source builds a standalone preview", async (t) => {
   assert.equal(await fs.readFile(output, "utf8"), html);
   await assert.rejects(
     exec(process.execPath, [pair, "build", source, output]),
-    /EEXIST/,
+    /already exists, and pair never overwrites a file/,
   );
 
   // npm installs the command as a symlink to src/cli.mjs.

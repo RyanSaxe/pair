@@ -89,17 +89,6 @@ const rules = [
     "On the task",
     "On the task",
   ],
-  [
-    "a side-work item",
-    {
-      page: "Agreed",
-      anchor: "Side work: Shortcut symbols on primary buttons",
-      target: "side-work-2",
-    },
-    null,
-    "On Shortcut symbols on primary buttons",
-    "On Shortcut symbols on primary buttons",
-  ],
   ["the page", { anchor: "Tonight" }, null, "On this page", "On this page"],
 ];
 for (const [kind, fields, part, open, collapsed] of rules)

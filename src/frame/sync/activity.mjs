@@ -13,19 +13,57 @@ export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
 // report on it.
 const LATE = 300000;
 
+// The agent stops working on its pages while it is paused, or after the
+// hub could not wake it.
+export function agentStopped(remote) {
+  const failed = remote?.wake?.last?.ok === false;
+  return { failed, stopped: failed || Boolean(remote?.paused) };
+}
+
+// When the agent last reported on a page at work: its latest note, or the
+// page's start before any note.
+function lastReport(slot, now) {
+  const at = slot.note?.at || slot.startedAt;
+  return at ? { at, late: now - Date.parse(at) >= LATE } : null;
+}
+
 // The label on a row of the progress card: a page's state, or for a page at
-// work, how long ago it last reported. A page with no note yet counts from
-// when it started.
+// work, how long ago it last reported.
 export function rowLabel(slot, { stopped, failed }, now = Date.now()) {
   if (slot.state === "ready") return { text: "Ready" };
   if (slot.state !== "active") return { text: "Queued" };
   if (stopped) return { text: failed ? "Stopped" : "Paused" };
-  const at = slot.note?.at || slot.startedAt;
-  if (!at) return { text: "Working" };
+  const report = lastReport(slot, now);
+  if (!report) return { text: "Working" };
   return {
-    text: ago(at, now),
-    late: now - Date.parse(at) >= LATE,
+    text: ago(report.at, now),
+    late: report.late,
     note: slot.note?.text || null,
+  };
+}
+
+// The top of a page the agent has not published: the agent's latest note on
+// it, and under it how long ago the agent noted it or started the page. While
+// the agent is stopped, the note no longer says what it is doing.
+export function pendingLabel(slot, { stopped, failed }, now = Date.now()) {
+  if (slot.state === "ready")
+    return { mark: "active", text: "Loading this page" };
+  if (slot.state !== "active")
+    return { mark: "queued", text: "Waiting to start" };
+  if (stopped)
+    return {
+      mark: "active",
+      stopped: true,
+      text: failed ? "Agent stopped" : "Agent paused",
+    };
+  const report = lastReport(slot, now);
+  return {
+    mark: "active",
+    text: slot.note?.text || "Preparing this page",
+    ...(report && {
+      age: `${slot.note ? "Noted" : "Started"} ${ago(report.at, now)}`,
+      late: report.late,
+    }),
   };
 }
 
@@ -42,9 +80,8 @@ export function activityModel({
   const read = Boolean(latest) && remote.lastAcknowledgedId === latest;
   const received =
     read || (Boolean(latest) && remote.lastReceivedId === latest);
-  const failed = remote?.wake?.last?.ok === false;
+  const { failed, stopped } = agentStopped(remote);
   const paused = Boolean(remote?.paused);
-  const stopped = failed || paused;
   const slots = remote?.openRound
     ? [
         { id: "agreed", title: "Agreed so far", state: "ready" },
@@ -129,7 +166,7 @@ export function activityModel({
 
 // Outside a round that a send started, the card still tells the reviewer
 // about the agent: that another agent took the session over since their
-// last send, or that the wake for an acceptance failed.
+// last send, or that the wake for their send failed.
 export function agentNotice(remote) {
   if (!remote || remote.stage === "complete") return false;
   return (

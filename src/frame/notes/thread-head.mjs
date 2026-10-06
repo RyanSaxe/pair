@@ -20,6 +20,7 @@ const cut = (text, length) =>
   text.length > length ? `${text.slice(0, length - 1).trimEnd()}…` : text;
 // What a thread is on, as its card's head names it.
 function threadName(thread, part, collapsed) {
+  if (thread.proposal) return `On ${thread.page}`;
   if (thread.quote) {
     // A collapsed card hides its quote, so its head quotes the words.
     const words = `“${cut(normalize(thread.quote), 40)}”`;
@@ -27,10 +28,11 @@ function threadName(thread, part, collapsed) {
     return part ? `On ${part}` : "On the words you selected";
   }
   if (thread.agreementId === "task") return "On the task";
+  // A thread on the overall comment or on Work names the place it is in.
+  if (thread.topic === "overall" || thread.topic === "work")
+    return `On ${thread.page}`;
   if (thread.anchor === thread.page) return "On this page";
-  // A side-work item's card sits inside Side work, so its head leaves out
-  // the "Side work: " its note's anchor starts with.
-  return `On ${thread.anchor.replace(/^Side work: /, "")}`;
+  return `On ${thread.anchor}`;
 }
 // A card's head: what the thread is on, how many messages it has, and its
 // state when the card is collapsed. part names the part of the block the

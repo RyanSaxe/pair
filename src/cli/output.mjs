@@ -21,15 +21,18 @@ async function momentText(name) {
   }
 }
 
-// Writes a session command's output in one shape: the next step, the
-// moment's text, then the data, each after a blank line, and the next step
-// again when the output is long. With --json it writes output.json instead.
+// Writes a session command's output in one shape: the next step, the text
+// of each moment it names, then the data, each after a blank line, and the
+// next step again when the output is long. With --json it writes output.json instead.
 // A session command's output names its session directory, where data too
 // long to print goes, in a file whose path prints in its place.
 export async function print(output, { json, command }) {
   if (json) return console.log(JSON.stringify(output.json, null, 2));
   const next = output.next && `Next: ${output.next}`;
-  const moment = output.moment ? await momentText(output.moment) : "";
+  const moments = [output.moment].flat().filter(Boolean);
+  const moment = (await Promise.all(moments.map(momentText)))
+    .filter(Boolean)
+    .join("\n\n");
   let data = output.data || "";
   const whole = [next, moment, data].filter(Boolean).join("\n\n");
   const between = [moment, data].filter(Boolean).join("\n\n");
@@ -50,6 +53,15 @@ export async function print(output, { json, command }) {
   const parts = [next, moment, data, repeat && next].filter(Boolean);
   if (parts.length) console.log(parts.join("\n\n"));
 }
+
+// pair build and pair diff write OUTPUT with the wx flag, so the write
+// fails when the file exists, and the agent reads why.
+export const refuseOverwrite = (output) => (error) => {
+  if (error.code !== "EEXIST") throw error;
+  throw new Error(
+    `${output} already exists, and pair never overwrites a file. Write to a new path, or delete that file first.`,
+  );
+};
 
 // Lines of a label and a value, with the values in one column.
 export function rows(pairs) {

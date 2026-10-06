@@ -14,18 +14,45 @@ dialog::backdrop {
   gap: 10px;
   margin-bottom: 16px;
 }
+/* Every dialog grows with its content until it is --dialog-margin from
+   each edge of the window, and max-width: none lifts the browser's
+   smaller cap on a modal. Its title, any line under the title and its
+   button row stay in view, and .dialog-body, the part between them,
+   scrolls. */
 .dialog {
+  --dialog-padding: 24px;
   position: fixed;
   inset: 0;
   margin: auto;
-  width: min(440px, 92vw);
+  width: min(440px, 100vw - 2 * var(--dialog-margin));
+  max-width: none;
   height: fit-content;
-  max-height: 90dvh;
-  padding: 22px 24px;
+  max-height: calc(100dvh - 2 * var(--dialog-margin));
+  padding: 22px var(--dialog-padding);
   border-radius: 10px;
   box-shadow: var(--shadow);
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
+}
+.dialog[open],
+.dialog > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* The body reaches across the dialog's side padding, so a list's hover
+   and a field's focus ring are not cut off where it scrolls. */
+.dialog-body {
+  min-height: 0;
+  margin: 0 calc(-1 * var(--dialog-padding));
+  padding: 0 var(--dialog-padding);
+  overflow-y: auto;
+}
+@media (max-width: 480px) {
+  .dialog {
+    --dialog-padding: 16px;
+    padding-block: 16px;
+  }
 }
 /* A dialog's text has no paragraph margin, so each dialog spaces its
    lines itself. :where keeps this below any rule that names a class. */
@@ -55,8 +82,9 @@ dialog::backdrop {
     text-decoration: underline;
   }
 }
-/* The editor opens as a modal over the page, and fills the screen on a
-   phone, where Excalidraw's toolbar needs the width. */
+/* The editor opens as a modal over the page, and on a phone takes all of
+   the window but every dialog's margin, because Excalidraw's toolbar
+   needs the width. */
 .drawing-dialog {
   width: min(880px, 94vw);
   max-width: 94vw;
@@ -72,13 +100,10 @@ dialog::backdrop {
 }
 @media (max-width: 600px) {
   .drawing-dialog {
-    width: 100vw;
-    max-width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    margin: 0;
-    border: 0;
-    border-radius: 0;
+    width: calc(100vw - 2 * var(--dialog-margin));
+    max-width: none;
+    height: calc(100dvh - 2 * var(--dialog-margin));
+    max-height: none;
   }
   /* The question alone, so the header leaves the drawing its height. */
   .drawing-heading p {
@@ -129,11 +154,16 @@ dialog::backdrop {
 .dialog .dialog-head h2 {
   margin: 0;
 }
+/* A button row holds only actions, with the primary on the right. The ×,
+   Escape and a click outside back out of a dialog, so no row has Cancel. */
 .dialog .actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-top: 18px;
+}
+.dialog .actions .btn.primary {
+  margin-left: auto;
 }
 .dialog-head h2:focus,
 .dialog-head h2:focus-visible {
@@ -188,8 +218,7 @@ dialog::backdrop {
    of pixels right of the text. Below 1160px the max() is zero and the value
    is the 22px it has always been. */
 /* Start a thread on the left and Add to feedback on the right, on one row
-   at every width. A touch screen has no keys to hint at, and a window too
-   narrow for both hints drops them rather than wrap. */
+   at every width. */
 .note-actions {
   display: flex;
   justify-content: space-between;
@@ -199,37 +228,45 @@ dialog::backdrop {
 .note-actions .btn.primary {
   margin-left: auto;
 }
-.note-actions kbd {
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: var(--text-tiny);
-  opacity: 0.9;
-}
-@media (pointer: coarse), (max-width: 400px) {
-  .note-actions kbd {
-    display: none;
-  }
-}
+/* The note's field is one bordered box: the text area, and under it a
+   strip with the image button at its left, in line with the text. Text
+   scrolls only inside the text area, so the line being typed never runs
+   under the button. fitNoteText sets the text area's height to its text,
+   so the box grows from 120px to half the window, and past that the text
+   area shrinks to fit and scrolls. */
 .note-field {
   position: relative;
-}
-/* The image button sits inside the text field, in room the field's own
-   padding leaves at its foot, so the note's field is taller than a
-   dialog's other fields. */
-.note-field textarea {
+  display: flex;
+  flex-direction: column;
   min-height: 120px;
-  padding-bottom: 40px;
+  max-height: 50dvh;
+  margin: var(--space-field) 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--panel);
+  overflow: hidden;
 }
+.note-field:has(> textarea:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.note-field textarea {
+  flex: auto;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  outline: none;
+  resize: none;
+}
+/* The left margin is the text area's side padding. */
 .note-image-pick {
-  position: absolute;
-  left: 7px;
-  bottom: 7px;
+  flex: none;
+  align-self: flex-start;
   width: 28px;
   height: 28px;
+  margin: 0 0 7px 12px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--panel);
@@ -247,39 +284,8 @@ dialog::backdrop {
   color: var(--accent);
   font-weight: var(--weight-strong);
 }
-/* Dialogs share one treatment; a long body scrolls inside. */
-.dialog {
-  overflow: auto;
-}
-.dialog .actions-right {
-  display: flex;
-  justify-content: flex-end;
-}
-.decide-sections {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-.decide-sections .actions {
-  flex-wrap: wrap;
-}
-.decide-sections > div {
-  grid-area: 1 / 1;
-}
-.decide-sections > [inert] {
-  visibility: hidden;
-}
-.dialog.note #note-anchor,
-#start-item {
+.dialog.note #note-anchor {
   margin: 0 0 6px;
-}
-/* The message box is the note's height, without room for an image button. */
-#start-message {
-  min-height: 120px;
-}
-/* The line that says what goes with the decision stands apart from the rows
-   above it and the note below. */
-#finish-drafted {
-  margin: 10px 0 12px;
 }
 .settings-row {
   display: flex;
@@ -289,9 +295,7 @@ dialog::backdrop {
   padding: 10px 0;
   border-top: 1px solid var(--line);
 }
-/* The first row follows the head, which :first-of-type would count as the
-   dialog's first div. */
-.dialog-head + .settings-row {
+.dialog-body > .settings-row:first-child {
   border-top: 0;
   padding-top: 0;
 }
@@ -422,11 +426,6 @@ dialog::backdrop {
   letter-spacing: 0;
   font-size: var(--text-meta);
 }
-@media (max-width: 720px) {
-  .dialog {
-    width: 92vw;
-  }
-}
 /* The session list and the bell's list open under their buttons, in the
    top layer, at the place the frame sets when each opens. */
 .pop {
@@ -479,6 +478,32 @@ dialog::backdrop {
 .sess-line.current {
   background: var(--accent-soft);
 }
+/* A session that is not a sub-session starts a group with its
+   sub-sessions, set a little apart from the group above. */
+.sess-line:not([style*="--depth"]):not(:first-child) {
+  margin-top: 6px;
+}
+/* A sub-session has no number. Its name sits one step in from the name of
+   the session it came from, after an arrow that fills that step. */
+.sess-line[style*="--depth"] .sess-row .t {
+  padding-left: calc((var(--depth) - 1) * 18px);
+}
+.sess-row .sub {
+  display: inline-block;
+  width: 18px;
+  color: var(--muted);
+  font-weight: normal;
+}
+/* A closed session over its open sub-sessions reads in grey and has no
+   buttons, so its row spans their columns and Closed ends at the right. */
+.sess-closed .sess-row {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  cursor: default;
+}
+.sess-line.sess-closed::before {
+  display: none;
+}
 .sess-line[data-closing] {
   opacity: 0.45;
   pointer-events: none;
@@ -514,6 +539,12 @@ dialog::backdrop {
   color: var(--muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.sess-row .n svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin-left: auto;
 }
 .sess-row .t {
   min-width: 0;
