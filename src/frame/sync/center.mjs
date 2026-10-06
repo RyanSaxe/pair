@@ -24,13 +24,14 @@ import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
    newest first, from the last 50 events the hub keeps for each. A line
    leaves the list when you click it or its ✕, when you reply in its
    thread or give the reply a thumbs up, or, for a waiting round, once you
-   send that round, so the bell's
-   number is the number of lines. Which events this
-   browser removed stays in its storage for the hub, so every tab on the hub
-   shares it and each browser keeps its own. A round published before the
-   bell's list came keeps the notification center, which reads its own
-   pair:center: keys, so this list uses a key of its own and leaves those
-   alone. */
+   send that round. A session's start and waiting round also leave once a
+   visible tab has shown that session, so they do not come back when you
+   switch to another session. The bell's number is the number of lines.
+   Which events this browser removed stays in its storage for the hub, so
+   every tab on the hub shares it and each browser keeps its own. A round
+   published before the bell's list came keeps the notification center,
+   which reads its own pair:center: keys, so this list uses a key of its
+   own and leaves those alone. */
 
 const storageKey = "pair:bell:cleared";
 // The removed IDs, kept here too when browser storage is unavailable. Null
@@ -86,9 +87,10 @@ export function settleCleared(listed, cleared) {
   return new Set([...cleared].filter((id) => listed.includes(id)));
 }
 
-// The bell's lines: every listed event not removed, newest first. The tab
-// already shows its own session, so that session's start and waiting round
-// are not lines.
+// The tab already shows its own session, so that session's start and
+// waiting round are not lines.
+const shownKinds = ["session", "waiting"];
+// The bell's lines: every listed event not removed, newest first.
 export function bellLines(sessions, cleared, thisId) {
   return sessions
     .filter((entry) => !entry.closed)
@@ -97,9 +99,7 @@ export function bellLines(sessions, cleared, thisId) {
         .filter(
           (event) =>
             announced(entry, event) &&
-            !(
-              entry.id === thisId && ["session", "waiting"].includes(event.kind)
-            ),
+            !(entry.id === thisId && shownKinds.includes(event.kind)),
         )
         .map((event) => ({ ...event, entry })),
     )
@@ -150,7 +150,18 @@ export function renderCenter(sessions, fromHub) {
       (entry.events || []).map(({ id }) => id),
     );
     const after = settleCleared(listed, before);
-    if (!before || after.size !== before.size) store(after);
+    // A visible tab has shown its session's start and waiting round, so the
+    // reviewer who leaves for another session is not told about them again.
+    const own = sessions.find((entry) => entry.id === session.sessionId);
+    if (own && document.visibilityState === "visible")
+      for (const event of own.events || [])
+        if (shownKinds.includes(event.kind)) after.add(event.id);
+    if (
+      !before ||
+      after.size !== before.size ||
+      [...after].some((id) => !before.has(id))
+    )
+      store(after);
   }
   lines = bellLines(sessions, loadCleared(), session.sessionId);
   const count = lines.length;
