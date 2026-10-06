@@ -173,9 +173,11 @@ say, publish the changed pages in the next round.
 
 Build approved work on a new branch, and name the branch on the first page
 about it. If the work has a plan, follow it. When the work is a proposal,
-record what is done and what is left with `pair propose --session-dir PATH
---id ID --status-done "…" --status-left "…"` when you begin, and each time
-you finish a part or the parts change, with one flag for each part. Publish
+list its parts with `pair propose --session-dir PATH --id ID --status-left
+"…"` when you begin, with one flag for each part. Mark each part with
+`--status-done "…"` when you finish it, add a part you find with
+`--status-left`, and cross off a part the work no longer needs with
+`--status-drop "…"`. Publish
 a page whenever part of the work is ready for the reviewer to check. Show
 what changed and what it does, with the evidence that it works, such as a
 screenshot, the diff that matters or a test result. On the same page, say
