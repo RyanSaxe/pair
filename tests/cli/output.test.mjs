@@ -352,8 +352,9 @@ test("pair propose merges a card into a proposed one, and pair read and pair sta
 
 // After a status, pair propose prints the count and the parts left, or
 // how the work finishes when none is left, and pair status prints the
-// count after the card's state. A linked session's agent writes to the
-// card in the parent, which pair propose names.
+// count after the card's state. The count leaves out dropped parts. A
+// linked session's agent writes to the card in the parent, which pair
+// propose names.
 test("pair propose prints a status's count and what is left, and pair status prints the count", async (t) => {
   const { h, cli, a, run, record } = await session(t);
   await record("deck", "Build the deck");
@@ -362,19 +363,22 @@ test("pair propose prints a status's count and what is left, and pair status pri
     ...["--quote", "Build the deck."],
   );
   const status = (...parts) => run("propose", "--id", "deck", ...parts);
-  assert.match(
-    await status(
-      ...["--status-done", "Outline"],
-      ...["--status-left", "Slides", "--status-left", "Speaker notes"],
+  const started = await status(
+    ...["--status-done", "Outline"],
+    ...["--status-left", "Slides", "--status-left", "Speaker notes"],
+  );
+  assert(
+    started.endsWith(
+      `\nProposal deck: approved to run here, 1 of 3 parts done.\nLeft: Slides; Speaker notes.\nBuild the next part. When you finish a part, run pair propose --session-dir ${a.directory} --id deck --status-done "PART". Add a part with --status-left, and drop a part the work no longer needs with --status-drop.\n`,
     ),
-    /\nProposal deck: approved to run here, 1 of 3 parts done\.\nLeft: Slides; Speaker notes\.\nBuild the next part\. When you finish it, or the parts change, run the same command again with the whole list\.\n$/,
+    started,
   );
   assert.match(
     await run("status"),
     /\n {2}deck {2}approved to run here, 1 of 3 parts done {2}Build the deck\n$/,
   );
   const finished = await status(
-    ...["--status-done", "Outline", "--status-done", "Slides"],
+    ...["--status-done", "Slides", "--status-drop", "Speaker notes"],
   );
   assert(
     finished.endsWith(
@@ -384,10 +388,10 @@ test("pair propose prints a status's count and what is left, and pair status pri
   );
 
   await record("notes", "Write the notes");
-  const started = await a.request(`${a.base}/api/proposals/notes/start`, {
+  const approved = await a.request(`${a.base}/api/proposals/notes/start`, {
     where: "sub-session",
   });
-  assert.equal(started.code, 200, started.body.error);
+  assert.equal(approved.code, 200, approved.body.error);
   const child = await h.session({
     start: true,
     from: a.directory,

@@ -58,23 +58,49 @@ The hub wakes the holder at these moments:
   the start again.
 - When you press Open a new agent session, which starts a thread on the
   card.
+- When a page or a proposal has had no update for 10 minutes and no `pair`
+  command has run on the session for 10 minutes, unless the session is
+  paused, as [Quiet work](#quiet-work) describes.
 
 The hub sends no wake when you decline a proposal, give a reply a thumbs
 up, or close a linked session. The holder's next `pair read` prints the
 proposals you declined and the linked sessions you closed.
+
+### Quiet work
+
+A page of the open round that the agent started is quiet when its last
+note, or its start when it has no note, is more than 10 minutes old. A
+proposal started here that is not done is quiet when its parts last
+changed, or it started when it has no parts, more than 10 minutes ago.
+Agents often post no note and mark no part while a subagent does the work,
+and the progress card and Work then show you no progress.
+
+- While a page or a proposal is quiet, every session command's next step
+  ends with a line that names it, with the time of its last update, and the
+  `pair progress` or `pair propose` command that updates it.
+- The hub checks the live sessions once a minute. When a page or a proposal
+  is quiet and no `pair` command has run on the session for 10 minutes, the
+  hub wakes the holder with a line that names the quiet work. A subagent's
+  commands count, because a subagent runs them in its parent's environment.
+- The hub sends no second wake for a page or a proposal until it gets an
+  update: a new note on the page, or a change to the proposal's parts.
+  Another command is not an update. When another page or proposal becomes quiet, the hub
+  sends a new wake that names all the quiet work.
+- The hub keeps the time of the last command in memory, so after a restart
+  it counts from its own start.
 
 ## How the hub wakes each agent CLI
 
 `pair start` records how to wake the agent that ran it. When it finds no way
 to wake the agent, it refuses and prints what to do.
 
-| Agent CLI   | What `pair start` records                                              | How the hub wakes the agent                                                                                                      |
-| ----------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | It sends a message over the inbox socket.                                                                                        |
-| Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | It sends `turn/steer` over the daemon's socket into the turn in progress, or else runs `codex queue --thread ID --message TEXT`. |
-| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.      |
-| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                  |
-| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                      |
+| Agent CLI   | What `pair start` records                                              | How the hub wakes the agent                                                                                                                                                                   |
+| ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | It sends a message over the inbox socket.                                                                                                                                                     |
+| Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | It sends `turn/steer` over the daemon's socket into the turn in progress, queues the line and starts a turn with it on an idle thread, or else runs `codex queue --thread ID --message TEXT`. |
+| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.                                                                   |
+| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                                                                               |
+| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                                                                                   |
 
 Most agent CLIs read a wake message in the middle of a turn. A Codex whose
 daemon does not run the thread, and a Copilot CLI that refuses `immediate`,
@@ -92,6 +118,11 @@ Codex calls threads, on a shared app-server daemon. The daemon listens on
 - When a turn of the agent's thread is in progress, the hub connects to that
   socket and sends the line with `turn/steer`, and Codex reads it between
   the steps of the turn.
+- When the daemon runs the thread and no turn is in progress, the hub adds
+  the line to the thread's queue with `thread/queue/add`, then starts a
+  turn with the line through `thread/queue/start`. Codex leaves a queued
+  line in the queue after you interrupt a turn, until you send a message,
+  so the hub starts the turn itself.
 - In every other case the hub runs `codex queue`. When Codex is idle, it
   then starts a turn with the line at once. When the daemon does not run
   the thread, as with a Codex older than 0.160, Codex reads the line when
@@ -130,7 +161,8 @@ When pi or opencode has exited, the wake fails with
 your feedback or a Start.
 
 - The result of each wake has `via`, the path the message took, such as
-  `steer` or `queue` for Codex.
+  `steer` or `queue` for Codex, or `parent` when the hub sent it to the
+  parent of a Codex subagent.
 - Each wake also sets `holder.steerable` in `status.json`, which is `true`
   when the agent CLI reads a message in the middle of a turn.
 - When a wake fails, the progress card shows "Could not wake the agent.

@@ -200,7 +200,10 @@ Brief each subagent with what to do, where to start, what earlier rounds
 found, how long it should take, the session directory, and where to put
 its findings, with sources. For work on a page, include the page's ID and
 `pair progress --page ID --note "…"`, so it reports its own progress.
-Check every subagent's result before you publish anything from it.
+For work that is a proposal, also give the subagent its command
+`pair propose --session-dir PATH --id ID --status-done "…"` and the parts,
+so it marks each part finished as it goes. Check every subagent's result
+before you publish anything from it.
 
 ## Reference files
 

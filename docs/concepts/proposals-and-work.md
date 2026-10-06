@@ -42,6 +42,13 @@ the page, with the same buttons.
 - When the agent started the work on your words, the card reads Started from
   your words, with a link to where you wrote them, and shows your words in
   quotes.
+- While the work runs, the card lists its parts in the order the agent added
+  them, each marked done, left or dropped, with a dropped part crossed off.
+  Above the parts, it shows how many parts are done, leaving out the dropped
+  ones, and the next part left. Narrower than 720px, the card shows only that
+  line until you tap it. The agent records the parts with
+  [`pair propose`](../reference/commands.md#pair-propose), and no command
+  removes a part.
 
 pair labels a card **New** until you have seen it on Work, as it labels an
 unopened page in the sidebar. Your browser remembers which cards you have

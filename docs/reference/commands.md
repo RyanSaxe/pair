@@ -33,6 +33,10 @@ creates a session. A session command prints these, in order:
 2. The instructions for that moment of the session.
 3. Its result, with your words inside `pair_` tags.
 
+While a page or a proposal has had no update for 10 minutes, the next step
+ends with a line that names it, as
+[Quiet work](../concepts/architecture.md#quiet-work) describes.
+
 When the output is long, it prints the next step again at the end. `--json`
 prints the result as one JSON object instead. When the output of `pair read`
 or `pair status` is over 10,000 bytes, the command writes its result to a
@@ -54,10 +58,21 @@ the ID instead.
 | `--done`                     | Marks work that runs here done, after the agent publishes its last page. With `--where TEXT`, such as `--where "in #86"`, it marks a proposal done whose work was finished somewhere else.                                                                       |
 | `--join OTHER`               | Joins a proposal that is still in Proposed into OTHER, whose work covers it. The hub refuses it when OTHER is declined, withdrawn, done or joined itself, or runs in a sub-session or with a new agent.                                                          |
 | `--reopen`                   | Undoes the agent's own `--done` or `--join`. The hub refuses it for a proposal that it marked done because you closed its linked session.                                                                                                                        |
+| `--status-left TEXT`         | Adds a part of approved work that is left, after the proposal's parts. A part with that text that the proposal already lists keeps its state.                                                                                                                    |
+| `--status-done TEXT`         | Marks the part with that text done, or adds it as done when the proposal does not list it.                                                                                                                                                                       |
+| `--status-drop TEXT`         | Marks a part the proposal lists dropped. The part stays in the proposal's parts, and no flag removes one.                                                                                                                                                        |
 
 The hub refuses `--done` for a proposal whose work runs in a sub-session or
 with a new agent. When you close that session, the hub marks the proposal
 done.
+
+The three `--status` flags repeat, once for each part, and one command can
+mix them. Each flag changes only the part it names. The hub takes them only
+for work that you approved and that is not finished, in a command with no
+other flag from this section. It refuses `--status-drop` for text that
+matches no part, with an error that lists the proposal's parts. A proposal
+has at most 20 parts, each at most 80 characters, and `--reopen` clears
+them.
 
 ## Environment variables
 
