@@ -34,6 +34,14 @@ export function links(session) {
       parent.closedSession(link().proposal, session.state.sessionId),
     );
   }
+  // A session started from a card with Plan it first plans before it
+  // builds, so pair start --from prints the moment that says so.
+  const plansFirst = () =>
+    Boolean(
+      parentOf()
+        ?.proposalItems()
+        .find((card) => card.id === link()?.proposal)?.started?.planFirst,
+    );
   // Build it in a linked session moves the parent's card from planning to
   // building.
   async function buildLinked() {
@@ -57,5 +65,12 @@ export function links(session) {
     );
     return parent;
   }
-  return { parentView, linkParent, closeLinked, buildLinked, cardOwner };
+  return {
+    parentView,
+    linkParent,
+    closeLinked,
+    plansFirst,
+    buildLinked,
+    cardOwner,
+  };
 }

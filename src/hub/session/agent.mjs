@@ -381,7 +381,9 @@ export function agent(session) {
     if (start && created)
       return {
         // A session pair start --from created runs one proposal.
-        moment: session.state.parent ? ["start", "start-from"] : "start",
+        moment: session.state.parent
+          ? ["start", session.plansFirst() ? "start-from-plan" : "start-from"]
+          : "start",
         next: await nextStep(),
       };
     const next = start && (await nextStep());

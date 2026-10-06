@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
-import { hub, literal, pairCli, planData } from "../support/hub.mjs";
+import { hub, literal, pairCli, planData, root } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -131,5 +131,27 @@ test("pair start --from refuses a missing --proposal, a directory with no sessio
       h.config.sessions,
       (await sessions()).find((name) => !before.includes(name)),
     ),
+  );
+});
+
+// A card started with Plan it first gets the moment that plans first, and
+// pair status says so on the card until its session chooses Build it.
+test("pair start --from prints the plan-first moment, and pair status says the card is planning first", async (t) => {
+  const { a, cli, from } = await parent(t);
+  const started = await a.request(`${a.base}/api/proposals/notes/start`, {
+    where: "sub-session",
+    planFirst: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const output = await from("--proposal", "notes");
+  const moment = async (name) =>
+    (
+      await fs.readFile(path.join(root, "guide/moments", `${name}.md`), "utf8")
+    ).split("\n")[0];
+  assert(output.includes(await moment("start-from-plan")), output);
+  assert(!output.includes(await moment("start-from")), output);
+  assert.match(
+    await cli.run("status", "--session-dir", a.directory),
+    /notes +approved to run in a sub-session, planning first +Write the speaker notes/,
   );
 });

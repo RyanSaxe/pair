@@ -212,8 +212,11 @@ function proposalState(card, cards) {
   if (card.done?.joined) return `done, joined into ${card.done.joined}`;
   if (card.done)
     return `done ${card.done.where ?? places[card.started.where]}${joins}`;
-  if (card.started)
-    return `approved to run ${places[card.started.where]}${parts}${joins}`;
+  if (card.started) {
+    const { where, planFirst, built } = card.started;
+    const planning = planFirst && !built ? ", planning first" : "";
+    return `approved to run ${places[where]}${planning}${parts}${joins}`;
+  }
   return `proposed${joins}`;
 }
 
