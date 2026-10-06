@@ -226,12 +226,17 @@ export const commands = {
       "status-done": {
         value: "TEXT",
         repeats: true,
-        text: "A part of the approved work that you have finished, in at most 80 characters. Give one flag for each part. Each run replaces the proposal's whole status, which has at most 12 parts.",
+        text: "A part of the approved work that you have finished, in at most 80 characters. The hub marks the part with that text done, or adds it as done when the proposal does not list it. Give one flag for each part. Each flag changes only the part it names.",
       },
       "status-left": {
         value: "TEXT",
         repeats: true,
-        text: "A part of the approved work that is left, in at most 80 characters. Give one flag for each part, the next one first.",
+        text: "A part of the approved work that is left, in at most 80 characters. The hub adds it after the proposal's parts, and changes nothing when the proposal already lists a part with that text. Give one flag for each part, the next one first. A proposal has at most 20 parts.",
+      },
+      "status-drop": {
+        value: "TEXT",
+        repeats: true,
+        text: "A part the proposal lists that the work no longer needs. The hub marks it dropped, and no flag removes a part from the proposal. Give one flag for each part.",
       },
       json,
     },

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { startHub } from "../../../src/hub/server.mjs";
 import {
   hub,
   literal,
@@ -444,20 +445,17 @@ test("--done marks work approved to run here done, --where marks any card done, 
   );
 });
 
-// A status lists the parts of approved work that are done and left. Each
-// one replaces the last whole, adds nothing to the bell, and is refused
-// for work nobody started or that is finished. --reopen clears it.
-test("a status replaces the parts of approved work, only while it runs, and --reopen clears it", async (t) => {
+// A status keeps one list of the parts of approved work, in the order the
+// agent added them. --status-left adds a part, --status-done marks one done
+// or adds it as done, and --status-drop marks a part the card lists
+// dropped. No flag removes a part, a status that changes no part leaves
+// status.at as it was, and none adds to the bell. The hub refuses a status
+// for work nobody started or that is finished, and --reopen clears it.
+test("a status adds and marks the parts of approved work and never removes one", async (t) => {
   const { a, propose, add, reviewer, cards } = await proposing(t);
   await add();
-  const status = (done, left, extra = {}) =>
-    propose({
-      id: "churn-export",
-      statusDone: done,
-      statusLeft: left,
-      ...extra,
-    });
-  const early = await status(["Schema"], ["Export"]);
+  const status = (change) => propose({ id: "churn-export", ...change });
+  const early = await status({ statusLeft: ["Export"] });
   assert.equal(early.code, 409);
   assert.equal(
     early.body.error,
@@ -470,62 +468,102 @@ test("a status replaces the parts of approved work, only while it runs, and --re
   const events = async () =>
     (await a.request("/api/sessions")).body.sessions[0].events.length;
   const before = await events();
-  const first = await status(
-    [" Read the September schema "],
-    ["Map the columns", "Write the export"],
-  );
-  assert.equal(first.code, 200, first.body.error);
+  const parts = async () =>
+    (await cards())[0].status.parts.map(({ text, state }) => [text, state]);
+  const changed = async (change) => {
+    const written = await status(change);
+    assert.equal(written.code, 200, written.body.error);
+    return written.body.proposal.status;
+  };
+
+  // The done parts of one call come before its left parts.
+  const first = await changed({
+    statusDone: [" Read the September schema "],
+    statusLeft: ["Map the columns", "Write the export"],
+  });
+  assert.deepEqual(first.parts, [
+    { text: "Read the September schema", state: "done" },
+    { text: "Map the columns", state: "left" },
+    { text: "Write the export", state: "left" },
+  ]);
+  // Restating every part, and a left flag for a part that is done, change
+  // nothing.
   assert.deepEqual(
-    { ...first.body.proposal.status, at: undefined },
-    {
-      at: undefined,
-      done: ["Read the September schema"],
-      left: ["Map the columns", "Write the export"],
-    },
+    await changed({
+      statusDone: ["Read the September schema"],
+      statusLeft: ["Map the columns", "Read the September schema"],
+    }),
+    first,
   );
-  const second = await status(undefined, ["Write the export"]);
-  assert.equal(second.code, 200, second.body.error);
-  assert.deepEqual(
-    { ...(await cards())[0].status, at: undefined },
-    { at: undefined, done: [], left: ["Write the export"] },
-  );
+  await sleep(5);
+  const mixed = await changed({
+    statusDone: ["Map the columns", "Check the totals"],
+    statusLeft: ["Email the team"],
+    statusDrop: ["Write the export"],
+  });
+  assert(mixed.at > first.at, "a change to the parts moves status.at");
+  assert.deepEqual(await parts(), [
+    ["Read the September schema", "done"],
+    ["Map the columns", "done"],
+    ["Write the export", "dropped"],
+    ["Check the totals", "done"],
+    ["Email the team", "left"],
+  ]);
+  // A dropped part stays dropped under --status-left, and --status-done
+  // marks it done.
+  await changed({ statusLeft: ["Write the export"] });
+  assert.deepEqual((await parts())[2], ["Write the export", "dropped"]);
+  await changed({ statusDone: ["Write the export"] });
+  assert.deepEqual((await parts())[2], ["Write the export", "done"]);
   assert.equal(await events(), before, "a status adds nothing to the bell");
 
-  for (const [done, left, extra, error] of [
+  const kept = await parts();
+  const sixteen = Array.from({ length: 16 }, (_, index) => `Part ${index}`);
+  for (const [change, error] of [
+    // A refused part refuses the whole status.
     [
-      Array(13).fill("A part"),
-      [],
-      {},
-      "A status has at most 12 parts, and you gave 13.",
+      { statusDone: ["Email the team"], statusDrop: ["Send the export"] },
+      'Proposal churn-export has no part "Send the export" to drop. Its parts are "Read the September schema", "Map the columns", "Write the export", "Check the totals", "Email the team".',
     ],
     [
-      ["x".repeat(81)],
-      [],
-      {},
+      { statusLeft: sixteen },
+      "A status has at most 20 parts, and proposal churn-export would have 21.",
+    ],
+    [
+      { statusDone: ["x".repeat(81)] },
       "Each --status-done is text of at most 80 characters.",
     ],
-    [[], [" "], {}, "Each --status-left is text of at most 80 characters."],
     [
-      ["Schema"],
-      [],
-      { done: true },
+      { statusLeft: [" "] },
+      "Each --status-left is text of at most 80 characters.",
+    ],
+    [
+      { statusDrop: [{}] },
+      "Each --status-drop is text of at most 80 characters.",
+    ],
+    [
+      { statusDone: [], statusDrop: [] },
+      "Give at least one --status-done, --status-left or --status-drop.",
+    ],
+    [
+      { statusDrop: ["Email the team"], done: true },
       "A status takes no --done. Give the status in a pair propose of its own.",
     ],
     [
-      ["Schema"],
-      [],
-      { title: "New title" },
+      { statusDone: ["Email the team"], title: "New title" },
       "A status takes no --title. Give the status in a pair propose of its own.",
     ],
   ]) {
-    const refused = await status(done, left, extra);
+    const refused = await status(change);
     assert.equal(refused.code, 400, error);
     assert.equal(refused.body.error, error);
   }
-  assert.deepEqual((await cards())[0].status.left, ["Write the export"]);
+  assert.deepEqual(await parts(), kept);
+  await changed({ statusLeft: sixteen.slice(1) });
+  assert.equal((await parts()).length, 20);
 
   assert.equal((await propose({ id: "churn-export", done: true })).code, 200);
-  const finished = await status(["Write the export"], []);
+  const finished = await status({ statusDone: ["Email the team"] });
   assert.equal(finished.code, 409);
   assert.equal(
     finished.body.error,
@@ -534,6 +572,42 @@ test("a status replaces the parts of approved work, only while it runs, and --re
   const reopened = await propose({ id: "churn-export", reopen: true });
   assert.equal(reopened.code, 200, reopened.body.error);
   assert.equal(reopened.body.proposal.status, null);
+});
+
+// A card saved before parts had states lists its done and left parts
+// apart. The hub reads it as one list of parts, the done parts first.
+test("a card saved with done and left parts reads as one list of parts", async (t) => {
+  const { h, a, add, reviewer } = await proposing(t);
+  await add();
+  assert.equal(
+    (await reviewer("churn-export", "start", { where: "here" })).code,
+    200,
+  );
+  const file = path.join(a.directory, "proposals", "churn-export.json");
+  const saved = JSON.parse(await fs.readFile(file, "utf8"));
+  const at = "2026-09-01T10:00:00.000Z";
+  const done = ["Read the schema"];
+  const left = ["Map the columns", "Write the export"];
+  await fs.writeFile(
+    file,
+    JSON.stringify({ ...saved, status: { at, done, left } }),
+  );
+  await h.server.close();
+  const restarted = await startHub(h.config);
+  try {
+    const response = await fetch(`${restarted.origin}${a.base}/api/status`);
+    const [card] = (await response.json()).proposals;
+    assert.deepEqual(card.status, {
+      at,
+      parts: [
+        { text: "Read the schema", state: "done" },
+        { text: "Map the columns", state: "left" },
+        { text: "Write the export", state: "left" },
+      ],
+    });
+  } finally {
+    await restarted.close();
+  }
 });
 
 // The agent merges a card nobody started into a card whose work covers

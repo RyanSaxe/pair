@@ -202,8 +202,10 @@ const places = {
 };
 function proposalState(card, cards) {
   const { status } = card;
-  const parts = status
-    ? `, ${status.done.length} of ${status.done.length + status.left.length} parts done`
+  // The count leaves out the parts the agent dropped.
+  const counted = status?.parts.filter((part) => part.state !== "dropped");
+  const parts = counted
+    ? `, ${counted.filter((part) => part.state === "done").length} of ${counted.length} parts done`
     : "";
   const joined = joinedInto(card, cards).map((item) => item.id);
   const joins = joined.length ? `, joined by ${listing(joined)}` : "";
@@ -260,10 +262,13 @@ export async function propose(options) {
     ...Object.fromEntries(flags.map((name) => [name, options[name]])),
     statusDone: options["status-done"],
     statusLeft: options["status-left"],
+    statusDrop: options["status-drop"],
   });
   const card = result.proposal;
   const where = result.parent ? ` in session "${result.parent.title}"` : "";
-  const status = options["status-done"] || options["status-left"];
+  const status = ["done", "left", "drop"].some(
+    (name) => options[`status-${name}`],
+  );
   return {
     next: result.next,
     data: [
@@ -278,9 +283,11 @@ export async function propose(options) {
 
 // After a status, the parts left, or how the work finishes when none is.
 function leftText(card, directory) {
-  const { left } = card.status;
+  const left = card.status.parts
+    .filter((part) => part.state === "left")
+    .map((part) => part.text);
   if (left.length)
-    return `Left: ${sentence(left.join("; "))}\nBuild the next part. When you finish it, or the parts change, run the same command again with the whole list.`;
+    return `Left: ${sentence(left.join("; "))}\nBuild the next part. When you finish a part, run pair propose --session-dir ${directory} --id ${card.id} --status-done "PART". Add a part with --status-left, and drop a part the work no longer needs with --status-drop.`;
   if (card.started.where === "here")
     return `Nothing is left. After you publish the work's last page, run pair propose --session-dir ${directory} --id ${card.id} --done.`;
   return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";

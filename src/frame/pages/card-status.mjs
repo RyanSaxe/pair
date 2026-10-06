@@ -1,9 +1,10 @@
 /* The status of approved work on its card: how many of its parts the agent
-   has finished, the next part, and every part, each with a check when done
-   or an empty circle when left. Wider than 720px a card opens with its
-   parts listed. Narrower, it shows the count and the next part until the
-   reviewer taps it. A card the reviewer opens or folds stays that way
-   until the page reloads. */
+   has finished, leaving out the parts it dropped, the next part, and every
+   part in the order the agent added it, with a check when done, an empty
+   circle when left, and a dash and a line through the text when dropped.
+   Wider than 720px a card opens with its parts listed. Narrower, it shows
+   the count and the next part until the reviewer taps it. A card the
+   reviewer opens or folds stays that way until the page reloads. */
 
 const toggled = new Map();
 let wide = null;
@@ -28,6 +29,7 @@ const element = (tag, className, text) => {
 const marks = {
   done: '<path d="M3.5 8.5l3 3 6-7"/>',
   left: '<circle cx="8" cy="8" r="5.2"/>',
+  dropped: '<path d="M4 8h8"/>',
   fold: '<path d="M4 6l4 4 4-4"/>',
 };
 function mark(name, label) {
@@ -39,11 +41,12 @@ function mark(name, label) {
   } else box.setAttribute("aria-hidden", "true");
   return box;
 }
-function part(text, done) {
-  const item = element("li", done ? "done" : "left");
+const labels = { done: "Done", left: "Left", dropped: "Dropped" };
+function part({ text, state }) {
+  const item = element("li", state);
   item.append(
-    mark(done ? "done" : "left", done ? "Done" : "Left"),
-    element("span", "", text),
+    mark(state, labels[state]),
+    element(state === "dropped" ? "s" : "span", "", text),
   );
   return item;
 }
@@ -55,27 +58,25 @@ export function statusBox(card) {
       "proposal-status empty",
       "No status from the agent yet",
     );
-  const { done, left } = card.status;
+  const { parts } = card.status;
+  const counted = parts.filter((item) => item.state !== "dropped");
+  const done = counted.filter((item) => item.state === "done");
+  const next = parts.find((item) => item.state === "left");
   const box = element("details", "proposal-status");
   box.dataset.status = card.id;
   box.open = toggled.get(card.id) ?? wideWindow().matches;
   const summary = element("summary");
-  summary.append(
-    element("b", "", `${done.length} of ${done.length + left.length} done`),
-  );
-  if (left.length)
+  summary.append(element("b", "", `${done.length} of ${counted.length} done`));
+  if (next)
     summary.append(
       element("span", "status-sep", "·"),
-      element("span", "status-next", `Next: ${left[0]}`),
+      element("span", "status-next", `Next: ${next.text}`),
     );
   summary.append(mark("fold"));
   // A click on the summary toggles the box after this runs.
   summary.addEventListener("click", () => toggled.set(card.id, !box.open));
   const list = element("ul");
-  list.append(
-    ...done.map((text) => part(text, true)),
-    ...left.map((text) => part(text, false)),
-  );
+  list.append(...parts.map(part));
   box.append(summary, list);
   return box;
 }
