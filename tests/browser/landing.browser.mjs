@@ -4,6 +4,15 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
+// WebKit rounds a scroll position to whole pixels in its own way, so a
+// landing it holds can sit one pixel from where the reader left. A real
+// miss is tens or hundreds of pixels.
+const nearly = (actual, expected) =>
+  assert.ok(
+    Math.abs(actual - expected) <= 1,
+    `landed at ${actual}, expected ${expected}`,
+  );
+
 // Where a page lands for each way of arriving at it, while the code blocks
 // above the place grow after the page lands, in Chrome and in WebKit, the
 // engine of every browser on an iPhone.
@@ -222,7 +231,7 @@ for (const [browser, engine] of Object.entries(engines))
       await openPage(s.page, "code");
       await title(s.page, "Code");
       await frames(s.page);
-      assert.equal((await grow(s.page, "#result")).top, left.top);
+      nearly((await grow(s.page, "#result")).top, left.top);
     });
 
     test(`in ${browser} on ${width}, a reload lands where the reader was while code above it grows`, async (t) => {
@@ -235,7 +244,7 @@ for (const [browser, engine] of Object.entries(engines))
       await s.page.reload();
       await title(s.page, "Code");
       await frames(s.page);
-      assert.equal((await grow(s.page, "#result")).top, left.top);
+      nearly((await grow(s.page, "#result")).top, left.top);
     });
 
     test(`in ${browser} on ${width}, a reload lands where the reader was while a screenshot above it loads more than a second later`, async (t) => {
@@ -260,6 +269,6 @@ for (const [browser, engine] of Object.entries(engines))
         .locator("#page-content img")
         .evaluate((image) => image.decode());
       await frames(s.page);
-      assert.equal((await place(s.page, "#result")).top, left.top);
+      nearly((await place(s.page, "#result")).top, left.top);
     });
   }
