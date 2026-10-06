@@ -1,0 +1,37 @@
+name: sync develop
+
+# A release merges develop into main with a merge commit that develop does
+# not have. Once ci finishes on main, this job fast-forwards develop to main,
+# which adds no commit and leaves the two branches identical. develop's
+# ruleset accepts the push only when main's commit passed the checks that
+# develop requires. When a pull request merged into develop after the
+# release, develop cannot fast-forward, and the next release's merge commit,
+# which contains develop, is the next one this job fast-forwards to.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # the push to develop
+
+jobs:
+  sync:
+    # A pull request from a fork's branch named main also runs ci with the
+    # head branch main, so only a push to main starts a sync.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: |
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "develop already contains main."
+          elif git merge-base --is-ancestor origin/develop origin/main; then
+            git push origin origin/main:refs/heads/develop
+          else
+            echo "::notice::develop has commits that main lacks, so it cannot fast-forward to main. The next release's merge commit contains develop, and this workflow fast-forwards develop to it."
+          fi
