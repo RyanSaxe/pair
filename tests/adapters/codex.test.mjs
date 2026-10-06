@@ -103,7 +103,7 @@ test("a Codex wake falls back to codex queue", unix, async (t) => {
   const cases = [
     ["no socket", null, false],
     ["status notLoaded", status("notLoaded"), false],
-    ["status idle", status("idle"), true],
+    ["thread/queue/add answered with an error", status("idle"), true],
     [
       "turn/steer answered with an error",
       {
@@ -127,6 +127,82 @@ test("a Codex wake falls back to codex queue", unix, async (t) => {
     /^Error: thread gone$/,
   );
 });
+
+// The daemon's queue for an idle thread. Codex starts a line that
+// thread/queue/add queues at once, unless the user interrupted the thread's
+// last turn, and then the line waits until thread/queue/start starts it.
+function idleQueue({ interrupted, start }) {
+  const queue = [];
+  return {
+    "thread/read": { thread: { id: thread, status: { type: "idle" } } },
+    "thread/queue/add": ({ input }) => {
+      const queuedSubmission = { id: "queued-1", input };
+      if (interrupted) queue.push(queuedSubmission);
+      return { queuedSubmission };
+    },
+    "thread/queue/start": ({ queuedSubmissionId }) => {
+      const index = queue.findIndex(({ id }) => id === queuedSubmissionId);
+      if (index < 0)
+        return {
+          error: {
+            code: -32600,
+            message: `queued submission not found: ${queuedSubmissionId}`,
+          },
+        };
+      if (start) return start;
+      queue.splice(index, 1);
+      return { turn: { id: "turn-3", status: "inProgress", items: [] } };
+    },
+    "thread/queue/list": () => ({ data: queue, nextCursor: null }),
+  };
+}
+
+test(
+  "a Codex wake starts a turn with the line it queues on an idle thread",
+  unix,
+  async (t) => {
+    const codex = await codexCommand(t);
+    const draining = {
+      error: { code: -32600, message: "server is draining" },
+    };
+    const cases = [
+      ["after an interrupted turn", { interrupted: true }],
+      ["Codex starts the line itself", { interrupted: false }],
+    ];
+    for (const [name, options] of cases) {
+      const daemon = await codexDaemon(t, idleQueue(options));
+      const result = await wakeRunner(
+        { harness: "codex", thread, socket: daemon.socket },
+        line,
+      );
+      assert.deepEqual(result, { via: "queue", steerable: true }, name);
+      const add = daemon.received.find(
+        ({ method }) => method === "thread/queue/add",
+      );
+      assert.deepEqual(add.params.input, [{ type: "text", text: line }], name);
+      const start = daemon.received.find(
+        ({ method }) => method === "thread/queue/start",
+      );
+      assert.deepEqual(
+        start.params,
+        { threadId: thread, queuedSubmissionId: "queued-1" },
+        name,
+      );
+    }
+    assert.deepEqual(await codex.runs(), []);
+    // The hub records this message as the wake's reason, and the frame
+    // shows the wake as failed.
+    const waiting = await codexDaemon(
+      t,
+      idleQueue({ interrupted: true, start: draining }),
+    );
+    await assert.rejects(
+      wakeRunner({ harness: "codex", thread, socket: waiting.socket }, line),
+      /started no turn with it: server is draining$/,
+    );
+    assert.deepEqual(await codex.runs(), []);
+  },
+);
 
 // Codex refuses input from another process to a spawned subagent that its
 // daemon has not loaded, so the hub's line goes to the parent thread with

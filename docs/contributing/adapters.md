@@ -53,26 +53,36 @@ Where the agent CLI allows it, the adapter adds the line to the turn in
 progress, so the agent reads it in the middle of the turn instead of after
 it.
 
-| Agent CLI   | `via`       | API                                                                      | While a turn runs, the agent reads the line                      |
-| ----------- | ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| Claude Code | `inbox`     | A user message over the inbox socket                                     | Between the steps of the turn                                    |
-| Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                | Between the steps of the turn                                    |
-| Codex       | `queue`     | `codex queue --thread ID --message TEXT`                                 | When the turn ends                                               |
-| Codex       | `parent`    | `turn/steer` or `codex queue` to the parent thread of a spawned subagent | After the parent passes the line on with `followup_task`         |
-| Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI | At once. Copilot moves a running shell command to the background |
-| Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                       | When the turn ends                                               |
-| pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension         | After the tool calls of the current model response               |
-| opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                           | After the tool calls of the current model response               |
+| Agent CLI   | `via`       | API                                                                                                    | While a turn runs, the agent reads the line                      |
+| ----------- | ----------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Claude Code | `inbox`     | A user message over the inbox socket                                                                   | Between the steps of the turn                                    |
+| Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                                              | Between the steps of the turn                                    |
+| Codex       | `queue`     | `thread/queue/add` and `thread/queue/start` on the daemon, or `codex queue --thread ID --message TEXT` | When the turn ends                                               |
+| Codex       | `parent`    | The `steer` or `queue` path to the parent thread of a spawned subagent                                 | After the parent passes the line on with `followup_task`         |
+| Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI                               | At once. Copilot moves a running shell command to the background |
+| Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                                                     | When the turn ends                                               |
+| pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension                                       | After the tool calls of the current model response               |
+| opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                                                         | After the tool calls of the current model response               |
 
 - Codex's adapter only uses `turn/steer` while a turn of the thread is in
-  progress on the daemon. In every other case, and after any error on the
-  daemon's socket, it runs `codex queue`.
+  progress on the daemon. When the daemon runs the thread and no turn is in
+  progress, the adapter adds the line to the thread's queue with
+  `thread/queue/add`, then starts a turn with the line through
+  `thread/queue/start`. Codex starts a queued line on its own when the
+  thread goes idle, but not after the user interrupts a turn: then the line
+  waits in the queue until the user sends a message. `thread/queue/start`
+  starts it in that case too. When `thread/queue/start` fails and the line
+  still waits in the queue of an idle thread, `wake` throws. Codex refuses
+  the `thread/queue` methods unless `initialize` declares the
+  `experimentalApi` capability. In every other case, and after any error on
+  the daemon's socket before the line is queued, the adapter runs
+  `codex queue`.
 - Codex refuses input from another process to a subagent that another
   thread spawned when the daemon has not loaded the subagent, as when the
   parent runs in-process. When `thread/read` gives the thread a
   `subAgent.thread_spawn` source, Codex's adapter sends the parent thread,
-  by `turn/steer` or `codex queue` as above, a line that names the subagent
-  and asks the parent to pass the hub's line on to it with `followup_task`,
+  by the same methods as above, a line that names the subagent and asks the
+  parent to pass the hub's line on to it with `followup_task`,
   or with `send_input` in Codex's older multi-agent tools. `send_message`
   would leave the line in the subagent's mailbox without starting a turn.
   A parent that runs in-process reads the line only when its own turn ends,
@@ -96,8 +106,8 @@ Claude Code, Codex and Copilot CLI each accept a message from another
 process:
 
 - Claude Code takes it through its inbox socket.
-- Codex takes it through `turn/steer` on its app-server daemon or through
-  `codex queue`.
+- Codex takes it through `turn/steer` and the `thread/queue` methods on
+  its app-server daemon, or through `codex queue`.
 - Copilot CLI takes it through its SDK.
 
 pi and opencode accept no message from another process, so their adapters
