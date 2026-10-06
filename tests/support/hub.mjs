@@ -121,6 +121,11 @@ export async function inbox(t, home) {
     });
   });
   await new Promise((resolve) => server.listen(socket, resolve));
+  // node:test skips a test's remaining after hooks once one throws, so this
+  // close may never run. Unreferenced, the socket cannot keep the test
+  // file's process alive, and a failed cleanup fails its test instead of
+  // stalling the run until CI cancels it.
+  server.unref();
   const close = () => new Promise((resolve) => server.close(() => resolve()));
   t.after(close);
   return {
