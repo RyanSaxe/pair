@@ -124,6 +124,30 @@ test("another session's finished round adds a waiting line, and sending that rou
   await count(page, "");
 });
 
+test("a session's start and waiting round leave the bell once a tab has shown that session", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const page = await open(t, `${h.server.origin}${a.base}/`);
+  if (!page) return;
+  await bellReady(page);
+  const b = await h.session({ start: true });
+  await count(page, "1");
+  assert.equal((await a.publish(round())).code, 200);
+  await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
+  await bellReady(page);
+  // The reviewer switches sessions from the session list, not from a line
+  // of the bell, which would remove that line itself.
+  const switchTo = async (session) => {
+    await page.locator("#menu-button").click();
+    await page.locator(`[data-key="open:${session.id}"]`).click();
+    await page.waitForURL(`${h.server.origin}${session.base}/`);
+    await bellReady(page);
+    return page.locator("#bell").getAttribute("aria-label");
+  };
+  assert.equal(await switchTo(b), "Notifications");
+  assert.equal(await switchTo(a), "Notifications");
+});
+
 test("a new session adds a bell line that opens its home view, which loads the round when Agreed publishes", async (t) => {
   const h = await hub(t);
   const a = await h.session();
