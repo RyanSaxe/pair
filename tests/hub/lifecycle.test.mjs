@@ -297,9 +297,10 @@ test("start replaces an idle hub that runs other code", async (t) => {
 });
 
 // Inside Codex's sandbox no command reaches the hub, which still runs, and a
-// start there must leave the record for the commands outside it.
+// start there must leave the record for the commands outside it and say to
+// run outside the sandbox.
 test(
-  "start keeps the record of a hub that runs but does not answer",
+  "start keeps the record of a hub that runs but does not answer, and names the sandbox under Codex",
   // The test stops the hub with SIGSTOP, which Windows does not have.
   { skip: process.platform === "win32" && "Windows has no SIGSTOP" },
   async (t) => {
@@ -316,10 +317,25 @@ test(
       await killHub(config);
       await fs.rm(home, { recursive: true, force: true });
     });
+    const refusal = `pair: The hub (pid ${pid}) is running but does not answer on port ${port}`;
     await assert.rejects(start(), ({ stderr }) => {
       assert.equal(
         stderr,
-        `pair: The hub (pid ${pid}) is running but does not answer on port ${port}. Run pair guide setup.md and follow it.\n`,
+        `${refusal}. Run pair guide setup.md and follow it.\n`,
+      );
+      return true;
+    });
+    // Codex sets CODEX_SANDBOX for every command it runs.
+    await fs.mkdir(path.join(home, "sandbox"));
+    const sandboxed = await pairCli(path.join(home, "sandbox"), {
+      XDG_STATE_HOME: home,
+      PAIR_HUB_PORT: "0",
+      CODEX_SANDBOX: "seatbelt",
+    });
+    await assert.rejects(sandboxed.start(), ({ stderr }) => {
+      assert.equal(
+        stderr,
+        `${refusal} inside the sandbox. Run this command outside the sandbox (escalated), and run \`pair setup-codex\` once so that Codex stops asking.\n`,
       );
       return true;
     });

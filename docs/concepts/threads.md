@@ -59,6 +59,7 @@ How soon the agent reads a thread depends on its agent CLI.
 | Codex whose app-server daemon runs the thread, as a plain `codex` from 0.160 does | Between the steps of its turn                                                    |
 | Copilot CLI                                                                       | At once. Copilot moves a running shell command to the background                 |
 | Any other Codex                                                                   | When its turn ends, so while it writes a round, after it publishes the last page |
+| A Codex subagent that another Codex thread spawned                                | After its parent passes the message on                                           |
 
 A reply can take a minute while the agent finishes a long step. The tooltip
 on the ⓘ beside "Sent to the agent", and on **Message the agent** on the

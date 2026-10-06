@@ -142,6 +142,19 @@ async function grow(page, selector) {
   await frames(page);
   return place(page, selector);
 }
+// A landing holds its anchor until a second passes with no change, counted
+// once the view's images load. The test opens the gate a round trip after
+// the landing, and a busy runner can stretch that past a second, so a test
+// holds the screenshot before it arrives and the code grows inside the hold.
+// The load event waits for the screenshot, so an arrival that loads the
+// document waits only for domcontentloaded. load() then lets the screenshot
+// load, and returns the element's place once the screenshot has its height.
+async function load(s, selector) {
+  s.releaseScreenshot();
+  await s.page.locator("#page-content img").evaluate((image) => image.decode());
+  await frames(s.page);
+  return place(s.page, selector);
+}
 const place = (page, selector) =>
   page.locator(selector).evaluate((element) => ({
     top: Math.round(element.getBoundingClientRect().top),
@@ -188,9 +201,13 @@ for (const [browser, engine] of Object.entries(engines))
       await s.reply(id);
       await s.page.goto(s.url("#overview"));
       await title(s.page, "Overview");
-      await s.page.goto(s.url(`?target=thread-${id}-1#code`));
+      s.holdScreenshot();
+      await s.page.goto(s.url(`?target=thread-${id}-1#code`), {
+        waitUntil: "domcontentloaded",
+      });
       await focused(s.page, `thread-${id}-1`);
-      inView(await grow(s.page, `#thread-${id}-1`));
+      await grow(s.page, `#thread-${id}-1`);
+      inView(await load(s, `#thread-${id}-1`));
     });
 
     test(`in ${browser} on ${width}, a reply opened from the bell on another page lands on the reply while code above it grows`, async (t) => {
@@ -202,10 +219,12 @@ for (const [browser, engine] of Object.entries(engines))
       // agent replies once the bell shows.
       await s.page.locator("#bell").waitFor();
       await s.reply(id);
+      s.holdScreenshot();
       await s.page.locator("#bell").click();
       await s.page.locator("#center-list .session-row").click();
       await focused(s.page, `thread-${id}-1`);
-      inView(await grow(s.page, `#thread-${id}-1`));
+      await grow(s.page, `#thread-${id}-1`);
+      inView(await load(s, `#thread-${id}-1`));
     });
 
     test(`in ${browser} on ${width}, a link to a block opened from another page lands on the block while code above it grows`, async (t) => {
@@ -213,9 +232,13 @@ for (const [browser, engine] of Object.entries(engines))
       if (!s) return;
       await s.page.goto(s.url("#overview"));
       await title(s.page, "Overview");
-      await s.page.goto(s.url("?target=result#code"));
+      s.holdScreenshot();
+      await s.page.goto(s.url("?target=result#code"), {
+        waitUntil: "domcontentloaded",
+      });
       await focused(s.page, "result");
-      inView(await grow(s.page, "#result"));
+      await grow(s.page, "#result");
+      inView(await load(s, "#result"));
     });
 
     test(`in ${browser} on ${width}, coming back to a page lands where the reader left it while code above it grows`, async (t) => {
@@ -264,11 +287,6 @@ for (const [browser, engine] of Object.entries(engines))
       await grow(s.page, "#result");
       // A landing stops holding its place after a second with no change.
       await s.page.waitForTimeout(1500);
-      s.releaseScreenshot();
-      await s.page
-        .locator("#page-content img")
-        .evaluate((image) => image.decode());
-      await frames(s.page);
-      nearly((await place(s.page, "#result")).top, left.top);
+      nearly((await load(s, "#result")).top, left.top);
     });
   }

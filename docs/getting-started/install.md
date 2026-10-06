@@ -23,6 +23,21 @@ A `codex exec` run needs permission to run `pair` outside Codex's sandbox
 before it starts. The hub can only wake a `codex exec` run while it is
 still running.
 
+Copilot CLI asks "Allow path access" before the agent's first `pair` command
+that names the session's directory, because that directory is under pair's
+state directory, `~/.local/state/pair/`, outside your project. Start Copilot
+with `--add-dir` to allow pair's state directory:
+
+```sh
+copilot --ui-server --add-dir ~/.local/state/pair
+```
+
+When you set `XDG_STATE_HOME`, pair's state directory is
+`$XDG_STATE_HOME/pair`. Copilot CLI 1.0.92 has no config setting that allows a
+directory, so put both flags in a shell alias to use them in every session.
+Use `--add-dir` rather than `--allow-all-paths`, which turns off Copilot's
+path check for every directory.
+
 ## Good to know
 
 - `npx skills add` may print

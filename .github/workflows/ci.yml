@@ -11,6 +11,9 @@ jobs:
     # platform to its name.
     name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.node) || format('test ({0}, {1})', matrix.os, matrix.node) }}
     runs-on: ${{ matrix.os }}
+    # A hung test file otherwise runs until GitHub cancels the job at six
+    # hours.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -33,7 +36,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-      - run: node --test
+      # A test that runs past two minutes fails with its name. Node 20.1.0
+      # refuses --test-timeout, so its job stops only at the job timeout.
+      - run: node --test ${{ matrix.node != '20.1.0' && '--test-timeout=120000' || '' }}
 
   # The browser tests drive the runner image's Google Chrome. The landing
   # tests also drive WebKit, which Playwright installs, with the system

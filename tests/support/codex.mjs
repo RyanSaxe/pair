@@ -30,8 +30,11 @@ function frame(message) {
 // A stand-in for the app-server daemon of Codex 0.160: a WebSocket server on
 // a Unix socket. It answers each request from the table the test passes,
 // with the entry as the result, or as the error when the entry has an
-// `error`, and records every message the client sends. Like the daemon, it
-// closes the connection on a frame that is not one masked text frame.
+// `error`, and records every message the client sends. An entry that is a
+// function answers with what it returns for the request's params. Like the
+// daemon, it closes the connection on a frame that is not one masked text
+// frame, and refuses a thread/queue method on a connection whose initialize
+// did not declare the experimentalApi capability.
 export async function codexDaemon(t, answers) {
   // macOS refuses a socket path over 104 bytes, so the socket sits in a
   // short directory of its own.
@@ -50,6 +53,7 @@ export async function codexDaemon(t, answers) {
   const server = net.createServer((client) => {
     let bytes = Buffer.alloc(0);
     let upgraded = false;
+    let experimental = false;
     client.on("data", (chunk) => {
       bytes = Buffer.concat([bytes, chunk]);
       if (!upgraded) {
@@ -90,9 +94,22 @@ export async function codexDaemon(t, answers) {
         const message = JSON.parse(payload);
         received.push(message);
         if (message.id === undefined) continue;
-        const answer = table[message.method] ?? {
-          error: { code: -32601, message: `no method ${message.method}` },
-        };
+        if (message.method === "initialize")
+          experimental = message.params.capabilities?.experimentalApi === true;
+        const entry = table[message.method];
+        const answer =
+          message.method.startsWith("thread/queue/") && !experimental
+            ? {
+                error: {
+                  code: -32600,
+                  message: `${message.method} requires experimentalApi capability`,
+                },
+              }
+            : ((typeof entry === "function"
+                ? entry(message.params)
+                : entry) ?? {
+                error: { code: -32601, message: `no method ${message.method}` },
+              });
         client.write(
           frame({
             jsonrpc: "2.0",
