@@ -1,4 +1,4 @@
-import { places, scroller } from "#frame/app/places.mjs";
+import { places } from "#frame/app/places.mjs";
 import {
   markSent,
   persist,
@@ -139,10 +139,7 @@ async function sendFeedback() {
   if (remote?.openRound || !feedbackEditable()) return;
   if (unsentItems(state).count === 0 && !state.alignUnflagged) return;
   submissionError = "";
-  const origin = {
-    page: shownPage(),
-    top: scroller().scrollTop,
-  };
+  const origin = shownPage();
   submissionInFlight = true;
   review();
   try {
@@ -174,8 +171,7 @@ async function sendFeedback() {
           "Could not reach the hub. Your comments are saved here. Try Send feedback again.",
         );
     switchTab("current", null, { showPage: false });
-    show(origin.page);
-    scroller().scrollTo(0, origin.top);
+    show(origin);
     review();
   }
 }
@@ -189,7 +185,7 @@ export function installSend() {
     if (selectedTab === "past") {
       // Current's round was already sent, so the button opens its Feedback.
       if (!currentAvailable()) {
-        places[submittedRound] = { page: "feedback", top: 0 };
+        places[submittedRound] = { page: "feedback", at: {} };
         void openPast(submittedRound);
         return;
       }

@@ -104,22 +104,34 @@ test("each round keeps its own remembered place", () => {
     tab: "past",
     past: "1",
     places: {
-      1: { page: "steps", top: 640, tops: { steps: 640, overview: 120 } },
-      2: { page: "overview", top: "x", tops: { overview: -3 } },
+      1: {
+        page: "steps",
+        at: {
+          steps: { id: "block-steps-4", into: 120.4 },
+          overview: { id: "result", into: -30 },
+        },
+      },
+      2: {
+        page: "overview",
+        at: { overview: { id: "", into: 40 }, steps: { id: "result" } },
+      },
     },
   });
   assert.equal(tab, "past");
   assert.equal(past, "1");
-  // Each page read keeps its own scroll position.
+  // Each page read keeps the block the reader was reading and how far into
+  // it, in whole pixels.
   assert.deepEqual(placeFor(places, "1", pages), {
     page: "steps",
-    top: 640,
-    tops: { steps: 640, overview: 120 },
+    at: {
+      steps: { id: "block-steps-4", into: 120 },
+      overview: { id: "result", into: -30 },
+    },
   });
+  // A block with no ID or no distance into it lands at the top.
   assert.deepEqual(placeFor(places, "2", pages), {
     page: "overview",
-    top: 0,
-    tops: {},
+    at: {},
   });
   // A round never visited opens at its first page.
   assert.equal(placeFor(places, "3", pages), null);

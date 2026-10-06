@@ -185,44 +185,32 @@ for (const [width, viewport] of Object.entries(widths)) {
     inView(await grow(s.page, "#result"));
   });
 
-  test(
-    `on ${width}, coming back to a page lands where the reader left it while code above it grows`,
-    {
-      todo: "fails today: the frame restores the place before the code above it grows",
-    },
-    async (t) => {
-      const s = await setup(t, viewport);
-      if (!s) return;
-      await s.page.goto(s.url("#code"));
-      await title(s.page, "Code");
-      await grow(s.page, "#result");
-      const left = await readTo(s.page);
-      await s.page.evaluate(() => window.highlightGate.close());
-      await openPage(s.page, "overview");
-      await title(s.page, "Overview");
-      await openPage(s.page, "code");
-      await title(s.page, "Code");
-      await frames(s.page);
-      assert.equal((await grow(s.page, "#result")).top, left.top);
-    },
-  );
+  test(`on ${width}, coming back to a page lands where the reader left it while code above it grows`, async (t) => {
+    const s = await setup(t, viewport);
+    if (!s) return;
+    await s.page.goto(s.url("#code"));
+    await title(s.page, "Code");
+    await grow(s.page, "#result");
+    const left = await readTo(s.page);
+    await s.page.evaluate(() => window.highlightGate.close());
+    await openPage(s.page, "overview");
+    await title(s.page, "Overview");
+    await openPage(s.page, "code");
+    await title(s.page, "Code");
+    await frames(s.page);
+    assert.equal((await grow(s.page, "#result")).top, left.top);
+  });
 
-  test(
-    `on ${width}, a reload lands where the reader was while code above it grows`,
-    {
-      todo: "fails today: the frame restores the place before the code above it grows",
-    },
-    async (t) => {
-      const s = await setup(t, viewport);
-      if (!s) return;
-      await s.page.goto(s.url("#code"));
-      await title(s.page, "Code");
-      await grow(s.page, "#result");
-      const left = await readTo(s.page);
-      await s.page.reload();
-      await title(s.page, "Code");
-      await frames(s.page);
-      assert.equal((await grow(s.page, "#result")).top, left.top);
-    },
-  );
+  test(`on ${width}, a reload lands where the reader was while code above it grows`, async (t) => {
+    const s = await setup(t, viewport);
+    if (!s) return;
+    await s.page.goto(s.url("#code"));
+    await title(s.page, "Code");
+    await grow(s.page, "#result");
+    const left = await readTo(s.page);
+    await s.page.reload();
+    await title(s.page, "Code");
+    await frames(s.page);
+    assert.equal((await grow(s.page, "#result")).top, left.top);
+  });
 }
