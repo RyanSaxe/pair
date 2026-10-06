@@ -149,7 +149,11 @@ export async function hub(t, extra = {}, options = {}) {
   t.after(async () => {
     await server.close();
     await killHub(config);
-    await fs.rm(home, { recursive: true, force: true });
+    // The hub sends a wake after it answers the request that asked for it,
+    // so a wake can still be writing the session's state while this
+    // removes the home. rm then fails with ENOTEMPTY, which maxRetries
+    // retries.
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
   });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   const register = async (sessionDir, wake, options = {}) => {
