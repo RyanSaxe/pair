@@ -2,7 +2,7 @@
 
 ## Run it from a checkout
 
-pair needs Node 20.1.0 or newer. It has no runtime dependencies and no build
+pair needs Node 22.0.0 or newer. It has no runtime dependencies and no build
 step, so you can run a checkout as it is. In a clone of this repository,
 `npm link` puts the `pair` command on your path, and that command then runs the
 clone's code. An edit in the clone takes effect at the next `pair` command, in

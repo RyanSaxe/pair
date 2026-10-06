@@ -6,18 +6,18 @@ on:
 
 jobs:
   test:
-    # main's ruleset requires the Ubuntu jobs by the names test (20.1.0),
-    # test (20) and test (24), so they keep them, and the macOS job adds its
-    # platform to its name.
+    # The rulesets of main and develop require the Ubuntu jobs by the names
+    # test (22.0.0), test (22) and test (24), so they keep them, and the
+    # macOS job adds its platform to its name.
     name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.node) || format('test ({0}, {1})', matrix.os, matrix.node) }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        # The oldest Node pair supports, the latest Node 20, and the current
+        # The oldest Node pair supports, the latest Node 22, and the current
         # LTS.
-        node: [20.1.0, 20, 24]
+        node: [22.0.0, 22, 24]
         # macOS limits socket paths to 104 bytes and puts temporary
         # directories under long /var/folders paths, and Windows has named
         # pipes instead of socket files and runs only files with an
