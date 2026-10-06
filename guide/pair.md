@@ -26,9 +26,11 @@ Only edit the project for work the reviewer has approved. The reviewer
 approves work by choosing Build it when they send a round, by starting a
 proposal in pair, or by asking you for it in a note, a thread or the chat.
 
-Track every piece of work as a proposal, a short description of the work
-that the reviewer can approve or decline. Record a proposal with `pair
-propose` for any work that does not have one yet. When the reviewer asks for
+The session's own task moves through its rounds, and the reviewer approves
+building it by choosing Build it or by asking for it in words. Track every
+other piece of work as a proposal, a short description of the work that the
+reviewer can approve or decline. Record a proposal with `pair propose` for
+any such work that does not have one yet. When the reviewer asks for that
 work in words, mark its proposal started with `pair propose --start`,
 quoting what they said. A request about work you are already doing is part
 of that work.
@@ -121,9 +123,9 @@ before-after component.
 
 ## Proposals
 
-Record a proposal with `pair propose` for each piece of work worth doing,
-including the main work of the task. Run `pair guide proposals.md` before
-you record the first one. Describe in a sentence or two what the work will
+Record a proposal with `pair propose` for each piece of work worth doing
+beside the session's own task. Run `pair guide proposals.md` before you
+record the first one. Describe in a sentence or two what the work will
 deliver, and recommend where it should run: in this session, in a
 sub-session that you also run, or with a new agent. Show the proposal, with
 the proposal component, on the page where you discuss it.

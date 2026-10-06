@@ -118,7 +118,7 @@ work by choosing **Build it** when you send a round, by starting one of its
 your own words, in a comment, a thread, your feedback or the chat. When you
 ask in words for work beside the session's task, the agent records the
 request as a proposal and starts it, quoting you, so the Work page lists
-every piece of work you approved.
+every piece of work you approved beside the task.
 
 Before you approve anything, the agent only tries ideas in a git worktree
 inside the session's directory, or in a plain directory there when your

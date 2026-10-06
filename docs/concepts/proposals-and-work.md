@@ -8,9 +8,10 @@ the agent recommends it runs. You decide what happens to each one. You
 approve the work by pressing **Start** on the card, and you only approve
 what the card describes.
 
-When you ask the agent for work in your own words, the agent records a
-proposal for it, or uses one that already covers it, and starts it for you,
-quoting your words. Every piece of work you approve therefore has a card.
+When you ask the agent in your own words for work beside the session's
+task, the agent records a proposal for it, or uses one that already covers
+it, and starts it for you, quoting your words. Every such piece of work you
+approve therefore has a card.
 
 ## The Work page
 
