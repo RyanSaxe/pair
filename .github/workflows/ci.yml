@@ -36,9 +36,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-      # A test that runs past two minutes fails with its name. Node 20.1.0
-      # refuses --test-timeout, so its job stops only at the job timeout.
-      - run: node --test ${{ matrix.node != '20.1.0' && '--test-timeout=120000' || '' }}
+      # A test that runs past two minutes fails with its name.
+      - run: node --test --test-timeout=120000
 
   # The browser tests drive the runner image's Google Chrome. The landing
   # tests also drive WebKit, which Playwright installs, with the system
