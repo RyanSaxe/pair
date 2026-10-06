@@ -130,7 +130,8 @@ When pi or opencode has exited, the wake fails with
 your feedback or a Start.
 
 - The result of each wake has `via`, the path the message took, such as
-  `steer` or `queue` for Codex.
+  `steer` or `queue` for Codex, or `parent` when the hub sent it to the
+  parent of a Codex subagent.
 - Each wake also sets `holder.steerable` in `status.json`, which is `true`
   when the agent CLI reads a message in the middle of a turn.
 - When a wake fails, the progress card shows "Could not wake the agent.
