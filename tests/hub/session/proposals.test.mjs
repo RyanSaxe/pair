@@ -207,9 +207,10 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
 });
 
 // The agent starts a card when the reviewer asks for the work in their own
-// words, and the start then runs as a Start does: the holder reads it with
-// pair read, and the round still waits for the reviewer.
-test("pair propose --start starts a card on the reviewer's words, and pair read prints the start", async (t) => {
+// words. The holder's own start is in its pair propose answer, so it leaves
+// nothing for pair read. Another agent's start runs as a Start does: the
+// hub wakes the holder, which reads the start with pair read.
+test("pair propose --start starts a card on the reviewer's words, and only another agent's start waits for pair read", async (t) => {
   const { h, a, propose, add, cards, read } = await proposing(t);
   await add();
   await add({ id: "board-qa", title: "Board Q&A prep" });
@@ -231,6 +232,10 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
   assert.equal(loose.body.error, "--quote goes with --start.");
   assert.equal((await cards())[0].started, null);
 
+  // The holder starts the card after it reads the reviewer's feedback.
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
+  assert.equal((await read()).event.payload.intent, "feedback-only");
   const started = await propose({
     id: "churn-export",
     start: "here",
@@ -249,19 +254,13 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
       thread: "go",
     },
   );
-  // The holder ran the command, and its next step reads the start, so the
-  // hub sends it no wake.
-  assert.equal(
-    started.body.next,
-    `Run pair read --session-dir ${a.directory} to see what the reviewer sent.`,
-  );
-  const answer = await read();
-  assert.equal(answer.moment, "read-start-here");
-  assert.equal(answer.event.payload.quote, "Go ahead and refresh the export.");
-  assert.equal(answer.event.payload.thread, "go");
-  assert.equal((await a.status()).body.needsYou, true);
+  // The holder ran the command, whose answer names the start's moment, so
+  // the hub sends no wake and the next round publishes without a pair read.
+  assert.equal(started.body.moment, "read-start-here");
+  assert.match(started.body.next, /^Edit Agreed's task and alignments /);
+  assert.equal((await a.publish(planData("2"))).code, 200);
   await sleep(50);
-  assert.equal(a.inbox.wakes.length, 1);
+  assert.equal(a.inbox.wakes.length, 2);
   assert.equal(
     (await propose({ id: "churn-export", start: "here", quote: "Again." }))
       .code,
@@ -287,9 +286,9 @@ test("pair propose --start starts a card on the reviewer's words, and pair read 
     id: "overall",
     title: "Review",
   });
-  assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 3), true);
   assert.equal(
-    a.inbox.wakes[1].message.message.content,
+    a.inbox.wakes[2].message.message.content,
     `pair: the reviewer asked for proposal board-qa, "Board Q&A prep", in their own words, to run in a sub-session of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\nDo the Q&A prep apart.`,
   );
   const sub = await read();

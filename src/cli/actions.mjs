@@ -9,6 +9,7 @@ import {
   declinedText,
   feedbackText,
   joinedInto,
+  proposalText,
   runningText,
   startText,
   threadIndex,
@@ -262,6 +263,14 @@ export async function propose(options) {
     statusLeft: options["status-left"],
   });
   const card = result.proposal;
+  // The holder's own start prints as pair read prints any other start.
+  if (result.moment)
+    return {
+      next: result.next,
+      moment: result.moment,
+      data: proposalText(card, result.joined),
+      json: result,
+    };
   const where = result.parent ? ` in session "${result.parent.title}"` : "";
   const status = options["status-done"] || options["status-left"];
   return {

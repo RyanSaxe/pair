@@ -54,7 +54,8 @@ The hub wakes the holder at these moments:
 - When another agent starts a proposal on your words with
   `pair propose --start`, here or in a sub-session, unless the session is
   paused. When the holder runs that command itself, `pair propose` prints
-  `pair read` as its next step, so the hub sends no wake.
+  the started work, so the hub sends no wake and `pair read` does not print
+  the start again.
 - When you press Open a new agent session, which starts a thread on the
   card.
 
