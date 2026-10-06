@@ -47,7 +47,7 @@ import {
 } from "#frame/review/review.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
-import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
+import { renderRounds } from "#frame/sync/rounds-panel.mjs";
 
 export let selectedTab = "current";
 // What was sent on each past round the left tab has shown.

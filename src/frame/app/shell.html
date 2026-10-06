@@ -44,7 +44,8 @@
             <path d="M9.5 4v16" />
           </svg>
         </button>
-        <!-- The session list opens under this button at every width. -->
+        <!-- The session list, rounds, settings and notifications each open
+             under their button at every width. -->
         <button
           class="icon-btn menu"
           id="menu-button"
@@ -71,8 +72,9 @@
           class="icon-btn"
           id="round"
           type="button"
-          aria-haspopup="dialog"
           aria-label="Rounds"
+          aria-expanded="false"
+          popovertarget="rounds-pop"
         >
           <svg
             viewBox="0 0 24 24"
@@ -93,6 +95,8 @@
           id="settings"
           type="button"
           aria-label="Settings"
+          aria-expanded="false"
+          popovertarget="settings-pop"
         >
           <svg
             viewBox="0 0 24 24"

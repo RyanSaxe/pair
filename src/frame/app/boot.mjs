@@ -39,7 +39,7 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
-import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
+import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
 import {
   installDraftSync,
   openPast,
@@ -103,6 +103,7 @@ function bootRound() {
   installRenderers();
   installNotes();
   installSessions();
+  installRounds();
   installPlaces();
   installPages();
   installProgress();

@@ -21,7 +21,7 @@ import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
-import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
+import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
 import {
@@ -109,10 +109,6 @@ export function installEvents() {
     if (navigation) {
       event.preventDefault();
       show(navigation.dataset.page);
-    }
-    if (event.target.closest("#round")) {
-      toggleRoundMenu();
-      return;
     }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");

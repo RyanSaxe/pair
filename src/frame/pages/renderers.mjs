@@ -1,4 +1,4 @@
-import { $, copyText } from "#frame/app/util.mjs";
+import { $, copyText, installPanel } from "#frame/app/util.mjs";
 
 let systemTheme;
 let preferredTheme = null;
@@ -17,7 +17,7 @@ export function installRenderers() {
     /* Theme changes remain available without storage. */
   }
   activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
-  $("settings").onclick = () => $("settings-dialog").showModal();
+  installPanel($("settings-pop"), $("settings"));
   $("theme").addEventListener("click", (event) => {
     const button = event.target.closest("[data-theme]");
     if (!button) return;
