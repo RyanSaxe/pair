@@ -51,12 +51,15 @@ async function refused(response, what) {
   return response;
 }
 
-// Sends the round's feedback with the header's Send feedback button.
+// Sends the round's feedback with the header's Send feedback button and
+// the Send popup's button, which keeps the popup's first choice.
 async function send(page) {
   const response = page.waitForResponse((r) =>
     r.url().endsWith("/api/feedback"),
   );
   await page.locator("#submit").click();
+  await page.locator("#send-dialog[open]").waitFor();
+  await page.locator("#send-button").click();
   await refused(await response, "the feedback");
 }
 

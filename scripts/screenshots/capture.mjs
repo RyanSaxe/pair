@@ -257,13 +257,16 @@ export async function writeNote(page, text) {
   await page.locator("#note-text").fill(text);
 }
 
-// Sends the round's feedback with the header's Send feedback button, and
+// Sends the round's feedback with the header's Send feedback button and
+// the Send popup's button, which keeps the popup's first choice, and
 // returns the submission that pair read gives the agent.
 async function send(page, session) {
   const response = page.waitForResponse((response) =>
     response.url().endsWith("/api/feedback"),
   );
   await page.locator("#submit").click();
+  await page.locator("#send-dialog[open]").waitFor();
+  await page.locator("#send-button").click();
   if (!(await response).ok())
     throw new Error(
       `The hub refused the feedback: ${await (await response).text()}`,

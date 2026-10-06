@@ -16,6 +16,7 @@ import {
   currentShown,
   editable,
   hasFeedbackPage,
+  isPlanRound,
   olderPast,
   online,
   page,
@@ -44,7 +45,7 @@ import {
   placeMarks,
 } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
-import { renderAgreements } from "#frame/pages/agreed.mjs";
+import { renderAgreements, tag } from "#frame/pages/agreed.mjs";
 import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
@@ -139,6 +140,9 @@ export function show(
       void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();
     $("page-title").textContent = page.title;
+    // A plan round's Agreed has the Plan tag beside its title.
+    if (page.id === "agreed" && !page.waiting && isPlanRound())
+      $("page-title").append(" ", tag("Plan", "plan"));
     $("page-content").dataset.pageId = page.id;
     $("page-content").dataset.round = plan.round;
     $("page-content").innerHTML = page.pending ? pendingPage : page.html;
