@@ -69,9 +69,11 @@ export function rememberPlace() {
   const pageId = shownPage();
   const round = displayedRound;
   const held = restoring?.round === round && restoring.page === pageId;
+  // A place above Agreed's content is the page's top, as a stored place is,
+  // because what is above the content can be taller when the reader returns.
   const top = held
     ? restoring.top
-    : Math.round(scroller().scrollTop) - aboveAgreed();
+    : Math.max(0, Math.round(scroller().scrollTop) - aboveAgreed());
   places[round] = {
     page: pageId,
     top,
