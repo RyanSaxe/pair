@@ -135,11 +135,14 @@ export const savedPlace = () => places[displayedRound]?.at?.[shownPage()];
    What is above the anchor can still change height once the page shows: a
    code block highlights, an image loads, a diagram draws, a thread's card
    is placed or cut short. Until the reader scrolls, taps or types, or
-   nothing in the view has changed size for QUIET_MS after its renderers
-   settle, each change scrolls the anchor back to its place, and so does any
-   scroll the reader did not make, such as the browser's own jump to the
-   address's # part at load. The browser's scroll anchoring is off
-   meanwhile, because it keeps whatever is at the top of the area in place.
+   nothing in the view has changed size for QUIET_MS, each change scrolls
+   the anchor back to its place, and so does any scroll the reader did not
+   make, such as the browser's own jump to the address's # part at load.
+   The count starts once the tracked renderers and the view's images have
+   settled, for up to WAIT_MS, because an image has no height until it
+   loads and a screenshot can take longer than QUIET_MS. The browser's
+   scroll anchoring is off meanwhile, because it keeps whatever is at the
+   top of the area in place.
    An anchor that is not on the page yet, such as a reply whose card the
    first status poll places, lands once it appears, for up to WAIT_MS, and
    the page stays where it is meanwhile.
@@ -245,7 +248,19 @@ export function land(anchor, { focusHeading = true } = {}) {
   for (const type of readerInputs)
     addEventListener(type, stop, { capture: true, passive: true });
   observer.observe(view);
-  void Promise.allSettled([...renders]).then(() => {
+  const images = [...view.querySelectorAll("img")]
+    .filter((image) => !image.complete)
+    .map(
+      (image) =>
+        new Promise((resolve) => {
+          image.addEventListener("load", resolve, { once: true });
+          image.addEventListener("error", resolve, { once: true });
+        }),
+    );
+  void Promise.race([
+    Promise.allSettled([...renders, ...images]),
+    new Promise((resolve) => setTimeout(resolve, WAIT_MS)),
+  ]).then(() => {
     settled = true;
     if (held?.stop === stop) changed();
   });

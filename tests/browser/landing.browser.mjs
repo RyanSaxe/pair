@@ -38,8 +38,9 @@ const code = (n) =>
     { length: 24 },
     (_, line) => `const step${n}line${line} = run(${n}, ${line});`,
   ).join("\n")}</pre>`;
-// The Code page has four code blocks above the result line and filler
-// below it, so the result can sit in the middle of the window.
+// The Code page has four code blocks and a screenshot above the result
+// line and filler below it, so the result can sit in the middle of the
+// window.
 const round = () => ({
   ...planData(),
   pages: [
@@ -47,7 +48,7 @@ const round = () => ({
     {
       id: "code",
       title: "Code",
-      html: `${[1, 2, 3, 4].map(code).join("")}<p id="result">Preserve one result per input.</p>${"<p>Filler paragraph.</p>".repeat(40)}`,
+      html: `${[1, 2, 3, 4].map(code).join("")}<figure><img src="http://images.localhost/1.svg" width="370" alt="Screenshot"><figcaption>Screenshot.</figcaption></figure><p id="result">Preserve one result per input.</p>${"<p>Filler paragraph.</p>".repeat(40)}`,
     },
   ],
 });
@@ -68,6 +69,19 @@ async function setup(t, engine, viewport) {
   await page.route(/esm\.sh\/shiki/, (route) =>
     route.fulfill({ body: shiki, contentType: "text/javascript" }),
   );
+  // The screenshot loads at once, or once the test releases it after
+  // holdScreenshot().
+  let screenshot = Promise.resolve();
+  let releaseScreenshot = () => {};
+  const holdScreenshot = () =>
+    (screenshot = new Promise((resolve) => (releaseScreenshot = resolve)));
+  await page.route(/^http:\/\/images\.localhost\//, async (route) => {
+    await screenshot;
+    await route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="370" height="400"/>',
+    });
+  });
   const thread = async () => {
     const id = crypto.randomUUID();
     const started = await session.request(`${session.base}/api/threads`, {
@@ -86,7 +100,14 @@ async function setup(t, engine, viewport) {
       (await session.action("reply", { note: id, text: "Here." })).code,
       200,
     );
-  return { page, url, thread, reply };
+  return {
+    page,
+    url,
+    thread,
+    reply,
+    holdScreenshot,
+    releaseScreenshot: () => releaseScreenshot(),
+  };
 }
 
 // A task and two frames, by which a scroll, a resize and its observers have
@@ -215,5 +236,30 @@ for (const [browser, engine] of Object.entries(engines))
       await title(s.page, "Code");
       await frames(s.page);
       assert.equal((await grow(s.page, "#result")).top, left.top);
+    });
+
+    test(`in ${browser} on ${width}, a reload lands where the reader was while a screenshot above it loads more than a second later`, async (t) => {
+      const s = await setup(t, engine, viewport);
+      if (!s) return;
+      await s.page.goto(s.url("#code"));
+      await title(s.page, "Code");
+      await grow(s.page, "#result");
+      await s.page
+        .locator("#page-content img")
+        .evaluate((image) => image.decode());
+      const left = await readTo(s.page);
+      s.holdScreenshot();
+      // The load event waits for the screenshot.
+      await s.page.reload({ waitUntil: "domcontentloaded" });
+      await title(s.page, "Code");
+      await grow(s.page, "#result");
+      // A landing stops holding its place after a second with no change.
+      await s.page.waitForTimeout(1500);
+      s.releaseScreenshot();
+      await s.page
+        .locator("#page-content img")
+        .evaluate((image) => image.decode());
+      await frames(s.page);
+      assert.equal((await place(s.page, "#result")).top, left.top);
     });
   }
