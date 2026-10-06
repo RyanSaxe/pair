@@ -40,12 +40,30 @@ test("a started page and a card started here are quiet after 10 minutes with no 
       {
         id: "node20-hang",
         started: { where: "here", at: ago(30 * minute) },
-        status: { at: ago(12 * minute), done: ["Repro"], left: ["Fix"] },
+        status: {
+          at: ago(12 * minute),
+          parts: [
+            { text: "Repro", state: "done" },
+            { text: "Fix", state: "left" },
+          ],
+        },
         done: null,
       },
       {
         id: "no-parts",
         started: { where: "here", at: ago(11 * minute) },
+        done: null,
+      },
+      {
+        id: "all-parts-done",
+        started: { where: "here", at: ago(30 * minute) },
+        status: {
+          at: ago(20 * minute),
+          parts: [
+            { text: "Build", state: "done" },
+            { text: "Chart", state: "dropped" },
+          ],
+        },
         done: null,
       },
       {
