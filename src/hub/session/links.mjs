@@ -34,6 +34,15 @@ export function links(session) {
       parent.closedSession(link().proposal, session.state.sessionId),
     );
   }
+  // Build it in a linked session moves the parent's card from planning to
+  // building.
+  async function buildLinked() {
+    const parent = parentOf();
+    if (!parent) return;
+    await parent.exclusive(() =>
+      parent.built(link().proposal, session.state.sessionId),
+    );
+  }
   // In a linked session, a status from pair propose may name the proposal
   // the session runs, whose card is in the parent. A card of this session's
   // own with that ID takes the status here.
@@ -48,5 +57,5 @@ export function links(session) {
     );
     return parent;
   }
-  return { parentView, linkParent, closeLinked, cardOwner };
+  return { parentView, linkParent, closeLinked, buildLinked, cardOwner };
 }

@@ -1,7 +1,14 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { idPattern } from "../../shared/records.mjs";
-import { exists, read, requireValue } from "../../shared/util.mjs";
+import { exists, read, requireValue, timestamp } from "../../shared/util.mjs";
+import { message } from "./proposal-fields.mjs";
+
+// What the reviewer chose for the next round when they sent feedback.
+// A submission from a tab opened before the choice existed has none, and
+// reads as iterate.
+export const nextChoices = ["iterate", "plan", "build"];
+export const nextOf = (payload) => payload.next ?? "iterate";
 
 // What the reviewer sends: feedback on a round.
 export function submissions(session) {
@@ -61,6 +68,11 @@ export function submissions(session) {
       "Submission requires ID and text",
     );
     requireValue(data.intent === "feedback-only", "Invalid submission intent");
+    requireValue(
+      data.next === undefined || nextChoices.includes(data.next),
+      `next is one of ${nextChoices.join(", ")}`,
+    );
+    message(data);
     requireValue(
       data.groups &&
         typeof data.groups === "object" &&
@@ -162,7 +174,14 @@ export function submissions(session) {
       roundStartedAt: event.receivedAt,
       wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       takeover: null,
+      // Build it approves the work, which this session builds from here on.
+      ...(data.next === "build"
+        ? {
+            build: { round: data.round, submission: data.id, at: timestamp() },
+          }
+        : {}),
     });
+    if (data.next === "build") await session.buildLinked();
     if (session.wake && !session.state.paused)
       setTimeout(() => exclusive(() => session.wakeAgent(data.round)), 0);
     return { id: data.id, saved: true, status: session.browserView() };

@@ -35,7 +35,7 @@ export async function read(options) {
   return {
     next: result.next,
     moment: [
-      result.moment,
+      ...[result.moment].flat(),
       declined && "read-declined",
       closed && "read-closed",
     ].filter(Boolean),

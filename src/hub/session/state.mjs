@@ -17,7 +17,7 @@ import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { proposals } from "./proposals.mjs";
 import { rounds } from "./rounds.mjs";
-import { submissions } from "./submissions.mjs";
+import { nextOf, submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
@@ -241,11 +241,13 @@ export async function loadSession(
           )
         : null;
     if (!event) return null;
-    const { groups, round } = event.payload;
+    const { groups, round, message } = event.payload;
     return {
       id: event.id,
       round,
       receivedAt: event.receivedAt,
+      next: nextOf(event.payload),
+      ...(message ? { message } : {}),
       groups: {
         alignUnflagged: groups.alignUnflagged,
         notes: (groups.notes || []).map(
@@ -339,6 +341,7 @@ export async function loadSession(
     linkSession: session.linkSession,
     joinedInto: session.joinedInto,
     closedSession: session.closedSession,
+    built: session.built,
     writeStatus: session.writeStatus,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,

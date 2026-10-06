@@ -209,12 +209,14 @@ export async function hub(t, extra = {}, options = {}) {
       );
     // A round goes out as an agent sends it: Agreed with the page list,
     // then each page. The result is the first refusal, or the last page's.
+    // data.plan marks the round a plan in Agreed's source.
     const publish = async (data) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
           name: data.name,
           round: data.round,
           title: data.title,
+          ...(page.id === "agreed" && data.plan ? { plan: true } : {}),
           page,
         });
       let result = await action("publish", {

@@ -468,6 +468,13 @@ export async function proposals(session) {
     if (!card || card.done || card.started?.session?.id !== sessionId) return;
     await save(card, { done: { at: timestamp(), by: "close" } });
   }
+  // The first Build it in a linked session marks its card built.
+  async function built(id, sessionId) {
+    const card = cards.get(id);
+    if (!card || card.started?.session?.id !== sessionId || card.started.built)
+      return;
+    await save(card, { started: { ...card.started, built: timestamp() } });
+  }
   // pair read prints each card whose linked session closed once, and the
   // hub sends no wake for it.
   async function reportClosed() {
@@ -486,6 +493,7 @@ export async function proposals(session) {
     linkSession,
     joinedInto,
     closedSession,
+    built,
     openAgent,
     propose,
     writeStatus,
