@@ -26,6 +26,8 @@ import {
   requireValue,
   timestamp,
 } from "../../shared/util.mjs";
+import { answersRound } from "./agent.mjs";
+import { nextOf } from "./submissions.mjs";
 
 // Publishing a round's pages, and reading the rounds a session keeps.
 export function rounds(session) {
@@ -136,6 +138,7 @@ export function rounds(session) {
       name: set.name,
       round: set.round,
       title: set.title,
+      ...(set.plan ? { plan: true } : {}),
       ...(complete ? {} : { pageMode: "partial" }),
       pages,
       agreements: agreed.page.agreements,
@@ -175,6 +178,7 @@ export function rounds(session) {
         name: set.name,
         round: set.round,
         title: set.title,
+        ...(set.plan ? { plan: true } : {}),
         path: file,
         url: base + "/",
         sha256: crypto.createHash("sha256").update(stored).digest("hex"),
@@ -189,6 +193,7 @@ export function rounds(session) {
             name: set.name,
             round: set.round,
             title: set.title,
+            ...(set.plan ? { plan: true } : {}),
             publishedAt: current.publishedAt,
             url: `${base}/r/${encodeURIComponent(set.round)}`,
           },
@@ -220,6 +225,29 @@ export function rounds(session) {
       roundComplete: complete,
       next: await session.nextStep(),
     };
+  }
+  // The reviewer's choice on the round before decides whether this round
+  // is a plan: Write a plan and Update the plan ask for one, and Back to
+  // iterating sets one aside. Otherwise the agent decides.
+  function requirePlanMark(plan) {
+    const before = session.state.current;
+    if (!before) return;
+    const [feedback] = events
+      .filter(
+        (item) => answersRound(item) && item.payload.round === before.round,
+      )
+      .sort((a, b) => b.sequence - a.sequence);
+    const next = feedback && nextOf(feedback.payload);
+    requireValue(
+      plan || next !== "plan",
+      'The reviewer asked for a plan, so this round is a plan. Set "plan": true at the top level of Agreed\'s source.',
+      409,
+    );
+    requireValue(
+      !plan || next !== "iterate" || !before.plan,
+      `The reviewer chose Back to iterating on plan round ${before.round}, so this round is not a plan. Leave "plan" out of Agreed's source.`,
+      409,
+    );
   }
   async function publishPage(html, source, pages) {
     requireValue(
@@ -273,6 +301,7 @@ export function rounds(session) {
         `Every round of this session has the name "${session.state.current?.name}". Set "name" in the page source to "${session.state.current?.name}".`,
         409,
       );
+      requirePlanMark(record.plan === true);
       await resolvePageAgreements(page.agreements);
       const previous = session.state.roundPages?.[session.state.current?.round];
       orderAgreements(
@@ -286,6 +315,7 @@ export function rounds(session) {
         name: record.name,
         round: record.round,
         title: record.title,
+        ...(record.plan ? { plan: true } : {}),
         agreed: null,
         pages: slots,
         bundlePath: null,

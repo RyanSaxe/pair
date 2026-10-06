@@ -27,12 +27,13 @@ async function holder(t) {
   const session = await h.session({ cli });
   const dir = ["--session-dir", session.directory];
   let count = 0;
-  async function publish(round, page, { pages } = {}) {
+  async function publish(round, page, { pages, plan } = {}) {
     const file = path.join(home, `page-${++count}.html`);
     const html = await buildPage(path.join(home, "source.json"), {
       name: "example",
       round,
       title: "Moments",
+      ...(plan ? { plan } : {}),
       page:
         page === "agreed"
           ? { id: "agreed", title: "Agreed so far", agreements: [], task }
@@ -178,4 +179,25 @@ test("each command prints the moment it is run at", async (t) => {
     ],
   ];
   for (const [name, run] of rows) printsMoment(await run(), name, printed);
+});
+
+// Keep iterating asks for nothing new, so only the other choices name a
+// moment, and iterate names one only on a plan round.
+test("pair read prints the moment for the reviewer's choice of the next round", async (t) => {
+  const { cli, printed, publish, read, submit } = await holder(t);
+  await cli.run("start", "--title", "Choices");
+  const rows = [
+    ["iterate", false, "read-feedback"],
+    ["plan", false, ["read-feedback", "read-plan"]],
+    ["plan", true, ["read-feedback", "read-plan"]],
+    ["iterate", true, ["read-feedback", "read-iterate"]],
+    ["build", false, ["read-feedback", "read-build"]],
+  ];
+  for (const [index, [next, plan, moments]] of rows.entries()) {
+    const round = String(index + 1);
+    await publish(round, "agreed", { pages: ["one"], plan });
+    await publish(round, "one");
+    await submit("feedback-only", round, { next });
+    printsMoment(await read(), moments, printed);
+  }
 });

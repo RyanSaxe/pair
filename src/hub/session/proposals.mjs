@@ -5,6 +5,7 @@ import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import {
   message,
   place,
+  planFirst,
   proposeAction,
   words,
   written,
@@ -219,10 +220,12 @@ export async function proposals(session) {
   async function startProposal(id, data) {
     const text = message(data);
     const where = place(data?.where, "Start's where");
+    const plan = planFirst(data, where);
     await start(find(id), {
       where,
       by: "reviewer",
       ...(text ? { message: text } : {}),
+      ...plan,
     });
     if (where === "new-agent") return { ...listed(), command: fromCommand(id) };
     wakeLater(id);
@@ -256,11 +259,13 @@ export async function proposals(session) {
     open();
     const card = find(id);
     const text = message(data);
+    const plan = planFirst(data, "new-agent");
     if (!card.started)
       await start(card, {
         where: "new-agent",
         by: "reviewer",
         ...(text ? { message: text } : {}),
+        ...plan,
       });
     else
       requireValue(
@@ -468,6 +473,13 @@ export async function proposals(session) {
     if (!card || card.done || card.started?.session?.id !== sessionId) return;
     await save(card, { done: { at: timestamp(), by: "close" } });
   }
+  // The first Build it in a linked session marks its card built.
+  async function built(id, sessionId) {
+    const card = cards.get(id);
+    if (!card || card.started?.session?.id !== sessionId || card.started.built)
+      return;
+    await save(card, { started: { ...card.started, built: timestamp() } });
+  }
   // pair read prints each card whose linked session closed once, and the
   // hub sends no wake for it.
   async function reportClosed() {
@@ -486,6 +498,7 @@ export async function proposals(session) {
     linkSession,
     joinedInto,
     closedSession,
+    built,
     openAgent,
     propose,
     writeStatus,

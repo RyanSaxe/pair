@@ -16,6 +16,8 @@ export function emptyDraft(round) {
   return {
     round,
     alignUnflagged: true,
+    // The Send popup's message to the agent.
+    message: "",
     notes: [],
     choices: {},
     answers: {},
@@ -103,6 +105,7 @@ export function markSent(draft, id, at) {
     delete draft.drafts[key];
   }
   draft.submitted = { id, at, round: draft.round, count };
+  draft.message = "";
   draft.pending = null;
   return draft;
 }

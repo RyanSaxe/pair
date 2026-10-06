@@ -219,3 +219,45 @@ test("a status from a linked session goes to the parent's card", async (t) => {
   });
   assert.equal(other.code, 404);
 });
+
+// Plan it first makes the card's own session plan before it builds. Here
+// refuses it, because a plan round here would mix with this session's
+// other work. Build it in the card's session marks the card built.
+test("Plan it first starts a card whose session plans first, and Build it there marks the card built", async (t) => {
+  const { h, a, reviewer, cardOf } = await linking(t);
+  const here = await reviewer("deck", "start", {
+    where: "here",
+    planFirst: true,
+  });
+  assert.equal(here.code, 400);
+  assert.match(here.body.error, /not here/);
+  assert.equal((await cardOf("deck")).started, null);
+  const started = await reviewer("deck", "start", {
+    where: "sub-session",
+    planFirst: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  assert.equal((await cardOf("deck")).started.planFirst, true);
+  const opened = await reviewer("notes", "open-agent", { planFirst: true });
+  assert.equal(opened.code, 200, opened.body.error);
+  assert.equal((await cardOf("notes")).started.planFirst, true);
+
+  const child = await h.session({
+    start: true,
+    from: a.directory,
+    proposal: "deck",
+  });
+  assert.deepEqual(child.info.moment, ["start", "start-from-plan"]);
+  assert.equal((await child.publish(planData())).code, 200);
+  const plan = child.event("feedback-only", "1", { next: "plan" });
+  assert.equal((await child.feedback(plan)).code, 200);
+  assert.equal((await cardOf("deck")).started.built, undefined);
+  await child.action("read");
+  assert.equal(
+    (await child.publish({ ...planData("2"), plan: true })).code,
+    200,
+  );
+  const build = child.event("feedback-only", "2", { next: "build" });
+  assert.equal((await child.feedback(build)).code, 200);
+  assert.ok(Number.isFinite(Date.parse((await cardOf("deck")).started.built)));
+});

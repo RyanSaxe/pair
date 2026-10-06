@@ -46,7 +46,20 @@ test("pair build refuses a field it does not know and says where a misplaced one
   // A round ends only with feedback, so Agreed's source names no offer.
   assert.equal(
     await build(directory, agreed({}, { offer: "plan" })),
-    "pair: agreed.json: offer is not a field of the source. A page source takes name, round, title and page.\n",
+    "pair: agreed.json: offer is not a field of the source. A page source takes name, round, title and page, and Agreed's source also takes plan.\n",
+  );
+  // Only Agreed marks a round as a plan, with true or false.
+  assert.equal(await build(directory, agreed({}, { plan: true })), "");
+  assert.match(
+    await build(directory, agreed({}, { plan: "yes" })),
+    /"plan" in Agreed's source is true or false/,
+  );
+  assert.match(
+    await build(directory, {
+      ...agreed({}, { plan: true }),
+      page: { id: "policy", title: "Policy", html: "<p>Policy.</p>" },
+    }),
+    /plan is a field of Agreed's source only/,
   );
   const agreement = {
     id: "one",

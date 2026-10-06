@@ -1,10 +1,15 @@
 # Build the work
 
-When you start a [proposal](../concepts/proposals-and-work.md), the agent
-builds the work you approved, from the proposal's plan when it has one. Work
-you start **Here** runs in the same session and tab. Work you start in a
-sub-session or with a new agent runs in its own session, which you open from
-the card.
+The agent builds work when you choose **Build it** as you send a round, or
+when you start a [proposal](../concepts/proposals-and-work.md).
+
+- When you choose **Build it**, the agent builds what Agreed describes,
+  following the last plan if there is one, in this session's rounds.
+- A proposal you start **Here** runs in the same session and tab. One you
+  start in a sub-session or with a new agent runs in its own session, which
+  you open from the card. When you check **Plan it first** in the Start
+  popup, that session plans the work in its rounds and builds nothing until
+  you choose Build it there.
 
 ## Follow the build
 
@@ -24,8 +29,6 @@ the card.
   building, and explains the decision on the next page.
 - When the agent fixes a problem it found along the way, it says so on the
   work's pages. It records unrelated work as a new proposal.
-- The plan stays on the proposal's card. Open it from Work with **Open** on
-  the card's Plan line.
 
 ## Steer it
 
@@ -38,10 +41,11 @@ the card.
 ## Review the work
 
 On the last page about the work, the agent explains it well enough for you
-to review and maintain it. After the agent publishes that page, it marks the
-proposal done, and pair moves the card to Done. When your feedback asks for
-changes to the work, the agent reopens the proposal, pair moves the card
-back to Running, and the agent publishes the changes in the next round.
+to review and maintain it. When the work is a proposal that runs here, the
+agent marks it done after it publishes that page, and pair moves the card to
+Done. When your feedback asks for changes to the work, the agent reopens the
+proposal, pair moves the card back to Running, and the agent publishes the
+changes in the next round.
 
 Work in a sub-session or a new agent session is finished when you close
 that session. When all the work is finished, tell the agent anything left

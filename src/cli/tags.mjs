@@ -38,6 +38,9 @@ export function feedbackText(event) {
   const groups = payload.groups || {};
   const items = [
     reviewerLine,
+    ...(payload.message
+      ? [tag("pair_send_message", {}, tagText(payload.message), true)]
+      : []),
     ...Object.entries(groups.choices || {}).map(([id, choice]) =>
       tag(
         "pair_choice",
@@ -87,6 +90,7 @@ export function feedbackText(event) {
       submission: event.id,
       round: payload.round,
       intent: payload.intent,
+      next: payload.next,
       "everything-else-looks-good": groups.alignUnflagged ? "yes" : undefined,
     },
     items.join("\n"),

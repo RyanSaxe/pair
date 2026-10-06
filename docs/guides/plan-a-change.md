@@ -1,8 +1,8 @@
 # Plan a change
 
 Plan a change in a session when you do not yet know how it should be built.
-Planning ends with a round that is the plan, from which someone who saw none
-of the rounds could build the work.
+Planning ends with a plan round, from which someone who saw none of the
+rounds could build the work, and you build it from there.
 
 ## Ask
 
@@ -29,21 +29,32 @@ change, and anything you already know you want or do not want.
 - **Ask quick questions in a thread**, so you get the answer before you send
   the round.
 
-To go faster, ask the agent to decide what is still open. It takes the
-options it recommended and records them on Agreed. You can also ask it to
-write the plan straight away.
+## Ask for a plan
 
-## Before you start the work
+When you send a round, choose **Write a plan** in the Send feedback popup.
+The agent settles every decision that is still open by taking the option it
+recommended, records each one on Agreed, and makes the next round a plan.
+The agent can also make a round a plan without your asking, when it judges
+that it knows enough to write one.
 
-When nothing is left to decide, the agent publishes the plan as the next
-round. Check these points:
+pair marks a plan round with a grey **Plan** tag, beside the title of its
+Agreed and beside the round in the Rounds dialog.
+
+## Before you build
+
+Check these points in the plan:
 
 - The plan shows every mock, wording and interface you approved, exactly as
   you approved it.
 - The plan says how to check that the work is done.
 - Every alignment on Agreed appears in the plan as you settled it.
 
-When something is wrong, say so in a note or a thread, and the agent
-publishes the corrected pages in the next round. When the plan is right,
-press **Start** on the work's card on Work and choose where the work runs.
-[Build the work](build-the-work.md) covers what happens next.
+When the plan is wrong, comment on it and send with **Update the plan**,
+and the agent publishes the revised plan in the next round. To explore
+again instead, send with **Back to iterating**.
+
+When the plan is right, send with **Build it**. The agent applies your
+comments as last changes to the plan, then builds the work in this session.
+[Build the work](build-the-work.md) covers what happens next. To build it in
+another session instead, ask the agent to record a proposal for the work,
+and start that proposal on Work in a sub-session or with a new agent.

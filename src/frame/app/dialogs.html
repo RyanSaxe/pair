@@ -185,11 +185,11 @@
       <dt><kbd>r</kbd></dt>
       <dd>Review your feedback</dd>
       <dt><kbd>s</kbd></dt>
-      <dd>Focus Send feedback; Enter sends or opens it</dd>
+      <dd>Focus Send feedback; Enter opens it</dd>
       <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
       <dd>
-        Add or save a note, answer a question, or start a card from the Start
-        popup
+        Add or save a note, answer a question, start a card from the Start
+        popup, or send from the Send popup
       </dd>
       <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
       <dd>Start a thread, or send a reply in one</dd>
@@ -290,6 +290,17 @@
         the command to paste into any agent.
       </p>
     </div>
+    <!-- Off and unchecked with Here, so a plan round never mixes with this
+         session's other work. -->
+    <label class="start-plan-first" for="start-plan-first">
+      <span>
+        <strong>Plan it first</strong>
+        <span class="start-plan-line"
+          >Its session writes a plan before it builds.</span
+        >
+      </span>
+      <input type="checkbox" id="start-plan-first" />
+    </label>
   </div>
   <p class="small" id="start-error" role="alert" hidden></p>
   <div class="start-stack start-actions">
@@ -318,5 +329,37 @@
         >
       </button>
     </div>
+  </div>
+</dialog>
+<!-- Send feedback in the header opens this popup. The frame draws the
+     choices, which differ in a plan round, and the popup's button sends the
+     round with the choice, the switch and the message. -->
+<dialog class="dialog start" id="send-dialog" aria-labelledby="send-title">
+  <div class="dialog-head">
+    <h2 id="send-title" tabindex="-1" autofocus>Send feedback</h2>
+  </div>
+  <div class="dialog-body">
+    <div
+      class="dialog-list start-choices"
+      id="send-choices"
+      role="radiogroup"
+      aria-label="What comes next"
+    ></div>
+    <label class="alignment-switch send-switch" for="align-unflagged">
+      <span>Everything else looks good</span>
+      <input id="align-unflagged" type="checkbox" role="switch" checked />
+    </label>
+    <label for="send-message">Message to the agent, optional</label>
+    <textarea id="send-message" maxlength="4000"></textarea>
+  </div>
+  <div class="actions">
+    <button
+      class="btn primary"
+      type="button"
+      id="send-button"
+      aria-keyshortcuts="Shift+Enter"
+    >
+      <span id="send-label">Send</span> <kbd>⇧ ↵</kbd>
+    </button>
   </div>
 </dialog>

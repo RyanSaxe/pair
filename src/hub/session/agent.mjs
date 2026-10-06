@@ -2,6 +2,7 @@ import path from "node:path";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
+import { nextOf } from "./submissions.mjs";
 
 // Only the reviewer's feedback answers a round. A Start leaves the round as
 // it was, wherever its work runs.
@@ -162,13 +163,24 @@ export function agent(session) {
         : { event: null }),
     };
   }
+  // The reviewer's choice for the next round names a moment, except Keep
+  // iterating, which asks for nothing new. Iterate on a plan round is Back
+  // to iterating.
+  function choiceMoment(payload) {
+    const next = nextOf(payload);
+    if (next !== "iterate") return `read-${next}`;
+    return session.roundEntry(payload.round)?.plan ? "read-iterate" : null;
+  }
   // A Start prints with the card it started, so the agent reads what the
   // card approves. Feedback prints with every card started here that is not
   // done, so the agent keeps building that work in the round the feedback
   // begins.
   function eventRead(event) {
     if (event.payload.intent !== "start")
-      return { moment: "read-feedback", running: startedHere() };
+      return {
+        moment: ["read-feedback", choiceMoment(event.payload)].filter(Boolean),
+        running: startedHere(),
+      };
     return {
       moment: `read-start-${event.payload.where}`,
       proposal: session
@@ -369,7 +381,9 @@ export function agent(session) {
     if (start && created)
       return {
         // A session pair start --from created runs one proposal.
-        moment: session.state.parent ? ["start", "start-from"] : "start",
+        moment: session.state.parent
+          ? ["start", session.plansFirst() ? "start-from-plan" : "start-from"]
+          : "start",
         next: await nextStep(),
       };
     const next = start && (await nextStep());

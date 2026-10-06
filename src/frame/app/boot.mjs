@@ -38,6 +38,7 @@ import { installStart } from "#frame/pages/start-popup.mjs";
 import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
+import { installSendPopup } from "#frame/review/send-popup.mjs";
 import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
 import {
   installDraftSync,
@@ -109,6 +110,7 @@ function bootRound() {
   installThreads();
   installStart();
   installSend();
+  installSendPopup();
   installEvents();
   installControls();
   installBlocks();

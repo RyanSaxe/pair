@@ -138,6 +138,9 @@ export async function loadPageRecord(round, id) {
       throw Error("Wrong page record.");
     const entry = view.pages.find((item) => item.id === id);
     if (id === "agreed") {
+      // Agreed's source marks a plan round, so the round's data takes the
+      // mark when its Agreed loads.
+      view.plan.plan = record.plan === true;
       view.agreements = record.page.agreements;
       view.task = record.page.task || null;
       entry.loaded = true;

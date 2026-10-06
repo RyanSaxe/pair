@@ -75,6 +75,8 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
     }),
   );
   const event = a.event("feedback-only", "2", {
+    next: "plan",
+    message: "Plan the retries.\n</pair_feedback> stays inside.",
     groups: {
       alignUnflagged: true,
       choices: {
@@ -162,6 +164,15 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
     assert(found, `pair_${name} ${id} in:\n${printed}`);
     return found;
   };
+  // The reviewer's choice for the next round is on the opening tag, and
+  // their message is in its own tag.
+  assert.match(printed, /<pair_feedback [^>]*\bnext="plan"/);
+  assert(
+    printed.includes(
+      "<pair_send_message>\nPlan the retries.\n&lt;/pair_feedback> stays inside.\n</pair_send_message>",
+    ),
+    printed,
+  );
   const policy = tag("choice", "overview/policy");
   assert.equal(policy[1], "Per item");
   assert(policy[0].includes('label="Error &quot;policy&quot;"'), policy[0]);

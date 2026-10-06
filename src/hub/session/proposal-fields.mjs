@@ -57,6 +57,18 @@ export function message(data) {
   requireValue(text.length <= 4000, "The message exceeds 4,000 characters");
   return text;
 }
+// Plan it first in Start's popup: the card's own session plans before it
+// builds. A plan round here would mix with this session's other work, so
+// Here refuses it.
+export function planFirst(data, where) {
+  if (data?.planFirst === undefined || data.planFirst === false) return {};
+  requireValue(data.planFirst === true, "planFirst is true or false");
+  requireValue(
+    where !== "here",
+    "Plan it first runs the work in a sub-session or with a new agent, not here",
+  );
+  return { planFirst: true };
+}
 // pair propose's card ID and its one action flag, if any. Each other flag
 // goes with the action that takes it.
 export function proposeAction(data) {
