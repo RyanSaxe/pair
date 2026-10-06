@@ -5,7 +5,8 @@ import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
 // Where a page lands for each way of arriving at it, while the code blocks
-// above the place grow after the page lands.
+// above the place grow after the page lands, in Chrome and in WebKit, the
+// engine of every browser on an iPhone.
 //
 // The stand-in for Shiki highlights a block only once the test opens a
 // gate, and adds 160px of padding under each block it highlights. Shiki
@@ -56,12 +57,12 @@ const widths = {
   desktop: { width: 1280, height: 800 },
 };
 
-async function setup(t, viewport) {
+async function setup(t, engine, viewport) {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
   const url = (rest) => `${h.server.origin}${session.base}/${rest}`;
-  const page = await open(t, "about:blank", { viewport });
+  const page = await open(t, "about:blank", { engine, viewport });
   if (!page) return null;
   await page.addInitScript(gate);
   await page.route(/esm\.sh\/shiki/, (route) =>
@@ -147,70 +148,72 @@ async function readTo(page) {
 const openPage = (page, id) =>
   page.locator(`#page-list [data-page="${id}"]`).dispatchEvent("click");
 
-for (const [width, viewport] of Object.entries(widths)) {
-  test(`on ${width}, a reply's notification opened from another page lands on the reply while code above it grows`, async (t) => {
-    const s = await setup(t, viewport);
-    if (!s) return;
-    const id = await s.thread();
-    await s.reply(id);
-    await s.page.goto(s.url("#overview"));
-    await title(s.page, "Overview");
-    await s.page.goto(s.url(`?target=thread-${id}-1#code`));
-    await focused(s.page, `thread-${id}-1`);
-    inView(await grow(s.page, `#thread-${id}-1`));
-  });
+const engines = { Chrome: "chrome", WebKit: "webkit" };
+for (const [browser, engine] of Object.entries(engines))
+  for (const [width, viewport] of Object.entries(widths)) {
+    test(`in ${browser} on ${width}, a reply's notification opened from another page lands on the reply while code above it grows`, async (t) => {
+      const s = await setup(t, engine, viewport);
+      if (!s) return;
+      const id = await s.thread();
+      await s.reply(id);
+      await s.page.goto(s.url("#overview"));
+      await title(s.page, "Overview");
+      await s.page.goto(s.url(`?target=thread-${id}-1#code`));
+      await focused(s.page, `thread-${id}-1`);
+      inView(await grow(s.page, `#thread-${id}-1`));
+    });
 
-  test(`on ${width}, a reply opened from the bell on another page lands on the reply while code above it grows`, async (t) => {
-    const s = await setup(t, viewport);
-    if (!s) return;
-    const id = await s.thread();
-    await s.page.goto(s.url("#overview"));
-    // The bell marks every event it finds on its first load as seen, so the
-    // agent replies once the bell shows.
-    await s.page.locator("#bell").waitFor();
-    await s.reply(id);
-    await s.page.locator("#bell").click();
-    await s.page.locator("#center-list .session-row").click();
-    await focused(s.page, `thread-${id}-1`);
-    inView(await grow(s.page, `#thread-${id}-1`));
-  });
+    test(`in ${browser} on ${width}, a reply opened from the bell on another page lands on the reply while code above it grows`, async (t) => {
+      const s = await setup(t, engine, viewport);
+      if (!s) return;
+      const id = await s.thread();
+      await s.page.goto(s.url("#overview"));
+      // The bell marks every event it finds on its first load as seen, so the
+      // agent replies once the bell shows.
+      await s.page.locator("#bell").waitFor();
+      await s.reply(id);
+      await s.page.locator("#bell").click();
+      await s.page.locator("#center-list .session-row").click();
+      await focused(s.page, `thread-${id}-1`);
+      inView(await grow(s.page, `#thread-${id}-1`));
+    });
 
-  test(`on ${width}, a link to a block opened from another page lands on the block while code above it grows`, async (t) => {
-    const s = await setup(t, viewport);
-    if (!s) return;
-    await s.page.goto(s.url("#overview"));
-    await title(s.page, "Overview");
-    await s.page.goto(s.url("?target=result#code"));
-    await focused(s.page, "result");
-    inView(await grow(s.page, "#result"));
-  });
+    test(`in ${browser} on ${width}, a link to a block opened from another page lands on the block while code above it grows`, async (t) => {
+      const s = await setup(t, engine, viewport);
+      if (!s) return;
+      await s.page.goto(s.url("#overview"));
+      await title(s.page, "Overview");
+      await s.page.goto(s.url("?target=result#code"));
+      await focused(s.page, "result");
+      inView(await grow(s.page, "#result"));
+    });
 
-  test(`on ${width}, coming back to a page lands where the reader left it while code above it grows`, async (t) => {
-    const s = await setup(t, viewport);
-    if (!s) return;
-    await s.page.goto(s.url("#code"));
-    await title(s.page, "Code");
-    await grow(s.page, "#result");
-    const left = await readTo(s.page);
-    await s.page.evaluate(() => window.highlightGate.close());
-    await openPage(s.page, "overview");
-    await title(s.page, "Overview");
-    await openPage(s.page, "code");
-    await title(s.page, "Code");
-    await frames(s.page);
-    assert.equal((await grow(s.page, "#result")).top, left.top);
-  });
+    test(`in ${browser} on ${width}, coming back to a page lands where the reader left it while code above it grows`, async (t) => {
+      const s = await setup(t, engine, viewport);
+      if (!s) return;
+      await s.page.goto(s.url("#code"));
+      await title(s.page, "Code");
+      await grow(s.page, "#result");
+      const left = await readTo(s.page);
+      await s.page.evaluate(() => window.highlightGate.close());
+      await openPage(s.page, "overview");
+      await title(s.page, "Overview");
+      await openPage(s.page, "code");
+      await title(s.page, "Code");
+      await frames(s.page);
+      assert.equal((await grow(s.page, "#result")).top, left.top);
+    });
 
-  test(`on ${width}, a reload lands where the reader was while code above it grows`, async (t) => {
-    const s = await setup(t, viewport);
-    if (!s) return;
-    await s.page.goto(s.url("#code"));
-    await title(s.page, "Code");
-    await grow(s.page, "#result");
-    const left = await readTo(s.page);
-    await s.page.reload();
-    await title(s.page, "Code");
-    await frames(s.page);
-    assert.equal((await grow(s.page, "#result")).top, left.top);
-  });
-}
+    test(`in ${browser} on ${width}, a reload lands where the reader was while code above it grows`, async (t) => {
+      const s = await setup(t, engine, viewport);
+      if (!s) return;
+      await s.page.goto(s.url("#code"));
+      await title(s.page, "Code");
+      await grow(s.page, "#result");
+      const left = await readTo(s.page);
+      await s.page.reload();
+      await title(s.page, "Code");
+      await frames(s.page);
+      assert.equal((await grow(s.page, "#result")).top, left.top);
+    });
+  }

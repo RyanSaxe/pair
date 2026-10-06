@@ -133,6 +133,16 @@ Without Google Chrome, a browser test skips with "Google Chrome is not
 installed". When the `CI` environment variable is set, as it is in GitHub
 Actions, the test fails instead of skipping.
 
+The landing tests, in `tests/browser/landing.browser.mjs`, also run in the
+WebKit that Playwright installs, because every browser on an iPhone uses
+WebKit. Run `npx playwright-core install webkit` once after `npm ci`, which
+installs the WebKit build for the `playwright-core` version in
+`package-lock.json`. Without it, a WebKit test skips with "Playwright's
+WebKit is not installed", or fails when `CI` is set. On macOS 14 or earlier,
+Playwright installs an older WebKit build in which `playwright-core` 1.63
+never finishes opening a page, so the WebKit tests skip there, and CI runs
+them on Linux.
+
 `npm run test:figures` checks that every figure in the test fixture renders in
 the light and dark themes. CI runs it in its own `figures` job, because a
 figure whose library loads from esm.sh or jsDelivr fails the test while that
@@ -171,8 +181,9 @@ The browser tests are in `tests/browser/`. `npm run test:browser` runs each
 file named `NAME.browser.mjs`, and `npm run test:figures` runs `figures.mjs`.
 No file there matches the default patterns of `node --test`, such as
 `*.test.mjs`, so `node --test` runs none of them and passes with no install.
-In `tests/support/browser.mjs`, `launch()` starts Chrome, and
-`open(t, url, options)` opens a page and closes Chrome when the test ends.
+In `tests/support/browser.mjs`, `launch()` starts Chrome, or WebKit with
+`engine: "webkit"`, and `open(t, url, options)` opens a page and closes the
+browser when the test ends.
 
 ## Checking the frame in a browser
 
