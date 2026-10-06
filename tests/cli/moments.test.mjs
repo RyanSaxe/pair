@@ -150,6 +150,18 @@ test("each command prints the moment it is run at", async (t) => {
         return read();
       },
     ],
+    // The holder's own start prints in pair propose, not in pair read.
+    ...["here", "sub-session"].map((where) => [
+      `read-start-${where}`,
+      async () => {
+        await propose(`asked-${where}`);
+        return cli.run(
+          ...["propose", "--session-dir", session.directory],
+          ...["--id", `asked-${where}`, "--start", where],
+          ...["--quote", "Do this too."],
+        );
+      },
+    ]),
     [
       ["start", "start-from"],
       () =>
