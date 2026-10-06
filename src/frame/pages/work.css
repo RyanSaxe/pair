@@ -333,6 +333,44 @@
 .start-hints > p {
   margin: 6px 0 0;
 }
+/* Plan it first, apart from the three places, in the checklist component's
+   row: a line above it, the title and its line on the left, and the box on
+   the right. dialogs.css comes later in the cascade, so the rule names the
+   dialog to outrank its .dialog label. */
+.dialog .start-plan-first {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-ui);
+  font-weight: 400;
+  cursor: pointer;
+}
+.start-plan-first strong {
+  display: block;
+  font-size: var(--text-card);
+  font-weight: var(--weight-strong);
+}
+.start-plan-line {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+.start-plan-first input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.start-plan-first:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /* Open a new agent session's tooltip opens above the button. */
 .start-open {
   position: relative;

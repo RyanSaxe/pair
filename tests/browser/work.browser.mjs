@@ -374,6 +374,7 @@ test("the comment control comments on a chosen card, the proposal component, Wor
     ["Your feedback", "Overview", "Work", "Overall"],
   );
   await page.locator("#submit").click();
+  await page.locator("#send-button").click();
   assert.equal(
     await waitUntil(
       async () => (await session.status()).body.latestSubmissionId,

@@ -12,6 +12,7 @@ import {
   base,
   currentAvailable,
   feedbackEditable,
+  isPlanRound,
   pages,
   plan,
   session,
@@ -25,6 +26,12 @@ import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { itemSummary, review } from "#frame/review/review.mjs";
 import {
+  choiceLabel,
+  nothingToSend,
+  openSend,
+  startingChoice,
+} from "#frame/review/send-popup.mjs";
+import {
   connected,
   loadPageRecord,
   loadSubmission,
@@ -37,8 +44,9 @@ import {
 
 export let submissionError = "";
 export let submissionInFlight = false;
-// The header button. It sends feedback, and opens Feedback once Current's
-// round is sent. Its count is the drafted items that go with it.
+// The header button. It opens the Send popup whenever the round can be
+// sent, and opens Feedback once Current's round is sent. Its count is the
+// drafted items that go with it.
 export function submitButton({
   inFlight,
   opensFeedback,
@@ -46,15 +54,11 @@ export function submitButton({
   waitingForPages,
   sendable,
   pending,
-  alignUnflagged,
 }) {
-  const hasFeedback = pending > 0 || alignUnflagged;
   return {
     disabled:
       inFlight ||
-      (opensFeedback
-        ? onSentFeedback
-        : waitingForPages || !hasFeedback || !sendable),
+      (opensFeedback ? onSentFeedback : waitingForPages || !sendable),
     text: inFlight
       ? "Sending"
       : opensFeedback
@@ -65,14 +69,17 @@ export function submitButton({
     primary: !opensFeedback && !waitingForPages,
   };
 }
-// The submission's text, which an export carries: every unsent item as the
-// agent reads it, each after a blank line.
-function feedbackText() {
+// The submission's text, which an export carries: the choice of what comes
+// next, the message, and every unsent item as the agent reads it, each
+// after a blank line.
+function feedbackText(next, message) {
   const lines = [
     `Feedback: ${plan.title}`,
     `Round ${plan.round} of ${plan.name}`,
     `Everything else looks good: ${state.alignUnflagged ? "yes" : "no"}.`,
+    `Next: ${choiceLabel(next, isPlanRound())}.`,
   ];
+  if (message) lines.push("", "Message to the agent", message);
   const { notes, choices, answers } = unsentItems(state);
   // A checklist the reviewer left alone reads like any other. An empty one
   // means none picked.
@@ -107,16 +114,30 @@ function feedbackText() {
   }
   return lines.join("\n");
 }
-function envelope(text, groups) {
-  return {
-    sessionId: session.sessionId,
-    id: uuid(),
-    name: plan.name,
-    round: plan.round,
-    intent: "feedback-only",
-    groups,
-    text,
-  };
+// The submission for the draft with the reviewer's choice of what comes
+// next. The same draft and choice keep the same submission, so a retry
+// after a failed send sends it again under its ID, and a changed choice
+// or message makes a new one.
+function submission(next) {
+  const groups = submissionGroups(state);
+  const message = state.message?.trim() || "";
+  const snapshot = JSON.stringify([groups, next, message]);
+  if (state.pending?.snapshot !== snapshot)
+    state.pending = {
+      snapshot,
+      event: {
+        sessionId: session.sessionId,
+        id: uuid(),
+        name: plan.name,
+        round: plan.round,
+        intent: "feedback-only",
+        next,
+        ...(message ? { message } : {}),
+        groups,
+        text: feedbackText(next, message),
+      },
+    };
+  return state.pending.event;
 }
 async function send(event) {
   if (!connected) throw Error(hubUnreachable);
@@ -132,12 +153,12 @@ async function send(event) {
   setRemote(result.status);
   return result;
 }
-// Sends Current's draft and leaves Current waiting on Agreed for the next
-// round. Agreed shows the send while it is in flight, and a failure returns
-// the reader to where they were.
-async function sendFeedback() {
+// Sends Current's draft with the choice from the Send popup and leaves
+// Current waiting on Agreed for the next round. Agreed shows the send while
+// it is in flight, and a failure returns the reader to where they were.
+export async function sendFeedback(next) {
   if (remote?.openRound || !feedbackEditable()) return;
-  if (unsentItems(state).count === 0 && !state.alignUnflagged) return;
+  if (nothingToSend(state, next, isPlanRound())) return;
   submissionError = "";
   const origin = {
     page: shownPage(),
@@ -152,13 +173,10 @@ async function sendFeedback() {
         .map((item) => loadPageRecord(plan.round, item.id)),
     );
     initializeChecklists();
-    const groups = submissionGroups(state);
-    const snapshot = JSON.stringify(groups);
-    if (state.pending?.snapshot !== snapshot)
-      state.pending = { snapshot, event: envelope(feedbackText(), groups) };
+    const event = submission(next);
     persist();
     switchTab("current");
-    const result = await send(state.pending.event);
+    const result = await send(event);
     markSent(state, result.id, new Date().toISOString());
     submissionInFlight = false;
     setSubmittedRound(plan.round);
@@ -180,11 +198,6 @@ async function sendFeedback() {
   }
 }
 export function installSend() {
-  $("align-unflagged").onchange = (event) => {
-    if (!feedbackEditable()) return;
-    state.alignUnflagged = event.target.checked;
-    save();
-  };
   $("submit").onclick = () => {
     if (selectedTab === "past") {
       // Current's round was already sent, so the button opens its Feedback.
@@ -195,18 +208,17 @@ export function installSend() {
       }
       switchTab("current");
     }
-    void sendFeedback();
+    openSend();
   };
   $("save-error-dismiss").onclick = () => {
     submissionError = "";
     review();
   };
+  // An export carries the choice the popup starts on, since the reviewer
+  // chooses only as they send.
   $("export").onclick = () => {
-    const groups = submissionGroups(state);
-    const event =
-      (state.pending?.snapshot === JSON.stringify(groups) &&
-        state.pending.event) ||
-      envelope(feedbackText(), groups);
+    const event = submission(startingChoice(isPlanRound()));
+    persist();
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(event, null, 2)], {
         type: "application/json",

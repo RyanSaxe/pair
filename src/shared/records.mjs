@@ -214,6 +214,13 @@ export function validPage(record) {
     "Agreed requires agreements; other pages require HTML",
   );
   if (page.id === "agreed") validTask(page.task);
+  requireValue(
+    record.plan === undefined ||
+      (page.id === "agreed" && typeof record.plan === "boolean"),
+    page.id === "agreed"
+      ? '"plan" in Agreed\'s source is true or false.'
+      : '"plan" is a field of Agreed\'s source only.',
+  );
   for (const key of ["cssText", "jsText"])
     requireValue(
       page[key] === undefined || typeof page[key] === "string",
@@ -240,6 +247,7 @@ export function pagePlan({ page, ...record }) {
     name: record.name,
     round: record.round,
     title: record.title,
+    ...(agreed && record.plan ? { plan: true } : {}),
     pageMode: "partial",
     pages: agreed ? [] : [{ id: page.id, title: page.title, html: page.html }],
     agreements: agreed ? page.agreements : [],

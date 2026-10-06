@@ -11,6 +11,7 @@ import {
   current,
   currentAvailable,
   feedbackEditable,
+  isPlanRound,
   mode,
   page,
   pages,
@@ -36,6 +37,7 @@ import {
   submissionInFlight,
   submitButton,
 } from "#frame/review/send.mjs";
+import { choiceLabel } from "#frame/review/send-popup.mjs";
 import { renderActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import {
   connected,
@@ -278,6 +280,18 @@ function sentEntries(submission) {
     })),
   ];
 }
+// What the reviewer chose in the Send popup and their message, which go
+// above what they sent on the pages. A submission from before the popup
+// has neither.
+function sentChoice(submission) {
+  const label = choiceLabel(submission.next, isPlanRound());
+  return [
+    ...(label ? [{ heading: "What comes next", text: label }] : []),
+    ...(submission.message
+      ? [{ heading: "Message to the agent", text: submission.message }]
+      : []),
+  ];
+}
 function sentCard(entry) {
   const card = document.createElement("div");
   card.className = "sent-card";
@@ -287,7 +301,7 @@ function sentCard(entry) {
     entry.topic ||
     "Overall";
   const label = document.createElement("small");
-  label.textContent = `${where} · ${entry.label}`;
+  label.textContent = entry.heading ?? `${where} · ${entry.label}`;
   const body = document.createElement("p");
   body.textContent = entry.text;
   card.append(label);
@@ -350,7 +364,8 @@ export function renderSentFeedback() {
     return;
   }
   const entries = sentEntries(sent);
-  for (const entry of entries) list.append(sentCard(entry));
+  for (const entry of [...sentChoice(sent), ...entries])
+    list.append(sentCard(entry));
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -408,8 +423,6 @@ export function review() {
   $("submit-error").textContent = submissionError;
   $("save-error").hidden = !submissionError || $("reading").hidden;
   $("save-error-text").textContent = submissionError;
-  $("align-unflagged").checked = state.alignUnflagged;
-  $("align-unflagged").disabled = locked;
   if (locked)
     $("page-content")
       .querySelectorAll(
@@ -449,7 +462,6 @@ export function review() {
       !remote?.openRound &&
       (forCurrent || (current() && feedbackEditable())),
     pending: pending.count,
-    alignUnflagged: draft.alignUnflagged,
   });
   $("submit").disabled = button.disabled;
   $("submit").textContent = button.text;

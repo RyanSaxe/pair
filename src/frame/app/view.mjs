@@ -38,6 +38,10 @@ export function useView(view) {
   agreedTask = view.task || null;
   pages = view.pages;
 }
+// Whether a round is a plan: Agreed's source marks it with "plan": true,
+// which the hub copies into the round's data. A round's data already has
+// the name plan, so this asks it.
+export const isPlanRound = (data = plan) => data?.plan === true;
 // The title of a round's page, or of the places a note or thread can be on
 // besides the pages: Review's overall comment and Work.
 const placeTitles = { overall: "Overall feedback", work: "Work" };

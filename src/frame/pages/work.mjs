@@ -97,7 +97,8 @@ const element = (tag, className, text) => {
 // accent, Waiting for you in green, Done, Declined and Withdrawn in grey,
 // and Proposed with a hollow dot. Work started in a sub-session or with a
 // new agent reads Opening until its session links, and the two look the
-// same after that.
+// same after that, except that work started with Plan it first reads
+// Planning until it is built.
 function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.withdrawn) return ["Withdrawn", "muted"];
@@ -109,7 +110,14 @@ function cardState(card, shown) {
     return card.started.where === "new-agent"
       ? ["Opening a new agent session", "accent"]
       : ["Opening a sub-session", "accent"];
-  return waits(card, shown) ? ["Waiting for you", "ok"] : ["Working", "accent"];
+  if (waits(card, shown)) return ["Waiting for you", "ok"];
+  // Work started with Plan it first is planned until its session's
+  // reviewer chooses Build it.
+  if (card.started.planFirst && !card.started.built)
+    return card.started.where === "new-agent"
+      ? ["Planning with a new agent", "accent"]
+      : ["Planning in a sub-session", "accent"];
+  return ["Working", "accent"];
 }
 // The line under a card's title, here and on Agreed: a dot and a state,
 // then text that an ellipsis cuts short when the line is full.
