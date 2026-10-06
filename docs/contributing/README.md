@@ -124,6 +124,11 @@ label.
 - When such a pull request merges, the release workflow runs the tests,
   publishes the next version with npm's trusted publishing, and creates the
   `v` tag and a GitHub release with generated notes.
+- When the checks on `main` pass, the sync workflow fast-forwards `develop`
+  to `main`, so `develop` also has the release's merge commit. When a pull
+  request merged into `develop` after the release, `develop` cannot
+  fast-forward, and the workflow fast-forwards it at the next release. Run
+  `gh workflow run sync-develop.yml` to sync by hand.
 
 | Label on the pull request into `main` | Version           |
 | ------------------------------------- | ----------------- |
