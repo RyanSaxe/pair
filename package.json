@@ -21,7 +21,7 @@
     "#shared/*": "./src/shared/*"
   },
   "engines": {
-    "node": ">=20.1.0"
+    "node": ">=22.0.0"
   },
   "files": [
     "src",

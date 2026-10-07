@@ -6,18 +6,21 @@ on:
 
 jobs:
   test:
-    # main's ruleset requires the Ubuntu jobs by the names test (20.1.0),
-    # test (20) and test (24), so they keep them, and the macOS job adds its
-    # platform to its name.
+    # The rulesets of main and develop require the Ubuntu jobs by the names
+    # test (22.0.0), test (22) and test (24), so they keep them, and the
+    # macOS job adds its platform to its name.
     name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.node) || format('test ({0}, {1})', matrix.os, matrix.node) }}
     runs-on: ${{ matrix.os }}
+    # A hung test file otherwise runs until GitHub cancels the job at six
+    # hours.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        # The oldest Node pair supports, the latest Node 20, and the current
+        # The oldest Node pair supports, the latest Node 22, and the current
         # LTS.
-        node: [20.1.0, 20, 24]
+        node: [22.0.0, 22, 24]
         # macOS limits socket paths to 104 bytes and puts temporary
         # directories under long /var/folders paths, and Windows has named
         # pipes instead of socket files and runs only files with an
@@ -33,17 +36,24 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-      - run: node --test
+      # A test that runs past two minutes fails with its name.
+      - run: node --test --test-timeout=120000
 
-  # The browser tests drive the runner image's Google Chrome.
+  # The browser tests drive the runner image's Google Chrome. The landing
+  # tests also drive WebKit, which Playwright installs, with the system
+  # libraries it needs, for the playwright-core version that npm ci installs.
   browser:
     runs-on: ubuntu-latest
+    # The job takes under three minutes, so 15 minutes stops a hang without
+    # stopping a slow run.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: npm ci
+      - run: npx playwright-core install --with-deps webkit
       - run: npm run test:browser
 
   # Every figure in the test fixture, in the light and dark themes. A figure
@@ -51,6 +61,9 @@ jobs:
   # is down.
   figures:
     runs-on: ubuntu-latest
+    # The job takes under three minutes, so 15 minutes stops a hang without
+    # stopping a slow run.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

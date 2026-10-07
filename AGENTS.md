@@ -133,6 +133,16 @@ Without Google Chrome, a browser test skips with "Google Chrome is not
 installed". When the `CI` environment variable is set, as it is in GitHub
 Actions, the test fails instead of skipping.
 
+The landing tests, in `tests/browser/landing.browser.mjs`, also run in the
+WebKit that Playwright installs, because every browser on an iPhone uses
+WebKit. Run `npx playwright-core install webkit` once after `npm ci`, which
+installs the WebKit build for the `playwright-core` version in
+`package-lock.json`. Without it, a WebKit test skips with "Playwright's
+WebKit is not installed", or fails when `CI` is set. On macOS 14 or earlier,
+Playwright installs an older WebKit build in which `playwright-core` 1.63
+never finishes opening a page, so the WebKit tests skip there, and CI runs
+them on Linux.
+
 `npm run test:figures` checks that every figure in the test fixture renders in
 the light and dark themes. CI runs it in its own `figures` job, because a
 figure whose library loads from esm.sh or jsDelivr fails the test while that
@@ -171,8 +181,9 @@ The browser tests are in `tests/browser/`. `npm run test:browser` runs each
 file named `NAME.browser.mjs`, and `npm run test:figures` runs `figures.mjs`.
 No file there matches the default patterns of `node --test`, such as
 `*.test.mjs`, so `node --test` runs none of them and passes with no install.
-In `tests/support/browser.mjs`, `launch()` starts Chrome, and
-`open(t, url, options)` opens a page and closes Chrome when the test ends.
+In `tests/support/browser.mjs`, `launch()` starts Chrome, or WebKit with
+`engine: "webkit"`, and `open(t, url, options)` opens a page and closes the
+browser when the test ends.
 
 ## Checking the frame in a browser
 
@@ -194,13 +205,23 @@ Check every fixture page in the light and dark themes, at a wide window and at
 For anything that talks to the hub, such as sending feedback, the progress
 card, rounds, sessions or notifications, run a scratch hub. Give every command
 the same new state directory, a free port from 4880 to 4899 and
-`PAIR_WAKE=off`:
+`PAIR_WAKE=off`, with `env` in front of the command:
 
 ```sh
 state=$(mktemp -d)
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
-XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
 ```
+
+A Codex from version 0.160 started with no `-c` override runs each command on
+its app-server daemon, with the daemon's environment, so a variable exported in
+the terminal that started Codex does not reach the command. Without the
+variables in front of it, `start` creates the session in the default state
+directory, on the hub at port 4747. `start` writes the address of its hub to the
+session's `connection.json`, and every other command with `--session-dir` sends
+its request to that address. When no hub answers there, the command registers
+the session with the hub that its own environment names, so keep the variables
+on every command.
 
 `check` must report the hub port as `free`. `start` prints the session's
 directory and URL. Build and publish a round in that session as

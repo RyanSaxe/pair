@@ -24,7 +24,7 @@ use, and you review its work in your browser.**
 
 ## Get started
 
-`pair` needs Node 20.1.0 or newer.
+`pair` needs Node 22.0.0 or newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command

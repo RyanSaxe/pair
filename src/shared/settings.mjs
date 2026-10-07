@@ -96,6 +96,11 @@ export function settings(env = process.env) {
     // another tab, and the window adds 30 s to that. Safari stops polling
     // from a minimized window, so the agent opens a second tab beside it.
     tabWindowMs: 90_000,
+    // How long a page or a proposal the agent works on goes without an
+    // update before the hub calls it quiet, and how often the hub checks
+    // whether to wake the holder about quiet work.
+    quietMs: 600_000,
+    quietCheckMs: 60_000,
     wake: env.PAIR_WAKE !== "off",
   };
 }

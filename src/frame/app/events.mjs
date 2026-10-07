@@ -1,4 +1,5 @@
 import { save, state } from "#frame/app/store.mjs";
+import { land } from "#frame/app/places.mjs";
 import { $, controlKey, shiftEnter } from "#frame/app/util.mjs";
 import {
   editable,
@@ -19,8 +20,8 @@ import {
 import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { pageOrder, reveal, show } from "#frame/pages/pages.mjs";
-import { closeMenus, toggleRoundMenu } from "#frame/sync/rounds-dialog.mjs";
+import { pageOrder, show } from "#frame/pages/pages.mjs";
+import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import { switchTab } from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
 import {
@@ -100,7 +101,7 @@ export function installEvents() {
         id && $("page-content").querySelector(`[id="${CSS.escape(id)}"]`);
       if (section && !pages.some((item) => item.id === id)) {
         event.preventDefault();
-        reveal(id);
+        land({ target: id });
         return;
       }
     }
@@ -108,10 +109,6 @@ export function installEvents() {
     if (navigation) {
       event.preventDefault();
       show(navigation.dataset.page);
-    }
-    if (event.target.closest("#round")) {
-      toggleRoundMenu();
-      return;
     }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");

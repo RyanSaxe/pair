@@ -2,7 +2,7 @@
 
 ## Run it from a checkout
 
-pair needs Node 20.1.0 or newer. It has no runtime dependencies and no build
+pair needs Node 22.0.0 or newer. It has no runtime dependencies and no build
 step, so you can run a checkout as it is. In a clone of this repository,
 `npm link` puts the `pair` command on your path, and that command then runs the
 clone's code. An edit in the clone takes effect at the next `pair` command, in
@@ -124,6 +124,11 @@ label.
 - When such a pull request merges, the release workflow runs the tests,
   publishes the next version with npm's trusted publishing, and creates the
   `v` tag and a GitHub release with generated notes.
+- When the checks on `main` pass, the sync workflow fast-forwards `develop`
+  to `main`, so `develop` also has the release's merge commit. When a pull
+  request merged into `develop` after the release, `develop` cannot
+  fast-forward, and the workflow fast-forwards it at the next release. Run
+  `gh workflow run sync-develop.yml` to sync by hand.
 
 | Label on the pull request into `main` | Version           |
 | ------------------------------------- | ----------------- |

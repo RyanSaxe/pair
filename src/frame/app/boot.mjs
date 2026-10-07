@@ -1,10 +1,5 @@
 import { installEvents } from "#frame/app/events.mjs";
-import {
-  installPlaces,
-  loadPlaces,
-  placeIn,
-  restoreScroll,
-} from "#frame/app/places.mjs";
+import { installPlaces, loadPlaces, placeIn } from "#frame/app/places.mjs";
 import { createPlanUI, installRegistry } from "#frame/app/registry.mjs";
 import { installSidebar } from "#frame/app/sidebar.mjs";
 import { emptyDraft, savedDraft, setState, state } from "#frame/app/store.mjs";
@@ -36,7 +31,7 @@ import { installDrawing } from "#frame/notes/drawing.mjs";
 import { installNoteDialog } from "#frame/notes/note-dialog.mjs";
 import { findQuote, highlight, installNotes } from "#frame/notes/notes.mjs";
 import { installThreads } from "#frame/notes/threads.mjs";
-import { installPages, reveal, show } from "#frame/pages/pages.mjs";
+import { installPages, show } from "#frame/pages/pages.mjs";
 import { startHome } from "#frame/pages/home.mjs";
 import { installProgress } from "#frame/pages/progress.mjs";
 import { installStart } from "#frame/pages/start-popup.mjs";
@@ -44,7 +39,7 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
-import { renderRounds } from "#frame/sync/rounds-dialog.mjs";
+import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
 import {
   installDraftSync,
   openPast,
@@ -108,6 +103,7 @@ function bootRound() {
   installRenderers();
   installNotes();
   installSessions();
+  installRounds();
   installPlaces();
   installPages();
   installProgress();
@@ -143,15 +139,10 @@ function bootRound() {
         ]);
     const target = query.get("target");
     const asked = location.hash.slice(1);
-    const opened = asked || target;
     show(asked || place?.page || "", target, {
       keepScroll: false,
       push: false,
     });
-    // A notification of a reply names its thread's card, which the first
-    // poll places, so the page scrolls to the card after that poll.
-    const placedLater = target && !$(target);
-    if (place?.top && !opened) restoreScroll(place.top);
     window.addEventListener("popstate", () => {
       const url = new URL(location.href);
       show(url.hash.slice(1) || pages[0].id, url.searchParams.get("target"), {
@@ -171,11 +162,6 @@ function bootRound() {
     }
     if (online && mode !== "preview") {
       poll().then(() => {
-        if (
-          placedLater &&
-          new URL(location.href).searchParams.get("target") === target
-        )
-          reveal(target);
         // A notification's link names its target. While Current waits, the
         // sent round's pages show only under Previous, so the link opens
         // there. A reload without a target returns to the past round that was

@@ -65,15 +65,9 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     await page.locator(`#${id}`).waitFor({ state: "hidden" });
   };
 
-  await page.locator("#settings").click();
-  await check("settings-dialog");
-  await close("settings-dialog");
   await page.keyboard.press("?");
   await check("keys-dialog");
   await close("keys-dialog");
-  await page.locator("#round").click();
-  await check("round-dialog");
-  await close("round-dialog");
 
   await page.locator("#menu-button").click();
   await page.locator(`[data-key="close:${session.id}"]:visible`).click();
@@ -108,6 +102,79 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     buttons: ["#start-copy", "#start-open"],
   });
   await close("start-dialog");
+});
+
+// The four buttons at the left of the top bar each open a panel 6px under
+// the button and 8px or more inside the window, lined up with the button
+// when the window has room, and one panel at a time. A session title too
+// long for the Rounds panel leaves the panel inside the window.
+test("each top bar panel opens under its button inside the window, one at a time, and closes on its button, on Escape and on a click outside", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const plan = planData();
+  plan.title = clip(sentence, 160);
+  assert.equal((await session.publish(plan)).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const panels = [
+    ["menu-button", "sessions-pop"],
+    ["round", "rounds-pop"],
+    ["settings", "settings-pop"],
+    ["bell", "center-pop"],
+  ];
+  const shown = () =>
+    page.evaluate(
+      (ids) =>
+        ids.filter((id) =>
+          document.getElementById(id).matches(":popover-open"),
+        ),
+      panels.map(([, panel]) => panel),
+    );
+  const closed = (panel) =>
+    page.locator(`#${panel}`).waitFor({ state: "hidden" });
+
+  for (const viewport of [
+    { width: 375, height: 667 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${h.server.origin}${session.base}/#overview`);
+    await page.locator("#bell:not([hidden])").waitFor();
+    for (const [button, panel] of panels) {
+      const at = `${panel} at ${viewport.width}px`;
+      await page.locator(`#${button}`).click();
+      await page.locator(`#${panel}`).waitFor();
+      assert.deepEqual(await shown(), [panel], at);
+      await page.locator(`#${button}[aria-expanded="true"]`).waitFor();
+      const anchor = await page.locator(`#${button}`).boundingBox();
+      const box = await page.locator(`#${panel}`).boundingBox();
+      const near = (a, b) => Math.abs(a - b) < 0.5;
+      assert.ok(near(box.y, anchor.y + anchor.height + 6), `${at} top`);
+      assert.ok(box.x >= 7.5, `${at} left ${box.x}`);
+      assert.ok(
+        box.x + box.width <= viewport.width - 7.5,
+        `${at} right ${box.x + box.width}`,
+      );
+      if (anchor.x + box.width <= viewport.width - 8)
+        assert.ok(near(box.x, anchor.x), `${at} left ${box.x}`);
+    }
+    // The last panel opened, notifications, closed each one before it.
+    for (const [button, panel] of panels) {
+      await page.locator(`#${button}`).click();
+      await page.locator(`#${panel}`).waitFor();
+      await page.locator(`#${button}`).click();
+      await closed(panel);
+      await page.locator(`#${button}`).click();
+      await page.locator(`#${panel}`).waitFor();
+      await page.keyboard.press("Escape");
+      await closed(panel);
+      await page.locator(`#${button}`).click();
+      await page.locator(`#${panel}`).waitFor();
+      await page.mouse.click(10, viewport.height - 10);
+      await closed(panel);
+      await page.locator(`#${button}[aria-expanded="false"]`).waitFor();
+    }
+  }
 });
 
 // Every dialog backs out the same way: its ×, Escape, or a tap outside,
@@ -173,9 +240,7 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
     await shut();
   }
 
-  await backOut("settings-dialog", () => page.locator("#settings").click());
   await backOut("keys-dialog", () => page.keyboard.press("?"));
-  await backOut("round-dialog", () => page.locator("#round").click());
   await backOut("close-dialog", async () => {
     await page.locator("#menu-button").click();
     await page.locator(`[data-key="close:${session.id}"]:visible`).click();

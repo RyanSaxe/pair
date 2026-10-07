@@ -11,7 +11,12 @@ import {
   written,
 } from "./proposal-fields.mjs";
 import { joinable } from "./proposal-joins.mjs";
-import { statusable, statusParts } from "./proposal-status.mjs";
+import {
+  changedParts,
+  loadedStatus,
+  statusable,
+  statusChange,
+} from "./proposal-status.mjs";
 
 // Proposals: one card for each piece of work the agent proposes, from pair
 // propose until the work is done. Each card is a file in proposals/, because
@@ -27,6 +32,7 @@ export async function proposals(session) {
     for (const name of (await fs.readdir(folder)).sort())
       if (name.endsWith(".json")) {
         const card = await read(path.join(folder, name));
+        if (card.status) card.status = loadedStatus(card.status);
         cards.set(card.id, card);
       }
   } catch (error) {
@@ -148,10 +154,12 @@ export async function proposals(session) {
   // Start, from the reviewer's button or from their words. Work here or in
   // a sub-session saves a Start event, which the agent reads with pair
   // read. Work with a new agent saves no event, because a separate agent
-  // runs pair start --from for it. A Start leaves the round as it was,
-  // wherever the work runs: only the reviewer's feedback answers a round,
-  // so a round that waits for them keeps waiting.
-  async function start(card, started) {
+  // runs pair start --from for it. A start the holder records saves no
+  // event either, because the holder's pair propose prints the start. A
+  // Start leaves the round as it was, wherever the work runs: only the
+  // reviewer's feedback answers a round, so a round that waits for them
+  // keeps waiting.
+  async function start(card, started, holder = false) {
     open();
     requireValue(
       !card.declined,
@@ -177,7 +185,7 @@ export async function proposals(session) {
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
     });
-    if (started.where === "new-agent") return changed;
+    if (started.where === "new-agent" || holder) return changed;
     await session.saveEvent({
       id: crypto.randomUUID(),
       intent: "start",
@@ -234,20 +242,19 @@ export async function proposals(session) {
   // pair propose --start: the agent starts a card because the reviewer
   // asked for the work in a note, a thread or the chat, with their words
   // and, when it gives them, where they wrote them. The holder that runs it
-  // reads the start with pair read, which its next step names, so the hub
-  // wakes the holder only for a start another agent sends.
+  // reads the start in that command's output, so the hub saves a start for
+  // pair read and wakes the holder only when another agent sends it.
   async function startFromWords(card, data, holder) {
     const where = place(data.start, "--start");
     requireValue(
       data.quote !== undefined,
       "--start takes --quote with the reviewer's words",
     );
-    const started = await start(card, {
-      where,
-      by: "words",
-      quote: words(data, "quote"),
-      ...source(data),
-    });
+    const started = await start(
+      card,
+      { where, by: "words", quote: words(data, "quote"), ...source(data) },
+      holder,
+    );
     if (!holder && where !== "new-agent") wakeLater(card.id);
     return started;
   }
@@ -406,13 +413,18 @@ export async function proposals(session) {
     return save(card, { done: null, status: null });
   }
   // A linked session's agent writes the status of the work it runs to the
-  // card in the parent.
+  // card in the parent. A status that changes no part leaves the card as
+  // it was, so status.at is the time of the last change to the parts.
   async function writeStatus(id, data) {
     const owner = session.cardOwner(id, "pair propose");
     if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
     open();
-    const status = { at: timestamp(), ...statusParts(data) };
-    return save(statusable(find(id)), { status });
+    const change = statusChange(data);
+    const card = statusable(find(id));
+    const parts = changedParts(card, change);
+    if (JSON.stringify(parts) === JSON.stringify(card.status?.parts))
+      return card;
+    return save(card, { status: { at: timestamp(), parts } });
   }
   // pair propose, from any agent: it records a card, or with one action
   // flag changes the card that has the ID. holder says whether the holder

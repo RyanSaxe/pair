@@ -37,8 +37,13 @@ export function agent(session) {
       .proposalItems()
       .filter((card) => card.started?.where === "here" && !card.done);
   // Every agent command prints the step after it, so an agent that lost its
-  // place is told where the session stands.
+  // place is told where the session stands, and then the line that names
+  // any quiet work.
   async function nextStep() {
+    const quiet = session.quietLine();
+    return quiet ? `${await step()}\n${quiet}` : step();
+  }
+  async function step() {
     if (session.state.stage === "complete") return closed;
     const [event] = await pending();
     if (event) return `Run ${command("read")} to see what the reviewer sent.`;
@@ -237,14 +242,15 @@ export function agent(session) {
       ...readAnswer(event, submissionBefore(event.sequence)),
       declined,
       closed,
-      // A sub-session's Start leaves this session's round as it was, so its
-      // next step is the command that creates the sub-session.
-      next:
-        where === "sub-session"
-          ? `Run pair start --from ${directory} --proposal ${proposal}, then follow what it prints.`
-          : await nextStep(),
+      next: await startNext(where, proposal),
     };
   }
+  // A sub-session's Start leaves this session's round as it was, so its
+  // next step is the command that creates the sub-session.
+  const startNext = async (where, id) =>
+    where === "sub-session"
+      ? `Run pair start --from ${directory} --proposal ${id}, then follow what it prints.`
+      : nextStep();
   async function ack(data) {
     requireValue(
       data.note === undefined ||
@@ -301,6 +307,9 @@ export function agent(session) {
     reply: (data) => session.reply(data),
     // Work started with a new agent on the reviewer's words waits for an
     // agent that runs pair start --from, as after Open a new agent session.
+    // The holder's own start here or in a sub-session saves nothing for pair
+    // read, so the answer carries the moment and the joined cards that pair
+    // read prints with any other start.
     propose: async (data) => {
       const holder = sameAgent(session.state.holder, data.agent);
       const proposal = await session.propose(data, holder);
@@ -309,10 +318,17 @@ export function agent(session) {
       const next =
         data.start === "new-agent"
           ? `Open a new agent session and have it run pair start --from ${directory} --proposal ${proposal.id} first. If you cannot open one, give the reviewer that command in the chat. Then go back to what you were doing.`
-          : await nextStep();
+          : await startNext(data.start, proposal.id);
+      const own = holder && ["here", "sub-session"].includes(data.start);
       return {
         sessionId: session.state.sessionId,
         proposal,
+        ...(own
+          ? {
+              moment: `read-start-${data.start}`,
+              joined: session.joinedInto(proposal.id),
+            }
+          : {}),
         ...(parent ? { parent: { id: parent.id, title: parent.title() } } : {}),
         ...(holder ? { next } : {}),
       };
@@ -332,6 +348,7 @@ export function agent(session) {
       if (data.action !== "propose") await requireHolder(data.agent);
     }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
+    session.commandRan();
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
@@ -350,6 +367,7 @@ export function agent(session) {
     // status keeps its takeover notice.
     if (!start && held && !same) return {};
     await requireHolder(agent, start);
+    session.commandRan();
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {

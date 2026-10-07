@@ -287,17 +287,18 @@ dialog::backdrop {
 .dialog.note #note-anchor {
   margin: 0 0 6px;
 }
+/* Settings' rows take the 2px inset of the label above them. */
 .settings-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
+  padding: 10px 2px;
   border-top: 1px solid var(--line);
 }
-.dialog-body > .settings-row:first-child {
+.side-label + .settings-row {
   border-top: 0;
-  padding-top: 0;
+  padding-top: 2px;
 }
 .settings-row .btn {
   padding: 4px 10px;
@@ -458,6 +459,38 @@ dialog::backdrop {
   letter-spacing: 0;
   text-transform: none;
   color: var(--attention);
+}
+/* The session's title beside the Rounds label, cut short on a narrow
+   panel. */
+.pop-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+/* A round's row is a session's row with no icon buttons, and with the
+   round's time in a fourth column inside the row's button. */
+.round-list .sess-line {
+  grid-template-columns: minmax(0, 1fr);
+}
+.round-list .sess-row {
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  padding-right: 8px;
+}
+.round-list .sess-row .n {
+  color: var(--accent);
+  font-size: 12px;
+}
+.round-list .sess-row small {
+  margin-left: 2px;
+  color: var(--muted);
+  font-size: var(--text-meta);
+  white-space: nowrap;
 }
 /* A session's row: its number, title and status, then Copy and Close in
    two fixed columns. */

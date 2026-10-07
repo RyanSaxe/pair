@@ -130,7 +130,9 @@ async function ensureHub(config = settings()) {
     // sockets, keeps its record for the commands that can reach it.
     requireValue(
       !(record && hubRunning(record.pid)),
-      `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
+      process.env.CODEX_SANDBOX
+        ? `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port} inside the sandbox. ${sandboxAdvice}`
+        : `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
     );
     if (record) await fs.rm(config.hubFile, { force: true });
     requireValue(

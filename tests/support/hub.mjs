@@ -121,6 +121,11 @@ export async function inbox(t, home) {
     });
   });
   await new Promise((resolve) => server.listen(socket, resolve));
+  // node:test skips a test's remaining after hooks once one throws, so this
+  // close may never run. Unreferenced, the socket cannot keep the test
+  // file's process alive, and a failed cleanup fails its test instead of
+  // stalling the run until CI cancels it.
+  server.unref();
   const close = () => new Promise((resolve) => server.close(() => resolve()));
   t.after(close);
   return {
@@ -144,7 +149,11 @@ export async function hub(t, extra = {}, options = {}) {
   t.after(async () => {
     await server.close();
     await killHub(config);
-    await fs.rm(home, { recursive: true, force: true });
+    // The hub sends a wake after it answers the request that asked for it,
+    // so a wake can still be writing the session's state while this
+    // removes the home. rm then fails with ENOTEMPTY, which maxRetries
+    // retries.
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
   });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   const register = async (sessionDir, wake, options = {}) => {

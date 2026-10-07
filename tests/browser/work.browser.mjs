@@ -571,10 +571,11 @@ test("a withdrawn card shows the agent's reason and Restore brings it back, and 
 });
 
 // A running card shows the agent's status: wider than 720px with every
-// part listed, and on a phone as the count and the next part until the
-// reviewer taps it open, where it stays when the agent writes a new
-// status. A card with no status says so, a status moves no card to
-// another tab, and a finished card shows none.
+// part listed in the order the agent added it, and on a phone as the
+// count and the next left part until the reviewer taps it open, where it
+// stays when the agent writes a new status. A dropped part stays listed,
+// and the count leaves it out. A card with no status says so, a status
+// moves no card to another tab, and a finished card shows none.
 test("a running card shows the agent's status, folded on a phone until tapped", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
@@ -585,11 +586,12 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
     );
     assert.equal(started.code, 200, started.body.error);
   }
-  const status = async (done, left) => {
+  const status = async (done, left, drop) => {
     const written = await session.action("propose", {
       id: "deck",
       statusDone: done,
       statusLeft: left,
+      statusDrop: drop,
     });
     assert.equal(written.code, 200, written.body.error);
   };
@@ -635,12 +637,14 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
   assert.match(await summary.innerText(), /^1 of 3 done\s*·\s*Next: Slides$/);
   await summary.click();
   assert.equal((await parts()).length, 3);
-  await status(["Outline", "Slides"], ["Speaker notes"]);
+  await status(["Handout"], undefined, ["Slides"]);
   await summary.filter({ hasText: "2 of 3 done" }).waitFor();
+  assert.equal(await summary.textContent(), "2 of 3 done·Next: Speaker notes");
   assert.deepEqual(await parts(), [
     ["Done", "Outline"],
-    ["Done", "Slides"],
+    ["Dropped", "Slides"],
     ["Left", "Speaker notes"],
+    ["Done", "Handout"],
   ]);
   assert.equal(await tab("running").locator(".work-count").textContent(), "2");
 

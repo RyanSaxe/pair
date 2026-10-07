@@ -1,37 +1,60 @@
-import { chromium } from "playwright-core";
+import { release } from "node:os";
+import { chromium, webkit } from "playwright-core";
 import "./env.mjs";
 
-// launch() throws this when Google Chrome is not installed. open() skips the
-// test with it, and fails the test when CI is set, so CI cannot pass by
-// skipping.
-const missing = "Google Chrome is not installed";
+// launch() throws one of these when the browser is not installed. open()
+// skips the test with it, and fails the test when CI is set, so CI cannot
+// pass by skipping.
+const missing = {
+  chrome: "Google Chrome is not installed",
+  webkit: "Playwright's WebKit is not installed",
+};
 
-// args are switches for Chrome.
-export async function launch({ args } = {}) {
+// engine is "chrome", the installed Google Chrome, or "webkit", the WebKit
+// that Playwright installs. args are switches for Chrome.
+export async function launch({ args, engine = "chrome" } = {}) {
   try {
-    return await chromium.launch({ channel: "chrome", args });
+    return engine === "webkit"
+      ? await webkit.launch()
+      : await chromium.launch({ channel: "chrome", args });
   } catch (error) {
     const message = error.message || String(error);
     if (
-      /Chromium distribution ['"]chrome['"] is not found|Chrome (?:is )?not found/i.test(
+      /Chromium distribution ['"]chrome['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
         message,
       )
     )
-      throw Error(missing, { cause: error });
+      throw Error(missing[engine], { cause: error });
     throw error;
   }
 }
 
-// Opens url in a new page of the installed Chrome, and closes Chrome when
-// the test ends. With html, the page is served at http://pair.localhost/,
-// and args are switches for Chrome.
-export async function open(t, url, { html, args, ...pageOptions } = {}) {
+// On macOS 14 and earlier, Playwright installs an older WebKit build, in
+// which playwright-core 1.63 never finishes opening a page: the build
+// refuses the PushAPIEnabled setting. open() skips the WebKit tests there,
+// and CI runs them on Linux.
+const oldMac =
+  process.platform === "darwin" && Number(release().split(".")[0]) < 24;
+const tooOld = "Playwright's WebKit does not run on macOS 14 or earlier";
+
+// Opens url in a new page of the browser that engine names, and closes the
+// browser when the test ends. With html, the page is served at
+// http://pair.localhost/, and args are switches for Chrome.
+export async function open(
+  t,
+  url,
+  { html, args, engine = "chrome", ...pageOptions } = {},
+) {
+  if (engine === "webkit" && oldMac && !process.env.CI) {
+    t.skip(tooOld);
+    return null;
+  }
   let browser;
   try {
-    browser = await launch({ args });
+    browser = await launch({ args, engine });
   } catch (error) {
-    if (process.env.CI || error.message !== missing) throw error;
-    t.skip(missing);
+    if (process.env.CI || error.message !== missing[engine]) throw error;
+    t.skip(missing[engine]);
     return null;
   }
   t.after(() => browser.close());
