@@ -1,10 +1,16 @@
 // Work the agent has given no update on for config.quietMs is quiet: a page
 // of the open round it started, since its last note or else its start, and
-// a proposal started here that is not done, since its parts last changed or
-// else its start. While any work is quiet, every next step names it. When no
-// pair command has run on the session for as long either, the hub wakes the
-// holder, once for each page or card until that page or card gets an update.
+// a proposal started here that is not done and has a part left or no parts
+// yet, since its parts last changed or else its start. While any work is
+// quiet, every next step names it. When no pair command has run on the
+// session for as long either, the hub wakes the holder, once for each page
+// or card until that page or card gets an update.
 
+// A card whose parts are all done or dropped waits only for the page that
+// shows the work, so the agent has no part left to update.
+const partsLeft = (card) =>
+  !card.status?.parts?.length ||
+  card.status.parts.some((part) => part.state === "left");
 const count = (number, word) => `${number} ${word}${number === 1 ? "" : "s"}`;
 const minutes = (ms) => Math.floor(ms / 60_000);
 
@@ -20,7 +26,9 @@ export function quietItems({ openRound, proposals }, now, ms) {
       at: slot.note?.at ?? slot.startedAt,
     }));
   const cards = proposals
-    .filter((card) => card.started?.where === "here" && !card.done)
+    .filter(
+      (card) => card.started?.where === "here" && !card.done && partsLeft(card),
+    )
     .map((card) => ({
       kind: "proposal",
       id: card.id,
