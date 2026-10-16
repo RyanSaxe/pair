@@ -44,7 +44,7 @@ import { placeThreads } from "#frame/notes/threads.mjs";
 import { renderAgreements, tag } from "#frame/pages/agreed.mjs";
 import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
-import { openWork, refreshWork, workCounts } from "#frame/pages/work.mjs";
+import { openWork, workCounts } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -112,8 +112,6 @@ export function show(
   // sent, so a saved place or a #feedback link opens its Agreed.
   const feedback = id === "feedback" && hasFeedbackPage && !showingWaiting();
   const work = id === "work" && hasWork();
-  // Work opens on its first tab with a card, and keeps the tab the reader
-  // chose while it stays on screen.
   const stayed = work && !$("work-view").hidden;
   let drawing = null;
   // A page whose record is still loading is shown again once it loads, and
@@ -124,8 +122,7 @@ export function show(
   $("work-view").hidden = !work;
   // A choice belongs to the view it was made in.
   if (!stayed) chooseBlock(null);
-  if (stayed) refreshWork(true);
-  else if (work) openWork();
+  if (work) openWork(targetId, stayed);
   // The threads on the overall comment go at the end of Review only while
   // it is on screen, so they are placed before a reply in one is revealed.
   else if (feedback) placeThreads();

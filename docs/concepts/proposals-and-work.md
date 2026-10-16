@@ -25,9 +25,11 @@ from the moment the agent records it, in four tabs:
 | Proposed  | Proposals waiting for you to start or decline them.                                                                                                       |
 | Done      | Finished work, proposals the agent joined into another, and proposals that you declined or the agent withdrew.                                            |
 
-Work opens on the first tab that has a card in it. The Work row in the
-sidebar shows two numbers. The grey number is the number of cards in
-Proposed, and the orange one is the number in Needs you.
+Work opens on the first tab that has a card in it. When you click a bell line
+or a system notification about a card, Work opens on that card's tab instead,
+with the card or the agent's reply in view. The Work row in the sidebar shows
+two numbers. The grey number is the number of cards in Proposed, and the
+orange one is the number in Needs you.
 
 ### Cards
 
