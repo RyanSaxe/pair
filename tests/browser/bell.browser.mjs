@@ -110,6 +110,95 @@ test("a thumbs up on a reply fills and takes its line out of the bell, and press
   await count(page, "1");
 });
 
+// A session with Build the deck running here and Refresh the export
+// proposed, so Work opens on Running unless a line names another card.
+async function workSession(h) {
+  const session = await h.session();
+  assert.equal((await session.publish(round())).code, 200);
+  for (const [id, title] of [
+    ["deck", "Build the deck"],
+    ["export", "Refresh the export"],
+  ]) {
+    const added = await session.action("propose", {
+      id,
+      title,
+      delivers: `${title}, delivered.`,
+      recommend: "here",
+    });
+    assert.equal(added.code, 200, added.body.error);
+  }
+  const started = await session.request(
+    `${session.base}/api/proposals/deck/start`,
+    { where: "here" },
+  );
+  assert.equal(started.code, 200, started.body.error);
+  return session;
+}
+// A thread on a card with one agent reply. The reply's ID is the line's
+// target.
+async function cardReply(session, proposal) {
+  const id = crypto.randomUUID();
+  const started = await session.request(`${session.base}/api/threads`, {
+    id,
+    proposal,
+    text: "Which export?",
+  });
+  assert.equal(started.code, 201, JSON.stringify(started.body));
+  await reply(session, id);
+  return `thread-${id}-1`;
+}
+async function openLine(page) {
+  await page.locator("#bell").click();
+  await page.locator("#center-list .session-row").click();
+}
+// A landing on a target focuses it.
+const landed = async (page, tab, id) => {
+  await page.locator(`#work-tab-${tab}[aria-selected="true"]`).waitFor();
+  await page.locator(`#work-view [id="${id}"]:focus`).waitFor();
+};
+
+test("a line on a card opens Work on the card's tab at the reply or the card it names", async (t) => {
+  const h = await hub(t);
+  const session = await workSession(h);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  await bellReady(page);
+  const reply = await cardReply(session, "export");
+  await count(page, "1");
+  // Opening the line clears it, which moves the card from Needs you back
+  // to Proposed.
+  await openLine(page);
+  await landed(page, "proposed", reply);
+  // With Work on screen at another tab, a line on a new card opens it.
+  await page.locator("#work-tab-running").click();
+  const added = await session.action("propose", {
+    id: "chart",
+    title: "Draw the chart",
+    delivers: "The chart, drawn.",
+    recommend: "here",
+  });
+  assert.equal(added.code, 200, added.body.error);
+  await count(page, "1");
+  await openLine(page);
+  await landed(page, "proposed", "proposal-chart");
+});
+
+test("a line on a card in another session opens Work there at the reply, while that session's round waits", async (t) => {
+  const h = await hub(t);
+  const other = await workSession(h);
+  assert.equal((await other.feedback(other.event())).code, 200);
+  const session = await h.session();
+  assert.equal((await session.publish(round("Session A"))).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  await bellReady(page);
+  const reply = await cardReply(other, "export");
+  await count(page, "1");
+  await openLine(page);
+  await page.waitForURL((url) => url.pathname === `${other.base}/`);
+  await landed(page, "proposed", reply);
+});
+
 test("another session's finished round adds a waiting line, and sending that round removes it", async (t) => {
   const h = await hub(t);
   const a = await h.session();
