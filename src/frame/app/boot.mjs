@@ -164,9 +164,9 @@ function bootRound() {
       poll().then(() => {
         // A notification's link names its target. While Current waits, the
         // sent round's pages show only under Previous, so the link opens
-        // there. A reload without a target returns to the past round that was
-        // on screen.
-        if (target && showingWaiting())
+        // there, except on Work, which every round has. A reload without a
+        // target returns to the past round that was on screen.
+        if (target && showingWaiting() && asked !== "work")
           void openPast(plan.round, {
             pageId: asked || "agreed",
             targetId: target,

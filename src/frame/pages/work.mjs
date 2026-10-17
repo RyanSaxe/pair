@@ -198,6 +198,7 @@ async function act(card, action) {
 function changed(result, follow = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
+  followed = null;
   const moved = follow && cards().find((card) => card.id === follow);
   if (moved && !$("work-view").hidden) selected = cardTab(moved, context());
   refreshWork(true);
@@ -313,14 +314,39 @@ let selected = workTabs[0].id;
 // Opening Work starts on the first tab with a card in it, once the hub has
 // listed the cards and the sessions their work runs in.
 let opening = false;
+// The target Work was opened at, such as a bell line's. While it names a
+// card, Work shows that card's tab, and moves with the card when it changes
+// tab, until the reader picks a tab or acts on a card.
+let followed = null;
 let drawnKey = "";
-export function openWork() {
-  opening = true;
-  failure = "";
-  marked = new Set();
+// The card a target names: the card, or a thread on it or a message in
+// that thread.
+function cardAt(target) {
+  if (!target) return null;
+  const thread = (remote?.threads || []).find(
+    ({ id, proposal }) =>
+      proposal &&
+      (target === `thread-${id}` || target.startsWith(`thread-${id}-`)),
+  );
+  const id =
+    thread?.proposal ??
+    (target.startsWith("proposal-") ? target.slice("proposal-".length) : null);
+  return cards().find((card) => card.id === id) || null;
+}
+// Work opens on the tab of the card a target names, or else on its first
+// tab with a card in it. Shown again while on screen, it keeps its tab
+// unless a target names a card.
+export function openWork(target, stayed) {
+  if (!stayed) {
+    opening = true;
+    failure = "";
+    marked = new Set();
+  }
+  if (target || !stayed) followed = target;
   refreshWork(true);
 }
 function selectTab(id) {
+  followed = null;
   selected = id;
   refreshWork(true);
   $(`work-tab-${id}`)?.focus();
@@ -358,9 +384,16 @@ function renderWork(groups, shown, seen) {
   for (const card of chosen) if (unseen(card, seen)) marked.add(card.id);
   list.replaceChildren(
     ...(chosen.length
-      ? chosen.map((card) =>
-          cardElement(card, shown, marked.has(card.id) && labelled(card)),
-        )
+      ? chosen.map((card) => {
+          const node = cardElement(
+            card,
+            shown,
+            marked.has(card.id) && labelled(card),
+          );
+          // A bell line on the card names it by this.
+          node.id = `proposal-${card.id}`;
+          return node;
+        })
       : [
           element(
             "p",
@@ -414,7 +447,11 @@ export function refreshWork(force = false) {
   const linkedKnown =
     sessionsListed() ||
     !cards().some((card) => card.started && card.started.where !== "here");
-  if (opening && remote && linkedKnown) {
+  const named = cardAt(followed);
+  if (named) {
+    selected = cardTab(named, shown);
+    opening = false;
+  } else if (opening && remote && linkedKnown) {
     selected = openingTab(groups);
     opening = false;
   }
