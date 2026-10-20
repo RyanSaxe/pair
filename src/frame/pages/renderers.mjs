@@ -39,6 +39,7 @@ export function installRenderers() {
   });
 }
 export const charts = new Map();
+export const diagrams = new Map();
 const diffs = new Map();
 // In-flight renderers, so a page re-render can restore the scroll position
 // once the content has its height back.
@@ -124,11 +125,12 @@ export function theme() {
   // A preview page reads the theme cookie when it loads.
   for (const frame of document.querySelectorAll(".agreement-preview iframe"))
     frame.contentWindow?.location.reload();
-  // A component that bakes a colour into what it drew, rather than reading
-  // a token, redraws here. The diagram is the one that does.
+  // Page scripts can refresh values they computed from the previous theme.
   window.dispatchEvent(new CustomEvent("plan:theme", { detail: activeTheme }));
 }
 export function disposeRenderers() {
+  for (const diagram of diagrams.values()) diagram.destroy();
+  diagrams.clear();
   for (const chart of charts.values()) chart.dispose();
   charts.clear();
   clearDiffs();
@@ -138,15 +140,22 @@ export function disposeRenderers() {
 export const libraries = {
   shiki: "https://esm.sh/shiki@3.12.2",
   diffs: "https://esm.sh/@pierre/diffs@1.4.2?bundle",
-  mermaid:
-    "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs",
-  elk: "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.2.3/dist/mermaid-layout-elk.esm.min.mjs",
+  pele: "https://cdn.jsdelivr.net/npm/pele@1.6.0/dist/pele.js",
   katex: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js",
   katexCss: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
   echarts: "https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js",
 };
 const scripts = new Map();
 let diffsTask;
+let peleTask;
+// Share the complete module with both components and page scripts.
+export function pele() {
+  peleTask ||= import(libraries.pele).catch((error) => {
+    peleTask = undefined;
+    throw error;
+  });
+  return peleTask;
+}
 // A token's colour in the theme on screen. A token holds both themes'
 // values in light-dark(), which only an element's style resolves.
 export function color(name) {

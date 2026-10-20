@@ -67,25 +67,16 @@ export async function open(
   return page;
 }
 
-// Stands in for Mermaid from jsDelivr, so a test runs offline. Like
-// Mermaid, render() draws a full-size element to measure the diagram, in
-// the container it is given or else at the end of the body, and removes it
-// when the render ends.
-const mermaid = `export default {
-  initialize() {},
-  registerLayoutLoaders() {},
-  async render(id, source, container = document.body) {
-    const drawing = document.createElement("div");
-    drawing.id = "d" + id;
-    drawing.style.height = "3000px";
-    container.append(drawing);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    drawing.remove();
-    return { svg: '<svg viewBox="0 0 120 40"></svg>' };
-  },
+// A fixed Pele-shaped rendering fixture for frame navigation and dialogs.
+// Real diagram syntax and drawing are covered by the figure suite.
+const pele = `export function mount(element, source, options = {}) {
+  element.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect width="300" height="100" fill="transparent"/><g class="pele-node" data-id="details" transform="translate(10 10)"><rect width="100" height="30"/><text x="5" y="20">Details</text></g><g class="pele-node" data-id="native" transform="translate(150 10)"><a href="https://example.test/native"><rect width="100" height="30"/><text x="5" y="20">Native link</text></a></g></svg>';
+  const result = { width: 300, height: 100 };
+  options.onRender?.(result);
+  return { result, error: null, destroy() { element.replaceChildren(); } };
 };`;
 
-export const stubMermaid = (page) =>
-  page.route(/mermaid\.esm\.min\.mjs$|mermaid-layout-elk/, (route) =>
-    route.fulfill({ body: mermaid, contentType: "text/javascript" }),
+export const stubPele = (page) =>
+  page.route(/pele@[^/]+\/dist\/pele\.js$/, (route) =>
+    route.fulfill({ body: pele, contentType: "text/javascript" }),
   );

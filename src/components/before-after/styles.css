@@ -129,23 +129,27 @@
   --change-border: var(--attention-border);
   --change-ink: var(--attention);
 }
-.change-content :is(.added, .removed, .changed):not(.node) {
+.change-content :is(.added, .removed, .changed):not(.pele-node) {
   background: var(--change-bg);
   border-color: var(--change-border);
   color: var(--change-ink);
 }
 .change-content
-  .node:is(.added, .removed, .changed)
-  :is(rect, polygon, circle, ellipse) {
+  .pele-node:is(.added, .removed, .changed)
+  :is(rect, polygon, circle, ellipse, path):not(.pele-icon *, [fill="none"]) {
   fill: var(--change-bg) !important;
-  stroke: var(--change-border) !important;
 }
 .change-content
-  .node:is(.added, .removed, .changed)
-  :is(.label, .nodeLabel, p) {
-  color: var(--change-ink) !important;
+  .pele-node:is(.added, .removed, .changed)
+  :is(rect, polygon, circle, ellipse, path):not(.pele-icon *) {
+  stroke: var(--change-border) !important;
 }
-.change-content .node.removed :is(rect, polygon, circle, ellipse) {
+.change-content .pele-node:is(.added, .removed, .changed) .pele-label {
+  fill: var(--change-ink) !important;
+}
+.change-content
+  .pele-node.removed
+  :is(rect, polygon, circle, ellipse, path):not(.pele-icon *) {
   stroke-dasharray: 5 3;
 }
 @media (max-width: 700px) {

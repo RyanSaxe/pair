@@ -161,7 +161,7 @@ export function show(
         detail: { page, element: $("page-content"), round: plan.round },
       }),
     );
-    // Shiki, Mermaid and the charts all change a block's height after the
+    // Figure renderers can change a block's height after the
     // page renders, so the marks are placed again once they settle.
     Promise.allSettled([...renders]).then(placeMarks);
   }

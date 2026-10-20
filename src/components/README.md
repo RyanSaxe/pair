@@ -25,7 +25,7 @@ in the element's place and renders the rest of the page.
 
 Write a component so nothing on the page moves after it appears. Only
 return a promise from `setup` when the element's height is not final until
-the promise settles, as a diagram's height is until Mermaid draws it. The
+the promise settles, as a diagram's height is until Pele draws it. The
 frame keeps the page hidden until every such promise settles, for at most
 10 seconds, and then restores the scroll position. When a component's box
 has its final size at once, return nothing, so the page does not wait for
@@ -44,7 +44,9 @@ renderer error in place, `script()` with the pinned CDN locations in
 `libraries`, `color()` for a token's current value, and `readData()` for a
 JSON array in a data attribute. To use another component, call it through
 `planUI`, as the prototype does with `planUI.enhance` for its source fold,
-and the chart does with `planUI.chart`.
+and the chart does with `planUI.chart`. For custom diagrams, load the native
+Pele API with `await planUI.pele()`. Use a host without `data-diagram` and
+clean up native mounts as `pair guide pages.md` describes.
 
 Set `data-kind` on the component's root to a singular noun that follows
 "this", so the comment control names it.
