@@ -122,27 +122,30 @@ so do not set fixed colors in Mermaid `classDef` declarations.
 
 ## Diagrams
 
-Mermaid is the default. Draw a loop as a flowchart when the loop is the
-structure, a sequence diagram when the order of waits is the point, and a
-state diagram for modes. When Mermaid cannot draw the idea cleanly, draw the
-SVG by hand with the frame's tokens. `pair guide flow.svg` prints an
-example. A diagram renders at its drawn size and scrolls sideways when it is
-wider than the column.
+Use Mermaid source in `data-diagram` for flows, structures and simple
+charts. Choose any built-in diagram type supported by Pele 1.6.0. Draw a
+loop as a flowchart when the loop is the structure, a sequence diagram when
+the order of waits is the point, and a state diagram for modes.
 
-The text of `data-diagram` is the Mermaid source, one statement per line,
-escaped, so a line break in a label is `&lt;br/&gt;`. A click on a node
-whose ID matches a page ID opens that page. `pair build` does not check
-Mermaid.
+For custom rendering or interactions, call `await planUI.pele()` and use
+Pele's native API on your own element. Run `pair guide pages.md` for the
+loader and mount cleanup example. Use page CSS for Pele's public theme
+variables, SVG classes and source IDs. When Mermaid cannot draw the idea
+cleanly, draw SVG with the frame's tokens. Run `pair guide flow.svg` for an
+example.
 
-1. **Edges into a group.** An edge into a subgraph's first node passes
-   through the subgraph's title. Point the edge at the group, or lay the
-   flow out left to right.
-2. **Long chains.** A ten-hop line can stay at natural size when the order
-   is the whole point. Group the same flow when it needs to fit the column,
-   and label each group.
-3. **Labels.** Put one to three words in a node and the sentence in the
-   caption. Long labels widen every node in the rank and push the chain past
-   the column.
+Write one Mermaid statement per line in `data-diagram` and escape it as
+HTML text, so a line break in a label is `&lt;br/&gt;`. Use supported text
+formatting rather than arbitrary HTML labels. To link a node to a page,
+give it that page's ID. Use an explicit source URL link to override that
+page link. Open the built page to check the source, because `pair build`
+does not validate Mermaid syntax. Click a drawn diagram to inspect it
+at full size, and scroll the modal when the diagram is larger than the window.
+
+1. Point an edge at the group when the relation concerns the group.
+2. Keep a chain when the order is the point. Group related steps when the
+   groups help explain the flow, and label each group.
+3. Put one to three words in a node and the sentence in the caption.
 
 In these examples, `·` stands for a line break.
 
@@ -161,3 +164,12 @@ In these examples, `·` stands for a line break.
             caption: Checkout validates and prices. The client trips after five
             failures. The gateway times out at 8 s.
 ```
+
+## Charts and mathematical demonstrations
+
+Use Mermaid charts in `data-diagram` for explanatory figures. Use
+`data-chart` or `planUI.chart()` for ECharts features such as exact-value
+inspection, selectable series, data-range zoom and specialized numerical
+plots. For a mathematical demonstration, calculate samples in page
+JavaScript and update the returned ECharts instance with `setOption`.
+Use the formula component for equations.

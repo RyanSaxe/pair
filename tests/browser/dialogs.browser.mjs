@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { open, stubMermaid } from "../support/browser.mjs";
+import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
 const sentence =
@@ -206,7 +206,7 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
     hasTouch: true,
   });
   if (!page) return;
-  await stubMermaid(page);
+  await stubPele(page);
   // The drawing editor loads Excalidraw from esm.sh, and its head works
   // without it.
   await page.route(/esm\.sh/, (route) => route.abort());

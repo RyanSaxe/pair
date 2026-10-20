@@ -4,7 +4,14 @@ import { mode, page } from "#frame/app/view.mjs";
 import { drawingAnswer, recordAnswer } from "#frame/notes/controls.mjs";
 import { openDrawing } from "#frame/notes/drawing.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
-import { chart, charts, diff, failed, track } from "#frame/pages/renderers.mjs";
+import {
+  chart,
+  charts,
+  diff,
+  failed,
+  pele,
+  track,
+} from "#frame/pages/renderers.mjs";
 import { drawProposal } from "#frame/pages/work.mjs";
 
 // The names component behaviors use without importing them. The page's
@@ -16,6 +23,7 @@ export { show } from "#frame/pages/pages.mjs";
 export { lineRanges } from "#shared/lines.mjs";
 export {
   color,
+  diagrams,
   copyButton,
   failed,
   figure,
@@ -71,6 +79,7 @@ export function createPlanUI() {
     answered: (id) => Boolean(drawingAnswer(id)),
     draw: openDrawing,
     chart,
+    pele,
     define,
     diff,
     proposal: drawProposal,

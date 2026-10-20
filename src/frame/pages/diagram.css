@@ -34,45 +34,45 @@
   display: block;
   height: auto;
   width: var(--diagram-width, auto);
-  max-width: none;
+  max-width: none !important;
 }
-/* Mermaid's theme sets the basic geometry; these rules keep diagrams in the
-   plan's visual language and leave source-controlled classes useful. */
-:is([data-diagram], .lightbox) .node rect,
-:is([data-diagram], .lightbox) .node polygon {
-  rx: 10px;
-  ry: 10px;
+/* Containers inherit the defaults, so page CSS can theme a custom host
+   without overriding declarations on the SVG itself. */
+#page-content {
+  --pele-bg: var(--panel);
+  --pele-fg: var(--ink);
+  --pele-muted: var(--muted);
+  --pele-line: var(--muted);
+  --pele-surface: var(--ground);
+  --pele-surface-alt: var(--panel);
+  --pele-border: var(--line-strong);
+  --pele-accent: var(--accent);
+  --pele-critical: var(--danger);
+  --pele-error: var(--danger);
+  --pele-font: ui-sans-serif, system-ui, sans-serif;
+  --pele-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --pele-title-weight: var(--weight-strong);
+  --pele-heading-weight: var(--weight-strong);
+  --pele-bold-weight: var(--weight-strong);
+  --pele-radius: 10px;
+  --pele-series-1: var(--accent);
+  --pele-series-2: var(--attention);
+  --pele-series-3: var(--ok);
+  --pele-series-4: var(--danger);
+  --pele-series-5: var(--muted);
+  --pele-series-6: color-mix(in srgb, var(--accent) 60%, var(--danger));
+  --pele-series-7: color-mix(in srgb, var(--accent) 50%, var(--ok));
+  --pele-series-8: color-mix(in srgb, var(--attention) 50%, var(--danger));
 }
-:is([data-diagram], .lightbox) .node.linked {
+:is([data-diagram], .lightbox) .pele-node.linked {
   cursor: pointer;
 }
-:is([data-diagram], .lightbox) .node.linked:hover > rect,
-:is([data-diagram], .lightbox) .node.linked:hover > polygon,
-:is([data-diagram], .lightbox) .node.linked:focus > rect,
-:is([data-diagram], .lightbox) .node.linked:focus > polygon {
-  stroke: var(--accent) !important;
+:is([data-diagram], .lightbox)
+  .pele-node.linked:is(:hover, :focus)
+  > :is(rect, polygon, circle, ellipse, path) {
+  stroke: var(--pele-accent);
 }
-:is([data-diagram], .lightbox) .cluster rect {
-  fill: none !important;
-  stroke: var(--line) !important;
+:is([data-diagram], .lightbox) .pele-cluster > rect {
+  fill: none;
   stroke-dasharray: 4 4;
-  rx: 12px;
-  ry: 12px;
-}
-:is([data-diagram], .lightbox) .cluster .nodeLabel {
-  font-size: var(--text-micro);
-  color: var(--muted);
-}
-:is([data-diagram], .lightbox) .flowchart-link,
-:is([data-diagram], .lightbox) .edgePath path {
-  stroke: var(--line-strong) !important;
-}
-:is([data-diagram], .lightbox) marker path {
-  fill: var(--line-strong) !important;
-  stroke: var(--line-strong) !important;
-}
-:is([data-diagram], .lightbox) .edgeLabel p {
-  font-size: var(--text-micro);
-  color: var(--muted);
-  background: var(--panel) !important;
 }

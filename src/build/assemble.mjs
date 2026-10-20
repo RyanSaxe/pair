@@ -93,6 +93,7 @@ const componentNames = [
   "base",
   "color",
   "copyButton",
+  "diagrams",
   "failed",
   "figure",
   "libraries",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
+import { assemble } from "../../src/build/assemble.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
 
 // Each figure's source element and what the frame draws into it. A diff
@@ -108,3 +109,98 @@ for (const colorScheme of ["light", "dark"]) {
     }
   });
 }
+
+// A native parse error reaches pair through Pele's returned error handle
+// and onError callback. It must stay within its own figure.
+test("a malformed diagram preserves its source without hiding another diagram or the rest of the page", async (t) => {
+  const source = "flowchart LR\n  A[";
+  const html = await assemble({
+    name: "diagram-failure",
+    round: "1",
+    title: "Diagram failure",
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<p id="readable">Read the rest of this page.</p><div id="bad" data-diagram>${source}</div><div id="good" data-diagram>flowchart LR\n  A --> B</div>`,
+      },
+    ],
+  });
+  const page = await open(t, "http://pair.localhost/#overview", { html });
+  if (!page) return;
+  await page.locator("#bad + .renderer-error:visible").waitFor();
+  await page.locator("#good svg").waitFor();
+  assert.equal(await page.locator("#bad").textContent(), source);
+  assert.equal(await page.locator("#readable").isVisible(), true);
+  assert.equal(await page.locator("#bad .pele-error, body > svg").count(), 0);
+});
+
+test("a complex diagram opens at readable size and scrolls within its modal on desktop and phone", async (t) => {
+  const source = ["flowchart LR"];
+  for (let stage = 0; stage < 8; stage++) {
+    for (let lane = 0; lane < 8; lane++) {
+      const node = `S${stage}L${lane}`;
+      source.push(`${node}["Stage ${stage + 1}, lane ${lane + 1}"]`);
+      if (!stage) continue;
+      source.push(`S${stage - 1}L${lane} --> ${node}`);
+      source.push(`S${stage - 1}L${(lane + 1) % 8} --> ${node}`);
+    }
+  }
+  const html = await assemble({
+    name: "complex-diagram",
+    round: "1",
+    title: "Complex diagram",
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<div data-diagram>${source.join("\n")}</div>`,
+      },
+    ],
+  });
+  for (const width of [1360, 375]) {
+    const page = await open(t, "http://pair.localhost/#overview", {
+      html,
+      viewport: { width, height: 700 },
+    });
+    if (!page) return;
+    await page
+      .locator("[data-diagram] svg")
+      .click({ position: { x: 2, y: 2 } });
+    const view = page.locator("#diagram-dialog[open] .lightbox-view");
+    await view.waitFor();
+    const size = await view.evaluate((element) => {
+      const svg = element.querySelector("svg");
+      const scale =
+        svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      return {
+        textSize:
+          parseFloat(
+            getComputedStyle(svg.querySelector(".pele-label")).fontSize,
+          ) * scale,
+        overflowX: element.scrollWidth > element.clientWidth,
+        overflowY: element.scrollHeight > element.clientHeight,
+        pageWidth: document.documentElement.scrollWidth,
+      };
+    });
+    assert.ok(
+      size.textSize >= 13,
+      `labels shrank to ${size.textSize}px at ${width}px`,
+    );
+    assert.equal(size.pageWidth, width);
+    assert.equal(size.overflowX, true);
+    assert.equal(size.overflowY, true);
+    await view.hover();
+    await page.mouse.wheel(10000, 10000);
+    await page.waitForFunction(() => {
+      const element = document.querySelector("#diagram-dialog .lightbox-view");
+      return element.scrollLeft > 0 && element.scrollTop > 0;
+    });
+    await page.keyboard.press("Escape");
+    assert.equal(
+      await page.locator("#diagram-dialog").evaluate((el) => el.open),
+      false,
+    );
+    await page.close();
+  }
+});
