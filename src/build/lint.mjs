@@ -132,6 +132,76 @@ function codeProblems(tag, html, at) {
     );
   return list;
 }
+/** The problems in each control's options. An option belongs to the
+ * nearest control around it, which is the one the frame finds with
+ * closest(). A control's element ends at the end tag that balances its own
+ * start tag. */
+function controlProblems(all, at) {
+  const list = [];
+  const groups = [];
+  const open = [];
+  for (const tag of all) {
+    for (const group of open)
+      if (group.name === tag.name) group.depth += tag.end ? -1 : 1;
+    if (tag.end) {
+      open.splice(0, open.length, ...open.filter((group) => group.depth));
+      continue;
+    }
+    const kind = controlKinds.find(
+      (name) => attribute(tag, name) !== undefined,
+    );
+    if (!kind) {
+      open.at(-1)?.tags.push(tag);
+      continue;
+    }
+    const group = {
+      kind,
+      id: attribute(tag, kind),
+      name: tag.name,
+      depth: 1,
+      tags: [],
+    };
+    groups.push(group);
+    open.push(group);
+  }
+  for (const { kind, id, tags: inside } of groups) {
+    const options = inside.filter((tag) => tag.attributes.has("data-value"));
+    for (const option of options)
+      if (!attribute(option, "data-value"))
+        list.push(`${at}: an option in "${id}" has no data-value`);
+    // The frame marks each option whose value equals the reviewer's choice
+    // as selected, so two options with one value are selected together.
+    const values = options
+      .map((option) => attribute(option, "data-value"))
+      .filter(Boolean);
+    for (const value of new Set(
+      values.filter((value, index) => values.indexOf(value) !== index),
+    ))
+      list.push(
+        `${at}: options in "${id}" share data-value "${value}". Give each option in a group its own data-value.`,
+      );
+    if (kind === "data-choice" && options.length < 2)
+      list.push(
+        `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}. Give it at least two.`,
+      );
+    if (
+      kind === "data-question" &&
+      !inside.some((tag) => tag.name === "textarea")
+    )
+      list.push(`${at}: question "${id}" has no textarea`);
+    // A box the author checked would read as the reviewer's choice.
+    if (
+      kind === "data-multiselect" &&
+      inside.some(
+        (tag) => tag.name === "input" && tag.attributes.has("checked"),
+      )
+    )
+      list.push(
+        `${at}: checklist "${id}" has a checked box. Start every box unchecked.`,
+      );
+  }
+  return list;
+}
 /** A "#" link names a page of the round, Agreed, Feedback, or an element
  * on its own page. */
 export function linkProblems(html, at, targets) {
@@ -154,8 +224,16 @@ export function linkProblems(html, at, targets) {
         `${at}: link "${link}" names no page of the round and no element on this page. The round's pages are ${listing(pages)}.`,
     );
 }
-/** Structural problems in the assembled pages and a page's own script. */
-export function problems(data, js = "", { allowUnknownPages = false } = {}) {
+/** Structural problems in the assembled pages and a page's own script.
+ * With authoring false, it leaves out the rules that were added or changed
+ * after an older pair build checked a stored page, so that page is never
+ * held to them: the bare < in code, the option label limit, the checks on
+ * each control's options, and data-lines. */
+export function problems(
+  data,
+  js = "",
+  { allowUnknownPages = false, authoring = true } = {},
+) {
   const list = [];
   const pageIds = new Set();
   for (const page of data.pages) {
@@ -185,6 +263,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       // label is read on Agreed and on Feedback, never in a strip.
       const label = attribute(tag, "data-label");
       if (
+        authoring &&
         label !== undefined &&
         attribute(tag, "data-value") !== undefined &&
         label.length > labelLimit
@@ -224,74 +303,10 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       const prototype = attribute(tag, "data-prototype");
       if (prototype !== undefined && !prototypes.has(prototype))
         list.push(`${at}: prototype "${prototype}" does not exist`);
-      if (code(tag)) list.push(...codeProblems(tag, html, at));
+      if (authoring && code(tag)) list.push(...codeProblems(tag, html, at));
     }
     if (!allowUnknownPages) list.push(...linkProblems(html, at, targets));
-    // An option belongs to the nearest control around it, which is the one
-    // the frame finds with closest(). A control's element ends at the end
-    // tag that balances its own start tag.
-    const groups = [];
-    const open = [];
-    for (const tag of all) {
-      for (const group of open)
-        if (group.name === tag.name) group.depth += tag.end ? -1 : 1;
-      if (tag.end) {
-        open.splice(0, open.length, ...open.filter((group) => group.depth));
-        continue;
-      }
-      const kind = controlKinds.find(
-        (name) => attribute(tag, name) !== undefined,
-      );
-      if (!kind) {
-        open.at(-1)?.tags.push(tag);
-        continue;
-      }
-      const group = {
-        kind,
-        id: attribute(tag, kind),
-        name: tag.name,
-        depth: 1,
-        tags: [],
-      };
-      groups.push(group);
-      open.push(group);
-    }
-    for (const { kind, id, tags: inside } of groups) {
-      const options = inside.filter((tag) => tag.attributes.has("data-value"));
-      for (const option of options)
-        if (!attribute(option, "data-value"))
-          list.push(`${at}: an option in "${id}" has no data-value`);
-      // The frame marks each option whose value equals the reviewer's choice
-      // as selected, so two options with one value are selected together.
-      const values = options
-        .map((option) => attribute(option, "data-value"))
-        .filter(Boolean);
-      for (const value of new Set(
-        values.filter((value, index) => values.indexOf(value) !== index),
-      ))
-        list.push(
-          `${at}: options in "${id}" share data-value "${value}". Give each option in a group its own data-value.`,
-        );
-      if (kind === "data-choice" && options.length < 2)
-        list.push(
-          `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}. Give it at least two.`,
-        );
-      if (
-        kind === "data-question" &&
-        !inside.some((tag) => tag.name === "textarea")
-      )
-        list.push(`${at}: question "${id}" has no textarea`);
-      // A box the author checked would read as the reviewer's choice.
-      if (
-        kind === "data-multiselect" &&
-        inside.some(
-          (tag) => tag.name === "input" && tag.attributes.has("checked"),
-        )
-      )
-        list.push(
-          `${at}: checklist "${id}" has a checked box. Start every box unchecked.`,
-        );
-    }
+    if (authoring) list.push(...controlProblems(all, at));
     for (const input of html.match(
       /<textarea[^>]*\sdata-diff-input[^>]*>([\s\S]*?)<\/textarea>/gi,
     ) || []) {

@@ -142,9 +142,11 @@ export async function assemble(
   data,
   { css = "", js = "", allowUnknownPages = false, bundle } = {},
 ) {
-  // A page's script arrives here encoded, and buildPage has already
-  // checked it as written.
-  const found = problems(data, "", { allowUnknownPages });
+  // buildPage has already checked each page's HTML, and its script as
+  // written, which arrives here encoded. The hub assembles a round from its
+  // stored pages at each publish, and a page that an older pair build
+  // checked must not keep its round from completing.
+  const found = problems(data, "", { allowUnknownPages, authoring: false });
   if (found.length) throw new Error(found.join("\n"));
   const html = join(bundle || (await frameBundle()), data, css, js);
   readPlanData(html);

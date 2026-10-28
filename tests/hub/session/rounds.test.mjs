@@ -523,6 +523,33 @@ test("a page's links are checked as it publishes, not when the round completes",
   ]);
 });
 
+// The hub assembles a round from its stored pages at each publish. A page
+// that an older pair build checked can break a rule added since, and it
+// must not keep its round from completing.
+test("a page built before the bare < check was added still completes its round", async (t) => {
+  const { act, page, publish, firstAgreed } = await session(t);
+  const bare = '<pre data-language="ts">first<T>()</pre>';
+  await assert.rejects(
+    page("1", "overview", "Overview", bare),
+    /the ts code block has a < that the browser reads as a tag on line 1/,
+  );
+  // The file an older pair build wrote for the same source.
+  const built = await page("1", "overview", "Overview", "<p>x</p>");
+  const record = pageData(built);
+  record.page.html = bare;
+  const older = built.replace(
+    /(<script type="application\/json" id="page-data">)[\s\S]*?(<\/script>)/,
+    (_, start, end) =>
+      start + JSON.stringify(record).replaceAll("<", "\\u003c") + end,
+  );
+  assert.equal((await firstAgreed()).status, 200);
+  const stored = await act({ action: "publish", html: older });
+  assert.equal(stored.status, 200, JSON.stringify(stored.body));
+  const last = await publish("1", "detail", "Detail", "<p>Detail</p>");
+  assert.equal(last.status, 200, JSON.stringify(last.body));
+  assert.equal(last.body.roundComplete, true);
+});
+
 test("a page may link to a page of its round that publishes after it", async (t) => {
   const h = await testHub(t);
   const a = await h.session();

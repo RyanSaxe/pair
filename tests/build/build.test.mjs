@@ -209,22 +209,22 @@ const decision = (options) =>
 const option = (value = "a") =>
   `<button data-value="${value}" data-label="${value}">${value}</button>`;
 
-const refused = (plan, message) =>
-  assert.rejects(assemble(plan), (error) => {
-    assert.match(error.message, message);
-    return true;
-  });
+// pair build refuses what problems() lists.
+const refused = async (plan, message) =>
+  assert.match(problems(plan).join("\n"), message);
 
-test("an option label of exactly 24 characters is accepted", async () => {
+test("an option label of exactly 24 characters is accepted", () => {
   const long = "x".repeat(24);
-  const html = await assemble(
-    page(
-      decision(
-        `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
+  assert.deepEqual(
+    problems(
+      page(
+        decision(
+          `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
+        ),
       ),
     ),
+    [],
   );
-  assert.match(html, /x{24}/);
 });
 
 // The rule is "no h1", not "no repeated words".
@@ -232,13 +232,15 @@ test("a page may repeat its title in a lower heading", async () => {
   await assert.doesNotReject(assemble(page("<h2>P</h2><p>x</p>")));
 });
 
-test("a group's label is not held to the option limit", async () => {
-  const html = await assemble(
-    page(
-      `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+test("a group's label is not held to the option limit", () => {
+  assert.deepEqual(
+    problems(
+      page(
+        `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+      ),
     ),
+    [],
   );
-  assert.match(html, /y{60}/);
 });
 
 test("the build refuses each structural problem and names it", async () => {
@@ -374,12 +376,13 @@ test("a checklist box is refused for the checked attribute, not for the word in 
     page(
       `<fieldset data-multiselect="s" data-label="S"><label>${input} A</label></fieldset>`,
     );
-  await assert.doesNotReject(
-    assemble(
+  assert.deepEqual(
+    problems(
       checklist(
         '<input type="checkbox" data-value="a" data-label="Types checked by tsc">',
       ),
     ),
+    [],
   );
   await refused(
     checklist('<input type="checkbox" data-value="a" data-label="A" checked>'),
@@ -389,23 +392,25 @@ test("a checklist box is refused for the checked attribute, not for the word in 
 
 // The frame finds an option's group with closest(), and the browser shows
 // nothing inside a comment.
-test("an option counts for the nearest control around it, and a commented control is not one", async () => {
-  await assert.doesNotReject(
-    assemble(
+test("an option counts for the nearest control around it, and a commented control is not one", () => {
+  assert.deepEqual(
+    problems(
       page(
         `<section data-choice="vd" data-label="V">` +
           `<article data-value="one" data-label="One">${decision(option() + option("b"))}</article>` +
           `<article data-value="two" data-label="Two">t</article></section>`,
       ),
     ),
+    [],
   );
-  await assert.doesNotReject(
-    assemble(page(`<p>x</p><!-- ${decision(option())} -->`)),
+  assert.deepEqual(
+    problems(page(`<p>x</p><!-- ${decision(option())} -->`)),
+    [],
   );
 });
 
-test("well-formed controls, anchors and blocks pass", async () => {
-  const html = await assemble(
+test("well-formed controls, anchors and blocks pass", () => {
+  const found = problems(
     page(
       decision(option() + option("b")) +
         `<section data-choice="arrow" data-label="Retry -> fail">${option()}${option("b")}</section>` +
@@ -423,7 +428,7 @@ test("well-formed controls, anchors and blocks pass", async () => {
       },
     ),
   );
-  assert.match(html, /id="plan-data"/);
+  assert.deepEqual(found, []);
 });
 
 test("an Agreed page opens with a task, and the plan data carries it", async () => {
