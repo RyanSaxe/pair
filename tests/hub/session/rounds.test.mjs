@@ -104,11 +104,14 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
-  assert.match(
+  // Until a page starts, the next step asks for a progress note on each
+  // page as its work begins.
+  assert(
+    result.body.next.endsWith(
+      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
+    ),
     result.body.next,
-    /You still have to publish these pages: overview, detail\./,
   );
-  assert.match(result.body.next, /pair progress --page ID --note "…"/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
@@ -162,9 +165,13 @@ test("listed pages arrive independently and only the last completes the round", 
     ).readyPages;
   await firstAgreed();
   assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
+  const progress = await act({ action: "progress", start: ["detail"] });
+  assert.equal(progress.status, 200);
+  // Once a page has started, the next step marks it and keeps the
+  // five-minute rule.
   assert.equal(
-    (await act({ action: "progress", start: ["detail"] })).status,
-    200,
+    progress.body.next,
+    'You still have to publish these pages: overview, detail (started). When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
   );
   const before = await status();
   assert.equal(before.openRound.pages[1].state, "active");

@@ -52,11 +52,14 @@ export function agent(session) {
     if (!session.state.current)
       return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
     if (session.state.openRound) {
-      const left = session.state.openRound.pages
-        .filter((slot) => !slot.recordPath)
-        .map((slot) =>
-          slot.state === "active" ? `${slot.id} (started)` : slot.id,
-        );
+      const slots = session.state.openRound.pages.filter(
+        (slot) => !slot.recordPath,
+      );
+      if (!slots.some((slot) => slot.state === "active"))
+        return `You still have to publish these pages: ${slots.map((slot) => slot.id).join(", ")}. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`;
+      const left = slots.map((slot) =>
+        slot.state === "active" ? `${slot.id} (started)` : slot.id,
+      );
       return `You still have to publish these pages: ${left.join(", ")}. When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
     }
     if (session.state.stage === "working")
