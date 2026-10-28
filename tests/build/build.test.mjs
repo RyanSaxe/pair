@@ -242,6 +242,15 @@ test("the build refuses each structural problem and names it", async () => {
     ),
     /^page "p": option label "x{25}" is 25 characters, over 24$/m,
   );
+  // A ">" inside a quoted value does not end the tag.
+  await refused(
+    page(
+      decision(
+        `<button data-value="a" data-label="Retry -> ${"x".repeat(16)}">a</button>${option("b")}`,
+      ),
+    ),
+    /^page "p": option label "Retry -> x{16}" is 25 characters, over 24$/m,
+  );
   await refused(
     page("<h1>P</h1><p>x</p>"),
     /^page "p": remove the h1, because the frame shows the page title as the page's only h1\. Start headings at h2\.$/m,
@@ -348,6 +357,7 @@ test("well-formed controls, anchors and blocks pass", async () => {
   const html = await assemble(
     page(
       decision(option() + option("b")) +
+        `<section data-choice="arrow" data-label="Retry -> fail">${option()}${option("b")}</section>` +
         `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
         `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
         `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +

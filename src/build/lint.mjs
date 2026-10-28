@@ -1,10 +1,29 @@
 import { readFileSync } from "node:fs";
 import { lineRanges } from "../shared/lines.mjs";
 
-const attribute = (tag, name) => {
-  const match = tag.match(new RegExp(`\\s${name}=(?:"([^"]*)"|'([^']*)')`));
-  return match ? (match[1] ?? match[2]) : undefined;
-};
+/* A start tag runs to the first ">" outside a quoted value, as it does in
+   the browser, so a ">" in an attribute such as data-label="a -> b" stays
+   in its tag. */
+const startTag = /<([a-zA-Z][^\s/>]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+const attributePattern =
+  /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+/** The page's start tags in source order, each with its lowercase name and
+ * its attributes. An attribute written with no value is present and has
+ * the value undefined, and the browser keeps the first of two with one
+ * name. */
+function readTag(name, text) {
+  const attributes = new Map();
+  for (const [, key, ...values] of text.matchAll(attributePattern))
+    if (!attributes.has(key.toLowerCase()))
+      attributes.set(
+        key.toLowerCase(),
+        values.find((value) => value !== undefined),
+      );
+  return { name: name.toLowerCase(), attributes };
+}
+const startTags = (html) =>
+  [...html.matchAll(startTag)].map(([, name, text]) => readTag(name, text));
+const attribute = (tag, name) => tag.attributes.get(name);
 const controlKinds = [
   "data-choice",
   "data-multiselect",
@@ -40,7 +59,7 @@ const renderedLines = (name, source) =>
 /** A "#" link names a page of the round, Agreed, Feedback, or an element
  * on its own page. */
 export function linkProblems(html, at, targets) {
-  const tags = html.match(/<[a-zA-Z][^>]*>/g) || [];
+  const tags = startTags(html);
   const ids = new Set(tags.map((tag) => attribute(tag, "id")));
   return tags
     .map((tag) => attribute(tag, "href"))
@@ -65,7 +84,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
   for (const page of data.pages) {
     const html = page.html || "";
     const at = `page "${page.id}"`;
-    const tags = html.match(/<[a-zA-Z][^>]*>/g) || [];
+    const tags = startTags(html);
     const controls = new Set();
     for (const tag of tags) {
       for (const kind of controlKinds) {
@@ -91,15 +110,15 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         );
       // The frame draws the page title as the page's only h1, so a second
       // one is always a duplicate heading, whatever it says.
-      if (/^<h1[\s>]/i.test(tag))
+      if (tag.name === "h1")
         list.push(
           `${at}: remove the h1, because the frame shows the page title as the page's only h1. Start headings at h2.`,
         );
-      if (/^<pre\b/i.test(tag) || /^<div\b/i.test(tag)) {
+      if (tag.name === "pre" || tag.name === "div") {
         const named = attribute(tag, "data-file") !== undefined;
         const source = attribute(tag, "data-diff-source") !== undefined;
         if (
-          (/^<pre\b/i.test(tag) || named) &&
+          (tag.name === "pre" || named) &&
           !source &&
           !attribute(tag, "data-language")
         )
@@ -124,18 +143,18 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
     }
     if (!allowUnknownPages) list.push(...linkProblems(html, at, targets));
     // Each control's options run from its tag to the next control's tag.
-    const parts = html.split(
-      /(?=<[a-zA-Z][^>]*\sdata-(?:choice|multiselect|question|drawing-question)=)/,
+    const starts = tags.flatMap((tag, index) =>
+      controlKinds.some((kind) => attribute(tag, kind) !== undefined)
+        ? [index]
+        : [],
     );
-    for (const part of parts) {
-      const tag = part.match(/^<[a-zA-Z][^>]*>/)?.[0];
-      if (!tag) continue;
+    starts.forEach((start, position) => {
+      const part = tags.slice(start, starts[position + 1]);
       const kind = controlKinds.find(
-        (name) => attribute(tag, name) !== undefined,
+        (name) => attribute(part[0], name) !== undefined,
       );
-      const id = attribute(tag, kind);
-      const options =
-        part.match(/<[a-zA-Z][^>]*\sdata-value(?:=|\s|>)[^>]*>/g) || [];
+      const id = attribute(part[0], kind);
+      const options = part.filter((tag) => tag.attributes.has("data-value"));
       for (const option of options)
         if (!attribute(option, "data-value"))
           list.push(`${at}: an option in "${id}" has no data-value`);
@@ -143,21 +162,22 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         list.push(
           `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}. Give it at least two.`,
         );
-      if (kind === "data-question" && !/<textarea\b/i.test(part))
+      if (
+        kind === "data-question" &&
+        !part.some((tag) => tag.name === "textarea")
+      )
         list.push(`${at}: question "${id}" has no textarea`);
-      // A box the author checked would read as the reviewer's choice. The
-      // quoted values go first, so a label with the word checked in it is
-      // not read as the attribute.
+      // A box the author checked would read as the reviewer's choice.
       if (
         kind === "data-multiselect" &&
-        (part.match(/<input\b[^>]*>/gi) || []).some((input) =>
-          /\schecked(?=[\s=/>])/i.test(input.replace(/"[^"]*"|'[^']*'/g, '""')),
+        part.some(
+          (tag) => tag.name === "input" && tag.attributes.has("checked"),
         )
       )
         list.push(
           `${at}: checklist "${id}" has a checked box. Start every box unchecked.`,
         );
-    }
+    });
     for (const input of html.match(
       /<textarea[^>]*\sdata-diff-input[^>]*>([\s\S]*?)<\/textarea>/gi,
     ) || []) {
@@ -182,9 +202,10 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
           `${at}: a diff input is not JSON with before, after and patch`,
         );
     }
-    for (const [, name, tag, source] of html.matchAll(
-      /<(pre|div)\b([^>]*\sdata-lines(?=[\s=>])[^>]*)>([\s\S]*?)<\/\1>/gi,
+    for (const [, name, text, source] of html.matchAll(
+      /<(pre|div)\b((?:[^>"']|"[^"]*"|'[^']*')*?\sdata-lines(?=[\s=>])(?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/\1>/gi,
     )) {
+      const tag = readTag(name, text);
       const value = attribute(tag, "data-lines") ?? "";
       const ranges = lineRanges(value);
       if (!ranges) {
