@@ -77,7 +77,9 @@ test("a failed wake is recorded and the submission stays readable", async (t) =>
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
-test("a paused session is not woken until it registers again", async (t) => {
+// A command that finds no hub registers the session with a new one, and
+// only pair start resumes it.
+test("a paused session is not woken until its agent runs pair start", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
@@ -94,6 +96,11 @@ test("a paused session is not woken until it registers again", async (t) => {
   const [listed] = (await a.request("/api/sessions")).body.sessions;
   assert.equal(listed.paused, true);
   assert.equal((await h.register(a.directory, a.inbox.target)).code, 200);
+  assert.equal((await a.status()).body.paused.reason, "asked to stop");
+  assert.equal(
+    (await h.register(a.directory, a.inbox.target, { start: true })).code,
+    200,
+  );
   assert.equal((await a.status()).body.paused, null);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });

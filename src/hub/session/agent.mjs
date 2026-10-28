@@ -353,7 +353,8 @@ export function agent(session) {
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
   // other registration, such as a command reattaching to a new hub, changes
-  // nothing when it comes from an agent other than the holder. A start that
+  // nothing when it comes from an agent other than the holder, and leaves a
+  // paused session paused, because only pair start resumes one. A start that
   // creates the session names it with its title and answers with the start
   // moment, and any other start answers with the session's next step.
   async function hold(target, options = {}) {
@@ -372,7 +373,7 @@ export function agent(session) {
     session.wake = target;
     const patch = {
       wake: { harness: target.harness, last: session.state.wake?.last || null },
-      paused: null,
+      ...(start ? { paused: null } : {}),
       // The first Agreed's title replaces the one pair start gave.
       ...(created && title ? { title } : {}),
     };
