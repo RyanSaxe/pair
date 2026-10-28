@@ -124,7 +124,7 @@ function sendReply(thread, text) {
   void post(
     thread.id,
     `${base}/api/threads/${encodeURIComponent(thread.id)}/messages`,
-    { text },
+    { replyId: uuid(), text },
   );
 }
 

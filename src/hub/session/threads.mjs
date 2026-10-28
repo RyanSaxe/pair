@@ -241,7 +241,19 @@ export function threads(session) {
   async function addThreadMessage(id, data) {
     open();
     const thread = threadFor(id);
-    thread.messages.push(await reviewerMessage(data));
+    const replyId = data.replyId;
+    if (replyId !== undefined) {
+      requireValue(
+        typeof replyId === "string" && idPattern.test(replyId),
+        "A thread reply needs a valid reply ID",
+      );
+      if (thread.messages.some((message) => message.replyId === replyId))
+        return { thread: shown(thread) };
+    }
+    thread.messages.push({
+      ...(replyId === undefined ? {} : { replyId }),
+      ...(await reviewerMessage(data)),
+    });
     thread.state = "sending";
     thread.readAt = null;
     await saveThread(thread);
