@@ -27,16 +27,20 @@ async function readBody(req, limit) {
     "JSON required",
     415,
   );
-  let raw = "";
+  // A chunk can end inside a character, so the body is decoded only once
+  // every chunk has arrived.
+  const chunks = [];
+  let size = 0;
   for await (const chunk of req) {
-    raw += chunk;
+    size += chunk.length;
     requireValue(
-      Buffer.byteLength(raw) <= limit,
+      size <= limit,
       `The request is over the hub's limit of ${limit} bytes.`,
       413,
     );
+    chunks.push(chunk);
   }
-  return JSON.parse(raw);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 export async function startHub(config = settings()) {
   await fs.mkdir(config.hubDir, { recursive: true, mode: 0o700 });
