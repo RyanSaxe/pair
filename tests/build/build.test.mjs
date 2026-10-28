@@ -264,6 +264,10 @@ test("the build refuses each structural problem and names it", async () => {
     /^page "p": decision "d" has 1 option\. Give it at least two\.$/m,
   );
   await refused(
+    page(decision(option() + option())),
+    /^page "p": options in "d" share data-value "a"\. Give each option in a group its own data-value\.$/m,
+  );
+  await refused(
     page(`<section data-question="q" data-label="Q"><h3>?</h3></section>`),
     /^page "p": question "q" has no textarea$/m,
   );

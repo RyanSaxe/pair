@@ -185,6 +185,17 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       for (const option of options)
         if (!attribute(option, "data-value"))
           list.push(`${at}: an option in "${id}" has no data-value`);
+      // The frame marks each option whose value equals the reviewer's choice
+      // as selected, so two options with one value are selected together.
+      const values = options
+        .map((option) => attribute(option, "data-value"))
+        .filter(Boolean);
+      for (const value of new Set(
+        values.filter((value, index) => values.indexOf(value) !== index),
+      ))
+        list.push(
+          `${at}: options in "${id}" share data-value "${value}". Give each option in a group its own data-value.`,
+        );
       if (kind === "data-choice" && options.length < 2)
         list.push(
           `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}. Give it at least two.`,
