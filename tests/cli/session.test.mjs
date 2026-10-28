@@ -286,6 +286,23 @@ async function sessionWithAgreed(t) {
   return { sessionDir, agreed, overview, list, publish, run };
 }
 
+test("a publish with a missing --file names pair build and keeps no source", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  const missing = path.join(path.dirname(agreed.built), "3agreed.html");
+  await assert.rejects(
+    publish(missing, agreed.source, "--pages", list),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.equal(
+        error.stderr,
+        `pair: No built page at ${missing}. Build it with pair build SOURCE OUTPUT, or check the path.\n`,
+      );
+      return true;
+    },
+  );
+  assert.equal(await exists(path.join(sessionDir, "src")), false);
+});
+
 test("a publish whose source cannot be copied can be retried", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
   await assert.rejects(

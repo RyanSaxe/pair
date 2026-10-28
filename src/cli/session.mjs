@@ -306,7 +306,14 @@ export async function start(options) {
 
 export async function publish(options) {
   const session = await openSession(options);
-  const html = await fs.readFile(path.resolve(options.file), "utf8");
+  const file = path.resolve(options.file);
+  const html = await fs.readFile(file, "utf8").catch((error) => {
+    if (error.code !== "ENOENT") throw error;
+    throw new Error(
+      `No built page at ${file}. Build it with pair build SOURCE OUTPUT, or check the path.`,
+      { cause: error },
+    );
+  });
   const action = { action: "publish", html };
   if (options.pages)
     action.pages = (await read(path.resolve(options.pages))).pages;
