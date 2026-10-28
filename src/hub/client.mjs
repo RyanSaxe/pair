@@ -2,6 +2,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sandboxAdvice } from "../../adapters/codex/rules.mjs";
 import { settings, version } from "../shared/settings.mjs";
@@ -34,6 +35,12 @@ export async function hubInfo(port, record) {
     return null;
   }
 }
+// A hub's reply names the real path of the state directory it serves as
+// stateDir, which a hub whose code predates that field leaves out. Two
+// commands can reach one state directory by different paths, such as /tmp
+// and /private/tmp on macOS, so each side compares real paths.
+export const ownStateDir = (config) =>
+  fs.realpath(config.root).catch(() => path.resolve(config.root));
 function processAlive(pid) {
   try {
     process.kill(pid, 0);
@@ -110,10 +117,18 @@ async function spawnHub(config) {
 async function ensureHub(config = settings()) {
   const record = await readRecord(config);
   const port = record?.port || config.port;
-  let info = port ? await hubInfo(port, record) : null;
+  const stateDir = await ownStateDir(config);
+  // A hub of another state directory never serves this one's sessions, so
+  // it counts as no hub here.
+  const ownHub = async (port) => {
+    const info = await hubInfo(port, record);
+    return info && (info.stateDir ?? stateDir) === stateDir ? info : null;
+  };
+  let info = port ? await ownHub(port) : null;
   if (!info && record && processAlive(record.pid))
-    info = await waitFor(() => hubInfo(record.port, record), 5000);
-  // A hub that answers with no record may still be loading its sessions.
+    info = await waitFor(() => ownHub(record.port), 5000);
+  // A hub of this state directory that answers with no record may still be
+  // loading its sessions.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
   if (info && info.version !== version) {
     if (info.live === 0) {
@@ -135,10 +150,15 @@ async function ensureHub(config = settings()) {
         : `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
     );
     if (record) await fs.rm(config.hubFile, { force: true });
-    requireValue(
-      !(config.port && (await portOpen(config.port))),
-      `Another program is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
-    );
+    if (config.port && (await portOpen(config.port))) {
+      const other = await hubInfo(config.port);
+      const occupant = other
+        ? `A pair hub that this state directory has no record of (pid ${other.pid})`
+        : "Another program";
+      throw new Error(
+        `${occupant} is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
+      );
+    }
     info = await spawnHub(config);
   }
   return { ...info, origin: `http://127.0.0.1:${info.port}` };

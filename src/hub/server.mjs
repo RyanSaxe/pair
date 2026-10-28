@@ -43,6 +43,10 @@ export async function startHub(config = settings()) {
   await fs.mkdir(config.sessions, { recursive: true, mode: 0o700 });
   const secret = crypto.randomBytes(32).toString("hex");
   const startedAt = timestamp();
+  // /api/hub names the state directory the hub serves, by its real path, so
+  // a command with no record of the hub can tell whether it is still loading
+  // or serves another state directory.
+  const stateDir = await fs.realpath(config.root);
   const registry = new Map();
   const byDirectory = new Map();
   const register = serializer();
@@ -157,6 +161,7 @@ export async function startHub(config = settings()) {
           pid: process.pid,
           port: origin && Number(new URL(origin).port),
           startedAt,
+          stateDir,
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
