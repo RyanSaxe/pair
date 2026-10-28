@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
-import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+import { buildPage } from "../../../src/cli/build.mjs";
+import { hub, planData, sleep, task, waitUntil } from "../../support/hub.mjs";
 
 test("start hands the session to its agent, and only the holder works on it and is woken", async (t) => {
   const h = await hub(t);
@@ -89,4 +91,35 @@ test("status answers any agent or none, and keeps the takeover notice", async (t
   const lost = await a.action("ack");
   assert.equal(lost.code, 409);
   assert.match(lost.body.error, /^Another agent took this session over at /);
+});
+
+// The previous holder read the feedback that an open round answers before
+// it published the round's Agreed, so pair read prints nothing new to an
+// agent that takes the round over, and its start names that submission.
+test("a start that takes over an open round names the submission the round answers", async (t) => {
+  const h = await hub(t);
+  const two = await h.inbox();
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  const { name, title } = planData();
+  const agreed = await buildPage(path.join(a.directory, "source.json"), {
+    name,
+    round: "2",
+    title,
+    page: { id: "agreed", title: "Agreed so far", task, agreements: [] },
+  });
+  const opened = await a.action("publish", {
+    html: agreed,
+    pages: [{ id: "overview", title: "Overview" }],
+  });
+  assert.equal(opened.code, 200, opened.body.error);
+  const took = await h.register(a.directory, two.target, { start: true });
+  assert.equal(took.code, 200);
+  assert.equal(
+    took.body.next,
+    `If you have not run pair guide in this conversation, run it first. This round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. You still have to publish these pages: overview. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`,
+  );
 });

@@ -326,6 +326,11 @@ export async function status(options) {
             .map((page) => `${page.id} (${pageStates[page.state]})`)
             .join(", "),
         ],
+        [
+          "Latest submission",
+          state.latestSubmissionId &&
+            `${state.latestSubmissionId}, on round ${state.latestSubmissionRound}`,
+        ],
         ["Holder", holderText(state)],
         ["Handoff", state.handoff],
         [

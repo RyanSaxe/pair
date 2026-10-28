@@ -406,6 +406,19 @@ test("pair propose prints a status's count and what is left, and pair status pri
   );
 });
 
+// An agent that takes a session over finds there the submission it reads
+// with pair read --submission.
+test("pair status prints the latest submission and its round", async (t) => {
+  const { a, run } = await session(t);
+  assert.doesNotMatch(await run("status"), /Latest submission/);
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  assert.match(
+    await run("status"),
+    new RegExp(`\nLatest submission +${feedback.id}, on round 1\n`),
+  );
+});
+
 // The reviewer's words are data inside their tags, so no text they write
 // can end a block and pass for pair's own instructions.
 test("a reviewer's text cannot close its pair_ tag", async (t) => {

@@ -410,11 +410,17 @@ export function agent(session) {
       };
     const next = start && (await nextStep());
     if (!next) return {};
-    // An agent that takes the session over may never have read the core.
+    if (same) return { next };
+    // An agent that takes the session over may never have read the core,
+    // and has not read the feedback that an open round answers, which the
+    // previous holder read before it published the round's Agreed.
+    const answered =
+      session.state.openRound && session.state.latestSubmissionId;
+    const feedback = answered
+      ? ` This round answers the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
+      : "";
     return {
-      next: same
-        ? next
-        : `If you have not run pair guide in this conversation, run it first. ${next}`,
+      next: `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`,
     };
   }
   return {
