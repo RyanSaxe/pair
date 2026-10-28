@@ -514,7 +514,7 @@ test("a page's links are checked as it publishes, not when the round completes",
   assert.equal(refused.code, 400);
   assert.equal(
     refused.body.error,
-    'page "overview": link "#nowhere" names no page',
+    `page "overview": link "#nowhere" names no page of the round and no element on this page. The round's pages are agreed, overview and details.`,
   );
   const records = await fs.readdir(path.join(a.directory, "pages", "2"));
   assert.deepEqual(records.map((file) => file.split(".")[0]).sort(), [

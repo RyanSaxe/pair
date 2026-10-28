@@ -337,6 +337,13 @@ test("a publish the hub refuses keeps no copy of its source, and can be retried"
     return true;
   });
   assert.equal(await exists(kept), false);
+  await assert.rejects(publish(agreed.built, agreed.source), (error) => {
+    assert.match(
+      error.stderr,
+      /^pair: Publish Agreed with --pages SRC\/pages\.json, a file that lists the pages after Agreed as \{ "pages": \[\{ "id": "…", "title": "…" \}\] \}\.$/m,
+    );
+    return true;
+  });
   assert.equal(
     await fs.readFile(path.join(overview.source, "overview.html"), "utf8"),
     "<p>Ready by CLI</p>",

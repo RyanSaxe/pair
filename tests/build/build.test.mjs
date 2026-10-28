@@ -327,7 +327,7 @@ test("the build refuses each structural problem and names it", async () => {
   );
   await refused(
     page(`<a href="#nope">x</a>`),
-    /^page "p": link "#nope" names no page$/m,
+    /^page "p": link "#nope" names no page of the round and no element on this page\. The round's pages are agreed and p\.$/m,
   );
   await refused(
     page(`<div data-prototype="ghost"></div>`),
@@ -362,10 +362,10 @@ test("the build refuses each structural problem and names it", async () => {
 test("a link names no page unless an id equals its fragment", () => {
   assert.deepEqual(
     problems(page('<a href="#x(">x</a><a href="#a.b">y</a><i id="aXb"></i>')),
-    [
-      'page "p": link "#x(" names no page',
-      'page "p": link "#a.b" names no page',
-    ],
+    ["#x(", "#a.b"].map(
+      (link) =>
+        `page "p": link "${link}" names no page of the round and no element on this page. The round's pages are agreed and p.`,
+    ),
   );
 });
 

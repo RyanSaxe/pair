@@ -270,7 +270,7 @@ export function pagePlan({ page, ...record }) {
 export function pageList(items) {
   requireValue(
     Array.isArray(items) && items.length > 0,
-    "List at least one page",
+    'Publish Agreed with --pages SRC/pages.json, a file that lists the pages after Agreed as { "pages": [{ "id": "…", "title": "…" }] }.',
   );
   const ids = new Set();
   for (const item of items) {

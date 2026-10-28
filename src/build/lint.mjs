@@ -137,6 +137,10 @@ function codeProblems(tag, html, at) {
 export function linkProblems(html, at, targets) {
   const tags = startTags(html);
   const ids = new Set(tags.map((tag) => attribute(tag, "id")));
+  const pages = [
+    "agreed",
+    ...[...targets].filter((id) => !["agreed", "feedback"].includes(id)),
+  ];
   return tags
     .map((tag) => attribute(tag, "href"))
     .filter(
@@ -145,7 +149,10 @@ export function linkProblems(html, at, targets) {
         !targets.has(link.slice(1)) &&
         !ids.has(link.slice(1)),
     )
-    .map((link) => `${at}: link "${link}" names no page`);
+    .map(
+      (link) =>
+        `${at}: link "${link}" names no page of the round and no element on this page. The round's pages are ${listing(pages)}.`,
+    );
 }
 /** Structural problems in the assembled pages and a page's own script. */
 export function problems(data, js = "", { allowUnknownPages = false } = {}) {
