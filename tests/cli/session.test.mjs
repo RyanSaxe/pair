@@ -330,7 +330,10 @@ test("a publish the hub refuses keeps no copy of its source, and can be retried"
   const kept = path.join(sessionDir, "src", "1", "overview");
   await assert.rejects(publish(overview.built, overview.source), (error) => {
     assert.equal(error.code, 1);
-    assert.match(error.stderr, /Publish Agreed before other pages/);
+    assert.equal(
+      error.stderr,
+      `pair: Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir ${sessionDir}.\n`,
+    );
     return true;
   });
   assert.equal(await exists(kept), false);
