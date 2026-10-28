@@ -1,16 +1,17 @@
 import { readFileSync } from "node:fs";
 import { lineRanges } from "../shared/lines.mjs";
 
-/* A start tag runs to the first ">" outside a quoted value, as it does in
-   the browser, so a ">" in an attribute such as data-label="a -> b" stays
-   in its tag. */
-const startTag = /<([a-zA-Z][^\s/>]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+/* A comment, or a start or end tag. A tag runs to the first ">" outside a
+   quoted value, as it does in the browser, so a ">" in an attribute such
+   as data-label="a -> b" stays in its tag. A comment that never closes
+   runs to the end. */
+const token =
+  /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][^\s/>]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const attributePattern =
   /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
-/** The page's start tags in source order, each with its lowercase name and
- * its attributes. An attribute written with no value is present and has
- * the value undefined, and the browser keeps the first of two with one
- * name. */
+/** A start tag's lowercase name and its attributes. An attribute written
+ * with no value is present and has the value undefined, and the browser
+ * keeps the first of two with one name. */
 function readTag(name, text) {
   const attributes = new Map();
   for (const [, key, ...values] of text.matchAll(attributePattern))
@@ -21,8 +22,15 @@ function readTag(name, text) {
       );
   return { name: name.toLowerCase(), attributes };
 }
-const startTags = (html) =>
-  [...html.matchAll(startTag)].map(([, name, text]) => readTag(name, text));
+/** The page's start and end tags in source order, without the comments,
+ * which the browser does not show. An end tag has end set. */
+const pageTags = (html) =>
+  [...html.matchAll(token)]
+    .filter(([, , name]) => name)
+    .map(([, end, name, text]) =>
+      end ? { name: name.toLowerCase(), end: true } : readTag(name, text),
+    );
+const startTags = (html) => pageTags(html).filter((tag) => !tag.end);
 const attribute = (tag, name) => tag.attributes.get(name);
 const controlKinds = [
   "data-choice",
@@ -84,7 +92,8 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
   for (const page of data.pages) {
     const html = page.html || "";
     const at = `page "${page.id}"`;
-    const tags = startTags(html);
+    const all = pageTags(html);
+    const tags = all.filter((tag) => !tag.end);
     const controls = new Set();
     for (const tag of tags) {
       for (const kind of controlKinds) {
@@ -142,19 +151,37 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         list.push(`${at}: prototype "${prototype}" does not exist`);
     }
     if (!allowUnknownPages) list.push(...linkProblems(html, at, targets));
-    // Each control's options run from its tag to the next control's tag.
-    const starts = tags.flatMap((tag, index) =>
-      controlKinds.some((kind) => attribute(tag, kind) !== undefined)
-        ? [index]
-        : [],
-    );
-    starts.forEach((start, position) => {
-      const part = tags.slice(start, starts[position + 1]);
+    // An option belongs to the nearest control around it, which is the one
+    // the frame finds with closest(). A control's element ends at the end
+    // tag that balances its own start tag.
+    const groups = [];
+    const open = [];
+    for (const tag of all) {
+      for (const group of open)
+        if (group.name === tag.name) group.depth += tag.end ? -1 : 1;
+      if (tag.end) {
+        open.splice(0, open.length, ...open.filter((group) => group.depth));
+        continue;
+      }
       const kind = controlKinds.find(
-        (name) => attribute(part[0], name) !== undefined,
+        (name) => attribute(tag, name) !== undefined,
       );
-      const id = attribute(part[0], kind);
-      const options = part.filter((tag) => tag.attributes.has("data-value"));
+      if (!kind) {
+        open.at(-1)?.tags.push(tag);
+        continue;
+      }
+      const group = {
+        kind,
+        id: attribute(tag, kind),
+        name: tag.name,
+        depth: 1,
+        tags: [],
+      };
+      groups.push(group);
+      open.push(group);
+    }
+    for (const { kind, id, tags: inside } of groups) {
+      const options = inside.filter((tag) => tag.attributes.has("data-value"));
       for (const option of options)
         if (!attribute(option, "data-value"))
           list.push(`${at}: an option in "${id}" has no data-value`);
@@ -164,20 +191,20 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
         );
       if (
         kind === "data-question" &&
-        !part.some((tag) => tag.name === "textarea")
+        !inside.some((tag) => tag.name === "textarea")
       )
         list.push(`${at}: question "${id}" has no textarea`);
       // A box the author checked would read as the reviewer's choice.
       if (
         kind === "data-multiselect" &&
-        part.some(
+        inside.some(
           (tag) => tag.name === "input" && tag.attributes.has("checked"),
         )
       )
         list.push(
           `${at}: checklist "${id}" has a checked box. Start every box unchecked.`,
         );
-    });
+    }
     for (const input of html.match(
       /<textarea[^>]*\sdata-diff-input[^>]*>([\s\S]*?)<\/textarea>/gi,
     ) || []) {

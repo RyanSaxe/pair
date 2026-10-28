@@ -353,6 +353,23 @@ test("a checklist box is refused for the checked attribute, not for the word in 
   );
 });
 
+// The frame finds an option's group with closest(), and the browser shows
+// nothing inside a comment.
+test("an option counts for the nearest control around it, and a commented control is not one", async () => {
+  await assert.doesNotReject(
+    assemble(
+      page(
+        `<section data-choice="vd" data-label="V">` +
+          `<article data-value="one" data-label="One">${decision(option() + option("b"))}</article>` +
+          `<article data-value="two" data-label="Two">t</article></section>`,
+      ),
+    ),
+  );
+  await assert.doesNotReject(
+    assemble(page(`<p>x</p><!-- ${decision(option())} -->`)),
+  );
+});
+
 test("well-formed controls, anchors and blocks pass", async () => {
   const html = await assemble(
     page(
