@@ -30,6 +30,20 @@ export function uploads(session) {
     requireValue(kind, "No such image", 404);
     return { bytes, type: kind.type };
   }
+  /* A note or a thread message names an image by its ID, and the hub gives
+     it the path, type and size of the file it wrote, so a submission cannot
+     point the agent at a path the hub never wrote. */
+  async function storedImage(id) {
+    const name = await uploadName(id);
+    requireValue(name, `Image ${id} is not in this session`);
+    const { bytes, type } = await readUpload(id);
+    return {
+      id,
+      path: path.join(directory, "uploads", name),
+      type,
+      bytes: bytes.length,
+    };
+  }
   async function uploadScene(bytes) {
     let scene;
     try {
@@ -76,6 +90,7 @@ export function uploads(session) {
     uploadName,
     upload,
     readUpload,
+    storedImage,
     uploadScene,
     readScene,
     removeUpload,

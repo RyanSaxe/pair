@@ -228,7 +228,7 @@ export function validPage(record) {
     );
   if (page.jsText)
     requireValue(
-      /export\s+(?:async\s+)?function\s+setup\s*\(/.test(page.jsText),
+      exportsSetup(page.jsText),
       "Page JavaScript must export setup(root, planUI)",
     );
   if (
@@ -238,6 +238,18 @@ export function validPage(record) {
     requireValue(false, "Page CSS/JS cannot contain closing style/script tags");
   validPlan(pagePlan(record));
   return record;
+}
+// The frame calls the setup that the page's module exports. The check
+// removes the comments first and keeps each string whole, so an export
+// inside a comment does not count.
+function exportsSetup(js) {
+  const code = js.replace(
+    /("(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|`(?:\\[\s\S]|[^`\\])*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+    (match, string) => string ?? "",
+  );
+  return /\bexport\s+(?:(?:async\s+)?function\s+setup\s*\(|(?:const|let|var)\s+setup\s*=|\{[^}]*?\b(?:\w+\s+as\s+)?setup\s*[,}])/.test(
+    code,
+  );
 }
 // A page record as plan data on its own: Agreed carries the agreements and
 // the task, and any other page carries itself.
@@ -258,7 +270,7 @@ export function pagePlan({ page, ...record }) {
 export function pageList(items) {
   requireValue(
     Array.isArray(items) && items.length > 0,
-    "List at least one page",
+    'Publish Agreed with --pages SRC/pages.json, a file that lists the pages after Agreed as { "pages": [{ "id": "…", "title": "…" }] }.',
   );
   const ids = new Set();
   for (const item of items) {

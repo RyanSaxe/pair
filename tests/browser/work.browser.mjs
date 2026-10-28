@@ -595,7 +595,7 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
     });
     assert.equal(written.code, 200, written.body.error);
   };
-  await status(["Outline"], ["Slides", "Speaker notes"]);
+  await status(["Outline"], ["Outline", "Slides", "Speaker notes"]);
   const box = page.locator("[data-proposal-card=deck] .proposal-status");
   // The parts on screen, each with its mark's label.
   const parts = () =>
@@ -637,7 +637,7 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
   assert.match(await summary.innerText(), /^1 of 3 done\s*·\s*Next: Slides$/);
   await summary.click();
   assert.equal((await parts()).length, 3);
-  await status(["Handout"], undefined, ["Slides"]);
+  await status(["Handout"], ["Handout"], ["Slides"]);
   await summary.filter({ hasText: "2 of 3 done" }).waitFor();
   assert.equal(await summary.textContent(), "2 of 3 done·Next: Speaker notes");
   assert.deepEqual(await parts(), [

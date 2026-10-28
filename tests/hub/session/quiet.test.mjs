@@ -200,7 +200,7 @@ test("every next step names quiet pages and cards until each gets an update", as
   await run("propose", {
     id: "node20-hang",
     statusDone: ["Reproduced the hang"],
-    statusLeft: ["Fix it"],
+    statusLeft: ["Reproduced the hang", "Fix it"],
   });
   assert.equal((await run("status")).next.includes("\n"), false);
 });

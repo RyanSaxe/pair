@@ -87,3 +87,59 @@ test("pair diff refuses to overwrite an existing output", async (t) => {
   );
   assert.equal(await fs.readFile(output, "utf8"), "keep");
 });
+
+// Inside a repository whose .gitattributes sets eol=lf, or for a user whose
+// Git config sets core.autocrlf, git turned CRLF into LF before comparing,
+// and a change of line endings alone came out as an empty patch.
+test("pair diff writes the same patch inside a repository and for a user whose Git config converts line endings", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-diff-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const repository = path.join(directory, "repository");
+  const home = path.join(directory, "home");
+  await fs.mkdir(repository);
+  await fs.mkdir(home);
+  await exec("git", ["init", "--quiet"], { cwd: repository, env: withoutGit });
+  const { stdout: top } = await exec("git", ["rev-parse", "--show-toplevel"], {
+    cwd: repository,
+    env: withoutGit,
+  });
+  // git prints the path with forward slashes on Windows, and realpath gives
+  // both sides the platform's own form.
+  assert.equal(await fs.realpath(top.trim()), await fs.realpath(repository));
+  await fs.writeFile(
+    path.join(repository, ".gitattributes"),
+    "* text=auto eol=lf\n",
+  );
+  await fs.writeFile(
+    path.join(home, ".gitconfig"),
+    "[core]\n\tautocrlf = input\n",
+  );
+  const before = path.join(repository, "before", "mixed.txt");
+  const after = path.join(repository, "after", "mixed.txt");
+  for (const [file, text] of [
+    [before, "one\ntwo\n"],
+    [after, "one\r\ntwo\r\n"],
+  ]) {
+    await fs.mkdir(path.dirname(file));
+    await fs.writeFile(file, text);
+  }
+  const diff = async (cwd, env, name) => {
+    const output = path.join(directory, name);
+    await exec(process.execPath, [pair, "diff", before, after, output], {
+      cwd,
+      env,
+    });
+    return JSON.parse(await fs.readFile(output, "utf8"));
+  };
+  const inside = await diff(
+    repository,
+    { ...withoutGit, HOME: home, XDG_CONFIG_HOME: home },
+    "inside.json",
+  );
+  const outside = await diff(directory, withoutGit, "outside.json");
+  assert.ok(
+    inside.patch.endsWith("@@ -1,2 +1,2 @@\n-one\n-two\n+one\r\n+two\r\n"),
+    inside.patch,
+  );
+  assert.deepEqual(outside, inside);
+});

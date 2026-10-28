@@ -324,7 +324,7 @@ export function rounds(session) {
     } else {
       requireValue(
         session.state.openRound,
-        "Publish Agreed before other pages",
+        `Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir ${directory}.`,
         409,
       );
       set = structuredClone(session.state.openRound);

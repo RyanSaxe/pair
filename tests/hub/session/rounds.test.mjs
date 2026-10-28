@@ -104,11 +104,14 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
-  assert.match(
+  // Until a page starts, the next step asks for a progress note on each
+  // page as its work begins.
+  assert(
+    result.body.next.endsWith(
+      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
+    ),
     result.body.next,
-    /You still have to publish these pages: overview, detail\./,
   );
-  assert.match(result.body.next, /pair progress --page ID --note "…"/);
   assert.equal((await status()).rounds.length, 0);
   const response = await fetch(`${hub.origin}/s/${sessionId}/`);
   const html = await response.text();
@@ -162,9 +165,13 @@ test("listed pages arrive independently and only the last completes the round", 
     ).readyPages;
   await firstAgreed();
   assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
+  const progress = await act({ action: "progress", start: ["detail"] });
+  assert.equal(progress.status, 200);
+  // Once a page has started, the next step marks it and keeps the
+  // five-minute rule.
   assert.equal(
-    (await act({ action: "progress", start: ["detail"] })).status,
-    200,
+    progress.body.next,
+    'You still have to publish these pages: overview, detail (started). When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
   );
   const before = await status();
   assert.equal(before.openRound.pages[1].state, "active");
@@ -507,13 +514,40 @@ test("a page's links are checked as it publishes, not when the round completes",
   assert.equal(refused.code, 400);
   assert.equal(
     refused.body.error,
-    'page "overview": link "#nowhere" names no page',
+    `page "overview": link "#nowhere" names no page of the round and no element on this page. The round's pages are agreed, overview and details.`,
   );
   const records = await fs.readdir(path.join(a.directory, "pages", "2"));
   assert.deepEqual(records.map((file) => file.split(".")[0]).sort(), [
     "agreed",
     "frame",
   ]);
+});
+
+// The hub assembles a round from its stored pages at each publish. A page
+// that an older pair build checked can break a rule added since, and it
+// must not keep its round from completing.
+test("a page built before the bare < check was added still completes its round", async (t) => {
+  const { act, page, publish, firstAgreed } = await session(t);
+  const bare = '<pre data-language="ts">first<T>()</pre>';
+  await assert.rejects(
+    page("1", "overview", "Overview", bare),
+    /the ts code block has a < that the browser reads as a tag on line 1/,
+  );
+  // The file an older pair build wrote for the same source.
+  const built = await page("1", "overview", "Overview", "<p>x</p>");
+  const record = pageData(built);
+  record.page.html = bare;
+  const older = built.replace(
+    /(<script type="application\/json" id="page-data">)[\s\S]*?(<\/script>)/,
+    (_, start, end) =>
+      start + JSON.stringify(record).replaceAll("<", "\\u003c") + end,
+  );
+  assert.equal((await firstAgreed()).status, 200);
+  const stored = await act({ action: "publish", html: older });
+  assert.equal(stored.status, 200, JSON.stringify(stored.body));
+  const last = await publish("1", "detail", "Detail", "<p>Detail</p>");
+  assert.equal(last.status, 200, JSON.stringify(last.body));
+  assert.equal(last.body.roundComplete, true);
 });
 
 test("a page may link to a page of its round that publishes after it", async (t) => {

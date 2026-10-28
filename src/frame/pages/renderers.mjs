@@ -192,9 +192,12 @@ export function failed(element, error) {
     element.nextElementSibling?.classList.contains("renderer-error")
   )
     return;
-  const note = document.createElement("p");
+  const message = error.message || "Renderer unavailable; source preserved.";
+  // A parser's message can quote the source line and put a caret under the
+  // column, which reads only with its line breaks in fixed-width text.
+  const note = document.createElement(message.includes("\n") ? "pre" : "p");
   note.className = "renderer-error";
-  note.textContent = error.message || "Renderer unavailable; source preserved.";
+  note.textContent = message;
   element.after(note);
 }
 export function figure(
@@ -313,7 +316,11 @@ function clearDiffs() {
 export function diff(element, input, options) {
   return track(renderDiff(element, input, options));
 }
-async function renderDiff(element, input, { diffStyle = "split" } = {}) {
+async function renderDiff(
+  element,
+  input,
+  { diffStyle = "split", wrap = false } = {},
+) {
   if (typeof input.patch !== "string") throw Error("A Git patch is required.");
   if (!input.patch) {
     element.textContent = "No changes.";
@@ -321,6 +328,8 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
   }
   // Before the first await, so the box has the diff's height before the
   // page paints, and keeps it: the diff draws into it and moves nothing.
+  // A wrapped line is taller than one row, so a wrapped diff can only grow
+  // past this floor.
   element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
   diffsTask ||= import(libraries.diffs);
   const { FileDiff, parsePatchFiles } = await diffsTask;
@@ -329,9 +338,10 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
   // a task gives each diff a task of its own, so the page paints first.
   await new Promise((resolve) => setTimeout(resolve));
   if (!element.isConnected) return null;
+  const overflow = wrap ? "wrap" : "scroll";
   let viewer = diffs.get(element);
   if (viewer) {
-    viewer.setOptions({ ...viewer.options, diffStyle });
+    viewer.setOptions({ ...viewer.options, diffStyle, overflow });
     viewer.rerender();
     return viewer;
   }
@@ -345,9 +355,9 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
     diffStyle,
     lineDiffType: "word-alt",
     diffIndicators: "classic",
-    // A long line scrolls sideways instead of wrapping, so every row is one
-    // line tall and diffHeight() can count the diff's height.
-    overflow: "scroll",
+    // Unless the page asks to wrap, a long line scrolls sideways, so every
+    // row is one line tall and diffHeight() counts the diff's height.
+    overflow,
     disableFileHeader: true,
   });
   element.replaceChildren();

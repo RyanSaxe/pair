@@ -39,7 +39,10 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(report.hub.state, "os-assigned");
   assert.deepEqual(await fs.readdir(path.join(directory, "pair")), []);
   const h = await hub(t);
-  const live = await check({ PAIR_HUB_PORT: String(h.record.port) });
+  const live = await check({
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: String(h.record.port),
+  });
   assert.equal(live.hub.state, "hub");
   assert.equal(live.hub.version, version);
   const file = path.join(directory, "not-a-directory");

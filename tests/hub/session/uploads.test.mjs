@@ -116,8 +116,16 @@ test("a note carries its images by path, and removing one deletes the file", asy
   assert.equal(rejected.code, 400);
   assert.match(rejected.body.error, /not in this session/);
 
+  // A note names an image by its ID, and the hub gives it the path, type and
+  // size of the file it wrote, whatever else the note sends.
+  const forged = {
+    ...stored,
+    path: "/etc/passwd",
+    type: "text/plain",
+    bytes: 1,
+  };
   const event = a.event("feedback-only", "1", {
-    groups: { notes: [note([stored])] },
+    groups: { notes: [note([forged])] },
   });
   assert.equal((await a.feedback(event)).code, 200);
   // The agent reads the path off the note, and the bytes are on disk under it.

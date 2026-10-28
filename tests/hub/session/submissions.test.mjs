@@ -94,13 +94,25 @@ test("the reviewer's choice for the next round decides whether Agreed may mark i
   );
 });
 
-test("the hub refuses a next round it does not know and a message over 4,000 characters", async (t) => {
+// pair read prints every note it saves, so a note it could not print is
+// refused before anything is saved.
+test("the hub refuses a next round it does not know, a message over 4,000 characters and a malformed note", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
+  const note = { id: "n", topic: "overview", anchor: "Overview", text: "Hi" };
+  const notes = (...items) => ({ groups: { notes: items } });
+  const malformed = "Notes require id, topic, anchor and text";
   for (const [extra, error] of [
     [{ next: "later" }, "next is one of iterate, plan, build"],
     [{ message: "x".repeat(4001) }, "The message exceeds 4,000 characters"],
+    [{ groups: { notes: "x" } }, "notes must be an array"],
+    [notes(note, null), malformed],
+    [notes(5), malformed],
+    [notes({ ...note, anchor: undefined }), malformed],
+    [notes({ ...note, text: 7 }), malformed],
+    [notes({ ...note, text: " " }), malformed],
+    [notes({ ...note, quote: 7 }), "A note's quote must be text"],
   ]) {
     const refused = await a.feedback(a.event("feedback-only", "1", extra));
     assert.equal(refused.code, 400);

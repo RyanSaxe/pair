@@ -1,11 +1,13 @@
-<!-- A proposed change -->
+<!-- A proposed change. Add data-wrap to the section to wrap long lines, such as the prose of a Markdown file, instead of scrolling them. -->
 <section class="change-review" data-kind="diff">
-  <div class="change-controls" role="group" aria-label="Diff layout">
-    <button class="btn" data-diff-style="split">Side by side</button>
-    <button class="btn" data-diff-style="unified">Unified</button>
+  <div class="change-controls">
+    <span class="change-layout" role="group" aria-label="Layout">
+      <button type="button" data-diff-style="split">Side by side</button>
+      <button type="button" data-diff-style="unified">Unified</button>
+    </span>
+    <button class="change-wrap" type="button" data-diff-wrap>Wrap</button>
   </div>
-  <textarea data-diff-input hidden>
-{"before":"","after":"","patch":""}</textarea>
+  <textarea data-diff-input="OUTPUT.json" hidden></textarea>
   <div class="change-view" aria-label="Before and proposed changes"></div>
   <p class="renderer-error" data-diff-error hidden></p>
   <details class="change-source">

@@ -135,6 +135,32 @@ test("a session command refuses a directory that holds no session", async (t) =>
   assert.equal(await exists(missing), false);
 });
 
+// The hub creates a session in any directory it registers, so pair start
+// --session-dir refuses a directory with no session before it asks the hub.
+test("pair start --session-dir refuses a directory that holds no session and writes nothing", async (t) => {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-no-resume-"));
+  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(scratch, { recursive: true, force: true });
+  });
+  const project = path.join(scratch, "project");
+  await fs.mkdir(project);
+  await fs.writeFile(path.join(project, "README"), "hi");
+  for (const directory of [path.join(scratch, "no-session"), project]) {
+    const before = await fs.readdir(scratch, { recursive: true });
+    await assert.rejects(run("start", "--session-dir", directory), (error) => {
+      assert.equal(error.code, 1);
+      assert.equal(
+        error.stderr,
+        `pair: No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.\n`,
+      );
+      return true;
+    });
+    assert.deepEqual(await fs.readdir(scratch, { recursive: true }), before);
+  }
+});
+
 // Every command reads its arguments one way, and a refusal names what is
 // wrong and the command's help, before anything reaches the hub.
 test("a command refuses an unknown flag, an extra argument, a repeated flag and a missing one, and changes nothing", async (t) => {
@@ -260,6 +286,23 @@ async function sessionWithAgreed(t) {
   return { sessionDir, agreed, overview, list, publish, run };
 }
 
+test("a publish with a missing --file names pair build and keeps no source", async (t) => {
+  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
+  const missing = path.join(path.dirname(agreed.built), "3agreed.html");
+  await assert.rejects(
+    publish(missing, agreed.source, "--pages", list),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.equal(
+        error.stderr,
+        `pair: No built page at ${missing}. Build it with pair build SOURCE OUTPUT, or check the path.\n`,
+      );
+      return true;
+    },
+  );
+  assert.equal(await exists(path.join(sessionDir, "src")), false);
+});
+
 test("a publish whose source cannot be copied can be retried", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
   await assert.rejects(
@@ -287,10 +330,20 @@ test("a publish the hub refuses keeps no copy of its source, and can be retried"
   const kept = path.join(sessionDir, "src", "1", "overview");
   await assert.rejects(publish(overview.built, overview.source), (error) => {
     assert.equal(error.code, 1);
-    assert.match(error.stderr, /Publish Agreed before other pages/);
+    assert.equal(
+      error.stderr,
+      `pair: Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir ${sessionDir}.\n`,
+    );
     return true;
   });
   assert.equal(await exists(kept), false);
+  await assert.rejects(publish(agreed.built, agreed.source), (error) => {
+    assert.match(
+      error.stderr,
+      /^pair: Publish Agreed with --pages SRC\/pages\.json, a file that lists the pages after Agreed as \{ "pages": \[\{ "id": "…", "title": "…" \}\] \}\.$/m,
+    );
+    return true;
+  });
   assert.equal(
     await fs.readFile(path.join(overview.source, "overview.html"), "utf8"),
     "<p>Ready by CLI</p>",

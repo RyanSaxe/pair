@@ -364,7 +364,7 @@ test("pair propose prints a status's count and what is left, and pair status pri
   );
   const status = (...parts) => run("propose", "--id", "deck", ...parts);
   const started = await status(
-    ...["--status-done", "Outline"],
+    ...["--status-done", "Outline", "--status-left", "Outline"],
     ...["--status-left", "Slides", "--status-left", "Speaker notes"],
   );
   assert(
@@ -400,9 +400,22 @@ test("pair propose prints a status's count and what is left, and pair status pri
   assert.equal(
     await cli.run(
       ...["propose", "--session-dir", child.directory, "--id", "notes"],
-      ...["--status-done", "Draft"],
+      ...["--status-left", "Draft", "--status-done", "Draft"],
     ),
     "Proposal notes in session \"Example work\": approved to run in a sub-session, 1 of 1 parts done.\nNothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.\n",
+  );
+});
+
+// An agent that takes a session over finds there the submission it reads
+// with pair read --submission.
+test("pair status prints the latest submission and its round", async (t) => {
+  const { a, run } = await session(t);
+  assert.doesNotMatch(await run("status"), /Latest submission/);
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  assert.match(
+    await run("status"),
+    new RegExp(`\nLatest submission +${feedback.id}, on round 1\n`),
   );
 });
 

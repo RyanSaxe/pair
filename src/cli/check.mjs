@@ -7,7 +7,7 @@ import {
   rules,
   writeRules,
 } from "../../adapters/codex/rules.mjs";
-import { hubInfo, portOpen, readRecord } from "../hub/client.mjs";
+import { hubInfo, ownStateDir, portOpen, readRecord } from "../hub/client.mjs";
 import { oldestNode, requireNode, settings } from "../shared/settings.mjs";
 import { listen } from "../shared/util.mjs";
 import { rows } from "./output.mjs";
@@ -15,10 +15,14 @@ import { rows } from "./output.mjs";
 async function portReport(config) {
   const { port } = config;
   if (!(await portOpen(port))) return { port, state: "free" };
-  const info = await hubInfo(port, await readRecord(config));
-  return info
-    ? { port, state: "hub", version: info.version, live: info.live }
-    : { port, state: "busy" };
+  const record = await readRecord(config);
+  const info = await hubInfo(port, record);
+  if (!info) return { port, state: "busy" };
+  // pair start refuses a hub that neither this state directory's record nor
+  // the hub's own stateDir ties to this state directory.
+  if (info.pid !== record?.pid && info.stateDir !== (await ownStateDir(config)))
+    return { port, state: "other-hub", pid: info.pid };
+  return { port, state: "hub", version: info.version, live: info.live };
 }
 function hubLine(hub) {
   if (hub.state === "os-assigned")
@@ -26,6 +30,8 @@ function hubLine(hub) {
   if (hub.state === "free") return `port ${hub.port} is free`;
   if (hub.state === "busy")
     return `port ${hub.port} is in use by another program`;
+  if (hub.state === "other-hub")
+    return `port ${hub.port} is in use by a pair hub that this state directory has no record of (pid ${hub.pid})`;
   const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
   return `port ${hub.port} is in use by a pair hub with ${sessions}, code ${hub.version}`;
 }
@@ -35,8 +41,9 @@ function codexLine(codex) {
 }
 
 // The checks pair start needs to pass, one line each. A check that fails
-// outright refuses with its error. A busy hub port and a missing Codex rules
-// file each add a next step.
+// outright refuses with its error. A hub port in use by another program or by
+// another state directory's hub, and a missing Codex rules file, each add a
+// next step.
 export async function check() {
   const codex = await codexReport();
   let directory;
@@ -68,6 +75,11 @@ export async function check() {
       ...(hub.state === "busy"
         ? [
             `Set PAIR_HUB_PORT to a free port, because another program uses port ${hub.port}.`,
+          ]
+        : []),
+      ...(hub.state === "other-hub"
+        ? [
+            `Set PAIR_HUB_PORT to a free port, because another state directory's hub uses port ${hub.port}.`,
           ]
         : []),
       ...(codex && !codex.exists

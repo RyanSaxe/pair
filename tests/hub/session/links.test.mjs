@@ -197,7 +197,7 @@ test("a status from a linked session goes to the parent's card", async (t) => {
   const written = await child.action("propose", {
     id: "deck",
     statusDone: ["Outline"],
-    statusLeft: ["Slides"],
+    statusLeft: ["Outline", "Slides"],
   });
   assert.equal(written.code, 200, written.body.error);
   assert.deepEqual(written.body.parent, { id: a.id, title: "Example work" });

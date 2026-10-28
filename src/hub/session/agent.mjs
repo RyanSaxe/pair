@@ -52,11 +52,14 @@ export function agent(session) {
     if (!session.state.current)
       return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
     if (session.state.openRound) {
-      const left = session.state.openRound.pages
-        .filter((slot) => !slot.recordPath)
-        .map((slot) =>
-          slot.state === "active" ? `${slot.id} (started)` : slot.id,
-        );
+      const slots = session.state.openRound.pages.filter(
+        (slot) => !slot.recordPath,
+      );
+      if (!slots.some((slot) => slot.state === "active"))
+        return `You still have to publish these pages: ${slots.map((slot) => slot.id).join(", ")}. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`;
+      const left = slots.map((slot) =>
+        slot.state === "active" ? `${slot.id} (started)` : slot.id,
+      );
       return `You still have to publish these pages: ${left.join(", ")}. When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
     }
     if (session.state.stage === "working")
@@ -353,7 +356,8 @@ export function agent(session) {
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
   // other registration, such as a command reattaching to a new hub, changes
-  // nothing when it comes from an agent other than the holder. A start that
+  // nothing when it comes from an agent other than the holder, and leaves a
+  // paused session paused, because only pair start resumes one. A start that
   // creates the session names it with its title and answers with the start
   // moment, and any other start answers with the session's next step.
   async function hold(target, options = {}) {
@@ -372,7 +376,7 @@ export function agent(session) {
     session.wake = target;
     const patch = {
       wake: { harness: target.harness, last: session.state.wake?.last || null },
-      paused: null,
+      ...(start ? { paused: null } : {}),
       // The first Agreed's title replaces the one pair start gave.
       ...(created && title ? { title } : {}),
     };
@@ -406,11 +410,17 @@ export function agent(session) {
       };
     const next = start && (await nextStep());
     if (!next) return {};
-    // An agent that takes the session over may never have read the core.
+    if (same) return { next };
+    // An agent that takes the session over may never have read the core,
+    // and has not read the feedback that an open round answers, which the
+    // previous holder read before it published the round's Agreed.
+    const answered =
+      session.state.openRound && session.state.latestSubmissionId;
+    const feedback = answered
+      ? ` This round answers the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
+      : "";
     return {
-      next: same
-        ? next
-        : `If you have not run pair guide in this conversation, run it first. ${next}`,
+      next: `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`,
     };
   }
   return {

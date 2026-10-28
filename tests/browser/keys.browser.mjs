@@ -13,7 +13,10 @@ const controls = {
   <p class="answer-text" hidden></p>
   <div class="answer-actions"><button type="button" class="btn primary" data-answer disabled>Answer</button><button type="button" class="btn" data-edit hidden>Edit</button></div>
 </section>
-<section id="second-block"><h3>Another block</h3><p>This block follows the question.</p></section>`,
+<section id="second-block"><h3>Another block</h3><p>This block follows the question.</p></section>
+<div class="scope-list" data-multiselect="scope" data-label="Scope">
+  <label class="scope-row"><span><strong>Metrics</strong></span><input type="checkbox" class="scope-check" data-value="metrics" data-label="Metrics" /></label>
+</div>`,
 };
 const quote = "Selected words give the note a passage to quote.";
 
@@ -118,6 +121,13 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
 
   await page.keyboard.press("]");
   await page.getByRole("heading", { name: "Page with controls" }).waitFor();
+  // A ticked checkbox keeps focus and takes no typed keys, so the keys act.
+  const metrics = page.getByRole("checkbox", { name: "Metrics" });
+  await metrics.check();
+  assert.equal(
+    await metrics.evaluate((box) => box === document.activeElement),
+    true,
+  );
   await page.keyboard.press("[");
   await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
   await page.locator('#page-list [data-page="controls"]').click();

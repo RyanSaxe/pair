@@ -13,6 +13,13 @@ export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
 // report on it.
 const LATE = 300000;
 
+// Once five minutes pass with no report from the agent, the Pages heading
+// and the progress card say how long it has been, in the same words.
+function silence(report, now) {
+  const ms = now - Date.parse(report?.at);
+  return ms >= LATE ? `No report for ${Math.floor(ms / 60000)} min` : null;
+}
+
 // The agent stops working on its pages while it is paused, or after the
 // hub could not wake it.
 export function agentStopped(remote) {
@@ -92,6 +99,17 @@ export function activityModel({
       : [];
   const ready = slots.filter((item) => item.state === "ready").length;
   const finished = slots.length > 0 && ready === slots.length;
+  // Between pages, after Agreed or a page publishes and before the agent
+  // starts the next, no row is at work, so the card shows the agent's
+  // reports instead: a sweep over the unstarted segments, which stops when
+  // the reports stop.
+  const between =
+    slots.length > 0 &&
+    !finished &&
+    !stopped &&
+    !inFlight &&
+    !slots.some((item) => item.state === "active");
+  const quiet = between ? silence(remote?.report, now) : null;
   // A session with nothing published shows its home view, where the agent
   // prepares the first round.
   const home = Boolean(remote) && !remote.current;
@@ -154,6 +172,14 @@ export function activityModel({
       ]
         .filter(Boolean)
         .join(" · ");
+  // Between pages without a round note, the summary ends with when the
+  // agent last reported, or how long it has been quiet.
+  const reportLine =
+    between && !note && remote?.report?.at
+      ? quiet
+        ? { text: quiet, late: true }
+        : { text: `Last report ${ago(remote.report.at, now)}`, late: false }
+      : null;
   // Until the page list exists, the bar is one track that moves while the
   // agent works on the feedback or on the first round.
   const track = slots.length
@@ -161,7 +187,19 @@ export function activityModel({
     : inFlight || ((received || home) && !stopped)
       ? "moving"
       : "still";
-  return { slots, ready, failed, stopped, title, summary, note, track };
+  const sweep = between && !quiet;
+  return {
+    slots,
+    ready,
+    failed,
+    stopped,
+    title,
+    summary,
+    note,
+    reportLine,
+    track,
+    sweep,
+  };
 }
 
 // Outside a round that a send started, the card still tells the reviewer
@@ -186,8 +224,8 @@ export function roundModel({ remote, now = Date.now() }) {
   const ready = 1 + round.pages.filter((item) => item.state === "ready").length;
   if (ready === total) return null;
   if (remote.paused) return { text: "Agent paused", late: true };
-  const minutes = Math.floor((now - Date.parse(remote.report?.at)) / 60000);
-  if (minutes >= 5) return { text: `No report for ${minutes} min`, late: true };
+  const quiet = silence(remote.report, now);
+  if (quiet) return { text: quiet, late: true };
   return { text: `${ready} of ${total} ready`, late: false };
 }
 

@@ -177,6 +177,26 @@ test("page JavaScript may read the frame's root elements but not change them", a
   );
 });
 
+// The frame imports the script as a module and calls the setup it exports,
+// so a script that does not parse would leave the page with no behavior.
+test("page JavaScript must parse and export setup, and the build never runs it", async () => {
+  await assert.rejects(
+    pageSource({
+      jsText: "export function setup(root) {\n  const x = ;\n}",
+    }),
+    /page\.js line 2 does not parse: SyntaxError: Unexpected token ';'$/,
+  );
+  for (const jsText of [
+    "throw new Error('ran');\nexport const setup = (root) => {};",
+    "function setup(root) {}\nexport { setup };",
+  ])
+    await assert.doesNotReject(pageSource({ jsText }), jsText);
+  await assert.rejects(
+    pageSource({ jsText: "// export function setup(root) {}\nlet a = 1;" }),
+    /Page JavaScript must export setup\(root, planUI\)/,
+  );
+});
+
 const page = (html, extra = {}) => ({
   ...data,
   pages: [{ id: "p", title: "P", html }],
@@ -189,22 +209,22 @@ const decision = (options) =>
 const option = (value = "a") =>
   `<button data-value="${value}" data-label="${value}">${value}</button>`;
 
-const refused = (plan, message) =>
-  assert.rejects(assemble(plan), (error) => {
-    assert.match(error.message, message);
-    return true;
-  });
+// pair build refuses what problems() lists.
+const refused = async (plan, message) =>
+  assert.match(problems(plan).join("\n"), message);
 
-test("an option label of exactly 24 characters is accepted", async () => {
+test("an option label of exactly 24 characters is accepted", () => {
   const long = "x".repeat(24);
-  const html = await assemble(
-    page(
-      decision(
-        `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
+  assert.deepEqual(
+    problems(
+      page(
+        decision(
+          `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
+        ),
       ),
     ),
+    [],
   );
-  assert.match(html, /x{24}/);
 });
 
 // The rule is "no h1", not "no repeated words".
@@ -212,13 +232,15 @@ test("a page may repeat its title in a lower heading", async () => {
   await assert.doesNotReject(assemble(page("<h2>P</h2><p>x</p>")));
 });
 
-test("a group's label is not held to the option limit", async () => {
-  const html = await assemble(
-    page(
-      `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+test("a group's label is not held to the option limit", () => {
+  assert.deepEqual(
+    problems(
+      page(
+        `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+      ),
     ),
+    [],
   );
-  assert.match(html, /y{60}/);
 });
 
 test("the build refuses each structural problem and names it", async () => {
@@ -242,6 +264,15 @@ test("the build refuses each structural problem and names it", async () => {
     ),
     /^page "p": option label "x{25}" is 25 characters, over 24$/m,
   );
+  // A ">" inside a quoted value does not end the tag.
+  await refused(
+    page(
+      decision(
+        `<button data-value="a" data-label="Retry -> ${"x".repeat(16)}">a</button>${option("b")}`,
+      ),
+    ),
+    /^page "p": option label "Retry -> x{16}" is 25 characters, over 24$/m,
+  );
   await refused(
     page("<h1>P</h1><p>x</p>"),
     /^page "p": remove the h1, because the frame shows the page title as the page's only h1\. Start headings at h2\.$/m,
@@ -253,6 +284,10 @@ test("the build refuses each structural problem and names it", async () => {
   await refused(
     page(decision(option())),
     /^page "p": decision "d" has 1 option\. Give it at least two\.$/m,
+  );
+  await refused(
+    page(decision(option() + option())),
+    /^page "p": options in "d" share data-value "a"\. Give each option in a group its own data-value\.$/m,
   );
   await refused(
     page(`<section data-question="q" data-label="Q"><h3>?</h3></section>`),
@@ -294,7 +329,7 @@ test("the build refuses each structural problem and names it", async () => {
   );
   await refused(
     page(`<a href="#nope">x</a>`),
-    /^page "p": link "#nope" names no page$/m,
+    /^page "p": link "#nope" names no page of the round and no element on this page\. The round's pages are agreed and p\.$/m,
   );
   await refused(
     page(`<div data-prototype="ghost"></div>`),
@@ -309,6 +344,16 @@ test("the build refuses each structural problem and names it", async () => {
       ),
     );
   await refused(
+    page(
+      `<p>x</p>\n<pre data-language="ts" data-file="a.ts">\nfirst<T>(items)\nok\nif (a</b) {}\n</pre>`,
+    ),
+    /^page "p": the ts code block "a\.ts" has a < that the browser reads as a tag on lines 3 and 5 of the page's HTML, first at "<T>\(items\)"\. Write &lt; for each < in a code block or a diagram\.$/m,
+  );
+  await refused(
+    page(`<div data-diagram>flowchart LR\n  A["x<br/>y"]</div>`),
+    /^page "p": the diagram has a < that the browser reads as a tag on line 2 of the page's HTML, first at "<br\/>y"\]"\. Write &lt; for each < in a code block or a diagram\.$/m,
+  );
+  await refused(
     page(`<pre data-language="ts" data-lines="611-621">\na\nb\n</pre>`),
     /^page "p": data-lines "611-621" names line 621, and the block has 2 lines\. Count from the block's first line, and put the file's line numbers in data-caption\.$/m,
   );
@@ -319,10 +364,10 @@ test("the build refuses each structural problem and names it", async () => {
 test("a link names no page unless an id equals its fragment", () => {
   assert.deepEqual(
     problems(page('<a href="#x(">x</a><a href="#a.b">y</a><i id="aXb"></i>')),
-    [
-      'page "p": link "#x(" names no page',
-      'page "p": link "#a.b" names no page',
-    ],
+    ["#x(", "#a.b"].map(
+      (link) =>
+        `page "p": link "${link}" names no page of the round and no element on this page. The round's pages are agreed and p.`,
+    ),
   );
 });
 
@@ -331,12 +376,13 @@ test("a checklist box is refused for the checked attribute, not for the word in 
     page(
       `<fieldset data-multiselect="s" data-label="S"><label>${input} A</label></fieldset>`,
     );
-  await assert.doesNotReject(
-    assemble(
+  assert.deepEqual(
+    problems(
       checklist(
         '<input type="checkbox" data-value="a" data-label="Types checked by tsc">',
       ),
     ),
+    [],
   );
   await refused(
     checklist('<input type="checkbox" data-value="a" data-label="A" checked>'),
@@ -344,13 +390,34 @@ test("a checklist box is refused for the checked attribute, not for the word in 
   );
 });
 
-test("well-formed controls, anchors and blocks pass", async () => {
-  const html = await assemble(
+// The frame finds an option's group with closest(), and the browser shows
+// nothing inside a comment.
+test("an option counts for the nearest control around it, and a commented control is not one", () => {
+  assert.deepEqual(
+    problems(
+      page(
+        `<section data-choice="vd" data-label="V">` +
+          `<article data-value="one" data-label="One">${decision(option() + option("b"))}</article>` +
+          `<article data-value="two" data-label="Two">t</article></section>`,
+      ),
+    ),
+    [],
+  );
+  assert.deepEqual(
+    problems(page(`<p>x</p><!-- ${decision(option())} -->`)),
+    [],
+  );
+});
+
+test("well-formed controls, anchors and blocks pass", () => {
+  const found = problems(
     page(
       decision(option() + option("b")) +
+        `<section data-choice="arrow" data-label="Retry -> fail">${option()}${option("b")}</section>` +
         `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
         `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
         `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +
+        `<pre data-language="ts">f&lt;T&gt;(a < b, a<=b, a <- b, 1<2)</pre>` +
         `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
         `<div data-prototype="demo"></div>` +
         `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>`,
@@ -361,7 +428,7 @@ test("well-formed controls, anchors and blocks pass", async () => {
       },
     ),
   );
-  assert.match(html, /id="plan-data"/);
+  assert.deepEqual(found, []);
 });
 
 test("an Agreed page opens with a task, and the plan data carries it", async () => {
@@ -393,9 +460,9 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
 test("a page source builds a standalone preview", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  // The frame draws the page title, so the page's own heading is an h2.
-  const content =
-    '<h2>Interface</h2><pre data-language="text">literal </script> and $&</pre>';
+  // The frame draws the page title, so the page's own heading is an h2. The
+  // raw </script> must not end the script that carries the page's data.
+  const content = "<h2>Interface</h2><p>literal </script> and $&</p>";
   await fs.writeFile(path.join(directory, "interface.html"), content);
   await fs.writeFile(
     path.join(directory, "custom.css"),
@@ -447,6 +514,69 @@ test("a page source builds a standalone preview", async (t) => {
   await exec(process.execPath, [link, "build", source, linked]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
   await assert.rejects(exec(process.execPath, [link, "build"]), { code: 1 });
+});
+
+// A browser decodes &lt;, &gt; and &amp; in a textarea, so the built
+// textarea, decoded, is the file's text only if the build escaped it.
+test("a diff input that names its JSON file builds with the file's exact text, and a missing or malformed file is refused", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const before = "<p>Fish &amp; chips &lt;3</p>\n";
+  const after = "<p>Fish & chips</p>\n</textarea>\n";
+  const text = `${JSON.stringify(
+    {
+      before,
+      after,
+      patch:
+        "--- a/fish.html\n+++ b/fish.html\n@@ -1 +1,2 @@\n-<p>Fish &amp; chips &lt;3</p>\n+<p>Fish & chips</p>\n+</textarea>\n",
+    },
+    null,
+    2,
+  )}\n`;
+  await fs.writeFile(path.join(directory, "fish.json"), text);
+  await fs.writeFile(path.join(directory, "bad.json"), '{"before":"a"}');
+  const withDiffs = (html) =>
+    buildPage(path.join(directory, "page.json"), {
+      name: "t",
+      round: "1",
+      title: "T",
+      page: { id: "p", title: "P", html },
+    });
+  const pasted = '{"before":"a","after":"b","patch":""}';
+  const built = pageData(
+    await withDiffs(
+      `<textarea data-diff-input="fish.json" hidden></textarea>` +
+        `<textarea data-diff-input hidden>${pasted}</textarea>`,
+    ),
+  ).page.html.match(
+    /^<textarea data-diff-input="fish\.json" hidden>([^<]*)<\/textarea><textarea data-diff-input hidden>([^<]*)<\/textarea>$/,
+  );
+  assert.ok(built, "the textareas are not as written");
+  const decoded = built[1].replace(
+    /&(lt|gt|amp);/g,
+    (entity, name) => ({ lt: "<", gt: ">", amp: "&" })[name],
+  );
+  assert.equal(decoded, text);
+  assert.equal(built[2], pasted);
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="none.json"></textarea>`),
+    {
+      message: `data-diff-input names none.json, and ${path.join(directory, "none.json")} cannot be read. Write it with pair diff BEFORE AFTER ${path.join(directory, "none.json")}`,
+    },
+  );
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="bad.json"></textarea>`),
+    {
+      message: `data-diff-input names bad.json, and ${path.join(directory, "bad.json")} is not JSON with before, after and patch strings. Name a file that pair diff BEFORE AFTER OUT.json wrote`,
+    },
+  );
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="fish.json">${pasted}</textarea>`),
+    {
+      message:
+        "data-diff-input names fish.json, and the textarea is not empty. Leave it empty.",
+    },
+  );
 });
 
 test("an error from pair build starts with pair:", async () => {

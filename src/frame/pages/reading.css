@@ -31,6 +31,18 @@
 #page-content li {
   font-size: var(--text-body);
 }
+/* A long path, URL or identifier breaks inside the column rather than
+   scrolling the page sideways. A table and a code block keep their lines
+   whole and scroll inside their own box instead. */
+#page-title,
+#page-content
+  :is(p, li, dt, dd, blockquote, h1, h2, h3, h4, h5, h6):not(:is(td, th) *) {
+  overflow-wrap: anywhere;
+}
+#page-content table {
+  display: block;
+  overflow-x: auto;
+}
 .page-footer {
   display: flex;
   justify-content: space-between;

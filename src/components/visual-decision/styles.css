@@ -99,27 +99,27 @@
 .visual-option > figure [data-diagram] {
   padding: 10px;
 }
-/* The strip shares its width rather than scrolling: a box that scrolls on
-   one axis is given a scrollbar on the other, which put a stray pixel of
+/* Each tab shows its whole label, and a strip too narrow for every label
+   scrolls sideways. It never scrolls up and down: a box that scrolls on one
+   axis is given a scrollbar on the other, which put a stray pixel of
    vertical scrolling on every decision. */
 .vd-tablist {
   display: flex;
   gap: 2px;
   padding: 0 12px;
   border-bottom: 1px solid var(--line);
-  overflow: hidden;
+  overflow: auto hidden;
+  scrollbar-width: thin;
 }
 /* The underline is painted inside the button rather than hung a pixel below
    it, so the strip has nothing to overflow. */
 .vd-tablist button {
-  min-width: 0;
+  flex: none;
   padding: 8px 10px;
   box-shadow: inset 0 -2px 0 transparent;
   font-size: var(--text-ui);
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .vd-tablist button[aria-selected="true"] {
   color: var(--ink);

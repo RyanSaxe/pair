@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
 import { assemble } from "../../src/build/assemble.mjs";
+import { buildPage } from "../../src/cli/build.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
+import { root, waitUntil } from "../support/hub.mjs";
 
 // Each figure's source element and what the frame draws into it. A diff
 // draws into the .change-view beside its input, in the same .change-review.
@@ -131,6 +137,9 @@ test("a malformed diagram preserves its source without hiding another diagram or
   await page.locator("#bad + .renderer-error:visible").waitFor();
   await page.locator("#good svg").waitFor();
   assert.equal(await page.locator("#bad").textContent(), source);
+  // The message quotes the source line with a caret under the column, which
+  // reads only with its line breaks.
+  assert.match(await page.locator("#bad + .renderer-error").innerText(), /\n/);
   assert.equal(await page.locator("#readable").isVisible(), true);
   assert.equal(await page.locator("#bad .pele-error, body > svg").count(), 0);
 });
@@ -203,4 +212,94 @@ test("a complex diagram opens at readable size and scrolls within its modal on d
     );
     await page.close();
   }
+});
+
+// The diff library loads from esm.sh, so this test runs with the figures.
+test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's choice over data-wrap, and keeps split rows level", async (t) => {
+  const prose = (end) =>
+    `The client retries a failed charge with a delay between attempts, logs each attempt with its request ID, and ${end}.`.repeat(
+      4,
+    );
+  const [before, after] = [prose("gives up"), prose("returns the last error")];
+  const input = {
+    before: `# Retry\n\n${before}\n`,
+    after: `# Retry\n\n${after}\n`,
+    patch: `diff --git a/retry.md b/retry.md\n--- a/retry.md\n+++ b/retry.md\n@@ -1,3 +1,3 @@\n # Retry\n \n-${before}\n+${after}\n`,
+  };
+  const [markup] = (
+    await fs.readFile(`${root}/src/components/before-after/markup.html`, "utf8")
+  ).split("<!-- For diagrams");
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-diff-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  await fs.writeFile(path.join(directory, "retry.json"), JSON.stringify(input));
+  const diff = (attributes) =>
+    markup
+      .replace('data-kind="diff"', `data-kind="diff" ${attributes}`)
+      .replace('"OUTPUT.json"', '"retry.json"');
+  const html = await buildPage(path.join(directory, "page.json"), {
+    name: "diff-wrap",
+    round: "1",
+    title: "Diff wrap",
+    page: {
+      id: "overview",
+      title: "Overview",
+      html: diff('id="scroll"') + diff('id="wrap" data-wrap'),
+    },
+  });
+  const page = await open(t, "http://pair.localhost/#overview", {
+    html,
+    viewport: { width: 1280, height: 900 },
+  });
+  if (!page) return;
+  // What the diff draws and what Wrap shows, read again until it matches or
+  // 30 seconds pass, so a failure names what the diff shows.
+  const wrapping = (id) =>
+    page.locator(`#${id}`).evaluate((section) => ({
+      overflow: section
+        .querySelector("diffs-container")
+        ?.shadowRoot?.querySelector("pre")?.dataset.overflow,
+      pressed: section
+        .querySelector("[data-diff-wrap]")
+        .getAttribute("aria-pressed"),
+    }));
+  const shows = async (id, overflow) => {
+    const expected = { overflow, pressed: String(overflow === "wrap") };
+    await waitUntil(
+      async () => isDeepStrictEqual(await wrapping(id), expected),
+      30_000,
+    );
+    assert.deepEqual(await wrapping(id), expected, `#${id}`);
+  };
+  await shows("scroll", "scroll");
+  await shows("wrap", "wrap");
+  await page.locator("#scroll [data-diff-wrap]").click();
+  await page.locator("#wrap [data-diff-wrap]").click();
+  await shows("scroll", "wrap");
+  await shows("wrap", "scroll");
+  await page.reload();
+  await shows("scroll", "wrap");
+  await shows("wrap", "scroll");
+  // Side by side, each row of the before side and the row beside it on the
+  // proposed side share a top and a height, wrapped or not.
+  await page.locator("#scroll [data-diff-style=split]").click();
+  await page
+    .locator("#scroll diffs-container")
+    .locator("pre[data-diff-type=split]")
+    .waitFor();
+  const rows = await page.locator("#scroll diffs-container").evaluate((box) =>
+    ["deletions", "additions"].map((side) =>
+      [
+        ...box.shadowRoot.querySelector(`code[data-${side}] [data-content]`)
+          .children,
+      ].map((row) => {
+        const { top, height } = row.getBoundingClientRect();
+        return { top, height };
+      }),
+    ),
+  );
+  assert.ok(
+    rows[0].some(({ height }) => height > 22),
+    "no row wrapped onto a second line",
+  );
+  assert.deepEqual(rows[1], rows[0]);
 });

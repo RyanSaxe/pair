@@ -4,11 +4,11 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { exists, pairCli } from "../support/hub.mjs";
+import { exists, hub, pairCli } from "../support/hub.mjs";
 
 // The server otherHub starts answers /api/hub with every field of pair's
-// reply except app, as the interactive-plan hub and older pair hubs do. It
-// records the requests it receives.
+// reply except app and stateDir, as the interactive-plan hub and older pair
+// hubs do. It records the requests it receives.
 async function otherHub(t) {
   const requests = [];
   const server = http.createServer((request, response) => {
@@ -54,6 +54,45 @@ test("start refuses another program's hub at once and creates no session, and ch
   assert.equal(await exists(config.sessions), false);
   assert(!other.requests.includes("POST /agent/register"));
   assert.equal(JSON.parse(await run("check", "--json")).hub.state, "busy");
+});
+
+// A hub with no record in this state directory waits only while it may be
+// this state directory's hub loading its sessions.
+test("start refuses another state directory's hub at once and creates no session, and check does not pass", async (t) => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-foreign-hub-"));
+  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const other = await hub(t);
+  const { port, pid } = other.record;
+  const { config, run, start } = await pairCli(home, {
+    PAIR_HUB_PORT: String(port),
+  });
+  const started = Date.now();
+  await assert.rejects(start(), ({ stderr }) => {
+    assert.equal(
+      stderr,
+      `pair: A pair hub that this state directory has no record of (pid ${pid}) is using port ${port}. Set PAIR_HUB_PORT to a free port and run the command again.\n`,
+    );
+    return true;
+  });
+  assert(Date.now() - started < 10_000, "start waited for the other hub");
+  assert.equal(await exists(config.sessions), false);
+  assert.deepEqual(await fs.readdir(other.config.sessions), []);
+  const checked = await run("check");
+  assert.match(
+    checked,
+    new RegExp(
+      `^Next: Set PAIR_HUB_PORT to a free port, because another state directory's hub uses port ${port}\\.$`,
+      "m",
+    ),
+  );
+  assert.match(
+    checked,
+    new RegExp(
+      `port ${port} is in use by a pair hub that this state directory has no record of \\(pid ${pid}\\)$`,
+      "m",
+    ),
+  );
+  assert.doesNotMatch(checked, /Every check passed/);
 });
 
 // A hub whose code predates app in the reply is still pair's, so a pair
