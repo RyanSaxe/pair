@@ -364,7 +364,7 @@ test("pair propose prints a status's count and what is left, and pair status pri
   );
   const status = (...parts) => run("propose", "--id", "deck", ...parts);
   const started = await status(
-    ...["--status-done", "Outline"],
+    ...["--status-done", "Outline", "--status-left", "Outline"],
     ...["--status-left", "Slides", "--status-left", "Speaker notes"],
   );
   assert(
@@ -400,7 +400,7 @@ test("pair propose prints a status's count and what is left, and pair status pri
   assert.equal(
     await cli.run(
       ...["propose", "--session-dir", child.directory, "--id", "notes"],
-      ...["--status-done", "Draft"],
+      ...["--status-left", "Draft", "--status-done", "Draft"],
     ),
     "Proposal notes in session \"Example work\": approved to run in a sub-session, 1 of 1 parts done.\nNothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.\n",
   );

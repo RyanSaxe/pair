@@ -445,9 +445,9 @@ test("--done marks work approved to run here done, --where marks any card done, 
 });
 
 // A status keeps one list of the parts of approved work, in the order the
-// agent added them. --status-left adds a part, --status-done marks one done
-// or adds it as done, and --status-drop marks a part the card lists
-// dropped. No flag removes a part, a status that changes no part leaves
+// agent added them. --status-left adds a part, and --status-done and
+// --status-drop mark a part the card lists done or dropped, so a mistyped
+// part is refused instead of added. No flag removes a part, a status that changes no part leaves
 // status.at as it was, and none adds to the bell. The hub refuses a status
 // for work nobody started or that is finished, and --reopen clears it.
 test("a status adds and marks the parts of approved work and never removes one", async (t) => {
@@ -467,6 +467,14 @@ test("a status adds and marks the parts of approved work and never removes one",
   const events = async () =>
     (await a.request("/api/sessions")).body.sessions[0].events.length;
   const before = await events();
+  const addFirst =
+    "To record a finished part it does not list, add it with --status-left";
+  const unlisted = await status({ statusDone: ["Export"] });
+  assert.equal(unlisted.code, 400);
+  assert.equal(
+    unlisted.body.error,
+    `Proposal churn-export has no parts yet, so it has no part "Export" to mark done. ${addFirst} "Export", then run --status-done "Export".`,
+  );
   const parts = async () =>
     (await cards())[0].status.parts.map(({ text, state }) => [text, state]);
   const changed = async (change) => {
@@ -475,10 +483,15 @@ test("a status adds and marks the parts of approved work and never removes one",
     return written.body.proposal.status;
   };
 
-  // The done parts of one call come before its left parts.
+  // One call adds its left parts before it marks any part, so it can add
+  // a part and mark it done.
   const first = await changed({
     statusDone: [" Read the September schema "],
-    statusLeft: ["Map the columns", "Write the export"],
+    statusLeft: [
+      "Read the September schema",
+      "Map the columns",
+      "Write the export",
+    ],
   });
   assert.deepEqual(first.parts, [
     { text: "Read the September schema", state: "done" },
@@ -497,7 +510,7 @@ test("a status adds and marks the parts of approved work and never removes one",
   await sleep(5);
   const mixed = await changed({
     statusDone: ["Map the columns", "Check the totals"],
-    statusLeft: ["Email the team"],
+    statusLeft: ["Check the totals", "Email the team"],
     statusDrop: ["Write the export"],
   });
   assert(mixed.at > first.at, "a change to the parts moves status.at");
@@ -523,6 +536,10 @@ test("a status adds and marks the parts of approved work and never removes one",
     [
       { statusDone: ["Email the team"], statusDrop: ["Send the export"] },
       'Proposal churn-export has no part "Send the export" to drop. Its parts are "Read the September schema", "Map the columns", "Write the export", "Check the totals", "Email the team".',
+    ],
+    [
+      { statusDone: ["Email teh team"] },
+      `Proposal churn-export has no part "Email teh team" to mark done. Its parts are "Read the September schema", "Map the columns", "Write the export", "Check the totals" and "Email the team". ${addFirst} "Email teh team", then run --status-done "Email teh team".`,
     ],
     [
       { statusLeft: sixteen },

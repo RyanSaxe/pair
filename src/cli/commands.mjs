@@ -226,7 +226,7 @@ export const commands = {
       "status-done": {
         value: "TEXT",
         repeats: true,
-        text: "A part of the approved work that you have finished, in at most 80 characters. The hub marks the part with that text done, or adds it as done when the proposal does not list it. Give one flag for each part. Each flag changes only the part it names.",
+        text: "A part of the approved work that you have finished, in at most 80 characters. The hub marks the part with that text done, and refuses text that matches none of the proposal's parts. Give one flag for each part. Each flag changes only the part it names.",
       },
       "status-left": {
         value: "TEXT",
