@@ -141,6 +141,12 @@ export function drawActivity(running) {
     age.classList.toggle("late", model.note.late);
     $("activity-summary").append(" · ", age);
   }
+  if (model.reportLine) {
+    const line = document.createElement("span");
+    line.textContent = model.reportLine.text;
+    line.classList.toggle("late", model.reportLine.late);
+    $("activity-summary").append(" · ", line);
+  }
   const round = remote?.openRound?.round || remote?.current?.round;
   // A row rebuilds when a page's state changes or its first note arrives,
   // never on a later note, so the list does not redraw on every report.
@@ -148,6 +154,7 @@ export function drawActivity(running) {
     stopped,
     model.failed,
     model.track,
+    model.sweep,
     round,
     slots.map(({ id, title, state, note }) => [
       id,
@@ -170,6 +177,10 @@ export function drawActivity(running) {
       track.className = `track ${model.track}`;
       segments.append(track);
     }
+    // The sweep spans the unstarted segments, which each place it by their
+    // index among them.
+    const unstarted = slots.filter((slot) => slot.state !== "ready").length;
+    let index = 0;
     for (const slot of slots) {
       const item = document.createElement("i");
       item.className =
@@ -177,7 +188,13 @@ export function drawActivity(running) {
           ? "done"
           : slot.state === "active" && !stopped
             ? "now"
-            : "";
+            : model.sweep
+              ? "sweep"
+              : "";
+      if (item.className === "sweep") {
+        item.style.setProperty("--index", index++);
+        item.style.setProperty("--count", unstarted);
+      }
       segments.append(item);
       rows.append(...drawRow(slot, stopped, `${round}:page:${slot.id}`));
     }

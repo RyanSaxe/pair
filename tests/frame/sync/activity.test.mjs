@@ -155,6 +155,65 @@ test("a note without --page shows under the card's title before and after Agreed
   assert.equal(sent.note, null);
 });
 
+test("between pages, the unstarted segments sweep and the summary says when the agent last reported, until five minutes pass", () => {
+  // Agreed is published and no page has started.
+  const between = (report, extra = {}) =>
+    run({
+      current: { round: "2" },
+      ...read,
+      openRound: {
+        round: "2",
+        pages: [
+          { id: "loop", title: "Loop", state: "queued" },
+          { id: "steps", title: "Steps", state: "queued" },
+        ],
+      },
+      report,
+      ...extra,
+    });
+  const fresh = between({ at: "2026-01-01T00:08:00Z", note: null });
+  assert.equal(fresh.summary, "1 of 3 pages ready");
+  assert.deepEqual(fresh.reportLine, {
+    text: "Last report 2 min ago",
+    late: false,
+  });
+  assert.equal(fresh.sweep, true);
+  const quiet = between({ at: "2026-01-01T00:04:00Z", note: null });
+  assert.deepEqual(quiet.reportLine, {
+    text: "No report for 6 min",
+    late: true,
+  });
+  assert.equal(quiet.sweep, false);
+  // The round's own note keeps its place, with its age.
+  const noted = between({
+    at: "2026-01-01T00:09:00Z",
+    note: "Reading the hub",
+    noteAt: "2026-01-01T00:09:00Z",
+  });
+  assert.equal(noted.reportLine, null);
+  assert.equal(noted.note.text, "Reading the hub");
+  assert.equal(noted.sweep, true);
+  // A paused agent's card names the pause instead.
+  const paused = between(
+    { at: "2026-01-01T00:09:00Z", note: null },
+    { paused: { reason: "Wait" } },
+  );
+  assert.equal(paused.reportLine, null);
+  assert.equal(paused.sweep, false);
+  // Once a page starts, its row reports for the agent.
+  const started = run({
+    current: { round: "2" },
+    ...read,
+    openRound: {
+      round: "2",
+      pages: [{ id: "loop", title: "Loop", state: "active" }],
+    },
+    report: { at: "2026-01-01T00:09:00Z", note: null },
+  });
+  assert.equal(started.reportLine, null);
+  assert.equal(started.sweep, false);
+});
+
 test("a session with nothing published prepares its first round, with the note in place of where the pages appear", () => {
   // The home view has no page set and no submitted round.
   const first = (report) =>

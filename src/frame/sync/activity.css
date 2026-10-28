@@ -25,8 +25,9 @@
   margin: 3px 0 11px;
 }
 .activity-segments {
+  --gap: 4px;
   display: flex;
-  gap: 4px;
+  gap: var(--gap);
   margin-bottom: 10px;
 }
 .activity-segments i {
@@ -69,6 +70,22 @@
   to {
     transform: translateX(340%);
   }
+}
+/* Between pages the same slider crosses the unstarted segments. Each one
+   draws its part of a slider sized and placed for all of them together, so
+   the gaps between them stay clear. */
+.activity-segments i.sweep {
+  position: relative;
+  overflow: hidden;
+}
+.activity-segments i.sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 calc(var(--index) * (-100% - var(--gap)));
+  width: calc((var(--count) * (100% + var(--gap)) - var(--gap)) * 0.3);
+  border-radius: 4px;
+  background: var(--accent);
+  animation: track-slide 1.8s ease-in-out infinite;
 }
 .activity-page {
   padding: 3px 0;
@@ -145,7 +162,8 @@ button.activity-page[aria-expanded="true"] small::after {
   .activity-segments i.now {
     animation: none;
   }
-  .activity-segments i.track.moving::after {
+  .activity-segments i.track.moving::after,
+  .activity-segments i.sweep::after {
     animation: none;
     opacity: 0.5;
   }
