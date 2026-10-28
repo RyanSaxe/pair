@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { lineRanges } from "../shared/lines.mjs";
 
@@ -317,5 +318,25 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
     const hit = line.match(mutation);
     if (hit) list.push(`page.js line ${index + 1} restyles document.${hit[1]}`);
   });
+  if (js) list.push(...syntaxProblems(js));
   return list;
+}
+/* The frame imports a page's script as a module, and one that does not
+   parse leaves the page with no behavior and an error only in the console.
+   node --check parses the script as a module without running it. */
+function syntaxProblems(js) {
+  try {
+    execFileSync(process.execPath, ["--check", "--input-type=module", "-"], {
+      input: js,
+      stdio: ["pipe", "ignore", "pipe"],
+      timeout: 20_000,
+    });
+    return [];
+  } catch (error) {
+    const output = String(error.stderr || "");
+    const line = output.match(/^\[stdin\]:(\d+)/m)?.[1];
+    const reason = output.match(/^SyntaxError: .*$/m)?.[0];
+    if (!reason) throw error;
+    return [`page.js line ${line} does not parse: ${reason}`];
+  }
 }

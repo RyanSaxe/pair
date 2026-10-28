@@ -177,6 +177,26 @@ test("page JavaScript may read the frame's root elements but not change them", a
   );
 });
 
+// The frame imports the script as a module and calls the setup it exports,
+// so a script that does not parse would leave the page with no behavior.
+test("page JavaScript must parse and export setup, and the build never runs it", async () => {
+  await assert.rejects(
+    pageSource({
+      jsText: "export function setup(root) {\n  const x = ;\n}",
+    }),
+    /page\.js line 2 does not parse: SyntaxError: Unexpected token ';'$/,
+  );
+  for (const jsText of [
+    "throw new Error('ran');\nexport const setup = (root) => {};",
+    "function setup(root) {}\nexport { setup };",
+  ])
+    await assert.doesNotReject(pageSource({ jsText }), jsText);
+  await assert.rejects(
+    pageSource({ jsText: "// export function setup(root) {}\nlet a = 1;" }),
+    /Page JavaScript must export setup\(root, planUI\)/,
+  );
+});
+
 const page = (html, extra = {}) => ({
   ...data,
   pages: [{ id: "p", title: "P", html }],
