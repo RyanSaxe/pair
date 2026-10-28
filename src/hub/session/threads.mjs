@@ -95,15 +95,7 @@ export function threads(session) {
         item && typeof item.id === "string",
         "An attachment needs its image ID",
       );
-      const name = await session.uploadName(item.id);
-      requireValue(name, `Image ${item.id} is not in this session`);
-      const image = await session.readUpload(item.id);
-      images.push({
-        id: item.id,
-        path: path.join(directory, "uploads", name),
-        type: image.type,
-        bytes: image.bytes.length,
-      });
+      images.push(await session.storedImage(item.id));
     }
     return {
       from: "reviewer",

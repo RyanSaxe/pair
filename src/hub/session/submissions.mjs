@@ -127,6 +127,7 @@ export function submissions(session) {
           Array.isArray(note.attachments),
           "A note's attachments must be an array",
         );
+        const images = [];
         for (const item of note.attachments) {
           requireValue(
             item &&
@@ -136,11 +137,9 @@ export function submissions(session) {
               Number.isInteger(item.bytes),
             "An attachment needs id, path, type and bytes",
           );
-          requireValue(
-            await session.uploadName(item.id),
-            `Image ${item.id} is not in this session`,
-          );
+          images.push(await session.storedImage(item.id));
         }
+        note.attachments = images;
       }
     }
     const file = path.join(directory, "feedback", data.id + ".json");
