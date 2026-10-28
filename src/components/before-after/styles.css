@@ -65,6 +65,17 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
+/* The header before the switch had two .btn buttons, and a page source
+   copied from an earlier round still has them. */
+.change-controls .btn {
+  padding: 2px 8px;
+  font-size: var(--text-meta);
+}
+.change-controls .btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 /* The viewer's rows are 22px, the height diffHeight() counts. These sit on
    .change-view, which diffs-container inherits, because Safari applies no
    @scope rule to a shadow host, and pair build puts component styles in
