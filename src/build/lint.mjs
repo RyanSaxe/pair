@@ -22,14 +22,36 @@ function readTag(name, text) {
       );
   return { name: name.toLowerCase(), attributes };
 }
+const code = (tag) =>
+  tag.attributes.has("data-language") || tag.attributes.has("data-diagram");
+// The browser reads no tags inside these.
+const textElements = new Set(["textarea", "script", "style"]);
 /** The page's start and end tags in source order, without the comments,
- * which the browser does not show. An end tag has end set. */
-const pageTags = (html) =>
-  [...html.matchAll(token)]
-    .filter(([, , name]) => name)
-    .map(([, end, name, text]) =>
-      end ? { name: name.toLowerCase(), end: true } : readTag(name, text),
-    );
+ * which the browser does not show. An end tag has end set. A code block, a
+ * diagram, a textarea, a script and a style hold text, so each one's text,
+ * up to its end tag, is its body, and body is the offset where it starts. */
+function pageTags(html) {
+  const lower = html.toLowerCase();
+  const pattern = new RegExp(token.source, "g");
+  const tags = [];
+  for (let match; (match = pattern.exec(html));) {
+    const [, end, name, text] = match;
+    if (!name) continue;
+    if (end) {
+      tags.push({ name: name.toLowerCase(), end: true });
+      continue;
+    }
+    const tag = readTag(name, text);
+    tags.push(tag);
+    if (!code(tag) && !textElements.has(tag.name)) continue;
+    const close = lower.indexOf(`</${tag.name}`, pattern.lastIndex);
+    const to = close < 0 ? html.length : close;
+    tag.at = pattern.lastIndex;
+    tag.body = html.slice(tag.at, to);
+    pattern.lastIndex = to;
+  }
+  return tags;
+}
 const startTags = (html) => pageTags(html).filter((tag) => !tag.end);
 const attribute = (tag, name) => tag.attributes.get(name);
 const controlKinds = [
@@ -64,6 +86,51 @@ const renderedLines = (name, source) =>
     .replace(name.toLowerCase() === "pre" ? /^\n{1,2}/ : /^\n/, "")
     .replace(/\n[ \t]*$/, "")
     .split("\n").length;
+// "a", "a and b", "a, b and c".
+const listing = (items) =>
+  items.length < 2
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+/* The browser reads a "<" before a letter, "/", "!" or "?" as the start of
+   a tag or a comment, and then leaves that text out of the block, or puts
+   the rest of the page inside it. */
+const tagStart = /<[a-zA-Z/!?]/g;
+const lineAt = (html, offset) => html.slice(0, offset).split("\n").length;
+function codeProblems(tag, html, at) {
+  const list = [];
+  const starts = [...tag.body.matchAll(tagStart)].map(({ index }) => index);
+  if (starts.length) {
+    const lines = [
+      ...new Set(starts.map((index) => lineAt(html, tag.at + index))),
+    ];
+    const language = attribute(tag, "data-language");
+    const file = attribute(tag, "data-file");
+    const block = tag.attributes.has("data-diagram")
+      ? "the diagram"
+      : `the ${language ? `${language} ` : ""}code block${file ? ` "${file}"` : ""}`;
+    const sample = tag.body.slice(starts[0]).split("\n")[0].slice(0, 12);
+    list.push(
+      `${at}: ${block} has a < that the browser reads as a tag on line${lines.length === 1 ? "" : "s"} ${listing(lines)} of the page's HTML, first at "${sample}". Write &lt; for each < in a code block or a diagram.`,
+    );
+  }
+  if (!tag.attributes.has("data-lines")) return list;
+  const value = attribute(tag, "data-lines") ?? "";
+  const ranges = lineRanges(value);
+  if (!ranges)
+    return [
+      ...list,
+      `${at}: data-lines "${value}" is not a list of lines. Write lines and ranges counted from 1, such as "7", "3-4" or "3-4, 9".`,
+    ];
+  // Line numbers count from the block's first line, so a line past its end
+  // is usually the file's own line number.
+  const last = Math.max(...ranges.map(([, to]) => to));
+  const count = renderedLines(tag.name, tag.body);
+  if (last > count)
+    list.push(
+      `${at}: data-lines "${value}" names line ${last}, and the block has ${count} line${count === 1 ? "" : "s"}. Count from the block's first line, and put the file's line numbers in data-caption.`,
+    );
+  return list;
+}
 /** A "#" link names a page of the round, Agreed, Feedback, or an element
  * on its own page. */
 export function linkProblems(html, at, targets) {
@@ -149,6 +216,7 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       const prototype = attribute(tag, "data-prototype");
       if (prototype !== undefined && !prototypes.has(prototype))
         list.push(`${at}: prototype "${prototype}" does not exist`);
+      if (code(tag)) list.push(...codeProblems(tag, html, at));
     }
     if (!allowUnknownPages) list.push(...linkProblems(html, at, targets));
     // An option belongs to the nearest control around it, which is the one
@@ -238,27 +306,6 @@ export function problems(data, js = "", { allowUnknownPages = false } = {}) {
       )
         list.push(
           `${at}: a diff input is not JSON with before, after and patch`,
-        );
-    }
-    for (const [, name, text, source] of html.matchAll(
-      /<(pre|div)\b((?:[^>"']|"[^"]*"|'[^']*')*?\sdata-lines(?=[\s=>])(?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/\1>/gi,
-    )) {
-      const tag = readTag(name, text);
-      const value = attribute(tag, "data-lines") ?? "";
-      const ranges = lineRanges(value);
-      if (!ranges) {
-        list.push(
-          `${at}: data-lines "${value}" is not a list of lines. Write lines and ranges counted from 1, such as "7", "3-4" or "3-4, 9".`,
-        );
-        continue;
-      }
-      // Line numbers count from the block's first line, so a line past its
-      // end is usually the file's own line number.
-      const last = Math.max(...ranges.map(([, to]) => to));
-      const count = renderedLines(name, source);
-      if (last > count)
-        list.push(
-          `${at}: data-lines "${value}" names line ${last}, and the block has ${count} line${count === 1 ? "" : "s"}. Count from the block's first line, and put the file's line numbers in data-caption.`,
         );
     }
   }

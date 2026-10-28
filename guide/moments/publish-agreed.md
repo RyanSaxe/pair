@@ -14,5 +14,5 @@ Now write the round's pages.
   `pair guide components.md`.
 - In a code block, a diagram's Mermaid text and the before-after
   component's JSON, write `&lt;` for each `<` and `&amp;` for each `&`.
-  `pair build` does not catch a missed one, and the browser reads a bare `<`
-  as the start of a tag, so the text after it disappears without an error.
+  `pair build` refuses a code block or a diagram with a `<` before a letter,
+  `/`, `!` or `?`, and does not catch a missed `&`.

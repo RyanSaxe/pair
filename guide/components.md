@@ -23,10 +23,9 @@ Never suggest this to the reviewer.
 
 A code block, a diagram's Mermaid text and the before-after JSON in
 `textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
-`&amp;` for each `&` in them. `pair build` does not catch a missed one, and
-the browser reads a bare `<` as the start of a tag. So `<T>` in code hides
-the rest of its line, and `<br/>` in a Mermaid label loses its line break,
-with no error.
+`&amp;` for each `&` in them. The browser reads a `<` before a letter, `/`,
+`!` or `?` as the start of a tag, and `pair build` refuses a code block or a
+diagram that has one. It does not catch a missed `&`.
 Leave `>` as it is, so `-->` and `->>` stay as written. In a formula inside
 a JSON string, write each backslash twice.
 

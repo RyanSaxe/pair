@@ -322,6 +322,16 @@ test("the build refuses each structural problem and names it", async () => {
       ),
     );
   await refused(
+    page(
+      `<p>x</p>\n<pre data-language="ts" data-file="a.ts">\nfirst<T>(items)\nok\nif (a</b) {}\n</pre>`,
+    ),
+    /^page "p": the ts code block "a\.ts" has a < that the browser reads as a tag on lines 3 and 5 of the page's HTML, first at "<T>\(items\)"\. Write &lt; for each < in a code block or a diagram\.$/m,
+  );
+  await refused(
+    page(`<div data-diagram>flowchart LR\n  A["x<br/>y"]</div>`),
+    /^page "p": the diagram has a < that the browser reads as a tag on line 2 of the page's HTML, first at "<br\/>y"\]"\. Write &lt; for each < in a code block or a diagram\.$/m,
+  );
+  await refused(
     page(`<pre data-language="ts" data-lines="611-621">\na\nb\n</pre>`),
     /^page "p": data-lines "611-621" names line 621, and the block has 2 lines\. Count from the block's first line, and put the file's line numbers in data-caption\.$/m,
   );
@@ -382,6 +392,7 @@ test("well-formed controls, anchors and blocks pass", async () => {
         `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
         `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
         `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +
+        `<pre data-language="ts">f&lt;T&gt;(a < b, a<=b, a <- b, 1<2)</pre>` +
         `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
         `<div data-prototype="demo"></div>` +
         `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>`,
@@ -424,9 +435,9 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
 test("a page source builds a standalone preview", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  // The frame draws the page title, so the page's own heading is an h2.
-  const content =
-    '<h2>Interface</h2><pre data-language="text">literal </script> and $&</pre>';
+  // The frame draws the page title, so the page's own heading is an h2. The
+  // raw </script> must not end the script that carries the page's data.
+  const content = "<h2>Interface</h2><p>literal </script> and $&</p>";
   await fs.writeFile(path.join(directory, "interface.html"), content);
   await fs.writeFile(
     path.join(directory, "custom.css"),
