@@ -120,9 +120,22 @@ export function submissions(session) {
     /* Images hang off the note they illustrate, and a note may only name an
        image this session holds, so a submission cannot point the agent at a
        path the hub never wrote. */
-    if (Array.isArray(data.groups.notes)) {
+    if (data.groups.notes !== undefined) {
+      requireValue(Array.isArray(data.groups.notes), "notes must be an array");
       for (const note of data.groups.notes) {
-        if (note?.attachments === undefined) continue;
+        requireValue(
+          note &&
+            ["id", "topic", "anchor", "text"].every(
+              (key) => typeof note[key] === "string",
+            ) &&
+            note.text.trim(),
+          "Notes require id, topic, anchor and text",
+        );
+        requireValue(
+          note.quote === undefined || typeof note.quote === "string",
+          "A note's quote must be text",
+        );
+        if (note.attachments === undefined) continue;
         requireValue(
           Array.isArray(note.attachments),
           "A note's attachments must be an array",
