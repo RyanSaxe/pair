@@ -1,11 +1,13 @@
 /* The diff viewer over a before-and-after pair. planUI.diff owns the
-   renderer; this reads the pair out of the page and remembers the layout. */
+   renderer; this reads the pair out of the page and remembers the layout
+   and wrapping. */
 planUI.define("before-after", {
   match: ".change-review",
   setup(root, { page, planUI }) {
     const viewer = root.querySelector(".change-view");
     const error = root.querySelector("[data-diff-error]");
     const buttons = root.querySelectorAll("[data-diff-style]");
+    const wrapButton = root.querySelector("[data-diff-wrap]");
     const controls = root.querySelector(".change-controls");
     if (
       root.dataset.file &&
@@ -26,6 +28,12 @@ planUI.define("before-after", {
         .indexOf(root)
         .toString();
     const key = `diff:${page.id}/${name}`;
+    const wrapKey = `${key}:wrap`;
+    // data-wrap on the section opens the diff wrapped, and the reviewer's
+    // click on Wrap, once made, wins over it.
+    const wrapped = () =>
+      (prefs.get(wrapKey) ??
+        (root.hasAttribute("data-wrap") ? "on" : "off")) === "on";
     // Split needs room for two columns; below 900px the unified view reads
     // better. A click on the toggle overrides and is remembered per diff.
     const automatic = () =>
@@ -49,7 +57,8 @@ planUI.define("before-after", {
     const render = async (diffStyle) => {
       style = diffStyle;
       try {
-        await planUI.diff(viewer, input, { diffStyle });
+        await planUI.diff(viewer, input, { diffStyle, wrap: wrapped() });
+        wrapButton?.setAttribute("aria-pressed", String(wrapped()));
         for (const button of buttons)
           button.setAttribute(
             "aria-pressed",
@@ -63,6 +72,11 @@ planUI.define("before-after", {
       button.onclick = () => {
         prefs.set(key, button.dataset.diffStyle);
         render(button.dataset.diffStyle);
+      };
+    if (wrapButton)
+      wrapButton.onclick = () => {
+        prefs.set(wrapKey, wrapped() ? "off" : "on");
+        render(style);
       };
     render(prefs.get(key) || automatic());
     new ResizeObserver(() => {
