@@ -35,8 +35,9 @@
 .decision-option[aria-pressed="true"]::before {
   border: 5px solid var(--accent);
 }
-.decision-option > b,
-.decision-option > p {
+/* Everything an option holds, a code block included, sits in the column
+   beside the radio mark. */
+.decision-option > * {
   grid-column: 2;
 }
 .decision-option > b {
