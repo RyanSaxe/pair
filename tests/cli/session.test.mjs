@@ -135,6 +135,32 @@ test("a session command refuses a directory that holds no session", async (t) =>
   assert.equal(await exists(missing), false);
 });
 
+// The hub creates a session in any directory it registers, so pair start
+// --session-dir refuses a directory with no session before it asks the hub.
+test("pair start --session-dir refuses a directory that holds no session and writes nothing", async (t) => {
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-no-resume-"));
+  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
+  t.after(async () => {
+    await killHub(config);
+    await fs.rm(scratch, { recursive: true, force: true });
+  });
+  const project = path.join(scratch, "project");
+  await fs.mkdir(project);
+  await fs.writeFile(path.join(project, "README"), "hi");
+  for (const directory of [path.join(scratch, "no-session"), project]) {
+    const before = await fs.readdir(scratch, { recursive: true });
+    await assert.rejects(run("start", "--session-dir", directory), (error) => {
+      assert.equal(error.code, 1);
+      assert.equal(
+        error.stderr,
+        `pair: No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.\n`,
+      );
+      return true;
+    });
+    assert.deepEqual(await fs.readdir(scratch, { recursive: true }), before);
+  }
+});
+
 // Every command reads its arguments one way, and a refusal names what is
 // wrong and the command's help, before anything reaches the hub.
 test("a command refuses an unknown flag, an extra argument, a repeated flag and a missing one, and changes nothing", async (t) => {

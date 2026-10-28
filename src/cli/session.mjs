@@ -267,6 +267,13 @@ export async function start(options) {
   const directory = resuming
     ? path.resolve(options["session-dir"])
     : path.join(config.sessions, crypto.randomUUID());
+  // The hub creates a session in any directory it is given, so a mistyped
+  // --session-dir would start a new session there, outside sessions/.
+  if (resuming)
+    requireValue(
+      await exists(path.join(directory, "status.json")),
+      `No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.`,
+    );
   const started = await attach(directory, config, wake, {
     start: true,
     ...(from
