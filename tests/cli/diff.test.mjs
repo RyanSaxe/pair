@@ -103,7 +103,9 @@ test("pair diff writes the same patch inside a repository and for a user whose G
     cwd: repository,
     env: withoutGit,
   });
-  assert.equal(top.trim(), await fs.realpath(repository));
+  // git prints the path with forward slashes on Windows, and realpath gives
+  // both sides the platform's own form.
+  assert.equal(await fs.realpath(top.trim()), await fs.realpath(repository));
   await fs.writeFile(
     path.join(repository, ".gitattributes"),
     "* text=auto eol=lf\n",
