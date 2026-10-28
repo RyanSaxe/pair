@@ -21,7 +21,7 @@ Never suggest this to the reviewer.
 
 ## Escaping
 
-A code block, a diagram's Mermaid text and the before-after JSON in
+A code block, a diagram's Mermaid text and before-after JSON pasted into
 `textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
 `&amp;` for each `&` in them. The browser reads a `<` before a letter, `/`,
 `!` or `?` as the start of a tag, and `pair build` refuses a code block or a

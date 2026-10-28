@@ -12,7 +12,7 @@ Now write the round's pages.
 - Choose each component from the list below by what the reviewer needs to
   see. Before the session's first page, run `pair guide writing.md` and
   `pair guide components.md`.
-- In a code block, a diagram's Mermaid text and the before-after
-  component's JSON, write `&lt;` for each `<` and `&amp;` for each `&`.
-  `pair build` refuses a code block or a diagram with a `<` before a letter,
-  `/`, `!` or `?`, and does not catch a missed `&`.
+- In a code block, a diagram's Mermaid text and before-after JSON pasted
+  into the component's textarea, write `&lt;` for each `<` and `&amp;` for
+  each `&`. `pair build` refuses a code block or a diagram with a `<` before
+  a letter, `/`, `!` or `?`, and does not catch a missed `&`.
