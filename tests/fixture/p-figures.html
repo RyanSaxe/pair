@@ -32,7 +32,7 @@
 <div data-math>W_{\text{total}} = \sum_{i=1}^{n} t_i\left(k_i + \dfrac{d_i}{c_i}\right) + r\cdot m - s\cdot\dfrac{q}{p} + \beta\left(\dfrac{u}{v} - w\right)</div>
 <h2>Text diff</h2>
 <section class="change-review" data-kind="diff" data-file="src/charge.ts">
-  <div class="change-controls" role="group" aria-label="Diff layout"><button class="btn" data-diff-style="split">Side by side</button><button class="btn" data-diff-style="unified">Unified</button></div>
+  <div class="change-controls"><span class="change-layout" role="group" aria-label="Layout"><button type="button" data-diff-style="split">Side by side</button><button type="button" data-diff-style="unified">Unified</button></span><button class="change-wrap" type="button" data-diff-wrap>Wrap</button></div>
   <textarea data-diff-input hidden>{
   "before": "export async function charge(request) {\n  const client = new PaymentClient(config);\n  const result = await client.charge(request);\n  if (!result.ok) throw new PaymentError(result);\n  return result;\n}\n",
   "after": "export async function charge(request) {\n  const client = new PaymentClient(config);\n  const breaker = new CircuitBreaker({ threshold: 5, cooldown: 30_000 });\n  const result = await breaker.run(() =&gt; client.charge(request));\n  if (!result.ok) throw new PaymentError(result);\n  log.info(\"charge\", { id: request.id, ok: result.ok });\n  return result;\n}\n",

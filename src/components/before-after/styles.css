@@ -21,11 +21,46 @@
   margin-right: auto;
   overflow-wrap: anywhere;
 }
-.change-controls .btn {
-  padding: 2px 8px;
-  font-size: var(--text-meta);
+/* The layout switch is the visual decision's, .vd-layout. */
+.change-layout {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  overflow: hidden;
 }
-.change-controls [aria-pressed="true"] {
+.change-layout button,
+.change-wrap {
+  padding: 4px 9px;
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+.change-layout button + button {
+  border-left: 1px solid var(--line-strong);
+}
+.change-layout [aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--weight-strong);
+}
+/* Wrap is a toggle of its own, so a rule sets it apart from the switch.
+   A pressed Wrap keeps its weight, so its width does not change. */
+.change-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+}
+.change-wrap::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: -11px;
+  border-left: 1px solid var(--line-strong);
+}
+.change-wrap[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
