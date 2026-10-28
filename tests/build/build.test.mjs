@@ -511,6 +511,69 @@ test("a page source builds a standalone preview", async (t) => {
   await assert.rejects(exec(process.execPath, [link, "build"]), { code: 1 });
 });
 
+// A browser decodes &lt;, &gt; and &amp; in a textarea, so the built
+// textarea, decoded, is the file's text only if the build escaped it.
+test("a diff input that names its JSON file builds with the file's exact text, and a missing or malformed file is refused", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const before = "<p>Fish &amp; chips &lt;3</p>\n";
+  const after = "<p>Fish & chips</p>\n</textarea>\n";
+  const text = `${JSON.stringify(
+    {
+      before,
+      after,
+      patch:
+        "--- a/fish.html\n+++ b/fish.html\n@@ -1 +1,2 @@\n-<p>Fish &amp; chips &lt;3</p>\n+<p>Fish & chips</p>\n+</textarea>\n",
+    },
+    null,
+    2,
+  )}\n`;
+  await fs.writeFile(path.join(directory, "fish.json"), text);
+  await fs.writeFile(path.join(directory, "bad.json"), '{"before":"a"}');
+  const withDiffs = (html) =>
+    buildPage(path.join(directory, "page.json"), {
+      name: "t",
+      round: "1",
+      title: "T",
+      page: { id: "p", title: "P", html },
+    });
+  const pasted = '{"before":"a","after":"b","patch":""}';
+  const built = pageData(
+    await withDiffs(
+      `<textarea data-diff-input="fish.json" hidden></textarea>` +
+        `<textarea data-diff-input hidden>${pasted}</textarea>`,
+    ),
+  ).page.html.match(
+    /^<textarea data-diff-input="fish\.json" hidden>([^<]*)<\/textarea><textarea data-diff-input hidden>([^<]*)<\/textarea>$/,
+  );
+  assert.ok(built, "the textareas are not as written");
+  const decoded = built[1].replace(
+    /&(lt|gt|amp);/g,
+    (entity, name) => ({ lt: "<", gt: ">", amp: "&" })[name],
+  );
+  assert.equal(decoded, text);
+  assert.equal(built[2], pasted);
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="none.json"></textarea>`),
+    {
+      message: `data-diff-input names none.json, and ${path.join(directory, "none.json")} cannot be read. Write it with pair diff BEFORE AFTER ${path.join(directory, "none.json")}`,
+    },
+  );
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="bad.json"></textarea>`),
+    {
+      message: `data-diff-input names bad.json, and ${path.join(directory, "bad.json")} is not JSON with before, after and patch strings. Name a file that pair diff BEFORE AFTER OUT.json wrote`,
+    },
+  );
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="fish.json">${pasted}</textarea>`),
+    {
+      message:
+        "data-diff-input names fish.json, and the textarea is not empty. Leave it empty.",
+    },
+  );
+});
+
 test("an error from pair build starts with pair:", async () => {
   const missing = path.join(os.tmpdir(), "pair-no-such-dir", "source.json");
   await assert.rejects(

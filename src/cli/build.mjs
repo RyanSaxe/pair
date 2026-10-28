@@ -8,14 +8,68 @@ import { pageData, pagePlan, validPage } from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
 import { refuseOverwrite } from "./output.mjs";
 
+// A diff's textarea names the JSON file that pair diff wrote, as
+// data-diff-input="retry.json", or has that JSON pasted into it, escaped by
+// hand. The build writes a named file's JSON into the textarea escaped, so
+// the browser reads the file's text as it is.
+const TEXTAREA = /(<textarea\b[^>]*>)([\s\S]*?)<\/textarea>/gi;
+const DIFF_FILE = /\sdata-diff-input\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+const diffFile = (open) => {
+  const match = DIFF_FILE.exec(open);
+  return match ? (match[1] ?? match[2] ?? match[3]) : "";
+};
+async function readDiffInput(directory, name) {
+  const file = path.resolve(directory, name);
+  const refuse = (problem) =>
+    new Error(`data-diff-input names ${name}, and ${file} ${problem}`);
+  const text = await fs.readFile(file, "utf8").catch(() => {
+    throw refuse(
+      `cannot be read. Write it with pair diff BEFORE AFTER ${file}`,
+    );
+  });
+  let input;
+  try {
+    input = JSON.parse(text);
+  } catch {}
+  if (
+    !["before", "after", "patch"].every(
+      (key) => typeof input?.[key] === "string",
+    )
+  )
+    throw refuse(
+      "is not JSON with before, after and patch strings. Name a file that pair diff BEFORE AFTER OUT.json wrote",
+    );
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+async function diffInputs(html, directory) {
+  const inputs = new Map();
+  for (const [, open, pasted] of html.matchAll(TEXTAREA)) {
+    const name = diffFile(open);
+    if (!name) continue;
+    if (pasted.trim())
+      throw new Error(
+        `data-diff-input names ${name}, and the textarea is not empty. Leave it empty.`,
+      );
+    inputs.set(name, await readDiffInput(directory, name));
+  }
+  return html.replace(TEXTAREA, (whole, open) => {
+    const name = diffFile(open);
+    return name ? `${open}${inputs.get(name)}</textarea>` : whole;
+  });
+}
+
 export async function buildPage(source, input) {
   const unknown = fieldProblems(input);
   if (unknown.length)
     throw new Error(
       unknown.map((line) => `${path.basename(source)}: ${line}`).join("\n"),
     );
-  const read = (file) =>
-    fs.readFile(path.resolve(path.dirname(source), file), "utf8");
+  const directory = path.dirname(source);
+  const read = (file) => fs.readFile(path.resolve(directory, file), "utf8");
+  const prepare = (html) => diffInputs(sizeImages(html), directory);
   const { page: rawPage, ...outer } = input;
   if (!rawPage || typeof rawPage !== "object" || Array.isArray(rawPage))
     throw new Error("Page source requires one page object");
@@ -23,9 +77,9 @@ export async function buildPage(source, input) {
     throw new Error("Use file or html for a page, not both");
   const page = { ...rawPage };
   if (page.file) page.html = await read(page.file);
-  if (page.html) page.html = sizeImages(page.html);
+  if (page.html) page.html = await prepare(page.html);
   if (page.task?.html)
-    page.task = { ...page.task, html: sizeImages(page.task.html) };
+    page.task = { ...page.task, html: await prepare(page.task.html) };
   delete page.file;
   if (page.css) page.cssText = await read(page.css);
   if (page.js) page.jsText = await read(page.js);
@@ -48,7 +102,7 @@ export async function buildPage(source, input) {
           ...entry,
           ...(file ? { html: await read(file) } : {}),
         };
-        if (agreement.html) agreement.html = sizeImages(agreement.html);
+        if (agreement.html) agreement.html = await prepare(agreement.html);
         return agreement;
       }),
     );

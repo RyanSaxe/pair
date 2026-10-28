@@ -99,20 +99,23 @@ interactive content inside an option.
 
 ## Before and after
 
-For text or code, generate the input with Git:
+For text or code, generate the input with Git, and write it beside the
+page's JSON source:
 
 ```sh
-pair diff BEFORE AFTER OUTPUT.json
+pair diff BEFORE AFTER SRC/policy/retry.json
 ```
 
 Give it the whole files, not excerpts, so the patch numbers each line as the
 file does. Show each file's change as its own diff.
 
-Put that JSON in the markup's `textarea[data-diff-input]`, escaped, and put
-the file name in `data-file` on the section. The patch names the file by
-AFTER's base name, so give the proposed copy the file's real name, or a name
-that says what it is. `pair diff` requires Git and refuses to overwrite an
-existing output.
+Name the output in the markup's textarea, as
+`<textarea data-diff-input="retry.json" hidden></textarea>`, and put the
+changed file's name in `data-file` on the section. `pair build` reads that
+file from the page source's directory and writes its JSON into the textarea.
+The patch names the file by AFTER's base name, so give the proposed copy the
+file's real name, or a name that says what it is. `pair diff` requires Git
+and refuses to overwrite an existing output.
 
 For visual changes, fill the before and proposed slots and explain the
 change in the legend. Put the `added`, `removed` or `changed` class on

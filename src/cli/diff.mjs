@@ -62,7 +62,7 @@ export async function main({ args: [before, after, output] }) {
     .catch(refuseOverwrite(output));
   const written = path.resolve(output);
   return {
-    next: `Put the file's JSON in the data-diff-input textarea of a before-after component, as pair guide components/before-after/markup.html shows.`,
+    next: `Name ${path.basename(written)} in data-diff-input on the textarea of a before-after component, as pair guide components/before-after/markup.html shows, and keep the file in the page source's directory.`,
     data: `Wrote ${written}`,
     json: { output: written },
   };

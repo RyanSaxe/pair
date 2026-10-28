@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
 import { assemble } from "../../src/build/assemble.mjs";
+import { buildPage } from "../../src/cli/build.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
 import { root, waitUntil } from "../support/hub.mjs";
 
@@ -223,24 +226,22 @@ test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's c
   const [markup] = (
     await fs.readFile(`${root}/src/components/before-after/markup.html`, "utf8")
   ).split("<!-- For diagrams");
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-diff-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  await fs.writeFile(path.join(directory, "retry.json"), JSON.stringify(input));
   const diff = (attributes) =>
     markup
       .replace('data-kind="diff"', `data-kind="diff" ${attributes}`)
-      .replace(
-        '{"before":"","after":"","patch":""}',
-        JSON.stringify(input).replace(/&/g, "&amp;").replace(/</g, "&lt;"),
-      );
-  const html = await assemble({
+      .replace('"OUTPUT.json"', '"retry.json"');
+  const html = await buildPage(path.join(directory, "page.json"), {
     name: "diff-wrap",
     round: "1",
     title: "Diff wrap",
-    pages: [
-      {
-        id: "overview",
-        title: "Overview",
-        html: diff('id="scroll"') + diff('id="wrap" data-wrap'),
-      },
-    ],
+    page: {
+      id: "overview",
+      title: "Overview",
+      html: diff('id="scroll"') + diff('id="wrap" data-wrap'),
+    },
   });
   const page = await open(t, "http://pair.localhost/#overview", {
     html,
