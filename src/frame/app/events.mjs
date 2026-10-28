@@ -172,8 +172,10 @@ export function installEvents() {
       closeMenus();
       return;
     }
-    if (event.target.closest("input, textarea, select, [contenteditable]"))
-      return;
+    /* A key types into a text field and picks an option in a select. A
+       checkbox or a radio button takes no typed keys, so the keys still act
+       while one has focus. :read-write matches the fields that take text. */
+    if (event.target.closest(":read-write, select")) return;
     if (document.querySelector("dialog[open]")) return;
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
