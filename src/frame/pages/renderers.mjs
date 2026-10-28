@@ -192,9 +192,12 @@ export function failed(element, error) {
     element.nextElementSibling?.classList.contains("renderer-error")
   )
     return;
-  const note = document.createElement("p");
+  const message = error.message || "Renderer unavailable; source preserved.";
+  // A parser's message can quote the source line and put a caret under the
+  // column, which reads only with its line breaks in fixed-width text.
+  const note = document.createElement(message.includes("\n") ? "pre" : "p");
   note.className = "renderer-error";
-  note.textContent = error.message || "Renderer unavailable; source preserved.";
+  note.textContent = message;
   element.after(note);
 }
 export function figure(

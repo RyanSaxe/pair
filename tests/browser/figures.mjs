@@ -137,6 +137,9 @@ test("a malformed diagram preserves its source without hiding another diagram or
   await page.locator("#bad + .renderer-error:visible").waitFor();
   await page.locator("#good svg").waitFor();
   assert.equal(await page.locator("#bad").textContent(), source);
+  // The message quotes the source line with a caret under the column, which
+  // reads only with its line breaks.
+  assert.match(await page.locator("#bad + .renderer-error").innerText(), /\n/);
   assert.equal(await page.locator("#readable").isVisible(), true);
   assert.equal(await page.locator("#bad .pele-error, body > svg").count(), 0);
 });
