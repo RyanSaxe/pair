@@ -6,19 +6,22 @@
 }
 .change-controls {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 6px 8px 6px 12px;
   background: var(--ground);
   border-bottom: 1px solid var(--line);
   font-size: var(--text-small);
   color: var(--muted);
 }
+/* A file name too long to share the row with the controls takes the row
+   to itself, and the controls move to a row of their own under it. */
 .change-controls .change-file {
+  flex: 1 1 auto;
   color: var(--ink);
   font-weight: var(--weight-strong);
-  margin-right: auto;
   overflow-wrap: anywhere;
 }
 /* The layout switch is the visual decision's, .vd-layout. */
