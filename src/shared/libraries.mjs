@@ -3,8 +3,8 @@ export const libraries = {
   shiki: "https://esm.sh/shiki@3.12.2",
   diffs: "https://esm.sh/@pierre/diffs@1.6.2?bundle",
   pele: "https://cdn.jsdelivr.net/npm/pele@1.12.0/dist/pele.js",
-  katex: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js",
-  katexCss: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
+  katex: "https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js",
+  katexCss: "https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.css",
   echarts: "https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js",
 };
 // import() takes no integrity of its own, so the page's import map carries
