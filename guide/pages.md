@@ -138,7 +138,7 @@ titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
 | planUI.comment(anchor, quote)        | Open a note from a custom control.                                                                                                                                 |
 | planUI.enhance(element)              | Render components in content a script added.                                                                                                                       |
 | planUI.define(name, {match, setup})  | Register a component. `pair guide components/README.md` prints how.                                                                                                |
-| planUI.pele()                        | Return the complete Pele 1.6.0 module namespace asynchronously. Use its native API on an element without `data-diagram`.                                           |
+| planUI.pele()                        | Return the complete Pele 1.12.0 module namespace asynchronously. Use its native API on an element without `data-diagram`.                                          |
 | planUI.chart(element, options)       | Return an ECharts instance asynchronously.                                                                                                                         |
 | planUI.diff(element, input, options) | Render one Git file patch. Input has before, after and patch strings. options.diffStyle is split or unified. Set options.wrap to true to wrap long lines.          |
 | planUI.prefs.get(key), set(key, v)   | Remember a viewing preference in the browser.                                                                                                                      |

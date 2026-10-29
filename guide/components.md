@@ -125,7 +125,7 @@ so do not set fixed colors in Mermaid `classDef` declarations.
 ## Diagrams
 
 Use Mermaid source in `data-diagram` for flows, structures and simple
-charts. Choose any built-in diagram type supported by Pele 1.6.0. Draw a
+charts. Choose any built-in diagram type supported by Pele 1.12.0. Draw a
 loop as a flowchart when the loop is the structure, a sequence diagram when
 the order of waits is the point, and a state diagram for modes.
 
