@@ -22,11 +22,19 @@ planUI.define("before-after", {
     const prefs = planUI.prefs;
     // The element's own ID, so two diffs on a page keep separate layouts.
     // A diff with no ID falls back to its position among the page's diffs.
-    const name =
-      root.id ||
-      [...root.closest("#page-content").querySelectorAll(".change-review")]
-        .indexOf(root)
-        .toString();
+    const index = [
+      ...root.closest("#page-content").querySelectorAll(".change-review"),
+    ]
+      .indexOf(root)
+      .toString();
+    const name = root.id || index;
+    if (!root.id) {
+      const base = `pair-diff-${page.id}-${index}`;
+      let id = base;
+      let suffix = 1;
+      while (document.getElementById(id)) id = `${base}-${suffix++}`;
+      root.id = id;
+    }
     const key = `diff:${page.id}/${name}`;
     const wrapKey = `${key}:wrap`;
     // data-wrap on the section opens the diff wrapped, and the reviewer's

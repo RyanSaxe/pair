@@ -92,6 +92,28 @@ test("a thread wakes the holder once for each message the reviewer sends, with t
   ]);
 });
 
+test("a diff thread keeps its selected side and line in status and storage", async (t) => {
+  const { a, start, thread, settled } = await published(t);
+  const diffLine = { side: "deletions", lineNumber: 4 };
+  const started = await start({ quote: "selected code", diffLine });
+  assert.equal(started.code, 201, started.body.error);
+  const { id } = started.body.thread;
+  assert.deepEqual(started.body.thread.diffLine, diffLine);
+  await settled(id);
+  assert.deepEqual((await thread(id)).diffLine, diffLine);
+
+  const saved = JSON.parse(
+    await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
+  );
+  assert.deepEqual(saved.diffLine, diffLine);
+
+  const malformed = await start({
+    quote: "selected code",
+    diffLine: { side: "context", lineNumber: 0 },
+  });
+  assert.equal(malformed.code, 400);
+});
+
 test("a repeated reply ID returns the saved thread without another message or wake", async (t) => {
   const { a, start, send, thread, settled } = await published(t);
   const { id } = (await start()).body.thread;

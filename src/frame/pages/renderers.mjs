@@ -41,6 +41,9 @@ export function installRenderers() {
 export const charts = new Map();
 export const diagrams = new Map();
 const diffs = new Map();
+const diffLineSets = new Map();
+const noteHighlightCSS =
+  "::highlight(plan-note), ::highlight(plan-preview) { background-color: var(--mark); color: inherit; }";
 // In-flight renderers, so a page re-render can restore the scroll position
 // once the content has its height back.
 export const renders = new Set();
@@ -312,9 +315,98 @@ export async function chart(element, options) {
 function clearDiffs() {
   for (const viewer of diffs.values()) viewer.cleanUp();
   diffs.clear();
+  diffLineSets.clear();
 }
 export function diff(element, input, options) {
   return track(renderDiff(element, input, options));
+}
+function composedParent(node) {
+  const root = node?.getRootNode?.();
+  return node?.parentElement || root?.host || null;
+}
+function viewerForNode(node) {
+  for (
+    let at = node?.nodeType === 1 ? node : node?.parentElement;
+    at;
+    at = composedParent(at)
+  ) {
+    const viewer = diffs.get(at);
+    if (viewer) return viewer;
+  }
+  return null;
+}
+export function diffLineForNode(node) {
+  if (!viewerForNode(node)) return null;
+  let line = node?.nodeType === 1 ? node : node?.parentElement;
+  for (; line; line = composedParent(line))
+    if (line.matches?.("[data-line][data-line-type]")) break;
+  if (!line) return null;
+  const side =
+    line.dataset.lineType === "change-deletion" ? "deletions" : "additions";
+  const lineNumber = Number(
+    side === "additions" && line.dataset.lineType === "context"
+      ? (line.dataset.altLine ?? line.dataset.line)
+      : line.dataset.line,
+  );
+  if (!Number.isInteger(lineNumber) || lineNumber < 1) return null;
+  return {
+    side,
+    lineNumber,
+  };
+}
+export function isDiffNode(node) {
+  return Boolean(viewerForNode(node));
+}
+export function diffForTarget(target) {
+  const block =
+    typeof target === "string" ? document.getElementById(target) : target;
+  if (!block) return null;
+  return [...diffs.keys()].find((element) => block.contains(element)) || null;
+}
+export function diffViews(root) {
+  return [...diffs.keys()].filter((element) => root.contains(element));
+}
+function threadSlot({ side, lineNumber }) {
+  return `pair-line-${side}-${lineNumber}`;
+}
+export function setDiffThreads(element, threads, cards) {
+  const viewer = diffs.get(element);
+  const container = element.querySelector(":scope > diffs-container");
+  if (!viewer?.setLineAnnotations || !container) return false;
+  const lines = new Map();
+  const cardsByLine = new Map();
+  for (const thread of threads) {
+    const line = thread.diffLine;
+    if (
+      !line ||
+      !["additions", "deletions"].includes(line.side) ||
+      !Number.isInteger(line.lineNumber) ||
+      line.lineNumber < 1
+    )
+      continue;
+    const slot = threadSlot(line);
+    lines.set(slot, line);
+    const card = cards.get(thread.id)?.card;
+    if (!card) continue;
+    card.removeAttribute("slot");
+    cardsByLine.set(slot, [...(cardsByLine.get(slot) || []), card]);
+  }
+  const annotations = [...lines.values()];
+  const signature = [...lines.keys()].sort().join("|");
+  if (diffLineSets.get(element) !== signature) {
+    viewer.setLineAnnotations(annotations);
+    viewer.rerender();
+    diffLineSets.set(element, signature);
+  }
+  for (const [key, lineCards] of cardsByLine) {
+    const name = viewer.getAnnotationSlotName(lines.get(key));
+    const wrapper = [...container.children].find(
+      (node) => node.hasAttribute("data-annotation-slot") && node.slot === name,
+    );
+    wrapper?.querySelector("[data-pair-thread-line]")?.remove();
+    wrapper?.append(...lineCards);
+  }
+  return true;
 }
 async function renderDiff(
   element,
@@ -359,9 +451,20 @@ async function renderDiff(
     // row is one line tall and diffHeight() counts the diff's height.
     overflow,
     disableFileHeader: true,
+    unsafeCSS: noteHighlightCSS,
+    onPostRender(_node, _viewer, phase) {
+      if (phase !== "unmount")
+        queueMicrotask(() => window.dispatchEvent(new Event("plan:diff")));
+    },
+    renderAnnotation(annotation) {
+      const placeholder = document.createElement("span");
+      placeholder.dataset.pairThreadLine = threadSlot(annotation);
+      return placeholder;
+    },
   });
   element.replaceChildren();
   viewer.render({ fileDiff: files[0], containerWrapper: element });
   diffs.set(element, viewer);
+  diffLineSets.set(element, "");
   return viewer;
 }
