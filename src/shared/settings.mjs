@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +54,21 @@ export function requireNode() {
     `Node ${oldestNode} or newer is required`,
   );
 }
+// The unspecified addresses, on which a listening hub accepts connections
+// from every network the machine is on. The BlockList matches every spelling
+// of ::, including ::ffff:0.0.0.0.
+const unspecified = new net.BlockList();
+unspecified.addAddress("0.0.0.0", "ipv4");
+unspecified.addAddress("::", "ipv6");
+function isUnspecified(host) {
+  const bare = host.replace(/^\[(.*)\]$/, "$1");
+  if (net.isIPv6(bare)) return unspecified.check(bare, "ipv6");
+  // Node's listen binds 0, 0.0 and 0x0 as 0.0.0.0, and new URL parses them
+  // to 0.0.0.0.
+  const url = `http://${bare}`;
+  const address = URL.canParse(url) ? new URL(url).hostname : bare;
+  return net.isIPv4(address) && unspecified.check(address, "ipv4");
+}
 export function settings(env = process.env) {
   const root = path.join(stateHome(env), "pair");
   const port =
@@ -71,6 +87,10 @@ export function settings(env = process.env) {
     env.PAIR_WAKE !== "off" ||
       root !== path.join(os.homedir(), ".local", "state", "pair"),
     "Set PAIR_WAKE=off only for a scratch hub, and give that hub its own XDG_STATE_HOME.",
+  );
+  requireValue(
+    !env.PAIR_HUB_HOST || !isUnspecified(env.PAIR_HUB_HOST),
+    `PAIR_HUB_HOST is ${env.PAIR_HUB_HOST}, which would make the hub reachable from every network this machine is on. Set it to this machine's address on a network you trust.`,
   );
   const seconds = (name, fallback) => {
     if (env[name] === undefined) return fallback;
