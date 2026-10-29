@@ -1,6 +1,12 @@
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, controlKey } from "#frame/app/util.mjs";
-import { editable, feedbackEditable, page, plan } from "#frame/app/view.mjs";
+import {
+  editable,
+  feedbackEditable,
+  page,
+  pages,
+  plan,
+} from "#frame/app/view.mjs";
 
 let answerTimer;
 export function choiceTargets(root, topic) {
@@ -73,6 +79,44 @@ export function restoreChoices() {
           ?.checked ?? input.defaultChecked;
     });
 }
+// Typed text is sent only once Answer records it, so text that differs
+// from the recorded answer is not added.
+const notAdded = (key) => {
+  const text = state.drafts[key];
+  return (
+    typeof text === "string" &&
+    Boolean(text.trim()) &&
+    text !== state.answers[key]?.text
+  );
+};
+// The questions in Current's round whose typed text is not added, from
+// the pages loaded so far.
+export function notAddedAnswers() {
+  const found = [];
+  for (const topic of pages.filter(
+    (item) => item.id !== "agreed" && !item.pending,
+  )) {
+    const template = document.createElement("template");
+    template.innerHTML = topic.html;
+    choiceTargets(template.content, topic.id);
+    for (const group of template.content.querySelectorAll("[data-question]"))
+      if (
+        group.querySelector("textarea") &&
+        notAdded(controlKey(topic.id, group.dataset.question))
+      )
+        found.push({
+          topic: topic.id,
+          target: group.id,
+          label: group.dataset.label || group.dataset.question,
+        });
+  }
+  return found;
+}
+// Whether the draft has typed text for a question on the page.
+export const typedOn = (topic) =>
+  Object.entries(state.drafts).some(
+    ([key, text]) => key.startsWith(`${topic}/`) && typeof text === "string",
+  );
 export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
