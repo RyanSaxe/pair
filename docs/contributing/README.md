@@ -2,8 +2,9 @@
 
 ## Run it from a checkout
 
-pair needs Node 22.0.0 or newer. It has no runtime dependencies and no build
-step, so you can run a checkout as it is. In a clone of this repository,
+pair needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or 26.12.1
+or newer. It has no runtime dependencies and no build step, so you can run a
+checkout as it is. In a clone of this repository,
 `npm link` puts the `pair` command on your path, and that command then runs the
 clone's code. An edit in the clone takes effect at the next `pair` command, in
 every agent session on your machine.
@@ -121,6 +122,11 @@ label.
   nothing from `develop`, so iterate there.
 - A pull request from `develop` into `main` is a release. GitHub only merges
   a pull request into `main` when its checks pass.
+- Before you open that pull request, raise each floor in `engines.node` to
+  the latest security release of its Node line, and change the same versions
+  in `package-lock.json`, the `test` matrix in `.github/workflows/ci.yml`,
+  the required checks of the `main` and `develop` rulesets, the README,
+  `docs/` and `guide/setup.md`.
 - When such a pull request merges, the release workflow runs the tests,
   publishes the next version with npm's trusted publishing, and creates the
   `v` tag and a GitHub release with generated notes.

@@ -43,15 +43,45 @@ const packageJson = JSON.parse(
 // The release, which the release workflow sets with npm version. A clone
 // has 0.0.0-development.
 export const packageVersion = packageJson.version;
-// The oldest Node pair supports, from engines.node in package.json.
-export const oldestNode = packageJson.engines.node.replace(">=", "");
+// engines.node in package.json names the oldest release pair supports on each
+// Node line: ^X.Y.Z for line X alone, and >=X.Y.Z for line X and every later
+// line.
+const floors = packageJson.engines.node.split("||").map((range) => {
+  const match = /^\s*(\^|>=)((\d+)\.\d+\.\d+)\s*$/.exec(range);
+  if (!match)
+    throw new Error(
+      `engines.node in package.json has a range pair cannot read: ${range.trim()}`,
+    );
+  return {
+    release: match[2],
+    line: Number(match[3]),
+    later: match[1] === ">=",
+  };
+});
+const parts = (release) => release.split(".").map(Number);
+// The floor of the running Node's line, or undefined for a line that pair
+// does not support.
+export function nodeFloor() {
+  const line = parts(process.versions.node)[0];
+  return floors.find(
+    (floor) => floor.line === line || (floor.later && line > floor.line),
+  );
+}
 export function requireNode() {
-  const parts = (release) => release.split(".").map(Number);
-  const [running, oldest] = [parts(process.versions.node), parts(oldestNode)];
-  const differs = running.findIndex((part, index) => part !== oldest[index]);
+  const running = process.versions.node;
+  const floor = nodeFloor();
+  const supported = floors.map(({ release, line, later }) =>
+    later ? `${release} or newer` : `${release} or newer in ${line}`,
+  );
   requireValue(
-    differs === -1 || running[differs] > oldest[differs],
-    `Node ${oldestNode} or newer is required`,
+    floor,
+    `Node ${running} is not supported. Use Node ${new Intl.ListFormat("en", { type: "disjunction" }).format(supported)}.`,
+  );
+  const [have, need] = [parts(running), parts(floor.release)];
+  const differs = have.findIndex((part, index) => part !== need[index]);
+  requireValue(
+    differs === -1 || have[differs] > need[differs],
+    `Node ${running} is missing security fixes that Node released in ${floor.release}. Update Node to ${floor.release} or newer.`,
   );
 }
 // The unspecified addresses, on which a listening hub accepts connections

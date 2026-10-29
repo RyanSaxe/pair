@@ -8,7 +8,7 @@ import {
   writeRules,
 } from "../../adapters/codex/rules.mjs";
 import { hubInfo, ownStateDir, portOpen, readRecord } from "../hub/client.mjs";
-import { oldestNode, requireNode, settings } from "../shared/settings.mjs";
+import { nodeFloor, requireNode, settings } from "../shared/settings.mjs";
 import { listen } from "../shared/util.mjs";
 import { rows } from "./output.mjs";
 
@@ -88,10 +88,16 @@ export async function check() {
           ]
         : []),
     ];
+    // requireNode() refused a line without a floor, so the floor is set. A
+    // line later than the newest floor's line has no floor of its own.
+    const floor = nodeFloor();
+    const line = process.versions.node.startsWith(`${floor.line}.`)
+      ? ` on Node ${floor.line}`
+      : "";
     const lines = rows([
       [
         "node",
-        `${process.versions.node}, and pair needs ${oldestNode} or newer`,
+        `${process.versions.node}, and pair needs ${floor.release} or newer${line}`,
       ],
       ["storage", `${base}, writable`],
       ["loopback", "127.0.0.1 answers"],

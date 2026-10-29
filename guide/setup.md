@@ -1,10 +1,11 @@
 # Setup
 
-pair needs Node 22.0.0 or newer and has no dependencies. `pair start`
-checks what a session needs and refuses with the reason: Node too old, the
-hub port taken by another program, storage it cannot write, or a sandbox
-that blocks the hub. If Node is missing or too old, tell the reviewer that
-pair needs Node 22.0.0 or newer, and ask how they want to install it.
+pair needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or 26.12.1
+or newer, and has no dependencies. `pair start` checks what a session needs
+and refuses with the reason: Node too old, the hub port taken by another
+program, storage it cannot write, or a sandbox that blocks the hub. If Node
+is missing or too old, tell the reviewer which of those Node releases pair
+needs, and ask how they want to install it.
 
 When `pair start` or another command fails, run `pair check`. It prints one
 line for each thing a session needs: the Node version, whether it can write
