@@ -1,16 +1,16 @@
 import crypto from "node:crypto";
 import net from "node:net";
 
-// A JSON-RPC client for the app-server daemon of Codex 0.160, which speaks
-// WebSocket on its control socket. The client sends each message as one
-// masked text frame and reads the daemon's unmasked frames.
+// The app-server daemon of Codex 0.160 speaks JSON-RPC over WebSocket on its
+// control socket. A WebSocket client must mask each frame it sends, and the
+// daemon sends its frames unmasked.
 
 function frame(message) {
   const payload = Buffer.from(JSON.stringify(message));
   const { length } = payload;
-  // 0x81 starts the final frame of a text message. The second byte sets the
-  // mask bit and gives a length below 126, or 126 or 127 for a 16-bit or
-  // 64-bit length after it.
+  // 0x81 marks the final frame of a text message. The second byte sets the mask
+  // bit and contains a length below 126, or 126 or 127 for a 16-bit or 64-bit
+  // length in the bytes after it.
   let header;
   if (length < 126) header = Buffer.from([0x81, 0x80 | length]);
   else if (length < 65536) {
@@ -26,7 +26,6 @@ function frame(message) {
   return Buffer.concat([header, mask, masked]);
 }
 
-// The complete frames at the start of the bytes, and the bytes after them.
 function readFrames(bytes) {
   const frames = [];
   while (bytes.length >= 2) {
@@ -49,9 +48,8 @@ function readFrames(bytes) {
   return [frames, bytes];
 }
 
-// Connects and upgrades the socket. Every request made on the connection
-// rejects once `timeout` milliseconds have passed since the connect, and
-// close() ends the connection.
+// The timeout counts from the connect, not from each request. Once it passes,
+// every pending and later request rejects.
 export function connect(socketPath, timeout) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(socketPath);

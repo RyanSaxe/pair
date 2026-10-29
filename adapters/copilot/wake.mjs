@@ -76,11 +76,11 @@ export function detect(
 }
 
 // The hub runs this file as a child process to send, so a broken SDK cannot
-// take the hub down. With the send mode immediate, Copilot adds the line to
-// the turn in progress at once, and moves a running shell command to the
-// background. When Copilot is idle, the line starts a turn. When Copilot
-// refuses immediate, the adapter sends the line with enqueue, and Copilot
-// reads it when its turn ends.
+// crash the hub. With the send mode immediate, Copilot adds the line to the
+// turn in progress at once and moves a running shell command to the background.
+// When Copilot is idle, it starts a turn with the line. When Copilot refuses
+// immediate, wake() sends the line with enqueue, and Copilot reads it when its
+// turn ends.
 export async function wake(target, line, run) {
   const send = (mode) =>
     run(process.execPath, [
@@ -100,8 +100,9 @@ export async function wake(target, line, run) {
   }
 }
 
-// In the child: connect to the TUI's embedded server through the SDK shipped
-// inside the CLI, resume the session, and send one prompt in the given mode.
+// This block runs only in the child process. It connects to the TUI's embedded
+// server through the SDK shipped inside the CLI, resumes the session, and sends
+// one prompt in the given mode.
 if (process.argv[1] === here) {
   const [sdk, port, sessionId, mode, line] = process.argv.slice(2);
   const { CopilotClient, approveAll } = await import(pathToFileURL(sdk).href);

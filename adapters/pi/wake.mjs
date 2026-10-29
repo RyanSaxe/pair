@@ -5,8 +5,8 @@ const extension = fileURLToPath(new URL("extension.js", import.meta.url));
 
 export const name = "pi";
 
-// pair's extension gives the commands pi runs the session's wake socket and
-// its session ID.
+// pair's extension, extension.js, sets these variables in the environment of
+// each command that pi runs.
 export const command = "pi";
 export const variables = ["PAIR_PI_SOCKET", "PAIR_PI_SESSION"];
 export const unwakeable = `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`;
