@@ -137,6 +137,7 @@ export function settings(env = process.env) {
     hubDir: path.join(root, "hub"),
     hubFile: path.join(root, "hub", "hub.json"),
     hubLog: path.join(root, "hub", "hub.log"),
+    seenFile: path.join(root, "hub", "seen.json"),
     port,
     host: env.PAIR_HUB_HOST || null,
     idleMs: seconds("PAIR_HUB_IDLE_SECONDS", 900) * 1000,

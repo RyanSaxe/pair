@@ -53,9 +53,9 @@ the page, with the same buttons.
   removes a part.
 
 pair labels a card **New** until you have seen it on Work, as it labels an
-unopened page in the sidebar. Your browser remembers which cards you have
-seen. Seeing a card on a page does not count until Work shows it, and pair
-never labels a card in Done as New.
+unopened page in the sidebar. The hub keeps which cards you have seen, so a
+phone and a computer on the same hub agree. Seeing a card on a page does not
+count until Work shows it, and pair never labels a card in Done as New.
 
 ### Status lines
 

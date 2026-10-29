@@ -7,12 +7,12 @@ import { jsonScriptTag } from "../shared/util.mjs";
    script ahead of the frame answers each of them once from the page. The
    frame's first poll then completes before the first paint. The frame is
    unchanged, so this also holds for rounds built by an earlier pair. */
-export async function firstAnswers(session, sessions) {
+export async function firstAnswers(session, sessionList) {
   const base = session.base;
   const status = session.browserView();
   const answers = {
     [`${base}/api/status`]: status,
-    "/api/sessions": { sessions },
+    "/api/sessions": sessionList,
   };
   // Current's round, and the round the left tab opens on.
   const rounds = new Set(
