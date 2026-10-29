@@ -1,4 +1,5 @@
 import { $, copyText, installPanel } from "#frame/app/util.mjs";
+import { libraries } from "#shared/libraries.mjs";
 
 let systemTheme;
 let preferredTheme = null;
@@ -140,14 +141,7 @@ export function disposeRenderers() {
 }
 
 /* Renderers and figures */
-export const libraries = {
-  shiki: "https://esm.sh/shiki@3.12.2",
-  diffs: "https://esm.sh/@pierre/diffs@1.4.2?bundle",
-  pele: "https://cdn.jsdelivr.net/npm/pele@1.6.0/dist/pele.js",
-  katex: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js",
-  katexCss: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
-  echarts: "https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js",
-};
+export { libraries };
 const scripts = new Map();
 let diffsTask;
 let peleTask;
