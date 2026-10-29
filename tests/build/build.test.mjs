@@ -335,6 +335,19 @@ test("the build refuses each structural problem and names it", async () => {
     page(`<div data-prototype="ghost"></div>`),
     /^page "p": prototype "ghost" does not exist$/m,
   );
+  for (const src of [
+    "shot.png",
+    "./a/shot.png",
+    "/tmp/shot.png",
+    "file:///tmp/shot.png",
+  ])
+    await refused(
+      page(`<img src="${src}" alt="">`),
+      new RegExp(
+        `^page "p": img src "${src.replace(/[./]/g, "\\$&")}" is a file path, which the hub does not serve\\. Embed the image in src as a data: URI\\.$`,
+        "m",
+      ),
+    );
   for (const value of ["3;7", "9-3", "0", "abc", ""])
     await refused(
       page(`<pre data-language="ts" data-lines="${value}">a\nb</pre>`),
@@ -343,6 +356,9 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
+  // The hub assembles each stored page again at every publish, and a page
+  // that an older pair build accepted still assembles.
+  await assert.doesNotReject(assemble(page(`<img src="shot.png" alt="">`)));
   await refused(
     page(
       `<p>x</p>\n<pre data-language="ts" data-file="a.ts">\nfirst<T>(items)\nok\nif (a</b) {}\n</pre>`,
@@ -420,7 +436,9 @@ test("well-formed controls, anchors and blocks pass", () => {
         `<pre data-language="ts">f&lt;T&gt;(a < b, a<=b, a <- b, 1<2)</pre>` +
         `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
         `<div data-prototype="demo"></div>` +
-        `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>`,
+        `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>` +
+        `<img src="data:image/png;base64,iVBORw0KGgo=" alt=""><img src="https://example.com/a.png" alt="">` +
+        `<img src="http://example.com/a.png" alt=""><img src="//example.com/a.png" alt=""><img class="later" alt="">`,
       {
         prototypes: [
           { id: "demo", title: "Demo", html: "<p>d</p>", height: 100 },
@@ -499,7 +517,8 @@ test("a page source builds a standalone preview", async (t) => {
     pageData(html).page.jsText,
     'export function setup(root) { root.dataset.test = "ready"; }',
   );
-  const output = path.join(directory, "round.html");
+  // pair build creates the output's directory.
+  const output = path.join(directory, "out", "1", "round.html");
   await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
   await assert.rejects(
@@ -577,6 +596,46 @@ test("a diff input that names its JSON file builds with the file's exact text, a
         "data-diff-input names fish.json, and the textarea is not empty. Leave it empty.",
     },
   );
+});
+
+test("pair build lists a css or js file it cannot read with the page's other problems, and writes nothing", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const source = path.join(directory, "source.json");
+  await fs.writeFile(
+    source,
+    JSON.stringify({
+      name: "build",
+      round: "1",
+      title: "Build",
+      page: {
+        id: "p",
+        title: "P",
+        html: "<h1>P</h1>",
+        css: "page.css",
+        js: "page.mjs",
+      },
+    }),
+  );
+  const output = path.join(directory, "out", "p.html");
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", source, output]),
+    ({ stderr }) => {
+      assert.equal(
+        stderr,
+        [
+          `pair: page "p": css names page.css, and pair build cannot read ${path.join(directory, "page.css")}. Write that file, or correct the path in css.`,
+          `page "p": js names page.mjs, and pair build cannot read ${path.join(directory, "page.mjs")}. Write that file, or correct the path in js.`,
+          `page "p": remove the h1, because the frame shows the page title as the page's only h1. Start headings at h2.`,
+          "",
+        ].join("\n"),
+      );
+      return true;
+    },
+  );
+  await assert.rejects(fs.access(path.join(directory, "out")), {
+    code: "ENOENT",
+  });
 });
 
 test("an error from pair build starts with pair:", async () => {
