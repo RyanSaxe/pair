@@ -24,8 +24,8 @@ import { toggleCenter } from "#frame/sync/center.mjs";
 import { toggleSessions } from "#frame/sync/sessions.mjs";
 
 let renderedRounds = "";
-// A round in the list is a plan when the hub's entry says so, or, for a
-// round whose entry is not in yet, when its loaded Agreed does.
+// A round whose hub entry has not arrived yet counts as a plan when its
+// loaded Agreed marks it as one.
 const planEntry = (entry) =>
   isPlanRound(entry) || isPlanRound(views.get(entry.round)?.plan);
 export function renderRounds() {
@@ -54,8 +54,6 @@ export function renderRounds() {
   renderedRounds = signature;
   const list = $("round-list");
   list.replaceChildren();
-  // Each round is one line, as a session is in the session list: the tick
-  // on the round on screen, the round, its status and its time.
   for (const entry of entries) {
     const here = entry.round === displayedRound;
     const line = document.createElement("div");
@@ -78,8 +76,8 @@ export function renderRounds() {
     time.textContent = entry.publishedAt ? ago(entry.publishedAt) : "";
     row.append(tick, label, status, time);
     line.append(row);
-    // The live reader loads a past round into the left tab. A read-only
-    // page has no tabs, so it opens the round's own page.
+    // A read-only page has no tabs, so a click there opens the round's own
+    // page instead of loading the round into the Previous tab.
     row.onclick = () => {
       hidePanel("rounds-pop");
       if (here) return;
@@ -95,8 +93,7 @@ export function renderRounds() {
     };
     list.append(line);
   }
-  // The plan's name lives in this panel, because the frame shows it nowhere
-  // else.
+  // The frame shows the plan's name only in this panel.
   $("round-plan").textContent = plan.title;
   const older = mode === "readonly" || selectedTab === "past";
   $("round").classList.toggle("older", older);
@@ -109,8 +106,9 @@ export function installRounds() {
 function hidePanel(id) {
   if ($(id).matches(":popover-open")) $(id).hidePopover();
 }
-/* Escape, and every page change. A component with a popover of its own
-   listens for plan:dismiss; the frame cannot reach inside one to close it. */
+/* Escape and every page change call closeMenus. The frame cannot reach
+   inside a component's own popover to close it, so the component listens
+   for plan:dismiss. */
 export function closeMenus() {
   chooseBlock(null);
   window.dispatchEvent(new CustomEvent("plan:dismiss"));

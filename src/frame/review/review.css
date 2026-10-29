@@ -60,7 +60,6 @@
   border-radius: 6px;
   object-fit: cover;
 }
-/* Feedback page */
 .alignment-switch {
   display: flex;
   align-items: center;
@@ -73,9 +72,8 @@
   font-weight: var(--weight-strong);
   cursor: pointer;
 }
-/* In the Send popup the switch sits under the choices. dialogs.css comes
-   later in the cascade, so the rule names the dialog to outrank its
-   .dialog label. */
+/* dialogs.css comes later in the cascade, so this selector includes
+   .dialog to get a higher specificity than the .dialog label rule. */
 .dialog .send-switch {
   display: flex;
   margin: 14px 0 0;
@@ -196,8 +194,6 @@
   border-radius: 8px;
   background: white;
 }
-/* Images on a note: a strip of thumbnails the reviewer can drop one by one,
-   and a layer over the field while a file is over it. */
 .note-images {
   display: flex;
   flex-wrap: wrap;
@@ -221,7 +217,8 @@ img.note-image {
   max-width: 160px;
   object-fit: cover;
 }
-/* On Feedback the thumbnail is the whole element, with no control on it. */
+/* On Feedback the note-image class is on the img itself, with no figure
+   and no remove button around it. */
 img.note-image {
   border: 1px solid var(--line);
   border-radius: 8px;

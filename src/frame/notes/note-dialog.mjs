@@ -23,7 +23,6 @@ import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 
-/* The images on the note in the dialog. */
 let noteImages = [];
 let noteImagesAtOpen = [];
 let noteImagesSaved = false;
@@ -41,7 +40,6 @@ export function drawNoteImages() {
       forgetImages([item]);
       drawNoteImages();
     });
-    // A sketch opens again in the drawing editor, and saving replaces it.
     if (item.scene) {
       const edit = document.createElement("button");
       edit.type = "button";
@@ -60,8 +58,8 @@ export function drawNoteImages() {
     box.append(figure);
   }
 }
-// An image the frame made for the note, such as a sketch, which backing out
-// of the dialog drops like one the reviewer attached.
+// settleNoteImages deletes an image added here, such as a sketch, when the
+// reviewer backs out of the dialog, as it does for an attached image.
 export function addNoteImage(record) {
   noteImages.push(record);
   drawNoteImages();
@@ -71,11 +69,11 @@ export function imageError(message) {
   line.textContent = message;
   line.hidden = !message;
 }
-/* The note's text area is as tall as its text, within the heights its box
-   allows. Safari and Firefox have no field-sizing, so the text is measured:
-   at height auto, the text area's scrollHeight is its text's height. The
-   scrollbar is hidden while measuring so it cannot narrow the text, and the
-   scroll positions the short measuring height moved are put back. */
+/* Safari and Firefox have no CSS field-sizing, so fitNoteText measures the
+   text. At height auto, the text area's scrollHeight is the text's height.
+   fitNoteText hides the scrollbar while it measures, so the scrollbar
+   cannot narrow the text, and then restores the scroll positions that the
+   short measuring height changed. */
 export function fitNoteText() {
   const area = $("note-text");
   const body = area.closest(".dialog-body");
@@ -96,11 +94,12 @@ const attach = (files) =>
     },
     imageError,
   );
-/* A dialog the reviewer abandoned drops what it uploaded, so the session
-   never keeps bytes no note refers to. This runs when the reviewer backs
-   out of the dialog, by its ×, Escape or a click outside, and again before
-   the next one opens, rather than on the dialog's close event, which
-   saving a note also raises. */
+/* settleNoteImages deletes the images that a dialog uploaded when the
+   reviewer backs out of it, so the session keeps no image that no note
+   refers to. The frame calls it when the reviewer closes the dialog with
+   its ×, Escape or a click outside, and again before the next note opens.
+   The dialog's close event cannot call it, because saving a note also
+   fires that event. */
 export function settleNoteImages() {
   if (!noteImagesSaved)
     forgetImages(
@@ -113,7 +112,7 @@ export function settleNoteImages() {
 
 export function installNoteDialog() {
   $("note-text").addEventListener("input", fitNoteText);
-  // A new window width wraps the text again.
+  // A new window width wraps the text again and changes its height.
   addEventListener("resize", () => {
     if ($("note-dialog").open) fitNoteText();
   });
@@ -123,8 +122,9 @@ export function installNoteDialog() {
     event.target.value = "";
   };
   acceptImages($("note-dialog"), attach);
-  /* Start a thread sends the note to the agent now instead of keeping it
-     for Send feedback, so the note leaves the draft and its images stay. */
+  /* startThread sends the note to the hub now instead of keeping it for
+     Send feedback, so this handler deletes the note's draft and keeps its
+     images. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
   $("note-thread").onclick = () => {
     const allowed = noteContext.proposal ? cardsEditable() : noteEditable();
@@ -146,8 +146,8 @@ export function installNoteDialog() {
     $("note-thread").click();
   });
   $("activity-message").onclick = openAgentMessage;
-  // The form's submit, which Shift+Enter also triggers, adds nothing to
-  // feedback while Add to feedback is hidden.
+  // Shift+Enter also submits the form, so the handler adds nothing to
+  // feedback while the Add to feedback button is hidden.
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
     if (!feedbackEditable() || $("note-save").hidden) return;

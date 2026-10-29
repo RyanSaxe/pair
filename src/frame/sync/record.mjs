@@ -1,16 +1,15 @@
-/* One of the hub's lists of IDs, such as the bell events the reviewer
-   cleared, with a copy in this browser's localStorage. A tab reads the copy
-   while the hub is unreachable, and writing the copy fires a storage event
-   that redraws this browser's other tabs at once. Other browsers, such as a
-   phone's, read the hub's list on their next poll of the session list.
-   `name` is the list's name on the hub. A null list means neither the hub
-   nor this browser has recorded anything yet. */
+/* hubRecord keeps a copy of one of the hub's ID lists, such as the bell
+   events that the reviewer cleared, in this browser's localStorage. A tab
+   reads the copy while the hub is unreachable. Writing the copy fires a
+   storage event, and the frame's other tabs in this browser redraw on it.
+   Other browsers, such as a phone's, read the hub's list on their next poll
+   of the session list. `name` is the list's name on the hub. load() returns
+   null when neither the hub nor this browser has recorded anything yet. */
 const same = (a, b) => a.size === b.size && [...a].every((id) => b.has(id));
 export function hubRecord(name, storageKey, changed = () => {}) {
-  // A copy in memory, for when localStorage is unavailable.
   let fallback = null;
-  // listed: a session list has come from the hub. kept: that hub keeps
-  // this list, so send() can post to it.
+  // listed is true once a session list has come from the hub. kept is true
+  // when that hub stores this list, so send() can post to it.
   let listed = false;
   let kept = false;
   function load() {
@@ -27,7 +26,7 @@ export function hubRecord(name, storageKey, changed = () => {}) {
     try {
       localStorage.setItem(storageKey, JSON.stringify(fallback));
     } catch {
-      /* localStorage is blocked; the copy in memory still has the IDs. */
+      /* localStorage is blocked, and fallback still contains the IDs. */
     }
     changed();
   }
@@ -44,9 +43,7 @@ export function hubRecord(name, storageKey, changed = () => {}) {
   return {
     load,
     isChange: (event) => event.key === storageKey,
-    // Whether a session list has come from the hub.
     listed: () => listed,
-    // Adds the IDs, and returns whether any was new.
     add(ids) {
       const record = load() || new Set();
       const fresh = [...new Set(ids)].filter((id) => !record.has(id));
@@ -56,20 +53,21 @@ export function hubRecord(name, storageKey, changed = () => {}) {
       send(fresh);
       return true;
     },
-    // When neither this browser nor the hub has a list, starts both with ids.
+    // After sync(), load() returns null only when the hub had no list
+    // either, so adopt starts both lists with ids.
     adopt(ids) {
       if (!listed || load()) return;
       store(new Set(ids));
       send([...ids]);
     },
-    /* Runs after each session list from the hub. hub is the hub's list:
-       null when no browser has sent one, and undefined from an older hub
-       that keeps no lists. settle(ids) drops the IDs the session list no
-       longer shows and adds the ones this tab counts as seen. adopt()
-       returns the IDs to start with when neither this browser nor the hub
-       has a list. sync() then posts every ID this browser has and the hub
-       lacks, such as IDs from before the hub kept lists, or from a time the
-       hub was unreachable. */
+    /* sync runs after each session list from the hub. hub is the hub's
+       list. It is null when no browser has sent one, and undefined from an
+       older hub that stores no lists. settle(ids) drops the IDs that the
+       session list no longer shows and adds the ones this tab counts as
+       seen. adopt() returns the IDs to start with when neither this browser
+       nor the hub has a list. sync then posts every ID that this browser has
+       and the hub lacks, such as IDs from before the hub stored lists or
+       from a time when the hub was unreachable. */
     sync(hub, settle, adopt = () => null) {
       listed = true;
       kept = hub !== undefined;

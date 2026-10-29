@@ -62,7 +62,8 @@ export function indexPage(topic) {
       if (typeof input.before === "string") text.push(input.before);
       if (typeof input.after === "string") text.push(input.after);
     } catch {
-      // The page builder reports malformed diff input before the page runs.
+      // The builder reports malformed diff input when it builds the page,
+      // so indexPage skips it here.
     }
   }
   known.text.set(topic.id, normalize(text.join("\n")));
@@ -79,7 +80,8 @@ export function rebuildKnown() {
 }
 export function stale(kind, key, item) {
   if (kind === "note") {
-    // Review's overall comment and Work are in every round.
+    // Every round has Review's overall comment and Work, so a note on either
+    // is never stale.
     if (item.topic === "overall" || item.topic === "work") return false;
     if (item.topic === "agreed")
       return Boolean(
@@ -105,9 +107,10 @@ export let noteContext = null;
 export let noteDraftKey = "";
 let opener = null;
 
-/* Notes on the text. A quote is the page's own text, so a thread card that
-   repeats it is never where it is found. The text has each run of whitespace
-   as one space, and map has the node and offset of every other character. */
+/* pageText skips pair-thread elements, because a thread card repeats its
+   quote and a quote must match the page's own text. The returned text has
+   each run of whitespace collapsed to one space, and map contains the node
+   and offset of every other character. */
 function pageText(root) {
   const map = [];
   let text = "",
@@ -162,8 +165,6 @@ export function findText(root, needle, occurrence = 1) {
 }
 const quoteBlock = (target) =>
   target && document.getElementById(target)?.closest("#page-content > *");
-// Which appearance of the selected words in the note's block the selection
-// starts at.
 export function selectedOccurrence(selection, quote, target) {
   const block = quoteBlock(target);
   if (!block || !selection?.rangeCount) return 1;
@@ -178,10 +179,10 @@ export function selectedOccurrence(selection, quote, target) {
   );
   return occurrenceAt(text, normalize(quote), start);
 }
-// Selected words are looked for first in the block the note names, at the
-// appearance the reviewer selected, so a phrase the page repeats is marked
-// where it was selected. A note with no occurrence is on the first, and so
-// is one whose block no longer has that many.
+// findQuote searches the note's block first, at the occurrence the reviewer
+// selected, so the frame marks a repeated phrase where the reviewer selected
+// it. When the block no longer has that many occurrences, findQuote uses the
+// first one.
 export function findQuote(quote, target, occurrence = 1) {
   const block = quoteBlock(target);
   return (
@@ -190,7 +191,8 @@ export function findQuote(quote, target, occurrence = 1) {
   );
 }
 export function clearHighlight(name) {
-  /* Safari can keep custom-highlight paint stale when nearby text changes. */
+  /* Safari can leave stale custom-highlight paint when nearby text changes,
+     so highlight() deletes a highlight before it sets the highlight again. */
   if (typeof CSS !== "undefined" && CSS.highlights) CSS.highlights.delete(name);
 }
 export function highlight(name, ranges) {
@@ -206,15 +208,16 @@ export function highlight(name, ranges) {
     try {
       range.surroundContents(mark);
     } catch {
-      /* Partial selections stay unmarked; the count line still reports them. */
+      /* A range that surroundContents cannot wrap stays unmarked, and
+         countNotes still counts its note. */
     }
   }
 }
 const richContent =
   "[data-language], [data-diagram], [data-math], [data-chart], [data-prototype]";
 let noteRanges = [];
-// A note on one box of a diagram marks the box, which a highlight cannot
-// reach in an SVG.
+// A CSS highlight cannot mark text in an SVG, so markNotes marks a noted
+// diagram box with the noted class instead.
 let noteBoxes = [];
 export function markNotes() {
   const notes = state.notes.filter((note) => note.topic === page.id);
@@ -247,8 +250,8 @@ export function markNotes() {
   placeNoteBars();
   countNotes();
 }
-// Agreed and a page still being prepared never reach markNotes, so show sets
-// the count for every page the reader opens.
+// markNotes never runs for Agreed or for a pending page, so show() calls
+// countNotes for every page.
 export function countNotes() {
   const count = showingWaiting()
     ? 0
@@ -258,8 +261,8 @@ export function countNotes() {
     ? `${plural(count, "note")} on this page`
     : "";
 }
-// Highlights have no element to hover, so the pointer is hit-tested against
-// the note ranges; overlapping notes all show in one tip.
+// A CSS highlight has no element to hover, so notesAt hit-tests the pointer
+// against the note ranges. showTip shows every overlapping note in one tip.
 function notesAt(x, y) {
   let node, offset;
   if (document.caretPositionFromPoint) {
@@ -317,7 +320,8 @@ function showTip(event) {
 }
 export function installNotes() {
   rebuildKnown();
-  // A diff and a diagram draw their content again after the page renders.
+  // A diff and a diagram render their content again after the page renders,
+  // so markNotes runs again on their events.
   for (const name of ["plan:diff", "plan:diagram"])
     window.addEventListener(name, () => {
       if (!$("reading").hidden && !page.pending && page.id !== "agreed")
@@ -337,11 +341,12 @@ export function installNotes() {
     const notes = notesAt(event.clientX, event.clientY);
     if (notes.length === 1) openNote(notes[0]);
     else if (notes.length > 1) show("feedback");
-    // A click on a noted box opens its note instead of the enlarged view.
+    // This keeps a click on a noted box from also opening the enlarged
+    // diagram.
     if (notes.some((note) => note.diagramNode))
       event.stopImmediatePropagation();
   });
-  /* Rebuild the range after a close has finished any page replacement. */
+  /* markNotes waits a frame, so it runs after a save has redrawn the page. */
   $("note-dialog").addEventListener("close", () => {
     requestAnimationFrame(() => {
       if (
@@ -352,11 +357,11 @@ export function installNotes() {
         markNotes();
     });
   });
-  /* Closing puts focus back on the control that opened the note. The
-     browser does that itself, but not to a control that was redrawn: a save
-     redraws the page, which focuses its heading, or Review's list. Focus
-     then goes to the redrawn element that held the control, found by its
-     ID: the block, card or Review item the note is on. */
+  /* The browser returns focus to the control that opened the dialog, but
+     not when the frame has redrawn that control. A save redraws the page,
+     which focuses its heading, or redraws Review's list. This handler then
+     focuses the redrawn element with the control's nearest ID, which is the
+     block, card or Review item that the note is on. */
   $("note-dialog").addEventListener("close", () => {
     const shown = (element) =>
       element?.isConnected && element.checkVisibility();
@@ -370,14 +375,11 @@ export function installNotes() {
     if (!block.hasAttribute("tabindex")) block.tabIndex = -1;
     block.focus({ preventScroll: true });
   });
-  /* A tab switch, an image, or a new window width moves the block under the
-     bar, and each of those changes the page's own size. */
+  /* A tab switch, a loaded image or a new window width moves the blocks
+     under the bars, and each of those changes the size of page-content. */
   new ResizeObserver(placeMarks).observe($("page-content"));
 }
 
-/* A note's dialog, for a new note on what it names or, with id, to edit
-   that note. A note on a proposal names the card, and its Start a thread
-   starts the card's own thread. */
 export function openNote({
   topic,
   anchor,
@@ -390,9 +392,9 @@ export function openNote({
   diagramNode = null,
   proposal = null,
 }) {
-  // After the round's feedback is sent, only a new note opens, and it can
-  // only start a thread: on the round, or on a card wherever its Start
-  // works.
+  // After the round's feedback is sent, openNote opens only a new note,
+  // which can only start a thread. A note on a card can start a thread
+  // wherever the card's Start button works.
   const feedback = feedbackEditable();
   const threads = proposal ? cardsEditable() : noteEditable();
   if (!feedback && (id || !threads)) return;
@@ -435,11 +437,10 @@ export function openNote({
   imageError("");
   $("note-title").textContent = id ? "Edit note" : "Add note";
   $("note-save-label").textContent = id ? "Save changes" : "Add to feedback";
-  // A new note can start a thread, when a hub can take it.
   $("note-thread").hidden = Boolean(id) || !online || !threads;
   $("note-save").hidden = !feedback;
-  // Every note opens the dialog in its usual form, whatever the last
-  // opening changed.
+  // openAgentMessage changes these parts of the dialog, so openNote resets
+  // them on every open.
   $("note-label").textContent = "Feedback";
   $("note-anchor").hidden = false;
   $("note-thread").classList.remove("primary");
@@ -448,9 +449,10 @@ export function openNote({
   fitNoteText();
   $("note-text").focus();
 }
-/* The progress card's button starts a thread about the work in progress.
-   The dialog shows only Start a thread, because the message is for the
-   agent now and does not go into the round's feedback. */
+/* The progress card's button calls openAgentMessage to start a thread about
+   the work in progress. The dialog shows only Start a thread, because the
+   frame sends this message to the agent now and not with the round's
+   feedback. */
 export function openAgentMessage() {
   openNote({ topic: "agreed", anchor: "Progress", target: "agent-activity" });
   if (!$("note-dialog").open) return;
@@ -460,9 +462,8 @@ export function openAgentMessage() {
   $("note-save").hidden = true;
   $("note-thread").classList.add("primary");
 }
-/* A note that quotes nothing leaves no highlight to find it by, so the block
-   it belongs to keeps a quiet bar in the same padding the chosen one uses.
-   Accent means chosen now; muted means this block has notes. */
+/* A note that quotes nothing has no highlight, so placeNoteBars marks its
+   block with a bar in the same padding as the chosen block's bar. */
 function placeNoteBars() {
   const host = $("note-bars");
   host.replaceChildren();
