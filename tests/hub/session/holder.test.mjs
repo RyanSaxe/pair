@@ -46,8 +46,6 @@ test("start hands the session to its agent, and only the holder works on it and 
     lost.body.error,
     `Another agent took this session over at ${clock(holder.at)}. Stop working on it.`,
   );
-  // After that first refusal, the hub refuses the former holder as it refuses
-  // any agent that does not hold the session.
   for (const refused of [
     await a.action("ack"),
     await a.action("publish", { html: "" }),
@@ -60,8 +58,6 @@ test("start hands the session to its agent, and only the holder works on it and 
   }
   assert.deepEqual((await a.status()).body.holder, holder);
   assert.equal((await a.action("ack", { agent: two.agent })).code, 200);
-  // The hub wakes only the holder, and it clears takeover when the reviewer
-  // sends feedback.
   assert.equal((await a.feedback(a.event())).code, 200);
   assert.equal(await waitUntil(() => two.wakes.length === 1), true);
   assert.equal(one.wakes.length, 0);

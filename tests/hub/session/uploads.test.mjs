@@ -96,8 +96,6 @@ test("a note carries its images by path, and removing one deletes the file", asy
     text: "This is what I mean.",
     attachments,
   });
-  // The hub refuses a note whose attachment ID matches no upload in this
-  // session.
   const rejected = await a.feedback(
     a.event("feedback-only", "1", {
       groups: {
@@ -116,8 +114,6 @@ test("a note carries its images by path, and removing one deletes the file", asy
   );
   assert.equal(rejected.code, 400);
   assert.match(rejected.body.error, /not in this session/);
-  // The hub refuses a sketch whose image has a scene ID that this session has
-  // not stored.
   const sceneless = await a.feedback(
     a.event("feedback-only", "1", {
       groups: { notes: [note([{ ...stored, scene: { id: "0".repeat(16) } }])] },

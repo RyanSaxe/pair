@@ -120,7 +120,6 @@ test("each round keeps its own remembered place", () => {
   });
   assert.equal(tab, "past");
   assert.equal(past, "1");
-  // readPlaces rounds the distance into a block to whole pixels.
   assert.deepEqual(placeFor(places, "1", pages), {
     page: "steps",
     at: {

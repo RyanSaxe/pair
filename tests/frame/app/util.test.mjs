@@ -16,8 +16,6 @@ test("a note on words its block repeats finds the appearance the reviewer select
       occurrenceIndex(text, words, occurrenceAt(text, words, start)),
       start,
     );
-  // occurrenceIndex finds the first occurrence when no occurrence number is
-  // given, and it returns -1 for an occurrence past the last.
   assert.equal(occurrenceIndex(text, words), first);
   assert.equal(occurrenceIndex(text, words, 3), -1);
 });

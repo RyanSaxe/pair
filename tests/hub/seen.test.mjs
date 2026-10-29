@@ -26,8 +26,6 @@ test("browsers share what the reviewer cleared, opened and saw, and a new hub ke
   assert.equal(added.code, 200);
   const expected = { cleared: [event], opened: [page], cards: [] };
   assert.deepEqual(added.body, expected);
-  // The hub merges a second POST into the record and stores an ID it already
-  // has only once.
   await a.request("/api/seen", { cards: [card], opened: [page] });
   expected.cards = [card];
   assert.deepEqual(await list(), expected);

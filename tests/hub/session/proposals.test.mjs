@@ -182,8 +182,6 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   assert.equal((await reviewer("churn-export", "decline")).code, 200);
   const start = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(start.code, 409);
-  // The hub sends no wake for a decline, and pair read prints each decline
-  // once.
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 0);
   assert.deepEqual(

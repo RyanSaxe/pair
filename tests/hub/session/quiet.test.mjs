@@ -229,8 +229,6 @@ test("the hub wakes the holder once for quiet work when no command runs, and aga
   await sleep(3 * quietMs);
   assert.equal(wakeLines().length, 1);
 
-  // Starting another page makes the hub send a second wake whose message
-  // contains both page IDs.
   await run("progress", { start: ["docs-pass"] });
   assert.equal(await waitUntil(() => wakeLines().length === 2), true);
   assert.match(
