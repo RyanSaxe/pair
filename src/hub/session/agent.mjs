@@ -8,19 +8,16 @@ import { nextOf } from "./submissions.mjs";
 // it was, wherever its work runs.
 export const answersRound = (event) => event.payload.intent !== "start";
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
-// The agent's commands, the holder, and the lines that tell the agent what
-// to do next.
 export function agent(session) {
   const { directory, config, transition, pending, view } = session;
   const command = (name) => `pair ${name} --session-dir ${directory}`;
   const closed = "The reviewer closed this session. Stop working on it.";
-  // Any agent in any harness takes the session over with this line.
   const handoff = `To take over pair session ${directory}, run ${command("start")} and follow what it prints.`;
-  // Each agent command is a report, and the reviewer sees when the last one
-  // came. Only ack carries a note, so any other report clears the last one.
-  // noteAt keeps the time of the last note, whose age shows beside the note
-  // under the progress card's title, so a report without a note does not
-  // reset it.
+  // The hub records every agent command as a report, and the frame shows
+  // when the last report came. Only ack sends a note, so any other report
+  // sets note to null. noteAt is the time of the last note, which the frame
+  // shows beside the note under the progress card's title, so a report
+  // without a note leaves noteAt as it was.
   const report = (note = null) => {
     const at = timestamp();
     const noteAt = note ? at : session.state.report?.noteAt;
@@ -30,15 +27,12 @@ export function agent(session) {
     event && session.state.lastReceivedId !== event.id
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
-  // The proposals started here that are not done, whose work goes on until
-  // the agent marks it done.
   const startedHere = () =>
     session
       .proposalItems()
       .filter((card) => card.started?.where === "here" && !card.done);
-  // Every agent command prints the step after it, so an agent that lost its
-  // place is told where the session stands, and then the line that names
-  // any quiet work.
+  // Every agent command prints nextStep, so an agent that lost its place
+  // learns where the session stands.
   async function nextStep() {
     const quiet = session.quietLine();
     return quiet ? `${await step()}\n${quiet}` : step();
@@ -65,8 +59,8 @@ export function agent(session) {
     if (session.state.stage === "working")
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";
     const { round } = session.state.current;
-    // Work started here after this round's page list was published has no
-    // page in it, so the agent builds it now for the next round.
+    // Work started here after the agent published this round's page list has
+    // no page in the round, so the agent builds it now for the next round.
     const ids = startedHere()
       .filter((card) => card.started.round === round)
       .map((card) => card.id);
@@ -80,17 +74,16 @@ export function agent(session) {
     }
     return `You published round ${round}. If you have not told the reviewer in the chat what changed, tell them, then end your turn. The hub wakes you when the reviewer sends feedback.`;
   }
-  // The first Agreed of a session says whether to open its URL. A pair tab
-  // that polled the hub recently lists the new session in its bell and
-  // session list, so the agent opens a second tab only when none did.
+  // publishPage prints browserLine with a session's first Agreed. A pair tab
+  // that polled the hub recently already lists the new session in its bell
+  // and session list, so the agent opens a new tab only when no tab polled.
   const browserLine = (url) =>
     session.tabOpen()
       ? `The reviewer already has pair open in their browser. Give them the link ${url} in the chat, and do not open another tab.`
       : `Open ${url} in the reviewer's default browser (macOS open, Windows Start-Process, Linux xdg-open, with the URL quoted), and give them the link in the chat.`;
-  // Every wake runs here: a submission's, a thread message's and Start in
-  // parallel's. The result has ok, the reason when the wake failed, and via,
-  // the path the line took. Each wake also sets holder.steerable, which the
-  // frame reads to say when the agent reads a message.
+  // Every wake goes through sendWake, for a submission, a thread message or a
+  // Start in parallel. sendWake also sets holder.steerable, which the frame
+  // reads to show when the agent will read a message.
   async function sendWake(line) {
     let result;
     try {
@@ -109,28 +102,29 @@ export function agent(session) {
       ...(result.via ? { via: result.via } : {}),
     };
   }
-  // Runs after the submission is saved, outside the browser's request, so a
-  // slow or failing harness never delays the reviewer's Sent session.state.
+  // submit schedules wakeAgent after it saves the submission, outside the
+  // browser's request, so a slow or failing agent CLI never delays the
+  // reviewer's Sent state.
   async function wakeAgent(round) {
     const line = `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`;
     const last = await sendWake(line);
     await transition({ wake: { harness: session.wake.harness, last } });
   }
   // The reviewer closes a session from the browser. The hub sends the agent
-  // nothing, and refuses the agent's next command with the line that says
-  // the session is complete. Closing deletes no file, and the agent removes
-  // its scratch worktrees once the reviewer agrees.
+  // no wake, and act refuses the agent's next command with closed. close
+  // deletes no file.
   async function close() {
     await transition({ stage: "complete", dismissedAt: timestamp() });
     await session.closeLinked();
     return { status: view() };
   }
-  // Every command but pair status goes through this check, start included.
-  // The first one from an agent the session was taken from fails with the
-  // time of the takeover and removes the agent from formerHolders, so the
-  // agent stops instead of publishing over its successor. After that, a
-  // command other than start from any agent but the holder fails with the
-  // line that says to take the session over with pair start if the user asks.
+  // act runs this check for every command except pair status and pair
+  // propose, and hold runs it for pair start. The first command from an agent
+  // that lost the session fails with the time of the takeover, and
+  // requireHolder removes that agent from formerHolders, so the agent stops
+  // instead of publishing over its successor. After that, a command other
+  // than start from any agent but the holder fails with the message to take
+  // the session over with pair start if the reviewer asks.
   async function requireHolder(agent, start = false) {
     const clock = (at) => new Date(at).toTimeString().slice(0, 5);
     const former = (session.state.formerHolders || []).find((item) =>
@@ -161,7 +155,7 @@ export function agent(session) {
   }
   // pair read lists each thread with a reviewer message since the
   // submission before the one it prints, or since the latest submission
-  // when none waits, and names the moment of the submission it prints.
+  // when none is pending.
   function readAnswer(event, before) {
     return {
       threads: session.threadsSince(before?.receivedAt),
@@ -171,18 +165,18 @@ export function agent(session) {
         : { event: null }),
     };
   }
-  // The reviewer's choice for the next round names a moment, except Keep
-  // iterating, which asks for nothing new. Iterate on a plan round is Back
-  // to iterating.
+  // Each choice for the next round has its own moment, except Keep
+  // iterating, which needs none. On a plan round, iterate is the Back to
+  // iterating choice, which has the read-iterate moment.
   function choiceMoment(payload) {
     const next = nextOf(payload);
     if (next !== "iterate") return `read-${next}`;
     return session.roundEntry(payload.round)?.plan ? "read-iterate" : null;
   }
-  // A Start prints with the card it started, so the agent reads what the
-  // card approves. Feedback prints with every card started here that is not
-  // done, so the agent keeps building that work in the round the feedback
-  // begins.
+  // pair read prints a Start with the card it started, so the agent reads
+  // what the reviewer approved. It prints feedback with every card started
+  // here that is not done, so the agent keeps building that work in the round
+  // the feedback begins.
   function eventRead(event) {
     if (event.payload.intent !== "start")
       return {
@@ -201,8 +195,8 @@ export function agent(session) {
       .filter((item) => item.sequence < sequence)
       .sort((a, b) => b.sequence - a.sequence)[0];
   async function readFeedback(data) {
-    // With an id, read returns that submission again and changes nothing,
-    // for a turn that resumes after an interruption.
+    // With an id, readFeedback returns that submission again and changes
+    // nothing, for an agent turn that resumes after an interruption.
     if (data.id !== undefined) {
       requireValue(
         idPattern.test(data.id || "") &&
@@ -248,7 +242,7 @@ export function agent(session) {
       next: await startNext(where, proposal),
     };
   }
-  // A sub-session's Start leaves this session's round as it was, so its
+  // A Start in a sub-session leaves this session's round as it was, so the
   // next step is the command that creates the sub-session.
   const startNext = async (where, id) =>
     where === "sub-session"
@@ -270,8 +264,8 @@ export function agent(session) {
         ? { ...report(data.note?.trim() || null), ...receive(event) }
         : {
             ...session.notePage(data.page, data.note.trim()),
-            // A page note is a report for the round's time. The note under
-            // the card's title stays, with the time it was sent.
+            // A page note updates only the report's time, and ack leaves the
+            // note under the card's title and its noteAt as they were.
             report: { ...session.state.report, at: timestamp() },
             ...receive(event),
           },
@@ -292,9 +286,6 @@ export function agent(session) {
     });
     return { status: view(), next: await nextStep() };
   }
-  // The actions an agent command sends, by the command that sends it.
-  // Any agent may run pair status, and only the holder's output names a
-  // next step.
   const actions = {
     status: async (data) => ({
       status: view(),
@@ -308,15 +299,15 @@ export function agent(session) {
     pause,
     publish: (data) => session.publishPage(data.html, data.source, data.pages),
     reply: (data) => session.reply(data),
-    // Work started with a new agent on the reviewer's words waits for an
-    // agent that runs pair start --from, as after Open a new agent session.
-    // The holder's own start here or in a sub-session saves nothing for pair
-    // read, so the answer carries the moment and the joined cards that pair
-    // read prints with any other start.
+    // When the agent starts work with a new agent on the reviewer's words,
+    // nothing runs until another agent runs pair start --from, as after Open
+    // a new agent session. When the holder starts work here or in a
+    // sub-session, the hub saves nothing for pair read, so propose returns
+    // the moment and the joined cards that pair read prints for any other
+    // Start.
     propose: async (data) => {
       const holder = sameAgent(session.state.holder, data.agent);
       const proposal = await session.propose(data, holder);
-      // A status from a linked session goes to the card in its parent.
       const parent = session.cardOwner(proposal.id, "pair propose");
       const next =
         data.start === "new-agent"
@@ -343,9 +334,9 @@ export function agent(session) {
       "Wrong session",
       409,
     );
-    // status only reads, so any agent, or none, may run it, on a closed
-    // session too. Any agent may record a proposal, such as a subagent that
-    // finds work worth doing.
+    // status only reads, so any agent, or none, can run it, also on a closed
+    // session. Any agent can record a proposal, such as a subagent that finds
+    // work worth doing.
     if (data.action !== "status") {
       requireValue(session.state.stage !== "complete", closed, 409);
       if (data.action !== "propose") await requireHolder(data.agent);
@@ -355,11 +346,9 @@ export function agent(session) {
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
-  // other registration, such as a command reattaching to a new hub, changes
-  // nothing when it comes from an agent other than the holder, and leaves a
-  // paused session paused, because only pair start resumes one. A start that
-  // creates the session names it with its title and answers with the start
-  // moment, and any other start answers with the session's next step.
+  // other registration, such as a command that reattaches to a new hub,
+  // changes nothing when it comes from an agent other than the holder, and
+  // it leaves a paused session paused, because only pair start resumes one.
   async function hold(target, options = {}) {
     const start = options.start === true;
     const { created } = options;
@@ -367,8 +356,9 @@ export function agent(session) {
     const agent = identify(target);
     const held = session.state.holder;
     const same = sameAgent(held, agent);
-    // act() then answers or refuses the command, so a former holder's pair
-    // status keeps its takeover notice.
+    // act then runs or refuses the command. Without this return, a former
+    // holder's pair status would make requireHolder use up its takeover
+    // notice.
     if (!start && held && !same) return {};
     await requireHolder(agent, start);
     session.commandRan();
@@ -377,12 +367,14 @@ export function agent(session) {
     const patch = {
       wake: { harness: target.harness, last: session.state.wake?.last || null },
       ...(start ? { paused: null } : {}),
-      // The first Agreed's title replaces the one pair start gave.
+      // title() returns this title until the first Agreed publishes, and
+      // then returns Agreed's title.
       ...(created && title ? { title } : {}),
     };
     if (!same) {
       patch.holder = { ...agent, at: timestamp() };
-      // The reviewer's card says who took over, until they next submit.
+      // The frame shows takeover on the reviewer's progress card until
+      // submit clears it.
       if (held)
         Object.assign(patch, report(), {
           takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
@@ -394,7 +386,6 @@ export function agent(session) {
         });
     }
     await transition(patch);
-    // The bell of every pair tab announces the session pair start creates.
     if (start && !held && !session.state.current)
       await session.addActivity({
         kind: "session",
@@ -402,7 +393,6 @@ export function agent(session) {
       });
     if (start && created)
       return {
-        // A session pair start --from created runs one proposal.
         moment: session.state.parent
           ? ["start", session.plansFirst() ? "start-from-plan" : "start-from"]
           : "start",
@@ -411,9 +401,9 @@ export function agent(session) {
     const next = start && (await nextStep());
     if (!next) return {};
     if (same) return { next };
-    // An agent that takes the session over may never have read the core,
-    // and has not read the feedback that an open round answers, which the
-    // previous holder read before it published the round's Agreed.
+    // An agent that takes the session over may never have run pair guide,
+    // and it has not read the feedback that an open round answers, because
+    // the previous holder read that feedback before it published Agreed.
     const answered =
       session.state.openRound && session.state.latestSubmissionId;
     const feedback = answered

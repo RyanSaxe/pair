@@ -29,7 +29,6 @@ import {
 import { answersRound } from "./agent.mjs";
 import { nextOf } from "./submissions.mjs";
 
-// Publishing a round's pages, and reading the rounds a session keeps.
 export function rounds(session) {
   const { directory, origin, base, transition, events, pending, view } =
     session;
@@ -95,8 +94,6 @@ export function rounds(session) {
       }
     }
   }
-  // A thread settles a decision as a note does, and Agreed links to the
-  // block it is on.
   function threadRecord(thread) {
     const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
     return {
@@ -148,8 +145,9 @@ export function rounds(session) {
     return assemble(data, {
       css: pageStyles(all, set.round),
       js: pageScripts(all, set.round),
-      // Each page's links were checked when it published, and a page
-      // published before that check must not keep its round from completing.
+      // publishPage checks each page's links when the page publishes, and a
+      // page published before that check existed must not keep its round
+      // from completing.
       allowUnknownPages: true,
       bundle,
     });
@@ -210,8 +208,8 @@ export function rounds(session) {
       rounds,
     });
     // The hub served the open round from the live file while its pages
-    // arrived, and serves the complete file from now on. The round waits
-    // for the reviewer, and every pair tab's bell says so.
+    // arrived, and it serves the complete file from now on. The waiting
+    // event puts the round in every pair tab's bell.
     if (complete) {
       await fs.rm(
         path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
@@ -226,9 +224,10 @@ export function rounds(session) {
       next: await session.nextStep(),
     };
   }
-  // The reviewer's choice on the round before decides whether this round
-  // is a plan: Write a plan and Update the plan ask for one, and Back to
-  // iterating sets one aside. Otherwise the agent decides.
+  // requirePlanMark enforces the reviewer's choice on the previous round.
+  // After Write a plan or Update the plan, this round must be a plan, and
+  // after Back to iterating on a plan round, it must not be one. After any
+  // other choice, the agent decides.
   function requirePlanMark(plan) {
     const before = session.state.current;
     if (!before) return;
@@ -295,7 +294,8 @@ export function rounds(session) {
         `This session already has a round ${record.round}. Set "round" in Agreed's source to a new round number.`,
         409,
       );
-      // pages.md makes the name a stable ID for the whole session.
+      // guide/pages.md defines the name as a stable ID for the whole
+      // session.
       requireValue(
         !session.state.current || record.name === session.state.current.name,
         `Every round of this session has the name "${session.state.current?.name}". Set "name" in the page source to "${session.state.current?.name}".`,
@@ -344,9 +344,10 @@ export function rounds(session) {
         `You already published page ${page.id} in this round.`,
         409,
       );
-      // Agreed's list names every page of the round, so a page's links are
-      // checked as it publishes. A bad link found only when the round
-      // completes would sit in a page that can no longer change.
+      // Agreed's page list contains every page of the round, so publishPage
+      // can check a page's links when it publishes. A bad link found only
+      // when the round completes would be in a page that can no longer
+      // change.
       const badLinks = linkProblems(
         page.html || "",
         `page "${page.id}"`,
@@ -388,8 +389,10 @@ export function rounds(session) {
         set.agreed = recordPath;
         set.agreedVersion = version;
         set.agreedAt = timestamp();
-        // The round keeps the frame it started with, so an update to
-        // pair mid-round cannot mix two frames in one built file.
+        // publishPage saves the frame bundle when Agreed publishes, and
+        // renderPageRound builds the round from that bundle until the round
+        // completes, so an update to pair in the middle of a round cannot
+        // mix two frames in one built file.
         set.bundlePath = path.join(
           recordDir,
           `frame.${crypto.randomUUID()}.json`,
@@ -410,8 +413,8 @@ export function rounds(session) {
       if (opening)
         result.next = `${session.browserLine(result.url)} Then: ${result.next}`;
     } catch (error) {
-      // A publish that fails leaves the round's files as they were, so no
-      // record or frame of a page that never published stays behind.
+      // When a publish fails, publishPage removes the record and the frame
+      // bundle it wrote, so no file of a page that never published stays.
       await fs.rm(recordPath, { force: true });
       if (page.id === "agreed" && set.bundlePath)
         await fs.rm(set.bundlePath, { force: true });

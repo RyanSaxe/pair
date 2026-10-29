@@ -28,8 +28,8 @@ async function readBody(req, limit) {
     "JSON required",
     415,
   );
-  // A chunk can end inside a character, so the body is decoded only once
-  // every chunk has arrived.
+  // A chunk can end inside a UTF-8 character, so readBody decodes the body
+  // only after every chunk arrives.
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -48,9 +48,9 @@ export async function startHub(config = settings()) {
   await fs.mkdir(config.sessions, { recursive: true, mode: 0o700 });
   const secret = crypto.randomBytes(32).toString("hex");
   const startedAt = timestamp();
-  // /api/hub names the state directory the hub serves, by its real path, so
-  // a command with no record of the hub can tell whether it is still loading
-  // or serves another state directory.
+  // The /api/hub response contains the real path of the state directory, so
+  // a command with no hub record can tell a hub that is still loading from a
+  // hub of another state directory.
   const stateDir = await fs.realpath(config.root);
   const registry = new Map();
   const byDirectory = new Map();
@@ -59,12 +59,12 @@ export async function startHub(config = settings()) {
     hostOrigin = null,
     allowedHosts = new Set(),
     localHosts = new Set();
-  // Every pair tab receives the session list, first in the page the hub
-  // serves it and then from its poll every 5 s, and no pair command requests
-  // it, so the last list the hub sent to this machine is the last poll of any
-  // pair tab on it. A tab on the PAIR_HUB_HOST address, such as a phone's,
-  // does not count, because the agent opens its tab on this machine. A new
-  // hub has no record until an open tab polls it.
+  // Every pair tab gets the session list in the page the hub serves and then
+  // polls it every 5 seconds, and no pair command requests it. The last
+  // session list the hub sent to this machine therefore marks the last poll
+  // of any pair tab on it. sessionList ignores a request to the PAIR_HUB_HOST
+  // address, such as a phone's, because the agent opens its tab on this
+  // machine. A new hub treats no tab as open until a tab polls it.
   let tabPolledAt = -Infinity;
   const tabOpen = () => Date.now() - tabPolledAt < config.tabWindowMs;
   const log = (message) =>
@@ -72,7 +72,7 @@ export async function startHub(config = settings()) {
   // A session directory can be reached by more than one path, such as
   // /tmp/… and /private/tmp/… on macOS. The hub keys a session by the real
   // path of its parent and its own name, because a new session's directory
-  // does not exist yet when it registers.
+  // does not exist yet when pair start registers it.
   const canonical = async (directory) =>
     path.join(
       await fs
@@ -108,34 +108,33 @@ export async function startHub(config = settings()) {
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
   const seen = await seenStore(config.seenFile, log);
-  // GET /api/sessions returns the three lists beside the sessions, so a
-  // tab's existing poll fetches both.
+  // GET /api/sessions returns the seen lists with the sessions, so the
+  // frame's existing poll fetches both.
   const sessionList = async (req) => {
     if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
     const sessions = listed();
     return { sessions, seen: await seen.view(sessions) };
   };
-  /* The hub is a local review tool. It binds 127.0.0.1 unless the operator
-     sets PAIR_HUB_HOST, and browser routes carry no token by design (see
-     session.md), so the same-origin check is what stands between a page in
-     another tab and a session or the record of what the reviewer saw. */
+  /* Browser routes take no token, as docs/reference/commands.md says under
+     PAIR_HUB_HOST. sameOrigin is the only check that stops a page in another
+     tab from posting to a session or to the seen lists. */
   const sameOrigin = (req) =>
     requireValue(
       req.headers.origin === `http://${req.headers.host}`,
       "Unauthorized source",
       403,
     );
-  // Chrome can paint a page before it has parsed all of it, so a session
-  // the reviewer switched to showed its bare shell, with an empty sidebar and
-  // reading column, before the frame drew into it. A module in the head that
-  // blocks rendering keeps the previous page on screen until the page is
-  // parsed and its modules have run. The hub adds it as it serves the page,
-  // so rounds built before it have it too. A script with no text never runs,
-  // so it holds a comment. The gate ends the head, after anything else the
-  // hub adds there, so the head's other modules run before the first frame.
+  // Chrome can paint a page before it parses all of it, so a session the
+  // reviewer switched to showed an empty sidebar and reading column before
+  // the frame drew into them. A module script in the head with
+  // blocking="render" keeps the previous page on screen until the browser
+  // parses the page and runs its modules. The hub adds the script when it
+  // serves the page, so rounds built by an earlier pair get it too. The
+  // browser never runs a script with no text, so the script contains a
+  // comment. framePage puts the script last in the head, after everything
+  // else the hub adds there, so the head's other modules run before the first
+  // paint.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
-  // A linked session's page names its parent, for the line under the
-  // header.
   const framePage = (session, html, flags, head) =>
     embedConfig(
       html.replace("</head>", () => head + renderGate + "</head>"),
@@ -242,7 +241,8 @@ export async function startHub(config = settings()) {
             ...(card ? { title: card.title } : {}),
           }),
         );
-        // The wake target stays the holder's when another agent registers.
+        // hold leaves state.wake as it is when an agent other than the
+        // holder registers, so the hub writes the holder's harness here.
         const wake = { harness: session.state.wake.harness };
         await atomic(path.join(directory, "connection.json"), {
           sessionId: session.id,
@@ -287,8 +287,6 @@ export async function startHub(config = settings()) {
             Location: session.base + "/",
           });
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
-          // A session with nothing published shows its home view, which
-          // loads the round once Agreed publishes.
           if (!session.state.current)
             return html(
               framePage(
@@ -300,8 +298,9 @@ export async function startHub(config = settings()) {
                 ),
               ),
             );
-          // A session the reviewer closed is read-only, so no tab left open
-          // on it can submit and wake an agent that will never run again.
+          // The hub serves a session the reviewer closed as read-only, so a
+          // tab left open on it cannot submit and wake an agent that has
+          // finished.
           const closed = Boolean(session.state.dismissedAt);
           return html(
             await roundPage(
@@ -368,9 +367,9 @@ export async function startHub(config = settings()) {
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close()));
         }
-        // Start, Decline, Restore and Open a new agent session on a
-        // proposal's card. Start carries where the work runs, and Start and
-        // Open a new agent session the reviewer's optional message.
+        // Only start and open-agent have a body. The body of start contains
+        // where the work runs, and both bodies can contain the reviewer's
+        // message.
         const cardActions = {
           start: session.startProposal,
           decline: session.declineProposal,
@@ -393,9 +392,9 @@ export async function startHub(config = settings()) {
             await session.exclusive(() => cardActions[rest[3]](id, data)),
           );
         }
-        /* This route writes bytes, so it also caps the size and the count,
-           decides the type from the leading bytes rather than a header, and
-           names the file itself. */
+        /* readBytes caps the upload's size, and session.upload takes the
+           type from the leading bytes, not a header, and chooses the file
+           name itself. */
         if (method === "POST" && rest[0] === "api" && rest[1] === "upload") {
           const bytes = await readBytes(req, uploadBytes);
           return reply(
@@ -424,8 +423,9 @@ export async function startHub(config = settings()) {
           const scene = await session.readScene(rest[2]);
           return reply(200, scene.bytes, "application/vnd.excalidraw+json");
         }
-        /* The thumbnail in the note dialog, and the same image again after a
-           reload: the draft keeps a reference and the bytes stay here. */
+        /* The frame loads each uploaded image from this route by its ID,
+           also after a reload, because the frame's draft stores only the ID
+           and the hub stores the bytes. */
         if (
           method === "GET" &&
           rest[0] === "api" &&
@@ -458,8 +458,6 @@ export async function startHub(config = settings()) {
             await session.exclusive(() => session.startThread(data)),
           );
         }
-        // The reviewer's message in a thread, and the thumbs up on an
-        // agent's message, which sends no wake.
         const threadActions = {
           messages: [201, session.addThreadMessage],
           acknowledge: [200, session.acknowledge],
@@ -541,8 +539,6 @@ export async function startHub(config = settings()) {
   });
   let lastLiveAt = Date.now();
   let timer;
-  // The hub closes once, however many callers ask, and closed settles when
-  // it has, so the hub command knows when to exit.
   let closing = null;
   let settle;
   const closed = new Promise((resolve) => (settle = resolve));
@@ -557,7 +553,7 @@ export async function startHub(config = settings()) {
       if ((await read(config.hubFile)).pid === process.pid)
         await fs.rm(config.hubFile, { force: true });
     } catch {
-      /* The record is already gone or belongs to a newer hub. */
+      /* The hub record is already gone or unreadable. */
     }
   }
   let quietCheckedAt = Date.now();

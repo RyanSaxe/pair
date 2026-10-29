@@ -2,9 +2,9 @@ import path from "node:path";
 import { exists, requireValue } from "../shared/util.mjs";
 
 // pair start --from creates a session for a proposal of the session at
-// from, and links the two both ways: the new session's status names the
-// parent, and the parent's card names the new session. adopt loads a
-// session by its directory, as the hub's registry does.
+// data.from and links the two both ways. The new session's status contains
+// the parent, and the parent's card contains the new session. adopt is the
+// hub's function that loads a session by its directory.
 export async function startFrom(adopt, directory, created, data) {
   requireValue(
     typeof data.from === "string" && path.isAbsolute(data.from),
@@ -31,14 +31,14 @@ export async function startFrom(adopt, directory, created, data) {
       url: session.base + "/",
     }),
   );
-  // The new session builds the work of the cards joined into the proposal
-  // too.
+  // The new session's agent also builds the work of the cards joined into
+  // the proposal.
   return { session, card, joined: parent.joinedInto(card.id) };
 }
 
-// The open sessions, and each closed session that a session linked to it,
-// or to one linked to it, keeps listed, so Sessions draws it as the heading
-// of its open sub-sessions. find returns the session with an ID.
+// withClosedParents adds every closed ancestor of an open session to the open
+// sessions, so the frame's Sessions list can show a closed parent as the
+// heading of its open sub-sessions. find returns the session with an ID.
 export function withClosedParents(open, find) {
   const kept = new Set(open);
   for (const session of open) {
