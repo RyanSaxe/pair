@@ -125,7 +125,9 @@ async function startThread(page, session, quote, side, lineThreadCount = 1) {
   assert.equal(placement.lineThreadCount, lineThreadCount);
 }
 
-test("selecting diff text starts a thread in its line annotation", async (t) => {
+// Publishes the diff page in a hub of its own and opens it once the diff
+// has drawn into its shadow root.
+async function openDiff(t) {
   const h = await hub(t);
   const session = await h.session();
   const published = await session.publish({
@@ -137,16 +139,26 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
   assert.equal(published.code, 200, published.body.error);
 
   const page = await open(t, `${h.server.origin}${session.base}/#changes`);
-  if (!page) return;
+  if (!page) return {};
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".change-view *")].some(
       (node) => node.shadowRoot,
     ),
   );
+  return { session, page };
+}
+
+test("selecting diff text starts a thread in its line annotation", async (t) => {
+  const { session, page } = await openDiff(t);
+  if (!page) return;
   await startThread(page, session, 'return "open"', "additions");
   await startThread(page, session, 'return "hold"', "deletions");
   await startThread(page, session, "open", "additions", 2);
+});
 
+test("a note on diff text marks the words selected in the diff", async (t) => {
+  const { page } = await openDiff(t);
+  if (!page) return;
   const quote = 'return "open"';
   await selectDiffText(page, quote);
   await page.getByRole("button", { name: "Comment on selection" }).click();
@@ -166,12 +178,17 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
     quote,
     { timeout: 5000 },
   );
+  // The words marked are the ones selected in the diff, not their copy in
+  // the closed "Exact source and Git patch".
   assert.deepEqual(
     await page.evaluate(() =>
-      [...(CSS.highlights.get("plan-note") || [])].map((range) =>
-        range.toString(),
-      ),
+      [...(CSS.highlights.get("plan-note") || [])].map((range) => ({
+        text: range.toString(),
+        inDiff: Boolean(
+          range.startContainer.getRootNode().host?.closest(".change-view"),
+        ),
+      })),
     ),
-    [quote],
+    [{ text: quote, inDiff: true }],
   );
 });
