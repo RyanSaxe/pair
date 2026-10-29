@@ -124,7 +124,8 @@
          to the document only once a scene uses it. With another font's
          sizes, Excalidraw cuts letters off each label, so the editor draws
          one hidden text element and waits for Excalifont before
-         converting. */
+         converting. A font that failed to load stays failed, so the editor
+         then converts with the fallback font. */
       async function convert(source) {
         const [{ parseMermaidToExcalidraw }, ready] = await Promise.all([
           import(converter),
@@ -137,7 +138,10 @@
         });
         for (let tries = 0; tries < 100; tries++) {
           await new Promise((resolve) => setTimeout(resolve, 50));
-          if ((await document.fonts.load("16px Excalifont")).length) break;
+          const faces = await document.fonts
+            .load("16px Excalifont")
+            .catch(() => null);
+          if (!faces || faces.length) break;
         }
         const { elements, files } = await parseMermaidToExcalidraw(source, {
           themeVariables: { fontSize: "16px" },
