@@ -34,9 +34,12 @@ jobs:
             node: 26
     steps:
       - uses: actions/checkout@v7
+      # A runner's cached Node can be older than pair's floor for its line,
+      # so setup-node fetches the newest release that matches node-version.
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
+          check-latest: true
       # A test that runs past two minutes fails with its name.
       - run: node --test --test-timeout=120000
 
@@ -53,6 +56,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
       - run: npm ci
       - run: npx playwright-core install --with-deps webkit
       - run: npm run test:browser
@@ -70,6 +74,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
       - run: npm ci
       - run: npm run test:figures
 
@@ -80,6 +85,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
       - run: npx --yes prettier@3.9.6 --check .
 
   lint:
@@ -89,6 +95,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
       # eslint.config.mjs fails a file over 1000 lines. The second run lists
       # each file over 500 as a warning and does not fail.
       - run: npx --yes eslint@10.11.0 .
