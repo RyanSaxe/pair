@@ -19,8 +19,13 @@
   justify-content: flex-end;
   margin-bottom: 4px;
 }
-#diagram-sketch {
-  margin-right: auto;
+/* Sketch on this diagram sits at the left of the header, and a hairline
+   runs under the header across the dialog. */
+.lightbox .dialog-head:has(#diagram-sketch:not([hidden])) {
+  justify-content: space-between;
+  margin: -8px -12px 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
 }
 .lightbox-view {
   min-height: 0;

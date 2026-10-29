@@ -154,7 +154,7 @@
           if (root) render();
         }
         if (event.data.type === "init") {
-          const { scene, source } = event.data;
+          const { scene, source, fit } = event.data;
           if (scene)
             draft = {
               elements: scene.elements,
@@ -178,6 +178,16 @@
             } finally {
               converting = false;
             }
+          // A sketch opens with all of it in view, once Excalidraw has loaded
+          // it from initialData.
+          else if (fit) {
+            const ready = await editor;
+            for (let frame = 0; frame < 100; frame++) {
+              if (ready.getSceneElements().length) break;
+              await new Promise(requestAnimationFrame);
+            }
+            ready.scrollToContent(undefined, { fitToContent: true });
+          }
         }
         if (event.data.type === "save") {
           try {

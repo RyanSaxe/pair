@@ -40,12 +40,22 @@ async function savedScene(id) {
   return response.json();
 }
 /* The editor opens on scene, a drawing to go on with, or turns source, a
-   diagram's Mermaid source, into boxes and arrows, or starts empty. Saving
-   uploads the scene and its PNG and hands both records to onSaved. A
-   drawing the reviewer left without saving is a draft under key. */
-function openEditor({ key, title, detail, saveLabel, scene, source, onSaved }) {
+   diagram's Mermaid source, into boxes and arrows, or starts empty. With
+   fit, it shows all of scene. Saving uploads the scene and its PNG and
+   hands both records to onSaved. A drawing the reviewer left without
+   saving is a draft under key. */
+function openEditor({
+  key,
+  title,
+  detail,
+  saveLabel,
+  scene,
+  source,
+  fit = false,
+  onSaved,
+}) {
   const nonce = uuid();
-  activeDrawing = { key, nonce, scene, source, onSaved };
+  activeDrawing = { key, nonce, scene, source, fit, onSaved };
   activeDrawing.loadingTimer = setTimeout(() => {
     if (activeDrawing?.nonce === nonce)
       drawingError(
@@ -118,6 +128,7 @@ export function openSketch(diagram) {
     saveLabel: "Save sketch",
     scene: state.drafts[key] ?? null,
     source: diagram.dataset.source,
+    fit: true,
     onSaved(saved, preview) {
       persist();
       commentOn(document.getElementById(id) || diagram, {});
@@ -134,6 +145,7 @@ export async function editSketch(image, onSaved) {
     title: "Edit sketch",
     saveLabel: "Save sketch",
     scene: state.drafts[key] ?? (await savedScene(image.scene.id)),
+    fit: true,
     onSaved(saved, preview) {
       persist();
       onSaved(sketchImage(saved, preview));
@@ -176,6 +188,7 @@ export function installDrawing() {
           nonce: drawing.nonce,
           scene: drawing.scene,
           source: drawing.source,
+          fit: drawing.fit,
         },
         "*",
       );
