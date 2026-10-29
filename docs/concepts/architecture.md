@@ -29,6 +29,11 @@ session to your browser and wakes the agent when you respond.
 
 - Every pair tab asks the hub for the session list every 5 seconds, with
   each session's latest events for the bell.
+- The hub keeps which bell lines you cleared, which pages you opened and
+  which proposal cards Work showed you, and sends them with the session
+  list. A phone on the `PAIR_HUB_HOST` address and a computer then show the
+  same bell, sessions badge and **New** marks, within one poll of each
+  other. Drafts and other preferences stay in each browser.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
@@ -177,6 +182,7 @@ pair keeps everything under `$XDG_STATE_HOME/pair/`, or
 hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
+  seen.json          bell lines you cleared, pages you opened, proposal cards Work showed you
 sessions/<dir>/      the directory name is not the session ID
   status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it
   connection.json    session ID, hub origin, agent token, the agent CLI's name

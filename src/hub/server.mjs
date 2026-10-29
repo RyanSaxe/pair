@@ -17,6 +17,7 @@ import {
 } from "../shared/util.mjs";
 import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
 import { startFrom, withClosedParents } from "./linking.mjs";
+import { seenStore } from "./seen.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
 import { adapters } from "./wake.mjs";
@@ -106,10 +107,24 @@ export async function startHub(config = settings()) {
             ? Date.parse(a.publishedAt) - Date.parse(b.publishedAt)
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
-  const sessionList = (req) => {
+  const seen = await seenStore(config.seenFile, log);
+  // The session list answers with what the reviewer cleared, opened and
+  // saw, so a tab's one poll brings both.
+  const sessionList = async (req) => {
     if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
-    return listed();
+    const sessions = listed();
+    return { sessions, seen: await seen.view(sessions) };
   };
+  /* The hub is a local review tool. It binds 127.0.0.1 unless the operator
+     sets PAIR_HUB_HOST, and browser routes carry no token by design (see
+     session.md), so the same-origin check is what stands between a page in
+     another tab and a session or the record of what the reviewer saw. */
+  const sameOrigin = (req) =>
+    requireValue(
+      req.headers.origin === `http://${req.headers.host}`,
+      "Unauthorized source",
+      403,
+    );
   // Chrome can paint a page before it has parsed all of it, so a session
   // the reviewer switched to showed its bare shell, with an empty sidebar and
   // reading column, before the frame drew into it. A module in the head that
@@ -169,7 +184,12 @@ export async function startHub(config = settings()) {
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
-        return reply(200, { sessions: sessionList(req) });
+        return reply(200, await sessionList(req));
+      if (method === "POST" && url.pathname === "/api/seen") {
+        sameOrigin(req);
+        const data = await readBody(req, 250_000);
+        return reply(200, await seen.add(data, listed()));
+      }
       if (method === "GET" && url.pathname === "/") {
         const sessions = listed();
         const cookie = req.headers.cookie
@@ -259,16 +279,7 @@ export async function startHub(config = settings()) {
       if (parts[0] === "s" && parts[1]) {
         const session = registry.get(parts[1]);
         requireValue(session, "Unknown session", 404);
-        /* The hub is a local review tool. It binds 127.0.0.1 unless the
-           operator sets PAIR_HUB_HOST, and browser routes carry no token by
-           design (see session.md), so the same-origin check is what stands
-           between a page in another tab and this session. */
-        if (method !== "GET")
-          requireValue(
-            req.headers.origin === `http://${req.headers.host}`,
-            "Unauthorized source",
-            403,
-          );
+        if (method !== "GET") sameOrigin(req);
         const rest = parts.slice(2);
         const round = () => decodeURIComponent(rest[1]);
         if (method === "GET" && parts.length === 2)
@@ -284,7 +295,9 @@ export async function startHub(config = settings()) {
                 session,
                 await assembleHome(session.listing().title),
                 { home: true },
-                firstAnswersHead(await firstAnswers(session, sessionList(req))),
+                firstAnswersHead(
+                  await firstAnswers(session, await sessionList(req)),
+                ),
               ),
             );
           // A session the reviewer closed is read-only, so no tab left open
@@ -298,7 +311,7 @@ export async function startHub(config = settings()) {
               closed
                 ? ""
                 : firstAnswersHead(
-                    await firstAnswers(session, sessionList(req)),
+                    await firstAnswers(session, await sessionList(req)),
                   ),
             ),
             {
