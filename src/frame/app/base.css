@@ -119,17 +119,15 @@ kbd {
   color: var(--muted);
   background: var(--ground);
 }
-/* A plan round's tag is grey, so it does not read like the blue
-   Recommended tag. Its background stays visible on a row drawn in
-   --accent-soft, such as the Rounds panel's current row, and the text,
-   darker than --muted, keeps a contrast of at least 4.5:1 on it in both
-   themes. */
+/* A plan round's tag is grey so that it does not look like the blue
+   Recommended tag. Its background stays visible on a row with an
+   --accent-soft background, such as the Rounds panel's current row. Its
+   text, darker than --muted, has a contrast of at least 4.5:1 on that
+   background in both themes. */
 .tag.plan {
   color: color-mix(in srgb, var(--muted), var(--ink) 25%);
   background: var(--line);
 }
-/* The muted line under a card's title on Work and Agreed: a dot and a
-   state, then text that an ellipsis cuts short, so the line never wraps. */
 .card-meta {
   display: flex;
   align-items: center;
@@ -157,9 +155,6 @@ kbd {
   text-decoration-color: var(--line-strong);
   text-underline-offset: 2px;
 }
-/* A state's dot: the accent for work under way, green for work that
-   waits for the reviewer, grey for work that ended, the attention color
-   for an alignment being revisited, and hollow for a proposal. */
 .state-dot {
   flex: none;
   width: 7px;
@@ -235,10 +230,9 @@ kbd {
     background: var(--ground);
   }
 }
-/* A button that a key presses shows the key after its label, in the
-   label's type. A touch screen has no keys to hint at, and a window too
-   narrow for the note dialog's two buttons with their hints drops every
-   hint rather than wrap. */
+/* A touch screen has no keys, so the media rule below hides the key hints
+   there. It also hides them in a window too narrow for the note dialog's
+   two buttons with their hints, so that the buttons do not wrap. */
 .btn kbd {
   min-width: 0;
   padding: 0;
@@ -298,7 +292,6 @@ blockquote {
   color: var(--muted);
   font-size: var(--text-label);
 }
-/* Reading elements */
 pre {
   overflow: auto;
   padding: 12px 14px;
@@ -352,8 +345,8 @@ svg {
   max-width: 100%;
 }
 /* pair build writes each image's width and height, so the browser reserves
-   the image's box before it decodes. The ratio holds when max-width narrows
-   the image. */
+   the image's box before it decodes the image. height: auto keeps the ratio
+   when max-width narrows the image. */
 img {
   height: auto;
 }
@@ -361,7 +354,6 @@ img {
   color: var(--muted);
   font-size: var(--text-small);
 }
-/* Question component's answer field and other frame-owned inputs */
 textarea {
   display: block;
   width: 100%;
@@ -375,10 +367,10 @@ textarea {
   color: var(--ink);
   font-size: var(--text-ui);
 }
-/* iOS Safari zooms the page into a focused field whose text is under
-   16px, so on a touch screen or a narrow window every field is 16px.
-   !important puts the size above any rule that sizes one field, such as a
-   thread's reply box. */
+/* iOS Safari zooms into a focused field whose text is smaller than 16px, so
+   every field is 16px on a touch screen or in a narrow window. !important
+   puts this size above any rule that sizes one field, such as a thread's
+   reply box. */
 @media (pointer: coarse), (max-width: 720px) {
   input,
   select,

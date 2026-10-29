@@ -1,15 +1,9 @@
-/* The status of approved work on its card: how many of its parts the agent
-   has finished, leaving out the parts it dropped, the next part, and every
-   part in the order the agent added it, with a check when done, an empty
-   circle when left, and a dash and a line through the text when dropped.
-   Wider than 720px a card opens with its parts listed. Narrower, it shows
-   the count and the next part until the reviewer taps it. A card the
-   reviewer opens or folds stays that way until the page reloads. */
+/* Above 720px a status card opens with its parts listed, and at 720px and
+   below it starts folded. A card the reviewer opens or folds stays that way
+   until the page reloads, because toggled exists only in memory. */
 
 const toggled = new Map();
 let wide = null;
-// Each card the reviewer has not opened or folded follows the window's
-// width as it changes.
 function wideWindow() {
   if (wide) return wide;
   wide = matchMedia("(min-width: 721px)");
@@ -73,7 +67,8 @@ export function statusBox(card) {
       element("span", "status-next", `Next: ${next.text}`),
     );
   summary.append(mark("fold"));
-  // A click on the summary toggles the box after this runs.
+  // The browser toggles the details element after this handler runs, so
+  // !box.open is the state after the click.
   summary.addEventListener("click", () => toggled.set(card.id, !box.open));
   const list = element("ul");
   list.append(...parts.map(part));

@@ -1,6 +1,5 @@
-/* The card matches the text question's. Before the reviewer draws, the
-   button sits on an empty canvas where the answer box would be. Afterwards
-   the drawing fills the canvas and the button moves under it. */
+/* The drawing question's card matches the text question's card, with the
+   canvas where the answer box would be. */
 .drawing-question {
   display: grid;
   gap: 6px;
@@ -21,8 +20,8 @@
   font-size: var(--text-label);
   color: var(--muted);
 }
-/* Pages published before the canvas put the tag and the button straight
-   in the card. */
+/* Pages published before the canvas put the tag and the button directly in
+   the card. */
 .drawing-question > .tag,
 .drawing-question > .btn {
   justify-self: start;

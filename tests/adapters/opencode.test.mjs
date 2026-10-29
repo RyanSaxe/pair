@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
 
-// opencode calls each plugin export with its SDK client. This stand-in
-// client records each prompt the plugin sends, and returns an error, as the
-// SDK does, while refusal is set.
+// opencode calls each plugin export with its SDK client. standInClient records
+// each prompt the plugin sends. While refusal is set, the client returns an
+// error as the SDK does.
 function standInClient() {
   const prompts = [];
   const client = {
@@ -33,15 +33,16 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   const { client, prompts } = standInClient();
   const plugin = await PairWake({ client });
   t.after(() => plugin.dispose());
-  // opencode passes the session ID to shell.env for commands the agent runs,
-  // and not for commands without a session.
+  // opencode calls shell.env with a session ID for a command the agent runs,
+  // and without one for a command outside a session.
   const env = {};
   await plugin["shell.env"]({ cwd: "/", sessionID: "ses_1" }, { env });
   const plain = {};
   await plugin["shell.env"]({ cwd: "/" }, { env: plain });
   assert.deepEqual(Object.keys(plain), ["PAIR_OPENCODE_SOCKET"]);
-  // pair start inside opencode finds opencode among its ancestors and reads
-  // the variables the plugin gave its shell.
+  // detectWake does here what pair start does inside opencode: it finds
+  // opencode among the process's ancestors and reads the variables that the
+  // plugin set for the shell.
   const target = detectWake(env, {
     ancestors: () => [{ pid: 2, command: "opencode" }],
   });
@@ -64,8 +65,9 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   });
 });
 
-// The refusal names the global config file opencode reads, found when the
-// module loads, so each case imports its own copy after setting the folder.
+// adapters/opencode/wake.mjs finds opencode's global config file when the
+// module loads, so each case imports its own copy of the module after it
+// changes the config folder.
 test("start in opencode without the plugin names the config file to add it to", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-opencode-"));
   const configHome = process.env.XDG_CONFIG_HOME;

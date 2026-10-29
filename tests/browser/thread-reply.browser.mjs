@@ -8,9 +8,6 @@ const png = Buffer.concat([
   Buffer.alloc(64),
 ]);
 
-// The reviewer can write in a thread the agent has not read yet. The image
-// button attaches an image to the reply, and the reply's text and image stay
-// in the draft through a reload until Send posts them.
 test("a reply to a waiting thread keeps its draft through a reload and posts its image", async (t) => {
   const h = await hub(t);
   const session = await h.session();

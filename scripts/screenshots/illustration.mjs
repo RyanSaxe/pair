@@ -12,13 +12,11 @@ const desktop = { width: 880, height: 1200 };
 const phone = { width: 390, height: 844 };
 const title = "Retry a charge when the payment gateway times out";
 const proposal = "idempotency-keys";
-// The code line the reviewer starts a thread on, and the selections tried
-// in order for the picture, until one leaves its Comment button over no
-// words.
+// The reviewer starts a thread on line. illustrate() tries each selection in
+// order until one leaves the Comment button over no words.
 const line = "return await gateway.charge(order, { idempotencyKey });";
 const selections = [line, "{ idempotencyKey }", "idempotencyKey });"];
 
-// The words of the page that the frame's floating Comment button covers.
 const covered = (page) =>
   page.evaluate(() => {
     const button = document
@@ -51,8 +49,6 @@ async function refused(response, what) {
   return response;
 }
 
-// Sends the round's feedback with the header's Send feedback button and
-// the Send popup's button, which keeps the popup's first choice.
 async function send(page) {
   const response = page.waitForResponse((r) =>
     r.url().endsWith("/api/feedback"),
@@ -63,9 +59,8 @@ async function send(page) {
   await refused(await response, "the feedback");
 }
 
-// Stages a session with the pair command, as an agent runs it, and returns
-// the README's illustration and work image in both themes. The terminal in
-// the illustration shows what the commands printed in this run.
+// illustrate() stages a session by running the pair command as an agent does.
+// The illustration's terminal shows what those commands printed in this run.
 export async function illustrate(t, scratch) {
   const state = path.join(scratch, "state");
   const work = path.join(scratch, "work");
@@ -102,8 +97,6 @@ export async function illustrate(t, scratch) {
     if (!value) throw new Error(`pair start printed no ${name} line`);
     return value;
   };
-  // Agreed with the page list, then each page after pair progress --page,
-  // from the sources under src/ROUND.
   const round = async (dir, n, pages) => {
     await fs.mkdir(path.join(work, "out", n), { recursive: true });
     const publish = async (id, ...more) => {
@@ -194,7 +187,6 @@ export async function illustrate(t, scratch) {
     doing = "taking the browser's screenshot";
     await load(page, url, "where-to-retry");
     await page.getByText("so the gateway charges once").waitFor();
-    // The window ends 28px under the thread.
     const bottom = await page.evaluate(
       () =>
         document.querySelector("pair-thread").getBoundingClientRect().bottom,
@@ -287,7 +279,8 @@ export async function illustrate(t, scratch) {
     doing = "taking the sub-session's screenshot";
     await load(page, subUrl, "agreed");
     await page.getByText(title).first().waitFor();
-    // Each page's row on the progress card opens to show the agent's note.
+    // A click on a page's row on the progress card opens the agent's note for
+    // that page.
     const rows = page.locator("#agent-activity button.activity-page");
     await until(
       page,

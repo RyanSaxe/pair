@@ -16,7 +16,6 @@ test("a browser with no record adopts every listed page as opened, so nothing st
   ];
   const opened = adoptOpened(sessions);
   for (const entry of sessions) assert.equal(countUnopened(entry, opened), 0);
-  // A page that publishes afterwards counts until it is opened.
   const next = listed("a", "2", ["agreed", "retry", "keys"]);
   assert.equal(countUnopened(next, opened), 1);
   opened.add(pageKey("a", "2", "keys"));
@@ -33,7 +32,7 @@ test("the record forgets sessions the hub no longer lists and rounds a session m
     [...settle([listed("a", "2", ["agreed", "retry"])], opened)],
     [pageKey("a", "2", "agreed")],
   );
-  // The next round's pages are new records, so a page that continues under
-  // the same ID counts again.
+  // pageKey puts the round in each key, so a page with the same ID in round 3
+  // counts as unopened again.
   assert.equal(countUnopened(listed("a", "3", ["agreed"]), opened), 1);
 });

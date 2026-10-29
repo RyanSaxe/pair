@@ -11,7 +11,8 @@ const png = Buffer.concat([
   Buffer.alloc(64),
 ]);
 
-// A session with round 1 published, and the reviewer's side of a thread.
+// published publishes round 1 in a new session and returns helpers for the
+// reviewer's side of a thread.
 async function published(t) {
   const h = await hub(t);
   const a = await h.session();
@@ -62,15 +63,15 @@ test("a thread wakes the holder with its first message and with each message aft
   );
   assert.equal(stored.messages[0].attachments[0].path, image.path);
   assert.equal(stored.wake.via, "inbox");
-  // A thread never changes the round, and its wake sets the holder's
-  // steerable, which the frame reads.
+  // A thread never changes the round. When the hub wakes the holder for it, the
+  // hub sets holder.steerable, which the frame reads.
   const status = (await a.status()).body;
   assert.equal(status.stage, "updated");
   assert.equal(status.latestSubmissionId, undefined);
   assert.equal(status.holder.steerable, true);
 
-  // The agent has not read the thread, and pair read prints every message,
-  // so a second message goes with the first wake.
+  // The agent has not read the thread, and pair read prints every message, so
+  // the hub sends no second wake for the second message.
   const waiting = await send(id, { text: "Or a retry?" });
   assert.equal(waiting.code, 201, waiting.body.error);
   assert.equal(waiting.body.thread.state, "sent");
@@ -109,8 +110,8 @@ test("a thread wakes the holder with its first message and with each message aft
   ]);
 });
 
-// A thread on one line of a diff or one box of a diagram keeps where it is,
-// and the hub refuses a malformed place.
+// The hub stores where a thread on one line of a diff or one box of a diagram
+// is, and refuses a malformed place.
 for (const { name, field, value, malformed } of [
   {
     name: "a diff thread keeps its selected side and line",
@@ -150,7 +151,8 @@ test("a repeated reply ID returns the saved thread without another message or wa
   const { a, start, send, thread, settled } = await published(t);
   const { id } = (await start()).body.thread;
   assert.equal(await settled(id), true);
-  // Once the agent read the thread, a new message wakes it again.
+  // Once the agent has read the thread, the hub wakes it again for a new
+  // message.
   assert.equal((await a.action("reply", { note: id })).code, 200);
 
   const first = await send(id, { replyId: "reply-1", text: "Keep this." });
@@ -229,13 +231,12 @@ test("the reply action marks the thread read, then posts text or a checked fragm
     replied.messages[1].html,
     '<pre data-language="js">retry(item);</pre>',
   );
-  // Reading a thread the agent has answered leaves it answered.
   await a.action("reply", { note: id });
   assert.equal((await thread(id)).state, "replied");
 });
 
-// The reviewer's thumbs up on the agent's reply: no wake, no bell line, and
-// the agent reads it on the thread.
+// The hub records the reviewer's thumbs up on the agent's reply without a wake
+// or a bell event, and the agent reads it on the thread.
 test("a thumbs up on a reply is recorded without a wake, drops its bell line and comes off again", async (t) => {
   const { h, a, start, thread, settled } = await published(t);
   const { id } = (await start()).body.thread;
@@ -254,7 +255,6 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
   assert.equal((await replyLine()).acknowledged, true);
   const read = await a.action("reply", { note: id });
   assert.match(read.body.next, /^The reviewer agreed with your last message/);
-  // Only the reviewer's message woke the holder.
   await sleep(100);
   assert.equal(a.inbox.wakes.length, 1);
 
@@ -269,10 +269,10 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
   assert.equal((await replyLine()).acknowledged, undefined);
 });
 
-// The progress card's Message the agent button starts its thread on Agreed,
-// which the round's page list never names.
-// Besides the round's pages, a thread starts on Agreed's progress card, on
-// Review's overall comment and on Work, and its wake names where.
+// Besides the round's pages, the reviewer can start a thread on Agreed's
+// progress card, on Review's overall comment and on Work, and the hub's wake
+// message contains the thread's place. Agreed is never in the round's page
+// list.
 test("a thread starts on Agreed's progress card, on the overall comment and on Work, and reading it names its place", async (t) => {
   const { a, start, settled } = await published(t);
   for (const [topic, anchor, target, page] of [
@@ -299,7 +299,7 @@ test("a thread starts on Agreed's progress card, on the overall comment and on W
 
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {
   const { a, start, thread, settled } = await published(t);
-  // The inbox is gone, as it is once the agent's session has ended.
+  // Closing the inbox stands in for an agent session that has ended.
   await a.inbox.close();
   const { id } = (await start()).body.thread;
   assert.equal(await settled(id), true);

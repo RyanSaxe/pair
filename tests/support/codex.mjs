@@ -4,8 +4,8 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
-// The daemon's answers for a thread whose turn is in progress, shortened
-// from what Codex 0.160 sends.
+// These replies are shortened from what the Codex 0.160 daemon sends for a
+// thread with a turn in progress.
 export const turnInProgress = (thread, turn) => ({
   "thread/read": {
     thread: { id: thread, status: { type: "active", activeFlags: [] } },
@@ -17,7 +17,8 @@ export const turnInProgress = (thread, turn) => ({
   "turn/steer": { turnId: turn },
 });
 
-// An unmasked text frame, as the daemon sends, of under 64 KiB.
+// frame() builds an unmasked text frame, as the daemon sends, and handles only
+// a payload under 64 KiB.
 function frame(message) {
   const payload = Buffer.from(JSON.stringify(message));
   const header =
@@ -27,17 +28,17 @@ function frame(message) {
   return Buffer.concat([header, payload]);
 }
 
-// A stand-in for the app-server daemon of Codex 0.160: a WebSocket server on
-// a Unix socket. It answers each request from the table the test passes,
-// with the entry as the result, or as the error when the entry has an
-// `error`, and records every message the client sends. An entry that is a
-// function answers with what it returns for the request's params. Like the
-// daemon, it closes the connection on a frame that is not one masked text
-// frame, and refuses a thread/queue method on a connection whose initialize
-// did not declare the experimentalApi capability.
+// codexDaemon stands in for the app-server daemon of Codex 0.160, a WebSocket
+// server on a Unix socket. It replies to each request with the matching entry
+// of answers as the result, or as the error when the entry has an `error`
+// field. For an entry that is a function, it replies with what the function
+// returns for the request's params. It records every message the client sends
+// in received. Like the daemon, it closes the connection on a frame that is not
+// one masked text frame. It also refuses a thread/queue method when the
+// connection's initialize did not declare the experimentalApi capability.
 export async function codexDaemon(t, answers) {
-  // macOS refuses a socket path over 104 bytes, so the socket sits in a
-  // short directory of its own.
+  // macOS refuses a socket path over 104 bytes, so codexDaemon creates the
+  // socket in a short directory of its own.
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "cx-"));
   const socket = path.join(directory, "d.sock");
   const received = [];
@@ -69,7 +70,8 @@ export async function codexDaemon(t, answers) {
         client.write(
           `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
         );
-        // The daemon sends notifications as soon as a client connects.
+        // The real daemon sends a notification as soon as a client connects,
+        // before any reply.
         client.write(frame({ jsonrpc: "2.0", method: "account/updated" }));
         bytes = bytes.subarray(end + 4);
         upgraded = true;
@@ -128,9 +130,9 @@ export async function codexDaemon(t, answers) {
   return { socket, received };
 }
 
-// A stand-in codex first on PATH, which records the arguments of each run.
-// With PAIR_TEST_FAIL set, it fails as codex does when it cannot queue the
-// message.
+// codexCommand puts a stand-in codex first on PATH, and the stand-in logs the
+// arguments of each run. With PAIR_TEST_FAIL set, the stand-in exits 1, as
+// codex does when it cannot queue the message.
 export async function codexCommand(t) {
   const bin = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
   const log = path.join(bin, "runs.jsonl");

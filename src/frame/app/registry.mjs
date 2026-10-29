@@ -14,8 +14,8 @@ import {
 } from "#frame/pages/renderers.mjs";
 import { drawProposal } from "#frame/pages/work.mjs";
 
-// The names component behaviors use without importing them. The page's
-// module script imports them from here before the behaviors run.
+// Component behaviors use these names without importing them. The page's
+// module script imports them from this module before the behaviors run.
 export { $, uuid } from "#frame/app/util.mjs";
 export { base, online, page, pages, plan } from "#frame/app/view.mjs";
 export { canComment, commentOn } from "#frame/notes/blocks.mjs";
@@ -36,22 +36,20 @@ export {
   syntaxThemes,
 } from "#frame/pages/renderers.mjs";
 
-/* Components. A component is a named markup contract and the setup that
-   turns an element carrying it into the rendered thing. define() records
-   one; enhance() runs every registration over a page. A page renders by
-   replacing #page-content, so setup runs again on every visit and rebuilds
-   its state from planUI.prefs rather than holding it. */
+/* The frame renders a page by replacing #page-content, so enhance() runs
+   each setup again on every visit. A setup rebuilds its state from
+   planUI.prefs instead of keeping it between visits. */
 const registry = new Map();
 function define(name, { match, setup }) {
   registry.set(name, { match, setup });
 }
-/* One component's failure prints in place and leaves the rest of the page
-   rendered. A setup returns a promise when its element's height is not
-   final until the promise settles, as a diagram's is. The promise is
-   tracked, so the scroll position is restored only once the content has
-   its height, and enhance() returns a promise that settles with every such
-   setup, or null when there is none, so show() can wait for them before
-   the page appears. */
+/* enhance() prints one component's failure in place and leaves the rest of
+   the page rendered. A setup returns a promise when its element's height is
+   final only after the promise settles, as a diagram's setup does. enhance()
+   tracks each such promise, so the frame restores the scroll position only
+   after the content has its height. enhance() returns a promise that
+   settles with every such setup, or null when there is none, so show() can
+   wait for them before the page appears. */
 export function enhance(root) {
   const sizing = [];
   for (const [name, { match, setup }] of registry) {
@@ -78,7 +76,6 @@ export function createPlanUI() {
   return {
     answer: recordAnswer,
     drawing: drawingAnswer,
-    // Whether the draft has an answer for a question on this page.
     answered: (id) => Boolean(drawingAnswer(id)),
     draw: openDrawing,
     chart,

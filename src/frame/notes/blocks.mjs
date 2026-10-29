@@ -50,8 +50,6 @@ function selectionTarget(node, block, diffLine) {
   }
   return block.id;
 }
-// The box of a page's diagram that the whole selection is in, and the
-// diagram. A note on it quotes the box's whole label.
 function boxOf(selection) {
   const at = (node) =>
     node?.parentElement?.closest("[data-diagram] .pele-node");
@@ -68,9 +66,9 @@ function insideThread(node) {
     if (at.localName === "pair-thread") return true;
   return false;
 }
-// Every direct child of the page content is a block and gets a comment
-// control, whatever it is; paragraphs, headings and lists are the exception,
-// since their text is what selection comments are for.
+// The frame treats every other direct child of the page content as a block
+// that the reviewer can choose and comment on. Paragraphs, headings and lists
+// are left out because the reviewer comments on their text by selecting it.
 export const blockSkip = new Set([
   "P",
   "H1",
@@ -86,12 +84,10 @@ export const blockSkip = new Set([
   "SCRIPT",
   "STYLE",
   "TEMPLATE",
-  // A thread's card sits between blocks and is not one.
+  // threads.mjs inserts each pair-thread element between blocks, and that
+  // element is not a block.
   "PAIR-THREAD",
 ]);
-// The nearest heading before the block, which is how a reader would say
-// where it is. A page cannot repeat its own title in one, the build refuses
-// that, so this can no longer echo the page name back.
 function headingAbove(block) {
   let previous = block.previousElementSibling;
   while (previous && !/^H[1-6]$/.test(previous.tagName))
@@ -102,9 +98,10 @@ const sentence = (kind) =>
   kind.replace(/^(this|these) /, "").replace(/^./, (c) => c.toUpperCase());
 function blockHeading(block) {
   const name = blockName(block);
-  /* Two blocks under one heading, or two of a kind with no heading at all,
-     take the same name, and Feedback lists them with nothing else to tell
-     them apart. Number them only when they collide. */
+  /* blockName gives two blocks under one heading, or two blocks of one kind
+     with no heading, the same name. Feedback lists their notes with nothing
+     else to tell them apart, so blockHeading numbers the blocks whose names
+     match. */
   const peers = [...block.parentElement.children].filter(
     (other) => !blockSkip.has(other.tagName) && blockName(other) === name,
   );
@@ -112,15 +109,12 @@ function blockHeading(block) {
 }
 function blockName(block) {
   const read = (node) => normalize(node?.textContent);
-  /* What the block gives for a name, in the order a reader would pick: its
-     own heading, the title an author set, the title the frame drew for a
-     figure, then the caption. Never the block's text, which is a table's
-     cells, a renderer's injected stylesheet and its buttons. A block that
-     gives no name returns none, and the note is filed under its page. */
+  /* blockName never uses the block's own text, because that text includes a
+     table's cells, a renderer's injected stylesheet and its buttons. */
   const named = "[data-title], [data-caption], [data-file]";
   const titled = block.matches(named) ? block : block.querySelector(named);
-  /* A heading inside a closed details is a section of the block's source,
-     not a name for it: the diff's own "Before" and "Git patch" live there. */
+  /* A heading inside a details element names a section of the block, not
+     the block. The diff's "Before" and "Git patch" headings are inside one. */
   const heading = [...block.querySelectorAll("h1, h2, h3, h4, h5, h6")].find(
     (node) => !node.closest("details"),
   );
@@ -131,27 +125,25 @@ function blockName(block) {
     read(block.querySelector(".figure-head b")) ||
     normalize(titled?.dataset.caption) ||
     read(block.querySelector(".figure-caption")) ||
-    /* Feedback lists every note together and the agent reads them as text,
-       and in neither place is the block on screen to look at. A block that
-       names nothing takes the heading it sits under, then what it is. */
+    /* The reviewer reads this name on Feedback and the agent reads it as
+       text, and neither sees the block there. A block with no name of its
+       own falls back to the heading above it, then to its kind. */
     read(headingAbove(block)) ||
     sentence(blockKind(block));
   return name.length > 60 ? name.slice(0, 57) + "…" : name;
 }
 
-/* A note on a block carries the block's ID so Feedback can jump back to it.
-   A paragraph, heading or list gets one too, so a note or thread on words
-   selected in it records that block, even when an earlier block has the
-   same words. */
+/* A note on a block includes the block's ID, so Feedback can open the page
+   at the block. A paragraph, heading or list gets an ID too, so a note or
+   thread on words selected in it records that block, even when an earlier
+   block contains the same words. */
 export function blockTargets(root, topic) {
   [...root.children].forEach((block, index) => {
     block.id ||= `block-${topic}-${index}`;
   });
 }
-/* What a click, j or k can choose in the view on screen: the cards on
-   Work, the task and each alignment on Agreed, inside the No longer applies
-   fold too, and the blocks of any other page. Review has nothing to
-   choose. */
+// A unit is a block, a Work card or an Agreed card, which the reviewer can
+// choose with a click or the j and k keys.
 const units =
   "#work-cards > [data-proposal-card], #page-content .agreement-card, #page-content > *";
 export function choosable() {
@@ -166,28 +158,22 @@ export function choosable() {
   );
 }
 function unitAt(node) {
-  // A thread's card is no block.
   if (node.closest("pair-thread")) return null;
   const unit = node.closest(units);
-  // Agreed's cards are its only blocks.
   if (unit?.closest("#page-content") && page.id === "agreed")
     return unit.matches(".agreement-card") ? unit : null;
-  // A paragraph, a heading or a list is commented on by selecting its words.
   return unit && !blockSkip.has(unit.tagName) ? unit : null;
 }
-// The proposal a chosen card or proposal component shows, once the frame
-// has drawn the hub's card in it.
 const cardOf = (unit) =>
   unit?.dataset.proposalCard &&
   remote?.proposals?.find((card) => card.id === unit.dataset.proposalCard);
-// A comment on a proposal can start the card's thread wherever its Start
-// can, and a comment on anything else opens only while a note can.
+// The reviewer can comment on a proposal wherever its Start button works,
+// and on anything else only where a note can open.
 const opens = (unit) =>
   cardOf(unit) ? feedbackEditable() || cardsEditable() : noteEditable();
-/* The bar marks the chosen block or card. placeMarks() calls this whenever
-   the page's layout changes, and Work after it draws its cards, so it also
-   places the comment control, which centers itself in the margin beside
-   the text. */
+/* placeMarks() calls placeBar whenever the page's layout changes, and the
+   Work page calls it through commentTarget after drawing its cards, so
+   placeBar also places the comment control. */
 export let chosen = null;
 export function placeBar() {
   const bar = $("chosen-bar");
@@ -205,18 +191,17 @@ export function chooseBlock(block) {
   chosen = block && block !== chosen ? block : null;
   commentTarget();
 }
-/* The comment control names what kind of block it will comment on; the note
-   itself still records the block's own heading. */
 function blockKind(block) {
   const has = (selector) =>
     block.matches(selector) || block.querySelector(selector) !== null;
-  /* A component names itself, so the frame never learns a component's class.
-     Everything below is an attribute any component may use. */
+  /* A component declares its kind in data-kind, so the frame never depends
+     on a component's class. The checks below use only attributes and
+     elements that any component can use. */
   const declared = block.closest("[data-kind]")?.dataset.kind;
   if (declared) return `this ${declared}`;
-  /* What the block is comes before what it holds, so a decision whose options
-     are diagrams is still a decision. A figure is last because every diagram
-     and chart contains one. */
+  /* The checks test what the block is before what it contains, so a decision
+     whose options are diagrams is still a decision. The figure check comes
+     last because every diagram and chart contains a figure. */
   if (has("[data-choice]")) return "this decision";
   if (has("[data-question]")) return "this question";
   if (has("[data-multiselect]")) return "this checklist";
@@ -229,9 +214,6 @@ function blockKind(block) {
   if (has("figure, .figure, svg, img")) return "this figure";
   return "this block";
 }
-/* The c key and the comment control comment on the selection, then the
-   chosen block or card, then the page. On Review they comment on the
-   round's feedback as a whole, and on Work on Work as a whole. */
 function target() {
   if (!$("review-view").hidden) return "overall";
   if (!$("work-view").hidden) return chosen ? "block" : "work";
@@ -248,8 +230,9 @@ const names = {
   overall: "Add overall comment",
 };
 export function commentTarget() {
-  // Work draws its cards again when they change, so the chosen card is
-  // found again by its ID, and the choice ends when it left the tab.
+  // The Work page draws its cards again when they change, so commentTarget
+  // finds the chosen card again by its ID. The choice ends when the open tab
+  // no longer lists the card.
   if (chosen && !chosen.isConnected) {
     const id = chosen.dataset.proposalCard;
     chosen =
@@ -262,24 +245,20 @@ export function commentTarget() {
   }
   const button = $("comment-here");
   const on = target();
-  /* An open dialog hides the control in CSS, which no open path can forget. */
+  /* CSS hides the control while a dialog is open, so no code that opens a
+     dialog has to hide it. */
   button.hidden = !usable(on);
-  // The control grows to name a selection or a chosen block or card, and
-  // stays an icon for a page, Review and Work.
   const grows = on === "selection" || on === "block";
   button.dataset.on = button.hidden ? "none" : grows ? on : "page";
   const name = on === "block" ? `Comment on ${blockKind(chosen)}` : names[on];
   button.setAttribute("aria-label", name);
-  /* The page's icon shows no label, and the label it shrinks from stays
-     until it has shrunk. */
+  /* commentTarget leaves the label text as it is when the control shrinks to
+     an icon, so the old label shows until the control has shrunk. */
   if (grows) button.querySelector(".comment-label span").textContent = name;
   placeBar();
 }
-/* On a window wide enough, the control sits in the white margin, centered
-   between the end of the text and the page's right edge, so it never covers
-   the text at rest. Where the margin is narrower than the control, as on a
-   phone, it sits at the bottom right over the page. It grows leftward from
-   its right edge, over the text. */
+/* placeButton centers the control in the margin right of the text when the
+   margin is wide enough, so the control never covers the text at rest. */
 function placeButton() {
   const button = $("comment-here");
   if (button.hidden) return;
@@ -297,13 +276,12 @@ function placeButton() {
     ? `${width - edge + (edge - text - size) / 2}px`
     : "";
 }
-// The note a comment on the chosen card or block starts.
 function chosenNote() {
   const card = cardOf(chosen);
   const onWork = !$("work-view").hidden;
-  /* A note on a proposal names the card, and its Start a thread starts the
-     card's own thread. On a page it keeps the component's ID, so Review
-     can open the page at it. */
+  /* A note on a proposal includes the card's ID, so the note's Start a
+     thread starts the card's own thread. On a page the note also includes
+     the component's ID, so Review can open the page at the component. */
   if (card)
     return onWork
       ? { topic: "work", anchor: card.title, proposal: card.id }
@@ -325,18 +303,16 @@ function chosenNote() {
       target: chosen.id,
     };
   }
-  /* No quote: the note is about the block, and a quote would be searched
-     for in the page and highlighted, marking the block's opening words. A
-     figure the frame drew around a block has no ID of its own, so the note
-     takes the ID of the block inside it. */
+  /* The note has no quote, because the frame searches the page for a quote
+     and highlights it, which would mark only the block's opening words. A
+     figure the frame drew around a block has no ID, so the note uses the ID
+     of the block inside it. */
   return {
     topic: page.id,
     anchor: blockHeading(chosen),
     target: chosen.id || chosen.querySelector("[id]")?.id || null,
   };
 }
-/* The control and the c key comment on the same things, so they share the
-   one function that opens the note. */
 export function commentOnTarget() {
   const on = target();
   if (!usable(on)) return;
@@ -361,9 +337,9 @@ export function commentOnTarget() {
   else openNote({ topic: page.id, anchor: page.title });
   chooseBlock(null);
 }
-/* A note on one part of a block, such as one box of a diagram, is filed
-   under the block's name, as a note on the whole block is. Components open
-   one with commentOn once canComment says a note can open. */
+/* A component calls commentOn to open a note on one part of a block, such
+   as one box of a diagram, after canComment returns true. The note's anchor
+   is the block's name, as for a note on the whole block. */
 export const canComment = () => usable("selection");
 export function partName(element) {
   const block = pageBlock(element);
@@ -396,9 +372,8 @@ export function installBlocks() {
     );
     commentTarget();
   });
-  /* A control does its own job, a block or card becomes the target, and
-     anything else clears it. A drag is a selection, so it never reaches
-     here as a press. */
+  /* A drag leaves text selected, so choose returns and the drag stays a
+     selection. */
   const choose = (event) => {
     if (!editable || (!$("reading").hidden && page.pending)) return;
     if (
@@ -412,11 +387,13 @@ export function installBlocks() {
   };
   $("page-content").addEventListener("click", choose);
   $("work-cards").addEventListener("click", choose);
-  // A press on the button would otherwise clear the selection it is for.
+  // Without preventDefault, a press on the button clears the selection that
+  // the button comments on.
   $("comment-here").onpointerdown = (event) => event.preventDefault();
   $("comment-here").onclick = () => commentOnTarget();
-  /* Once the frame is at its widest, a wider window moves the page's edge and
-     leaves the page's size as it was, so no layout change places it. */
+  /* Once the frame is at its widest, a wider window moves the page's edge
+     without changing the page's size, so placeMarks does not run and the
+     button needs its own resize listener. */
   addEventListener("resize", placeButton);
   $("note-text").oninput = () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;

@@ -3,8 +3,8 @@
   border-radius: 8px;
   overflow: auto;
 }
-/* The plain source takes the highlighted block's padding and line height,
-   so a block keeps its height when Shiki replaces it. */
+/* The plain source gets the highlighted block's padding and line height, so
+   a block's height does not change when Shiki replaces the source. */
 [data-language]:not(:has(.shiki)) {
   padding: 10px 14px;
   white-space: pre;
@@ -31,13 +31,14 @@
   line-height: 20px;
   counter-reset: codeline;
 }
-/* Inline-block, never block: Shiki writes a newline after each line span,
-   and a block span turns that newline into a second, empty row. */
-/* min-width, not width: the line stretches to the full width so a lit line
-   is lit to the edge, and still grows past it so the block keeps scrolling
-   on a line the column cannot hold. */
-/* Top-aligned, so each line is exactly one line height tall, as each line
-   of the plain source is. On the baseline, some inline-block lines are
+/* The line spans are inline-block, never block, because Shiki writes a
+   newline after each line span, and a block span turns that newline into a
+   second, empty row. */
+/* The line uses min-width, not width, so it stretches to the full width and
+   a lit line is lit to the edge. It still grows past the edge, so the block
+   scrolls on a line the column cannot fit. */
+/* Each line is top-aligned, so it is exactly one line height tall, as each
+   line of the plain source is. On the baseline, some inline-block lines are
    taller, and a 277-line block grew 48px when Shiki highlighted it. */
 [data-language] .shiki .line {
   position: relative;
@@ -49,8 +50,8 @@
   min-height: 1lh;
   padding: 0 14px 0 12px;
 }
-/* One gutter whether or not the block carries notes: the bubble's 16px,
-   the numbers, then the code at 54px. */
+/* The gutter is the same whether or not the block has notes: the bubble's
+   16px, then the numbers, then the code at 54px. */
 [data-language]:is([data-lines], [data-numbers], [data-notes]) .shiki .line {
   padding-left: 54px;
   counter-increment: codeline;
@@ -68,10 +69,11 @@
   text-align: right;
   opacity: 0.75;
 }
-/* The named lines are lit and the rest is dimmed until the pointer or the
-   keyboard asks for it. There is no control to press. A block with no lit
-   line dims nothing, so a value that names no line of the block leaves it
-   readable. :where() keeps the specificity of the hover rule below it. */
+/* The lines listed in data-lines are lit, and the rest are dimmed until the
+   block has the pointer or the keyboard focus. No control toggles the
+   dimming. A block with no lit line dims nothing, so a value that matches no
+   line of the block leaves it readable. :where() keeps the specificity of
+   the dimming rule below the hover rule. */
 [data-language][data-lines] .shiki .line {
   transition: opacity 0.12s ease;
 }
@@ -85,7 +87,6 @@
 [data-language][data-lines] .shiki .line.in-focus {
   background: var(--accent-soft);
 }
-/* A line with a note carries a speech bubble 4px from the block's edge. */
 .code-note-mark {
   position: absolute;
   left: 4px;
@@ -146,30 +147,33 @@
   color: var(--muted);
   text-align: center;
 }
-/* A block with more to the right says so. The mask is on the box that
-   scrolls, so it stays at the right edge while the content moves under it. */
+/* The mask fades the right edge of a block with more content to the right.
+   The mask is on the box that scrolls, so it stays at the right edge while
+   the content moves under it. */
 .shiki[data-more="true"] {
   mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
-/* Component CSS sits inside @scope (#page-content), where :root never
-   matches, so the theme comes from color-scheme, which the frame sets. */
+/* pair build puts component CSS inside @scope (#page-content), where :root
+   never matches, so light-dark() follows the color-scheme that the frame
+   sets. */
 .shiki,
 .shiki span {
   color: light-dark(var(--shiki-light), var(--shiki-dark)) !important;
 }
-/* A <pre data-language> also matches the frame's generic pre rule and keeps
-   the browser's default margin: 1em 0, which base.css never resets; a <div
-   data-language> carries none of it. The rendered code is identical either
-   way, because [data-language] .shiki supplies the vertical padding and
-   .line the horizontal, so the reset makes the two elements render alike in
-   every container rather than only inside a figure. */
+/* A <pre data-language> also matches the frame's generic pre rule and gets
+   the browser's default margin of 1em 0, which base.css never resets, and a
+   <div data-language> gets neither. [data-language] .shiki sets the vertical
+   padding and .line the horizontal, so the rendered code is the same for
+   both elements, and this reset makes them render alike in every container,
+   not only inside a figure. */
 pre[data-language] {
   margin: 0;
   padding: 0;
   border: 0;
 }
-/* At the top of the page the frame sets the space around a code block, as
-   it does around every block, so the margin comes from the frame's layer. */
+/* At the top level of the page, the frame sets the space around a code
+   block, as it does around every block, so revert-layer uses the margin from
+   the frame's layer. */
 :scope > pre[data-language] {
   margin: revert-layer;
 }

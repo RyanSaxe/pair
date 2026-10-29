@@ -1,7 +1,8 @@
-// npm run screenshots: stages a demo session on a hub of its own and writes
-// the README's and the docs' PNGs from Google Chrome. Then it stages a
-// second session with the pair command, as an agent runs it, and writes the
-// illustration of a session and the picture of starting work on a phone.
+// npm run screenshots runs this script. It stages a demo session on a hub of
+// its own and writes the PNGs for the README and the docs from Google Chrome.
+// It then stages a second session by running the pair command as an agent does,
+// and writes the illustration of a session and the picture of starting work on
+// a phone.
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -11,13 +12,11 @@ import { saveFailure } from "./screenshots/failure.mjs";
 import { illustrate } from "./screenshots/illustration.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-// A failed run saves each browser window here, under the root, and the
-// screenshots workflow uploads the directory.
+// The screenshots workflow, .github/workflows/screenshots.yml, uploads this
+// directory.
 const failures = "screenshots-failure";
 
 async function main() {
-  // The frame draws text in the system font, and only macOS has San
-  // Francisco, so a run elsewhere changes the text in every PNG.
   if (process.platform !== "darwin") {
     console.error(
       "npm run screenshots runs on macOS, because the frame's font is the system font.",
@@ -25,12 +24,11 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  // The directory shows only the last run's failure.
   await fs.rm(path.join(root, failures), { recursive: true, force: true });
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-screenshots-"));
-  // hub() and open() from tests/support take a node:test context. They stop
-  // the hub and Chrome with its after(), and open() reports a missing Chrome
-  // with its skip().
+  // hub() and open() from tests/support take a node:test context, so t stands
+  // in for one. They register their cleanups with t.after(), and open() reports
+  // a missing Chrome with t.skip().
   const cleanups = [];
   const t = {
     after: (cleanup) => cleanups.push(cleanup),
@@ -45,7 +43,7 @@ async function main() {
     for (const [file, png] of pictures) images.set(file, png);
   } catch (error) {
     failure = error;
-    // The cleanups below close Chrome, so the windows are saved first.
+    // The cleanups close Chrome, so saveFailure() runs before them.
     try {
       if (await saveFailure(path.join(root, failures)))
         failure = new Error(

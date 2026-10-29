@@ -18,8 +18,8 @@ async function portReport(config) {
   const record = await readRecord(config);
   const info = await hubInfo(port, record);
   if (!info) return { port, state: "busy" };
-  // pair start refuses a hub that neither this state directory's record nor
-  // the hub's own stateDir ties to this state directory.
+  // pair start refuses a hub unless this state directory's record has the hub's
+  // pid or the hub reports this state directory as its stateDir.
   if (info.pid !== record?.pid && info.stateDir !== (await ownStateDir(config)))
     return { port, state: "other-hub", pid: info.pid };
   return { port, state: "hub", version: info.version, live: info.live };
@@ -40,17 +40,17 @@ function codexLine(codex) {
   return `${codex.rules} ${codex.exists ? "differs from pair's rule" : "is missing"}`;
 }
 
-// The checks pair start needs to pass, one line each. A check that fails
-// outright refuses with its error. A hub port in use by another program or by
-// another state directory's hub, and a missing Codex rules file, each add a
-// next step.
+// check() runs the checks that pair start needs to pass and prints one line for
+// each. A check that fails outright throws its error. A hub port in use by
+// another program or by another state directory's hub, and a missing Codex
+// rules file, each add a next step.
 export async function check() {
   const codex = await codexReport();
   let directory;
   const server = http.createServer((_, response) => response.end("ready"));
   try {
     requireNode();
-    // The hub writes under <state>/pair, so that is the directory to test.
+    // The hub writes under <state>/pair, so check() tests that directory.
     const base = settings().root;
     await fs.mkdir(base, { recursive: true });
     directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
@@ -88,8 +88,10 @@ export async function check() {
           ]
         : []),
     ];
-    // requireNode() refused a line without a floor, so the floor is set. A
-    // line later than the newest floor's line has no floor of its own.
+    // requireNode() has already refused a Node line with no floor, so
+    // nodeFloor() returns a floor here. A Node line later than the newest
+    // floor's line has no floor of its own, so check() then leaves the line out
+    // of the message.
     const floor = nodeFloor();
     const line = process.versions.node.startsWith(`${floor.line}.`)
       ? ` on Node ${floor.line}`

@@ -18,20 +18,19 @@ const entry = (id, fields = {}) => ({
 test("the sessions badge counts the other sessions with something unseen, and otherwise the other live sessions in grey", () => {
   const none = () => 0;
   const newIn = (ids) => (item) => (ids.includes(item.id) ? 2 : 0);
-  // A session whose round 1 waits for you, as the hub lists it.
   const waiting = (id) =>
     entry(id, {
       needsYou: true,
       events: [{ id: `w${id}`, kind: "waiting", round: "1" }],
     });
   const cases = [
-    // [sessions, unopened, the bell's removed events, count, tone]
     [[entry("1")], none, [], 0, ""],
     [[entry("1"), entry("2"), entry("3", { paused: true })], none, [], 2, ""],
     [[entry("1"), waiting("2"), entry("3")], none, [], 1, "need"],
     [[entry("1"), entry("2", { wakeFailed: true })], none, [], 1, "need"],
     [[entry("1"), entry("2"), entry("3")], newIn(["2"]), [], 1, "news"],
-    // A waiting round turns the count of both kinds orange.
+    // sessionsBadge counts a session with new pages too, and it sets the tone
+    // to need when any session's round waits.
     [
       [entry("1"), waiting("2"), entry("3"), entry("4")],
       newIn(["3"]),
@@ -39,11 +38,10 @@ test("the sessions badge counts the other sessions with something unseen, and ot
       2,
       "need",
     ],
-    // A waiting round you have seen no longer counts, and new pages still
-    // do.
+    // Once the reviewer removes a round's waiting event from the bell, that
+    // round no longer counts, but new pages still do.
     [[entry("1"), waiting("2"), entry("3")], none, ["w2"], 2, ""],
     [[entry("1"), waiting("2"), entry("3")], newIn(["3"]), ["w2"], 1, "news"],
-    // A seen round 1 does not hide round 2 when it waits.
     [
       [
         entry("1"),
@@ -61,7 +59,7 @@ test("the sessions badge counts the other sessions with something unseen, and ot
       1,
       "need",
     ],
-    // This tab's own waiting round and new pages never count.
+    // sessionsBadge never counts the session this tab shows, session 1.
     [[waiting("1"), entry("2")], newIn(["1"]), [], 1, ""],
   ];
   for (const [list, unopened, cleared, count, tone] of cases)
@@ -86,7 +84,6 @@ test("sessions keep the order they started in, and w reaches the next waiting on
   assert.equal(nextWaiting(order, "3").id, "1");
   assert.equal(nextWaiting(order, "4").id, "1");
   assert.equal(nextWaiting([entry("1"), entry("2")], "1"), undefined);
-  // This tab's own waiting round is never the next one.
   assert.equal(nextWaiting([entry("1", { needsYou: true })], "1"), undefined);
 });
 
@@ -98,7 +95,8 @@ test("a row shows the first status that applies", () => {
     [{ paused: true, stage: "working" }, 0, "Paused"],
     [{ stage: "working" }, 0, "Working"],
     [{ stage: "updated", openRound: { ready: 1 } }, 0, "Working"],
-    // The agent prepares the first round of a session with nothing published.
+    // A session with round null has nothing published, so its agent is
+    // preparing the first round.
     [{ round: null, stage: "ready" }, 0, "Working"],
     [{ stage: "complete" }, 0, undefined],
   ];
@@ -106,8 +104,8 @@ test("a row shows the first status that applies", () => {
     assert.equal(rowStatus(entry("2", fields), unopened)?.text, text);
 });
 
-// Sub-sessions follow the session they came from, in the order they
-// started, and a closed parent the hub still lists heads them.
+// groupSessions orders sibling sub-sessions by start time, so session 2 comes
+// before session 4.
 test("Sessions lists each sub-session after its parent, one step in, under a closed parent's heading", () => {
   const rows = (list) =>
     groupSessions(list).map(({ entry, depth }) => [
@@ -131,7 +129,6 @@ test("Sessions lists each sub-session after its parent, one step in, under a clo
       ["3", 0, false],
     ],
   );
-  // A sub-session whose parent is not listed stands at the top.
   assert.deepEqual(rows([entry("2", { parentId: "9" }), entry("1")]), [
     ["1", 0, false],
     ["2", 0, false],

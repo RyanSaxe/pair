@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// A round whose Overview has a block a page thread can target.
+// Overview contains a block so that a test can start a page thread on it.
 const round = (title = "Example work") => ({
   ...planData(),
   title,
@@ -36,15 +36,15 @@ const reply = async (session, id) =>
     (await session.action("reply", { note: id, text: "Here." })).code,
     200,
   );
-// The tab polls the session list every 5 s.
+// The frame polls the session list every 5 s, so each wait allows 8 s.
 const poll = { timeout: 8000 };
 const count = (page, text) =>
   page.locator("#bell-count", { hasText: new RegExp(`^${text}$`) }).waitFor({
     ...poll,
     state: text ? "visible" : "hidden",
   });
-// The bell marks every event it finds on its first load as seen, so each
-// test waits for the bell to show before anything happens.
+// The frame marks every event it finds at the bell's first load as seen, so
+// each test waits for the bell to show before it adds an event.
 const bellReady = (page) => page.locator("#bell").waitFor();
 async function lines(page) {
   await page.locator("#bell").click();
@@ -76,8 +76,8 @@ test("a reply in a thread clears that thread's lines from the bell and keeps the
   await card.locator(".thread-reply button[type=submit]").click();
   await count(page, "1");
   assert.deepEqual(await lines(page), ["Agent replied on Agreed so far"]);
-  // Another tab of this browser, and this one after a reload, keep them
-  // cleared.
+  // After a reload, the frame must still count only the reply on the other
+  // thread.
   await page.reload();
   await bellReady(page);
   await count(page, "1");
@@ -97,7 +97,6 @@ test("a thumbs up on a reply fills and takes its line out of the bell, and press
   await thumb.click();
   assert.equal(await thumb.getAttribute("aria-pressed"), "true");
   await count(page, "");
-  // After a reload, the hub's thread and listing keep both.
   await page.reload();
   await page
     .locator(
@@ -110,8 +109,8 @@ test("a thumbs up on a reply fills and takes its line out of the bell, and press
   await count(page, "1");
 });
 
-// A session with Build the deck running here and Refresh the export
-// proposed, so Work opens on Running unless a line names another card.
+// Build the deck runs here and Refresh the export is proposed, so the frame
+// opens Work on Running unless the reviewer opens a bell line for another card.
 async function workSession(h) {
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
@@ -134,8 +133,8 @@ async function workSession(h) {
   assert.equal(started.code, 200, started.body.error);
   return session;
 }
-// A thread on a card with one agent reply. The reply's ID is the line's
-// target.
+// cardReply returns the element ID of the agent's reply, which is the bell
+// line's target.
 async function cardReply(session, proposal) {
   const id = crypto.randomUUID();
   const started = await session.request(`${session.base}/api/threads`, {
@@ -151,7 +150,6 @@ async function openLine(page) {
   await page.locator("#bell").click();
   await page.locator("#center-list .session-row").click();
 }
-// A landing on a target focuses it.
 const landed = async (page, tab, id) => {
   await page.locator(`#work-tab-${tab}[aria-selected="true"]`).waitFor();
   await page.locator(`#work-view [id="${id}"]:focus`).waitFor();
@@ -165,11 +163,10 @@ test("a line on a card opens Work on the card's tab at the reply or the card it 
   await bellReady(page);
   const reply = await cardReply(session, "export");
   await count(page, "1");
-  // Opening the line clears it, which moves the card from Needs you back
+  // Opening the line clears it, so the frame moves the card from Needs you back
   // to Proposed.
   await openLine(page);
   await landed(page, "proposed", reply);
-  // With Work on screen at another tab, a line on a new card opens it.
   await page.locator("#work-tab-running").click();
   const added = await session.action("propose", {
     id: "chart",
@@ -224,8 +221,8 @@ test("a session's start and waiting round leave the bell once a tab has shown th
   assert.equal((await a.publish(round())).code, 200);
   await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
   await bellReady(page);
-  // The reviewer switches sessions from the session list, not from a line
-  // of the bell, which would remove that line itself.
+  // The test switches sessions from the session list, because opening a bell
+  // line would clear that line.
   const switchTo = async (session) => {
     await page.locator("#menu-button").click();
     await page.locator(`[data-key="open:${session.id}"]`).click();
@@ -255,10 +252,8 @@ test("a new session adds a bell line that opens its home view, which loads the r
   await page.locator("#center-list .session-row").click();
   await page.waitForURL(`${h.server.origin}${c.base}/`);
   await page.locator("#home-agent", { hasText: "Claude Code" }).waitFor();
-  // The sidebar lists Agreed so far as queued, and Rounds has no round.
   await page.getByRole("button", { name: "Agreed so far, queued" }).waitFor();
   assert.equal(await page.locator("#round").isDisabled(), true);
-  // The keys that act on a page do nothing here.
   for (const key of ["]", "a", "j", "c", "r"]) await page.keyboard.press(key);
   assert.equal(new URL(page.url()).hash, "");
   assert.equal((await c.publish(round("Session C"))).code, 200);

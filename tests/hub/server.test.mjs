@@ -66,12 +66,12 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
-  // A session with nothing published is listed, and its URL serves its
-  // home view.
+  // c has nothing published. The hub still lists it and serves its home view at
+  // its URL.
   const c = await h.session();
   await a.publish(planData());
   await b.publish(planData());
-  // a was published first, and only b waits for the reviewer.
+  // a publishes first, and after a's feedback only b waits for the reviewer.
   await a.feedback(a.event());
   await a.action("read");
   const listed = async () =>
@@ -118,8 +118,8 @@ test("the hub lists when each session started, and a new hub keeps it", async (t
   await h.server.close();
   const next = await startHub(h.config);
   assert.equal(await startedAt(next.origin), first);
-  // A session saved before startedAt existed takes its directory's
-  // creation time instead.
+  // For a session saved before status.json had startedAt, the hub uses the
+  // directory's creation time.
   await next.close();
   const file = path.join(a.directory, "status.json");
   const { startedAt: dropped, ...older } = JSON.parse(
@@ -158,8 +158,8 @@ test("closing a session from the session list completes it and drops it from the
     list.map((item) => item.id),
     [a.id],
   );
-  // The closed session's own page comes back read-only, so a tab still
-  // open on it cannot send anything.
+  // The hub serves the closed session's page with closed set, so the frame in a
+  // tab still open on it cannot send anything.
   assert.deepEqual(sessionConfig((await b.request(`${b.base}/`)).body), {
     sessionId: b.id,
     base: b.base,
@@ -171,8 +171,8 @@ test("closing a session from the session list completes it and drops it from the
   });
 });
 
-// A tab opened before the session closed can still send, after ✕ on its
-// line in the session list.
+// A tab opened before the reviewer closed the session with ✕ in the session
+// list can still post feedback.
 test("a closed session refuses feedback and wakes no agent", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -212,8 +212,8 @@ test("the root URL opens the session that most needs you, then the last viewed, 
   assert.equal(result.location, `${b.base}/`);
   // The hub wakes the agent after it answers the feedback request, and the
   // wake's write sets updatedAt. Waiting for each wake, and 5 ms after each
-  // read, puts every write to a in an earlier millisecond than the writes to
-  // b, which the fallback to b below depends on.
+  // read, puts every write to a in an earlier millisecond than the writes to b.
+  // The fallback to b below depends on that order.
   for (const session of [a, b]) {
     const event = session.event();
     await session.feedback(event);
@@ -399,8 +399,8 @@ test("queued rounds keep receipt order", async (t) => {
   assert.equal((await a.status()).body.stage, "working");
 });
 
-// interactive-plan's sessions keep their own format under their own state
-// directory, and pair never reads that format.
+// interactive-plan stores its sessions in its own format under its own state
+// directory, and the hub never reads that format.
 test("the hub refuses to open a session interactive-plan created", async (t) => {
   const h = await hub(t);
   const directory = path.join(h.home, "interactive-plan", "sessions", "old");
@@ -448,7 +448,7 @@ test("the browser can read sent feedback without agent-only paths", async (t) =>
   assert.equal(invalid.code, 400);
 });
 
-// macOS reaches /tmp/… also as /private/tmp/…, so an agent can name one
+// On macOS, /tmp is a symbolic link to /private/tmp, so an agent can name one
 // session by two paths.
 test("a session reached through a symbolic link is the same session", async (t) => {
   const h = await hub(t);

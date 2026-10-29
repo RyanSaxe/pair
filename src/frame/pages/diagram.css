@@ -1,4 +1,4 @@
-/* The dialog itself does not scroll. Its close button stays at the top, and
+/* The dialog does not scroll, so its close button stays at the top while
    .lightbox-view scrolls the diagram under it. */
 .lightbox {
   width: fit-content;
@@ -19,8 +19,6 @@
   justify-content: flex-end;
   margin-bottom: 4px;
 }
-/* Sketch on this diagram sits at the left of the header, and a hairline
-   runs under the header across the dialog. */
 .lightbox .dialog-head:has(#diagram-sketch:not([hidden])) {
   justify-content: space-between;
   margin: -8px -12px 10px;
@@ -31,7 +29,6 @@
   min-height: 0;
   overflow: auto;
 }
-/* On a phone the dialog keeps every dialog's margin from each edge. */
 @media (max-width: 720px) {
   .lightbox {
     max-width: calc(100vw - 2 * var(--dialog-margin));
@@ -44,8 +41,9 @@
   width: var(--diagram-width, auto);
   max-width: none !important;
 }
-/* Containers inherit the defaults, so page CSS can theme a custom host
-   without overriding declarations on the SVG itself. */
+/* #page-content sets the Pele variables and each diagram's SVG inherits
+   them, so page CSS can theme a custom host without overriding
+   declarations on the SVG itself. */
 #page-content {
   --pele-bg: var(--panel);
   --pele-fg: var(--ink);
@@ -84,8 +82,6 @@
   fill: none;
   stroke-dasharray: 4 4;
 }
-/* A box with a note takes the note's color, as a highlighted sentence does,
-   and in the enlarged view a click on a box opens a note on it. */
 :is([data-diagram], .lightbox)
   .pele-node.noted
   > :is(rect, polygon, circle, ellipse, path):not([fill="none"]) {

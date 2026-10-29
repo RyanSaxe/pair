@@ -17,7 +17,8 @@ async function main(argv) {
     process.exitCode = 1;
     return;
   }
-  // --help runs nothing else, whatever else the arguments contain.
+  // The --help check runs before parse(), so --help prints the help even beside
+  // arguments that parse() would refuse.
   if (command.rest.includes("--help"))
     return process.stdout.write(helpText(command));
   const options = parse(command);
@@ -25,8 +26,8 @@ async function main(argv) {
   if (output) await print(output, { json: options.json, command: name });
 }
 
-// Every command's error goes through one catch, so each starts with pair:
-// and carries the Codex sandbox hint where the sandbox refused it.
+// One catch handles every command's error, so each message starts with pair:
+// and gets the Codex sandbox hint when the sandbox refused the command.
 await main(process.argv.slice(2)).catch((error) => {
   console.error(`pair: ${withSandboxHint(error.message)}`);
   process.exitCode = 1;

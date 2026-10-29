@@ -16,24 +16,23 @@ export function emptyDraft(round) {
   return {
     round,
     alignUnflagged: true,
-    // The Send popup's message to the agent.
     message: "",
     notes: [],
     choices: {},
     answers: {},
-    // The text typed into each question, before and after its Answer, and
-    // each drawing question's drawing since it was last saved.
+    // drafts contains the text typed into each question, before and after its
+    // Answer, and each drawing question's drawing since it was last saved.
     drafts: {},
     noteDrafts: {},
-    // The text and images in each thread's Reply field, by thread ID.
     replyDrafts: {},
     submitted: null,
     pending: null,
   };
 }
 
-// Drafts are keyed by session and name, not round. When a new round
-// lands, items that were already sent are dropped and unsent items carry over.
+// The frame keys a draft by session and plan name, not by round. When a new
+// round arrives, loadDraft() drops the items that were already sent and keeps
+// the unsent ones.
 export function loadDraft(saved, round) {
   if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
     return emptyDraft(round);
@@ -49,8 +48,9 @@ export function loadDraft(saved, round) {
   return draft;
 }
 
-// A checklist counts toward the header count only once the reviewer touched
-// it. An untouched list is still sent with the round, as the reviewer left it.
+// A checklist counts toward the header count only after the reviewer touches
+// it. The frame still sends an untouched checklist with the round, as the
+// reviewer left it.
 const counted = (choice) =>
   !choice.sentIn && (choice.kind !== "multiple" || choice.touched === true);
 
@@ -67,8 +67,6 @@ export function unsentItems(draft) {
   };
 }
 
-// The words behind the count: notes and written answers are comments, and
-// picked options and touched checklists are choices.
 export function draftedWords(draft) {
   const { notes, choices, answers } = unsentItems(draft);
   const count = (number, word) =>
@@ -95,9 +93,8 @@ export function submissionGroups(draft) {
   };
 }
 
-// A sent item does not carry over to the next round's draft. A sent answer's
-// typed text or drawing goes with it, so the next round's question starts
-// empty.
+// markSent() deletes a sent answer's typed text or drawing, so the question
+// starts empty in the next round.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
   for (const note of draft.notes) note.sentIn ||= id;
@@ -116,17 +113,16 @@ export let state;
 export function setState(draft) {
   state = draft;
 }
-// The draft this browser saved for Current, carried over to the round.
 export function savedDraft(round) {
   try {
     return loadDraft(JSON.parse(localStorage.getItem(storageKey)), round);
   } catch {
-    /* The in-memory draft and export remain usable. */
+    /* When localStorage throws, the in-memory draft and export still work. */
     return emptyDraft(round);
   }
 }
-// The draft another tab of the session saved, when it is for the round this
-// tab holds. A draft for another round is not this tab's to take over.
+// storedDraft() ignores a draft that another tab of the session saved for a
+// different round, so this tab never takes over that draft.
 export function storedDraft(value, round) {
   try {
     const saved = JSON.parse(value);
@@ -149,7 +145,8 @@ export const prefs = {
         localStorage.removeItem(prefsPrefix + key);
       else localStorage.setItem(prefsPrefix + key, String(value));
     } catch {
-      /* Preferences are conveniences; nothing depends on them. */
+      /* When localStorage throws, the preference is not saved, and no code
+         depends on it. */
     }
   },
 };

@@ -17,9 +17,9 @@ it. `pair --version` prints the version.
 | `pair publish --file HTML`                             | Publishes a page that `pair build` wrote. The first publish of a round is Agreed, with the round's page list in `--pages`.                                                                                                                                                                                             |
 | `pair reply --thread ID --text TEXT`, or `--file HTML` | Posts the agent's reply in a thread, as text or as an HTML fragment that passes `pair build`'s page checks.                                                                                                                                                                                                            |
 | `pair propose --id ID`                                 | Records a proposal, or changes the one with that ID, as [`pair propose`](#pair-propose) describes. Any agent may run it.                                                                                                                                                                                               |
-| `pair status`                                          | Prints where the session stands. Any agent may run it.                                                                                                                                                                                                                                                                 |
+| `pair status`                                          | Prints the session's status. Any agent may run it.                                                                                                                                                                                                                                                                     |
 | `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. `pair start --session-dir` resumes it. You end a session by closing it in the browser.                                                                                                                                                                             |
-| `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any field pair does not know, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                       |
+| `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
 | `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
 | `pair setup-codex`                                     | Writes the Codex allow rule for `pair` to `~/.codex/rules/pair.rules`, which `pair start` requires under Codex.                                                                                                                                                                                                        |
@@ -34,7 +34,7 @@ creates a session. A session command prints these, in order:
 3. Its result, with your words inside `pair_` tags.
 
 While a page or a proposal has had no update for 10 minutes, the next step
-ends with a line that names it, as
+ends with a line about it, as
 [Quiet work](../concepts/architecture.md#quiet-work) describes.
 
 When the output is long, it prints the next step again at the end. `--json`
@@ -58,22 +58,22 @@ the ID instead.
 | `--done`                     | Marks work that runs here done, after the agent publishes its last page. With `--where TEXT`, such as `--where "in #86"`, it marks a proposal done whose work was finished somewhere else.                                                                       |
 | `--join OTHER`               | Joins a proposal that is still in Proposed into OTHER, whose work covers it. The hub refuses it when OTHER is declined, withdrawn, done or joined itself, or runs in a sub-session or with a new agent.                                                          |
 | `--reopen`                   | Undoes the agent's own `--done` or `--join`. The hub refuses it for a proposal that it marked done because you closed its linked session.                                                                                                                        |
-| `--status-left TEXT`         | Adds a part of approved work that is left, after the proposal's parts. A part with that text that the proposal already lists keeps its state.                                                                                                                    |
+| `--status-left TEXT`         | Adds a part of approved work that is left, after the proposal's parts. When the proposal already has a part with that text, the hub leaves that part's state as it is.                                                                                           |
 | `--status-done TEXT`         | Marks the part with that text done, and refuses text that matches none of the proposal's parts.                                                                                                                                                                  |
-| `--status-drop TEXT`         | Marks a part the proposal lists dropped. The part stays in the proposal's parts, and no flag removes one.                                                                                                                                                        |
+| `--status-drop TEXT`         | Marks the part with that text dropped. The part stays in the proposal's parts, and no flag removes one.                                                                                                                                                          |
 
 The hub refuses `--done` for a proposal whose work runs in a sub-session or
 with a new agent. When you close that session, the hub marks the proposal
 done.
 
 The three `--status` flags repeat, once for each part, and one command can
-mix them. Each flag changes only the part it names. The hub takes them only
-for work that you approved and that is not finished, in a command with no
-other flag from this section. It refuses `--status-done` and `--status-drop`
-for text that matches no part, with an error that lists the proposal's
-parts. The hub adds the `--status-left` parts first, so one command can add
-a part and mark it done. A proposal has at most 20 parts, each at most 80
-characters, and `--reopen` clears them.
+mix them. Each flag changes only the part with its text. The hub accepts
+them only for work that you approved and that is not finished, in a command
+with no other flag from this section. It refuses `--status-done` and
+`--status-drop` for text that matches no part, with an error that lists the
+proposal's parts. The hub adds the `--status-left` parts first, so one
+command can add a part and mark it done. A proposal has at most 20 parts,
+each at most 80 characters, and `--reopen` clears them.
 
 ## Environment variables
 
@@ -85,11 +85,11 @@ All six are optional.
 | `PAIR_HUB_HOST`         | unset            | An extra address for the hub to listen on, such as a Tailscale IP, so you can review on a phone.                                 |
 | `PAIR_HUB_IDLE_SECONDS` | 900              | How long the hub keeps running with no live session.                                                                             |
 | `PAIR_WAKE`             | on               | With `off`, the hub writes each wake line to its log instead of sending it. pair refuses `off` with the default state directory. |
-| `XDG_STATE_HOME`        | `~/.local/state` | pair keeps the sessions and the hub's files in its `pair/` folder.                                                               |
+| `XDG_STATE_HOME`        | `~/.local/state` | pair stores the sessions and the hub's files in its `pair/` folder.                                                              |
 | `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files and moment files from its `pair/` folder.                                                |
 
-The hub's browser routes need no token, so the hub only listens on an extra
-address when you set `PAIR_HUB_HOST`. Anyone who can reach that address can
+The hub's browser routes need no token, so the hub listens on an extra address
+only when you set `PAIR_HUB_HOST`. Anyone who can reach that address can
 read your sessions and send feedback that your agent acts on as yours, so set
 it only to an address on a network you trust, such as your own Tailscale IP.
 pair refuses `0.0.0.0` and `::`, which would make the hub reachable from every
@@ -109,5 +109,5 @@ env XDG_STATE_HOME=/tmp/pair-state PAIR_HUB_PORT=4800 pair start --title "Try pa
 `pair start` writes the address of its hub to the session's
 `connection.json`, and every other command with `--session-dir` sends its
 request to that address. A `pair start` that resumes the session, and a
-command that finds no hub at that address, use the hub that their own
-environment names, so they need the variables in front of them too.
+command that finds no hub at that address, use the hub that the variables in
+their own environment give, so they need the variables in front of them too.

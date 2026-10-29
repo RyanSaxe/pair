@@ -1,7 +1,6 @@
-/* A code block: syntax colour, line numbers, a focused range, and a note
-   on a line. Shiki is loaded once, from the location the frame pins. */
 let shikiTask;
-/* The source before Shiki rewrote it, so Copy gives the file's text. */
+/* sources maps each block to its text before Shiki rewrote it, so Copy gives
+   the file's text. */
 const sources = new WeakMap();
 const noteBubble =
   '<svg viewBox="0 0 16 14" width="15" height="14" aria-hidden="true">' +
@@ -15,8 +14,9 @@ function closeCodeNote() {
   codeNote.popup.remove();
   codeNote = null;
 }
-/* The popover is fixed to the window, so it follows its line while the page
-   moves under it, and any click that is not on a note closes it. */
+/* The popover is fixed to the window, so followCodeNote() places it again
+   when the page scrolls or the window resizes. A click anywhere but on a
+   note closes it. */
 function followCodeNote() {
   codeNote?.place();
 }
@@ -27,8 +27,8 @@ document.addEventListener("scroll", followCodeNote, {
   passive: true,
 });
 window.addEventListener("resize", followCodeNote);
-/* A note stands outside the figure it belongs to: the figure is
-   overflow: hidden, and a note on the last line would be cut in half. */
+/* showNote() puts a note outside its figure, because the figure has
+   overflow: hidden and would cut a note on the last line in half. */
 function showNote(element, line, mark, note) {
   const popup = document.createElement("div");
   popup.className = "code-popup";
@@ -87,9 +87,9 @@ function addNote(element, lines, note) {
   line.onclick = toggle;
   line.prepend(mark);
 }
-/* The fade at the right edge, while there is a line the column cannot show.
-   The pre is the box that scrolls, not the element carrying data-language:
-   the frame's generic pre rule gives it overflow: auto. */
+/* watchCodeScroll() fades the right edge while a line extends past the
+   column. The pre scrolls, not the element with data-language, because the
+   frame's generic pre rule gives the pre overflow: auto. */
 function watchCodeScroll(element) {
   const box = element.querySelector(".shiki") || element;
   const update = () => {
@@ -100,9 +100,9 @@ function watchCodeScroll(element) {
   new ResizeObserver(update).observe(box);
   update();
 }
-/* Line numbers, the focused ranges and the notes, once Shiki has written
-   its lines. Every part is optional and a block with none of the attributes
-   is the block the skill always had. */
+/* decorateCode() adds line numbers, the focused ranges and the notes after
+   Shiki writes the lines. Each part is optional, and a block with none of
+   the attributes renders as a plain highlighted block. */
 function decorateCode(element) {
   const lines = [...element.querySelectorAll(".shiki code .line")];
   if (!lines.length) return;
@@ -119,7 +119,7 @@ function decorateCode(element) {
 }
 async function renderCode(element) {
   /* A newline against either tag gives Shiki an empty first or last line,
-     which the numbers make visible as a line the file does not have. */
+     and the line numbers would show it as a line the file does not have. */
   const source = element.textContent
     .replace(/^\n/, "")
     .replace(/\n[ \t]*$/, "");
@@ -127,7 +127,7 @@ async function renderCode(element) {
   try {
     shikiTask ||= import(libraries.shiki);
     const { codeToHtml } = await shikiTask;
-    // A task of its own for each block, as renderDiff does for a diff.
+    // Each block renders in a task of its own, as renderDiff does for a diff.
     await new Promise((resolve) => setTimeout(resolve));
     const html = await codeToHtml(source, {
       lang: element.dataset.language,
@@ -158,8 +158,8 @@ planUI.define("code", {
         kind: "code",
       });
     }
-    // The plain source already has the highlighted block's height, so the
-    // page does not wait for Shiki.
+    // The plain source already has the highlighted block's height, so setup
+    // does not wait for Shiki.
     void renderCode(element);
   },
 });

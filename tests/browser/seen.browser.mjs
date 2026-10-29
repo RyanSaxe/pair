@@ -3,11 +3,13 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// Each tab polls the session list every 5 s.
+// The frame in each tab polls the session list every 5 s, so each wait allows 8
+// s.
 const poll = { timeout: 8000 };
 
-// A computer and a phone, as two browsers with storage of their own, on one
-// hub: what the reviewer clears, opens and sees on one shows on the other.
+// Two browser contexts with separate storage stand for a computer and a phone
+// on one hub. The hub stores what the reviewer clears, opens and sees in one
+// browser, and the frame in the other browser must read it from the hub.
 test("two browsers on one hub show the same bell, sessions badge and New marks", async (t) => {
   const h = await hub(t);
   const own = await h.session();
@@ -27,8 +29,8 @@ test("two browsers on one hub show the same bell, sessions badge and New marks",
     (await other.publish({ ...planData(), title: "Other work" })).code,
     200,
   );
-  // The hub has an empty record, so neither browser takes what is listed
-  // as already seen.
+  // The test gives the hub an empty seen record, so the frame in neither
+  // browser counts what the hub lists as already seen.
   const empty = { cleared: [], opened: [], cards: [] };
   assert.equal((await own.request("/api/seen", empty)).code, 200);
 
@@ -47,20 +49,15 @@ test("two browsers on one hub show the same bell, sessions badge and New marks",
   }
   assert.equal(await bellCount(phone), await bellCount(computer));
 
-  // Clear all on the computer empties the phone's bell, and the other
-  // session's waiting round stops turning the sessions badge orange.
   await computer.locator("#bell").click();
   await computer.locator("#center-clear-all").click();
   await phone.locator("#bell-count").waitFor({ ...poll, state: "hidden" });
   await phone.locator("#menu-button:not(.need)").waitFor(poll);
 
-  // Overview opened on the computer is not New on the phone.
   await computer.keyboard.press("Escape");
   await computer.locator('#page-list [data-page="overview"]').click();
   await pageNew(phone).waitFor({ ...poll, state: "detached" });
 
-  // The card reads New on the phone's Overview until Work shows it on the
-  // computer.
   await phone.goto(`${url}#overview`);
   const label = phone.locator(
     "#page-content [data-proposal-card=tidy] .page-new",

@@ -20,13 +20,14 @@ function globalConfig(env = process.env) {
 
 export const name = "opencode";
 
-// pair's plugin gives every shell command its wake socket and the ID of the
-// session that runs the command.
+// pair's plugin, plugin.js, sets these variables in the environment of each
+// shell command that opencode runs.
 export const command = "opencode";
 export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
 export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run \`pair start\` again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
-// One opencode process serves several sessions through one plugin socket.
+// One opencode process serves several sessions through one plugin socket, so
+// the session ID identifies the agent.
 export const identity = (target) => target.session;
 
 export const detect = (env) => ({

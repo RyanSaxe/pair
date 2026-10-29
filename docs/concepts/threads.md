@@ -43,8 +43,9 @@ newest. When you expand or collapse a card yourself, pair keeps it that way.
   proposal and starts it, quoting you, as [When you ask in your own
   words](proposals-and-work.md#when-you-ask-in-your-own-words) describes.
 - To agree with a reply without writing anything, press the thumbs up beside
-  the agent's name. The agent then treats what that reply suggested as
-  settled, as if you had settled it in words, and does not answer it. The
+  the agent's name. The agent then treats what it suggested in that reply
+  as settled, as if you had settled it in words, and does not reply to the
+  thumbs up. The
   hub sends no wake for a thumbs up, so the agent sees it the next time it
   runs `pair read` or reads the thread. pair removes the reply's line from
   the bell. Press the thumbs up again to take it back.
@@ -67,7 +68,7 @@ progress card, shows which of these applies.
 
 ## Thread status
 
-The line under your message shows where the thread stands.
+The line under your message shows the thread's status.
 
 | Line                      | Meaning                                                                                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

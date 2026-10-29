@@ -1,7 +1,7 @@
-// The fields a page source may contain, as guide/pages.md and
+// These are the fields a page source may contain, as guide/pages.md and
 // guide/agreements.md list them. pair build refuses any other field, because
-// a field it ignored, such as css written at the top level instead of in
-// page, would reach the reviewer as a round without it.
+// the build would drop a field it ignored, such as css written at the top level
+// instead of in page, and the reviewer would get a round without it.
 const topFields = ["name", "round", "title", "plan", "page"];
 const pageFields = ["id", "title", "file", "html", "css", "js", "prototypes"];
 const pageTakes =
@@ -39,8 +39,6 @@ const isObject = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const list = (value) => (Array.isArray(value) ? value : []);
 
-// Where a field of the top level or of Agreed's page goes, when an author
-// writes it at the other one.
 function belongs(field) {
   if (topFields.includes(field))
     return `${field} goes at the top level of the source.`;
@@ -48,7 +46,6 @@ function belongs(field) {
   return `${field} goes in ${pageFields.includes(field) ? "page" : "Agreed's page"}.`;
 }
 
-// Every field of a page source that pair does not know, one line each.
 export function fieldProblems(source) {
   const problems = [];
   const check = (value, level, at) => {

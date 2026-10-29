@@ -21,18 +21,11 @@ import { hubRecord } from "#frame/sync/record.mjs";
 import { openPast, remote } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
-/* The bell lists every session's starts, waiting rounds and agent replies,
-   newest first, from the last 50 events the hub keeps for each. A line
-   leaves the list when you click it or its ✕, when you reply in its
-   thread or give the reply a thumbs up, or, for a waiting round, once you
-   send that round. A session's start and waiting round also leave once a
-   visible tab has shown that session, so they do not come back when you
-   switch to another session. The bell's number is the number of lines.
-   The hub keeps which events were removed, so every browser on the hub,
-   such as a phone's, shows the same lines. A round published before the
-   bell's list came keeps the notification center, which reads its own
-   pair:center: keys, so this list uses a key of its own and leaves those
-   alone. */
+/* The hub stores the IDs of the events that the reviewer cleared from the
+   bell, so every browser on the hub, such as a phone's, shows the same
+   lines. A page built before the bell existed contains the older
+   notification center, which reads its own pair:center: keys, so the bell
+   uses the separate key pair:bell:cleared. */
 
 const cleared = hubRecord("cleared", "pair:bell:cleared", () =>
   window.dispatchEvent(new CustomEvent("pair:cleared")),
@@ -43,7 +36,6 @@ function clear(ids) {
   cleared.add(ids);
   renderCenter(latest, false);
 }
-// A reply in a thread answers the agent's replies there, so their lines go.
 export function clearThread(threadId) {
   clear(
     latest.flatMap((entry) =>
@@ -53,8 +45,8 @@ export function clearThread(threadId) {
     ),
   );
 }
-// A thumbs up on a reply takes its line out at once, and taking the thumbs
-// up back returns it, before the next listing from the hub shows either.
+// acknowledgeReply updates the listed event at once, so the bell drops or
+// restores the reply's line before the next session list from the hub.
 export function acknowledgeReply(threadId, message, acknowledged) {
   for (const entry of latest)
     for (const event of entry.events || [])
@@ -62,15 +54,12 @@ export function acknowledgeReply(threadId, message, acknowledged) {
         event.acknowledged = acknowledged;
   renderCenter(latest, false);
 }
-// Drops each cleared ID that the hub's listing no longer shows. An event the
-// hub stops listing never comes back, so its ID is no longer needed.
 export const settleCleared = (listed, cleared) =>
   new Set([...cleared].filter((id) => listed.includes(id)));
 
-// The tab already shows its own session, so that session's start and
-// waiting round are not lines.
+// A tab already shows its own session, so bellLines leaves out that
+// session's start and waiting round.
 const shownKinds = ["session", "waiting"];
-// The bell's lines: every listed event not removed, newest first.
 export function bellLines(sessions, cleared, thisId) {
   return sessions
     .filter((entry) => !entry.closed)
@@ -87,18 +76,16 @@ export function bellLines(sessions, cleared, thisId) {
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 
-// Every listed session, closed ones included, from the last listing.
+// latest contains every session from the last session list, closed ones
+// included.
 let latest = [];
 let lines = [];
 let listedFromHub = false;
-// Whether a listing has come from the hub, so a card's linked session can be
-// looked up.
 export const sessionsListed = () => listedFromHub;
-// The listed session with the ID, such as the one a card's work runs in.
 export const listedSession = (id) =>
   (id && latest.find((entry) => entry.id === id)) || null;
-// A sub-session's line names the session it came from first, so a long
-// name of its own cannot push the parent's out of the line.
+// sessionWords puts the parent's title first, so a long sub-session title
+// cannot push the parent's title out of the line.
 export function sessionWords(entry, sessions) {
   const parent =
     entry.parentId && sessions.find((item) => item.id === entry.parentId);
@@ -106,8 +93,6 @@ export function sessionWords(entry, sessions) {
     ? `Sub-session of ${parent.title} · ${entry.title}`
     : entry.title;
 }
-// The proposals of this tab's session whose thread has an agent reply that
-// is still a line in the bell.
 export const unreadCards = () =>
   new Set(
     lines
@@ -119,8 +104,8 @@ export const unreadCards = () =>
       )
       .map((event) => event.proposal),
   );
-// fromHub is true when the sessions came from the hub, so an event they
-// lack is gone for good. hub is the hub's list of cleared IDs.
+// fromHub is true when the sessions came from the hub, and an event missing
+// from them is then gone for good. hub is the hub's list of cleared IDs.
 export function renderCenter(sessions, fromHub, hub) {
   latest = sessions;
   if (fromHub) {
@@ -128,16 +113,17 @@ export function renderCenter(sessions, fromHub, hub) {
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
-    // A visible tab has shown its session's start and waiting round, so the
-    // reviewer who leaves for another session is not told about them again.
+    // A visible tab has shown its own session's start and waiting round, so
+    // renderCenter clears them, and the bell does not list them after the
+    // reviewer moves to another session.
     const own = sessions.find((entry) => entry.id === session.sessionId);
     const shown =
       own && document.visibilityState === "visible"
         ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
         : [];
-    // When neither this browser nor the hub has a list, every listed event
-    // counts as cleared, so the first run after the upgrade shows an empty
-    // bell.
+    // When neither this browser nor the hub has a list, the last argument
+    // counts every listed event as cleared, so the first run after the
+    // upgrade shows an empty bell.
     cleared.sync(
       hub,
       (ids) => {
@@ -151,8 +137,8 @@ export function renderCenter(sessions, fromHub, hub) {
   lines = bellLines(sessions, loadCleared(), session.sessionId);
   const count = lines.length;
   const bell = $("bell");
-  // The bell shows while the hub lists a live session, this tab's own
-  // included, so n works with one session.
+  // The bell shows while the hub lists any live session, this tab's own
+  // included, so the n key works with one session.
   bell.hidden = !sessions.some((entry) => !entry.closed);
   bell.classList.toggle("need", count > 0);
   $("bell-count").hidden = !count;
@@ -161,11 +147,11 @@ export function renderCenter(sessions, fromHub, hub) {
     "aria-label",
     count ? `Notifications: ${count}` : "Notifications",
   );
-  // The tab's title counts the bell's lines.
   document.title = (count ? `(${count}) ` : "") + plan.title;
   if (bell.hidden) toggleCenter(false);
   drawCenter();
-  // Work counts a card with an unread reply as one that needs the reviewer.
+  // Work counts a card with an unread reply as needing the reviewer, so
+  // renderCenter refreshes Work.
   if (mode !== "home") {
     updateNavigation();
     refreshWork();
@@ -194,9 +180,6 @@ function drawCenter() {
     ),
   );
 }
-// An event opens where it happened. In this tab's own round that is a page
-// change, in another round of this session it opens under Previous, and
-// anywhere else it is a new address. Opening it removes its line.
 function openEvent(event) {
   clear([event.id]);
   toggleCenter(false);
@@ -211,8 +194,8 @@ function openEvent(event) {
     (event.page === "overall" || pages.some((item) => item.id === event.page))
   )
     show(event.page, target);
-  // A round other than Current's, or the sent round while Current waits,
-  // opens under Previous. A read-only page has no Previous tab.
+  // A read-only page has no Previous tab, so openEvent opens another round
+  // under Previous only on an editable page.
   else if (own && editable && (round !== remote.current.round || waiting()))
     void openPast(round, { pageId: event.page, targetId: target });
   else location.assign(eventHref(event.entry, event));
@@ -230,7 +213,7 @@ export function installCenter() {
   installPanel($("center-pop"), $("bell"));
   $("center-pop").addEventListener("toggle", drawCenter);
   $("center-clear-all").onclick = () => clear(lines.map(({ id }) => id));
-  // Another tab in this browser cleared a line.
+  // The storage event fires when another tab in this browser clears a line.
   window.addEventListener("storage", (event) => {
     if (cleared.isChange(event)) renderCenter(latest, false);
   });

@@ -8,10 +8,10 @@ import { buildPage } from "../../src/cli/build.mjs";
 
 const root = new URL("../../src/components/", import.meta.url);
 
-// A plan author copies a component's markup.html into a page, so each one
-// builds as the whole of a page. The prototype component names a prototype,
-// and the page supplies one under that ID. The before-after component names
-// the JSON file of a diff, and the page's directory has one by that name.
+// A plan author copies a component's markup.html into a page, so each
+// markup.html must build as a page on its own. The test supplies a prototype
+// for each data-prototype ID and writes a diff file for each data-diff-input
+// name, as the page's author would.
 test("every component's markup.html builds as it is written", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-markup-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));

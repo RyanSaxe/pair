@@ -21,9 +21,9 @@ async function scratch(t) {
   return { cwd, state, run };
 }
 
-// An agent asks for help to learn a command before it runs it, so --help
-// prints the command's help and runs nothing else, whatever else the
-// arguments contain: no check, no hub, no file.
+// An agent runs --help to learn a command before it runs the command. --help
+// therefore prints the command's help and does nothing else, whatever the other
+// arguments are: no check, no hub, no file.
 test("every command takes --help, prints its usage, exits 0 and runs nothing", async (t) => {
   const { cwd, state, run } = await scratch(t);
   for (const [name, { hidden }] of Object.entries(commands)) {
@@ -35,8 +35,8 @@ test("every command takes --help, prints its usage, exits 0 and runs nothing", a
   assert.deepEqual(await fs.readdir(state), []);
 });
 
-// ack is a command 0.3 deleted, which an agent that read an older guide may
-// still run.
+// pair 0.3 removed the ack command, and an agent that read an older guide may
+// still run it.
 test("pair --version prints the version, and pair with no command or an unknown one exits 1", async (t) => {
   const { run } = await scratch(t);
   const { version } = JSON.parse(

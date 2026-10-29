@@ -3,10 +3,8 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// iOS Safari zooms the page into a focused field whose text is under 16px.
-// On a phone, and on a touch screen of any width, every field in the frame
-// is at least 16px: a thread's reply box, a question's answer, and the
-// fields of the note dialog and the Start popup.
+// iOS Safari zooms the page into a focused field whose text is smaller than
+// 16px.
 test("on a phone or a touch screen every text field is at least 16px", async (t) => {
   const h = await hub(t);
   const session = await h.session();

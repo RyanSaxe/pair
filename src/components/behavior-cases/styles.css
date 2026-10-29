@@ -36,8 +36,8 @@
   padding: 3px 8px;
   font-size: var(--text-meta);
 }
-/* The labels belong to the width that hides the header row, and nowhere
-   else: above 700px the header names the columns. */
+/* .micro labels show only at the width that hides the header row, because
+   above 700px the header row shows the column names. */
 .micro {
   display: none;
 }

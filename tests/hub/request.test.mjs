@@ -3,8 +3,8 @@ import http from "node:http";
 import test from "node:test";
 import { hub } from "../support/hub.mjs";
 
-// A published page is hundreds of kilobytes, so its request arrives in many
-// chunks, and a chunk can end inside a character of two or more bytes.
+// A published page is hundreds of kilobytes, so its request body arrives in
+// many chunks, and a chunk can end inside a multibyte character.
 test("the hub decodes a character that a request splits between two chunks", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -12,7 +12,7 @@ test("the hub decodes a character that a request splits between two chunks", asy
   const body = Buffer.from(
     JSON.stringify({ action: "ack", sessionId: a.id, agent: a.agent, note }),
   );
-  // One byte into the three bytes of ”.
+  // split falls one byte into the three-byte UTF-8 encoding of ”.
   const split = body.indexOf("”") + 1;
   const code = await new Promise((resolve, reject) => {
     const request = http.request(
@@ -27,7 +27,7 @@ test("the hub decodes a character that a request splits between two chunks", asy
       (response) => resolve(response.statusCode),
     );
     request.once("error", reject);
-    // With no Content-Length, each write is a chunk of its own.
+    // Without Content-Length, Node sends each write as a chunk of its own.
     request.write(body.subarray(0, split));
     request.end(body.subarray(split));
   });

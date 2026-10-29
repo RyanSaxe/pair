@@ -7,9 +7,8 @@ const sentence =
   "The export pipeline runs as eleven nightly cron jobs on two hosts, and each job writes its own lock file, so a slow run on one host can overlap the next night's run on the other and write the same CSV twice. ";
 const clip = (text, length) => text.repeat(4).slice(0, length);
 
-// On a 375 by 667 phone every dialog stays the same distance from each edge
-// of the window, whatever the length of the agent's text, and its title and
-// buttons stay in view while a body taller than the window scrolls inside.
+// The test fills each dialog with text taller than a 375 by 667 window, so the
+// body must scroll inside the dialog while its title and buttons stay in view.
 test("every dialog keeps one margin from each edge of a phone's window and its buttons in view", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -30,9 +29,9 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
   if (!page) return;
   await page.locator("#long").waitFor();
 
-  // The first dialog's left margin is the one every side of every dialog
-  // keeps. tall: the dialog's text is taller than the window, so the
-  // dialog reaches the margin above and below as well.
+  // check() compares every side of every dialog with the first dialog's left
+  // margin. With tall set, the dialog's text is taller than the window, so the
+  // dialog also reaches the margin above and below.
   let margin;
   async function check(id, { tall = false, buttons = [] } = {}) {
     const dialog = page.locator(`#${id}`);
@@ -80,8 +79,8 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     getSelection().removeAllRanges();
     getSelection().addRange(range);
   });
-  // The frame reads the selection on selectionchange, which the browser
-  // fires after this call returns. Until then, c comments on the page.
+  // The frame reads the selection on selectionchange, which the browser fires
+  // after this call returns. Until then, the c key comments on the whole page.
   await page
     .getByRole("button", { name: "Comment on selection", exact: true })
     .waitFor();
@@ -104,10 +103,8 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
   await close("start-dialog");
 });
 
-// The four buttons at the left of the top bar each open a panel 6px under
-// the button and 8px or more inside the window, lined up with the button
-// when the window has room, and one panel at a time. A session title too
-// long for the Rounds panel leaves the panel inside the window.
+// The session title is too long for the Rounds panel, so the test also checks
+// that the frame keeps that panel inside the window.
 test("each top bar panel opens under its button inside the window, one at a time, and closes on its button, on Escape and on a click outside", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -158,7 +155,6 @@ test("each top bar panel opens under its button inside the window, one at a time
       if (anchor.x + box.width <= viewport.width - 8)
         assert.ok(near(box.x, anchor.x), `${at} left ${box.x}`);
     }
-    // The last panel opened, notifications, closed each one before it.
     for (const [button, panel] of panels) {
       await page.locator(`#${button}`).click();
       await page.locator(`#${panel}`).waitFor();
@@ -177,10 +173,9 @@ test("each top bar panel opens under its button inside the window, one at a time
   }
 });
 
-// Every dialog backs out the same way: its ×, Escape, or a tap outside,
-// which takes the press and the release both on the backdrop. A drag that
-// starts inside, such as selecting a field's text or a heading's, and ends
-// outside leaves the dialog open.
+// The frame closes a dialog on a tap outside only when both the press and the
+// release land on the backdrop. A drag that starts inside and ends outside,
+// such as a text selection, must leave the dialog open.
 test("every dialog closes on its ×, on Escape and on a tap outside, and stays open through a drag that ends outside", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -207,8 +202,8 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
   });
   if (!page) return;
   await stubPele(page);
-  // The drawing editor loads Excalidraw from esm.sh, and its head works
-  // without it.
+  // The drawing editor loads Excalidraw from esm.sh. The test blocks esm.sh
+  // because the dialog's head must work without the editor.
   await page.route(/esm\.sh/, (route) => route.abort());
   await page.goto(`${h.server.origin}${session.base}/#overview`);
   await page.locator("[data-diagram] svg").waitFor();

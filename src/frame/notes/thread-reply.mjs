@@ -9,9 +9,8 @@ import {
 } from "#frame/notes/images.mjs";
 import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/threads.mjs";
 
-/* The Reply form under a thread's messages: a field, an image button and
-   Send. Its text and images stay in the reviewer's draft until Send, so a
-   reload keeps them. */
+/* replyForm keeps the reply's text and images in state.replyDrafts until
+   Send, so a reload keeps them. */
 
 const draftOf = (id) =>
   state.replyDrafts?.[id] ?? { text: "", attachments: [] };
@@ -26,8 +25,8 @@ const element = (tag, className) => {
   if (className) node.className = className;
   return node;
 };
-// send(text, attachments) posts the message, and returns false when the
-// thread is not there to post it to.
+// send(text, attachments) posts the message. It returns false when the
+// thread no longer exists, and replyForm then keeps the draft.
 export function replyForm(id, send) {
   const form = element("form", "thread-reply");
   const field = element("textarea");
@@ -41,7 +40,6 @@ export function replyForm(id, send) {
     event.preventDefault();
     form.requestSubmit();
   };
-  // The note dialog's image button draws the same icon.
   const pick = element("button", "btn thread-image-pick");
   pick.type = "button";
   pick.setAttribute("aria-label", "Add an image");

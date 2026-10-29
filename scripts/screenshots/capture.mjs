@@ -10,8 +10,9 @@ const demo = fileURLToPath(new URL("../demo/", import.meta.url));
 const themes = ["light", "dark"];
 const desktop = { width: 1160, height: 760 };
 const phone = { width: 390, height: 844 };
-// A second session, whose round waits for the reviewer, turns the sessions
-// button orange and adds its start and its waiting round to the bell.
+// The frame turns the sessions button orange for this second session, whose
+// round waits for the reviewer, and the bell lists the session's start and its
+// waiting round.
 const waiting = {
   name: "waiting-session",
   round: "1",
@@ -33,8 +34,6 @@ const waiting = {
 
 const readJson = async (file) => JSON.parse(await fs.readFile(file, "utf8"));
 
-// Round N of the demo session: its name, title and task from plan.json, and
-// its pages and agreements from round-N/pages.json.
 async function loadRound(number) {
   const directory = path.join(demo, `round-${number}`);
   const { name, title, task } = await readJson(path.join(demo, "plan.json"));
@@ -52,8 +51,8 @@ async function loadRound(number) {
   };
 }
 
-// buildPage reads a page's file and css relative to the directory of the
-// source path it is given, which is the round's directory.
+// buildPage resolves a page's file and css against the directory of the source
+// path, so build() passes a path in the round's directory.
 const build = (round, page) =>
   buildPage(path.join(round.directory, "pages.json"), {
     name: round.name,
@@ -62,9 +61,9 @@ const build = (round, page) =>
     page,
   });
 
-// A demo agreement names its source as a round and a choice, or a round
-// alone for that round's note, because the submission IDs exist only once
-// the browser has sent the round's feedback.
+// A demo agreement's source is a round and a choice, or a round alone for that
+// round's note, because the submission IDs exist only after the browser sends
+// the round's feedback.
 function agreement({ source, ...entry }, sent) {
   const { id, groups } = sent[source.round].payload;
   const ref = source.choice
@@ -86,8 +85,6 @@ async function act(session, action, data) {
   return body;
 }
 
-// Publishes Agreed with the round's page list, then the round's first
-// `count` pages, each after pair progress --page, as an agent does.
 async function publish(session, round, sent, count = round.pages.length) {
   const agreed = {
     id: "agreed",
@@ -105,7 +102,6 @@ async function publish(session, round, sent, count = round.pages.length) {
   }
 }
 
-// Waits for a condition in the page, and names the step when it times out.
 export async function until(page, step, predicate, arg) {
   try {
     await page.waitForFunction(predicate, arg);
@@ -114,9 +110,6 @@ export async function until(page, step, predicate, arg) {
   }
 }
 
-// Waits until every code block, diagram, formula and chart on the shown
-// page has rendered or shown its error. Then it refuses a visible renderer
-// error.
 export async function ready(page) {
   await until(page, "Rendering the page's figures", () =>
     [
@@ -136,8 +129,8 @@ export async function ready(page) {
     throw new Error(`A figure failed to render: ${errors.join("; ")}`);
 }
 
-// Loads the session's page with this ID afresh, because the frame reads the
-// page from the address's hash only when it loads.
+// load() opens about:blank first, because the frame reads the page ID from the
+// address's hash only when it loads.
 export async function load(page, url, id) {
   await page.goto("about:blank");
   await page.goto(`${url}#${id}`);
@@ -150,10 +143,9 @@ export async function load(page, url, id) {
   await ready(page);
 }
 
-// The frame learns of the second session and of the agent's reply from a
-// poll of the hub every 5 s, so a capture waits for both counts: the
-// sessions badge's count of the second session, whose round waits for you,
-// and the bell's lines for that session's start and round and the reply.
+// The frame polls the hub for sessions and notifications every 5 s, so
+// counted() waits until the sessions badge counts the second session and the
+// bell lists that session's start, its round and the agent's reply.
 async function counted(page) {
   await until(
     page,
@@ -164,11 +156,11 @@ async function counted(page) {
   );
 }
 
-// Takes one screenshot in each theme. The screenshot stops the frame's
-// animations, so the same state always gives the same pixels.
+// page.screenshot() with animations: "disabled" stops the frame's animations,
+// so the same state always gives the same pixels.
 export async function inThemes(page, clip) {
-  // The pointer rests on the middle of the header's top edge, where no
-  // control shows a hover state.
+  // inThemes() moves the pointer to the middle of the header's top edge, where
+  // no control shows a hover state.
   await page.mouse.move(page.viewportSize().width / 2, 1);
   const shots = {};
   for (const theme of themes) {
@@ -185,9 +177,9 @@ export async function inThemes(page, clip) {
   return shots;
 }
 
-// Scrolls the page's column until the element's top sits 6px under the
-// header or, with `bottom`, until its bottom sits 54px above the window's
-// bottom edge, clear of the floating comment button.
+// scrollTo() puts the element's top 6px under the header. With bottom, it puts
+// the element's bottom 54px above the window's bottom edge, clear of the
+// floating comment button.
 async function scrollTo(page, selector, { bottom = false } = {}) {
   await page.evaluate(
     ([selector, bottom]) => {
@@ -206,13 +198,13 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
   );
 }
 
-// Selects the words in the page's content, as a reader's drag does, and
-// waits for the comment control to name the selection. A saved note redraws
-// the page, and Shiki then replaces each code block's text, which empties a
-// selection made in the block before then, so select waits for the page's
-// figures first. Chrome fires no selectionchange for that emptying, and the
-// control would keep naming the lost words, so the wait also checks the
-// selected range.
+// select() selects the words in the page's content as a reader's drag does, and
+// waits until the comment control shows the selected words. A saved note
+// redraws the page, and Shiki then replaces each code block's text, which
+// empties a selection made in the block before then, so select() waits for the
+// page's figures first. Chrome fires no selectionchange for that emptying, and
+// the comment control would still show the lost words, so the wait also checks
+// the selected range.
 export async function select(page, words) {
   await ready(page);
   await page.evaluate((words) => {
@@ -249,17 +241,12 @@ export async function select(page, words) {
   );
 }
 
-// Opens the note dialog from the comment control, which names the selection
-// or the chosen block, and types a note.
 export async function writeNote(page, text) {
   await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
   await page.locator("#note-text").fill(text);
 }
 
-// Sends the round's feedback with the header's Send feedback button and
-// the Send popup's button, which keeps the popup's first choice, and
-// returns the submission that pair read gives the agent.
 async function send(page, session) {
   const response = page.waitForResponse((response) =>
     response.url().endsWith("/api/feedback"),
@@ -274,9 +261,9 @@ async function send(page, session) {
   return (await act(session, "read")).event;
 }
 
-// The README's pair: the window, and beside it the phone scaled to the
-// window's height, laid out as in the README's first screenshots. The sheet
-// has one device pixel per CSS pixel, so the window keeps its pixels.
+// compose() lays out the window with the phone beside it, scaled to the
+// window's height, as in the README's first screenshots. The sheet uses
+// deviceScaleFactor 1, so the window's screenshot keeps its pixels.
 async function compose(browser, windowShot, phoneShot, theme) {
   const sheet = await browser.newPage({
     viewport: { width: 3222, height: 1664 },
@@ -296,15 +283,13 @@ async function compose(browser, windowShot, phoneShot, theme) {
   return png;
 }
 
-// Stages the demo session on a hub of its own, and returns each PNG by its
-// path in the repository.
 export async function stage(t, scratch) {
   const env = {
     XDG_STATE_HOME: path.join(scratch, "state"),
     XDG_CONFIG_HOME: path.join(scratch, "config"),
   };
-  // buildPage and the hub read process.env too, so every path they derive
-  // from it stays in the scratch directory.
+  // buildPage and the hub also read process.env, so stage() sets env there to
+  // keep every path they derive in the scratch directory.
   Object.assign(process.env, env);
   const h = await hub(t, env);
   const session = await h.session();
@@ -316,16 +301,14 @@ export async function stage(t, scratch) {
       images.set(`${name}-${theme}.png`, shots[theme]);
   };
 
-  // Round 1: the reviewer chooses where a thread starts and notes what a
-  // reply holds.
   await publish(session, await loadRound(1), sent);
   const page = watch(
     await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
     "demo",
   );
   await load(page, url, "overview");
-  // The bell's first poll marks every event it finds as seen, so the
-  // second session starts after it.
+  // The frame marks every event from the bell's first poll as seen, so the
+  // second session starts after that poll.
   await page.locator("#bell").waitFor();
   await publish(await h.session({ start: true }), waiting, sent);
   await page
@@ -339,8 +322,6 @@ export async function stage(t, scratch) {
   await page.locator("#note-save").click();
   sent[1] = await send(page, session);
 
-  // Round 2: the reviewer chooses the first option, asks about it in a
-  // thread, and the agent answers.
   await publish(session, await loadRound(2), sent);
   await load(page, url, "where-a-reply-appears");
   const decision = page.locator('[data-choice="answer"]');
@@ -388,8 +369,6 @@ export async function stage(t, scratch) {
   await scrollTo(page, '[data-choice="answer"]');
   save("docs/assets/plan-phone", await inThemes(page));
 
-  // Round 3: the reviewer sends round 2, and Agreed shows the progress card
-  // while the agent writes the round's pages.
   sent[2] = await send(page, session);
   const third = await loadRound(3);
   await publish(session, third, sent, 1);
@@ -399,8 +378,8 @@ export async function stage(t, scratch) {
   await page.getByText("2 of 4 pages ready").waitFor();
   await counted(page);
   const phones = await inThemes(page);
-  // The card with the page's side margins, and a margin above and below
-  // that stops short of the page title.
+  // The crop's margin is the card's side margin, or the gap above the card when
+  // that gap is smaller, so the crop stops short of the page title.
   const card = await page.locator("#agent-activity").boundingBox();
   const title = await page.locator("#page-title").boundingBox();
   const margin = Math.min(card.x, card.y - (title.y + title.height));

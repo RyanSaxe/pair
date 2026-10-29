@@ -39,11 +39,9 @@ async function savedScene(id) {
   if (!response.ok) throw new Error("Could not load the saved drawing.");
   return response.json();
 }
-/* The editor opens on scene, a drawing to go on with, or turns source, a
-   diagram's Mermaid source, into boxes and arrows, or starts empty. With
-   fit, it shows all of scene. Saving uploads the scene and its PNG and
-   hands both records to onSaved. A drawing the reviewer left without
-   saving is a draft under key. */
+/* source is a diagram's Mermaid source, which the editor converts into a
+   drawing when scene is null. The frame keeps an unsaved drawing in
+   state.drafts under key. */
 function openEditor({
   key,
   title,
@@ -78,12 +76,9 @@ export async function openDrawing(id, label, target, onSaved) {
   const key = controlKey(page.id, id);
   const topic = page.id;
   const previous = state.answers[key];
-  // A drawing the reviewer left without saving opens as they left it.
   let scene = state.drafts[key] ?? null;
   if (!scene && previous?.kind === "drawing")
     scene = await savedScene(previous.sceneId);
-  // The header shows the card's question and its reason, and the short
-  // label when the card has no heading.
   const card = target && document.getElementById(target);
   const question = card?.querySelector(":scope > h3")?.textContent.trim();
   const reason = card?.querySelector(":scope > h3 + p")?.textContent.trim();
@@ -109,9 +104,9 @@ export async function openDrawing(id, label, target, onSaved) {
     },
   });
 }
-/* A sketch on an editable copy of a diagram. Saving opens a note on the
-   diagram with the sketch's PNG attached, and the PNG's record names the
-   scene, so the note can open the sketch again. */
+/* Saving a sketch opens a note on the diagram with the sketch's PNG
+   attached. sketchImage adds the scene's ID and path to the PNG's record,
+   so editSketch can open the sketch again from the note. */
 export const canSketch = () => canComment() && online;
 const sketchImage = (saved, preview) => ({
   ...preview,
@@ -136,7 +131,6 @@ export function openSketch(diagram) {
     },
   });
 }
-// A sketch on the open note, which saving replaces.
 export async function editSketch(image, onSaved) {
   if (!online) return;
   const key = `sketch:${image.scene.id}`;
@@ -154,7 +148,6 @@ export async function editSketch(image, onSaved) {
 }
 export function installDrawing() {
   $("drawing-dialog").addEventListener("close", resetDrawing);
-  // The editor follows the frame's theme while it is open.
   addEventListener("plan:theme", () => {
     if (activeDrawing)
       $("drawing-frame").contentWindow?.postMessage(
@@ -193,12 +186,11 @@ export function installDrawing() {
         "*",
       );
     } else if (event.data.type === "change") {
-      /* The frame keeps the drawing as a draft until the reviewer saves
-         it, so backing out of the editor keeps it. A drawing with no
-         element left is no draft, and the editor opens on the saved
-         drawing again. The frame writes the draft to localStorage 300ms
-         after the last change, or when the editor closes if that is
-         sooner. */
+      /* The frame keeps an unsaved drawing in state.drafts, so closing the
+         editor without saving keeps it. An empty drawing removes the draft,
+         so the editor next opens on the saved drawing. persist() runs 300ms
+         after the last change, or in resetDrawing if the editor closes
+         first. */
       const { scene } = event.data;
       if (scene.elements.length) state.drafts[drawing.key] = scene;
       else delete state.drafts[drawing.key];

@@ -36,8 +36,8 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   );
 });
 
-// On a phone, a closed session's line under the header stays one line:
-// only the session's long title is cut short, and "is closed" stays whole.
+// On a phone the frame shortens only the session's long title, and "is closed"
+// stays whole.
 test("a closed session's line under the header stays one line on a phone", async (t) => {
   const h = await hub(t);
   const session = await h.session();
