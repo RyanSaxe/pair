@@ -139,6 +139,14 @@ function openLightbox(svg) {
   // A click on a box opens a note on it while a note can open.
   const noting = canComment() && !diagram.closest("pair-thread");
   dialog.classList.toggle("noting", noting);
+  // Sketch on this diagram opens an editable copy of it in the drawing
+  // editor, while the frame can keep a sketch.
+  const sketch = $("diagram-sketch");
+  sketch.hidden = !noting || !canSketch();
+  sketch.onclick = () => {
+    close();
+    openSketch(diagram);
+  };
   const close = () => {
     returnLightboxHome();
     dialog.close();

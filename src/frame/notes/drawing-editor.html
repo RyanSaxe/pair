@@ -10,6 +10,15 @@
     <script>
       window.EXCALIDRAW_ASSET_PATH =
         "https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/";
+      // The frame's theme. Until Excalidraw draws, the editor shows the
+      // color Excalidraw gives a white canvas in that theme.
+      window.drawingTheme = __DRAWING_THEME__;
+      function paintTheme() {
+        document.documentElement.style.colorScheme = drawingTheme;
+        document.documentElement.style.background =
+          drawingTheme === "dark" ? "#121212" : "#ffffff";
+      }
+      paintTheme();
     </script>
     <script type="importmap">
       {
@@ -43,10 +52,16 @@
       import { createRoot } from "https://esm.sh/react-dom@19.0.0/client";
       import {
         Excalidraw,
+        convertToExcalidrawElements,
         exportToBlob,
       } from "https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/dev/index.js?external=react,react-dom";
 
+      const converter =
+        "https://esm.sh/@excalidraw/mermaid-to-excalidraw@3.1.0";
       const nonce = __DRAWING_NONCE__;
+      /* The canvas stays white in either theme. Excalidraw's dark theme
+         inverts the canvas's colors on screen, and the saved PNG keeps the
+         light colors. */
       let draft = {
         elements: [],
         appState: { viewBackgroundColor: "#ffffff" },
@@ -57,17 +72,89 @@
       // Excalidraw calls onChange on a scroll or a selection too. It raises an
       // element's version on each edit to the element, so the background and
       // the sum of the versions change only when the drawing does. Each change
-      // to the drawing goes to the frame, which keeps it as a draft.
+      // to the drawing goes to the frame, which keeps it as a draft. The
+      // editor's own conversion of a diagram is no change.
       const version = ({ elements, appState }) =>
         `${appState.viewBackgroundColor} ${elements.reduce(
           (sum, element) => sum + element.version,
           0,
         )}`;
       let sent;
+      let converting = false;
+      let root;
+      let api;
+      const editor = new Promise((resolve) => (api = resolve));
+      function render() {
+        root.render(
+          React.createElement(Excalidraw, {
+            initialData: draft,
+            theme: drawingTheme,
+            excalidrawAPI: api,
+            onChange: (elements, appState, files) => {
+              draft = {
+                elements: [...elements],
+                appState: {
+                  viewBackgroundColor: appState.viewBackgroundColor,
+                },
+                files,
+              };
+              if (converting) sent = version(draft);
+              if (version(draft) === sent) return;
+              sent = version(draft);
+              send("change", {
+                scene: {
+                  ...draft,
+                  elements: draft.elements.filter(
+                    (element) => !element.isDeleted,
+                  ),
+                },
+              });
+            },
+            UIOptions: {
+              canvasActions: {
+                saveToActiveFile: false,
+                loadScene: false,
+                export: false,
+              },
+            },
+          }),
+        );
+      }
+      /* The converter sizes each box for Excalifont, which Excalidraw adds
+         to the document only once a scene uses it. With another font's
+         sizes, Excalidraw cuts letters off each label, so the editor draws
+         one hidden text element and waits for Excalifont before
+         converting. */
+      async function convert(source) {
+        const [{ parseMermaidToExcalidraw }, ready] = await Promise.all([
+          import(converter),
+          editor,
+        ]);
+        ready.updateScene({
+          elements: convertToExcalidrawElements([
+            { type: "text", x: 0, y: 0, text: "Aa", opacity: 0 },
+          ]),
+        });
+        for (let tries = 0; tries < 100; tries++) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          if ((await document.fonts.load("16px Excalifont")).length) break;
+        }
+        const { elements, files } = await parseMermaidToExcalidraw(source, {
+          themeVariables: { fontSize: "16px" },
+        });
+        if (files) ready.addFiles(Object.values(files));
+        ready.updateScene({ elements: convertToExcalidrawElements(elements) });
+        ready.scrollToContent(undefined, { fitToContent: true });
+      }
       addEventListener("message", async (event) => {
         if (event.source !== parent || event.data?.nonce !== nonce) return;
+        if (event.data.type === "theme") {
+          window.drawingTheme = event.data.theme;
+          paintTheme();
+          if (root) render();
+        }
         if (event.data.type === "init") {
-          const scene = event.data.scene;
+          const { scene, source } = event.data;
           if (scene)
             draft = {
               elements: scene.elements,
@@ -75,37 +162,22 @@
               files: scene.files,
             };
           sent = version(draft);
-          createRoot(document.getElementById("canvas")).render(
-            React.createElement(Excalidraw, {
-              initialData: draft,
-              onChange: (elements, appState, files) => {
-                draft = {
-                  elements: [...elements],
-                  appState: {
-                    viewBackgroundColor: appState.viewBackgroundColor,
-                  },
-                  files,
-                };
-                if (version(draft) === sent) return;
-                sent = version(draft);
-                send("change", {
-                  scene: {
-                    ...draft,
-                    elements: draft.elements.filter(
-                      (element) => !element.isDeleted,
-                    ),
-                  },
-                });
-              },
-              UIOptions: {
-                canvasActions: {
-                  saveToActiveFile: false,
-                  loadScene: false,
-                  export: false,
-                },
-              },
-            }),
-          );
+          root = createRoot(document.getElementById("canvas"));
+          converting = !scene && Boolean(source);
+          render();
+          if (converting)
+            try {
+              await convert(source);
+            } catch (error) {
+              send("error", {
+                message: `Could not turn the diagram into a drawing: ${error.message}`,
+              });
+              // The reviewer draws from an empty canvas, without the hidden
+              // text element.
+              (await editor).updateScene({ elements: [] });
+            } finally {
+              converting = false;
+            }
         }
         if (event.data.type === "save") {
           try {

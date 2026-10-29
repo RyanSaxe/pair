@@ -19,6 +19,9 @@
   justify-content: flex-end;
   margin-bottom: 4px;
 }
+#diagram-sketch {
+  margin-right: auto;
+}
 .lightbox-view {
   min-height: 0;
   overflow: auto;

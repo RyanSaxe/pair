@@ -238,6 +238,15 @@ img.note-image {
   font-size: 12px;
   line-height: 1;
 }
+.note-image .note-image-edit {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  min-height: 0;
+  padding: 3px 7px;
+  font-size: 12px;
+  line-height: 1.2;
+}
 @media (max-width: 720px) {
   .feedback-item {
     grid-template-columns: 1fr;

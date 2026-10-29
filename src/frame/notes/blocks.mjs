@@ -365,11 +365,14 @@ export function commentOnTarget() {
    under the block's name, as a note on the whole block is. Components open
    one with commentOn once canComment says a note can open. */
 export const canComment = () => usable("selection");
-export function commentOn(element, fields) {
+export function partName(element) {
   const block = pageBlock(element);
+  return block ? blockHeading(block) : page.title;
+}
+export function commentOn(element, fields) {
   openNote({
     topic: page.id,
-    anchor: block ? blockHeading(block) : page.title,
+    anchor: partName(element),
     target: element?.id || null,
     ...fields,
   });

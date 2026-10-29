@@ -139,11 +139,12 @@ dialog::backdrop {
 .drawing-dialog .renderer-error {
   margin: 0 16px 8px;
 }
+/* The color Excalidraw gives its white canvas in each theme. */
 .drawing-dialog iframe {
   flex: 1;
   width: 100%;
   border: 0;
-  background: white;
+  background: light-dark(#ffffff, #121212);
 }
 .dialog h2 {
   margin: 0 0 14px;

@@ -19,6 +19,7 @@ import { drawProposal } from "#frame/pages/work.mjs";
 export { $, uuid } from "#frame/app/util.mjs";
 export { base, online, page, pages, plan } from "#frame/app/view.mjs";
 export { canComment, commentOn } from "#frame/notes/blocks.mjs";
+export { canSketch, openSketch } from "#frame/notes/drawing.mjs";
 export { linkButton } from "#frame/pages/agreed.mjs";
 export { diagramBox } from "#frame/pages/diagram.mjs";
 export { show } from "#frame/pages/pages.mjs";

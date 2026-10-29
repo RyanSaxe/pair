@@ -13,6 +13,7 @@ import {
   noteDraftKey,
   openAgentMessage,
 } from "#frame/notes/notes.mjs";
+import { editSketch } from "#frame/notes/drawing.mjs";
 import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
@@ -51,8 +52,30 @@ export function drawNoteImages() {
       drawNoteImages();
     };
     figure.append(image, drop);
+    // A sketch opens again in the drawing editor, and saving replaces it.
+    if (item.scene) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "btn note-image-edit";
+      edit.textContent = "Edit sketch";
+      edit.onclick = () =>
+        editSketch(item, (sketch) => {
+          noteImages = noteImages.map((held) =>
+            held.id === item.id ? sketch : held,
+          );
+          forgetImages([item]);
+          drawNoteImages();
+        }).catch((error) => imageError(error.message));
+      figure.append(edit);
+    }
     box.append(figure);
   }
+}
+// An image the frame made for the note, such as a sketch, which backing out
+// of the dialog drops like one the reviewer attached.
+export function addNoteImage(record) {
+  noteImages.push(record);
+  drawNoteImages();
 }
 export function imageError(message) {
   const line = $("note-image-error");
