@@ -255,6 +255,9 @@ test("a new session adds a bell line that opens its home view, which loads the r
   await page.locator("#center-list .session-row").click();
   await page.waitForURL(`${h.server.origin}${c.base}/`);
   await page.locator("#home-agent", { hasText: "Claude Code" }).waitFor();
+  // The sidebar lists Agreed so far as queued, and Rounds has no round.
+  await page.getByRole("button", { name: "Agreed so far, queued" }).waitFor();
+  assert.equal(await page.locator("#round").isDisabled(), true);
   // The keys that act on a page do nothing here.
   for (const key of ["]", "a", "j", "c", "r"]) await page.keyboard.press(key);
   assert.equal(new URL(page.url()).hash, "");

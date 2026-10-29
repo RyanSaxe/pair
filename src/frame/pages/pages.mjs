@@ -240,7 +240,7 @@ export function renderFooter(feedback) {
 
 // Agreed so far reads before the pages, and Review or Feedback after them,
 // each behind a separator.
-function separator() {
+export function separator() {
   const divider = document.createElement("div");
   divider.className = "separator";
   divider.setAttribute("role", "separator");
