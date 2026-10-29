@@ -1,3 +1,6 @@
+Open the file at the `path` of every `<pair_image>` in the thread, and read
+its `scene` when it has one.
+
 Answer in the thread with text, or with an HTML fragment written like a
 page, which can use any component except a decision, a checklist or a
 question. The reviewer's answers to those go back to you only with a round's
