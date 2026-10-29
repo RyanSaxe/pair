@@ -12,7 +12,8 @@ async function workDirectory(t) {
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   return directory;
 }
-// Runs pair build on the source and returns its stderr, or "" when it built.
+// build runs pair build on the source and returns its stderr, or "" when the
+// build succeeds.
 async function build(directory, source) {
   const file = path.join(directory, "agreed.json");
   const output = path.join(directory, `${crypto.randomUUID()}.html`);
@@ -34,21 +35,20 @@ const agreed = (page = {}, outer = {}) => ({
   page: { id: "agreed", title: "Agreed so far", task, agreements: [], ...page },
 });
 
-// Rounds of a real session reached the reviewer without a field, because
-// Agreed's source named it inside page and the build ignored it.
+// In a real session, the reviewer received rounds without a field, because
+// Agreed's source put the field inside page and pair build ignored it.
 test("pair build refuses a field it does not know and says where a misplaced one goes", async (t) => {
   const directory = await workDirectory(t);
-  // A field pair knows at another level names the level it belongs at.
   assert.match(
     await build(directory, agreed({ round: "1" })),
     /\bpage\.round\b.*\btop level\b/,
   );
-  // A round ends only with feedback, so Agreed's source names no offer.
+  // A round ends only with the reviewer's feedback, so Agreed's source has no
+  // offer field.
   assert.equal(
     await build(directory, agreed({}, { offer: "plan" })),
     "pair: agreed.json: offer is not a field of the source. A page source takes name, round, title and page, and Agreed's source also takes plan.\n",
   );
-  // Only Agreed marks a round as a plan, with true or false.
   assert.equal(await build(directory, agreed({}, { plan: true })), "");
   assert.match(
     await build(directory, agreed({}, { plan: "yes" })),
@@ -67,7 +67,6 @@ test("pair build refuses a field it does not know and says where a misplaced one
     html: "<p>One.</p>",
     sourceRefs: [{ kind: "conversation", text: "Said so.", quote: "x" }],
   };
-  // Each refusal names the field by its path in the source.
   const refused = [
     [agreed({ color: "red" }), "page.color"],
     [agreed({}, { colour: "red" }), "colour"],
@@ -86,7 +85,7 @@ test("pair build refuses a field it does not know and says where a misplaced one
   }
 });
 
-// The guide's examples are what an agent copies, so each builds as written.
+// An agent copies the guide's examples, so each one must build as written.
 test("every page source in the guide's examples builds", async (t) => {
   const directory = await workDirectory(t);
   await fs.writeFile(path.join(directory, "policy.html"), "<p>Policy.</p>");

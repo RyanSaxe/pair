@@ -17,8 +17,8 @@ const data = {
   pages: [{ id: "p", title: "P", html: "<p>x</p>" }],
 };
 
-// A page source whose CSS and JavaScript are files beside it, as an author
-// writes them.
+// pageSource writes the page's CSS and JavaScript as files beside its source,
+// as an author does, and builds the page.
 async function pageSource({ cssText, jsText, ...page }) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-page-"));
   try {
@@ -41,8 +41,6 @@ async function pageSource({ cssText, jsText, ...page }) {
     await fs.rm(directory, { recursive: true, force: true });
   }
 }
-// The text inside the block that opens with `prelude {`, found by counting
-// braces from its opening one.
 const block = (css, prelude) => {
   const open = css.indexOf(`${prelude} {`) + prelude.length + 1;
   assert.ok(open > prelude.length, `no ${prelude} block`);
@@ -52,8 +50,9 @@ const block = (css, prelude) => {
   }
   assert.fail(`${prelude} never closes`);
 };
-// The page's text with each data: URL decoded, so a check finds a file
-// whether the build writes it inline or encodes it.
+// carried returns the page's text followed by each decoded data: URL, so a
+// check finds a file's text whether the build writes it inline or as a data:
+// URL.
 const carried = (html) =>
   [
     html,
@@ -62,9 +61,9 @@ const carried = (html) =>
     ),
   ].join("\n");
 
-// The cascade ranks a later layer above an earlier one and an unlayered rule
-// above both, so a page rule inside the plan layer loses to a component rule,
-// and its scope limits it to its own page and round.
+// CSS ranks a later layer above an earlier one and an unlayered rule above
+// both. A page rule inside the plan layer therefore loses to a component rule,
+// and its @scope limits it to its own page and round.
 test("page CSS reaches only its own page, below the component layer", async () => {
   const html = await pageSource({ cssText: "p{color:red}" });
   const style = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
@@ -98,8 +97,8 @@ test("every component's styles and behavior reach the page", async () => {
   }
 });
 
-// A page's script runs after the frame's modules, so planUI.define is
-// available to it before the first page renders.
+// The browser runs a page's script after the frame's modules, so planUI.define
+// exists before the frame renders the first page.
 test("a page's script is the last module in the document", async () => {
   const jsText = 'export function setup() { planUI.define("mine", {}); }';
   const html = await pageSource({ jsText });
@@ -111,8 +110,9 @@ test("a page's script is the last module in the document", async () => {
   assert.ok(modules.slice(0, -1).every((script) => !script.includes(jsText)));
 });
 
-// A round builds every page from the bundle stored with its Agreed, so a
-// round published before the frame's modules existed keeps its frame.
+// The hub builds every page of a round from the frame bundle stored with the
+// round's Agreed. A round published before the frame had modules must still
+// build with its one script.
 test("a bundle stored before the frame's modules builds its one script", async () => {
   const parts = [
     "offers",
@@ -152,8 +152,8 @@ test("a closing style tag in page CSS is refused", async () => {
   );
 });
 
-// The frame opens its Work page at #work, so a page with that ID would never
-// show.
+// The frame opens its Work page at #work, so the frame would never show a page
+// with that ID.
 test("a page whose ID names one of the frame's own pages is refused", async () => {
   await assert.rejects(
     pageSource({ id: "work", title: "Clearing Work" }),
@@ -177,8 +177,8 @@ test("page JavaScript may read the frame's root elements but not change them", a
   );
 });
 
-// The frame imports the script as a module and calls the setup it exports,
-// so a script that does not parse would leave the page with no behavior.
+// The frame imports the script as a module and calls the setup it exports, so a
+// script that does not parse leaves the page with no behavior.
 test("page JavaScript must parse and export setup, and the build never runs it", async () => {
   await assert.rejects(
     pageSource({
@@ -209,7 +209,8 @@ const decision = (options) =>
 const option = (value = "a") =>
   `<button data-value="${value}" data-label="${value}">${value}</button>`;
 
-// pair build refuses what problems() lists.
+// pair build refuses a page for each problem that problems() lists, so these
+// tests call problems() directly.
 const refused = async (plan, message) =>
   assert.match(problems(plan).join("\n"), message);
 
@@ -227,7 +228,7 @@ test("an option label of exactly 24 characters is accepted", () => {
   );
 });
 
-// The rule is "no h1", not "no repeated words".
+// The builder refuses an h1, not a heading that repeats the title.
 test("a page may repeat its title in a lower heading", async () => {
   await assert.doesNotReject(assemble(page("<h2>P</h2><p>x</p>")));
 });
@@ -264,7 +265,8 @@ test("the build refuses each structural problem and names it", async () => {
     ),
     /^page "p": option label "x{25}" is 25 characters, over 24$/m,
   );
-  // A ">" inside a quoted value does not end the tag.
+  // A ">" inside a quoted attribute value does not end the tag, so the builder
+  // still reads the whole label.
   await refused(
     page(
       decision(
@@ -356,8 +358,8 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
-  // The hub assembles each stored page again at every publish, and a page
-  // that an older pair build accepted still assembles.
+  // The hub assembles every stored page again at each publish, so assemble()
+  // must accept a page that an older pair build accepted.
   await assert.doesNotReject(assemble(page(`<img src="shot.png" alt="">`)));
   await refused(
     page(
@@ -375,8 +377,8 @@ test("the build refuses each structural problem and names it", async () => {
   );
 });
 
-// A fragment is matched as text, so one with regular expression syntax in it
-// neither throws nor matches another id.
+// problems() matches a link's fragment as text, so a fragment with regular
+// expression syntax neither throws nor matches another id.
 test("a link names no page unless an id equals its fragment", () => {
   assert.deepEqual(
     problems(page('<a href="#x(">x</a><a href="#a.b">y</a><i id="aXb"></i>')),
@@ -406,8 +408,8 @@ test("a checklist box is refused for the checked attribute, not for the word in 
   );
 });
 
-// The frame finds an option's group with closest(), and the browser shows
-// nothing inside a comment.
+// The frame finds an option's control with closest(), and the browser renders
+// nothing inside an HTML comment.
 test("an option counts for the nearest control around it, and a commented control is not one", () => {
   assert.deepEqual(
     problems(
@@ -478,8 +480,9 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
 test("a page source builds a standalone preview", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  // The frame draws the page title, so the page's own heading is an h2. The
-  // raw </script> must not end the script that carries the page's data.
+  // The frame draws the page title, so the page's own heading is an h2. The raw
+  // </script> checks that the builder escapes it inside the script element that
+  // contains the page's data.
   const content = "<h2>Interface</h2><p>literal </script> and $&</p>";
   await fs.writeFile(path.join(directory, "interface.html"), content);
   await fs.writeFile(
@@ -517,7 +520,8 @@ test("a page source builds a standalone preview", async (t) => {
     pageData(html).page.jsText,
     'export function setup(root) { root.dataset.test = "ready"; }',
   );
-  // pair build creates the output's directory.
+  // The out/1 directories do not exist, so this run checks that pair build
+  // creates them.
   const output = path.join(directory, "out", "1", "round.html");
   await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
@@ -526,7 +530,8 @@ test("a page source builds a standalone preview", async (t) => {
     /already exists, and pair never overwrites a file/,
   );
 
-  // npm installs the command as a symlink to src/cli.mjs.
+  // npm installs pair as a symlink to src/cli.mjs, so pair build must run
+  // through a link.
   const link = path.join(directory, "pair");
   await fs.symlink(pair, link);
   const linked = path.join(directory, "linked.html");
@@ -535,8 +540,8 @@ test("a page source builds a standalone preview", async (t) => {
   await assert.rejects(exec(process.execPath, [link, "build"]), { code: 1 });
 });
 
-// A browser decodes &lt;, &gt; and &amp; in a textarea, so the built
-// textarea, decoded, is the file's text only if the build escaped it.
+// A browser decodes &lt;, &gt; and &amp; inside a textarea. The decoded
+// textarea matches the file's text only if pair build escaped it.
 test("a diff input that names its JSON file builds with the file's exact text, and a missing or malformed file is refused", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
@@ -704,8 +709,8 @@ test("the component fixture builds", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-fixture-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const output = path.join(directory, "fixture.html");
-  // The build refuses a page that breaks one of its rules, so this fails
-  // when a fixture page does.
+  // assemble() refuses a page that breaks a build rule, so this test fails when
+  // a fixture page breaks one.
   await exec(process.execPath, [
     path.join(root, "tests/fixture/build.mjs"),
     output,

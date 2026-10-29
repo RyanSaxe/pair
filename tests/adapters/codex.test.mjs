@@ -12,8 +12,9 @@ import {
 } from "../support/codex.mjs";
 import { exists, killHub, pairCli } from "../support/hub.mjs";
 
-// Without the allow rule, Codex asks the user to approve every pair command,
-// so pair start refuses under Codex until pair setup-codex has written it.
+// Without the allow rule, Codex asks the user to approve every pair command.
+// pair start therefore refuses to run under Codex until pair setup-codex writes
+// the rule.
 test("pair start under Codex refuses until the allow rule exists, and pair setup-codex writes it", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
   const rules = path.join(home, "codex-home", "rules", "pair.rules");
@@ -26,7 +27,6 @@ test("pair start under Codex refuses until the allow rule exists, and pair setup
     await killHub(codex.config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  // The refusal names the file and the command that writes it.
   await assert.rejects(codex.start(), (error) => {
     assert.equal(error.code, 1);
     for (const part of [rules, "pair setup-codex"])
@@ -61,19 +61,21 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
   );
 });
 
-// The hub wakes a Codex session through the daemon of Codex 0.160, and
-// through codex queue when the daemon cannot take the line into a turn in
-// progress. The fake daemon stands in for the first, and the stand-in codex
-// for the second.
-// npm installs Codex on Windows as codex.cmd, which the adapter's execFile
-// cannot run without a shell, so a Codex wake does not work there yet.
+// The hub wakes a Codex session through the app-server daemon of Codex 0.160.
+// When the daemon cannot add the line to a turn in progress, the adapter runs
+// codex queue instead. codexDaemon stands in for the daemon, and codexCommand
+// stands in for codex.
+// On Windows, npm installs Codex as codex.cmd, and the adapter's execFile
+// cannot run a .cmd file without a shell, so a Codex wake does not work there
+// yet.
 const unix = {
   skip: process.platform === "win32" && "a Codex wake needs codex.cmd support",
 };
 const thread = "thread-1";
-// A thread's wake line names the session's directory and the command that
-// prints the thread, so a line can pass the 125 bytes of a short frame. It
-// ends with the reviewer's message on lines of its own.
+// This line copies the hub's wake line for a thread, which contains the
+// session's directory and the pair read command that prints the thread. It is
+// longer than the 125 bytes of a short WebSocket frame, and it ends with the
+// reviewer's message on lines of its own.
 const line = `pair: a thread on "Overview", session /s, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir /s --thread 6f1c2a9e-5b7d-4e3a-9c2f-8a1b3d4e5f60, which prints the thread and how to answer.\n\nThe reviewer's message, which pair read prints too:\nWhat happens to a failed item?`;
 const queued = ["queue", "--thread", thread, "--message", line];
 
@@ -120,7 +122,7 @@ test("a Codex wake falls back to codex queue", unix, async (t) => {
     assert.deepEqual((await codex.runs()).at(-1), queued, name);
   }
   assert.equal((await codex.runs()).length, cases.length);
-  // The hub records this message as the wake's reason.
+  // The hub records the error's message as the reason the wake failed.
   process.env.PAIR_TEST_FAIL = "1";
   await assert.rejects(
     wakeRunner({ harness: "codex", thread, socket: missing }, line),
@@ -128,9 +130,10 @@ test("a Codex wake falls back to codex queue", unix, async (t) => {
   );
 });
 
-// The daemon's queue for an idle thread. Codex starts a line that
-// thread/queue/add queues at once, unless the user interrupted the thread's
-// last turn, and then the line waits until thread/queue/start starts it.
+// idleQueue answers as the daemon does for an idle thread. Codex starts a line
+// that thread/queue/add queues at once, unless the user interrupted the
+// thread's last turn. After an interrupt, Codex starts the line only on a
+// thread/queue/start request.
 function idleQueue({ interrupted, start }) {
   const queue = [];
   return {
@@ -190,8 +193,7 @@ test(
       );
     }
     assert.deepEqual(await codex.runs(), []);
-    // The hub records this message as the wake's reason, and the frame
-    // shows the wake as failed.
+    // The hub records the error's message as the reason the wake failed.
     const waiting = await codexDaemon(
       t,
       idleQueue({ interrupted: true, start: draining }),
@@ -205,16 +207,16 @@ test(
 );
 
 // Codex refuses input from another process to a spawned subagent that its
-// daemon has not loaded, so the hub's line goes to the parent thread with
-// the subagent's ID, and the parent passes it on.
+// daemon has not loaded. The adapter therefore sends the hub's line to the
+// parent thread with the subagent's ID, and the parent agent passes it on.
 test(
   "a Codex wake for a spawned subagent goes to its parent thread",
   unix,
   async (t) => {
     const codex = await codexCommand(t);
     const parent = "thread-parent";
-    // thread/read as Codex 0.160 answers it for a subagent that a parent
-    // running in-process spawned.
+    // Codex 0.160 answers thread/read with this for a subagent that an
+    // in-process parent spawned.
     const subagent = {
       id: thread,
       parentThreadId: parent,
