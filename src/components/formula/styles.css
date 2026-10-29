@@ -1,7 +1,8 @@
-/* A formula that names its terms. The four hues are a content palette, kept
-   apart from the chrome's --accent, --ok, --attention and --danger, and
-   written as light-dark pairs so a term reads on both grounds. */
-/* At the top of the page the frame sets the space around a formula. */
+/* The four term hues are a content palette, separate from the chrome's
+   --accent, --ok, --attention and --danger, and written as light-dark pairs
+   so a term is legible on both backgrounds. */
+/* At the top level of the page, the frame sets the space around a formula,
+   so revert-layer uses the margin from the frame's layer. */
 :scope > .formula {
   margin: revert-layer;
 }
@@ -39,9 +40,9 @@
   opacity: 0.3;
 }
 /* Every row shares one column track, so the terms line up down the list and
-   the track is as wide as the widest term rather than one character. A row
-   sits on the parent track, so its own padding comes out of the term column
-   and the floor has to carry it. */
+   the track is as wide as the widest term. A row sits on the parent track,
+   so its own padding comes out of the term column, and the track's minimum
+   in --term-track includes --term-pad. */
 .formula-terms {
   --term-pad: 8px;
   --term-track: minmax(calc(22px + var(--term-pad)), auto);
@@ -70,8 +71,8 @@
   line-height: 1.4;
   text-align: center;
 }
-/* The term is rendered by KaTeX, which brings its own faces; it only has to
-   match the row it sits in rather than the display size it would take. */
+/* KaTeX renders the term in its own fonts, so this rule sets only the size,
+   to match the row instead of KaTeX's display size. */
 .formula-term dt .katex {
   font-size: 1em;
 }
@@ -88,9 +89,9 @@
   font-weight: var(--weight-strong);
   white-space: nowrap;
 }
-/* The scroll belongs to the element KaTeX lays out, not to the box around
-   it: .katex-display overflows visible, so a formula wider than the column
-   simply loses what does not fit. */
+/* The element that KaTeX lays out scrolls, not the box around it, because
+   .katex-display overflows visible and a formula wider than the column would
+   lose what does not fit. */
 .katex-display {
   overflow-x: auto;
   padding-bottom: 6px;

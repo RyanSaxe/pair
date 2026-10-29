@@ -1,5 +1,5 @@
-/* Pele adapts the layout to the column. A diagram that still needs more
-   room scrolls inside its figure, and a click opens its full-size copy. */
+/* Pele adapts the layout to the column, and a diagram that still needs more
+   room scrolls inside its figure. */
 [data-diagram] {
   display: block;
   min-width: 0;
