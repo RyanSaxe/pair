@@ -14,10 +14,10 @@ function files(directory) {
   });
 }
 // A command restarts a hub whose version differs from its own when no session
-// on the hub is live. The hub runs modules from across src/ and the adapters,
-// and the build it runs reads data files there too, so the version covers
-// every file in src/ and adapters/, each with its path. A new file needs no
-// entry, and an edit to a frame file also restarts an idle hub.
+// on the hub is live. The hub runs modules from across src/ and adapters/, and
+// its builds read data files there too, so version hashes the path and contents
+// of every file in src/ and adapters/. A new file needs no entry, and an edit
+// to a frame file also restarts an idle hub.
 export const version = ["src", "adapters"]
   .flatMap((folder) => files(path.join(packageRoot, folder)))
   .map((file) => path.relative(packageRoot, file).split(path.sep).join("/"))
@@ -34,18 +34,17 @@ export const version = ["src", "adapters"]
 
 const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-// The user's components, guide files and moment files.
 export const configRoot = (env = process.env) =>
   path.join(env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "pair");
 const packageJson = JSON.parse(
   readFileSync(path.join(packageRoot, "package.json"), "utf8"),
 );
-// The release, which the release workflow sets with npm version. A clone
-// has 0.0.0-development.
+// The release workflow sets the version with npm version, and a clone has
+// 0.0.0-development.
 export const packageVersion = packageJson.version;
-// engines.node in package.json names the oldest release pair supports on each
-// Node line: ^X.Y.Z for line X alone, and >=X.Y.Z for line X and every later
-// line.
+// engines.node in package.json lists the oldest release that pair supports on
+// each Node line. ^X.Y.Z covers line X alone, and >=X.Y.Z covers line X and
+// every later line.
 const floors = packageJson.engines.node.split("||").map((range) => {
   const match = /^\s*(\^|>=)((\d+)\.\d+\.\d+)\s*$/.exec(range);
   if (!match)
@@ -59,8 +58,6 @@ const floors = packageJson.engines.node.split("||").map((range) => {
   };
 });
 const parts = (release) => release.split(".").map(Number);
-// The floor of the running Node's line, or undefined for a line that pair
-// does not support.
 export function nodeFloor() {
   const line = parts(process.versions.node)[0];
   return floors.find(
@@ -84,9 +81,9 @@ export function requireNode() {
     `Node ${running} is missing security fixes that Node released in ${floor.release}. Update Node to ${floor.release} or newer.`,
   );
 }
-// The unspecified addresses, on which a listening hub accepts connections
-// from every network the machine is on. The BlockList matches every spelling
-// of ::, including ::ffff:0.0.0.0.
+// A hub listening on an unspecified address accepts connections from every
+// network the machine is on. The BlockList matches every spelling of ::,
+// including ::ffff:0.0.0.0.
 const unspecified = new net.BlockList();
 unspecified.addAddress("0.0.0.0", "ipv4");
 unspecified.addAddress("::", "ipv6");
@@ -111,8 +108,9 @@ export function settings(env = process.env) {
     [undefined, "on", "off"].includes(env.PAIR_WAKE),
     "PAIR_WAKE must be on or off",
   );
-  // The hub that serves the user's own sessions always wakes their agents,
-  // so wakes can be off only on a hub with a state directory of its own.
+  // The hub that serves the user's own sessions always wakes their agents, so
+  // settings() allows PAIR_WAKE=off only for a hub with a state directory of
+  // its own.
   requireValue(
     env.PAIR_WAKE !== "off" ||
       root !== path.join(os.homedir(), ".local", "state", "pair"),
@@ -141,15 +139,16 @@ export function settings(env = process.env) {
     port,
     host: env.PAIR_HUB_HOST || null,
     idleMs: seconds("PAIR_HUB_IDLE_SECONDS", 900) * 1000,
-    // How recently a pair tab on this machine must have polled the session
-    // list for the hub to count it as open. A hidden tab polls once a minute
-    // in Chrome 154, behind another tab or minimized, and in Safari 17 behind
-    // another tab, and the window adds 30 s to that. Safari stops polling
-    // from a minimized window, so the agent opens a second tab beside it.
+    // tabWindowMs is how recently a pair tab on this machine must have polled
+    // the session list for the hub to count the tab as open. A hidden tab polls
+    // once a minute in Chrome 154, behind another tab or minimized, and in
+    // Safari 17 behind another tab, and the window adds 30 s to that. Safari
+    // stops polling from a minimized window, so the agent opens a second tab
+    // beside it.
     tabWindowMs: 90_000,
-    // How long a page or a proposal the agent works on goes without an
-    // update before the hub calls it quiet, and how often the hub checks
-    // whether to wake the holder about quiet work.
+    // quietMs is how long a page or a proposal that the agent works on goes
+    // without an update before the hub counts it as quiet. quietCheckMs is how
+    // often the hub checks whether to wake the holder about quiet work.
     quietMs: 600_000,
     quietCheckMs: 60_000,
     wake: env.PAIR_WAKE !== "off",
