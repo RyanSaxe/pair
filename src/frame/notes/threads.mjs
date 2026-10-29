@@ -13,6 +13,7 @@ import {
 import { findText, placeMarks } from "#frame/notes/notes.mjs";
 import { ackButton, syncAcks } from "#frame/notes/thread-ack.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
+import { replyForm } from "#frame/notes/thread-reply.mjs";
 import {
   diffForTarget,
   diffViews,
@@ -47,8 +48,6 @@ export const sendKey = (event) =>
 const sent = new Map();
 // The card drawn for each thread on the page on screen.
 const cards = new Map();
-// What the reviewer typed in each card's Reply field.
-const drafts = new Map();
 // The agent messages the reviewer opened with Show all.
 const opened = new Set();
 
@@ -72,7 +71,9 @@ async function post(id, url, body) {
     });
     const result = await response.json();
     if (!response.ok) throw Error(result.error || "The hub refused it.");
-    sent.set(id, result.thread);
+    // A reply sent after this one keeps showing until its own answer.
+    if (result.thread.messages.length >= (sent.get(id)?.messages.length ?? 0))
+      sent.set(id, result.thread);
   } catch (error) {
     sent.set(id, {
       ...sent.get(id),
@@ -113,17 +114,16 @@ export function startThread(context, text, attachments) {
     attachments,
   });
 }
-function sendReply(thread, text) {
+function sendReply(thread, text, attachments) {
   const { error, retry, ...rest } = thread;
   sent.set(thread.id, {
     ...rest,
     state: "sending",
     messages: [
       ...thread.messages,
-      { from: "reviewer", at: new Date().toISOString(), text },
+      { from: "reviewer", at: new Date().toISOString(), text, attachments },
     ],
   });
-  drafts.delete(thread.id);
   // The reply answers the agent's replies in the thread, so their lines
   // leave the bell before the hub answers.
   clearThread(thread.id);
@@ -131,7 +131,7 @@ function sendReply(thread, text) {
   void post(
     thread.id,
     `${base}/api/threads/${encodeURIComponent(thread.id)}/messages`,
-    { replyId: uuid(), text },
+    { replyId: uuid(), text, attachments },
   );
 }
 
@@ -331,33 +331,13 @@ function buildCard(id) {
   head.append(title, fold);
   const quote = element("div", "thread-quote");
   const messages = element("div", "thread-messages");
-  const form = element("form", "thread-reply");
-  const field = element("textarea");
-  field.rows = 1;
-  field.placeholder = "Reply";
-  field.setAttribute("aria-label", "Reply in this thread");
-  field.value = drafts.get(id) || "";
-  field.oninput = () => drafts.set(id, field.value);
-  field.onkeydown = (event) => {
-    if (!sendKey(event)) return;
-    event.preventDefault();
-    form.requestSubmit();
-  };
-  const send = element("button", "btn");
-  send.type = "submit";
-  send.setAttribute("aria-keyshortcuts", sendKeyName());
-  send.append("Send ", element("kbd", "", sendKeyLabel()));
-  form.append(field, send);
-  form.onsubmit = (event) => {
-    event.preventDefault();
-    const text = field.value.trim();
+  const form = replyForm(id, (text, attachments) => {
     const thread = allThreads().find((item) => item.id === id);
-    if (!text || !thread) return;
-    field.value = "";
-    sendReply(thread, text);
-  };
+    if (!thread) return false;
+    sendReply(thread, text, attachments);
+  });
   card.append(head, quote, messages, element("div", "thread-status"), form);
-  return { card, title, fold, quote, messages, form, count: 0, key: "" };
+  return { card, title, fold, quote, messages, form, shown: [], key: "" };
 }
 // folded is whether the card starts collapsed, which the reviewer's own
 // Collapse or Expand overrides.
@@ -385,20 +365,24 @@ function drawCard(entry, thread, part, folded) {
   quote.replaceChildren("“", element("span", "", normalize(thread.quote)), "”");
   fold.textContent = collapsed ? "Expand" : "Collapse";
   fold.setAttribute("aria-expanded", String(!collapsed));
-  // Messages only ever arrive at the end, so the rendered ones stay.
-  if (thread.messages.length < entry.count) {
+  // Messages only ever arrive at the end, so the rendered ones stay, unless
+  // the agent replied before the hub had a reply this card showed at once,
+  // which puts the agent's reply before it.
+  const shown = (message) =>
+    message && `${message.from}\n${message.text ?? message.html}`;
+  if (
+    entry.shown.some((item, index) => item !== shown(thread.messages[index]))
+  ) {
     messages.replaceChildren();
-    entry.count = 0;
+    entry.shown = [];
   }
-  for (; entry.count < thread.messages.length; entry.count++)
-    messages.append(
-      messageRow(thread, thread.messages[entry.count], entry.count),
-    );
+  while (entry.shown.length < thread.messages.length) {
+    const index = entry.shown.length;
+    messages.append(messageRow(thread, thread.messages[index], index));
+    entry.shown.push(shown(thread.messages[index]));
+  }
   card.querySelector(".thread-status").replaceWith(statusLine(thread));
-  form.hidden =
-    !editable ||
-    Boolean(thread.error) ||
-    !["replied", "failed"].includes(thread.state);
+  form.hidden = !editable || Boolean(thread.error);
 }
 // The decision a note named, the top-level block that holds its target or
 // quote, or none, which puts the card at the end.
