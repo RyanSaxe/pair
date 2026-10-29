@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
+import { libraries } from "../../src/shared/libraries.mjs";
 
 const read = (name) =>
   fs.readFile(new URL(`../../src/frame/${name}`, import.meta.url), "utf8");
@@ -36,14 +37,13 @@ test("every page sets its own note line, Agreed and unfinished pages included", 
 });
 
 test("the build's language list is the one for the Shiki the frame loads", async () => {
-  const frame = await read("pages/renderers.mjs");
   const list = JSON.parse(
     await fs.readFile(
       new URL("../../src/build/shiki-languages.json", import.meta.url),
       "utf8",
     ),
   );
-  assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
+  assert.equal(libraries.shiki.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
 });
 
 test("page tabs leave the reader in place, while round choices open a page", async () => {

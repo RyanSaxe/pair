@@ -77,7 +77,9 @@ test("diagram page links work by pointer and keyboard on the page and in the ful
   }
 });
 
-test("a diagram load failure preserves its source and leaves the page readable", async (t) => {
+// A Pele whose bytes differ from its pinned hash must not run, whatever it
+// would draw.
+test("a diagram whose library fails to load or does not match its hash preserves its source and leaves the page readable", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   const source = "flowchart LR\n  A --> B";
@@ -94,12 +96,24 @@ test("a diagram load failure preserves its source and leaves the page readable",
   assert.equal((await session.publish(data)).code, 200);
   const page = await open(t, "about:blank");
   if (!page) return;
-  await page.route(/pele@[^/]+\/dist\/pele\.js$/, (route) => route.abort());
-  await page.goto(`${h.server.origin}${session.base}/#overview`);
-  await page.locator(".renderer-error:visible").waitFor();
-  assert.equal(await page.locator("#readable").isVisible(), true);
-  assert.match(await page.locator("[data-diagram]").innerText(), /A --> B/);
-  assert.equal(await page.locator("body > svg").count(), 0);
+  const failures = [
+    (route) => route.abort(),
+    (route) =>
+      route.fulfill({
+        body: "window.tampered = true; export function mount() {}",
+        contentType: "text/javascript",
+      }),
+  ];
+  for (const failure of failures) {
+    // The route added last answers first.
+    await page.route(/pele@[^/]+\/dist\/pele\.js$/, failure);
+    await page.goto(`${h.server.origin}${session.base}/#overview`);
+    await page.locator(".renderer-error:visible").waitFor();
+    assert.equal(await page.locator("#readable").isVisible(), true);
+    assert.match(await page.locator("[data-diagram]").innerText(), /A --> B/);
+    assert.equal(await page.locator("body > svg").count(), 0);
+    assert.equal(await page.evaluate(() => window.tampered), undefined);
+  }
 });
 
 // A note on one box of a diagram, from a click on the box in the full-size
