@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { hub, pairCli, planData } from "../support/hub.mjs";
+import { buildPage } from "../../src/cli/build.mjs";
+import { hub, pairCli, planData, task } from "../support/hub.mjs";
 
 const png = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -207,6 +208,47 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   const json = JSON.parse(await read("--submission", event.id, "--json"));
   assert.equal(json.event.id, event.id);
   assert.equal(json.threadsSince, "1");
+});
+
+// After an interrupted turn, pair read prints where the session stands,
+// with the ID that pair read --submission takes to print that feedback again.
+test("pair read prints the round, whether it is a plan, and the latest submission", async (t) => {
+  const { a, read } = await session(t);
+  const standing = (printed) =>
+    printed.split("\n\n").find((part) => part.startsWith("Round "));
+  assert.equal(
+    standing(await read()),
+    "Round  1, the reviewer has not sent feedback yet\nPlan   no",
+  );
+  const event = a.event("feedback-only", "1", { next: "plan" });
+  assert.equal((await a.feedback(event)).code, 200);
+  assert.equal(
+    standing(await read()),
+    `Round              1, the agent works on the next round\nPlan               no\nLatest submission  ${event.id}, on round 1`,
+  );
+  // Round 2's Agreed is published and its page is not.
+  const agreed = await buildPage(path.join(a.directory, "source.json"), {
+    name: "example",
+    round: "2",
+    title: "Example work",
+    plan: true,
+    page: { id: "agreed", title: "Agreed so far", task, agreements: [] },
+  });
+  const published = await a.action("publish", {
+    html: agreed,
+    pages: [{ id: "overview", title: "Overview" }],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  const printed = await read();
+  assert.equal(
+    standing(printed),
+    `Round              2, the agent publishes its pages\nPlan               yes\nLatest submission  ${event.id}, on round 1`,
+  );
+  assert.match(printed, /\n\nYou have read everything the reviewer sent\.\n/);
+  assert.match(
+    await read("--submission", event.id),
+    new RegExp(`<pair_feedback submission="${event.id}" round="1"`),
+  );
 });
 
 // Work started here goes on until the agent marks it done, so a
@@ -471,7 +513,10 @@ test("text over 10,000 bytes goes to a file in the session directory", async (t)
   assert(printed.endsWith(`\n\n${next}\n`));
   assert(Buffer.byteLength(printed) < 10_000);
   const saved = await fs.readFile(file, "utf8");
-  assert.match(saved, /^<pair_feedback submission=[^]*<\/pair_feedback>\n$/);
+  assert.match(
+    saved,
+    /^Round [^]*<pair_feedback submission=[^]*<\/pair_feedback>\n$/,
+  );
   assert(saved.includes(text.trim()));
   // Windows keeps no POSIX mode.
   if (process.platform !== "win32")
