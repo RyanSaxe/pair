@@ -8,10 +8,9 @@
 ## Pair programming, now that your agent writes the code.
 
 In pair programming, one person drives and the other navigates. Agents write
-most of the code now, so `pair` helps you navigate. You read what
-the agent shows you, point out what is wrong, choose between the options it
-lays out, and approve each piece of work before the agent edits your project
-for it.
+most of the code now, so `pair` helps you navigate. You read what the agent
+shows you, point out what is wrong, choose between the options it lays out, and
+approve each piece of work before the agent edits your project for it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/illustration-dark.png">
