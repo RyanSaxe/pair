@@ -46,15 +46,20 @@ export async function seenStore(file, log) {
       log(`started without ${file}: ${error.message}`);
   }
   const write = serializer();
+  // The session list is whole only once the hub has loaded every session
+  // on disk, so until then the record keeps every ID.
+  let whole = false;
+  const pruned = (next, sessions) => (whole ? prune(next, sessions) : next);
   const keep = (next) => {
     const changed = JSON.stringify(next) !== JSON.stringify(record);
     record = next;
     return changed ? write(() => atomic(file, next)) : undefined;
   };
   return {
+    loaded: () => (whole = true),
     // The record pruned against this listing, for the browser.
     async view(sessions) {
-      await keep(prune(record, sessions));
+      await keep(pruned(record, sessions));
       return record;
     },
     // A browser adds the IDs it cleared, opened or saw. A record the hub
@@ -69,12 +74,12 @@ export async function seenStore(file, log) {
               Array.isArray(ids) &&
               ids.every((id) => typeof id === "string"),
           ),
-        `The body names lists of IDs under ${records.join(", ")}.`,
+        "Send cleared, opened or cards, each as a list of IDs.",
       );
       const next = { ...record };
       for (const [name, ids] of Object.entries(data))
         next[name] = [...new Set([...(record[name] || []), ...ids])];
-      await keep(prune(next, sessions));
+      await keep(pruned(next, sessions));
       return record;
     },
   };

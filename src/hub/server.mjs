@@ -530,6 +530,7 @@ export async function startHub(config = settings()) {
       log(`skipped session ${name}: ${error.message}`);
     }
   }
+  seen.loaded();
   await atomic(config.hubFile, {
     pid: process.pid,
     port,
