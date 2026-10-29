@@ -23,7 +23,7 @@ import {
 } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
-import { forgetImages } from "#frame/notes/note-dialog.mjs";
+import { forgetImages } from "#frame/notes/images.mjs";
 import { known, openNote, stale } from "#frame/notes/notes.mjs";
 import { tag } from "#frame/pages/agreed.mjs";
 import {

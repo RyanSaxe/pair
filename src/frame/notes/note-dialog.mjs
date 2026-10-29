@@ -1,7 +1,6 @@
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, uuid } from "#frame/app/util.mjs";
 import {
-  base,
   feedbackEditable,
   noteEditable,
   page,
@@ -14,15 +13,17 @@ import {
   openAgentMessage,
 } from "#frame/notes/notes.mjs";
 import { editSketch } from "#frame/notes/drawing.mjs";
+import {
+  acceptImages,
+  forgetImages,
+  imageFigure,
+  uploadImages,
+} from "#frame/notes/images.mjs";
 import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 
-/* Images on a note. A screenshot pasted from the clipboard has no filename
-   and no path, and a file dropped from Finder arrives as a File the browser
-   will not give a path for, so the bytes go to the hub and it writes the
-   file. What comes back is a reference, which is what the note and the
-   draft carry; localStorage holds about 5MB and would not survive bytes. */
+/* The images on the note in the dialog. */
 let noteImages = [];
 let noteImagesAtOpen = [];
 let noteImagesSaved = false;
@@ -30,28 +31,16 @@ export function setNoteImages(images) {
   noteImages = images;
   noteImagesAtOpen = images.map((item) => item.id);
 }
-const imageTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 export function drawNoteImages() {
   const box = $("note-images");
   box.replaceChildren();
   box.hidden = !noteImages.length;
   for (const item of noteImages) {
-    const figure = document.createElement("figure");
-    figure.className = "note-image";
-    const image = document.createElement("img");
-    image.src = `${base}/api/upload/${encodeURIComponent(item.id)}`;
-    image.alt = "";
-    const drop = document.createElement("button");
-    drop.type = "button";
-    drop.className = "icon-btn";
-    drop.textContent = "✕";
-    drop.setAttribute("aria-label", "Remove this image");
-    drop.onclick = () => {
+    const figure = imageFigure(item, () => {
       noteImages = noteImages.filter((held) => held.id !== item.id);
       forgetImages([item]);
       drawNoteImages();
-    };
-    figure.append(image, drop);
+    });
     // A sketch opens again in the drawing editor, and saving replaces it.
     if (item.scene) {
       const edit = document.createElement("button");
@@ -98,37 +87,15 @@ export function fitNoteText() {
   area.style.height = `${height}px`;
   [area.scrollTop, body.scrollTop] = scrolled;
 }
-/* Paste, drop and the picker all arrive here. */
-async function attach(files) {
-  const images = [...files].filter((file) => imageTypes.includes(file.type));
-  if (!images.length) {
-    imageError("Attach a PNG, JPEG, WebP or GIF.");
-    return;
-  }
-  imageError("");
-  for (const file of images) {
-    try {
-      const response = await fetch(`${base}/api/upload`, {
-        method: "POST",
-        body: file,
-      });
-      const record = await response.json();
-      if (!response.ok) throw Error(record.error || "Upload failed.");
+const attach = (files) =>
+  uploadImages(
+    files,
+    (record) => {
       noteImages.push(record);
       drawNoteImages();
-    } catch (error) {
-      imageError(error.message);
-    }
-  }
-}
-/* A note the reviewer dropped takes its images with it, so the session does
-   not keep bytes nothing refers to. */
-export function forgetImages(items) {
-  for (const item of items || [])
-    fetch(`${base}/api/upload/${encodeURIComponent(item.id)}`, {
-      method: "DELETE",
-    }).catch(() => {});
-}
+    },
+    imageError,
+  );
 /* A dialog the reviewer abandoned drops what it uploaded, so the session
    never keeps bytes no note refers to. This runs when the reviewer backs
    out of the dialog, by its ×, Escape or a click outside, and again before
@@ -155,31 +122,7 @@ export function installNoteDialog() {
     attach(event.target.files);
     event.target.value = "";
   };
-  $("note-dialog").addEventListener("paste", (event) => {
-    const files = [...event.clipboardData.items]
-      .filter((item) => item.kind === "file")
-      .map((item) => item.getAsFile())
-      .filter(Boolean);
-    if (!files.length) return;
-    event.preventDefault();
-    attach(files);
-  });
-  for (const type of ["dragover", "dragenter"])
-    $("note-dialog").addEventListener(type, (event) => {
-      event.preventDefault();
-      $("note-dialog").classList.add("dropping");
-    });
-  for (const type of ["dragleave", "drop"])
-    $("note-dialog").addEventListener(type, (event) => {
-      event.preventDefault();
-      if (
-        type === "dragleave" &&
-        $("note-dialog").contains(event.relatedTarget)
-      )
-        return;
-      $("note-dialog").classList.remove("dropping");
-      if (type === "drop") attach(event.dataTransfer.files);
-    });
+  acceptImages($("note-dialog"), attach);
   /* Start a thread sends the note to the agent now instead of keeping it
      for Send feedback, so the note leaves the draft and its images stay. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
