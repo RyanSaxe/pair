@@ -13,9 +13,9 @@ import { components } from "./components.mjs";
 import { rows } from "./output.mjs";
 import { proposalText } from "./tags.mjs";
 
-// fs.cp gives each copied directory its source's mode, and rm cannot empty
-// a read-only directory, so the copy is made writable before it goes. A
-// link is removed itself, never followed.
+// fs.cp gives each copied directory its source's mode, and rm cannot empty a
+// read-only directory, so removeCopy() makes the copy writable before it
+// removes it. removeCopy() removes a link itself and never follows it.
 async function removeCopy(copy) {
   const stat = await fs.lstat(copy).catch(() => null);
   if (stat?.isDirectory()) {
@@ -28,10 +28,10 @@ async function removeCopy(copy) {
   }
   await fs.rm(copy, { recursive: true, force: true });
 }
-// fs.cp points each copied link at the absolute path of its target. A link
-// into the source, by the path given or its real path, is made relative
-// again, so it resolves inside the copy after the source is gone. A link
-// elsewhere keeps its target.
+// fs.cp points each copied link at the absolute path of its target.
+// relinkInside() makes a link into the source, by the path given or its real
+// path, relative again, so it resolves inside the copy after the source is
+// gone. relinkInside() leaves a link elsewhere unchanged.
 async function relinkInside(copy, roots, directory = copy) {
   const relink = [];
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
@@ -51,7 +51,8 @@ async function relinkInside(copy, roots, directory = copy) {
   }
   if (!relink.length) return;
   // fs.cp has already given the directory its source's mode, which may be
-  // read-only, so it is writable only while its links change.
+  // read-only, so relinkInside() makes it writable only while it changes the
+  // links.
   const { mode } = await fs.stat(directory);
   await fs.chmod(directory, mode | 0o700);
   try {
@@ -66,8 +67,9 @@ async function relinkInside(copy, roots, directory = copy) {
     await fs.chmod(directory, mode & 0o7777);
   }
 }
-// The source a round was built from is kept beside its built file, so the
-// next round starts from it after the temp directory is gone.
+// keepSource() copies the source that a page was built from beside its built
+// file, so the next round can start from that copy after the temp directory is
+// gone.
 async function keepSource(sessionDir, source, html) {
   const record = pageData(html);
   const target = path.join(
@@ -76,7 +78,6 @@ async function keepSource(sessionDir, source, html) {
     record.round,
     record.page.id,
   );
-  // A --source that is a link is copied as the directory it names.
   const given = path.resolve(source);
   const from = await fs.realpath(given);
   requireValue(
@@ -85,9 +86,9 @@ async function keepSource(sessionDir, source, html) {
   );
   requireValue((await fs.readdir(from)).length, `--source ${source} is empty`);
   await fs.mkdir(path.dirname(target), { recursive: true });
-  // Making the target claims it, so two publishes of one page cannot both
-  // copy. A kept source is never empty, so an empty target belongs to a
-  // publish still copying, or to one that was stopped while it copied.
+  // Creating the target claims it, so two publishes of one page cannot both
+  // copy. A kept source is never empty, so an empty target belongs to a publish
+  // that is still copying or that stopped while it copied.
   try {
     await fs.mkdir(target);
   } catch (error) {
@@ -101,16 +102,16 @@ async function keepSource(sessionDir, source, html) {
       `Page ${record.page.id} of round ${record.round} already has a source at ${target}.${stopped}`,
     );
   }
-  // The copy takes the target's place only once it is complete, so a copy
-  // that fails leaves nothing for the retry to find.
+  // The copy replaces the target only once it is complete, so a failed copy
+  // leaves nothing for the retry to find.
   const partial = `${target}.partial-${crypto.randomUUID()}`;
   try {
     await fs.cp(from, partial, { recursive: true });
     await relinkInside(partial, [...new Set([from, given])]);
-    // A read-only directory cannot be renamed on macOS.
+    // macOS cannot rename a read-only directory.
     await fs.chmod(partial, ((await fs.stat(partial)).mode & 0o777) | 0o700);
-    // Windows cannot rename a directory onto another, even an empty one, so
-    // the empty target that claims the page goes first there.
+    // Windows cannot rename a directory onto another, even an empty one, so on
+    // Windows the empty target that claims the page is removed first.
     if (process.platform === "win32") await fs.rmdir(target);
     await fs.rename(partial, target);
   } catch (error) {
@@ -120,11 +121,11 @@ async function keepSource(sessionDir, source, html) {
   }
   return target;
 }
-// The session a command names, and request(), which sends it one action.
-// status may come from an agent that cannot be woken, such as one the holder
-// briefed, unless the session has to register with a new hub.
-// status still names the agent when there is one, because a hub that runs
-// older code answers status only for the holder.
+// With anyAgent, as for status and propose, the command may come from an agent
+// that cannot be woken, such as one the holder briefed, unless the session has
+// to register with a new hub. request() still sends the agent's identity when
+// there is one, because a hub that runs older code answers status only for the
+// holder.
 export async function openSession(options, { anyAgent = false } = {}) {
   requireNode();
   const config = settings();
@@ -151,13 +152,15 @@ export async function openSession(options, { anyAgent = false } = {}) {
       "Invalid connection origin",
     );
   checkConnection();
-  // Whether the hub may have acted on the request. It did when it accepted
-  // it, and it may have when a request reached it but no whole answer came
-  // back, or it failed inside. A refused connection never reached it, and a
-  // refusal says it did not act.
+  // mayHaveActed is true when the hub may have acted on the request. The hub
+  // acted when it accepted the request. It may have acted when the request
+  // reached it but no whole answer came back, or when it failed inside. A
+  // refused connection never reached the hub, and a refusal means the hub did
+  // not act.
   let mayHaveActed = false;
-  // Connecting failed, so the request never left: refused, or blocked by a
-  // sandbox or the network.
+  // These codes mean the connection failed and the request never left this
+  // process, because the hub refused the connection or a sandbox or the network
+  // blocked it.
   const unreached = new Set([
     "ECONNREFUSED",
     "EPERM",
@@ -186,7 +189,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
           body: JSON.stringify({
             ...data,
             sessionId: connection.sessionId,
-            // The hub takes every command but status only from the
+            // The hub accepts every command except status only from the
             // session's holder.
             agent: wake && identify(wake),
           }),
@@ -229,8 +232,6 @@ export async function openSession(options, { anyAgent = false } = {}) {
   };
 }
 
-// pair start refuses under Codex until the allow rule exists, because
-// without it Codex asks the user to approve every pair command.
 const codexRefusal = (file) =>
   `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
 
@@ -285,7 +286,7 @@ export async function start(options) {
   const card = started.proposal;
   return {
     next: started.next,
-    // A hub of the previous release names no moment for a new session.
+    // A hub of the previous release returns no moment for a new session.
     moment: started.moment || (resuming ? undefined : "start"),
     data: [
       rows([
@@ -324,22 +325,23 @@ export async function publish(options) {
     result = await session.request(action);
   } catch (error) {
     if (!action.source) throw error;
-    // A source kept for a publish the hub refused would block the retry. A
-    // published page's source is what the next round starts from, so while
-    // the hub may have published this one the copy stays.
+    // A source kept for a publish that the hub refused would block the retry,
+    // so publish removes it. The next round starts from a published page's
+    // source, so the copy stays while the hub may have published this page.
     if (!session.mayHaveActed()) {
       await removeCopy(action.source);
       throw error;
     }
-    // A timeout's error cannot take a longer message, so a new one does.
+    // The message of a timeout's error is read-only, so publish throws a new
+    // error with the longer message.
     throw new Error(
       `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${action.source}. Run pair status. If the page is not published, delete that directory and publish again.`,
       { cause: error },
     );
   }
   const { page } = result;
-  // The agent chooses each page's components from this list, which follows
-  // every Agreed.
+  // publish prints the component list after every Agreed, because the agent
+  // chooses each page's components from it.
   const choosing = result.moment === "publish-agreed";
   return {
     next: result.next,
@@ -358,8 +360,6 @@ export async function publish(options) {
   };
 }
 
-// The hub process, which pair start spawns. It also closes itself once no
-// session has been live for a while.
 export async function runHub() {
   requireNode();
   const hub = await startHub(settings());
