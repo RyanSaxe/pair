@@ -125,8 +125,6 @@ async function startThread(page, session, quote, side, lineThreadCount = 1) {
   assert.equal(placement.lineThreadCount, lineThreadCount);
 }
 
-// Publishes the diff page in a hub of its own and opens it once the diff
-// has drawn into its shadow root.
 async function openDiff(t) {
   const h = await hub(t);
   const session = await h.session();
