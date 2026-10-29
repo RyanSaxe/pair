@@ -603,3 +603,35 @@ test("a link to a section of the page scrolls to it and stays on the page", asyn
   await page.locator("#page-title", { hasText: "Overview" }).waitFor();
   assert.equal(new URL(page.url()).hash, "#overview");
 });
+
+test("a round tab lists its pages and leaves the page on screen in its own round until a page is picked", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  const id = await s.thread("1", "page");
+  await s.send("1");
+  await s.publish("2", "<p>Round two adds this line.</p>");
+  const page = await open(t, s.url("#overview"));
+  if (!page) return;
+  await page.locator("#past-tab:not([disabled])").waitFor();
+  const content = page.locator("#page-content");
+  await content.getByText("Round two adds this line.").first().waitFor();
+  await page.locator("#past-tab").click();
+  await selected(page, "past");
+  await page.locator("#review-row", { hasText: "Feedback" }).waitFor();
+  // Round 2's page stays, with Current's draft and none of round 1's threads.
+  assert.equal(await content.getByText("Round two adds this line.").count(), 2);
+  assert.equal(await cards(page, id), 0);
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  await page.keyboard.press("Escape");
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator(`pair-thread[data-thread="${id}"]`).waitFor();
+  assert.equal(await content.getByText("Round two adds this line.").count(), 0);
+  // And back: round 1's page keeps its thread under Current's list.
+  await page.locator("#current-tab").click();
+  await selected(page, "current");
+  assert.equal(await cards(page, id), 1);
+  await page.locator('#page-list [data-page="overview"]').click();
+  await content.getByText("Round two adds this line.").first().waitFor();
+  assert.equal(await cards(page, id), 0);
+});
