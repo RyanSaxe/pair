@@ -14,7 +14,7 @@ import {
 } from "#frame/notes/notes.mjs";
 import { diagramBox } from "#frame/pages/diagram.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
-import { diffLineForNode } from "#frame/pages/renderers.mjs";
+import { diffLineForNode, selectionAnchor } from "#frame/pages/renderers.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
 let selected = "";
@@ -385,7 +385,9 @@ export function installBlocks() {
       block && !insideThread(selection?.anchorNode)
         ? selection?.toString().trim() || ""
         : "";
-    selectedDiffLine = selected ? diffLineForNode(selection?.anchorNode) : null;
+    selectedDiffLine = selected
+      ? diffLineForNode(selectionAnchor(selection))
+      : null;
     selectedBox = selected ? boxOf(selection) : null;
     selectedTarget = selectionTarget(
       selection?.anchorNode,
