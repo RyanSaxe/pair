@@ -31,7 +31,7 @@ import {
 import { show } from "#frame/pages/pages.mjs";
 import { diagramBoxes } from "#frame/pages/diagram.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
-import { isDiffNode } from "#frame/pages/renderers.mjs";
+import { diffSelectionRange, isDiffNode } from "#frame/pages/renderers.mjs";
 
 export const known = {
   choices: new Set(),
@@ -168,7 +168,11 @@ const quoteBlock = (target) =>
 export function selectedOccurrence(selection, quote, target) {
   const block = quoteBlock(target);
   if (!block || !selection?.rangeCount) return 1;
-  const range = selection.getRangeAt(0);
+  // comparePoint needs a Range, and in a diff only the StaticRange from
+  // getComposedRanges starts in the shadow root where the selection does.
+  const from = diffSelectionRange(selection) || selection.getRangeAt(0);
+  const range = document.createRange();
+  range.setStart(from.startContainer, from.startOffset);
   const selectionRoot = range.startContainer.getRootNode();
   const { text, map } = pageText(block);
   const start = map.findIndex(
@@ -266,7 +270,11 @@ export function countNotes() {
 function notesAt(x, y) {
   let node, offset;
   if (document.caretPositionFromPoint) {
-    const position = document.caretPositionFromPoint(x, y);
+    // The position is in a diff's shadow root only when the call names it.
+    const shadowRoots = noteRanges
+      .map(({ range }) => range.startContainer.getRootNode())
+      .filter((root) => root instanceof ShadowRoot);
+    const position = document.caretPositionFromPoint(x, y, { shadowRoots });
     if (!position) return [];
     node = position.offsetNode;
     offset = position.offset;

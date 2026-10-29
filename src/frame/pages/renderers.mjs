@@ -350,19 +350,22 @@ export function diffLineForNode(node) {
   };
 }
 /* Chrome reports a selection made inside a diff's shadow root as anchored
-   at the element around the shadow host, so selectionAnchor() takes the
-   node the selection starts in from getComposedRanges. */
-export function selectionAnchor(selection) {
+   at the element around the shadow host, so diffSelectionRange() takes the
+   range inside the diff from getComposedRanges. It returns null for a
+   selection outside a diff. */
+export function diffSelectionRange(selection) {
   const anchor = selection?.anchorNode;
   if (!anchor || !selection.getComposedRanges || !viewerForNode(anchor))
-    return anchor;
+    return null;
   const element = anchor.nodeType === 1 ? anchor : anchor.parentElement;
   const shadowRoots = [...element.querySelectorAll("*")]
     .map((node) => node.shadowRoot)
     .filter(Boolean);
-  if (!shadowRoots.length) return anchor;
-  const [range] = selection.getComposedRanges({ shadowRoots });
-  return range?.startContainer ?? anchor;
+  if (!shadowRoots.length) return null;
+  return selection.getComposedRanges({ shadowRoots })[0] ?? null;
+}
+export function selectionAnchor(selection) {
+  return diffSelectionRange(selection)?.startContainer ?? selection?.anchorNode;
 }
 export function isDiffNode(node) {
   return Boolean(viewerForNode(node));
