@@ -59,11 +59,12 @@ document.documentElement.dataset.mode = mode;
 if (mode === "home") bootHome();
 else bootRound();
 
-/* A session with nothing published: the header, the session's title and
-   the progress card. Component behaviors still register when the module
-   script runs, so planUI exists here too. */
+/* A session with nothing published: a round's header and sidebar, the
+   session's title and the progress card. Component behaviors still
+   register when the module script runs, so planUI exists here too. */
 function bootHome() {
   useView({ plan: planData, agreements: [], task: null, pages: [] });
+  installSidebar();
   installRenderers();
   installSessions();
   installProgress();
