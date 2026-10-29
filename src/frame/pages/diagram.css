@@ -19,6 +19,14 @@
   justify-content: flex-end;
   margin-bottom: 4px;
 }
+/* Sketch on this diagram sits at the left of the header, and a hairline
+   runs under the header across the dialog. */
+.lightbox .dialog-head:has(#diagram-sketch:not([hidden])) {
+  justify-content: space-between;
+  margin: -8px -12px 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
 .lightbox-view {
   min-height: 0;
   overflow: auto;
@@ -75,4 +83,19 @@
 :is([data-diagram], .lightbox) .pele-cluster > rect {
   fill: none;
   stroke-dasharray: 4 4;
+}
+/* A box with a note takes the note's color, as a highlighted sentence does,
+   and in the enlarged view a click on a box opens a note on it. */
+:is([data-diagram], .lightbox)
+  .pele-node.noted
+  > :is(rect, polygon, circle, ellipse, path):not([fill="none"]) {
+  fill: var(--mark);
+}
+.lightbox.noting .pele-node[data-id]:has(.pele-label) {
+  cursor: pointer;
+}
+.lightbox.noting
+  .pele-node[data-id]:has(.pele-label):hover
+  > :is(rect, polygon, circle, ellipse, path) {
+  stroke: var(--pele-accent);
 }

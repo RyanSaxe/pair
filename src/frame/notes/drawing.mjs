@@ -7,6 +7,8 @@ import {
   page,
   plan,
 } from "#frame/app/view.mjs";
+import { canComment, commentOn, partName } from "#frame/notes/blocks.mjs";
+import { addNoteImage } from "#frame/notes/note-dialog.mjs";
 
 let activeDrawing = null;
 let draftTimer = null;
@@ -29,44 +31,137 @@ function closeDrawing() {
   resetDrawing();
   if ($("drawing-dialog").open) $("drawing-dialog").close();
 }
-export async function openDrawing(id, label, target, onSaved) {
-  if (!feedbackEditable() || !online) return;
-  const key = controlKey(page.id, id);
-  const previous = state.answers[key];
-  // A drawing the reviewer left without saving opens as they left it.
-  let scene = state.drafts[key] ?? null;
-  if (!scene && previous?.kind === "drawing") {
-    const response = await fetch(
-      `${base}/api/drawing-scene/${encodeURIComponent(previous.sceneId)}`,
-    );
-    if (!response.ok) throw new Error("Could not load the saved drawing.");
-    scene = await response.json();
-  }
+const theme = () => document.documentElement.dataset.theme || "light";
+async function savedScene(id) {
+  const response = await fetch(
+    `${base}/api/drawing-scene/${encodeURIComponent(id)}`,
+  );
+  if (!response.ok) throw new Error("Could not load the saved drawing.");
+  return response.json();
+}
+/* The editor opens on scene, a drawing to go on with, or turns source, a
+   diagram's Mermaid source, into boxes and arrows, or starts empty. With
+   fit, it shows all of scene. Saving uploads the scene and its PNG and
+   hands both records to onSaved. A drawing the reviewer left without
+   saving is a draft under key. */
+function openEditor({
+  key,
+  title,
+  detail,
+  saveLabel,
+  scene,
+  source,
+  fit = false,
+  onSaved,
+}) {
   const nonce = uuid();
-  activeDrawing = { key, label, target, nonce, scene, onSaved, topic: page.id };
+  activeDrawing = { key, nonce, scene, source, fit, onSaved };
   activeDrawing.loadingTimer = setTimeout(() => {
     if (activeDrawing?.nonce === nonce)
       drawingError(
         "The drawing editor did not load. Check your connection and try again.",
       );
   }, 20000);
+  $("drawing-title").textContent = title;
+  $("drawing-detail").textContent = detail || "";
+  $("drawing-detail").hidden = !detail;
+  $("drawing-save").textContent = saveLabel;
+  drawingError("");
+  $("drawing-save").disabled = true;
+  $("drawing-frame").srcdoc = JSON.parse($("drawing-editor-source").textContent)
+    .replace("__DRAWING_NONCE__", JSON.stringify(nonce))
+    .replace("__DRAWING_THEME__", JSON.stringify(theme()));
+  $("drawing-dialog").showModal();
+}
+export async function openDrawing(id, label, target, onSaved) {
+  if (!feedbackEditable() || !online) return;
+  const key = controlKey(page.id, id);
+  const topic = page.id;
+  const previous = state.answers[key];
+  // A drawing the reviewer left without saving opens as they left it.
+  let scene = state.drafts[key] ?? null;
+  if (!scene && previous?.kind === "drawing")
+    scene = await savedScene(previous.sceneId);
   // The header shows the card's question and its reason, and the short
   // label when the card has no heading.
   const card = target && document.getElementById(target);
   const question = card?.querySelector(":scope > h3")?.textContent.trim();
   const reason = card?.querySelector(":scope > h3 + p")?.textContent.trim();
-  $("drawing-title").textContent = question || label;
-  $("drawing-detail").textContent = reason || "";
-  $("drawing-detail").hidden = !reason;
-  drawingError("");
-  $("drawing-save").disabled = true;
-  $("drawing-frame").srcdoc = JSON.parse(
-    $("drawing-editor-source").textContent,
-  ).replace("__DRAWING_NONCE__", JSON.stringify(nonce));
-  $("drawing-dialog").showModal();
+  openEditor({
+    key,
+    title: question || label,
+    detail: reason,
+    saveLabel: "Save drawing",
+    scene,
+    onSaved(saved, preview) {
+      const answer = {
+        topic,
+        label,
+        kind: "drawing",
+        round: plan.round,
+        sceneId: saved.id,
+        previewId: preview.id,
+        target,
+      };
+      state.answers[key] = answer;
+      save();
+      onSaved(answer);
+    },
+  });
+}
+/* A sketch on an editable copy of a diagram. Saving opens a note on the
+   diagram with the sketch's PNG attached, and the PNG's record names the
+   scene, so the note can open the sketch again. */
+export const canSketch = () => canComment() && online;
+const sketchImage = (saved, preview) => ({
+  ...preview,
+  scene: { id: saved.id, path: saved.path },
+});
+export function openSketch(diagram) {
+  if (!canSketch()) return;
+  const key = `sketch:${controlKey(page.id, diagram.id)}`;
+  const id = diagram.id;
+  openEditor({
+    key,
+    title: partName(diagram),
+    detail: "Saving attaches the sketch to a note on this diagram.",
+    saveLabel: "Save sketch",
+    scene: state.drafts[key] ?? null,
+    source: diagram.dataset.source,
+    fit: true,
+    onSaved(saved, preview) {
+      persist();
+      commentOn(document.getElementById(id) || diagram, {});
+      if ($("note-dialog").open) addNoteImage(sketchImage(saved, preview));
+    },
+  });
+}
+// A sketch on the open note, which saving replaces.
+export async function editSketch(image, onSaved) {
+  if (!online) return;
+  const key = `sketch:${image.scene.id}`;
+  openEditor({
+    key,
+    title: "Edit sketch",
+    saveLabel: "Save sketch",
+    scene: state.drafts[key] ?? (await savedScene(image.scene.id)),
+    fit: true,
+    onSaved(saved, preview) {
+      persist();
+      onSaved(sketchImage(saved, preview));
+    },
+  });
 }
 export function installDrawing() {
   $("drawing-dialog").addEventListener("close", resetDrawing);
+  // The editor follows the frame's theme while it is open.
+  addEventListener("plan:theme", () => {
+    if (activeDrawing)
+      $("drawing-frame").contentWindow?.postMessage(
+        { type: "theme", nonce: activeDrawing.nonce, theme: theme() },
+        "*",
+      );
+  });
   $("drawing-save").onclick = () => {
     if (!activeDrawing) return;
     $("drawing-save").disabled = true;
@@ -88,7 +183,13 @@ export function installDrawing() {
       drawing.loadingTimer = null;
       $("drawing-save").disabled = false;
       event.source.postMessage(
-        { type: "init", nonce: drawing.nonce, scene: drawing.scene },
+        {
+          type: "init",
+          nonce: drawing.nonce,
+          scene: drawing.scene,
+          source: drawing.source,
+          fit: drawing.fit,
+        },
         "*",
       );
     } else if (event.data.type === "change") {
@@ -124,20 +225,9 @@ export function installDrawing() {
           previewResponse.json(),
         ]);
         if (activeDrawing !== drawing) return;
-        const answer = {
-          topic: drawing.topic,
-          label: drawing.label,
-          kind: "drawing",
-          round: plan.round,
-          sceneId: scene.id,
-          previewId: preview.id,
-          target: drawing.target,
-        };
-        state.answers[drawing.key] = answer;
         delete state.drafts[drawing.key];
-        save();
-        drawing.onSaved(answer);
         closeDrawing();
+        drawing.onSaved(scene, preview);
       } catch (error) {
         drawingError(error.message || "Could not save the drawing.");
       }

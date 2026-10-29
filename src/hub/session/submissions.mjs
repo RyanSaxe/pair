@@ -150,7 +150,7 @@ export function submissions(session) {
               Number.isInteger(item.bytes),
             "An attachment needs id, path, type and bytes",
           );
-          images.push(await session.storedImage(item.id));
+          images.push(await session.storedAttachment(item));
         }
         note.attachments = images;
       }

@@ -109,7 +109,10 @@ function feedbackText(next, message) {
       /* The bytes stay in the session directory, so the text names the file
          rather than carrying it. An export the reviewer mails on says the
          same, which is the only way the paths travel with it. */
-      ...(note.attachments || []).map((item) => `Image: ${item.path}`),
+      ...(note.attachments || []).flatMap((item) => [
+        `Image: ${item.path}`,
+        ...(item.scene ? [`Sketch scene: ${item.scene.path}`] : []),
+      ]),
     );
   }
   return lines.join("\n");

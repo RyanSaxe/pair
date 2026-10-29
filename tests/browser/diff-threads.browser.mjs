@@ -27,9 +27,13 @@ const pageHtml = `
   </details>
 </section>`;
 
+// Drags across the quote with the mouse, as a reviewer does, so the browser
+// reports the selection the way it reports a real one: from inside the
+// diff's shadow root, Chrome anchors it at the element around the shadow
+// host.
 async function selectDiffText(page, quote) {
   const view = page.locator(".change-view");
-  const point = await view.evaluate((element, text) => {
+  const span = await view.evaluate((element, text) => {
     const host = [...element.querySelectorAll("*")].find(
       (node) => node.shadowRoot,
     );
@@ -59,45 +63,20 @@ async function selectDiffText(page, quote) {
     const to = point(start + text.length);
     range.setStart(from.node, from.offset);
     range.setEnd(to.node, to.offset);
-    {
-      const rect = range.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    }
-  }, quote);
-  await page.mouse.move(point.x, point.y);
-  await view.evaluate((element, text) => {
-    const host = [...element.querySelectorAll("*")].find(
-      (node) => node.shadowRoot,
-    );
-    const walker = document.createTreeWalker(
-      host.shadowRoot,
-      NodeFilter.SHOW_TEXT,
-    );
-    const nodes = [];
-    let content = "";
-    for (let node; (node = walker.nextNode());) {
-      nodes.push(node);
-      content += node.data;
-    }
-    const start = content.indexOf(text);
-    const point = (offset) => {
-      let before = 0;
-      for (const node of nodes) {
-        if (offset <= before + node.data.length)
-          return { node, offset: offset - before };
-        before += node.data.length;
-      }
-      throw Error(`Could not locate offset ${offset}`);
+    const rects = [...range.getClientRects()].filter((rect) => rect.width);
+    const first = rects[0];
+    const last = rects.at(-1);
+    return {
+      x0: first.left + 1,
+      y0: (first.top + first.bottom) / 2,
+      x1: last.right - 1,
+      y1: (last.top + last.bottom) / 2,
     };
-    const from = point(start);
-    const to = point(start + text.length);
-    const range = document.createRange();
-    range.setStart(from.node, from.offset);
-    range.setEnd(to.node, to.offset);
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
   }, quote);
+  await page.mouse.move(span.x0, span.y0);
+  await page.mouse.down();
+  await page.mouse.move(span.x1, span.y1, { steps: 8 });
+  await page.mouse.up();
 }
 
 async function startThread(page, session, quote, side, lineThreadCount = 1) {
