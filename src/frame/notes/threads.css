@@ -300,10 +300,31 @@ pair-thread[collapsed] > :not(.thread-head) {
 .thread-status:empty {
   display: none;
 }
+/* The field, the image button and Send share one 32px line, and the field
+   grows above it for a longer reply. The field's line height makes it 32px
+   at its own size and at the 16px a narrow window gives every field. The
+   images and an upload error take the lines under it. */
 .thread-reply {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
+}
+.thread-reply .btn {
+  height: 32px;
+}
+.thread-reply .btn svg {
+  width: 18px;
+  height: 18px;
+}
+.thread-reply .note-images,
+.thread-reply .renderer-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.thread-reply.dropping textarea {
+  border-style: dashed;
+  border-color: var(--accent);
 }
 .thread-reply textarea {
   flex: 1;
@@ -311,6 +332,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   max-height: 200px;
   margin: 0;
   padding: 5px 8px;
+  line-height: 20px;
   resize: none;
   field-sizing: content;
   background: var(--ground);

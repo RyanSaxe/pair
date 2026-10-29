@@ -73,7 +73,7 @@ test("a reply in a thread clears that thread's lines from the bell and keeps the
   if ((await card.getAttribute("collapsed")) !== null)
     await card.locator(".thread-fold").click();
   await card.locator(".thread-reply textarea").fill("Thanks.");
-  await card.locator(".thread-reply button").click();
+  await card.locator(".thread-reply button[type=submit]").click();
   await count(page, "1");
   assert.deepEqual(await lines(page), ["Agent replied on Agreed so far"]);
   // Another tab of this browser, and this one after a reload, keep them
