@@ -3,7 +3,6 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep } from "../support/hub.mjs";
 
-// A session with one sub-session started from its card "work".
 async function withSubSession(h, title) {
   const parent = await h.session();
   assert.equal((await parent.publish({ ...planData(), title })).code, 200);
@@ -31,7 +30,8 @@ async function withSubSession(h, title) {
 
 test("Sessions numbers only the sessions that are not sub-sessions, the number keys open those, and w still reaches a sub-session", async (t) => {
   const h = await hub(t);
-  // The frame lists sessions in the order they started.
+  // The frame lists sessions in the order they started, so the sleeps make the
+  // start times differ.
   const [own, ownSub] = await withSubSession(h, "Own");
   await sleep(20);
   const [closed] = await withSubSession(h, "Closed");
@@ -41,7 +41,7 @@ test("Sessions numbers only the sessions that are not sub-sessions, the number k
     (await last.publish({ ...planData(), title: "Last" })).code,
     200,
   );
-  // A closed session stays listed while its sub-session is open.
+  // The frame keeps listing a closed session while its sub-session is open.
   assert.equal(
     (await closed.request(`${closed.base}/api/dismiss`, {})).code,
     200,
@@ -70,9 +70,6 @@ test("Sessions numbers only the sessions that are not sub-sessions, the number k
       ["2", "Last"],
     ],
   );
-  // The closed session's mark sits in the number column, and each session
-  // that is not a sub-session sits further from the row above than a
-  // sub-session sits from its parent.
   const layout = await rows.evaluateAll((lines) => {
     const box = (element) => element.getBoundingClientRect();
     return {
@@ -94,7 +91,6 @@ test("Sessions numbers only the sessions that are not sub-sessions, the number k
     Math.min(closedGap, lastGap) > Math.max(ownSubGap, closedSubGap),
     `gaps above each row: ${layout.gaps.join(", ")}`,
   );
-  // With no buttons on its row, Closed ends in the Close column.
   const closedEnd = await rows
     .nth(2)
     .locator(".pill")

@@ -3,13 +3,13 @@ import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
-// Stand-ins for React, ReactDOM, Excalidraw and its Mermaid converter from
-// esm.sh, so the test runs offline. Like Excalidraw, the stand-in editor
-// starts from initialData, raises an element's version on each edit to it,
-// and calls onChange after each edit. A press, a drag and a release draw
-// one stroke, and the editor shows each element as a .stroke element with
-// its text, and its theme on the surface. The stand-in converter makes one
-// box labeled with the diagram's source.
+// These modules stand in for React, ReactDOM, Excalidraw and its Mermaid
+// converter from esm.sh, so the test runs offline. Like Excalidraw, the
+// stand-in editor starts from initialData, raises an element's version on each
+// edit to it, and calls onChange after each edit. A press, a drag and a release
+// draw one stroke. The stand-in editor renders each element as a .stroke
+// element with its text, and sets its theme on the surface. The stand-in
+// converter makes one box labeled with the diagram's source.
 const modules = {
   react:
     "export default { createElement: (type, props) => ({ type, props }) };",
@@ -76,8 +76,8 @@ const stubExcalidraw = (page) =>
         : url.includes("react-dom")
           ? "react-dom"
           : "react";
-    // The editor's frame is sandboxed, so its origin is null and its
-    // module imports are cross-origin.
+    // The editor's iframe is sandboxed, so its origin is null and its module
+    // imports are cross-origin.
     return route.fulfill({
       body: modules[name],
       contentType: "text/javascript",
@@ -95,13 +95,13 @@ test("a drawing the reviewer backs out of opens again as they left it, after a r
   <p class="renderer-error" data-drawing-error role="status" hidden></p>
 </section>`;
   assert.equal((await session.publish(plan)).code, 200);
-  // Chrome gives a sandboxed frame a process of its own, and the editor's
-  // srcdoc frame starts loading in it before Playwright routes its
-  // requests, so its first requests can reach the real esm.sh. A drag into
-  // a new frame's process can be lost too. Without site isolation the frame
-  // shares the page's process and routes. Chrome keeps only the last
-  // --disable-features switch, so disabling IsolateSandboxedIframes alone
-  // would drop the features Playwright disables.
+  // Chrome gives a sandboxed iframe a process of its own. The editor's srcdoc
+  // iframe starts loading in that process before Playwright routes its
+  // requests, so its first requests can reach the real esm.sh. Chrome can also
+  // lose a drag into a new iframe's process. Without site isolation, the iframe
+  // shares the page's process and routes. The test does not disable
+  // IsolateSandboxedIframes alone, because Chrome keeps only the last
+  // --disable-features switch and would drop the features Playwright disables.
   const page = await open(t, "about:blank", {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
@@ -126,7 +126,7 @@ test("a drawing the reviewer backs out of opens again as they left it, after a r
   await page.mouse.move(box.x + 160, box.y + 120, { steps: 5 });
   await page.mouse.up();
   assert.equal(await strokes.count(), 1);
-  // A tap on the backdrop, outside the dialog.
+  // The point (5, 5) is on the backdrop, outside the dialog.
   await page.touchscreen.tap(5, 5);
   await dialog.waitFor({ state: "hidden" });
 
@@ -147,7 +147,8 @@ test("Sketch on this diagram opens its boxes in the drawing editor in the frame'
   const source = "flowchart LR\n  gate --> details";
   plan.pages[0].html = `<div data-diagram data-caption="Payment flow">${source}</div>`;
   assert.equal((await session.publish(plan)).code, 200);
-  // The editor's frame shares the page's process, as the test above says.
+  // The switch keeps the editor's iframe in the page's process, for the reason
+  // the first test gives.
   const page = await open(t, "about:blank", {
     colorScheme: "dark",
     args: ["--disable-site-isolation-trials"],

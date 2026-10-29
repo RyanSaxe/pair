@@ -3,8 +3,6 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
-// Each choice in the Send popup: its value, its label and whether it is
-// selected.
 const choices = (page) =>
   page
     .locator("#send-choices [data-next]")
@@ -19,7 +17,6 @@ async function openPopup(page) {
   await page.locator("#submit").click();
   await page.locator("#send-dialog[open]").waitFor();
 }
-// The submission the agent reads once the hub has saved one.
 async function sent(session) {
   assert.equal(
     await waitUntil(
@@ -44,14 +41,13 @@ test("Send feedback opens a popup that starts on Keep iterating and sends the ch
   ]);
   const button = page.locator("#send-button");
   assert.equal(await page.locator("#send-label").textContent(), "Send");
-  // With no comments, the switch off and no message, the first choice
-  // sends nothing, and any other choice does.
+  // With no comments, the switch off and no message, the first choice has
+  // nothing to send, so the frame disables Send. Any other choice enables it.
   await page.locator("#align-unflagged").click();
   assert.equal(await button.isDisabled(), true);
   await page.locator('#send-choices [data-next="build"]').click();
   assert.equal(await button.isEnabled(), true);
   assert.equal(await page.locator("#send-label").textContent(), "Build it");
-  // The arrow keys move between the choices.
   await page.keyboard.press("ArrowUp");
   assert.equal(
     await page.evaluate(() => document.activeElement.dataset.next),
@@ -80,8 +76,6 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
   await page.locator("#send-message").fill("Plan the retry.");
   await page.locator("#send-button").click();
   assert.equal((await sent(session)).next, "plan");
-  // The plan round reaches the open tab, whose Agreed and Rounds panel
-  // mark it.
   assert.equal(
     (await session.publish({ ...planData("2"), plan: true })).code,
     200,
@@ -110,7 +104,6 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
     ["build", "Build it", "false"],
   ]);
   await page.keyboard.press("Escape");
-  // Round 1's Feedback lists the choice and the message with what was sent.
   await page.goto(`${h.server.origin}${session.base}/r/1#feedback`);
   const list = page.locator("#sent-feedback-list");
   await list.locator(".sent-card").first().waitFor();
@@ -132,9 +125,9 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
   );
 });
 
-// Plan it first has the card's own session plan before it builds, so it is
-// off with Here, and the card reads Planning until that session's reviewer
-// chooses Build it.
+// With Plan it first, the agent plans in the card's own session before it
+// builds, so the frame disables Plan it first when Here is selected. The card
+// shows Planning until the reviewer chooses Build it in that session.
 test("Plan it first is off with Here, and its card reads Planning until its session chooses Build it", async (t) => {
   const h = await hub(t);
   const parent = await h.session({ start: true });
@@ -173,8 +166,8 @@ test("Plan it first is off with Here, and its card reads Planning until its sess
   const state = page.locator("[data-proposal-card=deck] .card-state");
   await page.locator("#work-tab-running").click();
   await state.filter({ hasText: "Planning in a sub-session" }).waitFor();
-  // The sub-session's plan round waits for the reviewer, which the card
-  // says instead.
+  // While the sub-session's plan round waits for the reviewer, the card reads
+  // Waiting for you instead of Planning.
   assert.equal((await child.publish({ ...planData(), plan: true })).code, 200);
   await page.locator("#work-tab-needs").click();
   await state.filter({ hasText: "Waiting for you" }).waitFor();

@@ -10,8 +10,8 @@ import { buildPage } from "../../src/cli/build.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
 import { root, waitUntil } from "../support/hub.mjs";
 
-// Each figure's source element and what the frame draws into it. A diff
-// draws into the .change-view beside its input, in the same .change-review.
+// The frame draws a diff into the .change-view beside its input, inside the
+// same .change-review, instead of into the source element.
 const figures = {
   "[data-language]": { kind: "code", drawn: ".shiki" },
   "[data-diagram]": { kind: "diagram", drawn: "svg" },
@@ -22,7 +22,6 @@ const figures = {
 };
 const pageIds = ["decisions", "comparison", "figures", "slots"];
 
-// A figure on a visual decision's hidden tab is shown by clicking that tab.
 async function reveal(page, source) {
   const tab = await source.evaluate((element) => {
     const option = element.closest(".visual-option[hidden]");
@@ -79,7 +78,8 @@ for (const colorScheme of ["light", "dark"]) {
         );
         const { kind, drawn } = figures[selector];
         await reveal(page, source);
-        // "rendered", or the text of the figure's visible .renderer-error.
+        // The result is "rendered" or the text of the figure's visible
+        // .renderer-error.
         const result = await page
           .waitForFunction(
             ([source, drawn]) => {
@@ -102,8 +102,8 @@ for (const colorScheme of ["light", "dark"]) {
           `${pageId}, ${colorScheme}, ${kind} ${label}: ${result}`,
         );
       }
-      // The before-after and drawing components keep a hidden
-      // .renderer-error in their markup.
+      // The markup of the before-after and drawing components contains a hidden
+      // .renderer-error, so the test counts only visible ones.
       const errors = await page
         .locator("#page-content .renderer-error:visible")
         .allTextContents();
@@ -116,8 +116,8 @@ for (const colorScheme of ["light", "dark"]) {
   });
 }
 
-// A native parse error reaches pair through Pele's returned error handle
-// and onError callback. It must stay within its own figure.
+// Pele reports a parse error through its returned error handle and its onError
+// callback. The frame must show the error inside that figure only.
 test("a malformed diagram preserves its source without hiding another diagram or the rest of the page", async (t) => {
   const source = "flowchart LR\n  A[";
   const html = await assemble({
@@ -137,8 +137,8 @@ test("a malformed diagram preserves its source without hiding another diagram or
   await page.locator("#bad + .renderer-error:visible").waitFor();
   await page.locator("#good svg").waitFor();
   assert.equal(await page.locator("#bad").textContent(), source);
-  // The message quotes the source line with a caret under the column, which
-  // reads only with its line breaks.
+  // The error message quotes the source line with a caret under the column, and
+  // the caret lines up only when the frame keeps the line breaks.
   assert.match(await page.locator("#bad + .renderer-error").innerText(), /\n/);
   assert.equal(await page.locator("#readable").isVisible(), true);
   assert.equal(await page.locator("#bad .pele-error, body > svg").count(), 0);
@@ -214,7 +214,8 @@ test("a complex diagram opens at readable size and scrolls within its modal on d
   }
 });
 
-// The diff library loads from esm.sh, so this test runs with the figures.
+// The frame loads the diff library from esm.sh, so this test is in the figures
+// suite, which CI runs in its own job.
 test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's choice over data-wrap, and keeps split rows level", async (t) => {
   const prose = (end) =>
     `The client retries a failed charge with a delay between attempts, logs each attempt with its request ID, and ${end}.`.repeat(
@@ -251,8 +252,9 @@ test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's c
     viewport: { width: 1280, height: 900 },
   });
   if (!page) return;
-  // What the diff draws and what Wrap shows, read again until it matches or
-  // 30 seconds pass, so a failure names what the diff shows.
+  // wrapping reads what the diff draws and what Wrap shows. shows() reads them
+  // again until they match or 30 seconds pass, so a failure reports what the
+  // diff shows.
   const wrapping = (id) =>
     page.locator(`#${id}`).evaluate((section) => ({
       overflow: section
@@ -279,8 +281,6 @@ test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's c
   await page.reload();
   await shows("scroll", "wrap");
   await shows("wrap", "scroll");
-  // Side by side, each row of the before side and the row beside it on the
-  // proposed side share a top and a height, wrapped or not.
   await page.locator("#scroll [data-diff-style=split]").click();
   await page
     .locator("#scroll diffs-container")

@@ -5,9 +5,9 @@ import { buildPage } from "../../src/cli/build.mjs";
 import { open } from "../support/browser.mjs";
 import { hub, task } from "../support/hub.mjs";
 
-// The bold line at the top of a page the agent has not published, and the
-// grey line under it, once they read as given. An empty age is a grey line
-// that does not show.
+// reads waits until the bold line at the top of an unpublished page reads label
+// and the grey line under it reads age. An empty age means the grey line is
+// hidden.
 const reads = (page, label, age) =>
   page.waitForFunction(
     ([label, age]) => {
@@ -24,7 +24,7 @@ const reads = (page, label, age) =>
 test("a page the agent has not published shows its latest note and its age, which each poll updates over the same grey bars", async (t) => {
   const h = await hub(t);
   const session = await h.session();
-  // Agreed lists three pages, and the agent publishes none of them.
+  // Agreed lists three pages, and the test publishes none of them.
   const agreed = await buildPage(path.join(session.directory, "source.json"), {
     name: "example",
     round: "1",
@@ -45,7 +45,8 @@ test("a page the agent has not published shows its latest note and its age, whic
   if (!page) return;
   const go = (id) => page.locator(`#page-list [data-page="${id}"]`).click();
   await reads(page, "Measuring p99 latency", "Noted just now");
-  // A newer note leaves the round's page list as it was.
+  // A newer note must not redraw the page's .pending-skeleton, so the test
+  // checks that the same element is still connected afterward.
   await page
     .locator(".pending-skeleton")
     .evaluate((bars) => (window.bars = bars));

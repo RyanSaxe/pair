@@ -27,10 +27,10 @@ const pageHtml = `
   </details>
 </section>`;
 
-// Drags across the quote with the mouse, as a reviewer does, so the browser
-// reports the selection the way it reports a real one: from inside the
-// diff's shadow root, Chrome anchors it at the element around the shadow
-// host.
+// selectDiffText drags the mouse across the quote instead of setting a range,
+// so Chrome reports the selection as it reports a reviewer's. For a selection
+// inside the diff's shadow root, Chrome anchors it at the element around the
+// shadow host.
 async function selectDiffText(page, quote) {
   const view = page.locator(".change-view");
   const span = await view.evaluate((element, text) => {
