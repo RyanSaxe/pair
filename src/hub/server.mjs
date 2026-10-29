@@ -108,8 +108,8 @@ export async function startHub(config = settings()) {
             : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
       );
   const seen = await seenStore(config.seenFile, log);
-  // The session list answers with what the reviewer cleared, opened and
-  // saw, so a tab's one poll brings both.
+  // GET /api/sessions returns the three lists beside the sessions, so a
+  // tab's existing poll fetches both.
   const sessionList = async (req) => {
     if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
     const sessions = listed();

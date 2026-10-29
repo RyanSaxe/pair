@@ -1,10 +1,10 @@
 import { hubRecord } from "#frame/sync/record.mjs";
 
-/* Which pages the reviewer has opened, in every session on the hub, so a
-   session's row can count the pages not opened yet and its Pages list can
-   mark them New. The hub keeps it, so every browser on the hub, such as a
-   phone's, counts the same pages. Only the pages of each session's current
-   round are kept, because a past round shows no New marks. */
+/* The pages the reviewer has opened, in every session on the hub. The
+   session list counts each session's unopened pages from it, and the page
+   list marks those pages New. The hub keeps the list, so a phone and a
+   computer count the same pages. The list contains only the pages of each
+   session's current round, because a past round shows no New marks. */
 
 const opened = hubRecord("opened", "pair:pages:opened");
 
@@ -20,11 +20,11 @@ export function countUnopened(entry, opened) {
   if (!opened) return 0;
   return listedKeys(entry).filter((key) => !opened.has(key)).length;
 }
-// A browser with no record, on a hub with none, adopts every listed page as
-// opened, so the upgrade starts with no "new" counts.
+// When neither this browser nor the hub has a list, every listed page counts
+// as opened, so the first run after the upgrade shows no "new" counts.
 export const adoptOpened = (sessions) => new Set(sessions.flatMap(listedKeys));
-// After a listing from the hub, a page of a session the hub no longer lists,
-// or of a round a session has moved on from, is dropped.
+// After a listing from the hub, drops the pages of sessions the hub no
+// longer lists and of rounds a session has moved on from.
 export function settle(sessions, opened) {
   const rounds = new Map(
     sessions.map((entry) => [entry.id, entry.readyPages?.round]),
@@ -44,7 +44,7 @@ export function markOpened(sessionId, round, pageId) {
   if (!opened.load()) return false;
   return opened.add([pageKey(sessionId, round, pageId)]);
 }
-// hub is the hub's record of opened pages.
+// hub is the hub's list of opened pages.
 export function syncOpened(sessions, hub) {
   opened.sync(
     hub,

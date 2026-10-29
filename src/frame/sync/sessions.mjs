@@ -86,8 +86,8 @@ export function groupSessions(list) {
 export async function pollSessions() {
   let fromHub = false;
   let listed = [];
-  // What the hub keeps of the cleared lines, opened pages and seen cards.
-  // A hub before it kept them sends none.
+  // The hub's lists of cleared lines, opened pages and seen cards. A hub
+  // from before this change sends none.
   let seen = {};
   try {
     const response = await fetch("/api/sessions");

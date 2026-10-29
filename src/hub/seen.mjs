@@ -1,17 +1,17 @@
 import { atomic, read, requireValue, serializer } from "../shared/util.mjs";
 
-/* What the reviewer has already dealt with, kept by the hub for every
-   browser on it, so a phone and a computer show the same bell, sessions
-   badge and New marks. The frame names each ID: cleared holds the bell's
-   event IDs, opened holds session/round/page keys, and cards holds
-   session/card keys. A record is null until a browser first sends it,
-   because a browser with no record of its own then starts the hub's with
-   everything listed, and an upgrade starts with nothing new. */
+/* The hub keeps three lists of IDs for every browser on it, so a phone and
+   a computer show the same bell, sessions badge and New marks. `cleared`
+   contains the IDs of the bell events the reviewer cleared, `opened` a
+   session/round/page key for each page they opened, and `cards` a
+   session/card key for each proposal card Work showed them. A list is null
+   until a browser sends it. A browser with no list of its own then sends
+   every ID the session list shows, so the upgrade starts with nothing new. */
 export const records = ["cleared", "opened", "cards"];
 
-// The IDs that the session listing still shows, by the rules the frame
-// prunes its copy with: a cleared event the listing has, and a page of an
-// open session's current round or a card of an open session.
+// Drops each ID the session listing no longer shows, by the rules the frame
+// uses for its copy. It keeps a cleared event that the listing still has, a
+// page of an open session's current round, and a card of an open session.
 export function prune(record, sessions) {
   const events = new Set(
     sessions.flatMap((entry) => (entry.events || []).map(({ id }) => id)),
@@ -46,8 +46,9 @@ export async function seenStore(file, log) {
       log(`started without ${file}: ${error.message}`);
   }
   const write = serializer();
-  // The session list is whole only once the hub has loaded every session
-  // on disk, so until then the record keeps every ID.
+  // The hub answers requests before it has loaded every session from disk.
+  // It prunes only after loaded() runs, so a listing that lacks a session
+  // still loading drops none of that session's IDs.
   let whole = false;
   const pruned = (next, sessions) => (whole ? prune(next, sessions) : next);
   const keep = (next) => {
@@ -57,13 +58,13 @@ export async function seenStore(file, log) {
   };
   return {
     loaded: () => (whole = true),
-    // The record pruned against this listing, for the browser.
+    // Returns the lists, pruned against this listing.
     async view(sessions) {
       await keep(pruned(record, sessions));
       return record;
     },
-    // A browser adds the IDs it cleared, opened or saw. A record the hub
-    // has not kept yet starts with them, even with none.
+    // Adds the IDs a browser sends. A list that was null becomes the IDs
+    // sent, even an empty list, so the hub records that a browser started it.
     async add(data, sessions) {
       requireValue(
         data &&

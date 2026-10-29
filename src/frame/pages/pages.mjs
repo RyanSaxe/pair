@@ -280,9 +280,9 @@ function addPageButton(item) {
   $("page-list").append(button);
 }
 let pageList;
-/* New marks each ready page of the live current round that no browser on
-   the hub has opened, and the ready page on screen counts as opened. Returns
-   the opened pages, or null where no page is marked. */
+/* The page list marks New each ready page of the live current round that
+   no browser on the hub has opened, and counts the page on screen as
+   opened. Returns the opened pages, or null when the list marks no page. */
 function newMarks(listed) {
   if (!editable || listed.tab !== "current" || listed.waiting) return null;
   if (listed.tab !== selectedTab) return openedPages();

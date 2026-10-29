@@ -279,10 +279,11 @@ export function cardElement(card, shown = context(), fresh = false) {
   return root;
 }
 
-/* New: a card in a live session that Work has not had on screen in any
-   browser on the hub, unless it is in Done. A card on a page counts as seen only once
-   Work shows it. On Work, a card keeps the label until Work opens again, so
-   it does not lose it while the reviewer reads it. */
+/* Work labels a card New when the card is in a live session and not in
+   Done, and Work has not shown it in any browser on the hub. A card shown on
+   a page does not count. Work keeps the label on a card it is showing until
+   Work opens again, so the label does not vanish while the reviewer reads
+   the card. */
 const labelled = (card) => cardsEditable() && !finished(card);
 const unseen = (card, seen) =>
   labelled(card) &&

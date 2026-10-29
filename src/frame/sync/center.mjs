@@ -62,8 +62,8 @@ export function acknowledgeReply(threadId, message, acknowledged) {
         event.acknowledged = acknowledged;
   renderCenter(latest, false);
 }
-// The removed IDs after a listing from the hub. An ID the hub no longer
-// lists never returns, so it goes.
+// Drops each cleared ID that the hub's listing no longer shows. An event the
+// hub stops listing never comes back, so its ID is no longer needed.
 export const settleCleared = (listed, cleared) =>
   new Set([...cleared].filter((id) => listed.includes(id)));
 
@@ -119,8 +119,8 @@ export const unreadCards = () =>
       )
       .map((event) => event.proposal),
   );
-// fromHub says the sessions came from the hub, so an ID they lack is gone
-// for good, and hub is the hub's record of removed IDs.
+// fromHub is true when the sessions came from the hub, so an event they
+// lack is gone for good. hub is the hub's list of cleared IDs.
 export function renderCenter(sessions, fromHub, hub) {
   latest = sessions;
   if (fromHub) {
@@ -135,8 +135,9 @@ export function renderCenter(sessions, fromHub, hub) {
       own && document.visibilityState === "visible"
         ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
         : [];
-    // A browser with no record, on a hub with none, removes every listed
-    // event, so the change starts with an empty bell.
+    // When neither this browser nor the hub has a list, every listed event
+    // counts as cleared, so the first run after the upgrade shows an empty
+    // bell.
     cleared.sync(
       hub,
       (ids) => {
@@ -229,7 +230,7 @@ export function installCenter() {
   installPanel($("center-pop"), $("bell"));
   $("center-pop").addEventListener("toggle", drawCenter);
   $("center-clear-all").onclick = () => clear(lines.map(({ id }) => id));
-  // Another tab in this browser removed a line.
+  // Another tab in this browser cleared a line.
   window.addEventListener("storage", (event) => {
     if (cleared.isChange(event)) renderCenter(latest, false);
   });

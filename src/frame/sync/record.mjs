@@ -1,16 +1,16 @@
-/* One set of IDs that the hub keeps for every browser on it, such as the
-   bell lines the reviewer cleared, and the copy in this browser's storage.
-   The copy keeps a tab working while the hub is unreachable, and its
-   storage event redraws the other tabs of this browser at once. Other
-   browsers, such as a phone's, read the hub's set on their next poll of the
-   session list. name is the set's name on the hub. Null means neither the
-   hub nor this browser has recorded anything. */
+/* One of the hub's lists of IDs, such as the bell events the reviewer
+   cleared, with a copy in this browser's localStorage. A tab reads the copy
+   while the hub is unreachable, and writing the copy fires a storage event
+   that redraws this browser's other tabs at once. Other browsers, such as a
+   phone's, read the hub's list on their next poll of the session list.
+   `name` is the list's name on the hub. A null list means neither the hub
+   nor this browser has recorded anything yet. */
 const same = (a, b) => a.size === b.size && [...a].every((id) => b.has(id));
 export function hubRecord(name, storageKey, changed = () => {}) {
-  // The copy, kept here too when browser storage is unavailable.
+  // A copy in memory, for when localStorage is unavailable.
   let fallback = null;
-  // Whether a session list has come from the hub, and whether that hub
-  // keeps the set, so a change can go to it.
+  // listed: a session list has come from the hub. kept: that hub keeps
+  // this list, so send() can post to it.
   let listed = false;
   let kept = false;
   function load() {
@@ -18,7 +18,7 @@ export function hubRecord(name, storageKey, changed = () => {}) {
       const saved = localStorage.getItem(storageKey);
       if (saved !== null) return new Set(JSON.parse(saved));
     } catch {
-      /* Storage is blocked; the copy below is this tab's. */
+      /* localStorage is blocked, so this tab uses the copy in memory. */
     }
     return fallback && new Set(fallback);
   }
@@ -27,12 +27,12 @@ export function hubRecord(name, storageKey, changed = () => {}) {
     try {
       localStorage.setItem(storageKey, JSON.stringify(fallback));
     } catch {
-      /* Keep the copy above. */
+      /* localStorage is blocked; the copy in memory still has the IDs. */
     }
     changed();
   }
-  // An ID that does not reach the hub stays in the copy, and the next
-  // session list sends it again.
+  // When a post fails, the IDs stay in the copy, and sync() posts them again
+  // after the next session list.
   function send(ids) {
     if (!kept) return;
     fetch("/api/seen", {
@@ -56,19 +56,20 @@ export function hubRecord(name, storageKey, changed = () => {}) {
       send(fresh);
       return true;
     },
-    // A browser with no record, on a hub with none, starts it with ids.
+    // When neither this browser nor the hub has a list, starts both with ids.
     adopt(ids) {
       if (!listed || load()) return;
       store(new Set(ids));
       send([...ids]);
     },
-    /* After a session list from the hub. hub is the hub's set: null when
-       the hub has none yet, and undefined from a hub that keeps none.
-       settle drops what the list no longer shows and adds what the tab
-       counts as seen, and adopt is the set a browser with no record starts
-       with. The IDs this browser has and the hub lacks, such as its record
-       from before the hub kept one or a change made while the hub was
-       unreachable, go to the hub. */
+    /* Runs after each session list from the hub. hub is the hub's list:
+       null when no browser has sent one, and undefined from an older hub
+       that keeps no lists. settle(ids) drops the IDs the session list no
+       longer shows and adds the ones this tab counts as seen. adopt()
+       returns the IDs to start with when neither this browser nor the hub
+       has a list. sync() then posts every ID this browser has and the hub
+       lacks, such as IDs from before the hub kept lists, or from a time the
+       hub was unreachable. */
     sync(hub, settle, adopt = () => null) {
       listed = true;
       kept = hub !== undefined;
