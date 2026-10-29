@@ -46,18 +46,9 @@ test("the build's language list is the one for the Shiki the frame loads", async
   assert.equal(frame.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
 });
 
-test("page tabs leave the reader in place, while round choices open a page", async () => {
-  const events = await read("app/events.mjs");
-  const tabClick = events.slice(
-    events.indexOf('const tab = event.target.closest("button[data-tab]");'),
-    events.indexOf('const navigation = event.target.closest("[data-page]");'),
-  );
-  assert.match(
-    tabClick,
-    /switchTab\(tab\.dataset\.tab, null, \{ showPage: false \}\);/,
-  );
-  assert.doesNotMatch(tabClick, /\bshow\(/);
-
+// tests/browser/navigation.browser.mjs checks that a page tab leaves the
+// page on screen.
+test("round choices open a page", async () => {
   const panel = await read("sync/rounds-panel.mjs");
   const roundClick = panel.slice(
     panel.indexOf("row.onclick = () => {"),
