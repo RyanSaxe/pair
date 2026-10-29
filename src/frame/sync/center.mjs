@@ -37,7 +37,7 @@ const storageKey = "pair:bell:cleared";
 // The removed IDs, kept here too when browser storage is unavailable. Null
 // means this browser has never recorded anything.
 let fallback = null;
-function loadCleared() {
+export function loadCleared() {
   try {
     const saved = localStorage.getItem(storageKey);
     if (saved !== null) return new Set(JSON.parse(saved));
@@ -53,7 +53,9 @@ function store(ids) {
   } catch {
     /* Keep the copy above. */
   }
+  window.dispatchEvent(new CustomEvent("pair:cleared"));
 }
+export const isClearedChange = (event) => event.key === storageKey;
 function clear(ids) {
   const cleared = loadCleared() || new Set();
   for (const id of ids) cleared.add(id);
