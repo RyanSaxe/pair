@@ -46,6 +46,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
       - run: npm ci
       # The script writes no PNG and exits with an error when it cannot
       # stage a picture, which fails the job. In that case it also saves a
