@@ -64,7 +64,7 @@ test("PAIR_HUB_HOST refuses every spelling of the unspecified address", () => {
     "::ffff:0.0.0.0",
   ])
     assert.throws(() => settings({ PAIR_HUB_HOST: host }), {
-      message: `PAIR_HUB_HOST is ${host}, which would make the hub reachable from every network this machine is on. Set it to one address, such as this machine's Tailscale IP.`,
+      message: `PAIR_HUB_HOST is ${host}, which would make the hub reachable from every network this machine is on. Set it to this machine's address on a network you trust.`,
     });
   for (const host of ["100.64.1.2", "fd7a:115c:a1e0::1", "mac.tail1.ts.net"])
     assert.equal(settings({ PAIR_HUB_HOST: host }).host, host);

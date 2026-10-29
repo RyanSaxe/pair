@@ -90,7 +90,7 @@ export function settings(env = process.env) {
   );
   requireValue(
     !env.PAIR_HUB_HOST || !isUnspecified(env.PAIR_HUB_HOST),
-    `PAIR_HUB_HOST is ${env.PAIR_HUB_HOST}, which would make the hub reachable from every network this machine is on. Set it to one address, such as this machine's Tailscale IP.`,
+    `PAIR_HUB_HOST is ${env.PAIR_HUB_HOST}, which would make the hub reachable from every network this machine is on. Set it to this machine's address on a network you trust.`,
   );
   const seconds = (name, fallback) => {
     if (env[name] === undefined) return fallback;
