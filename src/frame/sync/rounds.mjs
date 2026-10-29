@@ -348,19 +348,53 @@ export function currentDraft() {
   if (view?.draft) return view.draft;
   return savedDraft(remote.current.round);
 }
+// The tab whose round the sidebar lists. Clicking a tab lists its round's
+// pages and leaves the page on screen in its own round, with that round's
+// draft and threads, until the reader picks a page from the list.
+export let listedTab = "current";
+const tabAvailable = (tab) =>
+  tab === "current"
+    ? currentShown() || submissionInFlight
+    : tab !== "past" || pastAvailable();
+const viewFor = (tab) => {
+  const round = tab === "current" ? remote.current.round : pastRound;
+  return tab === "current" && (waiting() || submissionInFlight)
+    ? waitingView(round)
+    : views.get(round);
+};
+// The pages the sidebar lists, from the view on screen or the other tab's.
+export function listedPages() {
+  if (listedTab === selectedTab)
+    return {
+      tab: selectedTab,
+      round: plan.round,
+      pages,
+      waiting: showingWaiting(),
+    };
+  const view = viewFor(listedTab);
+  return {
+    tab: listedTab,
+    round: view.plan.round,
+    pages: view.pages,
+    waiting: listedTab === "current" && Boolean(view.pages[0]?.waiting),
+  };
+}
+export function listTab(tab) {
+  if (!tabAvailable(tab)) return;
+  listedTab = tab;
+  updateNavigation(true);
+  review();
+}
 // Each tab reopens its round at the page and scroll position the reader
 // left, or at Agreed on a first visit.
 export function switchTab(tab, targetId = null, { showPage = true } = {}) {
-  if (tab === "current" && !currentShown() && !submissionInFlight) return;
-  if (tab === "past" && !pastAvailable()) return;
+  if (!tabAvailable(tab)) return;
   flushPlace();
   const round = tab === "current" ? remote.current.round : pastRound;
-  const view =
-    tab === "current" && (waiting() || submissionInFlight)
-      ? waitingView(round)
-      : views.get(round);
+  const view = viewFor(tab);
   views.get(plan.round).draft = state;
   selectedTab = tab;
+  listedTab = tab;
   useView(view);
   document.title = plan.title;
   // The waiting view has no draft of its own; it holds the sent round's.

@@ -89,8 +89,12 @@ All six are optional.
 | `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files and moment files from its `pair/` folder.                                                |
 
 The hub's browser routes need no token, so the hub only listens on an extra
-address when you set `PAIR_HUB_HOST`. The routes that agents use need the
-session's bearer token on every address.
+address when you set `PAIR_HUB_HOST`. Anyone who can reach that address can
+read your sessions and send feedback that your agent acts on as yours, so set
+it only to an address on a network you trust, such as your own Tailscale IP.
+pair refuses `0.0.0.0` and `::`, which would make the hub reachable from every
+network the machine is on. The routes that agents use need the session's
+bearer token on every address.
 
 A Codex from version 0.160 started with no `-c` override runs the agent's
 commands on its app-server daemon, with the daemon's environment, so a variable

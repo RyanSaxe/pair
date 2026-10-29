@@ -1,4 +1,5 @@
 import { $, copyText, installPanel } from "#frame/app/util.mjs";
+import { libraries } from "#shared/libraries.mjs";
 
 let systemTheme;
 let preferredTheme = null;
@@ -54,7 +55,7 @@ export function track(task) {
 }
 export const syntaxThemes = { light: "github-light", dark: "github-dark" };
 
-/* The height @pierre/diffs 1.4.2 gives a diff that it draws from a patch
+/* The height @pierre/diffs 1.6.2 gives a diff that it draws from a patch
    alone, with overflow "scroll", as measured in Chromium and WebKit. Each
    row is 22px, and the rows have 8px of space above and below. Before each
    hunk that does not start at the line after the previous one stands an
@@ -140,14 +141,7 @@ export function disposeRenderers() {
 }
 
 /* Renderers and figures */
-export const libraries = {
-  shiki: "https://esm.sh/shiki@3.12.2",
-  diffs: "https://esm.sh/@pierre/diffs@1.4.2?bundle",
-  pele: "https://cdn.jsdelivr.net/npm/pele@1.6.0/dist/pele.js",
-  katex: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js",
-  katexCss: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
-  echarts: "https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js",
-};
+export { libraries };
 const scripts = new Map();
 let diffsTask;
 let peleTask;

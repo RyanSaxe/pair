@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { moduleIntegrity } from "../shared/libraries.mjs";
 import { readPlanData } from "../shared/records.mjs";
 import { jsonScript, jsonScriptTag, scriptJson } from "../shared/util.mjs";
 import {
@@ -124,7 +125,7 @@ function moduleScript({ modules, componentJs }) {
       `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
   }
   return (
-    `<script type="importmap">\n${JSON.stringify({ imports })}\n</script>\n` +
+    `<script type="importmap">\n${JSON.stringify({ imports, integrity: moduleIntegrity })}\n</script>\n` +
     `<script type="module">\n` +
     `import { ${componentNames.join(", ")} } from "#frame/app/registry.mjs";\n` +
     `import "#frame/app/boot.mjs";\n${componentJs}\n</script>`

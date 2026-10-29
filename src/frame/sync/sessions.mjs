@@ -1,8 +1,13 @@
 import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
 import { mode, online, session } from "#frame/app/view.mjs";
-import { installCenter, renderCenter } from "#frame/sync/center.mjs";
-import { createReviewAlerts } from "#frame/sync/notifications.mjs";
+import {
+  installCenter,
+  isClearedChange,
+  loadCleared,
+  renderCenter,
+} from "#frame/sync/center.mjs";
+import { announced, createReviewAlerts } from "#frame/sync/notifications.mjs";
 import {
   countUnopened,
   isOpenedChange,
@@ -29,10 +34,12 @@ export function installSessions() {
   });
   installCenter();
   installPanel($("sessions-pop"), $("menu-button"));
-  // This tab or another one on the hub opened a page.
+  // This tab or another one on the hub opened a page or saw a waiting
+  // round.
   window.addEventListener("pair:opened", renderSessions);
+  window.addEventListener("pair:cleared", renderSessions);
   window.addEventListener("storage", (event) => {
-    if (isOpenedChange(event)) renderSessions();
+    if (isOpenedChange(event) || isClearedChange(event)) renderSessions();
   });
 }
 export function status() {
@@ -128,19 +135,30 @@ export function rowStatus(entry, unopened = 0) {
     return { text: "Working", tone: "working" };
   return null;
 }
-/* The sessions button's badge counts the other sessions that need you: a
-   round waiting for you or an agent that could not be woken, which turns
-   it orange, or pages this browser has not opened, which turn it blue
-   when nothing waits. When no other session needs you, it counts the
-   other live sessions in grey. This tab's session never counts. */
-export function sessionsBadge(list, thisId, unopened) {
+/* The sessions button's badge counts the other sessions with something
+   you have not seen: a waiting round whose line the bell still lists, or
+   an agent that could not be woken, which turn it orange, or pages this
+   browser has not opened, which turn it blue when nothing else counts.
+   The bell drops a waiting round's line once a visible tab has shown its
+   session, so a round you opened stops counting until its agent publishes
+   again. With nothing to count, it counts the other live sessions in
+   grey. This tab's session never counts. cleared is the bell's record of
+   removed events. */
+export function sessionsBadge(list, thisId, unopened, cleared) {
   const others = list.filter((entry) => entry.id !== thisId);
-  const waits = (entry) => entry.needsYou || entry.wakeFailed;
-  const needing = others.filter((entry) => waits(entry) || unopened(entry));
-  if (!needing.length) return { count: others.length, tone: "" };
+  const waits = (entry) =>
+    entry.wakeFailed ||
+    (entry.events || []).some(
+      (event) =>
+        event.kind === "waiting" &&
+        announced(entry, event) &&
+        !cleared?.has(event.id),
+    );
+  const unseen = others.filter((entry) => waits(entry) || unopened(entry));
+  if (!unseen.length) return { count: others.length, tone: "" };
   return {
-    count: needing.length,
-    tone: needing.some(waits) ? "need" : "news",
+    count: unseen.length,
+    tone: unseen.some(waits) ? "need" : "news",
   };
 }
 // The next session after this one, in list order and wrapping to the top,
@@ -346,6 +364,7 @@ function renderSessions() {
     sessionOrder,
     session.sessionId,
     unopened,
+    loadCleared(),
   );
   menu.classList.toggle("need", tone === "need");
   menu.classList.toggle("news", tone === "news");

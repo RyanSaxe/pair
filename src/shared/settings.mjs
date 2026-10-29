@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,16 +43,61 @@ const packageJson = JSON.parse(
 // The release, which the release workflow sets with npm version. A clone
 // has 0.0.0-development.
 export const packageVersion = packageJson.version;
-// The oldest Node pair supports, from engines.node in package.json.
-export const oldestNode = packageJson.engines.node.replace(">=", "");
-export function requireNode() {
-  const parts = (release) => release.split(".").map(Number);
-  const [running, oldest] = [parts(process.versions.node), parts(oldestNode)];
-  const differs = running.findIndex((part, index) => part !== oldest[index]);
-  requireValue(
-    differs === -1 || running[differs] > oldest[differs],
-    `Node ${oldestNode} or newer is required`,
+// engines.node in package.json names the oldest release pair supports on each
+// Node line: ^X.Y.Z for line X alone, and >=X.Y.Z for line X and every later
+// line.
+const floors = packageJson.engines.node.split("||").map((range) => {
+  const match = /^\s*(\^|>=)((\d+)\.\d+\.\d+)\s*$/.exec(range);
+  if (!match)
+    throw new Error(
+      `engines.node in package.json has a range pair cannot read: ${range.trim()}`,
+    );
+  return {
+    release: match[2],
+    line: Number(match[3]),
+    later: match[1] === ">=",
+  };
+});
+const parts = (release) => release.split(".").map(Number);
+// The floor of the running Node's line, or undefined for a line that pair
+// does not support.
+export function nodeFloor() {
+  const line = parts(process.versions.node)[0];
+  return floors.find(
+    (floor) => floor.line === line || (floor.later && line > floor.line),
   );
+}
+export function requireNode() {
+  const running = process.versions.node;
+  const floor = nodeFloor();
+  const supported = floors.map(({ release, line, later }) =>
+    later ? `${release} or newer` : `${release} or newer in ${line}`,
+  );
+  requireValue(
+    floor,
+    `Node ${running} is not supported. Use Node ${new Intl.ListFormat("en", { type: "disjunction" }).format(supported)}.`,
+  );
+  const [have, need] = [parts(running), parts(floor.release)];
+  const differs = have.findIndex((part, index) => part !== need[index]);
+  requireValue(
+    differs === -1 || have[differs] > need[differs],
+    `Node ${running} is missing security fixes that Node released in ${floor.release}. Update Node to ${floor.release} or newer.`,
+  );
+}
+// The unspecified addresses, on which a listening hub accepts connections
+// from every network the machine is on. The BlockList matches every spelling
+// of ::, including ::ffff:0.0.0.0.
+const unspecified = new net.BlockList();
+unspecified.addAddress("0.0.0.0", "ipv4");
+unspecified.addAddress("::", "ipv6");
+function isUnspecified(host) {
+  const bare = host.replace(/^\[(.*)\]$/, "$1");
+  if (net.isIPv6(bare)) return unspecified.check(bare, "ipv6");
+  // Node's listen binds 0, 0.0 and 0x0 as 0.0.0.0, and new URL parses them
+  // to 0.0.0.0.
+  const url = `http://${bare}`;
+  const address = URL.canParse(url) ? new URL(url).hostname : bare;
+  return net.isIPv4(address) && unspecified.check(address, "ipv4");
 }
 export function settings(env = process.env) {
   const root = path.join(stateHome(env), "pair");
@@ -71,6 +117,10 @@ export function settings(env = process.env) {
     env.PAIR_WAKE !== "off" ||
       root !== path.join(os.homedir(), ".local", "state", "pair"),
     "Set PAIR_WAKE=off only for a scratch hub, and give that hub its own XDG_STATE_HOME.",
+  );
+  requireValue(
+    !env.PAIR_HUB_HOST || !isUnspecified(env.PAIR_HUB_HOST),
+    `PAIR_HUB_HOST is ${env.PAIR_HUB_HOST}, which would make the hub reachable from every network this machine is on. Set it to this machine's address on a network you trust.`,
   );
   const seconds = (name, fallback) => {
     if (env[name] === undefined) return fallback;

@@ -25,6 +25,8 @@ export function emptyDraft(round) {
     // each drawing question's drawing since it was last saved.
     drafts: {},
     noteDrafts: {},
+    // The text and images in each thread's Reply field, by thread ID.
+    replyDrafts: {},
     submitted: null,
     pending: null,
   };

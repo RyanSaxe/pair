@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import { release } from "node:os";
 import { chromium, webkit } from "playwright-core";
+import { libraries, moduleIntegrity } from "../../src/shared/libraries.mjs";
 import "./env.mjs";
 
 // launch() throws one of these when the browser is not installed. open()
@@ -76,7 +78,21 @@ const pele = `export function mount(element, source, options = {}) {
   return { result, error: null, destroy() { element.replaceChildren(); } };
 };`;
 
-export const stubPele = (page) =>
-  page.route(/pele@[^/]+\/dist\/pele\.js$/, (route) =>
+const peleHash = `sha384-${createHash("sha384").update(pele).digest("base64")}`;
+
+// The hub's pages carry Pele's hash in their import map, so the stand-in
+// loads only where each page names the stand-in's hash instead.
+export async function stubPele(page) {
+  await page.route(/^http:\/\/127\.0\.0\.1:\d+\//, async (route) => {
+    if (route.request().resourceType() !== "document") return route.fallback();
+    const response = await route.fetch();
+    const body = (await response.text()).replaceAll(
+      moduleIntegrity[libraries.pele],
+      peleHash,
+    );
+    return route.fulfill({ response, body });
+  });
+  await page.route(/pele@[^/]+\/dist\/pele\.js$/, (route) =>
     route.fulfill({ body: pele, contentType: "text/javascript" }),
   );
+}

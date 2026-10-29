@@ -228,7 +228,7 @@ export function linkProblems(html, at, targets) {
  * With authoring false, it leaves out the rules that were added or changed
  * after an older pair build checked a stored page, so that page is never
  * held to them: the bare < in code, the option label limit, the checks on
- * each control's options, and data-lines. */
+ * each control's options, data-lines, and an img whose src is a file path. */
 export function problems(
   data,
   js = "",
@@ -300,6 +300,13 @@ export function problems(
           `${at}: data-language "${language}" is not a language Shiki highlights. ${closest ? `Did you mean "${closest}"?` : "Use a Shiki language ID, such as ts, python, shell or text."}`,
         );
       }
+      // The hub serves a round's pages and no file beside them, so an image
+      // at a path shows as a broken image.
+      const source = tag.name === "img" ? attribute(tag, "src")?.trim() : "";
+      if (authoring && source && !/^(?:data:|https?:|\/\/)/i.test(source))
+        list.push(
+          `${at}: img src "${source}" is a file path, which the hub does not serve. Embed the image in src as a data: URI.`,
+        );
       const prototype = attribute(tag, "data-prototype");
       if (prototype !== undefined && !prototypes.has(prototype))
         list.push(`${at}: prototype "${prototype}" does not exist`);

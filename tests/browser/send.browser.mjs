@@ -185,3 +185,34 @@ test("Plan it first is off with Here, and its card reads Planning until its sess
   await page.locator("#work-tab-running").click();
   await state.filter({ hasText: "Working" }).waitFor();
 });
+
+test("the Send popup links to a typed answer until Answer adds it", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const data = planData();
+  data.pages[0].html = `<section class="question" data-question="limit" data-label="Retry limit" data-state="open">
+  <h3>How many retries?</h3>
+  <textarea rows="2" aria-label="Your answer"></textarea>
+  <p class="answer-text" hidden></p>
+  <div class="answer-actions"><button type="button" class="btn primary" data-answer>Answer</button><button type="button" class="btn" data-edit hidden>Edit</button></div>
+</section>`;
+  assert.equal((await session.publish(data)).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const question = page.locator('[data-question="limit"]');
+  await question.getByRole("textbox").fill("Three");
+  await openPopup(page);
+  assert.equal(
+    await page.locator("#send-not-added-count").textContent(),
+    "1 typed answer is not added",
+  );
+  const link = page.locator("#send-not-added-list a");
+  assert.equal(await link.textContent(), "Retry limit");
+  await link.click();
+  await page.locator("#send-dialog").waitFor({ state: "hidden" });
+  assert.equal(new URL(page.url()).hash, "#overview");
+  await question.getByRole("button", { name: /Answer/ }).click();
+  await question.locator(".answer-text").waitFor({ state: "visible" });
+  await openPopup(page);
+  assert.equal(await page.locator("#send-not-added").isHidden(), true);
+});

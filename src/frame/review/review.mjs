@@ -23,7 +23,7 @@ import {
 } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
-import { forgetImages } from "#frame/notes/note-dialog.mjs";
+import { forgetImages } from "#frame/notes/images.mjs";
 import { known, openNote, stale } from "#frame/notes/notes.mjs";
 import { tag } from "#frame/pages/agreed.mjs";
 import {
@@ -43,6 +43,7 @@ import {
   connected,
   currentDraft,
   lastSubmission,
+  listedTab,
   remote,
   selectedTab,
   sentByRound,
@@ -408,9 +409,20 @@ export function review() {
   const locked = sent || submissionInFlight || submittedCurrent();
   $("draft-head").hidden = unsent.count === 0;
   $("draft-count").textContent = `${draftedWords(state)} to send`;
-  badge(locked ? 0 : unsent.count);
+  // The sidebar's last row belongs to the round the sidebar lists, which
+  // a tab click can make the other tab's round.
+  const listedSent = listedTab === "past" || mode === "readonly";
+  badge(
+    listedTab === selectedTab
+      ? locked
+        ? 0
+        : unsent.count
+      : listedSent
+        ? 0
+        : unsentItems(currentDraft()).count,
+  );
   const reviewLabel = $("review-row")?.querySelector("span");
-  if (reviewLabel) reviewLabel.textContent = sent ? "Feedback" : "Review";
+  if (reviewLabel) reviewLabel.textContent = listedSent ? "Feedback" : "Review";
   $("feedback-title").textContent = sent
     ? "Feedback"
     : submissionInFlight

@@ -22,7 +22,12 @@ import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
-import { switchTab } from "#frame/sync/rounds.mjs";
+import {
+  listTab,
+  listedTab,
+  selectedTab,
+  switchTab,
+} from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
@@ -89,7 +94,7 @@ export function installEvents() {
     }
     const tab = event.target.closest("button[data-tab]");
     if (tab) {
-      switchTab(tab.dataset.tab, null, { showPage: false });
+      listTab(tab.dataset.tab);
       return;
     }
     // The address's # part names the page on screen, so a link to a section
@@ -108,6 +113,9 @@ export function installEvents() {
     const navigation = event.target.closest("[data-page]");
     if (navigation) {
       event.preventDefault();
+      // A page picked from the other tab's list opens in that tab's round.
+      if (listedTab !== selectedTab && $("page-list").contains(navigation))
+        switchTab(listedTab, null, { showPage: false });
       show(navigation.dataset.page);
     }
     if (!feedbackEditable()) return;

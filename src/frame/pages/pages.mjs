@@ -50,6 +50,7 @@ import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
+  listedPages,
   loadPageRecord,
   pageStatus,
   selectedTab,
@@ -240,7 +241,7 @@ export function renderFooter(feedback) {
 
 // Agreed so far reads before the pages, and Review or Feedback after them,
 // each behind a separator.
-function separator() {
+export function separator() {
   const divider = document.createElement("div");
   divider.className = "separator";
   divider.setAttribute("role", "separator");
@@ -282,8 +283,10 @@ let pageList;
 /* New marks each ready page of the live current round that this browser
    has not opened, and the ready page on screen counts as opened. Returns
    the opened pages, or null where no page is marked. */
-function newMarks() {
-  if (!editable || !current() || showingWaiting()) return null;
+function newMarks(listed) {
+  if (!editable || listed.tab !== "current" || listed.waiting) return null;
+  if (listed.tab !== selectedTab) return openedPages();
+  if (!current()) return null;
   const onScreen = pages.find((item) => item.id === visiblePageId());
   if (
     onScreen &&
@@ -294,21 +297,22 @@ function newMarks() {
   return openedPages();
 }
 export function updateNavigation(force = false) {
+  const listed = listedPages();
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
   $("past-tab").textContent = olderPast() ? `Round ${pastRound}` : "Last round";
   for (const tab of ["past", "current"])
-    $(`${tab}-tab`).setAttribute("aria-selected", String(selectedTab === tab));
+    $(`${tab}-tab`).setAttribute("aria-selected", String(listed.tab === tab));
   if (
     force ||
-    pageList.dataset.round !== plan.round ||
-    pageList.dataset.tab !== selectedTab
+    pageList.dataset.round !== listed.round ||
+    pageList.dataset.tab !== listed.tab
   ) {
     pageList.replaceChildren();
-    addPageButton(pages[0]);
+    addPageButton(listed.pages[0]);
     // The waiting Current lists Agreed alone.
-    if (!showingWaiting()) pageList.append(separator());
-    for (const item of pages.slice(1)) addPageButton(item);
+    if (!listed.waiting) pageList.append(separator());
+    for (const item of listed.pages.slice(1)) addPageButton(item);
     // Work sits above Review, with two numbers: the proposed cards, then
     // the cards that need the reviewer at the row's right edge.
     if (hasWork()) {
@@ -329,22 +333,22 @@ export function updateNavigation(force = false) {
       work.append(label, counts);
       pageList.append(separator(), work);
     }
-    if (hasFeedbackPage && !showingWaiting()) {
+    if (hasFeedbackPage && !listed.waiting) {
       const review = document.createElement("button");
       review.type = "button";
       review.id = "review-row";
       review.dataset.page = "feedback";
       const label = document.createElement("span");
       label.textContent =
-        editable && selectedTab === "current" ? "Review" : "Feedback";
+        editable && listed.tab === "current" ? "Review" : "Feedback";
       const total = document.createElement("b");
       total.className = "count";
       total.hidden = true;
       review.append(label, total);
       pageList.append(separator(), review);
     }
-    pageList.dataset.round = plan.round;
-    pageList.dataset.tab = selectedTab;
+    pageList.dataset.round = listed.round;
+    pageList.dataset.tab = listed.tab;
   }
   const workRow = $("work-row");
   if (workRow) {
@@ -369,8 +373,8 @@ export function updateNavigation(force = false) {
       ].join(", "),
     );
   }
-  const opened = newMarks();
-  for (const item of pages) {
+  const opened = newMarks(listed);
+  for (const item of listed.pages) {
     const button = [...pageList.querySelectorAll("[data-page]")].find(
       (node) => node.dataset.page === item.id,
     );
@@ -383,7 +387,7 @@ export function updateNavigation(force = false) {
     const fresh =
       complete &&
       Boolean(opened) &&
-      !opened.has(pageKey(session.sessionId, plan.round, item.id));
+      !opened.has(pageKey(session.sessionId, listed.round, item.id));
     const mark = button.querySelector(".page-new");
     if (fresh && !mark) {
       const label = document.createElement("span");
@@ -397,7 +401,7 @@ export function updateNavigation(force = false) {
     );
   }
   for (const button of pageList.querySelectorAll("[data-page]"))
-    if (button.dataset.page === visiblePageId())
+    if (listed.tab === selectedTab && button.dataset.page === visiblePageId())
       button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
 }
