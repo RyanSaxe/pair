@@ -41,6 +41,7 @@ export async function read(options) {
       closed && "read-closed",
     ].filter(Boolean),
     data: [
+      standingText(result.status),
       result.event
         ? result.event.payload.intent === "start"
           ? startText(result.event, result.proposal, cards)
@@ -302,11 +303,37 @@ function leftText(card, directory) {
   return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";
 }
 
+// The Round and Latest submission rows, which pair status and pair read
+// print.
+function roundRow(state) {
+  const round = state.current;
+  return [
+    "Round",
+    round
+      ? `${round.round}, ${stageText(state)}`
+      : `none published yet, ${stageText(state)}`,
+  ];
+}
+const submissionRow = (state) => [
+  "Latest submission",
+  state.latestSubmissionId &&
+    `${state.latestSubmissionId}, on round ${state.latestSubmissionRound}`,
+];
+
+// Where the session stands, which pair read prints with what it reads.
+function standingText(state) {
+  if (!state) return "";
+  return rows([
+    roundRow(state),
+    ["Plan", state.current && (state.current.plan ? "yes" : "no")],
+    submissionRow(state),
+  ]);
+}
+
 export async function status(options) {
   const session = await openSession(options, { anyAgent: true });
   const result = await session.request({ action: "status" });
   const { status: state } = result;
-  const round = state.current;
   return {
     next: result.next,
     data: [
@@ -314,23 +341,14 @@ export async function status(options) {
         ["Session", session.directory],
         ["URL", session.url()],
         ["Title", state.title],
-        [
-          "Round",
-          round
-            ? `${round.round}, ${stageText(state)}`
-            : `none published yet, ${stageText(state)}`,
-        ],
+        roundRow(state),
         [
           "Pages",
           state.openRound?.pages
             .map((page) => `${page.id} (${pageStates[page.state]})`)
             .join(", "),
         ],
-        [
-          "Latest submission",
-          state.latestSubmissionId &&
-            `${state.latestSubmissionId}, on round ${state.latestSubmissionRound}`,
-        ],
+        submissionRow(state),
         ["Holder", holderText(state)],
         ["Handoff", state.handoff],
         [
