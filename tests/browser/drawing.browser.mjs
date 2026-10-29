@@ -140,7 +140,7 @@ test("a drawing the reviewer backs out of opens again as they left it, after a r
   assert.equal(await strokes.count(), 1);
 });
 
-test("Sketch on this diagram opens its boxes in the drawing editor in the frame's theme, and a thread from the sketch's note sends its image", async (t) => {
+test("Sketch on this diagram opens its boxes in the drawing editor in the frame's theme, and a thread from the sketch's note sends its image and scene", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   const plan = planData();
@@ -181,4 +181,5 @@ test("Sketch on this diagram opens its boxes in the drawing editor in the frame'
   await waitUntil(async () => Boolean(await sent()));
   const [image] = (await sent()).messages[0].attachments;
   assert.equal(image.type, "image/png");
+  assert.match(image.scene.path, /\/scenes\/[0-9a-f]{16}\.excalidraw$/);
 });

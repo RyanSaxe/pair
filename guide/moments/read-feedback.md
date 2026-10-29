@@ -1,8 +1,10 @@
 This feedback begins a new round, and you decide what it covers.
 
 - Open the file at the `path` of every `<pair_image>` and at the `preview`
-  of every drawing's `<pair_answer>`. Read each thread listed below that is
-  about a decision.
+  of every drawing's `<pair_answer>`. When a `<pair_image>` also has a
+  `scene`, read that file too: it is the sketch as Excalidraw JSON, with the
+  text of each box and the arrows between them. Read each thread listed
+  below that is about a decision.
 - Compare every note, and anything the reviewer said in the chat, with the
   alignments on Agreed. `occurrence="N"` on a note means the reviewer
   quoted the Nth appearance of that text in its block. A note with

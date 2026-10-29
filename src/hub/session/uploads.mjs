@@ -30,19 +30,30 @@ export function uploads(session) {
     requireValue(kind, "No such image", 404);
     return { bytes, type: kind.type };
   }
-  /* A note or a thread message names an image by its ID, and the hub gives
-     it the path, type and size of the file it wrote, so a submission cannot
-     point the agent at a path the hub never wrote. */
-  async function storedImage(id) {
-    const name = await uploadName(id);
-    requireValue(name, `Image ${id} is not in this session`);
-    const { bytes, type } = await readUpload(id);
-    return {
-      id,
+  /* A note or a thread message names an image by its ID, and a sketch's
+     image also names the scene it was drawn from. The hub gives each the
+     path of the file it wrote, and the image its type and size, so a
+     submission cannot point the agent at a path the hub never wrote. */
+  async function storedAttachment(item) {
+    const name = await uploadName(item.id);
+    requireValue(name, `Image ${item.id} is not in this session`);
+    const { bytes, type } = await readUpload(item.id);
+    const image = {
+      id: item.id,
       path: path.join(directory, "uploads", name),
       type,
       bytes: bytes.length,
     };
+    if (item.scene === undefined) return image;
+    const id = item.scene?.id;
+    const file =
+      /^[0-9a-f]{16}$/.test(id || "") &&
+      path.join(directory, "scenes", `${id}.excalidraw`);
+    requireValue(
+      file && (await exists(file)),
+      `Sketch scene ${id} is not in this session`,
+    );
+    return { ...image, scene: { id, path: file } };
   }
   async function uploadScene(bytes) {
     let scene;
@@ -90,7 +101,7 @@ export function uploads(session) {
     uploadName,
     upload,
     readUpload,
-    storedImage,
+    storedAttachment,
     uploadScene,
     readScene,
     removeUpload,

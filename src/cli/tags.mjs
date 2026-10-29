@@ -25,8 +25,11 @@ export function tag(name, attributes, content = "", block = false) {
 }
 
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
+// A sketch's image names the Excalidraw scene it was drawn from.
 const images = (attachments = []) =>
-  attachments.map((image) => tag("pair_image", { path: image.path }));
+  attachments.map((image) =>
+    tag("pair_image", { path: image.path, scene: image.scene?.path }),
+  );
 const quote = (text) => (text ? [tag("pair_quote", {}, tagText(text))] : []);
 
 const reviewerLine =

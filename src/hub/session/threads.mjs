@@ -95,7 +95,7 @@ export function threads(session) {
         item && typeof item.id === "string",
         "An attachment needs its image ID",
       );
-      images.push(await session.storedImage(item.id));
+      images.push(await session.storedAttachment(item));
     }
     return {
       from: "reviewer",

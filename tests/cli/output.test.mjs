@@ -63,6 +63,7 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   a.round = "2";
   await thread("after", "Is a failed item retried once, or until it succeeds?");
   const image = await post("upload", png);
+  const sketch = await post("upload", png);
   const preview = await post("upload", png);
   const scene = await post(
     "drawing-scene",
@@ -119,7 +120,7 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
           anchor: "Failure handling",
           quote: "A failed item",
           text: "Keep it.",
-          attachments: [image],
+          attachments: [image, { ...sketch, scene: { id: scene.id } }],
         },
         {
           id: "note-2",
@@ -184,6 +185,13 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   const note = tag("note", "note-1")[1];
   for (const part of ["A failed item", "Keep it.", image.path])
     assert(note.includes(part), note);
+  // A sketch's image names the scene it was drawn from.
+  assert(
+    note.includes(
+      `<pair_image path="${sketch.path}" scene="${scene.path}"></pair_image>`,
+    ),
+    note,
+  );
   // A note on an agreement names it, and a quote that appears more than once
   // in its block names which appearance.
   const opening = (id) => tag("note", id)[0].split("\n")[0];
