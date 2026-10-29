@@ -122,6 +122,11 @@ label.
   nothing from `develop`, so iterate there.
 - A pull request from `develop` into `main` is a release. GitHub only merges
   a pull request into `main` when its checks pass.
+- Before you open that pull request, raise each floor in `engines.node` to
+  the latest security release of its Node line, and change the same versions
+  in `package-lock.json`, the `test` matrix in `.github/workflows/ci.yml`,
+  the required checks of the `main` and `develop` rulesets, the README,
+  `docs/` and `guide/setup.md`.
 - When such a pull request merges, the release workflow runs the tests,
   publishes the next version with npm's trusted publishing, and creates the
   `v` tag and a GitHub release with generated notes.
