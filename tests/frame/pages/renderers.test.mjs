@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { diffHeight } from "#frame/pages/renderers.mjs";
 
-// Browser measurements of @pierre/diffs 1.4.2: each row is 22px, and each
+// Browser measurements of @pierre/diffs 1.6.2: each row is 22px, and each
 // "N unmodified lines" separator is 32px with 8px of space below it and,
 // after a hunk, 8px above it. The rows have 8px of space above and below.
 const ROW = 22;
