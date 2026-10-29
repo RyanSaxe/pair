@@ -1,6 +1,7 @@
 # Install
 
-`pair` needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or 26.12.1 or newer.
+`pair` needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or
+26.12.1 or newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -20,11 +21,11 @@ Claude Code lists the skill as `/pair`, and Codex as `$pair`.
 | opencode    | opencode 1.17.7 or newer. Add pair's plugin to `"plugin"` in opencode's global config once, then restart opencode. `pair start` prints the plugin's path and the config file to add it to.    |
 
 A `codex exec` run needs permission to run `pair` outside Codex's sandbox
-before it starts. The hub can only wake a `codex exec` run while it is
+before it starts. The hub can wake a `codex exec` run only while it is
 still running.
 
 Copilot CLI asks "Allow path access" before the agent's first `pair` command
-that names the session's directory, because that directory is under pair's
+that includes the session's directory, because that directory is under pair's
 state directory, `~/.local/state/pair/`, outside your project. Start Copilot
 with `--add-dir` to allow pair's state directory:
 
@@ -50,8 +51,8 @@ path check for every directory.
 ## Update
 
 Run `npm update -g @ryansaxe/pair`. You never need to reinstall the skill,
-because the skill only tells the agent to run `pair guide`, which prints the
-instructions of the `pair` you have installed.
+because the skill contains only the instruction to run `pair guide`, which
+prints the instructions of the `pair` you have installed.
 
 Before you update from 0.2 to 0.3, close every open session. Version 0.3
 cannot read the side work, offers or accepted plans that earlier versions
