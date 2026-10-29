@@ -69,6 +69,16 @@ export async function buildPage(source, input) {
     );
   const directory = path.dirname(source);
   const read = (file) => fs.readFile(path.resolve(directory, file), "utf8");
+  // A css or js file that cannot be read is listed with the page's other
+  // problems, so one build reports them all.
+  const unreadable = [];
+  const readNamed = (field) =>
+    read(rawPage[field]).catch(() => {
+      unreadable.push(
+        `page "${rawPage.id}": ${field} names ${rawPage[field]}, and pair build cannot read ${path.resolve(directory, rawPage[field])}. Write that file, or correct the path in ${field}.`,
+      );
+      return "";
+    });
   const prepare = (html) => diffInputs(sizeImages(html), directory);
   const { page: rawPage, ...outer } = input;
   if (!rawPage || typeof rawPage !== "object" || Array.isArray(rawPage))
@@ -81,8 +91,8 @@ export async function buildPage(source, input) {
   if (page.task?.html)
     page.task = { ...page.task, html: await prepare(page.task.html) };
   delete page.file;
-  if (page.css) page.cssText = await read(page.css);
-  if (page.js) page.jsText = await read(page.js);
+  if (page.css) page.cssText = await readNamed("css");
+  if (page.js) page.jsText = await readNamed("js");
   delete page.css;
   delete page.js;
   if (page.prototypes)
@@ -110,9 +120,10 @@ export async function buildPage(source, input) {
   const data = pagePlan(record);
   // assemble receives the page's script encoded, so it is checked here as
   // written.
-  const authoredProblems = problems(data, page.jsText || "", {
-    allowUnknownPages: true,
-  });
+  const authoredProblems = [
+    ...unreadable,
+    ...problems(data, page.jsText || "", { allowUnknownPages: true }),
+  ];
   if (authoredProblems.length) throw new Error(authoredProblems.join("\n"));
   const preview = await assemble(data, {
     css: pageStyles([page], record.round),
@@ -131,6 +142,7 @@ export async function build(source) {
 // the pages.json beside that directory, where guide/pages.md puts it.
 export async function main({ args: [source, output] }) {
   const html = await build(path.resolve(source));
+  await fs.mkdir(path.dirname(path.resolve(output)), { recursive: true });
   await fs
     .writeFile(output, html, { flag: "wx", mode: 0o600 })
     .catch(refuseOverwrite(output));
