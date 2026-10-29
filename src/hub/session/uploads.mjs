@@ -3,16 +3,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { exists, requireValue } from "../../shared/util.mjs";
 
-// Images and drawing scenes the reviewer adds to a session.
 export function uploads(session) {
   const { directory } = session;
-  // An upload is named by its ID and the extension of its type.
   async function uploadName(id) {
     const names = await fs.readdir(path.join(directory, "uploads"));
     return names.find((entry) => entry.startsWith(`${id}.`));
   }
-  /* The hub names every file, so a caller never chooses a path and a name
-     can never escape the uploads directory. */
+  /* upload chooses every file name, so a caller never supplies a path and
+     no name can escape the uploads directory. */
   async function upload(bytes) {
     const kind = imageKind(bytes);
     requireValue(kind, "Only PNG, JPEG, WebP and GIF images are accepted", 415);
@@ -30,10 +28,10 @@ export function uploads(session) {
     requireValue(kind, "No such image", 404);
     return { bytes, type: kind.type };
   }
-  /* A note or a thread message names an image by its ID, and a sketch's
-     image also names the scene it was drawn from. The hub gives each the
-     path of the file it wrote, and the image its type and size, so a
-     submission cannot point the agent at a path the hub never wrote. */
+  /* A note or a thread message refers to an image by its ID, and a sketch's
+     image also refers to the scene it was drawn from. storedAttachment adds
+     the path, type and size of the file the hub wrote, so a submission
+     cannot point the agent at a path the hub never wrote. */
   async function storedAttachment(item) {
     const name = await uploadName(item.id);
     requireValue(name, `Image ${item.id} is not in this session`);
@@ -90,7 +88,6 @@ export function uploads(session) {
     requireValue(await exists(file), "No such drawing scene", 404);
     return { bytes: await fs.readFile(file), path: file };
   }
-  /* A note the reviewer removed takes its images with it. */
   async function removeUpload(id) {
     requireValue(/^[0-9a-f]{16}$/.test(id || ""), "Bad image ID");
     const name = await uploadName(id);
@@ -107,9 +104,9 @@ export function uploads(session) {
     removeUpload,
   };
 }
-/* An image is identified by its leading bytes, not by a Content-Type a
-   caller sets or an extension a name carries. Anything else is refused, so
-   the hub never writes a file it could not name. */
+/* imageKind identifies an image by its leading bytes, not by a Content-Type
+   or a file extension that a caller sets. upload refuses any other bytes, so
+   the hub never writes a file it cannot name. */
 const signatures = [
   {
     type: "image/png",
@@ -122,7 +119,7 @@ const signatures = [
 function imageKind(bytes) {
   for (const entry of signatures)
     if (entry.magic.every((byte, at) => bytes[at] === byte)) return entry;
-  // RIFF....WEBP: the four-byte size sits between the two markers.
+  // A WebP file starts with RIFF, a four-byte size and WEBP.
   if (
     bytes.length >= 12 &&
     bytes.subarray(0, 4).toString("latin1") === "RIFF" &&
@@ -131,10 +128,10 @@ function imageKind(bytes) {
     return { type: "image/webp", ext: "webp" };
   return null;
 }
-/* One request is bounded, the session is not, which is how every other
-   route here behaves: a publish takes 10MB and a session may hold any
-   number of rounds. A reviewer attaching screenshots should never meet
-   a ceiling mid-review. */
+/* The hub limits each upload to 10MB and sets no limit for the session, as
+   it does for publishes, which take 10MB each in any number of rounds. A
+   session limit would refuse a reviewer's screenshot in the middle of a
+   review. */
 export const uploadBytes = 10 * 1024 * 1024;
 export async function readBytes(req, limit) {
   const chunks = [];
