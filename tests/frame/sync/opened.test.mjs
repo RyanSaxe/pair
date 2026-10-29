@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  adoptOpened,
   countUnopened,
   pageKey,
   settle,
@@ -13,7 +14,7 @@ test("a browser with no record adopts every listed page as opened, so nothing st
     listed("a", "2", ["agreed", "retry"]),
     listed("b", "1", ["agreed"]),
   ];
-  const opened = settle(sessions, null);
+  const opened = adoptOpened(sessions);
   for (const entry of sessions) assert.equal(countUnopened(entry, opened), 0);
   // A page that publishes afterwards counts until it is opened.
   const next = listed("a", "2", ["agreed", "retry", "keys"]);

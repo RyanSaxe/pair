@@ -106,8 +106,8 @@
 #page-list button .page-activity {
   flex: none;
 }
-/* A ready page of the current round that this browser has not opened, and
-   a proposal's card that it has not had on screen on Work. */
+/* A ready page of the current round that no browser on the hub has
+   opened, and a proposal's card that Work has not had on screen in one. */
 #page-list button .page-new,
 .proposal-card .page-new {
   flex: none;

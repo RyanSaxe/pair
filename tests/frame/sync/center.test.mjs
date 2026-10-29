@@ -43,8 +43,7 @@ test("the bell lists every session's starts, waiting rounds and replies, newest 
   assert.deepEqual(lines(sent), ["r2", "r1", "s2"]);
 });
 
-test("a browser with no record starts with an empty bell, and later forgets IDs the hub dropped", () => {
-  assert.deepEqual([...settleCleared(["r1", "r2"], null)], ["r1", "r2"]);
+test("the bell forgets removed IDs the hub dropped", () => {
   assert.deepEqual([...settleCleared(["r2"], new Set(["r1", "r2"]))], ["r2"]);
 });
 

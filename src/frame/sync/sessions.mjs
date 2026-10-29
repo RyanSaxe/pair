@@ -86,10 +86,15 @@ export function groupSessions(list) {
 export async function pollSessions() {
   let fromHub = false;
   let listed = [];
+  // What the hub keeps of the cleared lines, opened pages and seen cards.
+  // A hub before it kept them sends none.
+  let seen = {};
   try {
     const response = await fetch("/api/sessions");
     if (!response.ok) throw Error();
-    listed = (await response.json()).sessions || [];
+    const body = await response.json();
+    listed = body.sessions || [];
+    seen = body.seen || {};
     fromHub = true;
   } catch {
     listed = [];
@@ -101,11 +106,11 @@ export async function pollSessions() {
   sessionOrder = open.map(({ entry }) => entry);
   numbered = open.filter(({ depth }) => !depth).map(({ entry }) => entry);
   if (fromHub) {
-    syncOpened(sessions);
-    syncSeen(sessions);
+    syncOpened(sessions, seen.opened);
+    syncSeen(sessions, seen.cards);
   }
   renderSessions();
-  renderCenter(listed, fromHub);
+  renderCenter(listed, fromHub, seen.cleared);
   void reviewAlerts.update(sessions);
 }
 export function stateWords(entry) {
@@ -120,8 +125,8 @@ export function stateWords(entry) {
   return "Live";
 }
 /* A row's one short status, the first that applies: a round waiting for
-   you, a failed wake, pages this browser has not opened, paused, then the
-   agent at work, which a session before its first round always is. */
+   you, a failed wake, pages you have not opened, paused, then the agent
+   at work, which a session before its first round always is. */
 export function rowStatus(entry, unopened = 0) {
   if (entry.needsYou) return { text: "Waiting", tone: "need" };
   if (entry.wakeFailed) return { text: "Can't wake", tone: "need" };
@@ -137,8 +142,8 @@ export function rowStatus(entry, unopened = 0) {
 }
 /* The sessions button's badge counts the other sessions with something
    you have not seen: a waiting round whose line the bell still lists, or
-   an agent that could not be woken, which turn it orange, or pages this
-   browser has not opened, which turn it blue when nothing else counts.
+   an agent that could not be woken, which turn it orange, or pages you
+   have not opened, which turn it blue when nothing else counts.
    The bell drops a waiting round's line once a visible tab has shown its
    session, so a round you opened stops counting until its agent publishes
    again. With nothing to count, it counts the other live sessions in

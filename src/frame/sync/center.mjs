@@ -17,6 +17,7 @@ import {
   eventTarget,
   eventTitle,
 } from "#frame/sync/notifications.mjs";
+import { hubRecord } from "#frame/sync/record.mjs";
 import { openPast, remote } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
@@ -27,39 +28,19 @@ import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
    send that round. A session's start and waiting round also leave once a
    visible tab has shown that session, so they do not come back when you
    switch to another session. The bell's number is the number of lines.
-   Which events this browser removed stays in its storage for the hub, so
-   every tab on the hub shares it and each browser keeps its own. A round
-   published before the bell's list came keeps the notification center,
-   which reads its own pair:center: keys, so this list uses a key of its
-   own and leaves those alone. */
+   The hub keeps which events were removed, so every browser on the hub,
+   such as a phone's, shows the same lines. A round published before the
+   bell's list came keeps the notification center, which reads its own
+   pair:center: keys, so this list uses a key of its own and leaves those
+   alone. */
 
-const storageKey = "pair:bell:cleared";
-// The removed IDs, kept here too when browser storage is unavailable. Null
-// means this browser has never recorded anything.
-let fallback = null;
-export function loadCleared() {
-  try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved !== null) return new Set(JSON.parse(saved));
-  } catch {
-    /* Storage is blocked; the copy below is this tab's. */
-  }
-  return fallback && new Set(fallback);
-}
-function store(ids) {
-  fallback = [...ids];
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(fallback));
-  } catch {
-    /* Keep the copy above. */
-  }
-  window.dispatchEvent(new CustomEvent("pair:cleared"));
-}
-export const isClearedChange = (event) => event.key === storageKey;
+const cleared = hubRecord("cleared", "pair:bell:cleared", () =>
+  window.dispatchEvent(new CustomEvent("pair:cleared")),
+);
+export const loadCleared = cleared.load;
+export const isClearedChange = cleared.isChange;
 function clear(ids) {
-  const cleared = loadCleared() || new Set();
-  for (const id of ids) cleared.add(id);
-  store(cleared);
+  cleared.add(ids);
   renderCenter(latest, false);
 }
 // A reply in a thread answers the agent's replies there, so their lines go.
@@ -81,13 +62,10 @@ export function acknowledgeReply(threadId, message, acknowledged) {
         event.acknowledged = acknowledged;
   renderCenter(latest, false);
 }
-/* The removed IDs after a listing from the hub. A browser with no record
-   removes every listed event, so the change starts with an empty bell.
-   After that, an ID the hub no longer lists never returns, so it goes. */
-export function settleCleared(listed, cleared) {
-  if (!cleared) return new Set(listed);
-  return new Set([...cleared].filter((id) => listed.includes(id)));
-}
+// The removed IDs after a listing from the hub. An ID the hub no longer
+// lists never returns, so it goes.
+export const settleCleared = (listed, cleared) =>
+  new Set([...cleared].filter((id) => listed.includes(id)));
 
 // The tab already shows its own session, so that session's start and
 // waiting round are not lines.
@@ -142,28 +120,32 @@ export const unreadCards = () =>
       .map((event) => event.proposal),
   );
 // fromHub says the sessions came from the hub, so an ID they lack is gone
-// for good.
-export function renderCenter(sessions, fromHub) {
+// for good, and hub is the hub's record of removed IDs.
+export function renderCenter(sessions, fromHub, hub) {
   latest = sessions;
   if (fromHub) {
     listedFromHub = true;
-    const before = loadCleared();
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
-    const after = settleCleared(listed, before);
     // A visible tab has shown its session's start and waiting round, so the
     // reviewer who leaves for another session is not told about them again.
     const own = sessions.find((entry) => entry.id === session.sessionId);
-    if (own && document.visibilityState === "visible")
-      for (const event of own.events || [])
-        if (shownKinds.includes(event.kind)) after.add(event.id);
-    if (
-      !before ||
-      after.size !== before.size ||
-      [...after].some((id) => !before.has(id))
-    )
-      store(after);
+    const shown =
+      own && document.visibilityState === "visible"
+        ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
+        : [];
+    // A browser with no record, on a hub with none, removes every listed
+    // event, so the change starts with an empty bell.
+    cleared.sync(
+      hub,
+      (ids) => {
+        const after = settleCleared(listed, ids);
+        for (const event of shown) after.add(event.id);
+        return after;
+      },
+      () => new Set(listed),
+    );
   }
   lines = bellLines(sessions, loadCleared(), session.sessionId);
   const count = lines.length;
@@ -247,8 +229,8 @@ export function installCenter() {
   installPanel($("center-pop"), $("bell"));
   $("center-pop").addEventListener("toggle", drawCenter);
   $("center-clear-all").onclick = () => clear(lines.map(({ id }) => id));
-  // Another tab on the hub removed a line.
+  // Another tab in this browser removed a line.
   window.addEventListener("storage", (event) => {
-    if (event.key === storageKey) renderCenter(latest, false);
+    if (cleared.isChange(event)) renderCenter(latest, false);
   });
 }
