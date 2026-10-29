@@ -3,18 +3,14 @@ import { $ } from "#frame/app/util.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
-// The session this page belongs to and what it allows, read from the page
-// before anything renders.
 export let session, base, online, mode, editable, hasFeedbackPage, query;
-// Browser storage is kept per session, and the draft per plan as well.
 export let storageKey, placeKey, prefsPrefix;
 export function useSession(config, name, url) {
   session = config;
   base = typeof session.base === "string" ? session.base : "";
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
-  /* A closed session reads like an older round: nothing can be sent from
-     it. The strip below the header says which of the two it is. A session
-     with nothing published shows its home view. */
+  /* The frame treats a closed session like an older round, from which
+     nothing can be sent. */
   mode = session.home
     ? "home"
     : session.preview
@@ -23,14 +19,13 @@ export function useSession(config, name, url) {
         ? "readonly"
         : "live";
   editable = mode === "live";
-  // A read-only round keeps a Feedback page that lists what was sent on it.
+  // A read-only round has a Feedback page that lists what was sent on it.
   hasFeedbackPage = editable || mode === "readonly";
   query = url.searchParams;
   storageKey = `pair:${session.sessionId || "offline"}:${name}`;
   placeKey = `pair:place:${session.sessionId || "offline"}`;
   prefsPrefix = `pair:prefs:${session.sessionId || "offline"}:`;
 }
-// The round on screen: its plan, Agreed's entries and task, and its pages.
 export let plan, agreements, agreedTask, pages;
 export function useView(view) {
   plan = view.plan;
@@ -38,17 +33,12 @@ export function useView(view) {
   agreedTask = view.task || null;
   pages = view.pages;
 }
-// Whether a round is a plan: Agreed's source marks it with "plan": true,
-// which the hub copies into the round's data. A round's data already has
-// the name plan, so this asks it.
+// Agreed's source marks a plan round with "plan": true, and the hub copies
+// that field into the round's data.
 export const isPlanRound = (data = plan) => data?.plan === true;
-// The title of a round's page, or of the places a note or thread can be on
-// besides the pages: Review's overall comment and Work.
 const placeTitles = { overall: "Overall feedback", work: "Work" };
 export const topicTitle = (topic) =>
   pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
-// The last round this reader submitted, which keeps Current disabled until
-// the next one arrives, and the past round the left tab shows.
 export let submittedRound = null;
 export let pastRound = null;
 export function setSubmittedRound(round) {
@@ -63,7 +53,6 @@ export let page;
 export function setPage(next) {
   page = next;
 }
-// What is on screen: a page of the round, the Work page or Review.
 export const shownPage = () =>
   !$("work-view").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
 export const current = () =>
@@ -80,10 +69,10 @@ export const feedbackEditable = () =>
   selectedTab === "current" &&
   !submissionInFlight &&
   !submittedCurrent();
-// Whether a new note can open. Once a round's feedback is sent, a note on
-// it can still start a thread, because the agent answers threads while it
-// prepares the next round or builds. The hub takes threads on its current
-// round only, until the session is complete.
+// A note on a round whose feedback was sent can still start a thread,
+// because the agent answers threads while it prepares the next round or
+// builds. The hub accepts threads only on its current round, until the
+// session is complete.
 export const noteEditable = () =>
   feedbackEditable() ||
   (editable &&
@@ -97,17 +86,15 @@ export const currentAvailable = () =>
     remote.current.round !== submittedRound &&
     views.has(remote.current.round),
   );
-// Current's round was sent, here or in another browser, and the agent has
-// not published the next one. Before the first poll, the draft says so.
+// waiting() is true when Current's round was sent, from this browser or
+// another, and the agent has not published the next round. Before the first
+// poll, waiting() reads this from the draft.
 export const waiting = () =>
   editable &&
   (remote?.current
     ? remote.latestSubmissionRound === remote.current.round
     : state.submitted?.round === plan.round);
 export const currentShown = () => currentAvailable() || waiting();
-// While Current waits, it holds one Agreed page that is still being
-// prepared, above which the activity component shows. The next round's
-// Agreed replaces it in place.
 export function waitingView(round) {
   const sent = views.get(round).plan;
   return {
@@ -127,19 +114,21 @@ export function waitingView(round) {
     waiting: true,
   };
 }
-// The waiting view carries the sent round's number, which the left tab
-// shows too, so code that finds the view on screen by its round checks
-// this first.
+// The waiting view has the sent round's number, as the left tab's view does,
+// so code that finds the view on screen by its round must check
+// showingWaiting() first.
 export const showingWaiting = () =>
   selectedTab === "current" && Boolean(pages[0]?.waiting);
-// What show() puts on screen, for the checks that compare it with the view
-// the tabs hold. The waiting view gets a key of its own.
+// viewKey() identifies the view that show() puts on screen, for the checks
+// that compare it with the tabs' views. The waiting view has its own key
+// because it has the sent round's number.
 export const viewKey = () =>
   showingWaiting() ? `${plan.round} waiting` : plan.round;
 export const pastAvailable = () => Boolean(pastRound && views.has(pastRound));
-// Whether the left tab holds a round older than the last one, as a round
-// opened from the Rounds panel can be. The last round is the newest one
-// before Current's, or Current's own round once its feedback is sent.
+// olderPast() is true when the left tab shows a round older than the last
+// one, such as a round opened from the Rounds panel. The last round is the
+// newest one before Current's, or Current's own round once its feedback is
+// sent.
 export function olderPast() {
   if (!pastRound || !remote?.current) return false;
   const last = waiting()
