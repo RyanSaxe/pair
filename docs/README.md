@@ -1,7 +1,7 @@
 # Documentation
 
 `pair` lets you and your coding agent work through a change together, in
-your browser. Start with the section that matches what you want to do.
+your browser.
 
 ## Getting started
 
@@ -13,8 +13,8 @@ your browser. Start with the section that matches what you want to do.
 - [Sessions and rounds](concepts/sessions-and-rounds.md) explains sessions,
   rounds, pages, Agreed, feedback and closing a session.
 - [Proposals and Work](concepts/proposals-and-work.md) explains how the
-  agent suggests work, how you approve it, where it runs, plans, and how
-  work is finished.
+  agent suggests work, how you approve it, where it runs, what a plan
+  contains, and how work is finished.
 - [Threads](concepts/threads.md) explains how to get an answer before the
   next round.
 - [Holders and handoff](concepts/holders-and-handoff.md) explains which

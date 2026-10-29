@@ -17,18 +17,18 @@ Each folder's `wake.mjs` exports these values:
 It also exports three functions:
 
 - `detect(env, tools)` returns the wake target for the adapter's agent CLI.
-  `src/hub/wake.mjs` only calls it for the adapter it chose, once every one
+  `src/hub/wake.mjs` calls it only for the adapter it chose, once every one
   of that adapter's `variables` is set. `tools.ancestor` is the ancestor
   process that runs the adapter's `command`, or `null` when
   `src/hub/wake.mjs` chose the adapter by its variables alone. `detect`
   throws when the session still cannot be woken.
-- `identity(target)` returns the part of a wake target that tells one
-  session of the CLI from another. Claude Code's adapter returns the inbox
+- `identity(target)` returns the part of a wake target that distinguishes
+  one session of the CLI from another. Claude Code's adapter returns the inbox
   socket, Codex's the thread ID, and the others the session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
   throws with the reason. `run(file, args)` runs a program and rejects with
   its error output. `wake` resolves to `{ via, steerable }`, where `via` is
-  the path the line took, and `steerable` is `true` when the CLI reads a
+  the name of the delivery path, and `steerable` is `true` when the CLI reads a
   message in the middle of a turn. The hub records `via` in the wake's
   result, and `steerable` as `holder.steerable` in `status.json`. The frame
   reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
@@ -64,35 +64,35 @@ it.
 | pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension                                       | After the tool calls of the current model response               |
 | opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                                                         | After the tool calls of the current model response               |
 
-- Codex's adapter only uses `turn/steer` while a turn of the thread is in
+- Codex's adapter uses `turn/steer` only while a turn of the thread is in
   progress on the daemon. When the daemon runs the thread and no turn is in
   progress, the adapter adds the line to the thread's queue with
   `thread/queue/add`, then starts a turn with the line through
-  `thread/queue/start`. Codex starts a queued line on its own when the
-  thread goes idle, but not after the user interrupts a turn: then the line
-  waits in the queue until the user sends a message. `thread/queue/start`
-  starts it in that case too. When `thread/queue/start` fails and the line
-  still waits in the queue of an idle thread, `wake` throws. Codex refuses
-  the `thread/queue` methods unless `initialize` declares the
-  `experimentalApi` capability. In every other case, and after any error on
-  the daemon's socket before the line is queued, the adapter runs
-  `codex queue`.
+  `thread/queue/start`. Codex starts a turn with a queued line when the
+  thread goes idle, except after the user interrupts a turn. Then Codex
+  leaves the line in the queue until the user sends a message, and
+  `thread/queue/start` starts the turn in that case too. When
+  `thread/queue/start` fails and the line is still in the queue of an idle
+  thread, `wake` throws. Codex refuses the `thread/queue` methods unless the
+  adapter's `initialize` request declares the `experimentalApi` capability.
+  In every other case, and after any error on the daemon's socket before the
+  line is queued, the adapter runs `codex queue`.
 - Codex refuses input from another process to a subagent that another
   thread spawned when the daemon has not loaded the subagent, as when the
   parent runs in-process. When `thread/read` gives the thread a
   `subAgent.thread_spawn` source, Codex's adapter sends the parent thread,
-  by the same methods as above, a line that names the subagent and asks the
-  parent to pass the hub's line on to it with `followup_task`,
-  or with `send_input` in Codex's older multi-agent tools. `send_message`
+  by the same methods as above, a line with the subagent's agent ID and an
+  instruction to pass the hub's line on to it with `followup_task`, or with
+  `send_input` in Codex's older multi-agent tools. `send_message`
   would leave the line in the subagent's mailbox without starting a turn.
   A parent that runs in-process reads the line only when its own turn ends,
   so a parent that waits on its subagent passes the line on after the
   subagent finishes.
-- Copilot's adapter only sends with `enqueue` after Copilot refuses
+- Copilot's adapter sends with `enqueue` only after Copilot refuses
   `immediate`. Every Copilot CLI from 1.0.70 to 1.0.91 lists `immediate` in
   its API schema.
 
-When the CLI is idle, the line starts a turn on every path except
+When the CLI is idle, it starts a turn with the line on every path except
 `turn/steer`.
 
 `steerable` is `false` after a wake through `enqueue`, after a wake
@@ -105,10 +105,10 @@ wake.
 Claude Code, Codex and Copilot CLI each accept a message from another
 process:
 
-- Claude Code takes it through its inbox socket.
-- Codex takes it through `turn/steer` and the `thread/queue` methods on
+- Claude Code accepts it through its inbox socket.
+- Codex accepts it through `turn/steer` and the `thread/queue` methods on
   its app-server daemon, or through `codex queue`.
-- Copilot CLI takes it through its SDK.
+- Copilot CLI accepts it through its SDK.
 
 pi and opencode accept no message from another process, so their adapters
 include code that runs inside the CLI. That code is the pi extension
@@ -129,14 +129,14 @@ The extension and the plugin both use `adapters/listener.mjs`:
   the Unix socket `wake.sock` in it, or on a named pipe on Windows. It
   returns the socket's path and `close()`. The hub writes one JSON line on
   each connection. The listener calls `deliver` with the parsed line, and
-  answers `ok` once `deliver` returns, or the error's message when
+  replies with `ok` once `deliver` returns, or with the error's message when
   `deliver` throws.
 - `send(socket, message)` runs in the hub, from the adapter's `wake`. It
-  writes the line, waits up to 5 seconds for the answer, and rejects with
-  the answer when it is not `ok`. The hub records that message as the
+  writes the line, waits up to 5 seconds for the reply, and rejects with
+  the reply when it is not `ok`. The hub records that message as the
   wake's `reason`.
 
-Neither side half-closes the socket before the answer, because Bun, which
+Neither side half-closes the socket before the reply, because Bun, which
 runs opencode's plugins, closes a half-closed socket.
 
 ### When the CLI exits

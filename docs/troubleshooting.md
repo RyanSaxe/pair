@@ -22,6 +22,6 @@ try, with nothing for you to approve. That includes several `pair` calls
 joined with `&&`. A pipeline such as `pair guide | head -3` does not match
 the rule, so Codex still runs it in the sandbox.
 
-Codex only reads its rules when it starts, so restart Codex after you run
-`pair setup-codex`. `pair` only writes this file when you or the agent run
+Codex reads its rules only when it starts, so restart Codex after you run
+`pair setup-codex`. `pair` writes this file only when you or the agent run
 `pair setup-codex`.

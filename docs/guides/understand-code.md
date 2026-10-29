@@ -15,7 +15,7 @@ request or the behavior.
 
 ## Reading the pages
 
-- Each page covers one topic.
+- Each page is about one topic.
 - The agent quotes code with its file and line numbers, and shows changes
   as diffs.
 - Click a diagram to open it full size.

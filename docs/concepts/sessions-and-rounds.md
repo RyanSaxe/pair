@@ -36,13 +36,13 @@ can still send feedback on it.
 
 The sidebar lists the round's pages, then **Work** and **Review**. The first
 button in the header opens and closes the sidebar. On a screen wider than
-720px, the sidebar starts open, and your browser remembers when you close
-it. At 720px and narrower, the sidebar starts closed and slides over the
+720px, the sidebar starts open, and it stays closed in that browser after you
+close it. At 720px and narrower, the sidebar starts closed and slides over the
 page when you open it, and choosing a page closes it again.
 
 The **Last round** tab at the top of the sidebar shows the round before this
 one. To read an older round, open it from the Rounds button, the clock in
-the header. The tab then shows that round and reads **Round N**.
+the header. The tab then shows that round, and its label changes to **Round N**.
 
 ## What you can do on a page
 
@@ -60,13 +60,13 @@ the header. The tab then shows that round and reads **Round N**.
 
 ## Feedback
 
-Your browser keeps everything you do on the pages as a draft until you send
-it. **Send feedback** in the header opens a popup where you choose what the
-agent does next, and the popup's button sends the round.
+pair saves everything you do on the pages as a draft in your browser until
+you send it. **Send feedback** in the header opens a popup where you choose
+what the agent does next, and you send the round with the popup's button.
 
 In most rounds, the choices are:
 
-- **Keep iterating**: the agent takes your comments into the next pages.
+- **Keep iterating**: the agent writes the next pages from your comments.
 - **Write a plan**: the agent makes the next round a plan you can build
   from.
 - **Build it**: the agent applies your comments, then builds what Agreed
@@ -79,8 +79,8 @@ In a plan round, the choices are:
 - **Build it**: the agent applies your comments, then builds the plan, in
   this session.
 
-The popup starts on the first choice, and never on Build it. The button
-reads **Build it** when you choose Build it, and **Send** otherwise. The
+The popup opens with the first choice selected, never Build it. The button's
+label is **Build it** when you choose Build it, and **Send** otherwise. The
 agent can also make a round a plan without your asking, when it judges that
 it knows enough to write one.
 
@@ -88,7 +88,8 @@ The popup also has a box for a message to the agent, which stays in your
 draft until you send it, and the switch **Everything else looks good**,
 which is on by default. When the switch is on, the agent treats everything
 the pages stated as agreed, except where one of your comments challenges
-it. The switch never chooses an option or answers a question for you.
+it. Turning the switch on never chooses an option or answers a question for
+you.
 
 After you send, the Review page lists what you sent, with your choice and
 your message.
@@ -96,7 +97,7 @@ your message.
 ## Agreed
 
 Agreed is the first page of every round, and the sidebar lists it as Agreed
-so far. It shows the **task**, which says what you and the agent are working
+so far. It shows the **task**, a statement of what you and the agent are working
 towards. Under **Alignments**, it lists every decision you have settled so
 far, each with a link to where you settled it. When something on Agreed is
 wrong, comment on it.
@@ -107,12 +108,12 @@ beside the round in the Rounds panel.
 | Tag               | Meaning                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | New, Updated      | The agent added or changed the alignment in this round.                                    |
-| Revisiting        | Your feedback reopened the decision.                                                       |
+| Revisiting        | The agent reopened the decision after your feedback.                                       |
 | No longer applies | The agent retired the alignment and says why. Retired alignments are in a fold at the end. |
 
 ## When the agent edits your project
 
-The agent only edits your project for work you have approved. You approve
+The agent edits your project only for work you have approved. You approve
 work by choosing **Build it** when you send a round, by starting one of its
 [proposals](proposals-and-work.md), or by asking the agent for the work in
 your own words, in a comment, a thread, your feedback or the chat. When you
@@ -120,7 +121,7 @@ ask in words for work beside the session's task, the agent records the
 request as a proposal and starts it, quoting you, so the Work page lists
 every piece of work you approved beside the task.
 
-Before you approve anything, the agent only tries ideas in a git worktree
+Before you approve anything, the agent tries ideas only in a git worktree
 inside the session's directory, or in a plain directory there when your
 project is not a git repository. Your checkout and your branches stay as
 they are. The agent asks you before it deletes a worktree it made.
