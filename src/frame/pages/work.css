@@ -264,21 +264,31 @@
 }
 /* The titles of the cards joined into this one, under a muted label,
    between what it delivers and the choices. */
-.start-joined {
+/* The Send popup lists the typed answers that are not added the same way. */
+.start-joined,
+.send-not-added {
   margin: -6px 0 14px;
   font-size: var(--text-small);
 }
-.start-joined p {
+.start-joined p,
+.send-not-added p {
   margin: 0;
   color: var(--muted);
 }
-.start-joined ul {
+.start-joined ul,
+.send-not-added ul {
   margin: 2px 0 0;
   padding-left: 20px;
 }
-.start-joined li {
+.start-joined li,
+.send-not-added li {
   margin: 0;
   overflow-wrap: anywhere;
+}
+/* The list comes first in the Send popup's body, which scrolls, so a
+   negative margin would cut off its first line. */
+.send-not-added {
+  margin-top: 0;
 }
 .start-choices .dialog-row {
   align-items: start;

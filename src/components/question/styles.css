@@ -28,9 +28,10 @@
   background: var(--ground);
 }
 /* Answer turns the card into its answered state and leaves Edit where the
-   box was. The frame still records the text on every keystroke, so pressing
-   neither loses nothing. The answer in place of the box and the Edit button
-   are the state; the card takes no badge for it. */
+   box was. The frame keeps the typed text on every keystroke but sends it
+   only once Answer records it, and until then it puts a Not added tag
+   beside the Answer button. The answer in place of the box and the Edit
+   button are the answered state; the card takes no badge for it. */
 .answer-text {
   margin: 4px 0 0;
   padding: 9px 11px;
