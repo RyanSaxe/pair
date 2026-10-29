@@ -7,7 +7,6 @@ import { pathToFileURL } from "node:url";
 import { settings } from "../../src/shared/settings.mjs";
 import { exec, root } from "../support/hub.mjs";
 
-// A copy of the files npm packs, which a test can change.
 async function copyPackage(t) {
   const copy = await fs.mkdtemp(path.join(os.tmpdir(), "pair-copy-"));
   t.after(() => fs.rm(copy, { recursive: true, force: true }));
@@ -21,8 +20,9 @@ async function copyPackage(t) {
   return copy;
 }
 
-// A hub restarts on newer code only when its version changes, and the hub
-// runs the build as well as its own modules.
+// A pair command stops an idle hub whose version differs from its own and
+// starts one on its own code. The hub also runs the builder, so an edit to
+// src/build/ must change the version.
 test("the hub version changes when any file the hub runs changes", async (t) => {
   const copy = await copyPackage(t);
   const settings = pathToFileURL(path.join(copy, "src/shared/settings.mjs"));
@@ -56,8 +56,8 @@ test("PAIR_WAKE=off turns wakes off only with a state directory of its own", () 
   );
 });
 
-// Every spelling of the unspecified address that Node's listen binds to every
-// interface, and [::], which a URL writes for ::.
+// Node's listen binds every one of these spellings of the unspecified address
+// to every interface. A URL writes :: as [::].
 test("PAIR_HUB_HOST refuses every spelling of the unspecified address", () => {
   for (const host of [
     "0.0.0.0",
@@ -76,8 +76,9 @@ test("PAIR_HUB_HOST refuses every spelling of the unspecified address", () => {
     assert.equal(settings({ PAIR_HUB_HOST: host }).host, host);
 });
 
-// Each range in engines.node sets the floor of one Node line, and pair
-// refuses a release below its line's floor and a line with no range.
+// Each range in engines.node gives the lowest supported release of one Node
+// major line. pair check refuses a release below that and a line that no range
+// covers.
 test("pair check holds the running Node to the floor of its line", async (t) => {
   const copy = await copyPackage(t);
   const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-node-"));

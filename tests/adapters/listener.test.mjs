@@ -21,14 +21,16 @@ test("a wake resolves once the listener answers ok, and rejects with its reason"
 });
 
 test("a wake to a CLI that has exited says so", async (t) => {
-  // A clean exit closes the listener, which deletes the socket.
+  // close() deletes the socket file, so a send after a clean exit fails with
+  // ENOENT.
   const closed = listen(() => {});
   closed.close();
   await assert.rejects(send(closed.socket, { text: "hello" }), {
     message: `the agent CLI has exited (ENOENT ${closed.socket})`,
   });
-  // A killed CLI leaves its socket file with nothing listening on it. The
-  // stand-in CLI prints its socket once the file exists.
+  // A killed agent CLI leaves its socket file behind with nothing listening on
+  // it. The stand-in CLI prints the socket path once the file exists, and the
+  // test waits for that line before it kills the CLI.
   const listener = new URL("../../adapters/listener.mjs", import.meta.url);
   const cli = spawn(
     process.execPath,
@@ -47,8 +49,8 @@ ready();`,
   const socket = await new Promise((resolve) =>
     cli.stdout.once("data", (chunk) => resolve(String(chunk).trim())),
   );
-  // On Windows the socket is a named pipe, which closes with the process,
-  // and the listener's directory is named after it in the temp directory.
+  // On Windows the socket is a named pipe, which closes with the process.
+  // listen() names its directory after the pipe, inside the temp directory.
   const windows = process.platform === "win32";
   const directory = windows
     ? path.join(os.tmpdir(), path.basename(socket))

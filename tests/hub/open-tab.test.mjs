@@ -30,14 +30,15 @@ test("a new session's first Agreed says to open the URL only when no tab polled 
       task,
       agreements: [],
     });
-  // The next line names the session's URL whenever it is a first Agreed, and
-  // starts by opening it only when no tab polled within the window.
+  // For a session's first Agreed, the hub's next step contains the session's
+  // URL. The next step begins with "Open URL" only when no tab polled the
+  // session list within tabWindowMs.
   const opens = (session, next) => next.startsWith(`Open ${session.info.url} `);
   const a = await h.session(),
     b = await h.session(),
     c = await h.session();
-  // Each Agreed is built before the poll, so only the publish runs inside
-  // the window.
+  // The test builds every Agreed before the poll, so only the publish runs
+  // inside the window.
   const [first, second, third] = await Promise.all(
     [a, b, c].map((session) => agreed(session)),
   );
@@ -47,7 +48,6 @@ test("a new session's first Agreed says to open the URL only when no tab polled 
   assert.ok(!opens(b, linked) && linked.includes(b.info.url), linked);
   await sleep(1100);
   assert.ok(opens(c, await publish(c, third, true)));
-  // A later round's Agreed says nothing about the browser.
   await publish(
     b,
     await build(b, "1", {

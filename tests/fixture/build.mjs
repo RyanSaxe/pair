@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Assemble all component examples into one local preview.
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fixtureHtml } from "../support/fixture.mjs";

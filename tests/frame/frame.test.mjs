@@ -46,8 +46,8 @@ test("the build's language list is the one for the Shiki the frame loads", async
   assert.equal(libraries.shiki.match(/esm\.sh\/shiki@([\d.]+)/)[1], list.shiki);
 });
 
-// tests/browser/navigation.browser.mjs checks that a page tab leaves the
-// page on screen.
+// A round choice opens a page, and a round tab does not.
+// tests/browser/navigation.browser.mjs checks the round tab in a browser.
 test("round choices open a page", async () => {
   const panel = await read("sync/rounds-panel.mjs");
   const roundClick = panel.slice(

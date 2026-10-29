@@ -6,7 +6,8 @@ import { buildPage } from "../../src/cli/build.mjs";
 import { guideText } from "../../src/shared/guide.mjs";
 import { hub, pairCli, root, task } from "../support/hub.mjs";
 
-// Each moment's text as a command prints it.
+// printed maps each moment's name to its text as guideText returns it, which is
+// the text a command prints.
 const printed = new Map();
 for (const file of await fs.readdir(path.join(root, "guide/moments")))
   printed.set(
@@ -14,8 +15,8 @@ for (const file of await fs.readdir(path.join(root, "guide/moments")))
     (await guideText(`moments/${file}`)).trim(),
   );
 
-// The CLI as the holder of a session on an in-process hub. publish builds a
-// page and publishes it with pair publish, as an agent does.
+// holder runs the CLI as the holder of a session on an in-process hub. Its
+// publish builds a page and runs pair publish, as an agent does.
 async function holder(t) {
   const h = await hub(t);
   const home = path.join(h.home, "cli");
@@ -55,7 +56,6 @@ async function holder(t) {
     );
   }
   const read = (...args) => cli.run("read", ...dir, ...args);
-  // A proposal the agent records, and the reviewer's Start or Decline on it.
   const propose = (id) =>
     cli.run(
       "propose",
@@ -70,7 +70,6 @@ async function holder(t) {
     );
     assert.equal(sent.code, 200, sent.body.error);
   }
-  // The reviewer sends a submission from the browser.
   async function submit(...event) {
     const sent = await session.feedback(session.event(...event));
     assert.equal(sent.code, 200, sent.body.error);
@@ -87,7 +86,8 @@ async function holder(t) {
   };
 }
 
-// A command's output contains its moments' text and no other moment's.
+// printsMoment asserts that a command's output contains the text of each named
+// moment and of no other moment.
 function printsMoment(output, names, printed) {
   const named = [names].flat();
   for (const name of named)
@@ -150,7 +150,8 @@ test("each command prints the moment it is run at", async (t) => {
         return read();
       },
     ],
-    // The holder's own start prints in pair propose, not in pair read.
+    // When the holder starts its own card, pair propose prints the start
+    // moment, and pair read does not.
     ...["here", "sub-session"].map((where) => [
       `read-start-${where}`,
       async () => {
@@ -193,8 +194,9 @@ test("each command prints the moment it is run at", async (t) => {
   for (const [name, run] of rows) printsMoment(await run(), name, printed);
 });
 
-// Keep iterating asks for nothing new, so only the other choices name a
-// moment, and iterate names one only on a plan round.
+// When the reviewer chooses Keep iterating, the agent has nothing new to do, so
+// pair read prints a moment for it only on a plan round. pair read prints a
+// moment for every other choice.
 test("pair read prints the moment for the reviewer's choice of the next round", async (t) => {
   const { cli, printed, publish, read, submit } = await holder(t);
   await cli.run("start", "--title", "Choices");

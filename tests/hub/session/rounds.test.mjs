@@ -7,8 +7,8 @@ import { pageData } from "../../../src/shared/records.mjs";
 import { frameSource } from "../../support/frame.mjs";
 import { planData, task, hub as testHub } from "../../support/hub.mjs";
 
-// Each test registers its own session on its own hub, so no test depends on
-// the rounds another one published.
+// session starts a hub and a session for each test, so no test depends on
+// rounds that another test published.
 async function session(t) {
   const h = await testHub(t);
   const registered = await h.session();
@@ -49,7 +49,6 @@ async function session(t) {
       html: await page(round, id, title, html, extra),
       ...(pages ? { pages } : {}),
     });
-  // Round 1's Agreed, as the first test publishes it.
   const firstAgreed = () =>
     publish(
       "1",
@@ -104,8 +103,6 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.page.id, "agreed");
-  // Until a page starts, the next step asks for a progress note on each
-  // page as its work begins.
   assert(
     result.body.next.endsWith(
       'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
@@ -158,7 +155,6 @@ test("listed pages arrive independently and only the last completes the round", 
     publish,
     firstAgreed,
   } = await session(t);
-  // The hub lists the round's readable pages as each one publishes.
   const readyPages = async () =>
     (await (await fetch(`${hub.origin}/api/sessions`)).json()).sessions.find(
       (item) => item.id === sessionId,
@@ -167,8 +163,6 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
   const progress = await act({ action: "progress", start: ["detail"] });
   assert.equal(progress.status, 200);
-  // Once a page has started, the next step marks it and keeps the
-  // five-minute rule.
   assert.equal(
     progress.body.next,
     'You still have to publish these pages: overview, detail (started). When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
@@ -257,8 +251,9 @@ test("listed pages arrive independently and only the last completes the round", 
       "Overview",
       "<p>Finished overview</p>",
     );
-    // Windows reports a path through a file as missing, which the hub
-    // answers with 404, where other systems report it as not a directory.
+    // Windows reports a path through a file as missing, and the hub answers
+    // that with 404. Other systems report it as not a directory, and the hub
+    // answers 500.
     assert.equal(writeFailure.status, process.platform === "win32" ? 404 : 500);
     assert.equal(
       (await status()).current.sha256,
@@ -427,12 +422,10 @@ test("a page note sits on its slot until the page publishes", async (t) => {
   assert.equal(drafting.state, "active");
   assert.ok(drafting.startedAt);
   assert.equal(drafting.note.text, "Drafting");
-  // The page note moves the round's report time and keeps the round note.
   const after = (await status()).report;
   assert.equal(after.note, "Reading");
   assert.equal(after.noteAt, before.noteAt);
   assert.ok(Date.parse(after.at) >= Date.parse(before.at));
-  // Another page publishing leaves the note, and this page publishing ends it.
   await publish("1", "overview", "Overview", "<p>x</p>");
   assert.equal((await slot()).note.text, "Drafting");
   await publish("1", "detail", "Detail", "<p>x</p>");
@@ -481,14 +474,16 @@ test("the ack action says the agent has a submission without reading it, and car
   assert.equal(ack.body.status.lastReceivedId, event.id);
   assert.equal(ack.body.status.report.note, "Reading your feedback");
   assert.ok(ack.body.next.includes(`pair read --session-dir ${a.directory}`));
-  // Receiving is not reading: the submission stays unread, so publish waits.
+  // The ack action does not mark the submission read, so the hub still refuses
+  // the next publish.
   assert.deepEqual(ack.body.status.acknowledged, []);
   assert.equal((await a.publish(planData("2"))).code, 409);
   for (const note of ["x".repeat(81), 3])
     assert.equal((await a.action("ack", { note })).code, 400);
   const read = await a.action("read");
   assert.equal(read.body.event.id, event.id);
-  // Any other report clears the note, so the card never shows a stale one.
+  // The hub clears the note on any other report, so the progress card never
+  // shows a stale note.
   assert.equal(read.body.status.report.note, null);
   assert.match(read.body.next, /publish Agreed with the round's page list/);
   const published = await a.publish(planData("2"));
@@ -496,8 +491,9 @@ test("the ack action says the agent has a submission without reading it, and car
   assert.match(published.body.next, /^You published round 2\./);
 });
 
-// A page cannot change once it is published, so a bad link has to be found
-// before then, or the round could never complete.
+// The hub never replaces a published page, so it checks a page's links when the
+// page publishes. If the hub found a bad link only when the round completes,
+// the round could never complete.
 test("a page's links are checked as it publishes, not when the round completes", async (t) => {
   const h = await testHub(t);
   const a = await h.session();
@@ -523,9 +519,9 @@ test("a page's links are checked as it publishes, not when the round completes",
   ]);
 });
 
-// The hub assembles a round from its stored pages at each publish. A page
-// that an older pair build checked can break a rule added since, and it
-// must not keep its round from completing.
+// The hub assembles a round from its stored pages at each publish. A page that
+// an older pair build checked can break a rule added since, and the hub must
+// still complete that page's round.
 test("a page built before the bare < check was added still completes its round", async (t) => {
   const { act, page, publish, firstAgreed } = await session(t);
   const bare = '<pre data-language="ts">first<T>()</pre>';
@@ -533,7 +529,7 @@ test("a page built before the bare < check was added still completes its round",
     page("1", "overview", "Overview", bare),
     /the ts code block has a < that the browser reads as a tag on line 1/,
   );
-  // The file an older pair build wrote for the same source.
+  // older is the file that an older pair build wrote for the same source.
   const built = await page("1", "overview", "Overview", "<p>x</p>");
   const record = pageData(built);
   record.page.html = bare;
@@ -587,8 +583,8 @@ test("a round keeps only its complete file, and a refused page leaves no record"
   ]);
   await a.feedback(a.event());
   await a.action("read");
-  // The last page completes the round, and the complete round refuses a
-  // link to a page it does not have.
+  // The overview page completes round 2, and the hub refuses it because its
+  // link target is not a page in the round.
   const refused = await a.publish({
     ...planData("2"),
     pages: [

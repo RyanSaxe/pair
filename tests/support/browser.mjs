@@ -4,16 +4,14 @@ import { chromium, webkit } from "playwright-core";
 import { libraries, moduleIntegrity } from "../../src/shared/libraries.mjs";
 import "./env.mjs";
 
-// launch() throws one of these when the browser is not installed. open()
-// skips the test with it, and fails the test when CI is set, so CI cannot
-// pass by skipping.
+// launch() throws one of these messages when the browser is not installed.
+// open() skips the test on that message, and fails it when CI is set, so a CI
+// run cannot pass by skipping.
 const missing = {
   chrome: "Google Chrome is not installed",
   webkit: "Playwright's WebKit is not installed",
 };
 
-// engine is "chrome", the installed Google Chrome, or "webkit", the WebKit
-// that Playwright installs. args are switches for Chrome.
 export async function launch({ args, engine = "chrome" } = {}) {
   try {
     return engine === "webkit"
@@ -31,17 +29,14 @@ export async function launch({ args, engine = "chrome" } = {}) {
   }
 }
 
-// On macOS 14 and earlier, Playwright installs an older WebKit build, in
-// which playwright-core 1.63 never finishes opening a page: the build
-// refuses the PushAPIEnabled setting. open() skips the WebKit tests there,
-// and CI runs them on Linux.
+// On macOS 14 and earlier, Playwright installs an older WebKit build that
+// refuses the PushAPIEnabled setting, so playwright-core 1.63 never finishes
+// opening a page. open() skips the WebKit tests there, and CI runs them on
+// Linux.
 const oldMac =
   process.platform === "darwin" && Number(release().split(".")[0]) < 24;
 const tooOld = "Playwright's WebKit does not run on macOS 14 or earlier";
 
-// Opens url in a new page of the browser that engine names, and closes the
-// browser when the test ends. With html, the page is served at
-// http://pair.localhost/, and args are switches for Chrome.
 export async function open(
   t,
   url,
@@ -69,8 +64,8 @@ export async function open(
   return page;
 }
 
-// A fixed Pele-shaped rendering fixture for frame navigation and dialogs.
-// Real diagram syntax and drawing are covered by the figure suite.
+// This stand-in for the Pele library renders one fixed SVG for the navigation
+// and dialog tests. tests/browser/figures.mjs tests real diagram rendering.
 const pele = `export function mount(element, source, options = {}) {
   element.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect width="300" height="100" fill="transparent"/><g class="pele-node" data-id="details" transform="translate(10 10)"><rect width="100" height="30"/><text class="pele-label" x="5" y="20">Details</text></g><g class="pele-node" data-id="native" transform="translate(150 10)"><a href="https://example.test/native"><rect width="100" height="30"/><text class="pele-label" x="5" y="20">Native link</text></a></g><g class="pele-node" data-id="gate" transform="translate(10 60)"><rect width="140" height="30"/><text class="pele-label" x="5" y="20"><tspan>Payment</tspan><tspan>gateway</tspan></text></g></svg>';
   const result = { width: 300, height: 100 };
@@ -80,8 +75,9 @@ const pele = `export function mount(element, source, options = {}) {
 
 const peleHash = `sha384-${createHash("sha384").update(pele).digest("base64")}`;
 
-// The hub's pages carry Pele's hash in their import map, so the stand-in
-// loads only where each page names the stand-in's hash instead.
+// The import map of each hub page contains Pele's integrity hash, and the
+// browser refuses a module that does not match it. stubPele replaces that hash
+// with the stand-in's hash.
 export async function stubPele(page) {
   await page.route(/^http:\/\/127\.0\.0\.1:\d+\//, async (route) => {
     if (route.request().resourceType() !== "document") return route.fallback();

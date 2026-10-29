@@ -63,7 +63,7 @@ test("a failed wake is recorded and the submission stays readable", async (t) =>
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
-  // The inbox is gone, as it is once the agent's session has ended.
+  // Closing the inbox stands in for an agent session that has ended.
   await a.inbox.close();
   const feedback = a.event();
   assert.equal((await a.feedback(feedback)).code, 200);
@@ -71,14 +71,13 @@ test("a failed wake is recorded and the submission stays readable", async (t) =>
   const { wake } = (await a.status()).body;
   assert.equal(wake.last.ok, false);
   assert.ok(wake.last.reason.includes(a.inbox.socket), wake.last.reason);
-  // Every tab's session list shows the failure.
   const listed = (await a.request("/api/sessions")).body.sessions;
   assert.equal(listed.find((item) => item.id === a.id).wakeFailed, true);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
 });
 
-// A command that finds no hub registers the session with a new one, and
-// only pair start resumes it.
+// A command that finds no hub registers the session with a new hub, and only
+// pair start resumes a paused session.
 test("a paused session is not woken until its agent runs pair start", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -183,8 +182,8 @@ test("start refuses without a wake path and says what to do", () => {
     message:
       "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. Tell the user, and stop.",
   });
-  // pi without pair's extension, found as an ancestor or, with no agent CLI
-  // among the ancestors, by its first variable.
+  // detectWake refuses a pi session without pair's extension, whether it finds
+  // pi among the ancestors or, with no agent CLI among them, by PAIR_PI_SOCKET.
   const pi = {
     message: `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`,
   };
@@ -193,7 +192,8 @@ test("start refuses without a wake path and says what to do", () => {
     () => detectWake({ PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock" }, tools([])),
     pi,
   );
-  // tests/adapters/opencode.test.mjs checks the config file the line names.
+  // tests/adapters/opencode.test.mjs checks the config file in this error
+  // message.
   assert.throws(
     () =>
       detectWake(

@@ -4,24 +4,24 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// WebKit rounds a scroll position to whole pixels in its own way, so a
-// landing it holds can sit one pixel from where the reader left. A real
-// miss is tens or hundreds of pixels.
+// WebKit rounds a scroll position to whole pixels in its own way, so a landing
+// can end one pixel from where the reader left. A real miss is tens or hundreds
+// of pixels.
 const nearly = (actual, expected) =>
   assert.ok(
     Math.abs(actual - expected) <= 1,
     `landed at ${actual}, expected ${expected}`,
   );
 
-// Where a page lands for each way of arriving at it, while the code blocks
-// above the place grow after the page lands, in Chrome and in WebKit, the
-// engine of every browser on an iPhone.
+// These tests check where the frame lands a page for each way of arriving at
+// it, while the code blocks above the place grow after the landing. They run in
+// Chrome and in WebKit, which every browser on an iPhone uses.
 //
-// The stand-in for Shiki highlights a block only once the test opens a
-// gate, and adds 160px of padding under each block it highlights. Shiki
-// keeps a block's height, so the padding stands for any part of a page above
-// the place that changes height after the page shows, such as a screenshot
-// that loads or a block whose highlighting fails.
+// The Shiki stand-in highlights a block only after the test opens a gate, and
+// it adds 160px of padding under each block it highlights. Real Shiki keeps a
+// block's height, so the padding imitates any part of a page above the place
+// that changes height after the page shows, such as a screenshot that loads or
+// a block whose highlighting fails.
 const shiki = `const escape = (text) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 export async function codeToHtml(source) {
@@ -31,8 +31,9 @@ export async function codeToHtml(source) {
   return '<pre class="shiki" style="padding-bottom: 160px"><code>' +
     lines.join("\\n") + "</code></pre>";
 }`;
-// Runs in every document before the frame. close() makes the next
-// highlighting wait for the next open().
+// The test adds gate as an init script, so it runs in every document before the
+// frame. After close(), the Shiki stand-in waits for the next open() before it
+// highlights.
 const gate = () => {
   window.highlightGate = {
     close() {
@@ -47,8 +48,8 @@ const code = (n) =>
     { length: 24 },
     (_, line) => `const step${n}line${line} = run(${n}, ${line});`,
   ).join("\n")}</pre>`;
-// The Code page has four code blocks and a screenshot above the result
-// line and filler below it, so the result can sit in the middle of the
+// The Code page has four code blocks and a screenshot above the result line and
+// filler below it, so a test can scroll the result line to the middle of the
 // window.
 const round = () => ({
   ...planData(),
@@ -78,8 +79,8 @@ async function setup(t, engine, viewport) {
   await page.route(/esm\.sh\/shiki/, (route) =>
     route.fulfill({ body: shiki, contentType: "text/javascript" }),
   );
-  // The screenshot loads at once, or once the test releases it after
-  // holdScreenshot().
+  // The image route answers at once. After holdScreenshot(), it waits until the
+  // test calls releaseScreenshot().
   let screenshot = Promise.resolve();
   let releaseScreenshot = () => {};
   const holdScreenshot = () =>
@@ -119,8 +120,8 @@ async function setup(t, engine, viewport) {
   };
 }
 
-// A task and two frames, by which a scroll, a resize and its observers have
-// run.
+// By a task and two animation frames, the browser has run a scroll, a resize
+// and the resize's observers.
 const frames = (page) =>
   page.evaluate(
     () =>
@@ -130,8 +131,6 @@ const frames = (page) =>
         ),
       ),
   );
-// Opens the gate, waits until every block is highlighted and has its new
-// height, and returns the element's place in the window.
 async function grow(page, selector) {
   await page.evaluate(() => window.highlightGate.open());
   await page.waitForFunction(
@@ -142,13 +141,14 @@ async function grow(page, selector) {
   await frames(page);
   return place(page, selector);
 }
-// A landing holds its anchor until a second passes with no change, counted
-// once the view's images load. The test opens the gate a round trip after
-// the landing, and a busy runner can stretch that past a second, so a test
-// holds the screenshot before it arrives and the code grows inside the hold.
-// The load event waits for the screenshot, so an arrival that loads the
-// document waits only for domcontentloaded. load() then lets the screenshot
-// load, and returns the element's place once the screenshot has its height.
+// The frame holds a landing's anchor until a second passes with no change,
+// counted once the view's images load. The test opens the gate a round trip
+// after the landing, and a busy runner can stretch that past a second. Each
+// test therefore holds the screenshot before it arrives, so the code grows
+// while the frame still holds the anchor. The load event waits for the
+// screenshot, so an arrival that loads the document waits only for
+// domcontentloaded. load() then releases the screenshot and returns the
+// element's place once the screenshot has its height.
 async function load(s, selector) {
   s.releaseScreenshot();
   await s.page.locator("#page-content img").evaluate((image) => image.decode());
@@ -172,8 +172,6 @@ const focused = (page, id) =>
   });
 const title = (page, text) =>
   page.locator("#page-title", { hasText: text }).waitFor({ timeout: 5000 });
-// Scrolls so the result line's top is 300px below the window's top, and
-// returns its place once the frame has saved it.
 async function readTo(page) {
   await page.evaluate(() => {
     const box = [
@@ -187,7 +185,6 @@ async function readTo(page) {
   await page.waitForTimeout(400);
   return place(page, "#result");
 }
-// Opens a page from the sidebar, as the reader does.
 const openPage = (page, id) =>
   page.locator(`#page-list [data-page="${id}"]`).dispatchEvent("click");
 
@@ -215,8 +212,8 @@ for (const [browser, engine] of Object.entries(engines))
       if (!s) return;
       const id = await s.thread();
       await s.page.goto(s.url("#overview"));
-      // The bell marks every event it finds on its first load as seen, so the
-      // agent replies once the bell shows.
+      // The frame marks every event it finds at the bell's first load as seen,
+      // so the agent replies only after the bell shows.
       await s.page.locator("#bell").waitFor();
       await s.reply(id);
       s.holdScreenshot();
@@ -281,11 +278,13 @@ for (const [browser, engine] of Object.entries(engines))
         .evaluate((image) => image.decode());
       const left = await readTo(s.page);
       s.holdScreenshot();
-      // The load event waits for the screenshot.
+      // The load event waits for the held screenshot, so the reload waits only
+      // for domcontentloaded.
       await s.page.reload({ waitUntil: "domcontentloaded" });
       await title(s.page, "Code");
       await grow(s.page, "#result");
-      // A landing stops holding its place after a second with no change.
+      // The frame stops holding a landing's place after a second with no
+      // change.
       await s.page.waitForTimeout(1500);
       nearly((await load(s, "#result")).top, left.top);
     });

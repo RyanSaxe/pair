@@ -3,10 +3,9 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// On a phone, an alignment agreed from a note keeps its label and source
-// on one line under its title, and the source's links in one row. A tap on
-// the alignment chooses it, and the comment control's note on it carries
-// its ID, so the card counts the note.
+// A tap on an alignment chooses it. The note that the comment control then
+// opens contains the alignment's ID, and the frame counts the note on the
+// alignment's card by that ID.
 test("an alignment keeps its meta line and its buttons to one row each on a phone, and counts a note from the comment control", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -56,7 +55,8 @@ test("an alignment keeps its meta line and its buttons to one row each on a phon
       meta: line(".card-meta > :not(.state-dot)"),
     };
   });
-  // Each line's text sits on one row when their middles agree.
+  // The test counts items whose vertical middles are within 2px of each other
+  // as one row.
   for (const [name, line] of Object.entries(rows).filter(([, value]) =>
     Array.isArray(value),
   )) {
@@ -85,9 +85,9 @@ test("an alignment keeps its meta line and its buttons to one row each on a phon
   await card.locator(".card-meta", { hasText: "1 note" }).waitFor();
 });
 
-// Agreed keeps the reader's place relative to its content, which starts
-// below the finished line. A reader who opens Agreed and leaves it without
-// scrolling comes back to its top.
+// The frame saves the reader's place on Agreed relative to its content, which
+// starts below the finished line. A reader who leaves Agreed without scrolling
+// must come back to its top.
 test("on a phone, Agreed opens at its top again when the reader comes back to it with the finished line showing", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -95,7 +95,7 @@ test("on a phone, Agreed opens at its top again when the reader comes back to it
   const sent = await session.feedback(session.event("feedback-only", "1"));
   assert.equal(sent.code, 200, JSON.stringify(sent.body));
   assert.equal((await session.action("read")).code, 200);
-  // Enough alignments that Agreed scrolls.
+  // Eight alignments make Agreed tall enough to scroll.
   const agreements = Array.from({ length: 8 }, (_, n) => ({
     id: `rule-${n}`,
     title: `Rule ${n} keeps every input's result in the order it arrived`,
@@ -119,8 +119,8 @@ test("on a phone, Agreed opens at its top again when the reader comes back to it
     await page.locator("#page-title", { hasText: title }).waitFor();
   }
   await page.locator("#finished-line").waitFor();
-  // The return restores the place once the page's renderers settle, by a
-  // task and two frames after it shows.
+  // The frame restores the place after the page's renderers settle, which is by
+  // a task and two animation frames after the page shows.
   await page.evaluate(
     () =>
       new Promise((resolve) =>

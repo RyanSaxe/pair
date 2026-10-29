@@ -3,9 +3,10 @@ import test from "node:test";
 import pair from "../../adapters/pi/extension.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
 
-// pi calls an extension's default export with its API. This stand-in records
-// the handlers pair's extension registers and each message it sends, and
-// throws as pi's sendUserMessage does when it cannot take the message.
+// pi calls an extension's default export with its API. standInPi records the
+// handlers that pair's extension registers and each message the extension
+// sends. Its sendUserMessage throws as pi's does when pi cannot accept the
+// message.
 function standInPi() {
   const handlers = {};
   const sent = [];
@@ -21,14 +22,15 @@ function standInPi() {
 
 test("a pi wake reaches the session through pair's extension as a steering message", async (t) => {
   const { handlers, sent } = standInPi();
-  // A failed assertion would otherwise leave the socket open.
+  // Without this hook, a failed assertion would leave the extension's socket
+  // open.
   t.after(() => handlers.session_shutdown({ type: "session_shutdown" }));
   handlers.session_start(
     { type: "session_start" },
     { sessionManager: { getSessionId: () => "pi-session-1" } },
   );
-  // pair start inside pi finds pi among its ancestors and reads the
-  // variables the extension exported.
+  // detectWake does here what pair start does inside pi: it finds pi among the
+  // process's ancestors and reads the variables that the extension exported.
   const target = detectWake(process.env, {
     ancestors: () => [{ pid: 2, command: "pi" }],
   });

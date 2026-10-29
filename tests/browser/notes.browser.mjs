@@ -12,8 +12,8 @@ async function select(page) {
     .locator("#page-content p")
     .filter({ hasText: quote })
     .first();
-  // The frame keeps a page hidden until its diagrams draw, and a reader
-  // cannot select text on a hidden page.
+  // The frame hides a page until its diagrams draw, and the browser cannot
+  // select text on a hidden page.
   await paragraph.waitFor();
   await paragraph.evaluate((element, text) => {
     const node = [...element.childNodes].find(
@@ -28,17 +28,16 @@ async function select(page) {
     selection.removeAllRanges();
     selection.addRange(range);
   }, quote);
-  // The frame reads the selection on selectionchange, which the browser
-  // fires after this call returns. Until then, c comments on the page.
+  // The frame reads the selection on selectionchange, which the browser fires
+  // after this call returns. Until then, the c key comments on the whole page.
   await commentButton(page, "Comment on selection").waitFor();
 }
 
-// The comment control in the corner, by the target it names.
 const commentButton = (page, name) =>
   page.getByRole("button", { name, exact: true });
 
-// The control's box once it names the target and has finished growing or
-// shrinking.
+// The control animates when its name changes, so settledControl waits until no
+// animation runs before it reads the box.
 async function settledControl(page, name) {
   await commentButton(page, name).waitFor();
   await page.waitForFunction(
@@ -49,8 +48,6 @@ async function settledControl(page, name) {
   return page.locator("#comment-here").boundingBox();
 }
 
-// The control's box, the right edges of the page's text and of the page,
-// and the window's size, read in one frame.
 const placement = (page) =>
   page.evaluate(() => {
     const box = document.getElementById("comment-here").getBoundingClientRect();
@@ -66,8 +63,8 @@ const placement = (page) =>
       height: document.documentElement.clientHeight,
     };
   });
-// Wholly in the page's white margin, centered between the text and the
-// page's right edge.
+// inGutter is true when the control is inside the page's right margin and
+// centered within 1px between the text and the page's right edge.
 const inGutter = ({ left, right, text, edge }) =>
   left >= text && right <= edge && Math.abs(left - text - (edge - right)) <= 1;
 
@@ -95,7 +92,7 @@ const noteHighlight = () =>
   [...(CSS.highlights.get("plan-note") || [])].map((range) => range.toString());
 
 // The frame marks a page's notes again in the animation frame after the note
-// dialog closes, so each check waits for the highlight to settle.
+// dialog closes, so highlighted() polls until the highlight matches.
 async function highlighted(page, expected) {
   await waitUntil(async () =>
     isDeepStrictEqual(await page.evaluate(noteHighlight), expected),
@@ -127,8 +124,8 @@ test("selecting words grows the corner icon into Comment on selection, which ope
   assert.deepEqual(await noteDialog(page), { anchor: "Decisions", quote });
 });
 
-// A page's own control opens a note with planUI.comment, which takes the
-// note's label and quote.
+// A page's own control calls planUI.comment with the note's label and quote to
+// open a note.
 test("with nothing selected, the corner icon and the c key comment on the page, and planUI.comment opens a note", async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
@@ -155,7 +152,7 @@ test("with nothing selected, the corner icon and the c key comment on the page, 
 });
 
 test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize and the sidebar closing", async (t) => {
-  // Agreed draws no figure, so nothing on it changes size with the window.
+  // Agreed has no figure, so no element on it changes size with the window.
   const page = await open(t, "http://pair.localhost/", {
     html: await fixtureHtml(),
   });
@@ -170,7 +167,8 @@ test("on a wide window the corner icon is centered in the page's margin right of
     assert.ok(place.height - place.bottom < 40, "near the bottom");
   };
   await centered();
-  // Past the frame's widest, the gutter widens and the page keeps its size.
+  // At 1600px the window is wider than the frame, so the gutter widens and the
+  // page keeps its size.
   await page.setViewportSize({ width: 1600, height: 720 });
   await centered();
   await page.locator("#sidebar-toggle").click();
@@ -216,8 +214,9 @@ test("a chosen block's Comment button opens a note on the block", async (t) => {
   });
 });
 
-// Text shows only inside the note's text area, so a button outside it
-// never covers the line being typed, even once the text scrolls.
+// The browser draws the note's text only inside its text area, so a button
+// outside the text area never covers the line being typed, even after the text
+// scrolls.
 test("the note's image button stays outside its text area on a wide window and on a phone", async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
@@ -247,7 +246,6 @@ test("the note's image button stays outside its text area on a wide window and o
   }
 });
 
-// The height of the note's box, and whether its text scrolls inside it.
 const noteBox = (page) =>
   page.evaluate(() => {
     const text = document.getElementById("note-text");
@@ -257,9 +255,6 @@ const noteBox = (page) =>
     };
   });
 
-// The box starts 120px tall and grows with the note to half the window's
-// height, where the text starts to scroll inside it. A draft opens in a
-// reloaded frame at its own size, and deleting the text shrinks the box.
 test("the note's box grows with its text up to half the window, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
@@ -321,7 +316,7 @@ test(`a note's highlight is cleared while its page or the note dialog changes, a
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await highlighted(page, [quote]);
 
-  // Agreed runs no note marking, so only the page change clears the
+  // The frame marks no notes on Agreed, so only the page change clears the
   // highlight there.
   await page.keyboard.press("[");
   await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
