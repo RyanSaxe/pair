@@ -49,3 +49,23 @@ test("PAIR_WAKE=off turns wakes off only with a state directory of its own", () 
     /Set PAIR_WAKE=off only for a scratch hub/,
   );
 });
+
+// Every spelling of the unspecified address that Node's listen binds to every
+// interface, and [::], which a URL writes for ::.
+test("PAIR_HUB_HOST refuses every spelling of the unspecified address", () => {
+  for (const host of [
+    "0.0.0.0",
+    "0",
+    "0x0",
+    "000.000.000.000",
+    "::",
+    "[::]",
+    "0:0:0:0:0:0:0:0",
+    "::ffff:0.0.0.0",
+  ])
+    assert.throws(() => settings({ PAIR_HUB_HOST: host }), {
+      message: `PAIR_HUB_HOST is ${host}, which would make the hub reachable from every network this machine is on. Set it to one address, such as this machine's Tailscale IP.`,
+    });
+  for (const host of ["100.64.1.2", "fd7a:115c:a1e0::1", "mac.tail1.ts.net"])
+    assert.equal(settings({ PAIR_HUB_HOST: host }).host, host);
+});
