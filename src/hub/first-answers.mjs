@@ -1,12 +1,12 @@
 import { jsonScriptTag } from "../shared/util.mjs";
 
-/* A page load draws its first frame before the frame's first polls return,
-   so a session the reviewer switches to would paint without its badges,
-   bell, page list and round card, and fill them in a moment later. The hub
-   writes its answers to those first requests into the page it serves, and a
-   script ahead of the frame answers each of them once from the page. The
-   frame's first poll then completes before the first paint. The frame is
-   unchanged, so this also holds for rounds built by an earlier pair. */
+/* The browser paints a page before the frame's first polls return, so a
+   session the reviewer switches to would paint without its badges, bell,
+   page list and round card, and fill them in a moment later. The hub writes
+   its responses to those first requests into the page it serves, and
+   answerScript resolves each of those requests once from the page, so the
+   frame's first poll completes before the first paint. The frame's code does
+   not change, so this also works for rounds built by an earlier pair. */
 export async function firstAnswers(session, sessionList) {
   const base = session.base;
   const status = session.browserView();
@@ -14,7 +14,8 @@ export async function firstAnswers(session, sessionList) {
     [`${base}/api/status`]: status,
     "/api/sessions": sessionList,
   };
-  // Current's round, and the round the left tab opens on.
+  // The frame first requests the current round and latestSubmissionRound,
+  // the round its left tab opens on.
   const rounds = new Set(
     [status.current?.round, status.latestSubmissionRound].filter(Boolean),
   );
@@ -29,7 +30,7 @@ export async function firstAnswers(session, sessionList) {
         `${base}/api/page?round=${encodeURIComponent(round)}&id=agreed&version=${agreed.version}`
       ] = record;
     } catch {
-      // A round without a page set is fetched as before.
+      // The frame fetches a round without a page set from the hub.
     }
   }
   try {
@@ -37,14 +38,14 @@ export async function firstAnswers(session, sessionList) {
       submission: await session.latestFeedback(null),
     };
   } catch {
-    // Fetched as before.
+    // The frame fetches the submission from the hub.
   }
   return answers;
 }
 
-// Each answer is used once, by a GET for the same path, so every later poll
-// reaches the hub. The script is a module in the head, so it runs before the
-// frame's modules, which follow it in the body.
+// answerScript serves each stored response once, to a GET for the same path,
+// so every later poll reaches the hub. It is a module script in the head, so
+// the browser runs it before the frame's modules in the body.
 const answerScript = `<script type="module">
 (() => {
   const answers = new Map(
@@ -64,7 +65,6 @@ const answerScript = `<script type="module">
 })();
 </script>`;
 
-// The answers and the script that serves them, for the page's head.
 export function firstAnswersHead(answers) {
   return jsonScriptTag("first-answers", answers) + answerScript;
 }
