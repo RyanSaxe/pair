@@ -86,7 +86,8 @@ test("the Review line names the comments and choices behind the count", () => {
   draft.notes.push(note("b"), note("c"));
   draft.choices["d/pick"] = { topic: "d", label: "Pick", value: "x" };
   assert.equal(draftedWords(draft), "3 comments and 1 choice");
-  // A written answer is a comment, and an untouched checklist is not counted.
+  // draftedWords counts a written answer as a comment, and it skips a checklist
+  // the reviewer has not touched.
   draft.answers["d/why"] = { topic: "d", label: "Why", text: "Because." };
   draft.choices["scope/one"] = list("One");
   assert.equal(draftedWords(draft), "4 comments and 1 choice");
@@ -119,8 +120,7 @@ test("each round keeps its own remembered place", () => {
   });
   assert.equal(tab, "past");
   assert.equal(past, "1");
-  // Each page read keeps the block the reader was reading and how far into
-  // it, in whole pixels.
+  // readPlaces rounds the distance into a block to whole pixels.
   assert.deepEqual(placeFor(places, "1", pages), {
     page: "steps",
     at: {
@@ -128,14 +128,15 @@ test("each round keeps its own remembered place", () => {
       overview: { id: "result", into: -30 },
     },
   });
-  // A block with no ID or no distance into it lands at the top.
+  // readPlaces drops a spot with no block ID or no distance, so the page opens
+  // at its top.
   assert.deepEqual(placeFor(places, "2", pages), {
     page: "overview",
     at: {},
   });
-  // A round never visited opens at its first page.
+  // placeFor returns null for a round with no saved place, and the frame then
+  // opens the round's first page.
   assert.equal(placeFor(places, "3", pages), null);
-  // A page the round dropped would land the reader nowhere.
   assert.equal(placeFor(places, "1", ["overview", "feedback"]), null);
   assert.deepEqual(readPlaces(null), {
     tab: "current",
@@ -218,8 +219,8 @@ test("a sent answer's typed text does not carry into the next round", () => {
   draft.drafts = { "plan/why": "Because.", "plan/later": "Half an answer" };
   markSent(draft, "sub-1", "2026-09-27T00:00:00Z");
   const next = loadDraft(JSON.parse(JSON.stringify(draft)), "2");
-  // The next round's question with the same ID starts empty, and text that
-  // was never answered is still there to finish.
+  // The typed text of the answer sent in round 1 is gone in round 2, so the
+  // same question starts empty. Typed text that was never sent stays.
   assert.deepEqual(next.drafts, { "plan/later": "Half an answer" });
 });
 

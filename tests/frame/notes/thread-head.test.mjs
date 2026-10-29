@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { threadTitle } from "#frame/notes/thread-head.mjs";
 
-// A thread as the hub stores it, on a page titled Tonight, with a message
-// from the reviewer and the agent's reply.
 const thread = (fields) => ({
   page: "Tonight",
   state: "replied",
@@ -11,10 +9,8 @@ const thread = (fields) => ({
   ...fields,
 });
 
-// Each row of the rules the reviewer approved: what the thread was started
-// on, the part of its block its words are in, and the name its card's head
-// gives it open and collapsed. A thread on words has the page's title as its
-// anchor, as a note on selected words does.
+// The expected names are the ones the reviewer approved. A thread on selected
+// words has the page's title as its anchor, as a note on selected words does.
 const rules = [
   [
     "words in a paragraph",
