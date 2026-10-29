@@ -1,10 +1,8 @@
 import { normalize, plural } from "#frame/app/util.mjs";
 import { findQuote } from "#frame/notes/notes.mjs";
 
-/* A thread card's head, which names what the thread is on: the block its
-   note is on, or the part of the block its words are in, such as a table
-   row or a line of code. Naming reads only markup any component may use,
-   so a reviewer's own components are named the same way. */
+/* threadName and partOf read only markup that any component can use, so
+   they name the parts of a user's own components the same way. */
 
 const stateWords = (thread) =>
   thread.error
@@ -18,25 +16,21 @@ const stateWords = (thread) =>
       }[thread.state];
 const cut = (text, length) =>
   text.length > length ? `${text.slice(0, length - 1).trimEnd()}…` : text;
-// What a thread is on, as its card's head names it.
 function threadName(thread, part, collapsed) {
   if (thread.proposal) return `On ${thread.page}`;
   if (thread.quote) {
-    // A collapsed card hides its quote, so its head quotes the words.
+    // A collapsed card hides its quote, so the head includes the words.
     const words = `“${cut(normalize(thread.quote), 40)}”`;
     if (collapsed) return part ? `On ${words} in ${part}` : `On ${words}`;
     return part ? `On ${part}` : "On the words you selected";
   }
   if (thread.agreementId === "task") return "On the task";
-  // A thread on the overall comment or on Work names the place it is in.
   if (thread.topic === "overall" || thread.topic === "work")
     return `On ${thread.page}`;
   if (thread.anchor === thread.page) return "On this page";
   return `On ${thread.anchor}`;
 }
-// A card's head: what the thread is on, how many messages it has, and its
-// state when the card is collapsed. part names the part of the block the
-// thread's words are in, such as "row Read", or is null.
+// part is the name that partOf returns, such as "row Read", or null.
 export function threadTitle(thread, part, collapsed) {
   const count = plural(thread.messages.length, "message");
   return {
@@ -45,10 +39,6 @@ export function threadTitle(thread, part, collapsed) {
   };
 }
 
-// The part of its block a thread's words are in, named for the card's head:
-// a table row by its first cell, a line of code by its place in the block,
-// and a decision option or a checklist item by its label. Words anywhere
-// else, such as in a paragraph or a figure's labels, have no part.
 export function partOf(block, thread) {
   const range =
     block &&
@@ -66,8 +56,8 @@ export function partOf(block, thread) {
       const lines = [...at.closest(".shiki").querySelectorAll("code .line")];
       return `line ${lines.indexOf(at) + 1}`;
     }
-    // A checklist row holds its checkbox, where a decision option is the
-    // element that has the value.
+    // In a checklist, the row contains the checkbox that has data-value. In
+    // a decision, the option itself has data-value.
     const list = at.parentElement.closest("[data-multiselect]");
     const values = list ? at.querySelectorAll("[data-value]") : [];
     const value = at.matches("[data-value]")

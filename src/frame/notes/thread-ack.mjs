@@ -1,13 +1,11 @@
 import { base, editable } from "#frame/app/view.mjs";
 import { acknowledgeReply } from "#frame/sync/center.mjs";
 
-/* The thumbs up on an agent's message in a thread. The reviewer presses it
-   to agree with the message without writing a reply, and presses it again
-   to take it back. The hub sends no wake for it, and the bell leaves out
-   the line of a reply with a thumbs up. */
+/* The hub sends no wake event for a thumbs up. The frame leaves a reply
+   that has a thumbs up out of the bell's list. */
 
-// What this browser set that the poll does not show yet, by thread and
-// message.
+// wanted maps "threadId/index" to each thumbs up that this browser set and
+// the hub's poll does not show yet.
 const wanted = new Map();
 const icon =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>';
@@ -16,7 +14,6 @@ const pressed = (thread, index) =>
   wanted.get(`${thread.id}/${index}`) ??
   Boolean(thread.messages[index]?.acknowledgedAt);
 const isPressed = (button) => button.getAttribute("aria-pressed") === "true";
-// A read-only round shows a thumbs up the reviewer gave, and no button.
 function show(button, on) {
   button.setAttribute("aria-pressed", String(on));
   button.title = on ? "Remove your thumbs up" : "Thumbs up";
@@ -35,8 +32,8 @@ export function ackButton(thread, index) {
   show(button, pressed(thread, index));
   return button;
 }
-// Each poll sets the card's buttons from the hub's copy of the thread, or
-// from what this browser set until the hub's copy has it.
+// syncAcks runs on each poll. It sets each button from the hub's copy of the
+// thread, or from wanted until the hub's copy matches it.
 export function syncAcks(card, thread) {
   for (const button of card.querySelectorAll(".thread-ack")) {
     const index = Number(button.dataset.index);
@@ -62,7 +59,7 @@ async function toggle(button, threadId, index, on) {
     );
     if (!response.ok) throw Error((await response.json()).error);
   } catch {
-    // The hub kept what it had, so the button and the bell go back.
+    // The hub kept its old value, so toggle restores the button and the bell.
     if (wanted.get(key) !== on) return;
     wanted.delete(key);
     show(button, !on);
