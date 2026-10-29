@@ -7,12 +7,12 @@ import { refuseOverwrite } from "./output.mjs";
 
 const run = promisify(execFile);
 
-/* git applies the attributes and config of the repository it runs in and
-   of the user, and core.autocrlf or an eol attribute turns CRLF into LF
-   before it compares, so a change of line endings alone came out as no
-   change. git runs in a new empty directory, with no repository above it
-   and no config but the settings here, so pair diff writes the same patch
-   wherever it runs. */
+/* git applies the attributes and config of the repository it runs in and of
+   the user, and core.autocrlf or an eol attribute turns CRLF into LF before
+   git compares, so a change of line endings alone showed as no change. pair
+   diff runs git in a new empty directory, with no repository above it and no
+   config but the settings here, so it writes the same patch wherever it
+   runs. */
 async function gitDiff(paths) {
   const directory = await fs.mkdtemp(
     path.join(await fs.realpath(os.tmpdir()), "pair-diff-"),
@@ -76,9 +76,10 @@ export async function compareFiles(beforePath, afterPath) {
   return { before, after, patch: named(patch, path.basename(paths[1])) };
 }
 
-/* git names both sides by the paths it was given, which for scratch copies
-   are absolute temp paths the reader sees in the patch. The headers name
-   the file instead, as a patch from the file's own repository would. */
+/* git names both sides by the paths it was given, and for scratch copies
+   those are absolute temp paths that would show in the patch. named() puts
+   the file's name in the headers instead, as git does in the file's own
+   repository. */
 function named(patch, name) {
   const lines = patch.split("\n");
   for (let i = 0; i < lines.length && !lines[i].startsWith("@@"); i++) {

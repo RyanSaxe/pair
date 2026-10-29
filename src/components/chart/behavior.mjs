@@ -1,5 +1,3 @@
-/* A chart. planUI.chart owns the renderer and the theme; this reads the
-   options out of the page and gives the figure its chrome. */
 planUI.define("chart", {
   match: "[data-chart]",
   setup(element, { planUI }) {
@@ -11,8 +9,8 @@ planUI.define("chart", {
         caption: element.dataset.caption,
         kind: "chart",
       });
-    // The chart draws into a box of fixed height, so the page does not wait
-    // for ECharts.
+    // The chart renders into a box of fixed height, so setup does not wait for
+    // ECharts.
     planUI.chart(element, options).catch((error) => {
       element.textContent = JSON.stringify(options, null, 2);
       failed(element, error);

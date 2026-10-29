@@ -23,7 +23,6 @@ async function listed(root, from) {
   );
 }
 
-// Every component, pair's and then the user's, one line each.
 export async function components() {
   const [ownRoot, yoursRoot] = componentRoots();
   const own = await listed(ownRoot, "pair");

@@ -37,9 +37,9 @@
 .visual-decision[data-mode="columns"] .vd-columns {
   grid-template-columns: repeat(var(--vd-count, 2), minmax(0, 1fr));
 }
-/* The rows an option has are the rows it gets. A fixed three-row track list
-   charges the gap for a row the author left out, which showed as a strip of
-   card under the figure. */
+/* An option gets only the rows it has. A fixed three-row track list adds the
+   gap for a row the author left out, which showed as a strip of card under
+   the figure. */
 .visual-option {
   display: grid;
   gap: 8px;
@@ -80,15 +80,16 @@
   font-size: var(--text-label);
   color: var(--muted);
 }
-/* An option with no figure ends under its line: the third row and its gap
-   otherwise leave 8px of panel below the last word. */
+/* An option with no figure ends under its line, because the third row and
+   its gap would otherwise leave 8px of panel below the last word. */
 .visual-option:not(:has(> figure)) {
   padding-bottom: 10px;
 }
 /* A diagram and a code block each scroll sideways inside their own figure,
-   so this one never needs to scroll and must not, or it traps the wheel. It
-   pads all four sides, and what it holds keeps the shape it has anywhere
-   else, so a code block looks like a code block in prose or in a card. */
+   so this figure never needs to scroll, and it must not, because a scrolling
+   box traps the wheel. It pads all four sides, and its content looks as it
+   does anywhere else, so a code block in a card looks like a code block in
+   prose. */
 .visual-option > figure {
   margin: 0;
   padding: 10px 12px;
@@ -100,9 +101,9 @@
   padding: 10px;
 }
 /* Each tab shows its whole label, and a strip too narrow for every label
-   scrolls sideways. It never scrolls up and down: a box that scrolls on one
-   axis is given a scrollbar on the other, which put a stray pixel of
-   vertical scrolling on every decision. */
+   scrolls sideways. The strip never scrolls vertically, because a box that
+   scrolls on one axis gets a scrollbar on the other, which added a stray
+   pixel of vertical scrolling to every decision. */
 .vd-tablist {
   display: flex;
   gap: 2px;
@@ -111,8 +112,8 @@
   overflow: auto hidden;
   scrollbar-width: thin;
 }
-/* The underline is painted inside the button rather than hung a pixel below
-   it, so the strip has nothing to overflow. */
+/* The underline is inside the button, not a pixel below it, so the strip has
+   nothing to overflow. */
 .vd-tablist button {
   flex: none;
   padding: 8px 10px;
@@ -136,8 +137,8 @@
   overflow: hidden;
   background: var(--panel);
 }
-/* In tabs the option's radio header is the pick, at the top of the panel;
-   the tab carries the tick. */
+/* In tabs, the option's radio header at the top of the panel is the pick,
+   and the tab shows the tick. */
 .visual-decision[data-mode="tabs"] .vd-columns {
   display: block;
 }

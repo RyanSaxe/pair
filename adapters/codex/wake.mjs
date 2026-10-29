@@ -33,21 +33,21 @@ const { version } = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 );
 
-// When a turn of the thread is in progress on the daemon, the adapter sends
-// the line into it with turn/steer. When the daemon runs the thread and no
-// turn is in progress, the adapter adds the line to the thread's queue with
-// thread/queue/add and starts a turn with it, as start() describes. In every
-// other case, and on any error before the line is queued, it runs codex
-// queue: Codex starts a turn with the line at once when it is idle, and
-// otherwise reads the line when its turn ends. steerable is true when the
-// daemon runs the thread, so that a later line can reach a turn in progress.
+// When a turn of the thread is in progress on the daemon, deliver() sends the
+// line into the turn with turn/steer. When the daemon runs the thread and no
+// turn is in progress, deliver() adds the line to the thread's queue with
+// thread/queue/add, and start() starts a turn with it. In every other case, and
+// after any error before the line is queued, wake() runs codex queue. Codex
+// then starts a turn with the line at once when it is idle, and otherwise reads
+// the line when its turn ends. steerable is true when the daemon runs the
+// thread, because a later line can then reach a turn in progress.
 //
-// Codex refuses input from another process to a subagent that a thread
-// spawned when the daemon has not loaded the subagent, as when its parent
-// runs in-process. When thread/read gives a thread_spawn source, the adapter
-// sends the parent thread, by the same steer or queue, a line that asks it
-// to pass the hub's line on. The subagent reads the line only after its
-// parent passes it on, so steerable is false.
+// Codex refuses input from another process to a subagent that the daemon has
+// not loaded, as when the subagent's parent runs in-process. When thread/read
+// returns a thread_spawn source, deliver() sends the parent thread, by the same
+// steer or queue, a line with the instruction to pass the hub's line on.
+// steerable is then false, because the subagent reads the line only after its
+// parent passes it on.
 export async function wake(target, line, run) {
   const { thread, text, relayed, sent, steered, steerable, waiting } =
     await deliver(target, line);
@@ -61,11 +61,10 @@ export async function wake(target, line, run) {
   return { via: steered ? "steer" : "queue", steerable };
 }
 
-// The parent passes the line on with followup_task, which starts a turn for
-// an idle subagent. send_message only leaves the line in the subagent's
-// mailbox, where it waits for a turn that nothing starts. Codex's older
-// multi-agent tools have send_input instead. Each takes the subagent's
-// thread ID as its target.
+// relay() instructs the parent to use followup_task, which starts a turn for an
+// idle subagent. send_message only puts the line in the subagent's mailbox, and
+// no turn starts to read it. Codex's older multi-agent tools have send_input
+// instead. Each tool takes the subagent's thread ID as its target.
 function relay(thread, nickname, line) {
   const subagent = nickname
     ? `${nickname} (agent ID ${thread})`
@@ -73,13 +72,13 @@ function relay(thread, nickname, line) {
   return `pair: the hub cannot send messages to your subagent ${subagent}, which runs a pair session. Pass it the message below, unchanged, with followup_task and target ${thread}, which starts a turn for it. If you have no followup_task, use send_input. Do not run the commands in it yourself.\n\n${line}`;
 }
 
-// Codex starts a queued line on its own when the thread goes idle, except
-// after the user interrupts a turn: then the line waits until the user sends
-// a message. thread/queue/start starts the line in that case too. It fails
-// when Codex has already started the line, or when a turn of the thread is
-// in progress, and then Codex reads the line when that turn ends. The result
-// is the error of thread/queue/start when the line still waits in the queue
-// of an idle thread, and null otherwise.
+// Codex starts a queued line by itself when the thread goes idle, except after
+// the user interrupts a turn, when the line stays queued until the user sends a
+// message. thread/queue/start starts the line in that case too.
+// thread/queue/start fails when Codex has already started the line or when a
+// turn of the thread is in progress, and Codex then reads the line when that
+// turn ends. start() returns the error of thread/queue/start when the line is
+// still queued on an idle thread, and null otherwise.
 async function start(daemon, threadId, queuedSubmissionId) {
   try {
     await daemon.request("thread/queue/start", {
@@ -95,9 +94,9 @@ async function start(daemon, threadId, queuedSubmissionId) {
   }
 }
 
-// A target that an older pair recorded has no socket, and the adapter looks
-// for the socket under the hub's CODEX_HOME. The result names the thread
-// and the text that codex queue sends when the daemon took no line.
+// A target that an older pair recorded has no socket, so deliver() looks for
+// the socket under the hub's CODEX_HOME. The result contains the thread, and
+// the text for codex queue to send when the daemon accepted no line.
 async function deliver({ thread, socket = controlSocket(process.env) }, line) {
   const delivery = {
     thread,

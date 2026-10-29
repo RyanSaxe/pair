@@ -1,13 +1,10 @@
-// npm run screenshots saves a screenshot and the console log of each
-// browser window when it fails, so a failure on a CI runner, where nobody
-// watches Chrome, can be diagnosed from the files.
+// When npm run screenshots fails, it saves a screenshot and the console log of
+// each browser window, because nobody watches Chrome on a CI runner.
 import fs from "node:fs/promises";
 import path from "node:path";
 
 const windows = [];
 
-// Records the page's console messages, page errors and failed requests from
-// now on. saveFailure() writes them and a screenshot under the name given.
 export function watch(page, name) {
   const lines = [];
   const started = Date.now();
@@ -28,8 +25,6 @@ export function watch(page, name) {
   return page;
 }
 
-// Writes NAME.png and NAME-console.txt in the directory for each watched
-// page that is still open, and returns how many pages it saved.
 export async function saveFailure(directory) {
   let saved = 0;
   for (const { page, name, lines } of windows) {

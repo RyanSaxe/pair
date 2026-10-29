@@ -16,9 +16,8 @@ import {
   threadText,
 } from "./tags.mjs";
 
-// The session commands other than start and publish: the action each sends
-// the hub, and the output it prints. A hub of the previous release answers
-// reply with text, which prints as it is.
+// A hub of the previous release answers the reply action with text, and
+// readThread() and reply() print that text as it is.
 
 export async function read(options) {
   const { submission } = options;
@@ -62,7 +61,7 @@ export async function read(options) {
   };
 }
 
-// The hub's reply action without text marks a thread read and returns it.
+// The hub's reply action without text marks the thread read and returns it.
 async function readThread(session, id) {
   const result = await session.request({ action: "reply", note: id });
   if (result.text !== undefined) return { data: result.text, json: result };
@@ -102,8 +101,8 @@ export async function reply(options) {
   };
 }
 
-// A note is checked before anything is sent, so a refused note leaves the
-// pages it names unstarted.
+// noteText() checks the note before progress sends any request, so a refused
+// note leaves its pages unstarted.
 function noteText(options) {
   if (options.note === undefined) return undefined;
   const note = options.note.trim();
@@ -132,8 +131,8 @@ export async function progress(options) {
       json: result,
     };
   }
-  // progress refuses an unknown or published page before anything changes,
-  // and ack then puts the note on each page.
+  // The hub's progress action refuses an unknown or published page before it
+  // changes anything, and ack then adds the note to each page.
   let result = await session.request({ action: "progress", start: pages });
   if (note !== undefined)
     for (const page of pages)
@@ -177,7 +176,6 @@ function stageText(status) {
     : "the agent publishes Agreed";
 }
 
-// The hub's page states, in the words pair status prints.
 const pageStates = {
   queued: "not started",
   active: "started",
@@ -195,8 +193,6 @@ function holderText({ holder, wake }) {
   return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent}`;
 }
 
-// A proposal's state, from its facts and the cards joined into it, as pair
-// propose and pair status print it.
 const places = {
   here: "here",
   "sub-session": "in a sub-session",
@@ -204,7 +200,6 @@ const places = {
 };
 function proposalState(card, cards) {
   const { status } = card;
-  // The count leaves out the parts the agent dropped.
   const counted = status?.parts.filter((part) => part.state !== "dropped");
   const parts = counted
     ? `, ${counted.filter((part) => part.state === "done").length} of ${counted.length} parts done`
@@ -242,7 +237,6 @@ function proposalsText(cards) {
   ].join("\n");
 }
 
-// The sessions linked to this one, one per started proposal.
 function linkedText(cards = []) {
   const linked = cards.filter((card) => card.started?.session && !card.done);
   return linked
@@ -252,7 +246,8 @@ function linkedText(cards = []) {
 
 export async function propose(options) {
   const session = await openSession(options, { anyAgent: true });
-  // The hub checks that each flag goes with the action given.
+  // propose() sends every flag, and the hub checks that each flag fits the
+  // action.
   const flags = [
     "id",
     ...["title", "delivers", "recommend", "page", "thread", "revise"],
@@ -267,7 +262,8 @@ export async function propose(options) {
     statusDrop: options["status-drop"],
   });
   const card = result.proposal;
-  // The holder's own start prints as pair read prints any other start.
+  // When the holder starts a proposal itself, propose() prints the start as
+  // pair read prints any other start.
   if (result.moment)
     return {
       next: result.next,
@@ -291,7 +287,6 @@ export async function propose(options) {
   };
 }
 
-// After a status, the parts left, or how the work finishes when none is.
 function leftText(card, directory) {
   const left = card.status.parts
     .filter((part) => part.state === "left")
@@ -303,8 +298,6 @@ function leftText(card, directory) {
   return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";
 }
 
-// The Round and Latest submission rows, which pair status and pair read
-// print.
 function roundRow(state) {
   const round = state.current;
   return [
@@ -320,7 +313,6 @@ const submissionRow = (state) => [
     `${state.latestSubmissionId}, on round ${state.latestSubmissionRound}`,
 ];
 
-// Where the session stands, which pair read prints with what it reads.
 function standingText(state) {
   if (!state) return "";
   return rows([

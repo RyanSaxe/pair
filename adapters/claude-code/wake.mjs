@@ -2,7 +2,8 @@ import net from "node:net";
 
 export const name = "Claude Code";
 
-// Claude Code gives the commands it runs an inbox socket and its token.
+// Claude Code sets an inbox socket and its token in the environment of each
+// command it runs.
 export const command = "claude";
 export const variables = [
   "CLAUDE_CODE_MESSAGING_SOCKET",
@@ -20,8 +21,8 @@ export const detect = (env) => ({
   token: env.CLAUDE_CODE_MESSAGING_TOKEN,
 });
 
-// Two JSON lines over the socket: the auth line, then a user message.
-// Claude Code reads its inbox between the steps of a turn.
+// Claude Code reads its inbox between the steps of a turn, so a wake reaches a
+// turn in progress.
 export function wake({ socket, token }, line) {
   return new Promise((resolve, reject) => {
     const client = net.connect(socket);

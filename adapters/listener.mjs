@@ -3,11 +3,12 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
-// Inside pi or opencode: a socket in a directory only this user can open.
-// A connection carries one JSON line, and the listener answers "ok" once the
-// CLI has taken the message, or the reason it refused. Bun, which runs
-// opencode's plugins, closes a half-closed socket, so neither side half-closes
-// before the answer.
+// pi and opencode call listen() inside their own process. mkdtempSync creates
+// the directory with mode 0700, so only this user can reach the socket. Each
+// connection sends one JSON line, and listen() writes "ok" once deliver()
+// resolves, or the error's message otherwise. Bun, which runs opencode's
+// plugins, closes a half-closed socket, so neither side half-closes before the
+// reply.
 export function listen(deliver) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pair-"));
   // Windows has no socket files, so the socket there is a named pipe.
@@ -43,7 +44,6 @@ export function listen(deliver) {
 // file with nothing listening on it (ECONNREFUSED).
 const exited = new Set(["ENOENT", "ECONNREFUSED"]);
 
-// In the hub: send one message and wait for the listener's answer.
 export function send(socket, message) {
   return new Promise((resolve, reject) => {
     let reply = "";

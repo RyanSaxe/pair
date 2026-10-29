@@ -2,17 +2,17 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { lineRanges } from "../shared/lines.mjs";
 
-/* A comment, or a start or end tag. A tag runs to the first ">" outside a
-   quoted value, as it does in the browser, so a ">" in an attribute such
-   as data-label="a -> b" stays in its tag. A comment that never closes
-   runs to the end. */
+/* token matches a comment, or a start or end tag. A tag runs to the first
+   ">" outside a quoted value, as in the browser, so a ">" in an attribute
+   such as data-label="a -> b" stays in its tag. A comment that never closes
+   runs to the end of the page. */
 const token =
   /<!--[\s\S]*?(?:-->|$)|<(\/?)([a-zA-Z][^\s/>]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 const attributePattern =
   /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
-/** A start tag's lowercase name and its attributes. An attribute written
- * with no value is present and has the value undefined, and the browser
- * keeps the first of two with one name. */
+/** readTag() returns a start tag's lowercase name and its attributes. An
+ * attribute written with no value maps to undefined. The browser keeps the
+ * first of two attributes with one name, and readTag() does too. */
 function readTag(name, text) {
   const attributes = new Map();
   for (const [, key, ...values] of text.matchAll(attributePattern))
@@ -27,10 +27,11 @@ const code = (tag) =>
   tag.attributes.has("data-language") || tag.attributes.has("data-diagram");
 // The browser reads no tags inside these.
 const textElements = new Set(["textarea", "script", "style"]);
-/** The page's start and end tags in source order, without the comments,
- * which the browser does not show. An end tag has end set. A code block, a
- * diagram, a textarea, a script and a style hold text, so each one's text,
- * up to its end tag, is its body, and body is the offset where it starts. */
+/** pageTags() returns the page's start and end tags in source order, without
+ * the comments, which the browser does not show. An end tag has end set. A
+ * code block, a diagram, a textarea, a script and a style contain text, so
+ * the text up to each one's end tag is its body, and at is the offset where
+ * the body starts. */
 function pageTags(html) {
   const lower = html.toLowerCase();
   const pattern = new RegExp(token.source, "g");
@@ -62,9 +63,10 @@ const controlKinds = [
   "data-drawing-question",
 ];
 const labelLimit = 24;
-/* The language IDs the frame's pinned Shiki highlights. A name it does not
-   know renders as an error under an uncoloured block, so the build refuses
-   it. Regenerate the file from Shiki's bundledLanguages, plus its plain-text
+/* These are the language IDs that the frame's pinned Shiki highlights. The
+   frame renders a block in a language that Shiki does not support as an
+   error under an uncoloured block, so the build refuses the language.
+   Regenerate the file from Shiki's bundledLanguages, plus its plain-text
    names, whenever the frame's Shiki version changes. */
 const shiki = JSON.parse(
   readFileSync(new URL("shiki-languages.json", import.meta.url), "utf8"),
@@ -79,22 +81,21 @@ function closestLanguage(name) {
     )
     .sort((a, b) => b.length - a.length)[0];
 }
-/* The lines the frame renders from a code block's source. The HTML parser
-   drops a newline right after <pre>, and the frame trims one more newline
-   at each end before Shiki splits the lines. */
+/* renderedLines() returns the number of lines the frame renders from a code
+   block's source. The HTML parser drops a newline right after <pre>, and the
+   frame trims one more newline at each end before Shiki splits the lines. */
 const renderedLines = (name, source) =>
   source
     .replace(name.toLowerCase() === "pre" ? /^\n{1,2}/ : /^\n/, "")
     .replace(/\n[ \t]*$/, "")
     .split("\n").length;
-// "a", "a and b", "a, b and c".
 const listing = (items) =>
   items.length < 2
     ? items.join("")
     : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
-/* The browser reads a "<" before a letter, "/", "!" or "?" as the start of
-   a tag or a comment, and then leaves that text out of the block, or puts
-   the rest of the page inside it. */
+/* The browser reads a "<" before a letter, "/", "!" or "?" as the start of a
+   tag or a comment. It then leaves that text out of the block, or puts the
+   rest of the page inside the block. */
 const tagStart = /<[a-zA-Z/!?]/g;
 const lineAt = (html, offset) => html.slice(0, offset).split("\n").length;
 function codeProblems(tag, html, at) {
@@ -132,8 +133,8 @@ function codeProblems(tag, html, at) {
     );
   return list;
 }
-/** The problems in each control's options. An option belongs to the
- * nearest control around it, which is the one the frame finds with
+/** controlProblems() checks each control's options. An option belongs to the
+ * nearest control around it, which is the control the frame finds with
  * closest(). A control's element ends at the end tag that balances its own
  * start tag. */
 function controlProblems(all, at) {
@@ -189,7 +190,7 @@ function controlProblems(all, at) {
       !inside.some((tag) => tag.name === "textarea")
     )
       list.push(`${at}: question "${id}" has no textarea`);
-    // A box the author checked would read as the reviewer's choice.
+    // A box that the author checked would look like the reviewer's own choice.
     if (
       kind === "data-multiselect" &&
       inside.some(
@@ -202,8 +203,8 @@ function controlProblems(all, at) {
   }
   return list;
 }
-/** A "#" link names a page of the round, Agreed, Feedback, or an element
- * on its own page. */
+/** A "#" link must point to a page of the round, Agreed, Feedback, or an
+ * element on its own page. */
 export function linkProblems(html, at, targets) {
   const tags = startTags(html);
   const ids = new Set(tags.map((tag) => attribute(tag, "id")));
@@ -224,11 +225,12 @@ export function linkProblems(html, at, targets) {
         `${at}: link "${link}" names no page of the round and no element on this page. The round's pages are ${listing(pages)}.`,
     );
 }
-/** Structural problems in the assembled pages and a page's own script.
- * With authoring false, it leaves out the rules that were added or changed
- * after an older pair build checked a stored page, so that page is never
- * held to them: the bare < in code, the option label limit, the checks on
- * each control's options, data-lines, and an img whose src is a file path. */
+/** problems() lists the structural problems in the assembled pages and in a
+ * page's own script. With authoring false, it skips the rules that were
+ * added or changed after an older pair build checked a stored page, so a
+ * stored page is never held to them. Those rules are the bare < in code, the
+ * option label limit, the checks on each control's options, data-lines, and
+ * an img whose src is a file path. */
 export function problems(
   data,
   js = "",
@@ -258,9 +260,10 @@ export function problems(
           list.push(`${at}: control "${id}" has no data-label`);
       }
       // The tab strip shares its width between the option labels, so a long
-      // one leaves nothing for the rest. Only the label a tab shows is
-      // bounded; the option's own header keeps its wording, and a group's
-      // label is read on Agreed and on Feedback, never in a strip.
+      // label leaves no room for the rest. The limit applies only to the label
+      // a tab shows. The option's own header shows its full wording, and the
+      // frame shows a group's label on Agreed and on Feedback, never in a
+      // strip.
       const label = attribute(tag, "data-label");
       if (
         authoring &&
@@ -271,8 +274,6 @@ export function problems(
         list.push(
           `${at}: option label "${label}" is ${label.length} characters, over ${labelLimit}`,
         );
-      // The frame draws the page title as the page's only h1, so a second
-      // one is always a duplicate heading, whatever it says.
       if (tag.name === "h1")
         list.push(
           `${at}: remove the h1, because the frame shows the page title as the page's only h1. Start headings at h2.`,
@@ -286,8 +287,8 @@ export function problems(
           !attribute(tag, "data-language")
         )
           list.push(`${at}: a code block has no data-language`);
-        // before-after shows both sides in the Pierre viewer. A code block
-        // marked as a diff shows neither.
+        // The before-after component shows both sides of a diff in the Pierre
+        // viewer, and a code block marked as a diff shows neither side.
         if (/^(?:diff|patch)$/i.test(attribute(tag, "data-language") || ""))
           list.push(
             `${at}: a code block marked diff belongs in before-after. Run pair diff BEFORE AFTER OUT.json`,
@@ -300,8 +301,6 @@ export function problems(
           `${at}: data-language "${language}" is not a language Shiki highlights. ${closest ? `Did you mean "${closest}"?` : "Use a Shiki language ID, such as ts, python, shell or text."}`,
         );
       }
-      // The hub serves a round's pages and no file beside them, so an image
-      // at a path shows as a broken image.
       const source = tag.name === "img" ? attribute(tag, "src")?.trim() : "";
       if (authoring && source && !/^(?:data:|https?:|\/\/)/i.test(source))
         list.push(
@@ -339,8 +338,8 @@ export function problems(
         );
     }
   }
-  // Reading the body's width is fine; writing to the frame's root elements
-  // restyles the whole app.
+  // A page script may read the body's width, but a write to the frame's root
+  // elements restyles the whole frame.
   const mutation =
     /document\.(body|documentElement)\.(style|className|classList|dataset|innerHTML|setAttribute|append|prepend|insertAdjacent|replaceChildren|remove)\b/;
   js.split("\n").forEach((line, index) => {
@@ -350,7 +349,7 @@ export function problems(
   if (js) list.push(...syntaxProblems(js));
   return list;
 }
-/* The frame imports a page's script as a module, and one that does not
+/* The frame imports a page's script as a module, and a script that does not
    parse leaves the page with no behavior and an error only in the console.
    node --check parses the script as a module without running it. */
 function syntaxProblems(js) {

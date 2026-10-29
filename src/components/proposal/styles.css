@@ -1,5 +1,5 @@
-/* The frame draws the card inside the root. The author's text, which shows
-   until then and wherever no hub has the card, sits in the same box. */
+/* The frame draws the card inside the root, in the same box as the author's
+   text, which shows until then and whenever the hub has no such card. */
 .proposal > .proposal-card {
   margin: 0;
 }
