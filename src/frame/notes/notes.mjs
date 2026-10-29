@@ -267,7 +267,11 @@ export function countNotes() {
 function notesAt(x, y) {
   let node, offset;
   if (document.caretPositionFromPoint) {
-    const position = document.caretPositionFromPoint(x, y);
+    // The position is in a diff's shadow root only when the call names it.
+    const shadowRoots = noteRanges
+      .map(({ range }) => range.startContainer.getRootNode())
+      .filter((root) => root instanceof ShadowRoot);
+    const position = document.caretPositionFromPoint(x, y, { shadowRoots });
     if (!position) return [];
     node = position.offsetNode;
     offset = position.offset;

@@ -156,10 +156,11 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
   await startThread(page, session, "open", "additions", 2);
 });
 
-test("a note on diff text marks the words selected in the diff", async (t) => {
+test("a note on diff text marks the words selected in the diff, and the mark shows the note on hover and opens it on a click", async (t) => {
   const { page } = await openDiff(t);
   if (!page) return;
   const quote = 'return "open"';
+  const note = "Keep the selected change marked.";
   await selectDiffText(page, quote);
   await page.getByRole("button", { name: "Comment on selection" }).click();
   await page.waitForFunction(
@@ -167,7 +168,7 @@ test("a note on diff text marks the words selected in the diff", async (t) => {
     null,
     { timeout: 5000 },
   );
-  await page.locator("#note-text").fill("Keep the selected change marked.");
+  await page.locator("#note-text").fill(note);
   await page.getByRole("button", { name: "Add to feedback" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await page.waitForFunction(
@@ -191,4 +192,16 @@ test("a note on diff text marks the words selected in the diff", async (t) => {
     ),
     [{ text: quote, inDiff: true }],
   );
+
+  const mark = await page.evaluate(() => {
+    const [range] = CSS.highlights.get("plan-note");
+    const box = range.getBoundingClientRect();
+    return { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
+  });
+  await page.mouse.move(mark.x, mark.y, { steps: 3 });
+  await page.locator("#note-tip", { hasText: note }).waitFor({ timeout: 5000 });
+  await page.mouse.click(mark.x, mark.y);
+  await page.locator("#note-dialog[open]").waitFor({ timeout: 5000 });
+  assert.equal(await page.locator("#note-title").textContent(), "Edit note");
+  assert.equal(await page.locator("#note-text").inputValue(), note);
 });
