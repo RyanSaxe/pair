@@ -30,6 +30,7 @@ import {
 } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
+import { isDiffNode } from "#frame/pages/renderers.mjs";
 
 export const known = {
   choices: new Set(),
@@ -51,7 +52,19 @@ export function indexPage(topic) {
     "[data-drawing-question]",
   ))
     known.questions.add(controlKey(topic.id, group.dataset.drawingQuestion));
-  known.text.set(topic.id, normalize(template.content.textContent));
+  const text = [template.content.textContent];
+  for (const source of template.content.querySelectorAll(
+    "textarea[data-diff-input]",
+  )) {
+    try {
+      const input = JSON.parse(source.value);
+      if (typeof input.before === "string") text.push(input.before);
+      if (typeof input.after === "string") text.push(input.after);
+    } catch {
+      // The page builder reports malformed diff input before the page runs.
+    }
+  }
+  known.text.set(topic.id, normalize(text.join("\n")));
 }
 export function rebuildKnown() {
   known.choices.clear();
@@ -95,27 +108,41 @@ let opener = null;
    repeats it is never where it is found. The text has each run of whitespace
    as one space, and map has the node and offset of every other character. */
 function pageText(root) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const map = [];
   let text = "",
     pendingSpace = false;
-  for (let node; (node = walker.nextNode());) {
-    if (node.parentElement?.closest("script, style, pair-thread")) continue;
-    const data = node.data;
-    for (let index = 0; index < data.length; index++) {
-      if (/\s/.test(data[index])) {
-        pendingSpace = text.length > 0;
-        continue;
+  function walk(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const data = node.data;
+      for (let index = 0; index < data.length; index++) {
+        if (/\s/.test(data[index])) {
+          pendingSpace = text.length > 0;
+          continue;
+        }
+        if (pendingSpace) {
+          text += " ";
+          map.push(null);
+          pendingSpace = false;
+        }
+        text += data[index];
+        map.push({ node, offset: index });
       }
-      if (pendingSpace) {
-        text += " ";
-        map.push(null);
-        pendingSpace = false;
-      }
-      text += data[index];
-      map.push({ node, offset: index });
+      return;
     }
+    if (
+      node.nodeType !== Node.ELEMENT_NODE &&
+      node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE
+    )
+      return;
+    if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      node.matches("script, style, pair-thread, textarea[data-diff-input]")
+    )
+      return;
+    if (node.shadowRoot) walk(node.shadowRoot);
+    for (const child of node.childNodes) walk(child);
   }
+  walk(root);
   return { text, map };
 }
 export function findText(root, needle, occurrence = 1) {
@@ -140,9 +167,13 @@ export function selectedOccurrence(selection, quote, target) {
   const block = quoteBlock(target);
   if (!block || !selection?.rangeCount) return 1;
   const range = selection.getRangeAt(0);
+  const selectionRoot = range.startContainer.getRootNode();
   const { text, map } = pageText(block);
   const start = map.findIndex(
-    (point) => point && range.comparePoint(point.node, point.offset) >= 0,
+    (point) =>
+      point &&
+      point.node.getRootNode() === selectionRoot &&
+      range.comparePoint(point.node, point.offset) >= 0,
   );
   return occurrenceAt(text, normalize(quote), start);
 }
@@ -187,7 +218,11 @@ export function markNotes() {
   for (const note of notes) {
     if (!note.quote) continue;
     const range = findQuote(note.quote, note.target, note.occurrence);
-    if (!range || range.startContainer.parentElement?.closest(richContent))
+    if (
+      !range ||
+      (range.startContainer.parentElement?.closest(richContent) &&
+        !isDiffNode(range.startContainer))
+    )
       continue;
     noteRanges.push({ note, range });
   }
@@ -263,6 +298,10 @@ function showTip(event) {
 }
 export function installNotes() {
   rebuildKnown();
+  window.addEventListener("plan:diff", () => {
+    if (!$("reading").hidden && !page.pending && page.id !== "agreed")
+      markNotes();
+  });
   $("page-content").addEventListener("mousemove", showTip);
   $("page-content").addEventListener("mouseleave", () => {
     $("note-tip").hidden = true;
@@ -323,6 +362,7 @@ export function openNote({
   agreementId = null,
   target = null,
   occurrence = 1,
+  diffLine = null,
   proposal = null,
 }) {
   // After the round's feedback is sent, only a new note opens, and it can
@@ -339,6 +379,7 @@ export function openNote({
     ...(agreementId ? { agreementId } : {}),
     ...(target ? { target } : {}),
     ...(occurrence > 1 ? { occurrence } : {}),
+    ...(diffLine ? { diffLine } : {}),
     ...(proposal ? { proposal } : {}),
   };
   editing = id;

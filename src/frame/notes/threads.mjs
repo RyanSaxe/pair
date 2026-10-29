@@ -13,6 +13,11 @@ import {
 import { findText, placeMarks } from "#frame/notes/notes.mjs";
 import { ackButton, syncAcks } from "#frame/notes/thread-ack.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
+import {
+  diffForTarget,
+  diffViews,
+  setDiffThreads,
+} from "#frame/pages/renderers.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
@@ -90,6 +95,7 @@ export function startThread(context, text, attachments) {
         ...(context.quote ? { quote: context.quote } : {}),
         ...(context.target ? { target: context.target } : {}),
         ...(context.occurrence ? { occurrence: context.occurrence } : {}),
+        ...(context.diffLine ? { diffLine: context.diffLine } : {}),
         ...(context.agreementId ? { agreementId: context.agreementId } : {}),
       };
   sent.set(fields.id, {
@@ -476,8 +482,11 @@ export function placeThreads() {
   const root = $("page-content");
   const reading = page && !page.pending && !$("reading").hidden;
   const groups = new Map();
+  const diffGroups = new Map();
   const group = (at, thread) =>
     groups.set(at, [...(groups.get(at) || []), thread]);
+  const groupOnDiff = (at, thread) =>
+    diffGroups.set(at, [...(diffGroups.get(at) || []), thread]);
   const ids = new Set();
   const list = [];
   const ends = [];
@@ -497,8 +506,11 @@ export function placeThreads() {
     for (const card of $("reading").querySelectorAll("pair-thread"))
       if (!ids.has(card.dataset.thread)) card.remove();
     placeProgress(list.filter(onProgress));
-    for (const thread of list.filter((item) => !onProgress(item)))
-      group(blockOf(root, thread), thread);
+    for (const thread of list.filter((item) => !onProgress(item))) {
+      const diff = thread.diffLine && diffForTarget(thread.target);
+      if (diff) groupOnDiff(diff, thread);
+      else group(blockOf(root, thread), thread);
+    }
   }
   const placed = new Set();
   for (const [block, threads] of groups)
@@ -520,6 +532,25 @@ export function placeThreads() {
       }
       placed.add(entry.card);
     });
+  for (const element of diffViews(root)) {
+    const threads = diffGroups.get(element) || [];
+    const byLine = new Map();
+    for (const thread of threads) {
+      const key = `${thread.diffLine.side}/${thread.diffLine.lineNumber}`;
+      byLine.set(key, [...(byLine.get(key) || []), thread]);
+    }
+    for (const lineThreads of byLine.values())
+      lineThreads.forEach((thread, index) => {
+        if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
+        drawCard(
+          cards.get(thread.id),
+          thread,
+          `line ${thread.diffLine.lineNumber}`,
+          folds(lineThreads, index),
+        );
+      });
+    setDiffThreads(element, threads, cards);
+  }
   // A message's observer would cut it only at the next frame, after a
   // scroll to a reply had measured every long message at its full height,
   // so each card drawn here cuts its messages now that it is on the page.
@@ -554,5 +585,6 @@ export function installThreads() {
     cards.clear();
     placeThreads();
   });
+  window.addEventListener("plan:diff", placeThreads);
   setInterval(tick, 1000);
 }

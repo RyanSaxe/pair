@@ -13,10 +13,50 @@ import {
   selectedOccurrence,
 } from "#frame/notes/notes.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
+import { diffLineForNode } from "#frame/pages/renderers.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
 let selected = "";
 let selectedTarget = null;
+let selectedDiffLine = null;
+function composedParent(node) {
+  const root = node?.getRootNode?.();
+  return node?.parentElement || root?.host || null;
+}
+function pageBlock(node) {
+  const root = $("page-content");
+  for (
+    let at = node?.nodeType === 1 ? node : node?.parentElement;
+    at && at !== root;
+    at = composedParent(at)
+  )
+    if (at.parentElement === root) return at;
+  return null;
+}
+function selectionTarget(node, block, diffLine) {
+  for (
+    let at = node?.nodeType === 1 ? node : node?.parentElement;
+    at && at.id !== "page-content";
+    at = composedParent(at)
+  )
+    if (at.id) return at.id;
+  if (!diffLine || !block) return block?.id || null;
+  if (!block.id) {
+    const root = $("page-content");
+    const index = [...root.children].indexOf(block) + 1;
+    block.id = `pair-diff-${index}`;
+  }
+  return block.id;
+}
+function insideThread(node) {
+  for (
+    let at = node?.nodeType === 1 ? node : node?.parentElement;
+    at;
+    at = composedParent(at)
+  )
+    if (at.localName === "pair-thread") return true;
+  return false;
+}
 // Every direct child of the page content is a block and gets a comment
 // control, whatever it is; paragraphs, headings and lists are the exception,
 // since their text is what selection comments are for.
@@ -299,6 +339,7 @@ export function commentOnTarget() {
       quote: selected,
       target: selectedTarget,
       occurrence: selectedOccurrence(getSelection(), selected, selectedTarget),
+      diffLine: selectedDiffLine,
     });
   else if (on === "block") openNote(chosenNote());
   else openNote({ topic: page.id, anchor: page.title });
@@ -306,13 +347,18 @@ export function commentOnTarget() {
 }
 export function installBlocks() {
   document.addEventListener("selectionchange", () => {
-    const selection = getSelection(),
-      parent = selection?.anchorNode?.parentElement;
+    const selection = getSelection();
+    const block = pageBlock(selection?.anchorNode);
     selected =
-      parent?.closest("#page-content") && !parent.closest("pair-thread")
+      block && !insideThread(selection?.anchorNode)
         ? selection?.toString().trim() || ""
         : "";
-    selectedTarget = parent?.closest("#page-content [id]")?.id || null;
+    selectedDiffLine = selected ? diffLineForNode(selection?.anchorNode) : null;
+    selectedTarget = selectionTarget(
+      selection?.anchorNode,
+      block,
+      selectedDiffLine,
+    );
     commentTarget();
   });
   /* A control does its own job, a block or card becomes the target, and

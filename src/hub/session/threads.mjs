@@ -185,6 +185,18 @@ export function threads(session) {
         (Number.isInteger(data.occurrence) && data.occurrence > 0),
       "A thread's occurrence is a whole number from 1",
     );
+    if (data.diffLine !== undefined)
+      requireValue(
+        data.diffLine &&
+          typeof data.diffLine === "object" &&
+          !Array.isArray(data.diffLine) &&
+          ["additions", "deletions"].includes(data.diffLine.side) &&
+          Number.isInteger(data.diffLine.lineNumber) &&
+          data.diffLine.lineNumber > 0 &&
+          text(data.quote) &&
+          text(data.target),
+        "A diff line needs a side, a positive line number, a quote and a target",
+      );
     const message = await reviewerMessage(data);
     const thread = {
       id: data.id,
@@ -196,6 +208,14 @@ export function threads(session) {
       ...(text(data.quote) ? { quote: data.quote.trim() } : {}),
       ...(text(data.target) ? { target: data.target } : {}),
       ...(data.occurrence > 1 ? { occurrence: data.occurrence } : {}),
+      ...(data.diffLine
+        ? {
+            diffLine: {
+              side: data.diffLine.side,
+              lineNumber: data.diffLine.lineNumber,
+            },
+          }
+        : {}),
       ...(text(data.agreementId) ? { agreementId: data.agreementId } : {}),
       state: "sending",
       readAt: null,
