@@ -3,15 +3,16 @@ import test from "node:test";
 import { startHub } from "../../src/hub/server.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// The record every browser on the hub reads with the session list, and adds
-// to with POST /api/seen, as a phone on PAIR_HUB_HOST and a computer do.
+// Every browser on the hub reads the seen record with the session list and adds
+// to it with POST /api/seen. A phone on PAIR_HUB_HOST and a computer therefore
+// share one record.
 test("browsers share what the reviewer cleared, opened and saw, and a new hub keeps it", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
   const list = async (origin = h.server.origin) =>
     (await (await fetch(`${origin}/api/sessions`)).json()).seen;
-  // No browser has sent a record yet.
+  // The hub reports each list as null until a browser sends one.
   assert.deepEqual(await list(), { cleared: null, opened: null, cards: null });
   const [entry] = (await a.request("/api/sessions")).body.sessions;
   const event = entry.events[0].id;
@@ -25,7 +26,8 @@ test("browsers share what the reviewer cleared, opened and saw, and a new hub ke
   assert.equal(added.code, 200);
   const expected = { cleared: [event], opened: [page], cards: [] };
   assert.deepEqual(added.body, expected);
-  // A second add keeps the first, and an ID the hub has is kept once.
+  // The hub merges a second POST into the record and stores an ID it already
+  // has only once.
   await a.request("/api/seen", { cards: [card], opened: [page] });
   expected.cards = [card];
   assert.deepEqual(await list(), expected);
@@ -65,7 +67,7 @@ test("the record drops what the session list no longer shows", async (t) => {
     opened: [`${a.id}/1/overview`, `${b.id}/1/overview`],
     cards: [`${a.id}/tidy`, `${b.id}/tidy`],
   });
-  // Round 2 replaces round 1, so a page opened in round 1 goes.
+  // Round 2 replaces round 1, so the hub drops the round 1 page from opened.
   await a.feedback(a.event());
   await a.action("read");
   assert.equal((await a.publish(planData("2"))).code, 200);

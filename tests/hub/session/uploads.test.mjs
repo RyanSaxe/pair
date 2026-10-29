@@ -5,8 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { exists, hub, planData } from "../../support/hub.mjs";
 
-// A reviewer's screenshot arrives as bytes with no name and no type worth
-// trusting, so the hub decides both and writes the file itself.
+// The hub receives a reviewer's screenshot as bytes with no name and no
+// trustworthy type, so the hub picks both and writes the file itself.
 test("an image upload is decided by its bytes, capped, and named by the hub", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -48,7 +48,7 @@ test("an image upload is decided by its bytes, capped, and named by the hub", as
   ])
     assert.equal((await send(bytes).then((r) => r.json())).type, type);
 
-  // A HEIC from a phone, and a PNG signature that a name cannot fake.
+  // The hub refuses HEIC, the format a phone sends.
   const heic = Buffer.concat([
     Buffer.alloc(4),
     Buffer.from("ftypheic"),
@@ -66,8 +66,8 @@ test("an image upload is decided by its bytes, capped, and named by the hub", as
 
   assert.equal((await send(png, { Origin: "http://example.com" })).status, 403);
 
-  // One request is bounded and the session is not, so a long review never
-  // meets a ceiling.
+  // The hub limits the size of one upload but not the number of uploads in a
+  // session, so a long review never reaches a limit.
   for (let n = 0; n < 30; n++) assert.equal((await send(png)).status, 201);
   assert.equal(
     (await fs.readdir(path.join(a.directory, "uploads"))).length,
@@ -96,7 +96,8 @@ test("a note carries its images by path, and removing one deletes the file", asy
     text: "This is what I mean.",
     attachments,
   });
-  // A note may only name an image this session holds.
+  // The hub refuses a note whose attachment ID matches no upload in this
+  // session.
   const rejected = await a.feedback(
     a.event("feedback-only", "1", {
       groups: {
@@ -115,7 +116,8 @@ test("a note carries its images by path, and removing one deletes the file", asy
   );
   assert.equal(rejected.code, 400);
   assert.match(rejected.body.error, /not in this session/);
-  // A sketch's image may only name a scene this session holds.
+  // The hub refuses a sketch whose image has a scene ID that this session has
+  // not stored.
   const sceneless = await a.feedback(
     a.event("feedback-only", "1", {
       groups: { notes: [note([{ ...stored, scene: { id: "0".repeat(16) } }])] },
@@ -124,8 +126,8 @@ test("a note carries its images by path, and removing one deletes the file", asy
   assert.equal(sceneless.code, 400);
   assert.match(sceneless.body.error, /not in this session/);
 
-  // A note names an image by its ID, and the hub gives it the path, type and
-  // size of the file it wrote, whatever else the note sends.
+  // The hub finds a note's image by its ID and sets the path, type and size
+  // from the file it wrote, whatever else the note contains.
   const forged = {
     ...stored,
     path: "/etc/passwd",
@@ -136,7 +138,6 @@ test("a note carries its images by path, and removing one deletes the file", asy
     groups: { notes: [note([forged])] },
   });
   assert.equal((await a.feedback(event)).code, 200);
-  // The agent reads the path off the note, and the bytes are on disk under it.
   const delivered = (await a.action("read", { id: event.id })).body.event;
   assert.deepEqual(delivered.payload.groups.notes[0].attachments, [stored]);
   assert(await exists(stored.path));
@@ -148,7 +149,8 @@ test("a note carries its images by path, and removing one deletes the file", asy
   assert.equal(removed.status, 200);
   assert.deepEqual(await removed.json(), { id: stored.id, removed: true });
   assert.equal(await exists(stored.path), false);
-  // Removing the same image twice is not an error, so a retry is safe.
+  // The hub answers a second DELETE of the same image without an error, so a
+  // retry is safe.
   assert.deepEqual(
     await fetch(`${h.server.origin}${a.base}/api/upload/${stored.id}`, {
       method: "DELETE",

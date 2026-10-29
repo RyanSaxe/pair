@@ -88,8 +88,9 @@ test("a session closed with feedback unread stays closed after the hub restarts"
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-idle-"));
   const port = await freePort();
-  // Each new hub starts with no live session and waits this long for start
-  // to register one, which can take over 300ms on a busy machine.
+  // PAIR_HUB_IDLE_SECONDS is 1 because a new hub exits after that long with no
+  // live session, and on a busy machine start can take over 300 ms to register
+  // one.
   const { config, run, start } = await pairCli(home, {
     PAIR_HUB_PORT: String(port),
     PAIR_HUB_IDLE_SECONDS: "1",
@@ -101,14 +102,14 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
   const first = await start();
   assert.equal(first.url, `http://127.0.0.1:${port}/s/${first.sessionId}/`);
   assert(first.sessionDir.startsWith(config.sessions));
-  // The printed wake names the harness and carries none of the token or
-  // thread it wakes with.
+  // start --json prints only the harness of the wake target, never the token or
+  // thread that the hub wakes the agent with.
   assert.deepEqual(first.wake, { harness: "claude-code" });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   assert.equal(record.port, port);
   assert.equal(record.version, version);
-  // A session stays live until it completes or pauses, so the hub exits only
-  // once this one is paused.
+  // The hub counts a session as live until it completes or pauses, so the test
+  // pauses it to let the hub exit.
   await run("pause", "--session-dir", first.sessionDir, "--reason", "idle");
   assert.equal(await waitUntil(() => !alive(record.pid), 5000), true);
   assert.equal(await exists(config.hubFile), false);
@@ -136,8 +137,8 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
     await killHub(config);
     await fs.rm(home, { recursive: true, force: true });
   });
-  // A new hub answers on its port before it has loaded these, which takes
-  // it a few hundred milliseconds.
+  // A new hub answers on its port before it has loaded these 400 sessions,
+  // which takes it a few hundred milliseconds.
   await Promise.all(
     Array.from({ length: 400 }, async () => {
       const sessionId = crypto.randomUUID();
@@ -156,7 +157,8 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
     }),
   );
   const start = startSession;
-  // The first start spawns the hub. The second arrives while it loads.
+  // The first start spawns the hub, and the second runs while the hub is still
+  // loading sessions.
   const first = start();
   assert.equal(
     await waitUntil(() =>
@@ -264,8 +266,9 @@ test("start replaces a stale hub record, and session commands reattach after a c
   assert.equal(connection.origin, `http://127.0.0.1:${next.port}`);
 });
 
-// A hub restarts on newer code once no session on it is live, and the start
-// that stops it does not take the stopping hub for one that hangs.
+// pair start replaces a hub that runs other code once no session on it is live.
+// The start that stops the old hub must not mistake the stopping hub for one
+// that hangs.
 test("start replaces an idle hub that runs other code", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));
   const env = { XDG_STATE_HOME: path.join(home, "state"), PAIR_HUB_PORT: "0" };
@@ -299,12 +302,11 @@ test("start replaces an idle hub that runs other code", async (t) => {
   assert.equal(alive(before.pid), false);
 });
 
-// Inside Codex's sandbox no command reaches the hub, which still runs, and a
-// start there must leave the record for the commands outside it and say to
-// run outside the sandbox.
+// Inside Codex's sandbox, no command can reach the hub, though the hub still
+// runs. start there must leave the hub's record for the commands outside the
+// sandbox and print the instruction to run outside the sandbox.
 test(
   "start keeps the record of a hub that runs but does not answer, and names the sandbox under Codex",
-  // The test stops the hub with SIGSTOP, which Windows does not have.
   { skip: process.platform === "win32" && "Windows has no SIGSTOP" },
   async (t) => {
     const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-stopped-"));
@@ -353,7 +355,8 @@ test("an unfinished round resumes after the hub restarts", async (t) => {
     ...settings({ XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" }),
     log() {},
   };
-  // This test publishes and never submits, so the hub wakes no one.
+  // The test publishes and never sends feedback, so the hub never wakes this
+  // placeholder agent.
   const agent = { harness: "codex", id: "test" };
   let localHub = await startHub(config);
   const localDir = path.join(config.sessions, "session");

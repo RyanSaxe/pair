@@ -5,8 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { exec, hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
 
-// Git hands GIT_DIR to hooks and to the commands git rebase -x runs, and it
-// would point every command here at pair's own repository.
+// Git passes GIT_DIR to hooks and to the commands git rebase -x runs, and
+// GIT_DIR would point every git command in this test at pair's own repository.
 const withoutGit = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
 );
@@ -19,9 +19,9 @@ const git = async (cwd, ...args) =>
     )
   ).stdout;
 
-// Closing a session deletes no file. Every worktree and plain directory the
-// agent made inside the session's directory stays for the agent to remove
-// when the reviewer agrees, and the user's repository stays as it was.
+// The hub deletes no file when the reviewer closes a session. The agent removes
+// the worktrees and directories it made in the session's directory once the
+// reviewer agrees, and the hub leaves the user's repository as it was.
 test("closing a session deletes nothing inside its directory or in the user's repository", async (t) => {
   const temp = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "pair-close-")),
@@ -30,8 +30,8 @@ test("closing a session deletes nothing inside its directory or in the user's re
   const checkout = path.join(temp, "checkout");
   await fs.mkdir(checkout);
   await git(checkout, "init", "--quiet");
-  // Nothing is written until git shows that the repository it made is the
-  // new directory and not a repository around it.
+  // The test writes nothing until git confirms that the repository it created
+  // is the new directory and not a repository around it.
   assert.equal(
     await fs.realpath(
       (await git(checkout, "rev-parse", "--show-toplevel")).trim(),
@@ -42,7 +42,6 @@ test("closing a session deletes nothing inside its directory or in the user's re
   await git(checkout, "add", "file.txt");
   await git(checkout, "commit", "--quiet", "--no-verify", "-m", "One");
   await git(checkout, "branch", "kept");
-  // The user's checkout has changes of its own.
   await fs.writeFile(path.join(checkout, "file.txt"), "changed\n");
   await fs.writeFile(path.join(checkout, "untracked.txt"), "new\n");
 
@@ -51,7 +50,8 @@ test("closing a session deletes nothing inside its directory or in the user's re
   await a.publish(planData());
   const dirty = path.join(a.directory, "scratch", "dirty");
   const clean = path.join(a.directory, "scratch", "clean");
-  // A plain directory, as a session outside a git repository uses.
+  // plain stands for the directory that a session outside a git repository
+  // works in.
   const plain = path.join(a.directory, "scratch", "plain");
   const outside = path.join(temp, "outside");
   await git(checkout, "worktree", "add", "--quiet", "-b", "dirty", dirty);
@@ -59,11 +59,9 @@ test("closing a session deletes nothing inside its directory or in the user's re
   await git(checkout, "worktree", "add", "--quiet", "-b", "outside", outside);
   await fs.mkdir(plain);
   await fs.writeFile(path.join(plain, "notes.txt"), "notes\n");
-  // The dirty worktree has changes the agent never committed.
   await fs.writeFile(path.join(dirty, "file.txt"), "tried\n");
   await fs.writeFile(path.join(dirty, "tried.txt"), "new\n");
 
-  // Each file under a directory with its contents.
   async function files(directory) {
     const found = {};
     for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
@@ -73,8 +71,6 @@ test("closing a session deletes nothing inside its directory or in the user's re
     }
     return found;
   }
-  // The checkout's branches, HEAD, status and worktrees, and every file in
-  // the session's scratch directory and the outside worktree.
   const snapshot = async () => ({
     branches: await git(
       checkout,
@@ -108,7 +104,7 @@ test("after a close the agent's next command says the reviewer closed the sessio
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
-  // Feedback the agent has not read when the reviewer closes the session.
+  // The reviewer closes the session while feedback is still unread.
   assert.equal((await a.feedback(a.event())).code, 200);
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
   assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
