@@ -1,6 +1,6 @@
 // The libraries the frame loads from CDNs, each pinned to one version.
 export const libraries = {
-  shiki: "https://esm.sh/shiki@3.12.2",
+  shiki: "https://esm.sh/shiki@4.5.0",
   diffs: "https://esm.sh/@pierre/diffs@1.6.2?bundle",
   pele: "https://cdn.jsdelivr.net/npm/pele@1.12.0/dist/pele.js",
   katex: "https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/katex.min.js",
