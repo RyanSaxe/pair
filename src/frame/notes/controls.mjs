@@ -89,28 +89,6 @@ const notAdded = (key) => {
     text !== state.answers[key]?.text
   );
 };
-// Each question on the page shows "Not added" beside its Answer button
-// while its typed text is not added.
-function markNotAdded() {
-  const show = feedbackEditable();
-  document
-    .querySelectorAll("#page-content [data-question]")
-    .forEach((group) => {
-      if (!group.querySelector("textarea")) return;
-      let label = group.querySelector(".not-added");
-      if (!label) {
-        // The Revisiting tag on an alignment in Agreed has the same classes.
-        label = document.createElement("span");
-        label.className = "tag attention not-added";
-        label.textContent = "Not added";
-        const actions = group.querySelector(".answer-actions");
-        if (actions) actions.append(label);
-        else group.querySelector("textarea").after(label);
-      }
-      label.hidden =
-        !show || !notAdded(controlKey(page.id, group.dataset.question));
-    });
-}
 // The questions in Current's round whose typed text is not added, from
 // the pages loaded so far.
 export function notAddedAnswers() {
@@ -146,7 +124,6 @@ export function restoreAnswers() {
     area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
     area.readOnly = !editable;
   });
-  markNotAdded();
 }
 export function installControls() {
   document.addEventListener("change", (event) => {
@@ -170,7 +147,6 @@ export function installControls() {
     const key = controlKey(page.id, group.dataset.question);
     if (area.value.trim()) state.drafts[key] = area.value;
     else delete state.drafts[key];
-    markNotAdded();
     clearTimeout(answerTimer);
     answerTimer = setTimeout(save, 300);
   });
@@ -188,7 +164,6 @@ export function recordAnswer(id, text, label, target) {
     };
   else delete state.answers[key];
   save();
-  markNotAdded();
 }
 export function drawingAnswer(id) {
   return state.answers[controlKey(page.id, id)];
