@@ -57,11 +57,11 @@ import {
 } from "#frame/sync/rounds.mjs";
 
 export let displayedRound;
-/* A page whose diagrams or formulas are still drawing stays hidden, with
-   its layout kept, until they draw, so nothing on it moves once it
-   appears. A setup that never settles holds the page back for at most
-   DRAW_LIMIT_MS. Each show() takes a new generation, so an older page's
-   wait never uncovers a newer page early. */
+/* whenDrawn() keeps a page hidden, with its layout in place, until its
+   diagrams and formulas have drawn, so nothing on it moves once it appears.
+   A setup that never settles delays the page by at most DRAW_LIMIT_MS. Each
+   call increments showing, so the wait of an older page never reveals a
+   newer page early. */
 const DRAW_LIMIT_MS = 10000;
 let showing = 0;
 function whenDrawn(drawing, then) {
@@ -88,24 +88,24 @@ function visiblePageId() {
   if (displayedRound !== viewKey()) return null;
   return shownPage();
 }
-// Work is on every round of a session the hub serves.
+// Every round of a session that the hub serves has Work.
 const hasWork = () => online && hasFeedbackPage;
-// Page changes push history so the back button and a pasted hash both work;
-// re-rendering the same page, restoring after a reload, and popstate itself
-// leave history alone.
-// inPlace re-renders the page on screen for an arrival, without closing the
-// sidebar over the page or another menu, or moving focus.
+// show() pushes a history entry on a page change, so the back button and a
+// pasted hash both work. Re-rendering the same page, restoring after a
+// reload, and popstate itself replace the entry instead.
+// inPlace re-renders the page on screen for an arrival without closing the
+// sidebar or another menu, and without moving focus.
 export function show(
   id,
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
-  // Review's overall comment is on Review, which a thread or a card names
-  // by the note's page, overall.
+  // A thread or a card has overall as its note's page, and overall is on
+  // Review.
   if (id === "overall") id = "feedback";
   if (!keepScroll && !inPlace) beginMove();
-  // A re-render keeps the reader's place, and any other show() is an
-  // arrival, which notes the place it leaves first.
+  // A re-render keeps the reader's place. Any other show() is an arrival,
+  // and flushPlace() first saves the place it leaves.
   const kept = keepScroll ? placeOnScreen() : null;
   if (!keepScroll) flushPlace();
   displayedRound = viewKey();
@@ -115,17 +115,19 @@ export function show(
   const work = id === "work" && hasWork();
   const stayed = work && !$("work-view").hidden;
   let drawing = null;
-  // A page whose record is still loading is shown again once it loads, and
-  // the move ends with that.
+  // While the page's record is still loading, show() does not end the move.
+  // The frame shows the page again once the record loads, and that show()
+  // ends the move.
   let loading = false;
   $("reading").hidden = feedback || work;
   $("review-view").hidden = !feedback;
   $("work-view").hidden = !work;
-  // A choice belongs to the view it was made in.
+  // A chosen block belongs to the view it was chosen in.
   if (!stayed) chooseBlock(null);
   if (work) openWork(targetId, stayed);
-  // The threads on the overall comment go at the end of Review only while
-  // it is on screen, so they are placed before a reply in one is revealed.
+  // placeThreads() puts the threads on the overall comment at the end of
+  // Review only while Review is on screen, so show() calls it before land()
+  // reveals a reply in one of them.
   else if (feedback) placeThreads();
   else {
     clearHighlight("plan-note");
@@ -135,7 +137,6 @@ export function show(
       void loadPageRecord(plan.round, page.id).catch(arrived);
     disposeRenderers();
     $("page-title").textContent = page.title;
-    // A plan round's Agreed has the Plan tag beside its title.
     if (page.id === "agreed" && !page.waiting && isPlanRound())
       $("page-title").append(" ", tag("Plan", "plan"));
     $("page-content").dataset.pageId = page.id;
@@ -162,8 +163,8 @@ export function show(
         detail: { page, element: $("page-content"), round: plan.round },
       }),
     );
-    // Figure renderers can change a block's height after the
-    // page renders, so the marks are placed again once they settle.
+    // Figure renderers can change a block's height after the page renders,
+    // so placeMarks() runs again once they settle.
     Promise.allSettled([...renders]).then(placeMarks);
   }
   for (const button of document.querySelectorAll("#page-list [data-page]")) {
@@ -181,7 +182,7 @@ export function show(
   updateNavigation();
   review();
   // review() places the page's thread cards, and moving a card takes focus
-  // from it, so the page lands after them.
+  // away from the target, so land() runs after review().
   land(keepScroll ? kept : targetId ? { target: targetId } : savedPlace(), {
     focusHeading: !inPlace,
   });
@@ -196,8 +197,7 @@ export function badge(count) {
   mark.textContent = count ? `(${count})` : "";
   mark.hidden = !count;
 }
-// Agreed so far leads the order, as it leads the sidebar, and Feedback ends
-// it. The footer's links and the [ and ] keys use this one order.
+// The footer's links and the [ and ] keys both use pageOrder().
 export const pageOrder = () => [
   ...pages.filter((item) => item.id === "agreed"),
   ...pages.filter((item) => item.id !== "agreed"),
@@ -205,7 +205,6 @@ export const pageOrder = () => [
     ? [{ id: "feedback", title: "Feedback" }]
     : []),
 ];
-// Every reading page ends with where you came from and where to go next.
 export function renderFooter(feedback) {
   const order = pageOrder();
   const index = order.findIndex(
@@ -239,8 +238,6 @@ export function renderFooter(feedback) {
   );
 }
 
-// Agreed so far reads before the pages, and Review or Feedback after them,
-// each behind a separator.
 export function separator() {
   const divider = document.createElement("div");
   divider.className = "separator";
@@ -264,7 +261,8 @@ function addPageButton(item) {
   button.dataset.page = item.id;
   const title = document.createElement("span");
   title.textContent = item.title;
-  // A long name ends in an ellipsis, so the full name is a tooltip.
+  // A long name ends in an ellipsis, so the title attribute shows the full
+  // name.
   title.title = item.title;
   button.append(title);
   if (item.status !== "ready" && item.pending) {
@@ -280,9 +278,9 @@ function addPageButton(item) {
   $("page-list").append(button);
 }
 let pageList;
-/* The page list marks New each ready page of the live current round that
-   no browser on the hub has opened, and counts the page on screen as
-   opened. Returns the opened pages, or null when the list marks no page. */
+/* newMarks() marks New on each ready page of the live current round that no
+   browser on the hub has opened, and counts the page on screen as opened.
+   It returns the opened pages, or null when it marks no page. */
 function newMarks(listed) {
   if (!editable || listed.tab !== "current" || listed.waiting) return null;
   if (listed.tab !== selectedTab) return openedPages();
@@ -310,11 +308,9 @@ export function updateNavigation(force = false) {
   ) {
     pageList.replaceChildren();
     addPageButton(listed.pages[0]);
-    // The waiting Current lists Agreed alone.
+    // The waiting Current lists only Agreed, so it needs no separator.
     if (!listed.waiting) pageList.append(separator());
     for (const item of listed.pages.slice(1)) addPageButton(item);
-    // Work sits above Review, with two numbers: the proposed cards, then
-    // the cards that need the reviewer at the row's right edge.
     if (hasWork()) {
       const work = document.createElement("button");
       work.type = "button";
@@ -411,8 +407,6 @@ export function installPages() {
   tabs.className = "page-tabs";
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", "Page versions");
-  // The left tab holds the past round on screen, so the tabs read in time
-  // order.
   for (const tab of ["past", "current"]) {
     const button = document.createElement("button");
     button.type = "button";
