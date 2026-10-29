@@ -48,7 +48,6 @@ import {
 } from "#frame/sync/rounds.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 
-/* Start */
 const planData = JSON.parse($("plan-data").textContent);
 useSession(
   JSON.parse($("session-config").textContent),
@@ -59,9 +58,8 @@ document.documentElement.dataset.mode = mode;
 if (mode === "home") bootHome();
 else bootRound();
 
-/* A session with nothing published: a round's header and sidebar, the
-   session's title and the progress card. Component behaviors still
-   register when the module script runs, so planUI exists here too. */
+/* The page's module script registers the component behaviors in a session
+   with nothing published too, so bootHome() creates planUI as well. */
 function bootHome() {
   useView({ plan: planData, agreements: [], task: null, pages: [] });
   installSidebar();
@@ -89,17 +87,16 @@ function bootRound() {
   setState(editable ? savedDraft(plan.round) : emptyDraft(plan.round));
   const placeStore = loadPlaces();
   if (editable) setPastRound(placeStore.past);
-  // A reload after a send opens Current waiting for the next round, with the
-  // sent round in the left tab.
   if (editable && state.submitted?.round === plan.round) {
     setSubmittedRound(plan.round);
     setPastRound(plan.round);
     useView(waitingView(plan.round));
   }
   setPage(pages[0]);
-  // Handlers for the same event run in the order they were added, so the
-  // parts install in this order: the note click on #page-content, for one,
-  // runs before the click that chooses a block.
+  // The browser runs the handlers for one event in the order they were added.
+  // The order below matters: for example, the click handler that
+  // installNotes() adds to #page-content must run before the one that
+  // installBlocks() adds to choose a block.
   installSidebar();
   installRenderers();
   installNotes();
@@ -124,14 +121,15 @@ function bootRound() {
   if (editable) initializeChecklists();
   theme();
   renderRounds();
-  /* The first page renders once every component has registered. Component
-     behaviors run in the page's module script after this module, and the
-     plan's script is a module of its own, so both run while the document is
-     still loading and both are done by DOMContentLoaded. */
+  /* start() renders the first page after every component has registered.
+     The page's module script runs the component behaviors after this
+     module, and the plan's script is a separate module. The browser runs
+     both while the document is still loading, so both have run by
+     DOMContentLoaded. */
   function start() {
-    // The waiting view carries the sent round's number, so the place saved
-    // under that number is the sent round's, not the waiting view's. Like
-    // switchTab(), the waiting view opens at Agreed.
+    // The waiting view has the sent round's number, so the place saved under
+    // that number belongs to the sent round, not to the waiting view. The
+    // waiting view opens at Agreed, as switchTab() does.
     const place = showingWaiting()
       ? null
       : placeIn(plan.round, [
@@ -163,10 +161,11 @@ function bootRound() {
     }
     if (online && mode !== "preview") {
       poll().then(() => {
-        // A notification's link names its target. While Current waits, the
-        // sent round's pages show only under Previous, so the link opens
-        // there, except on Work, which every round has. A reload without a
-        // target returns to the past round that was on screen.
+        // A notification's link puts its target in the address. While Current
+        // waits, the frame shows the sent round's pages only under Previous,
+        // so the target opens there, unless it is on Work, which every round
+        // has. A reload without a target returns to the past round that was
+        // on screen.
         if (target && showingWaiting() && asked !== "work")
           void openPast(plan.round, {
             pageId: asked || "agreed",
@@ -179,18 +178,20 @@ function bootRound() {
           selectedTab === "current"
         )
           if (placeStore.past) void openPast(placeStore.past);
-        // The first status poll placed the thread cards, so the bell's first
-        // count sees a reply already on screen.
+        // pollSessions() runs after the first status poll has placed the
+        // thread cards, so the bell's first count includes a reply that is
+        // already on screen.
         pollSessions();
         setInterval(pollSessions, 5000);
       });
       setInterval(poll, 1500);
     } else review();
   }
-  /* A module runs once the document is parsed, so readyState is "interactive"
-     by this line and DOMContentLoaded is still ahead. That event is the point
-     where every deferred script has run, the page's module script with its
-     component blocks and the plan's module included. */
+  /* The browser runs a module after it parses the document, so readyState is
+     "interactive" here and DOMContentLoaded has not fired yet. The browser
+     fires DOMContentLoaded after every deferred script has run, including
+     the page's module script with its component blocks and the plan's
+     module. */
   if (document.readyState === "complete") start();
   else window.addEventListener("DOMContentLoaded", start, { once: true });
 }

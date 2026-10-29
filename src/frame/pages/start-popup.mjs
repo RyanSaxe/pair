@@ -2,23 +2,11 @@ import { $, copyText, shiftEnter, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
-/* The Start popup on a proposal's card: what the card delivers, the
-   titles of the cards joined into it, where the work runs and an optional
-   message to the agent. Each choice has its own hint and its own row of
-   buttons, and the hints share one grid cell and the rows another, so the
-   choices, the message box and the button row keep their places whichever
-   choice is selected. Here and In a sub-session start at once. With a new
-   agent copies the command a new agent runs, or asks this session's agent
-   to open one. Plan it first, above the buttons, has the card's session
-   write a plan before it builds. */
-
 let card = null;
 let where = "here";
 let after = null;
 const rows = () => [...$("start-dialog").querySelectorAll("[data-where]")];
 
-// Marks one row of a popup's radio group chosen, the only one Tab reaches.
-// The Send popup's choices use it too.
 export function checkRow(rows, chosen) {
   for (const row of rows) {
     row.setAttribute("aria-checked", String(row === chosen));
@@ -26,8 +14,6 @@ export function checkRow(rows, chosen) {
     row.tabIndex = row === chosen ? 0 : -1;
   }
 }
-// The arrow keys move between a radio group's rows that are on, as in a
-// native radio group.
 export function arrowKeys(group, rows, chosen, choose) {
   group.addEventListener("keydown", (event) => {
     const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[
@@ -51,13 +37,12 @@ function select(choice) {
   for (const part of $("start-dialog").querySelectorAll("[data-start-for]"))
     part.inert = !part.dataset.startFor.split(" ").includes(choice);
   $("start-message").setAttribute("aria-describedby", `start-hint-${choice}`);
-  // A plan round never mixes with this session's other work, so Plan it
-  // first is off with Here.
+  // A plan round must not mix with this session's other work, so the frame
+  // disables Plan it first when Here is chosen.
   const planFirst = $("start-plan-first");
   planFirst.disabled = choice === "here";
   if (planFirst.disabled) planFirst.checked = false;
 }
-// The command a new agent runs to start the card's session.
 const command = () =>
   `pair start --from ${remote.sessionDir} --proposal ${card.id}`;
 export function openStart(proposal, joined, then) {
@@ -87,8 +72,6 @@ export function openStart(proposal, joined, then) {
   $("start-copy").textContent = "Copy command";
   $("start-dialog").showModal();
 }
-// Sends one of the card's routes with the choice and the message. The
-// popup stays open when the hub refuses, with the hub's reason.
 async function post(action, button) {
   button.disabled = true;
   $("start-error").hidden = true;
@@ -122,16 +105,18 @@ async function send(action, button) {
   $("start-dialog").close();
   after(result);
 }
-// Copy command copies first, while the click still allows it, then starts
-// the card with a new agent once. The popup stays open, so Open a new agent
-// session is still there.
+// copy() copies the command before it posts, because the browser allows a
+// copy only while the click's user activation lasts. It starts the card with
+// a new agent only once. The popup stays open, so Open a new agent session
+// is still available.
 async function copy() {
   const copied = await copyText(command());
   if (!card.started) {
     const result = await post("start", $("start-copy"));
     if (!result) return;
     card = result.proposals.find((item) => item.id === card.id) || card;
-    // The card now runs with a new agent, so only this choice is left.
+    // The card now runs with a new agent, so the frame disables every other
+    // choice.
     for (const row of rows()) row.disabled = row.dataset.where !== "new-agent";
     after(result);
   }
@@ -148,7 +133,6 @@ export function installStart() {
   $("start-send").onclick = () => send("start", $("start-send"));
   $("start-copy").onclick = copy;
   $("start-open").onclick = () => send("open-agent", $("start-open"));
-  // Shift+Enter in the message presses the selected choice's main button.
   $("start-message").addEventListener("keydown", (event) => {
     if (!shiftEnter(event)) return;
     event.preventDefault();

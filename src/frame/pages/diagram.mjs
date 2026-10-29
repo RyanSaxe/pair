@@ -1,8 +1,9 @@
 import { normalize } from "#frame/app/util.mjs";
 
-/* The box of a Pele diagram that node is in, by the ID Pele gives the box,
-   and the box's label, with the lines Pele wrapped it over joined by
-   spaces. A box with no label, such as a state diagram's start, is none. */
+/* diagramBox() returns the ID that Pele gives the box node is in, and the
+   box's label. Pele wraps a label over several lines, and diagramBox()
+   joins them with spaces. It returns null for a box with no label, such as
+   a state diagram's start. */
 export function diagramBox(node) {
   const at = node?.nodeType === 1 ? node : node?.parentElement;
   const box = at?.closest(".pele-node[data-id]");
@@ -16,8 +17,8 @@ export function diagramBox(node) {
   );
   return text ? { id: box.dataset.id, label: text } : null;
 }
-// Every box with the ID in the diagrams of the element whose ID is target.
-// A sequence diagram draws each participant at the top and the bottom.
+// diagramBoxes() can return more than one box for an ID, because a sequence
+// diagram draws each participant at the top and the bottom.
 export function diagramBoxes(target, id) {
   const host = target && document.getElementById(target);
   if (!host) return [];

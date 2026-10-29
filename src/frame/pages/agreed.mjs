@@ -12,8 +12,6 @@ import {
 import { metaLine } from "#frame/pages/work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
-/* Agreed */
-// An alignment's label and the tone of its dot.
 function agreementLabel(entry) {
   if (entry.state === "reopened") return ["Revisiting", "attention"];
   if (entry.state === "retired") return ["No longer applies", "muted"];
@@ -28,9 +26,9 @@ function describeRecord(record) {
   if (record.kind === "answer") return `your answer to “${record.label}”`;
   return `your choice “${record.text}” for ${record.label}`;
 }
-// In the live reader, a source's Open link loads its round into the left
-// tab at the page and block it names. A modified click still opens the
-// read-only page in a new tab.
+// In the live reader, openInTab() makes a source's Open link load its round
+// into the left tab at the page and block in the link. A modified click
+// still opens the read-only page in a new tab.
 function openInTab(link, record) {
   if (!editable) return;
   link.addEventListener("click", (event) => {
@@ -75,7 +73,7 @@ function agreementCard(entry) {
   const card = document.createElement("section");
   card.className = "agreement-card";
   card.id = "agreement-" + entry.id;
-  // The comment control names a chosen card by this.
+  // The comment control uses data-kind to name a chosen card.
   card.dataset.kind = "alignment";
   const body = document.createElement("div");
   body.className = "agreement-body";
@@ -83,8 +81,6 @@ function agreementCard(entry) {
   title.textContent = entry.title;
   const records = entry.sourceRecords || [];
   const first = records.find((record) => record.kind !== "conversation");
-  // The meta line under the title: the label, the reviewer's notes on the
-  // alignment and where it was agreed.
   const noteCount = state.notes.filter(
     (note) => note.agreementId === entry.id,
   ).length;
@@ -108,7 +104,6 @@ function agreementCard(entry) {
     body.append(metaLine(label, tone, rest.textContent ? rest : null));
   body.append(content);
   card.append(body);
-  // The footer holds only buttons: the source's links.
   const strip = document.createElement("div");
   strip.className = "agreement-source";
   const actions = document.createElement("div");
@@ -212,8 +207,8 @@ function agreementCard(entry) {
   card.append(strip, details, preview);
   return card;
 }
-// The task a reviewer reads before the decisions: a statement, never a
-// checklist, with nothing on it to approve.
+// The task card is a statement, never a checklist, and has nothing for the
+// reviewer to approve.
 function taskCard() {
   const card = document.createElement("section");
   card.className = "agreement-card task-card";
@@ -250,8 +245,6 @@ function agreedLabel(text) {
   label.textContent = text;
   return label;
 }
-// The task, then one list of alignments, with those that no longer apply
-// folded at its end.
 export function renderAgreements() {
   const root = $("page-content");
   root.replaceChildren();

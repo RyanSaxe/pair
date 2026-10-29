@@ -1,4 +1,3 @@
-/* Agreed */
 .agreement-card {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -8,8 +7,7 @@
 }
 /* reading.css sizes every p and li on a page with #page-content p, and an ID
    outranks a class, so each rule here that sizes Agreed's paragraphs and list
-   items names #page-content too. */
-/* The task and the alignments each have a heading. */
+   items also names #page-content. */
 #page-content .agreed-label {
   margin: 4px 0 8px;
   font-size: var(--text-caps);
@@ -51,8 +49,8 @@
 #page-content .agreement-body :is(p, li) {
   font-size: var(--text-ui);
 }
-/* The footer stays one row: an alignment's holds only buttons, and the
-   task's text is cut short before its Comment moves. */
+/* The footer stays on one row, so the task's text is cut short before its
+   Comment button would move. */
 .agreement-source {
   display: flex;
   justify-content: space-between;

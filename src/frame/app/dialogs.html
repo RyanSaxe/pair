@@ -1,8 +1,7 @@
-<!-- Each dialog's head ends with this close button, which the frame adds. -->
+<!-- The frame adds this close button to the end of each dialog's head. -->
 <template id="close-button">
   <button class="icon-btn" type="button" aria-label="Close">✕</button>
 </template>
-<!-- The gear opens settings under it. -->
 <div class="pop" id="settings-pop" popover aria-labelledby="settings-title">
   <div class="side-label"><span id="settings-title">Settings</span></div>
   <div class="settings-row">
@@ -22,8 +21,6 @@
     <span class="small">Press <kbd>?</kbd> for the list</span>
   </div>
 </div>
-<!-- The rounds button opens the session's rounds under it, newest first.
-     The frame draws the rows. -->
 <div class="pop" id="rounds-pop" popover aria-labelledby="rounds-title">
   <div class="side-label">
     <span id="rounds-title">Rounds</span
@@ -31,7 +28,6 @@
   </div>
   <div class="sess-list round-list" id="round-list"></div>
 </div>
-<!-- The bell opens its list under it. The frame draws the lines. -->
 <div class="pop" id="center-pop" popover aria-labelledby="center-title">
   <div class="side-label">
     <span id="center-title">Notifications</span
@@ -42,8 +38,6 @@
   <div class="session-list" id="center-list"></div>
   <p class="pop-empty" id="center-empty">No notifications.</p>
 </div>
-<!-- The sessions button opens the session list under it. The frame draws
-     the rows. -->
 <div class="pop" id="sessions-pop" popover aria-labelledby="sessions-title">
   <div class="side-label">
     <span id="sessions-title">Sessions</span
@@ -94,9 +88,7 @@
       <div class="note-images" id="note-images" hidden></div>
       <p class="renderer-error" id="note-image-error" hidden></p>
     </div>
-    <!-- Start a thread sends the note to the agent now, and Add to feedback
-         keeps it for Send feedback. Once the round's feedback is sent, only
-         Start a thread shows. The frame fills in the platform's send key. -->
+    <!-- The frame fills in the platform's send key. -->
     <div class="note-actions">
       <button class="btn" type="button" id="note-thread">
         Start a thread <kbd data-send-key></kbd>
@@ -135,8 +127,6 @@
     referrerpolicy="no-referrer"
   ></iframe>
 </dialog>
-<!-- Close on a row of the session list opens this dialog for that session,
-     and Close session closes it. -->
 <dialog class="dialog" id="close-dialog" aria-labelledby="close-title">
   <div class="dialog-head">
     <h2 id="close-title" tabindex="-1" autofocus>Close session</h2>
@@ -200,10 +190,9 @@
   </div>
   <div class="lightbox-view"></div>
 </dialog>
-<!-- Start on a proposal's card. Each choice has its own hint and its own
-     row of buttons, and the hints share one grid cell and the rows another,
-     so the dialog keeps its size whichever choice is selected. The frame
-     fills in the card. -->
+<!-- The hints share one grid cell and the button rows share another, so the
+     dialog's size does not change when the reviewer selects another choice.
+     The frame fills in the card. -->
 <dialog class="dialog start" id="start-dialog" aria-labelledby="start-title">
   <div class="dialog-head">
     <h2 id="start-title" tabindex="-1" autofocus></h2>
@@ -286,8 +275,8 @@
         the command to paste into any agent.
       </p>
     </div>
-    <!-- Off and unchecked with Here, so a plan round never mixes with this
-         session's other work. -->
+    <!-- The frame disables and unchecks this switch when Here is selected,
+         so a plan round never mixes with this session's other work. -->
     <label class="start-plan-first" for="start-plan-first">
       <span>
         <strong>Plan it first</strong>
@@ -327,9 +316,7 @@
     </div>
   </div>
 </dialog>
-<!-- Send feedback in the header opens this popup. The frame draws the
-     choices, which differ in a plan round, and the popup's button sends the
-     round with the choice, the switch and the message. -->
+<!-- The frame draws the choices, which differ in a plan round. -->
 <dialog class="dialog start" id="send-dialog" aria-labelledby="send-title">
   <div class="dialog-head">
     <h2 id="send-title" tabindex="-1" autofocus>Send feedback</h2>
