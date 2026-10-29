@@ -76,3 +76,18 @@
   fill: none;
   stroke-dasharray: 4 4;
 }
+/* A box with a note takes the note's color, as a highlighted sentence does,
+   and in the enlarged view a click on a box opens a note on it. */
+:is([data-diagram], .lightbox)
+  .pele-node.noted
+  > :is(rect, polygon, circle, ellipse, path):not([fill="none"]) {
+  fill: var(--mark);
+}
+.lightbox.noting .pele-node[data-id]:has(.pele-label) {
+  cursor: pointer;
+}
+.lightbox.noting
+  .pele-node[data-id]:has(.pele-label):hover
+  > :is(rect, polygon, circle, ellipse, path) {
+  stroke: var(--pele-accent);
+}

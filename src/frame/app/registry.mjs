@@ -18,7 +18,9 @@ import { drawProposal } from "#frame/pages/work.mjs";
 // module script imports them from here before the behaviors run.
 export { $, uuid } from "#frame/app/util.mjs";
 export { base, online, page, pages, plan } from "#frame/app/view.mjs";
+export { canComment, commentOn } from "#frame/notes/blocks.mjs";
 export { linkButton } from "#frame/pages/agreed.mjs";
+export { diagramBox } from "#frame/pages/diagram.mjs";
 export { show } from "#frame/pages/pages.mjs";
 export { lineRanges } from "#shared/lines.mjs";
 export {

@@ -18,6 +18,9 @@ async function renderDiagram(element) {
       onRender(result) {
         element.style.setProperty("--diagram-width", `${result.width}px`);
         linkNodes(element);
+        // Pele draws the SVG again for a new width, without the marks on
+        // noted boxes.
+        queueMicrotask(() => window.dispatchEvent(new Event("plan:diagram")));
       },
       onError(error) {
         // mount() calls this before returning its handle on an initial error.
@@ -64,10 +67,13 @@ function linkedPage(event) {
   if (event.target.closest("a")) return null;
   return event.target.closest(".pele-node.linked")?.dataset.id;
 }
-// Links use their own activation; the rest of the diagram opens full size.
+/* Links use their own activation; the rest of the diagram opens full size.
+   A drag across a label selects it for a note, so only a click with
+   nothing selected opens the full-size copy. */
 $("page-content").addEventListener("click", (event) => {
   const svg = event.target.closest("[data-diagram] svg");
   if (!svg || event.target.closest("a, .pele-node.linked")) return;
+  if (getSelection()?.toString().trim()) return;
   openLightbox(svg);
 });
 /* Page and component styles are scoped to #page-content, so the dialog moves
@@ -129,13 +135,17 @@ function copySvg(svg) {
 }
 function openLightbox(svg) {
   const dialog = lightbox;
+  const diagram = svg.closest("[data-diagram]");
+  // A click on a box opens a note on it while a note can open.
+  const noting = canComment() && !diagram.closest("pair-thread");
+  dialog.classList.toggle("noting", noting);
   const close = () => {
     returnLightboxHome();
     dialog.close();
   };
   dialog.style.setProperty(
     "--diagram-width",
-    svg.closest("[data-diagram]").style.getPropertyValue("--diagram-width"),
+    diagram.style.getPropertyValue("--diagram-width"),
   );
   const clone = copySvg(svg);
   dialog
@@ -147,9 +157,15 @@ function openLightbox(svg) {
     event.stopPropagation();
     if (event.target.closest("[data-close]")) return close();
     const id = linkedPage(event);
-    if (!id) return;
+    if (id) {
+      close();
+      show(id);
+      return;
+    }
+    const box = !event.target.closest("a") && diagramBox(event.target);
+    if (!box || !noting) return;
     close();
-    show(id);
+    commentOn(diagram, { quote: box.label, diagramNode: box.id });
   };
   dialog.onkeydown = (event) => {
     const id = linkedPage(event);
@@ -166,6 +182,15 @@ function openLightbox(svg) {
 planUI.define("diagram", {
   match: "[data-diagram]",
   setup(element) {
+    /* A note on one box names its diagram by ID. A diagram that is a block
+       has the block's ID, and one inside a block takes its place among the
+       page's diagrams. A diagram in a thread's reply takes no note. */
+    if (!element.id && !element.closest("pair-thread")) {
+      const index = [...$("page-content").querySelectorAll("[data-diagram]")]
+        .filter((item) => !item.closest("pair-thread"))
+        .indexOf(element);
+      if (index >= 0) element.id = `pair-diagram-${page.id}-${index}`;
+    }
     if (element.dataset.caption)
       figure(element, { caption: element.dataset.caption, kind: "diagram" });
     return renderDiagram(element);

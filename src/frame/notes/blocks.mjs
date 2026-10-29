@@ -12,6 +12,7 @@ import {
   openNote,
   selectedOccurrence,
 } from "#frame/notes/notes.mjs";
+import { diagramBox } from "#frame/pages/diagram.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 import { diffLineForNode } from "#frame/pages/renderers.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
@@ -19,6 +20,7 @@ import { remote } from "#frame/sync/rounds.mjs";
 let selected = "";
 let selectedTarget = null;
 let selectedDiffLine = null;
+let selectedBox = null;
 function composedParent(node) {
   const root = node?.getRootNode?.();
   return node?.parentElement || root?.host || null;
@@ -47,6 +49,15 @@ function selectionTarget(node, block, diffLine) {
     block.id = `pair-diff-${index}`;
   }
   return block.id;
+}
+// The box of a page's diagram that the whole selection is in, and the
+// diagram. A note on it quotes the box's whole label.
+function boxOf(selection) {
+  const at = (node) =>
+    node?.parentElement?.closest("[data-diagram] .pele-node");
+  const box = at(selection?.anchorNode);
+  const found = box === at(selection?.focusNode) && diagramBox(box);
+  return found ? { ...found, diagram: box.closest("[data-diagram]") } : null;
 }
 function insideThread(node) {
   for (
@@ -332,6 +343,11 @@ export function commentOnTarget() {
   if (on === "overall")
     openNote({ topic: "overall", anchor: "Overall feedback" });
   else if (on === "work") openNote({ topic: "work", anchor: "Work" });
+  else if (on === "selection" && selectedBox)
+    commentOn(selectedBox.diagram, {
+      quote: selectedBox.label,
+      diagramNode: selectedBox.id,
+    });
   else if (on === "selection")
     openNote({
       topic: page.id,
@@ -345,6 +361,19 @@ export function commentOnTarget() {
   else openNote({ topic: page.id, anchor: page.title });
   chooseBlock(null);
 }
+/* A note on one part of a block, such as one box of a diagram, is filed
+   under the block's name, as a note on the whole block is. Components open
+   one with commentOn once canComment says a note can open. */
+export const canComment = () => usable("selection");
+export function commentOn(element, fields) {
+  const block = pageBlock(element);
+  openNote({
+    topic: page.id,
+    anchor: block ? blockHeading(block) : page.title,
+    target: element?.id || null,
+    ...fields,
+  });
+}
 export function installBlocks() {
   document.addEventListener("selectionchange", () => {
     const selection = getSelection();
@@ -354,6 +383,7 @@ export function installBlocks() {
         ? selection?.toString().trim() || ""
         : "";
     selectedDiffLine = selected ? diffLineForNode(selection?.anchorNode) : null;
+    selectedBox = selected ? boxOf(selection) : null;
     selectedTarget = selectionTarget(
       selection?.anchorNode,
       block,

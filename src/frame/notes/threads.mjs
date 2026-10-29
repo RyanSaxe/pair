@@ -96,6 +96,7 @@ export function startThread(context, text, attachments) {
         ...(context.target ? { target: context.target } : {}),
         ...(context.occurrence ? { occurrence: context.occurrence } : {}),
         ...(context.diffLine ? { diffLine: context.diffLine } : {}),
+        ...(context.diagramNode ? { diagramNode: context.diagramNode } : {}),
         ...(context.agreementId ? { agreementId: context.agreementId } : {}),
       };
   sent.set(fields.id, {

@@ -91,8 +91,11 @@ export async function frameBundle() {
 const componentNames = [
   "$",
   "base",
+  "canComment",
   "color",
+  "commentOn",
   "copyButton",
+  "diagramBox",
   "diagrams",
   "failed",
   "figure",

@@ -197,6 +197,12 @@ export function threads(session) {
           text(data.target),
         "A diff line needs a side, a positive line number, a quote and a target",
       );
+    // The ID Pele gives the box of a diagram the thread is on.
+    if (data.diagramNode !== undefined)
+      requireValue(
+        text(data.diagramNode) && text(data.quote) && text(data.target),
+        "A diagram box needs its ID, a quote and a target",
+      );
     const message = await reviewerMessage(data);
     const thread = {
       id: data.id,
@@ -216,6 +222,7 @@ export function threads(session) {
             },
           }
         : {}),
+      ...(data.diagramNode ? { diagramNode: data.diagramNode } : {}),
       ...(text(data.agreementId) ? { agreementId: data.agreementId } : {}),
       state: "sending",
       readAt: null,

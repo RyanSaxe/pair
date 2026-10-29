@@ -70,7 +70,7 @@ export async function open(
 // A fixed Pele-shaped rendering fixture for frame navigation and dialogs.
 // Real diagram syntax and drawing are covered by the figure suite.
 const pele = `export function mount(element, source, options = {}) {
-  element.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect width="300" height="100" fill="transparent"/><g class="pele-node" data-id="details" transform="translate(10 10)"><rect width="100" height="30"/><text x="5" y="20">Details</text></g><g class="pele-node" data-id="native" transform="translate(150 10)"><a href="https://example.test/native"><rect width="100" height="30"/><text x="5" y="20">Native link</text></a></g></svg>';
+  element.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect width="300" height="100" fill="transparent"/><g class="pele-node" data-id="details" transform="translate(10 10)"><rect width="100" height="30"/><text class="pele-label" x="5" y="20">Details</text></g><g class="pele-node" data-id="native" transform="translate(150 10)"><a href="https://example.test/native"><rect width="100" height="30"/><text class="pele-label" x="5" y="20">Native link</text></a></g><g class="pele-node" data-id="gate" transform="translate(10 60)"><rect width="140" height="30"/><text class="pele-label" x="5" y="20"><tspan>Payment</tspan><tspan>gateway</tspan></text></g></svg>';
   const result = { width: 300, height: 100 };
   options.onRender?.(result);
   return { result, error: null, destroy() { element.replaceChildren(); } };

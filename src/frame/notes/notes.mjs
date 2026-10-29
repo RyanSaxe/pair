@@ -29,6 +29,7 @@ import {
   settleNoteImages,
 } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
+import { diagramBoxes } from "#frame/pages/diagram.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 import { isDiffNode } from "#frame/pages/renderers.mjs";
 
@@ -212,11 +213,24 @@ export function highlight(name, ranges) {
 const richContent =
   "[data-language], [data-diagram], [data-math], [data-chart], [data-prototype]";
 let noteRanges = [];
+// A note on one box of a diagram marks the box, which a highlight cannot
+// reach in an SVG.
+let noteBoxes = [];
 export function markNotes() {
   const notes = state.notes.filter((note) => note.topic === page.id);
   noteRanges = [];
+  noteBoxes = [];
+  for (const box of $("page-content").querySelectorAll(".pele-node.noted"))
+    box.classList.remove("noted");
   for (const note of notes) {
     if (!note.quote) continue;
+    if (note.diagramNode) {
+      for (const box of diagramBoxes(note.target, note.diagramNode)) {
+        box.classList.add("noted");
+        noteBoxes.push({ note, box });
+      }
+      continue;
+    }
     const range = findQuote(note.quote, note.target, note.occurrence);
     if (
       !range ||
@@ -259,19 +273,24 @@ function notesAt(x, y) {
     node = range.startContainer;
     offset = range.startOffset;
   } else return [];
-  return noteRanges
-    .filter(({ range }) => {
+  const hit = document.elementFromPoint(x, y);
+  return [
+    ...noteRanges.filter(({ range }) => {
       try {
         return range.isPointInRange(node, offset);
       } catch {
         return false;
       }
-    })
-    .map((item) => item.note);
+    }),
+    ...noteBoxes.filter(({ box }) => box.contains(hit)),
+  ].map((item) => item.note);
 }
 let tipNotes = "";
 function showTip(event) {
-  const notes = noteRanges.length ? notesAt(event.clientX, event.clientY) : [];
+  const notes =
+    noteRanges.length || noteBoxes.length
+      ? notesAt(event.clientX, event.clientY)
+      : [];
   const key = notes.map((note) => note.id).join();
   const tip = $("note-tip");
   if (!notes.length) {
@@ -298,10 +317,12 @@ function showTip(event) {
 }
 export function installNotes() {
   rebuildKnown();
-  window.addEventListener("plan:diff", () => {
-    if (!$("reading").hidden && !page.pending && page.id !== "agreed")
-      markNotes();
-  });
+  // A diff and a diagram draw their content again after the page renders.
+  for (const name of ["plan:diff", "plan:diagram"])
+    window.addEventListener(name, () => {
+      if (!$("reading").hidden && !page.pending && page.id !== "agreed")
+        markNotes();
+    });
   $("page-content").addEventListener("mousemove", showTip);
   $("page-content").addEventListener("mouseleave", () => {
     $("note-tip").hidden = true;
@@ -316,6 +337,9 @@ export function installNotes() {
     const notes = notesAt(event.clientX, event.clientY);
     if (notes.length === 1) openNote(notes[0]);
     else if (notes.length > 1) show("feedback");
+    // A click on a noted box opens its note instead of the enlarged view.
+    if (notes.some((note) => note.diagramNode))
+      event.stopImmediatePropagation();
   });
   /* Rebuild the range after a close has finished any page replacement. */
   $("note-dialog").addEventListener("close", () => {
@@ -363,6 +387,7 @@ export function openNote({
   target = null,
   occurrence = 1,
   diffLine = null,
+  diagramNode = null,
   proposal = null,
 }) {
   // After the round's feedback is sent, only a new note opens, and it can
@@ -380,6 +405,7 @@ export function openNote({
     ...(target ? { target } : {}),
     ...(occurrence > 1 ? { occurrence } : {}),
     ...(diffLine ? { diffLine } : {}),
+    ...(diagramNode ? { diagramNode } : {}),
     ...(proposal ? { proposal } : {}),
   };
   editing = id;
