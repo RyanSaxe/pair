@@ -9,8 +9,8 @@ const directory = path.resolve(
   "../fixture",
 );
 
-// The component fixture as one page. env.mjs keeps the components a user
-// keeps under $XDG_CONFIG_HOME/pair/components out of it.
+// env.mjs sets XDG_CONFIG_HOME to a missing directory, so the fixture page
+// contains none of the user's own components.
 export async function fixtureHtml() {
   const source = JSON.parse(
     await fs.readFile(path.join(directory, "fixture.json"), "utf8"),

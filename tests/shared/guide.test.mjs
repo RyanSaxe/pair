@@ -13,15 +13,15 @@ import {
   root,
 } from "../support/hub.mjs";
 
-// A Markdown link whose target has no scheme, which the agent would have to
-// resolve against a directory it does not know.
+// The pattern matches a Markdown link with no URL scheme. The agent cannot
+// resolve such a link, because pair guide prints a file as it is, and the agent
+// does not know the file's directory.
 const relativeLink = /\[[^\]]*\]\((?![a-z][a-z+.-]*:)[^()\s]+\)/gi;
 const guideRun = /pair guide ([\w./-]+\.(?:md|html|svg))/g;
 const guideNames = (await fs.readdir(path.join(root, "guide"))).filter((file) =>
   file.endsWith(".md"),
 );
 
-// pair guide as the agent runs it, with the state directory at state.
 const printer = (state) => async (name) =>
   (
     await exec(process.execPath, [pair, "guide", ...(name ? [name] : [])], {
@@ -29,10 +29,10 @@ const printer = (state) => async (name) =>
     })
   ).stdout;
 
-// The agent reads a printed guide file, then runs each pair guide command it
-// names, and never resolves a path itself. A printed Markdown file contains
-// no relative link and names a guide file only by its command, and each
-// command names a file that prints. Returns the names it printed.
+// followGuide reads the guide the way the agent does. It prints a file, runs
+// each pair guide command in the printed text, and never resolves a path. It
+// fails on a relative link in a printed Markdown file and on a guide file named
+// without its command. It returns the set of names it printed.
 async function followGuide(print, name, printed = new Set([name])) {
   const text = await print(name);
   if (name.endsWith(".md")) {
@@ -56,8 +56,9 @@ async function followGuide(print, name, printed = new Set([name])) {
   return printed;
 }
 
-// pair start prints the start moment, which names the guide files to read
-// before round 1, so a file it names that no longer prints fails here.
+// The text that pair start prints contains a pair guide command for each file
+// the agent reads before round 1. The test fails when one of those files no
+// longer prints.
 test("every guide file the start output names prints", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
   const { config, run } = await pairCli(home, { PAIR_HUB_PORT: "0" });
@@ -72,9 +73,9 @@ test("every guide file the start output names prints", async (t) => {
   for (const name of named) await followGuide(printer(home), name, printed);
 });
 
-// The skill tells the agent to run pair guide, so what it prints is where
-// every session starts. Printing writes nothing, so it works where the
-// state directory cannot be written.
+// The installed skill contains the instruction to run pair guide, so every
+// session starts from its output. pair guide writes nothing, so it also runs
+// where the state directory is read-only.
 test("pair guide prints guide/pair.md and every guide file, with no relative link, and writes nothing", async (t) => {
   const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-guide-"));
   t.after(() => fs.rm(state, { recursive: true, force: true }));
@@ -90,7 +91,6 @@ test("pair guide prints guide/pair.md and every guide file, with no relative lin
     assert(names, stderr);
     return true;
   });
-  // Every file prints, including a moment, which only a command names.
   const files = (
     await fs.readdir(path.join(root, "guide"), { recursive: true })
   )
@@ -109,9 +109,8 @@ test("pair guide prints guide/pair.md and every guide file, with no relative lin
   assert.deepEqual(await fs.readdir(state), []);
 });
 
-// Every guide file and every moment's text has an optional file of the
-// user's at the same path under $XDG_CONFIG_HOME/pair/, which prints after
-// pair's own.
+// For any guide file or moment, the user can add a file at the same path under
+// $XDG_CONFIG_HOME/pair/, and pair prints it after pair's own text.
 test("pair guide and a command's moment print your file after pair's", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-yours-"));
   const config = path.join(home, "config");
@@ -152,8 +151,6 @@ test("pair guide and a command's moment print your file after pair's", async (t)
     "--thread",
     "question-1",
   );
-  // pair guide prints pair's moment, then yours, and pair read --thread
-  // prints the same text before the thread.
   const moment = (await cli.run("guide", "moments/read-thread.md")).trimEnd();
   assert(!moment.startsWith("Your"), "pair's read-thread.md comes first");
   assert(moment.endsWith("Your thread rule."), moment);
