@@ -92,6 +92,41 @@ test("a thread wakes the holder once for each message the reviewer sends, with t
   ]);
 });
 
+test("a repeated reply ID returns the saved thread without another message or wake", async (t) => {
+  const { a, start, send, thread, settled } = await published(t);
+  const { id } = (await start()).body.thread;
+  assert.equal(await settled(id), true);
+
+  const first = await send(id, { replyId: "reply-1", text: "Keep this." });
+  assert.equal(first.code, 201, first.body.error);
+  assert.equal(await settled(id), true);
+
+  const duplicate = await send(id, {
+    replyId: "reply-1",
+    text: "Discard this retry body.",
+  });
+  assert.equal(duplicate.code, 201, duplicate.body.error);
+  assert.equal(duplicate.body.thread.messages.length, 2);
+  assert.equal(duplicate.body.thread.state, "sent");
+  assert.equal(duplicate.body.thread.messages[1].replyId, "reply-1");
+  assert.equal(duplicate.body.thread.messages[1].text, "Keep this.");
+  await sleep(100);
+  assert.equal((await thread(id)).messages.length, 2);
+  assert.equal((await thread(id)).messages[1].text, "Keep this.");
+  assert.equal(a.inbox.wakes.length, 2);
+});
+
+test("a thread reply refuses a malformed reply ID without adding a message or wake", async (t) => {
+  const { a, start, send, thread, settled } = await published(t);
+  const { id } = (await start()).body.thread;
+  assert.equal(await settled(id), true);
+
+  const invalid = await send(id, { replyId: "bad id", text: "Discard this." });
+  assert.equal(invalid.code, 400);
+  assert.equal((await thread(id)).messages.length, 1);
+  assert.equal(a.inbox.wakes.length, 1);
+});
+
 // pair read --thread sends the reply action without text, and pair reply
 // sends it with text or HTML.
 test("the reply action marks the thread read, then posts text or a checked fragment", async (t) => {
