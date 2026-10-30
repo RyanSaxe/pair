@@ -21,7 +21,7 @@ import {
 } from "#frame/pages/renderers.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
+import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
    placeThreads draws the cards from the poll, and from sent for a message
@@ -411,6 +411,34 @@ function blockOf(root, thread) {
 }
 const onProgress = (thread) =>
   thread.topic === "agreed" && thread.target === "agent-activity";
+// sentWhileWaiting is true for a thread that the reviewer started from the
+// progress card after sending a round's feedback. The hub records the sent
+// round on the thread, but the card then shows the agent's work on the next
+// round, so the frame draws the thread on Current's Agreed. After the next
+// send, roundStartedAt is later than the thread, and the frame draws the thread
+// under its recorded round.
+const sentWhileWaiting = (thread) =>
+  editable &&
+  onProgress(thread) &&
+  thread.round === remote?.latestSubmissionRound &&
+  thread.createdAt >= remote.roundStartedAt;
+// onCurrentAgreed is true when target, from the bell or a link, is in a thread
+// that shows on Current's Agreed instead of under its recorded round.
+export const onCurrentAgreed = (target) =>
+  (remote?.threads || []).some(
+    (thread) =>
+      sentWhileWaiting(thread) &&
+      (target === `thread-${thread.id}` ||
+        target?.startsWith(`thread-${thread.id}-`)),
+  );
+// A page with page.pending set has no content to put a thread under. The
+// waiting Agreed is one of those, and it still has the progress card.
+const onShownPage = (thread) =>
+  sentWhileWaiting(thread)
+    ? selectedTab === "current" &&
+      plan.round === remote.current?.round &&
+      page.id === "agreed"
+    : !page.pending && thread.round === plan.round && thread.topic === page.id;
 // placeProgress puts the threads after the finished line, which is hidden while
 // the progress card shows. A thread's card therefore does not move when the
 // progress card hides, and its reply box keeps focus.
@@ -469,7 +497,7 @@ function placeEnds(threads) {
 }
 export function placeThreads() {
   const root = $("page-content");
-  const reading = page && !page.pending && !$("reading").hidden;
+  const reading = page && !$("reading").hidden;
   const groups = new Map();
   const diffGroups = new Map();
   const group = (at, thread) =>
@@ -486,8 +514,7 @@ export function placeThreads() {
     if (host) group(host, thread);
     else if (thread.proposal) cards.get(thread.id)?.card.remove();
     else if (endOf(thread)) ends.push(thread);
-    else if (reading && thread.round === plan.round && thread.topic === page.id)
-      list.push(thread);
+    else if (reading && onShownPage(thread)) list.push(thread);
     if (host || list.at(-1) === thread) ids.add(thread.id);
   }
   placeEnds(ends);
@@ -566,12 +593,15 @@ export function installThreads() {
   for (const key of document.querySelectorAll("[data-send-modifier]"))
     key.textContent = modifier();
   // A page render replaces #page-content, so the frame draws its cards anew.
-  // The render leaves the progress cards outside #page-content in place, so
-  // this handler removes every drawn card. Otherwise placeProgress() would
-  // add a second card for the same thread.
+  // The progress cards are outside #page-content, and the render leaves them
+  // in place, so the reply box the reviewer is typing in keeps its focus when
+  // the next round's Agreed arrives.
   window.addEventListener("plan:page", () => {
-    for (const { card } of cards.values()) card.remove();
-    cards.clear();
+    for (const [id, { card }] of cards) {
+      if (card.parentElement === $("reading")) continue;
+      card.remove();
+      cards.delete(id);
+    }
     placeThreads();
   });
   window.addEventListener("plan:diff", placeThreads);
