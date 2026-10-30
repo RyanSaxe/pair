@@ -6,7 +6,10 @@ import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
-const html = `<button type="button" data-comment="Result">Comment on the result</button>
+const words = "same idempotency key";
+const html = `<p>Retries send the ${words} on every attempt.</p>
+<p>Refunds reuse the ${words} as the charge.</p>
+<button type="button" data-comment="Result">Comment on the result</button>
 <button type="button" data-comment="Cost">Comment on the cost</button>`;
 
 const png = {
@@ -192,4 +195,57 @@ test("an image still uploading when the reviewer backs out stays off the next no
   await closed(page);
   const [note] = await hubNotes("No image here.");
   assert.equal(note.attachments, undefined);
+});
+
+// The frame reads a selection on selectionchange, which the browser fires
+// after the script returns. Clearing the selection first makes the button's
+// name change, so the wait cannot pass on the previous selection.
+async function commentOnWords(page, paragraph) {
+  await page.evaluate(() => getSelection().removeAllRanges());
+  await button(page, "Comment on this page").waitFor();
+  await page
+    .locator("#page-content p")
+    .nth(paragraph)
+    .evaluate((element, text) => {
+      const node = element.firstChild;
+      const start = node.textContent.indexOf(text);
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + text.length);
+      getSelection().addRange(range);
+    }, words);
+  await button(page, "Comment on selection").click();
+  await opened(page);
+}
+
+test("the same words selected in two paragraphs keep separate drafts", async (t) => {
+  const { url, hubNotes } = await session(t);
+  const page = await open(t, `${url}#overview`);
+  if (!page) return;
+  const field = page.locator("#note-text");
+  await page.locator("#page-content p").first().waitFor();
+
+  await commentOnWords(page, 0);
+  await field.fill("About the retries.");
+  await page.keyboard.press("Escape");
+  await closed(page);
+
+  await commentOnWords(page, 1);
+  assert.equal(await field.inputValue(), "");
+  await field.fill("About the refunds.");
+  await page.keyboard.press("Escape");
+  await closed(page);
+
+  await commentOnWords(page, 0);
+  assert.equal(await field.inputValue(), "About the retries.");
+  await page.locator("#note-save").click();
+  await closed(page);
+
+  await commentOnWords(page, 1);
+  assert.equal(await field.inputValue(), "About the refunds.");
+  await page.locator("#note-save").click();
+  await closed(page);
+
+  const saved = await hubNotes("About the refunds.", "About the retries.");
+  assert.notEqual(saved[0].target, saved[1].target);
 });
