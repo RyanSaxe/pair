@@ -165,8 +165,8 @@ number. Each row has **Copy handoff line**, and ✕, which you press to close
 the session.
 
 - The number on the Sessions button shows how many other sessions have a round
-  waiting for you, an agent the hub could not wake, or pages you have not
-  opened. pair stops counting a waiting round once you open that session or
+  waiting for you, an agent the hub could not wake, or unopened pages in a round
+  you have not sent. pair stops counting a waiting round once you open that session or
   clear its line from the bell, and the session list still marks that session
   **Waiting**. The number is orange when pair counts a waiting round or an
   agent the hub could not wake, and blue otherwise. When pair counts no
