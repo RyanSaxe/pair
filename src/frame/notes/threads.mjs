@@ -411,13 +411,21 @@ function blockOf(root, thread) {
 }
 const onProgress = (thread) =>
   thread.topic === "agreed" && thread.target === "agent-activity";
+// placeProgress puts the threads after the finished line, which is hidden while
+// the progress card shows. A thread's card therefore does not move when the
+// progress card hides, and its reply box keeps focus.
 function placeProgress(threads) {
   const live = !$("agent-activity").hidden;
-  let after = live ? $("agent-activity") : $("finished-line");
+  let after = $("finished-line");
   let moved = false;
   for (const thread of threads) {
     if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
     const entry = cards.get(thread.id);
+    // When the round finishes, drawCard would collapse the card and hide the
+    // reply box that the reviewer is typing in, so placeProgress records an
+    // Expand.
+    if (!live && entry.form.contains(document.activeElement))
+      prefs.set(`thread:${thread.id}:collapsed`, "0");
     drawCard(entry, thread, null, !live);
     if (after.nextElementSibling !== entry.card) {
       after.after(entry.card);

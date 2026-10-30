@@ -25,6 +25,11 @@ pair-thread {
 :is(#reading, #work-view, #review-view) :has(+ pair-thread[data-thread]) {
   margin-bottom: 8px;
 }
+/* placeProgress puts a thread after the finished line, which is hidden while
+   the progress card shows, so the rule above misses the progress card. */
+#agent-activity:has(+ #finished-line[hidden] + pair-thread[data-thread]) {
+  margin-bottom: 8px;
+}
 pair-thread::before {
   content: "";
   position: absolute;
