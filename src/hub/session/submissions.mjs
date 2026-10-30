@@ -77,6 +77,10 @@ export function submissions(session) {
         !Array.isArray(data.groups),
       "groups must be an object",
     );
+    // The notes loop below replaces each note's attachments with the hub's
+    // record of them, so submit copies the groups first for draftSent to
+    // compare with the draft.
+    const sent = structuredClone({ groups: data.groups });
     if (data.groups.alignUnflagged !== undefined)
       requireValue(
         typeof data.groups.alignUnflagged === "boolean",
@@ -174,6 +178,7 @@ export function submissions(session) {
       409,
     );
     const event = await session.saveEvent(data);
+    await session.draftSent(sent);
     await transition({
       stage: session.state.stage === "working" ? "working" : "submitted",
       latestSubmissionId: data.id,

@@ -24,6 +24,9 @@ export function uuid() {
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
 export const controlKey = (topic, id) => `${topic}/${id}`;
+// typingIn reports that the reviewer is in this tab with element focused.
+export const typingIn = (element) =>
+  document.hasFocus() && element === document.activeElement;
 // Shift+Enter presses the main button under a text box. A box whose button
 // sends to the agent at once uses ⌘ Enter instead, through sendKey in
 // threads.mjs.

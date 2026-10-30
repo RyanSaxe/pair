@@ -1,5 +1,5 @@
 import { persist, save, state } from "#frame/app/store.mjs";
-import { $, controlKey } from "#frame/app/util.mjs";
+import { $, controlKey, typingIn } from "#frame/app/util.mjs";
 import {
   editable,
   feedbackEditable,
@@ -116,11 +116,13 @@ export const typedOn = (topic) =>
   Object.entries(state.drafts).some(
     ([key, text]) => key.startsWith(`${topic}/`) && typeof text === "string",
   );
+// restoreAnswers leaves the box the reviewer is typing in as it is.
 export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
     const key = controlKey(page.id, group.dataset.question);
-    area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
+    if (!typingIn(area))
+      area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
     area.readOnly = !editable;
   });
 }

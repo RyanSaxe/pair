@@ -1,5 +1,6 @@
 import { flushPlace, placeIn, places, savePlaces } from "#frame/app/places.mjs";
 import {
+  changedPages,
   markSent,
   persist,
   savedDraft,
@@ -34,8 +35,15 @@ import {
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
+import { refreshReplies } from "#frame/notes/thread-reply.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
-import { displayedRound, show, updateNavigation } from "#frame/pages/pages.mjs";
+import {
+  displayedRound,
+  redrawPage,
+  show,
+  showChanges,
+  updateNavigation,
+} from "#frame/pages/pages.mjs";
 import { updatePending } from "#frame/pages/pending.mjs";
 import { refreshWork } from "#frame/pages/work.mjs";
 import {
@@ -427,10 +435,10 @@ export function installDraftSync() {
       view.draft = draft;
       return;
     }
+    const before = state;
     setState(draft);
-    if (!$("reading").hidden)
-      show(page.id, null, { keepScroll: true, push: false, inPlace: true });
-    review();
+    showChanges(changedPages(before, draft));
+    refreshReplies();
   });
 }
 export async function poll() {
@@ -496,4 +504,5 @@ export async function poll() {
   renderRound();
   review();
   refreshWork();
+  redrawPage();
 }
