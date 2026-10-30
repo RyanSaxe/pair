@@ -289,6 +289,55 @@ async function sessionWithAgreed(t) {
   return { sessionDir, agreed, overview, list, publish, run };
 }
 
+// A link to the sessions directory stands in for /var and /private/var on
+// macOS, two paths to one directory.
+test("a publish keeps its source when --session-dir reaches the session by another path", async (t) => {
+  const { sessionDir, agreed, list, run } = await sessionWithAgreed(t);
+  const parent = path.dirname(sessionDir);
+  const link = `${parent}-link`;
+  await fs.symlink(parent, link);
+  const other = path.join(link, path.basename(sessionDir));
+  await run(
+    "publish",
+    "--session-dir",
+    other,
+    "--file",
+    agreed.built,
+    "--source",
+    agreed.source,
+    "--pages",
+    list,
+  );
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
+    true,
+  );
+});
+
+test("the hub refuses a kept source outside the session directory", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const html = await buildPage(path.join(a.directory, "source.json"), {
+    name: "example",
+    round: "1",
+    title: "Example work",
+    page: { id: "agreed", title: "Agreed so far", task, agreements: [] },
+  });
+  const beside = `${a.directory}-beside`;
+  const linked = path.join(a.directory, "src", "linked");
+  await fs.mkdir(path.dirname(linked), { recursive: true });
+  await fs.mkdir(beside);
+  await fs.symlink(beside, linked);
+  for (const source of [beside, linked, path.join(a.directory, "src", "no")]) {
+    const refused = await a.action("publish", { html, source });
+    assert.equal(refused.code, 400, source);
+    assert.equal(
+      refused.body.error,
+      "Source must be a directory inside the session directory",
+    );
+  }
+});
+
 test("a publish with a missing --file names pair build and keeps no source", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
   const missing = path.join(path.dirname(agreed.built), "3agreed.html");
