@@ -51,13 +51,12 @@ test("a note, a choice and a typed answer made on a phone appear on a computer, 
       '[data-choice="approach"] [data-value="queue"][aria-pressed="true"]',
     )
     .waitFor(poll);
-  assert.equal(
-    await computer
-      .locator('[data-question="limit"]')
-      .getByRole("textbox")
-      .inputValue(),
-    "Three",
-  );
+  // The phone pressed Answer, so the computer shows the answer as sent text
+  // with Edit, as the phone does, not as a box still waiting for Answer.
+  const answered = computer.locator('[data-question="limit"]');
+  await answered.locator(".answer-text", { hasText: "Three" }).waitFor(poll);
+  assert.equal(await answered.locator("[data-edit]").isVisible(), true);
+  assert.equal(await answered.getByRole("textbox").isVisible(), false);
   await computer.locator("#review-row").click();
   await computer
     .locator("#feedback-groups", { hasText: "Keep one result per input." })
