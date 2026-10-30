@@ -6,15 +6,11 @@ import { attach } from "../hub/client.mjs";
 import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
 import { pageData } from "../shared/records.mjs";
-import {
-  agentRequestBytes,
-  requireNode,
-  settings,
-} from "../shared/settings.mjs";
+import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
-import { rows } from "./output.mjs";
+import { rows, tooBigToPublish } from "./output.mjs";
 import { proposalText } from "./tags.mjs";
 
 // fs.cp gives each copied directory its source's mode, and rm cannot empty a
@@ -309,18 +305,6 @@ export async function start(options) {
   };
 }
 
-const megabytes = (bytes) => `${Number((bytes / 1_000_000).toFixed(1))} MB`;
-// pair build writes a page's content into the built file twice, and base64 makes
-// an image a third larger, so images can take 3/8 of the limit, less the size of
-// the frame. A third of the limit stays under that.
-function requireSendable(action, file) {
-  const bytes = Buffer.byteLength(JSON.stringify(action));
-  requireValue(
-    bytes <= agentRequestBytes,
-    `${file} is too big to publish. The publish would send the hub ${megabytes(bytes)}, and the hub accepts at most ${megabytes(agentRequestBytes)}. pair build writes a page's content into that file twice, so the images embedded in one page can total about ${megabytes(agentRequestBytes / 3)}. Crop or resize the images, or save them as JPEG or WebP. Then build the page to a new path and publish that file.`,
-  );
-}
-
 export async function publish(options) {
   const session = await openSession(options);
   const file = path.resolve(options.file);
@@ -334,7 +318,8 @@ export async function publish(options) {
   const action = { action: "publish", html };
   if (options.pages)
     action.pages = (await read(path.resolve(options.pages))).pages;
-  requireSendable(action, file);
+  const [tooBig] = tooBigToPublish(file, action);
+  requireValue(!tooBig, tooBig);
   if (options.source)
     action.source = await keepSource(session.directory, options.source, html);
   let result;

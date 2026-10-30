@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { guideText } from "../shared/guide.mjs";
+import { agentRequestBytes } from "../shared/settings.mjs";
 
 // print() writes a session command's text over this many bytes to a file,
 // because an agent CLI cuts a command's output past a limit.
@@ -56,6 +57,20 @@ export const refuseOverwrite = (output) => (error) => {
     `${output} already exists, and pair never overwrites a file. Write to a new path, or delete that file first.`,
   );
 };
+
+const megabytes = (bytes) => `${Number((bytes / 1_000_000).toFixed(1))} MB`;
+// pair build and pair publish each measure the request that pair publish sends.
+// pair build writes a page's content into the built file twice, and base64 makes
+// an image a third larger, so images can take 3/8 of the limit, less the size of
+// the frame. A third of the limit stays under that.
+export function tooBigToPublish(subject, request) {
+  const bytes = Buffer.byteLength(JSON.stringify(request));
+  return bytes <= agentRequestBytes
+    ? []
+    : [
+        `${subject} is too big to publish. The publish would send the hub ${megabytes(bytes)}, and the hub accepts at most ${megabytes(agentRequestBytes)}. pair build writes a page's content into the built file twice, so the images embedded in one page can total about ${megabytes(agentRequestBytes / 3)}. Crop or resize the images, or save them as JPEG or WebP. Then build the page again and publish the new file.`,
+      ];
+}
 
 export function rows(pairs) {
   const shown = pairs.filter(([, value]) => value !== undefined && value);

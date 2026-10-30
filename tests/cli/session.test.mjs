@@ -339,33 +339,50 @@ test("the hub refuses a kept source outside the session directory", async (t) =>
   }
 });
 
-test("a page over the hub's limit is refused with the limit and what to do, and the size the refusal names publishes", async (t) => {
-  const { sessionDir, agreed, list, page, publish } =
+// pair build refuses a page this big, so the padding stands in for a file that
+// an older pair build wrote or a page list that takes the request over the limit.
+test("a publish over the hub's limit is refused with the limit and what to do, and keeps no source", async (t) => {
+  const { sessionDir, agreed, overview, list, publish } =
     await sessionWithAgreed(t);
   await publish(agreed.built, agreed.source, "--pages", list);
-  const overview = { page: { id: "overview", title: "Overview" } };
-  const withImages = (name, bytes) =>
-    page(
-      name,
-      { page: { ...overview.page, file: `${name}.html` } },
-      `<img alt="" src="data:image/png;base64,${"A".repeat((bytes / 3) * 4)}">`,
-    );
-  const big = await withImages("big", 7_500_000);
-  await assert.rejects(publish(big.built, big.source), (error) => {
+  const big = path.join(path.dirname(overview.built), "big.html");
+  await fs.writeFile(
+    big,
+    (await fs.readFile(overview.built, "utf8")).replace(
+      "</body>",
+      () => `<!--${"A".repeat(20_000_000)}--></body>`,
+    ),
+  );
+  await assert.rejects(publish(big, overview.source), (error) => {
     assert.equal(error.code, 1);
     assert.match(
       error.stderr,
       new RegExp(
-        `^pair: ${literal(big.built)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 20 MB\\. pair build writes a page's content into that file twice, so the images embedded in one page can total about 6\\.7 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page to a new path and publish that file\\.\\n$`,
+        `^pair: ${literal(big)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 20 MB\\. pair build writes a page's content into the built file twice, so the images embedded in one page can total about 6\\.7 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page again and publish the new file\\.\\n$`,
       ),
     );
     return true;
   });
-  const kept = path.join(sessionDir, "src", "1", "overview");
-  assert.equal(await exists(kept), false);
-  const fits = await withImages("fits", 6_700_000);
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "overview")),
+    false,
+  );
+});
+
+test("a page with images of the size the refusal names builds and publishes", async (t) => {
+  const { sessionDir, agreed, list, page, publish } =
+    await sessionWithAgreed(t);
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const fits = await page(
+    "fits",
+    { page: { id: "overview", title: "Overview", file: "fits.html" } },
+    `<img alt="" src="data:image/png;base64,${"A".repeat((6_700_000 / 3) * 4)}">`,
+  );
   await publish(fits.built, fits.source);
-  assert.equal(await exists(path.join(kept, "fits.html")), true);
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "overview", "fits.html")),
+    true,
+  );
 });
 
 test("a publish with a missing --file names pair build and keeps no source", async (t) => {
