@@ -100,9 +100,9 @@ export function threads(session) {
       ...(images.length ? { attachments: images } : {}),
     };
   }
-  // The hub wakes the holder for a thread's first message and for each
-  // message after the agent read or answered the thread. wakeLater sends the
-  // wake after the hub answers the browser's request.
+  // The hub wakes the holder for each of the reviewer's messages, except one
+  // added while an earlier wake waits to be sent. wakeLater sends the wake
+  // after the hub answers the browser's request.
   function wakeLater(thread) {
     const message = thread.messages.at(-1);
     setTimeout(
@@ -275,16 +275,17 @@ export function threads(session) {
       ...(replyId === undefined ? {} : { replyId }),
       ...(await reviewerMessage(data)),
     });
-    // pair read --thread prints every message, so a message added before
-    // the agent reads the thread needs no wake of its own, and the thread
-    // keeps its state.
-    const unread = ["sending", "sent"].includes(thread.state);
-    if (!unread) {
+    // An agent can act on the message its wake quotes without running pair
+    // read, so each message wakes it again once the previous wake has reached
+    // it. A message added while a wake waits to be sent joins that wake, and
+    // pair read --thread prints it.
+    const sending = thread.state === "sending";
+    if (!sending) {
       thread.state = "sending";
       thread.readAt = null;
     }
     await saveThread(thread);
-    if (!unread) wakeLater(thread);
+    if (!sending) wakeLater(thread);
     return { thread: shown(thread) };
   }
   // The hub sends no wake for a thumbs up or for its removal.
