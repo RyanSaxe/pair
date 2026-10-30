@@ -287,31 +287,31 @@ export async function startHub(config = settings()) {
             Location: session.base + "/",
           });
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
+          // The hub serves a session the reviewer closed as read-only, so a
+          // tab left open on it cannot submit and wake an agent that has
+          // finished.
+          const closed = Boolean(session.state.dismissedAt);
+          const flags = closed ? { closed: true } : {};
+          const head = closed
+            ? ""
+            : firstAnswersHead(
+                await firstAnswers(session, await sessionList(req)),
+              );
           if (!session.state.current)
             return html(
               framePage(
                 session,
                 await assembleHome(session.listing().title),
-                { home: true },
-                firstAnswersHead(
-                  await firstAnswers(session, await sessionList(req)),
-                ),
+                { home: true, ...flags },
+                head,
               ),
             );
-          // The hub serves a session the reviewer closed as read-only, so a
-          // tab left open on it cannot submit and wake an agent that has
-          // finished.
-          const closed = Boolean(session.state.dismissedAt);
           return html(
             await roundPage(
               session,
               session.roundEntry(session.state.current.round),
-              closed ? { closed: true } : {},
-              closed
-                ? ""
-                : firstAnswersHead(
-                    await firstAnswers(session, await sessionList(req)),
-                  ),
+              flags,
+              head,
             ),
             {
               "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
