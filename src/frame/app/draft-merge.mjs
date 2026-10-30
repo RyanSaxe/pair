@@ -5,8 +5,10 @@ const record = (value) =>
 
 export const emptySynced = () => ({ revision: 0, items: {} });
 
-// digest sorts object keys first, so it returns the same string for two
-// copies of an item whose fields are in a different order.
+// The frame keeps a digest of each synced item in localStorage instead of
+// the item, because a drawing's scene can be large and a full copy would
+// double the draft. digest sorts object keys first, so it returns the same
+// string for two copies of an item whose fields are in a different order.
 export function digest(value) {
   const text = JSON.stringify(value ?? null, (key, item) =>
     record(item)
