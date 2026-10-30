@@ -204,7 +204,7 @@ sessions/<dir>/      the directory name is not the session ID
   draft.json         your completed notes, choices and answers, until you send
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
-  scenes/            editable shapes of drawing answers
+  scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
   activity.json      the last 50 events, for the bell
