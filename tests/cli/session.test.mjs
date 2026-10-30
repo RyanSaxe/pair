@@ -350,20 +350,20 @@ test("a page over the hub's limit is refused with the limit and what to do, and 
       { page: { ...overview.page, file: `${name}.html` } },
       `<img alt="" src="data:image/png;base64,${"A".repeat((bytes / 3) * 4)}">`,
     );
-  const big = await withImages("big", 3_750_000);
+  const big = await withImages("big", 7_500_000);
   await assert.rejects(publish(big.built, big.source), (error) => {
     assert.equal(error.code, 1);
     assert.match(
       error.stderr,
       new RegExp(
-        `^pair: ${literal(big.built)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 10 MB\\. pair build writes a page's content into that file twice, so the images embedded in one page can total about 3\\.3 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page to a new path and publish that file\\.\\n$`,
+        `^pair: ${literal(big.built)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 20 MB\\. pair build writes a page's content into that file twice, so the images embedded in one page can total about 6\\.7 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page to a new path and publish that file\\.\\n$`,
       ),
     );
     return true;
   });
   const kept = path.join(sessionDir, "src", "1", "overview");
   assert.equal(await exists(kept), false);
-  const fits = await withImages("fits", 3_300_000);
+  const fits = await withImages("fits", 6_700_000);
   await publish(fits.built, fits.source);
   assert.equal(await exists(path.join(kept, "fits.html")), true);
 });

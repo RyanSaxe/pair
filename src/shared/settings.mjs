@@ -34,7 +34,7 @@ export const version = ["src", "adapters"]
 
 // The hub refuses an agent command's request over this size, and pair publish
 // checks a page against it before it sends the page.
-export const agentRequestBytes = 10_000_000;
+export const agentRequestBytes = 20_000_000;
 
 const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
