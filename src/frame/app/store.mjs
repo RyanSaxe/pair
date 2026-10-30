@@ -1,6 +1,12 @@
+import {
+  draftItems,
+  emptySynced,
+  forgetSent,
+} from "#frame/app/draft-merge.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { editable, prefsPrefix, storageKey } from "#frame/app/view.mjs";
 import { review } from "#frame/review/review.mjs";
+import { queuePush } from "#frame/sync/draft.mjs";
 import { selectedTab } from "#frame/sync/rounds.mjs";
 
 export const record = (value) =>
@@ -27,6 +33,10 @@ export function emptyDraft(round) {
     replyDrafts: {},
     submitted: null,
     pending: null,
+    // synced contains the id and revision of the hub's draft at the last
+    // merge and a digest of each item, so draftChanges() can tell which items
+    // the reviewer changed in this browser since then.
+    synced: emptySynced(),
   };
 }
 
@@ -37,6 +47,8 @@ export function loadDraft(saved, round) {
   if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
     return emptyDraft(round);
   const draft = { ...emptyDraft(round), ...saved };
+  if (!record(draft.synced) || !record(draft.synced.items))
+    draft.synced = emptySynced();
   if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
@@ -93,10 +105,31 @@ export function submissionGroups(draft) {
   };
 }
 
+// changedPages returns the IDs of the pages whose notes, choices, answers or
+// typed answers differ between two drafts.
+export function changedPages(before, after) {
+  const pages = new Set();
+  const differ = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+  const notes = (draft) => new Map(draft.notes.map((note) => [note.id, note]));
+  const [old, next] = [notes(before), notes(after)];
+  for (const id of new Set([...old.keys(), ...next.keys()]))
+    if (differ(old.get(id), next.get(id)))
+      pages.add((old.get(id) ?? next.get(id)).topic);
+  for (const field of ["choices", "answers", "drafts"])
+    for (const key of new Set([
+      ...Object.keys(before[field]),
+      ...Object.keys(after[field]),
+    ]))
+      if (differ(before[field][key], after[field][key]))
+        pages.add(key.split("/")[0]);
+  return pages;
+}
+
 // markSent() deletes a sent answer's typed text or drawing, so the question
 // starts empty in the next round.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
+  const before = draftItems(draft);
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
   for (const [key, answer] of Object.entries(draft.answers)) {
@@ -106,6 +139,7 @@ export function markSent(draft, id, at) {
   draft.submitted = { id, at, round: draft.round, count };
   draft.message = "";
   draft.pending = null;
+  forgetSent(draft, before);
   return draft;
 }
 
@@ -160,6 +194,7 @@ export function persist() {
     $("storage-status").textContent =
       "Local storage unavailable. Export a copy to keep your feedback.";
   }
+  queuePush();
 }
 export function save() {
   persist();

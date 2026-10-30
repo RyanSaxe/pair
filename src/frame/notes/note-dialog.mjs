@@ -153,14 +153,17 @@ export function installNoteDialog() {
     if (!feedbackEditable() || $("note-save").hidden) return;
     const text = $("note-text").value.trim();
     if (!text) return;
+    // Another device can delete the note while this dialog edits it. The
+    // edit then becomes a new note, so the reviewer's words are kept.
+    const kept = state.notes.some((item) => item.id === editing);
     const note = {
       ...noteContext,
-      id: editing || uuid(),
+      id: kept ? editing : uuid(),
       text,
       round: plan.round,
       ...(noteImages.length ? { attachments: noteImages } : {}),
     };
-    if (editing)
+    if (kept)
       state.notes = state.notes.map((item) =>
         item.id === editing ? note : item,
       );

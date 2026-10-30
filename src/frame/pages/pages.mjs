@@ -100,6 +100,7 @@ export function show(
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
+  redrawHeld = false;
   // A thread or a card has overall as its note's page, and overall is on
   // Review.
   if (id === "overall") id = "feedback";
@@ -189,6 +190,38 @@ export function show(
   whenDrawn(drawing, () => {
     if (!loading) arrived();
   });
+}
+/* showChanges shows the draft after it changed outside this tab's own
+   controls, from the hub or from another tab. pages names the pages whose
+   items changed, and null means any page. showChanges sets the choices,
+   answers and note marks on the page at once. Drawing the page again also
+   shows what a component derives from the draft, such as an answered
+   question, but it replaces every field, video and thread card on the page,
+   so redrawPage waits while the reviewer uses one of them or has a dialog
+   open. The frame calls redrawPage again after each status poll. */
+let redrawHeld = false;
+export function showChanges(pages = null) {
+  review();
+  if ($("reading").hidden || page.pending || (pages && !pages.has(page.id)))
+    return;
+  restoreChoices();
+  restoreAnswers();
+  if (page.id !== "agreed") markNotes();
+  redrawHeld = true;
+  redrawPage();
+}
+const fields =
+  "textarea, input:is([type=text], [type=search], :not([type])), [contenteditable], iframe, video, audio";
+// A video keeps its place only while the page keeps its element.
+const started = (media) =>
+  !media.paused || (media.currentTime > 0 && !media.ended);
+const inUse = () =>
+  Boolean(document.querySelector("dialog[open], #reading :active")) ||
+  (document.hasFocus() && Boolean(document.activeElement?.matches(fields))) ||
+  [...document.querySelectorAll("video, audio")].some(started);
+export function redrawPage() {
+  if (!redrawHeld || inUse() || $("reading").hidden) return;
+  show(page.id, null, { keepScroll: true, push: false, inPlace: true });
 }
 export function badge(count) {
   const row = $("review-row");
