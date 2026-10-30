@@ -347,6 +347,18 @@ export async function startHub(config = settings()) {
         }
         if (method === "GET" && rest[0] === "api" && rest[1] === "status")
           return reply(200, session.browserView());
+        // The browser sends no Origin header with a same-origin GET, so only
+        // the Host check protects this read, as it protects the other reads.
+        if (rest[0] === "api" && rest[1] === "draft" && rest.length === 2) {
+          if (method === "GET") return reply(200, session.draftView());
+          if (method === "POST") {
+            const data = await readBody(req, 250_000);
+            return reply(
+              200,
+              await session.exclusive(() => session.changeDraft(data)),
+            );
+          }
+        }
         if (method === "GET" && rest[0] === "api" && rest[1] === "page-set")
           return reply(200, session.pageSet(url.searchParams.get("round")));
         if (method === "GET" && rest[0] === "api" && rest[1] === "page")
