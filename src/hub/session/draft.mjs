@@ -51,10 +51,11 @@ export function applyChanges(draft, changes) {
    drawing under each sent answer's key, as markSent() does in the browser
    that sent it. It keeps an item that another device changed after the
    sending browser last merged the draft, because the submission did not
-   include that change, so the reviewer can still send it. The frame records
-   one checklist with a different target and round depending on whether a
-   tick or initializeChecklists() wrote it, so applySubmission compares
-   items without those two fields. */
+   include that change, so the reviewer can still send it. When the
+   reviewer ticks a box, the frame records the checklist with the live
+   block's ID as its target, and initializeChecklists() rebuilds it with
+   another ID and the current round, so applySubmission compares items
+   without their target and round. */
 const content = ({ target, round, ...rest }) => rest;
 export function applySubmission(draft, payload) {
   const removed = {};

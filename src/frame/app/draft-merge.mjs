@@ -75,8 +75,8 @@ export function draftChanges(draft) {
 // removes the sent items itself when it saves the submission.
 // recordPushed records the hub's value for each item that this browser just
 // sent and the hub kept. Without the record, a later removal here would match
-// the last merge, so draftChanges() would not send it, and the next merge
-// would bring the item back.
+// the last merge, so draftChanges() would not send it, and the next
+// mergeDraft() would put the item back.
 export function recordPushed(draft, changes, hub) {
   for (const [key, value] of Object.entries(changes)) {
     const item = hub.items[key];
