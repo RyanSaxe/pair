@@ -272,6 +272,31 @@ test("two tabs in one browser send the same change once", () => {
   assert.deepEqual(draftChanges(second), {});
 });
 
+test("a drawing in progress, a note being written and a reply draft with an image reach the other browser", () => {
+  const w = world();
+  const phone = w.device(),
+    computer = w.device();
+  const scene = {
+    type: "excalidraw",
+    elements: [{ id: "box", type: "rectangle", x: 10, y: 20 }],
+    appState: { viewBackgroundColor: "#ffffff" },
+  };
+  const noteKey = JSON.stringify(["overview", "Overview", null]);
+  const reply = {
+    text: "The log is attached.",
+    attachments: [{ id: "0123456789abcdef" }],
+  };
+  phone.drafts["overview/sketch"] = scene;
+  phone.noteDrafts[noteKey] = "Half a note.";
+  phone.replyDrafts.t1 = reply;
+  w.sync(phone);
+  assert.equal(w.pull(computer), true);
+  assert.deepEqual(computer.drafts["overview/sketch"], scene);
+  assert.equal(computer.noteDrafts[noteKey], "Half a note.");
+  assert.deepEqual(computer.replyDrafts.t1, reply);
+  assert.deepEqual(draftChanges(computer), {});
+});
+
 test("a held merge keeps the text being typed and applies it later", () => {
   const w = world();
   const phone = w.device(),
