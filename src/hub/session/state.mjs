@@ -292,18 +292,20 @@ export async function loadSession(
             },
           }
         : {}),
-      // readyPages lists the current round's published pages, so the frame
-      // can count the pages that this browser has not opened.
+      // readyPages lists the current round's published pages until the
+      // reviewer sends feedback on it, so the frame can count the pages that
+      // this browser has not opened.
       readyPages: {
         round,
-        ids: set
-          ? [
-              "agreed",
-              ...set.pages
-                .filter((slot) => slot.recordPath)
-                .map(({ id }) => id),
-            ]
-          : [],
+        ids:
+          set && state.latestSubmissionRound !== round
+            ? [
+                "agreed",
+                ...set.pages
+                  .filter((slot) => slot.recordPath)
+                  .map(({ id }) => id),
+              ]
+            : [],
       },
       wakeFailed: state.wake?.last?.ok === false,
       paused: Boolean(state.paused),
