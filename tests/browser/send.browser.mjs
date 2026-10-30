@@ -110,6 +110,34 @@ test("a send the hub refuses shows the hub's reason, and the message stays in th
   );
 });
 
+test("the error from a lost response clears once a status poll shows the hub saved the send", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/`);
+  if (!page) return;
+  await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
+  await page.route("**/api/feedback", async (route) => {
+    await route.fetch();
+    await route.abort("connectionreset");
+  });
+  // The frame recovers from a poll during the send without showing the error,
+  // so the test holds the polls until the error appears.
+  let polling = false;
+  await page.route("**/api/status", async (route) => {
+    await waitUntil(() => polling);
+    await route.continue();
+  });
+  await openPopup(page);
+  await page.locator("#send-button").click();
+  const banner = page.locator("#save-error");
+  await banner.waitFor();
+  polling = true;
+  await banner.waitFor({ state: "hidden" });
+  await page.locator("#submit:disabled").waitFor();
+  assert.equal((await session.status()).body.stage, "submitted");
+});
+
 // A question or a checklist that is a top-level block has its block's ID on
 // the live page.
 test("the links to a typed answer and a checklist land on them, also after a reload", async (t) => {

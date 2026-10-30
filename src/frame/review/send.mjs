@@ -43,6 +43,9 @@ import {
 
 export let submissionError = "";
 export let submissionInFlight = false;
+export function clearSubmissionError() {
+  submissionError = "";
+}
 export function submitButton({
   inFlight,
   opensFeedback,
