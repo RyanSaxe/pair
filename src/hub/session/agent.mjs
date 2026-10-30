@@ -194,6 +194,13 @@ export function agent(session) {
     session.events
       .filter((item) => item.sequence < sequence)
       .sort((a, b) => b.sequence - a.sequence)[0];
+  const feedbackRead = () =>
+    session.events
+      .filter(
+        (item) =>
+          answersRound(item) && session.state.acknowledged.includes(item.id),
+      )
+      .sort((a, b) => b.sequence - a.sequence)[0];
   async function readFeedback(data) {
     // With an id, readFeedback returns that submission again and changes
     // nothing, for an agent turn that resumes after an interruption.
@@ -402,12 +409,16 @@ export function agent(session) {
     if (!next) return {};
     if (same) return { next };
     // An agent that takes the session over may never have run pair guide,
-    // and it has not read the feedback that an open round answers, because
-    // the previous holder read that feedback before it published Agreed.
-    const answered =
-      session.state.openRound && session.state.latestSubmissionId;
+    // and it has not read the feedback that the previous holder read. An open
+    // round answers that feedback. With stage "working" and no open round, the
+    // next round answers it, because the previous holder read it and has not
+    // published Agreed yet.
+    const answers = session.state.openRound
+      ? "This round answers"
+      : session.state.stage === "working" && "The next round answers";
+    const answered = answers && feedbackRead()?.id;
     const feedback = answered
-      ? ` This round answers the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
+      ? ` ${answers} the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
       : "";
     return {
       next: `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`,
