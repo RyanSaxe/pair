@@ -260,3 +260,22 @@ When `npm run screenshots` fails, it saves a screenshot and the console log
 of each of its browser windows in `screenshots-failure/`, which git ignores.
 The `screenshots` job uploads that directory as the `screenshots-failure`
 artifact of its run.
+
+## Reviewing a set of pull requests
+
+The reviewer approves a set of pull requests by using them in a real pair
+session before any of them merges into `develop`. Create a worktree from
+`develop`, merge each pull request's branch into it, and start a fresh agent
+session in that worktree. That agent runs the worktree's code on a review
+hub: a free port from 4880 to 4899, its own state directory, `PAIR_WAKE`
+unset so that the reviewer's feedback, threads and Starts wake it, and
+`PAIR_HUB_HOST` as the environment sets it so that the session's Phone URL
+opens on the reviewer's phone. The agent starts a session, publishes a round
+whose pages show every feature the set changes so that the reviewer can
+stress-test each one, and answers the session as it would any other.
+
+The pull requests merge only after the reviewer approves the set in that
+session. A fix for a bug the reviewer finds there goes on the branch of the
+pull request it belongs to. That branch then merges into the review worktree
+again, the review hub restarts on the new code, and the agent publishes the
+next round.
