@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { test } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
-const html = `<button type="button" data-comment="Result">Comment on the result</button>`;
+const html = `<button type="button" data-comment="Result">Comment on the result</button>
+<button type="button" data-comment="Cost">Comment on the cost</button>`;
 
 const png = {
   name: "shot.png",
@@ -41,6 +44,7 @@ async function session(t) {
     },
     onHub: async (image) =>
       (await s.request(`${s.base}/api/upload/${image.id}`)).code === 200,
+    uploads: () => fs.readdir(path.join(s.directory, "uploads")),
   };
 }
 const dialog = (page) => page.locator("#note-dialog");
@@ -57,6 +61,23 @@ async function attach(page, count) {
     .locator("#note-images img")
     .nth(count - 1)
     .waitFor();
+}
+// pickImage returns when the browser has started the upload.
+async function pickImage(page) {
+  const started = page.waitForRequest("**/api/upload");
+  await page.locator("#note-image-input").setInputFiles(png);
+  await started;
+}
+// holdUploads keeps each upload from reaching the hub until release is
+// called, which stands in for a large image on a slow connection.
+async function holdUploads(page) {
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route("**/api/upload", async (route) => {
+    await held;
+    await route.continue();
+  });
+  return release;
 }
 async function send(page, s) {
   await page.locator("#submit").click();
@@ -119,4 +140,56 @@ test("removing a note's image takes effect only when the edit is saved, and the 
     payload.groups.notes[0].attachments.map((image) => image.id),
     [kept.id],
   );
+});
+
+test("a note waits for an image still uploading, and keeps it", async (t) => {
+  const { url, hubNotes } = await session(t);
+  const page = await open(t, `${url}#overview`);
+  if (!page) return;
+  const release = await holdUploads(page);
+  await comment(page, "Comment on the result");
+  await page.locator("#note-text").fill("Look at this.");
+  await pickImage(page);
+
+  await page.locator("#note-text").press("Shift+Enter");
+  assert.equal(await dialog(page).isVisible(), true);
+  assert.equal(await page.locator("#note-uploading").isVisible(), true);
+  assert.equal(await page.locator("#note-thread").isDisabled(), true);
+  assert.equal(await page.locator("#note-save").isDisabled(), true);
+
+  release();
+  await page.locator("#note-images img").waitFor();
+  assert.equal(await page.locator("#note-uploading").isVisible(), false);
+  await page.locator("#note-text").press("Shift+Enter");
+  await closed(page);
+  const [note] = await hubNotes("Look at this.");
+  assert.equal(note.attachments.length, 1);
+});
+
+test("an image still uploading when the reviewer backs out stays off the next note and off the hub", async (t) => {
+  const { url, hubNotes, uploads } = await session(t);
+  const page = await open(t, `${url}#overview`);
+  if (!page) return;
+  const release = await holdUploads(page);
+  await comment(page, "Comment on the result");
+  await pickImage(page);
+  await page.keyboard.press("Escape");
+  await closed(page);
+
+  await comment(page, "Comment on the cost");
+  assert.equal(await page.locator("#note-uploading").isVisible(), false);
+  await page.locator("#note-text").fill("No image here.");
+  const uploaded = page.waitForResponse("**/api/upload");
+  release();
+  await uploaded;
+  // The frame deletes the upload after it finishes, so the wait ends when
+  // the hub has written the file and deleted it again.
+  await waitUntil(async () => (await uploads()).length === 0);
+  assert.deepEqual(await uploads(), []);
+  assert.equal(await page.locator("#note-images img").count(), 0);
+
+  await page.locator("#note-save").click();
+  await closed(page);
+  const [note] = await hubNotes("No image here.");
+  assert.equal(note.attachments, undefined);
 });

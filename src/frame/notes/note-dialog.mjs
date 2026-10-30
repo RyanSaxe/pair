@@ -27,6 +27,9 @@ let noteImages = [];
 let noteImagesAtOpen = [];
 let noteImagesRemoved = [];
 let noteImagesSaved = false;
+// settleNoteImages replaces this count, so attach can tell when the dialog
+// that started an upload has closed.
+let uploads = { running: 0 };
 export function setNoteImages(images) {
   noteImages = images;
   noteImagesAtOpen = images.map((item) => item.id);
@@ -93,15 +96,32 @@ export function fitNoteText() {
   area.style.height = `${height}px`;
   [area.scrollTop, body.scrollTop] = scrolled;
 }
-const attach = (files) =>
-  uploadImages(
+function drawUploading() {
+  const busy = uploads.running > 0;
+  $("note-uploading").hidden = !busy;
+  $("note-save").disabled = busy;
+  $("note-thread").disabled = busy;
+}
+/* A note cannot be saved while an upload runs, so it cannot lose the image.
+   When the reviewer backs out first, the upload belongs to no note, so attach
+   deletes the image when the upload finishes. */
+async function attach(files) {
+  const started = uploads;
+  started.running++;
+  drawUploading();
+  await uploadImages(
     files,
     (record) => {
-      noteImages.push(record);
-      drawNoteImages();
+      if (started === uploads) addNoteImage(record);
+      else forgetImages([record]);
     },
-    imageError,
+    (message) => {
+      if (started === uploads) imageError(message);
+    },
   );
+  started.running--;
+  drawUploading();
+}
 /* settleNoteImages deletes the images that a dialog uploaded when the
    reviewer backs out of it, so the session keeps no image that no note
    refers to. The frame calls it when the reviewer closes the dialog with
@@ -117,6 +137,8 @@ export function settleNoteImages() {
   noteImagesAtOpen = [];
   noteImagesRemoved = [];
   noteImagesSaved = false;
+  uploads = { running: 0 };
+  drawUploading();
 }
 
 export function installNoteDialog() {
@@ -160,6 +182,8 @@ export function installNoteDialog() {
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
     if (!feedbackEditable() || $("note-save").hidden) return;
+    // Shift+Enter submits the form even while its button is disabled.
+    if ($("note-save").disabled) return;
     const text = $("note-text").value.trim();
     if (!text) return;
     // Another device can delete the note while this dialog edits it. The
