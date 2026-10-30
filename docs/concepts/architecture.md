@@ -33,7 +33,12 @@ session to your browser and wakes the agent when you respond.
   which proposal cards you saw on Work, and sends those records with the
   session list. A phone on the `PAIR_HUB_HOST` address and a computer then
   show the same bell, sessions badge and **New** marks, within one poll of
-  each other. Drafts and other preferences stay in each browser.
+  each other. Layout preferences, such as the sidebar, stay in each browser.
+- The hub keeps each session's unsent draft and numbers each change it
+  receives. Every pair tab sends the notes, choices and answers you change
+  and reads the hub's draft after each status poll, so a round you start on
+  one device continues on another. When two devices change the same item, the
+  change the hub receives later wins, and a deleted note stays deleted.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
@@ -192,6 +197,7 @@ sessions/<dir>/      the directory name is not the session ID
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
   rounds/            built rounds
+  draft.json         your unsent notes, choices and answers
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
   scenes/            editable shapes of drawing answers
