@@ -49,7 +49,8 @@ same name under `tests/`:
   the home view of a session with nothing published, `notes/` has the code for the
   reviewer's notes, threads, choices, answers and drawings, `review/` is the
   Review page and sending, and `sync/` reads rounds, sessions, activity and
-  notifications from the hub.
+  notifications from the hub and sends it the reviewer's cleared bell lines,
+  opened pages and seen cards.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.
@@ -204,13 +205,14 @@ Check every fixture page in the light and dark themes, at a wide window and at
 
 For anything that talks to the hub, such as sending feedback, the progress
 card, rounds, sessions or notifications, run a scratch hub. Give every command
-the same new state directory, a free port from 4880 to 4899 and
-`PAIR_WAKE=off`, with `env` in front of the command:
+the same new state directory, a free port from 4880 to 4899, `PAIR_WAKE=off`
+and an empty `PAIR_HUB_HOST`, so the hub listens only on 127.0.0.1, with `env` in
+front of the command:
 
 ```sh
 state=$(mktemp -d)
-env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
-env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_HUB_HOST= PAIR_WAKE=off node src/cli.mjs check
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_HUB_HOST= PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
 ```
 
 A Codex from version 0.160 started with no `-c` override runs each command on
@@ -260,3 +262,22 @@ When `npm run screenshots` fails, it saves a screenshot and the console log
 of each of its browser windows in `screenshots-failure/`, which git ignores.
 The `screenshots` job uploads that directory as the `screenshots-failure`
 artifact of its run.
+
+## Reviewing a set of pull requests
+
+The reviewer approves a set of pull requests by using them in a real pair
+session before any of them merges into `develop`. Create a worktree from
+`develop`, merge each pull request's branch into it, and start a fresh agent
+session in that worktree. That agent runs the worktree's code on a review
+hub: a free port from 4880 to 4899, its own state directory, `PAIR_WAKE`
+unset so that the reviewer's feedback, threads and Starts wake it, and
+`PAIR_HUB_HOST` as the environment sets it so that the session's Phone URL
+opens on the reviewer's phone. The agent starts a session, publishes a round
+whose pages show every feature the set changes so that the reviewer can
+stress-test each one, and answers the session as it would any other.
+
+The pull requests merge only after the reviewer approves the set in that
+session. A fix for a bug the reviewer finds there goes on the branch of the
+pull request it belongs to. That branch then merges into the review worktree
+again, the review hub restarts on the new code, and the agent publishes the
+next round.

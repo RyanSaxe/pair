@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { hub, planData } from "../support/hub.mjs";
 
-// What the hub adds to a round's page as it serves it.
-
 test("every round page holds its first frame until its modules have run", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -11,8 +9,9 @@ test("every round page holds its first frame until its modules have run", async 
   for (const route of ["", "r/1", "preview/1"]) {
     const page = (await a.request(`${a.base}/${route}`)).body;
     const head = page.slice(0, page.indexOf("</head>"));
-    // A module script runs once the page is parsed, and one with no text
-    // never runs, so only a non-empty one releases the frame.
+    // The browser runs a module script once it has parsed the page and never
+    // runs one with no text, so only a non-empty module script lets the first
+    // frame render.
     const gates = [
       ...head.matchAll(/<script\b([^>]*)>([^<]*)<\/script>/g),
     ].filter(
@@ -22,6 +21,11 @@ test("every round page holds its first frame until its modules have run", async 
         text.trim(),
     );
     assert.equal(gates.length, 1, `/${route}`);
+    // The browser runs module scripts in document order, so the gate holds
+    // the first frame only for the modules before it.
+    const modules = [...page.matchAll(/<script\b[^>]*\btype="module"/g)];
+    assert.ok(modules.length > 1, `/${route}`);
+    assert.equal(page.indexOf(gates[0][0]), modules.at(-1).index, `/${route}`);
   }
 });
 

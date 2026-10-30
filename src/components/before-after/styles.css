@@ -6,34 +6,83 @@
 }
 .change-controls {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   padding: 6px 8px 6px 12px;
   background: var(--ground);
   border-bottom: 1px solid var(--line);
   font-size: var(--text-small);
   color: var(--muted);
 }
+/* A file name too long to share the row with the controls gets the row to
+   itself, and the controls wrap to a row of their own under it. */
 .change-controls .change-file {
+  flex: 1 1 auto;
   color: var(--ink);
   font-weight: var(--weight-strong);
-  margin-right: auto;
   overflow-wrap: anywhere;
 }
-.change-controls .btn {
-  padding: 2px 8px;
-  font-size: var(--text-meta);
+/* These rules match .vd-layout in the visual decision's styles. */
+.change-layout {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  overflow: hidden;
 }
-.change-controls [aria-pressed="true"] {
+.change-layout button,
+.change-wrap {
+  padding: 4px 9px;
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+.change-layout button + button {
+  border-left: 1px solid var(--line-strong);
+}
+.change-layout [aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--weight-strong);
+}
+/* Wrap is a separate toggle, so it gets its own rule apart from the switch.
+   Wrap has the same font weight when pressed, so its width does not change. */
+.change-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+}
+.change-wrap::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: -11px;
+  border-left: 1px solid var(--line-strong);
+}
+.change-wrap[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
 }
-/* The viewer's rows are 22px, the height diffHeight() counts. These sit on
-   .change-view, which diffs-container inherits, because Safari applies no
-   @scope rule to a shadow host, and pair build puts component styles in
-   @scope (#page-content). */
+/* Before the switch, the header had two .btn buttons, and a page source
+   copied from an earlier round still contains them. */
+.change-controls .btn {
+  padding: 2px 8px;
+  font-size: var(--text-meta);
+}
+.change-controls .btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+/* The viewer's rows are 22px, the height that diffHeight() counts. These
+   variables are set on .change-view, which diffs-container inherits from,
+   because Safari applies no @scope rule to a shadow host, and pair build
+   puts component styles in @scope (#page-content). */
 .change-view {
   overflow: hidden;
   background: var(--code);
@@ -100,9 +149,9 @@
   max-width: 100%;
   height: auto;
 }
-/* The key is the pair's legend, so it sits against the pair and carries the
-   space under it. A pair without one keeps its own bottom margin, which is
-   what every other component root has. */
+/* The key is the pair's legend, so the key sits against the pair and the
+   margin goes under the key. A pair without a key has the bottom margin of
+   every other component root. */
 .change-pair:has(+ .change-key) {
   margin-bottom: 0;
 }
@@ -129,23 +178,27 @@
   --change-border: var(--attention-border);
   --change-ink: var(--attention);
 }
-.change-content :is(.added, .removed, .changed):not(.node) {
+.change-content :is(.added, .removed, .changed):not(.pele-node) {
   background: var(--change-bg);
   border-color: var(--change-border);
   color: var(--change-ink);
 }
 .change-content
-  .node:is(.added, .removed, .changed)
-  :is(rect, polygon, circle, ellipse) {
+  .pele-node:is(.added, .removed, .changed)
+  :is(rect, polygon, circle, ellipse, path):not(.pele-icon *, [fill="none"]) {
   fill: var(--change-bg) !important;
-  stroke: var(--change-border) !important;
 }
 .change-content
-  .node:is(.added, .removed, .changed)
-  :is(.label, .nodeLabel, p) {
-  color: var(--change-ink) !important;
+  .pele-node:is(.added, .removed, .changed)
+  :is(rect, polygon, circle, ellipse, path):not(.pele-icon *) {
+  stroke: var(--change-border) !important;
 }
-.change-content .node.removed :is(rect, polygon, circle, ellipse) {
+.change-content .pele-node:is(.added, .removed, .changed) .pele-label {
+  fill: var(--change-ink) !important;
+}
+.change-content
+  .pele-node.removed
+  :is(rect, polygon, circle, ellipse, path):not(.pele-icon *) {
   stroke-dasharray: 5 3;
 }
 @media (max-width: 700px) {

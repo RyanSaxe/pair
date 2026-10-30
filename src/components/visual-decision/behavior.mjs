@@ -1,7 +1,5 @@
-/* Tabs or side-by-side columns over a set of visual options. The layout
-   is the reviewer's choice, kept in planUI.prefs. */
-// Three columns at the reading width are about 260px; narrow material such
-// as mocks fits, wide material does not and asks for tabs instead.
+// Three columns at the reading width are about 260px each. Narrow material such
+// as mocks fits in a column, and wider material needs tabs.
 const minimumColumn = 240;
 function initialize(section, { page, planUI }) {
   const options = Array.from(
@@ -9,8 +7,8 @@ function initialize(section, { page, planUI }) {
   );
   if (!options.length) return;
   const prefs = planUI.prefs;
-  // Keyed by page as well, so the same decision ID on two pages keeps two
-  // layouts.
+  // The key includes the page ID, so planUI.prefs stores a separate layout for
+  // one decision ID on two pages.
   const key = `visual-decision:${page.id}/${section.id || section.dataset.choice}`;
   const head = document.createElement("div");
   head.className = "vd-head";
@@ -32,8 +30,9 @@ function initialize(section, { page, planUI }) {
   }
   head.append(layout);
   section.prepend(head);
-  // The article's header becomes the radio control that carries the
-  // frame's choice state; the article itself keeps the option ID.
+  // A new button replaces the article's header as the radio control and gets
+  // the article's data-value, so the frame reads the choice from the button.
+  // setup moves the value on the article to data-option.
   for (const article of options) {
     const value = article.dataset.value;
     const label = article.dataset.label || value;
@@ -45,8 +44,8 @@ function initialize(section, { page, planUI }) {
     pick.className = "vd-pick";
     pick.dataset.value = value;
     pick.dataset.label = label;
-    // The frame may have restored the draft onto the article before this
-    // ran; the radio control takes that state over.
+    // The frame may have restored the draft onto the article before this setup
+    // ran, so the radio control copies the article's aria-pressed.
     pick.setAttribute(
       "aria-pressed",
       article.getAttribute("aria-pressed") || "false",
@@ -104,12 +103,10 @@ function initialize(section, { page, planUI }) {
     for (const button of layout.querySelectorAll("[data-vd-layout]"))
       button.classList.toggle("current", button.dataset.vdLayout === mode);
   }
-  // Tabs unless the author or the reviewer asked for side by side, and
-  // only then when every column would be wide enough; a narrow window
-  // falls back to tabs and comes back when there is room again.
+  // applyLayout() shows tabs unless the reviewer chose side by side and every
+  // column would be at least minimumColumn wide. A narrow window falls back to
+  // tabs, and the columns come back when there is room again.
   function applyLayout() {
-    // Tabs at every width; side by side is the reviewer's choice, not the
-    // author's.
     let mode = prefs.get(key) || "tabs";
     if (
       mode !== "columns" ||

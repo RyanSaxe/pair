@@ -6,13 +6,11 @@ import { configRoot } from "./settings.mjs";
 
 const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
 
-// The command that prints a guide file, by the name pair guide takes.
 export const guideCommand = (name) => `pair guide ${name}`;
 
-// The files pair guide prints, by the name it takes: each Markdown file and
-// SVG under guide/ by its path there, written with / on every platform, the
-// components README, and each component's markup, which is the user's when
-// they have a component of that name.
+// componentDirectories() returns the user's component in place of pair's when
+// both have one name, so pair guide prints the user's markup for that
+// component.
 async function documents() {
   const guide = path.join(packageRoot, "guide");
   const names = new Map();
@@ -31,10 +29,10 @@ async function documents() {
   return names;
 }
 
-// pair guide prints a file exactly as it is in the repository. A guide file
-// names each other file by the pair guide command that prints it, so the
-// agent never resolves a path. The user's file at the same path under the
-// config root follows a Markdown file, after a blank line.
+// guideText() returns a guide file as it is in the repository, because a guide
+// file refers to each other file by the pair guide command that prints it, and
+// the agent never resolves a path. For a Markdown file, the user's file at the
+// same path under the config root follows after a blank line.
 export async function guideText(name = "pair.md") {
   const names = await documents();
   const file = names.get(name);

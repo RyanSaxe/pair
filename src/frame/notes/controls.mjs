@@ -1,9 +1,20 @@
 import { persist, save, state } from "#frame/app/store.mjs";
-import { $, controlKey } from "#frame/app/util.mjs";
-import { editable, feedbackEditable, page, plan } from "#frame/app/view.mjs";
+import { $, controlKey, typingIn } from "#frame/app/util.mjs";
+import {
+  editable,
+  feedbackEditable,
+  page,
+  pages,
+  plan,
+} from "#frame/app/view.mjs";
+import { blockTargets } from "#frame/notes/blocks.mjs";
 
 let answerTimer;
-export function choiceTargets(root, topic) {
+// pageTargets gives the same IDs to the live page and to a template of its
+// HTML, so a target read from a template exists on the live page. A control
+// that is a top-level block keeps its block's ID.
+export function pageTargets(root, topic) {
+  blockTargets(root, topic);
   for (const type of ["choice", "multiselect", "question"])
     root.querySelectorAll(`[data-${type}]`).forEach((group, index) => {
       group.id ||= `${type}-${topic}-${index}`;
@@ -35,7 +46,7 @@ export function initializeChecklists() {
   for (const topic of plan.pages.filter((item) => !item.pending)) {
     const template = document.createElement("template");
     template.innerHTML = topic.html;
-    choiceTargets(template.content, topic.id);
+    pageTargets(template.content, topic.id);
     for (const group of template.content.querySelectorAll(
       "[data-multiselect]",
     )) {
@@ -47,8 +58,9 @@ export function initializeChecklists() {
       };
     }
   }
-  // Saving an unchanged draft would write this tab's copy over one that
-  // another tab saved since, such as the copy that marks a send.
+  // persist() writes this tab's copy of the draft, so saving an unchanged
+  // draft would overwrite a copy that another tab saved since, such as the
+  // copy that records a send.
   if (JSON.stringify(state.choices) !== before) persist();
 }
 export function restoreChoices() {
@@ -73,11 +85,49 @@ export function restoreChoices() {
           ?.checked ?? input.defaultChecked;
     });
 }
+// The frame records typed text in state.answers when the reviewer selects
+// Answer, and it sends only recorded text. Text that differs from the
+// recorded answer is therefore not added.
+const notAdded = (key) => {
+  const text = state.drafts[key];
+  return (
+    typeof text === "string" &&
+    Boolean(text.trim()) &&
+    text !== state.answers[key]?.text
+  );
+};
+export function notAddedAnswers() {
+  const found = [];
+  for (const topic of pages.filter(
+    (item) => item.id !== "agreed" && !item.pending,
+  )) {
+    const template = document.createElement("template");
+    template.innerHTML = topic.html;
+    pageTargets(template.content, topic.id);
+    for (const group of template.content.querySelectorAll("[data-question]"))
+      if (
+        group.querySelector("textarea") &&
+        notAdded(controlKey(topic.id, group.dataset.question))
+      )
+        found.push({
+          topic: topic.id,
+          target: group.id,
+          label: group.dataset.label || group.dataset.question,
+        });
+  }
+  return found;
+}
+export const typedOn = (topic) =>
+  Object.entries(state.drafts).some(
+    ([key, text]) => key.startsWith(`${topic}/`) && typeof text === "string",
+  );
+// restoreAnswers leaves the box the reviewer is typing in as it is.
 export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
     const key = controlKey(page.id, group.dataset.question);
-    area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
+    if (!typingIn(area))
+      area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
     area.readOnly = !editable;
   });
 }

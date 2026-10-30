@@ -5,8 +5,8 @@ import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
 import { hub, planData, sleep } from "../../support/hub.mjs";
 
-// Every browser counts the agent's running time from roundStartedAt: the
-// session's creation for round 1, and then each submission.
+// The frame counts the agent's running time from roundStartedAt. The hub sets
+// it when it creates the session and again at each submission.
 test("the hub records when each round of the agent's work started", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -46,8 +46,9 @@ test("the hub refuses a submission that accepts the round", async (t) => {
   assert.equal(a.inbox.wakes.length, 0);
 });
 
-// Write a plan and Update the plan ask for a plan round, and Back to
-// iterating sets one aside. After Keep iterating the agent decides.
+// The reviewer asks for a plan round with Write a plan or Update the plan, and
+// sets one aside with Back to iterating. After Keep iterating, the agent
+// decides whether to mark the round a plan in Agreed.
 test("the reviewer's choice for the next round decides whether Agreed may mark it a plan", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -94,13 +95,25 @@ test("the reviewer's choice for the next round decides whether Agreed may mark i
   );
 });
 
-test("the hub refuses a next round it does not know and a message over 4,000 characters", async (t) => {
+// pair read prints every note the hub saves, so the hub refuses a note that
+// pair read could not print before it saves anything.
+test("the hub refuses a next round it does not know, a message over 4,000 characters and a malformed note", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
+  const note = { id: "n", topic: "overview", anchor: "Overview", text: "Hi" };
+  const notes = (...items) => ({ groups: { notes: items } });
+  const malformed = "Notes require id, topic, anchor and text";
   for (const [extra, error] of [
     [{ next: "later" }, "next is one of iterate, plan, build"],
     [{ message: "x".repeat(4001) }, "The message exceeds 4,000 characters"],
+    [{ groups: { notes: "x" } }, "notes must be an array"],
+    [notes(note, null), malformed],
+    [notes(5), malformed],
+    [notes({ ...note, anchor: undefined }), malformed],
+    [notes({ ...note, text: 7 }), malformed],
+    [notes({ ...note, text: " " }), malformed],
+    [notes({ ...note, quote: 7 }), "A note's quote must be text"],
   ]) {
     const refused = await a.feedback(a.event("feedback-only", "1", extra));
     assert.equal(refused.code, 400);

@@ -23,7 +23,7 @@ import {
 } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
-import { forgetImages } from "#frame/notes/note-dialog.mjs";
+import { forgetImages } from "#frame/notes/images.mjs";
 import { known, openNote, stale } from "#frame/notes/notes.mjs";
 import { tag } from "#frame/pages/agreed.mjs";
 import {
@@ -33,6 +33,7 @@ import {
   show,
 } from "#frame/pages/pages.mjs";
 import {
+  refusedMessage,
   submissionError,
   submissionInFlight,
   submitButton,
@@ -43,6 +44,7 @@ import {
   connected,
   currentDraft,
   lastSubmission,
+  listedTab,
   remote,
   selectedTab,
   sentByRound,
@@ -55,7 +57,6 @@ export function setRenderedFeedback(value) {
   renderedFeedback = value;
 }
 
-/* Feedback */
 function contextLink(topic, target, text = "View") {
   const link = document.createElement("a");
   link.className = "context-link";
@@ -67,9 +68,8 @@ function contextLink(topic, target, text = "View") {
   };
   return link;
 }
-// What a reader sees of one item, drafted or sent: its label, or the
-// caller's word when it has none, and its text, with a drawing worded the
-// way the caller words it.
+// itemSummary uses the caller's label only when the item has none, and the
+// caller's drawing function for the text of a drawing answer.
 export function itemSummary(kind, item, { label, drawing } = {}) {
   const own = kind === "note" ? item.anchor : item.label;
   return {
@@ -86,15 +86,15 @@ function itemCard({ kind, key, item }) {
   const summary = itemSummary(kind, item);
   const box = document.createElement("div");
   box.className = "feedback-item" + (item.sentIn ? " sent" : "");
-  // The same ID each time the list is drawn, so closing a note opened here
-  // can put focus back on the item.
+  // The ID is the same on every draw, so the note dialog's close handler can
+  // return focus to the redrawn item.
   box.id = `feedback-${kind}-${key}`;
   const body = document.createElement("div");
   const title = document.createElement("h3");
   title.textContent =
     kind === "answer" ? `Answer · ${summary.label}` : summary.label;
-  // A note on a block that names nothing has no heading to show, and an
-  // empty h3 draws a blank line above the note's own words.
+  // A note with no anchor has no heading, and an empty h3 would leave a
+  // blank line above the note's text.
   title.hidden = kind === "note" && !item.anchor;
   if (item.sentIn) title.append(tag("Sent", "ok"));
   const old = stale(kind, key, item);
@@ -117,9 +117,8 @@ function itemCard({ kind, key, item }) {
     text.textContent = summary.text;
     body.append(text);
   }
-  /* What the reviewer attached, where they check what they are about to
-     send. The hub still holds the bytes, so this is the same image the
-     agent will open. */
+  /* The thumbnails load from the hub, which stores the uploaded files, so
+     the reviewer sees the same image that the agent opens. */
   if (kind === "note" && item.attachments?.length) {
     const strip = document.createElement("div");
     strip.className = "note-images";
@@ -160,8 +159,8 @@ function itemCard({ kind, key, item }) {
         forgetImages(item.attachments);
         state.notes = state.notes.filter((note) => note.id !== item.id);
         save();
-        // Only a page on screen needs its marks redrawn. The Review page
-        // stays where it is.
+        // show() opens the page, so the handler calls it only when the
+        // note's page is already on screen, and Review stays open.
         if (item.topic === page.id && !$("reading").hidden)
           show(page.id, null, { keepScroll: true });
       });
@@ -191,8 +190,8 @@ function itemCard({ kind, key, item }) {
   return box;
 }
 function renderFeedback() {
-  // An untouched, unsent list is not feedback yet; it appears once it went
-  // with a round.
+  // A checklist that the reviewer never touched is not feedback, so
+  // renderFeedback lists it only after a round has sent it.
   const items = [
     ...Object.entries(state.choices)
       .filter(
@@ -246,8 +245,6 @@ function renderFeedback() {
       round ? `From round ${round}` : "From an earlier round",
       orphans.filter((entry) => entry.item.round === round),
     );
-  // The comments on Work and its cards come after the pages, and the
-  // overall comments last, under a heading only when there are any.
   group(
     "Work",
     items.filter((entry) => entry.topic === "work"),
@@ -280,9 +277,7 @@ function sentEntries(submission) {
     })),
   ];
 }
-// What the reviewer chose in the Send popup and their message, which go
-// above what they sent on the pages. A submission from before the popup
-// has neither.
+// A submission from before the Send popup has neither next nor message.
 function sentChoice(submission) {
   const label = choiceLabel(submission.next, isPlanRound());
   return [
@@ -346,8 +341,8 @@ export function renderSentPageComments() {
 let renderedSentKey = null;
 export function renderSentFeedback() {
   const sent = shownSubmission();
-  // A past round's submission may still be loading, which is not the same
-  // as none having been sent.
+  // A past round's submission may still be loading, so renderSentFeedback
+  // says that no feedback was sent only after the submission has loaded.
   const loaded = mode === "readonly" || sentByRound.has(plan.round);
   const key = `${plan.round}:${sent?.id || (loaded ? "none" : "")}`;
   if (renderedSentKey === key) return;
@@ -376,15 +371,15 @@ export function renderSentFeedback() {
   }
   renderSentPageComments();
 }
-// The submission sent on the round on screen: the latest one, which the
-// poll keeps, or one fetched for an older round in the left tab.
+// The status poll updates lastSubmission, and sentByRound contains each
+// submission fetched for an older round.
 export function shownSubmission() {
   if (mode === "readonly" || lastSubmission?.round === plan.round)
     return lastSubmission;
   return sentByRound.get(plan.round) || null;
 }
-// A past round shows what was sent on it, so its controls read from that
-// round's submission rather than from a draft.
+// The frame shows a past round's controls as they were sent, so showSent
+// fills the draft from that round's submission.
 export function showSent(draft, submission) {
   draft.choices = submission?.groups?.choices || {};
   draft.answers = submission?.groups?.answers || {};
@@ -408,9 +403,20 @@ export function review() {
   const locked = sent || submissionInFlight || submittedCurrent();
   $("draft-head").hidden = unsent.count === 0;
   $("draft-count").textContent = `${draftedWords(state)} to send`;
-  badge(locked ? 0 : unsent.count);
+  // The sidebar's last row shows the round that the sidebar lists, and
+  // after a tab click that can be the other tab's round.
+  const listedSent = listedTab === "past" || mode === "readonly";
+  badge(
+    listedTab === selectedTab
+      ? locked
+        ? 0
+        : unsent.count
+      : listedSent
+        ? 0
+        : unsentItems(currentDraft()).count,
+  );
   const reviewLabel = $("review-row")?.querySelector("span");
-  if (reviewLabel) reviewLabel.textContent = sent ? "Feedback" : "Review";
+  if (reviewLabel) reviewLabel.textContent = listedSent ? "Feedback" : "Review";
   $("feedback-title").textContent = sent
     ? "Feedback"
     : submissionInFlight
@@ -423,6 +429,7 @@ export function review() {
   $("submit-error").textContent = submissionError;
   $("save-error").hidden = !submissionError || $("reading").hidden;
   $("save-error-text").textContent = submissionError;
+  $("save-error-message").hidden = !refusedMessage;
   if (locked)
     $("page-content")
       .querySelectorAll(
@@ -444,9 +451,9 @@ export function review() {
     renderFeedback();
     renderedFeedback = rendered;
   }
-  // The header button always acts on Current. From a past round it submits
-  // Current's draft, and once Current's round is sent it opens that
-  // round's Feedback.
+  // The header button always applies to Current. On a past round the frame
+  // sends Current's draft, and after Current's round is sent the frame opens
+  // that round's Feedback.
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;

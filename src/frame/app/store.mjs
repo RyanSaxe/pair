@@ -1,6 +1,12 @@
+import {
+  draftItems,
+  emptySynced,
+  forgetSent,
+} from "#frame/app/draft-merge.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { editable, prefsPrefix, storageKey } from "#frame/app/view.mjs";
 import { review } from "#frame/review/review.mjs";
+import { queuePush } from "#frame/sync/draft.mjs";
 import { selectedTab } from "#frame/sync/rounds.mjs";
 
 export const record = (value) =>
@@ -16,26 +22,33 @@ export function emptyDraft(round) {
   return {
     round,
     alignUnflagged: true,
-    // The Send popup's message to the agent.
     message: "",
     notes: [],
     choices: {},
     answers: {},
-    // The text typed into each question, before and after its Answer, and
-    // each drawing question's drawing since it was last saved.
+    // drafts contains the text typed into each question, before and after its
+    // Answer, and each drawing question's drawing since it was last saved.
     drafts: {},
     noteDrafts: {},
+    replyDrafts: {},
     submitted: null,
     pending: null,
+    // synced contains the id and revision of the hub's draft at the last
+    // merge and a digest of each item, so draftChanges() can tell which items
+    // the reviewer changed in this browser since then.
+    synced: emptySynced(),
   };
 }
 
-// Drafts are keyed by session and name, not round. When a new round
-// lands, items that were already sent are dropped and unsent items carry over.
+// The frame keys a draft by session and plan name, not by round. When a new
+// round arrives, loadDraft() drops the items that were already sent and keeps
+// the unsent ones.
 export function loadDraft(saved, round) {
   if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
     return emptyDraft(round);
   const draft = { ...emptyDraft(round), ...saved };
+  if (!record(draft.synced) || !record(draft.synced.items))
+    draft.synced = emptySynced();
   if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
@@ -47,8 +60,9 @@ export function loadDraft(saved, round) {
   return draft;
 }
 
-// A checklist counts toward the header count only once the reviewer touched
-// it. An untouched list is still sent with the round, as the reviewer left it.
+// A checklist counts toward the header count only after the reviewer touches
+// it. The frame still sends an untouched checklist with the round, as the
+// reviewer left it.
 const counted = (choice) =>
   !choice.sentIn && (choice.kind !== "multiple" || choice.touched === true);
 
@@ -65,8 +79,6 @@ export function unsentItems(draft) {
   };
 }
 
-// The words behind the count: notes and written answers are comments, and
-// picked options and touched checklists are choices.
 export function draftedWords(draft) {
   const { notes, choices, answers } = unsentItems(draft);
   const count = (number, word) =>
@@ -93,11 +105,31 @@ export function submissionGroups(draft) {
   };
 }
 
-// A sent item does not carry over to the next round's draft. A sent answer's
-// typed text or drawing goes with it, so the next round's question starts
-// empty.
+// changedPages returns the IDs of the pages whose notes, choices, answers or
+// typed answers differ between two drafts.
+export function changedPages(before, after) {
+  const pages = new Set();
+  const differ = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+  const notes = (draft) => new Map(draft.notes.map((note) => [note.id, note]));
+  const [old, next] = [notes(before), notes(after)];
+  for (const id of new Set([...old.keys(), ...next.keys()]))
+    if (differ(old.get(id), next.get(id)))
+      pages.add((old.get(id) ?? next.get(id)).topic);
+  for (const field of ["choices", "answers", "drafts"])
+    for (const key of new Set([
+      ...Object.keys(before[field]),
+      ...Object.keys(after[field]),
+    ]))
+      if (differ(before[field][key], after[field][key]))
+        pages.add(key.split("/")[0]);
+  return pages;
+}
+
+// markSent() deletes a sent answer's typed text or drawing, so the question
+// starts empty in the next round, and it resets the message and the switch.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
+  const before = draftItems(draft);
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
   for (const [key, answer] of Object.entries(draft.answers)) {
@@ -106,7 +138,9 @@ export function markSent(draft, id, at) {
   }
   draft.submitted = { id, at, round: draft.round, count };
   draft.message = "";
+  draft.alignUnflagged = true;
   draft.pending = null;
+  forgetSent(draft, before);
   return draft;
 }
 
@@ -114,17 +148,16 @@ export let state;
 export function setState(draft) {
   state = draft;
 }
-// The draft this browser saved for Current, carried over to the round.
 export function savedDraft(round) {
   try {
     return loadDraft(JSON.parse(localStorage.getItem(storageKey)), round);
   } catch {
-    /* The in-memory draft and export remain usable. */
+    /* When localStorage throws, the in-memory draft and export still work. */
     return emptyDraft(round);
   }
 }
-// The draft another tab of the session saved, when it is for the round this
-// tab holds. A draft for another round is not this tab's to take over.
+// storedDraft() ignores a draft that another tab of the session saved for a
+// different round, so this tab never takes over that draft.
 export function storedDraft(value, round) {
   try {
     const saved = JSON.parse(value);
@@ -147,7 +180,8 @@ export const prefs = {
         localStorage.removeItem(prefsPrefix + key);
       else localStorage.setItem(prefsPrefix + key, String(value));
     } catch {
-      /* Preferences are conveniences; nothing depends on them. */
+      /* When localStorage throws, the preference is not saved, and no code
+         depends on it. */
     }
   },
 };
@@ -161,6 +195,7 @@ export function persist() {
     $("storage-status").textContent =
       "Local storage unavailable. Export a copy to keep your feedback.";
   }
+  queuePush();
 }
 export function save() {
   persist();

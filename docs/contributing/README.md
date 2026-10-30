@@ -2,11 +2,12 @@
 
 ## Run it from a checkout
 
-pair needs Node 22.0.0 or newer. It has no runtime dependencies and no build
-step, so you can run a checkout as it is. In a clone of this repository,
-`npm link` puts the `pair` command on your path, and that command then runs the
-clone's code. An edit in the clone takes effect at the next `pair` command, in
-every agent session on your machine.
+pair needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or 26.12.1
+or newer. It has no runtime dependencies and no build step, so you can run a
+checkout as it is. In a clone of this repository, `npm link` puts the `pair`
+command on your path, and that command then runs the clone's code. An edit
+in the clone takes effect at the next `pair` command, in every agent session
+on your machine.
 
 ```sh
 npm link
@@ -16,11 +17,12 @@ pair start --title "Try pair"
 `pair start` starts the hub on `127.0.0.1:4747` if none is running, creates
 a session under `~/.local/state/pair/sessions/`, and prints the session's
 directory and URL. Run it from an agent's shell. In a plain terminal,
-`pair start` refuses, because the hub needs an agent to wake when you send
-feedback. [Commands](../reference/commands.md#environment-variables) lists
-the environment variables, including `PAIR_HUB_PORT`, and
-[Architecture](../concepts/architecture.md#storage) says what pair stores on
-disk.
+`pair start` refuses, because it finds no agent CLI for the hub to wake when
+you send feedback.
+[Commands](../reference/commands.md#environment-variables) lists the
+environment variables, including `PAIR_HUB_PORT`, and
+[Architecture](../concepts/architecture.md#storage) describes what pair
+stores on disk.
 
 To work on a change without changing the code your sessions run, keep the
 linked clone on `main` and make each change in a separate git worktree. In a
@@ -30,20 +32,20 @@ in the browser against a scratch hub with its own port and state directory.
 
 ## Layout
 
-| Path              | Contents                                                                                                       |
-| ----------------- | -------------------------------------------------------------------------------------------------------------- |
-| `src/`            | The `pair` command, the hub, the page builder, and the browser frame with its components.                      |
-| `guide/`          | What the agent reads while it works: the core, `pair.md`, the moments in `moments/`, and the reference files.  |
-| `skills/pair/`    | The skill an agent CLI loads. It tells the agent to run `pair guide`, then to follow what each command prints. |
-| `adapters/`       | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session of that CLI.           |
-| `tests/`          | The test suites, the browser tests in `tests/browser/`, and a fixture page with every component.               |
-| `docs/`           | These pages, with their pictures in `docs/assets/`.                                                            |
-| `assets/`         | The README's logo and screenshots. `npm run screenshots` writes the screenshots.                               |
-| `scripts/`        | The script that `npm run screenshots` runs, and the demo session it stages.                                    |
-| `.agents/skills/` | The skills an agent reads when it changes pair. npm and `npx skills add` leave them out.                       |
+| Path              | Contents                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/`            | The `pair` command, the hub, the page builder, and the browser frame with its components.                               |
+| `guide/`          | What the agent reads while it works: the core, `pair.md`, the moments in `moments/`, and the reference files.           |
+| `skills/pair/`    | The skill an agent CLI loads. It contains the instruction to run `pair guide`, then to follow what each command prints. |
+| `adapters/`       | One folder per agent CLI, each with a `wake.mjs` that finds and wakes a running session of that CLI.                    |
+| `tests/`          | The test suites, the browser tests in `tests/browser/`, and a fixture page with every component.                        |
+| `docs/`           | The documentation, with its pictures in `docs/assets/`.                                                                 |
+| `assets/`         | The README's logo and screenshots. `npm run screenshots` writes the screenshots.                                        |
+| `scripts/`        | The script that `npm run screenshots` runs, and the demo session it stages.                                             |
+| `.agents/skills/` | The skills an agent reads when it changes pair. npm and `npx skills add` leave them out.                                |
 
-[AGENTS.md](../../AGENTS.md) names the modules inside `src/` and the rules an
-agent follows when it changes them.
+[AGENTS.md](../../AGENTS.md) lists the modules inside `src/`, and the rules
+for an agent that changes them.
 
 ## Checks
 
@@ -54,13 +56,13 @@ npx --yes eslint@10.11.0 .
 npm run test:browser
 ```
 
-CI runs all four on every push and pull request. ESLint reports an error for a
-JavaScript file over 1000 lines, and CI also lists each file over 500 lines, the
-size a file should stay under where it can.
+CI runs all four on every push and pull request. ESLint reports an error
+for a JavaScript file over 1000 lines, and CI also lists each file over 500
+lines, the size a file should stay under where it can.
 
 The fixture under `tests/fixture/` is a page with every component, and its
-[README](../../tests/fixture/README.md) says how to build it and what to check
-in it.
+[README](../../tests/fixture/README.md) describes how to build it and what
+to check in it.
 
 ## Browser tests
 
@@ -78,7 +80,7 @@ from esm.sh or jsDelivr fails the test while that CDN is down.
 ## Screenshots
 
 `npm run screenshots` writes the README's and the docs' PNGs from a demo
-session, in Google Chrome through the same `playwright-core`. It only runs
+session, in Google Chrome through the same `playwright-core`. It runs only
 on macOS, because the frame uses the system font, and lines break in other
 places on another system.
 
@@ -98,9 +100,9 @@ branch, as a commit by `github-actions[bot]`. The illustration's terminal
 shows IDs that each run creates anew, so the workflow pushes one of these
 commits after every push to such a pull request.
 
-Pull that commit before you push again. GitHub only runs the checks on that
-commit after someone with write access selects **Approve workflows to run**
-on the pull request.
+Pull that commit before you push again. GitHub runs the checks on that
+commit only after someone with write access selects **Approve workflows to
+run** on the pull request.
 
 When the script fails, it saves a screenshot and the console log of each of
 its browser windows in `screenshots-failure/`, and the workflow uploads that
@@ -119,8 +121,13 @@ label.
 
 - Pull requests go to `develop`, the default branch. The workflow publishes
   nothing from `develop`, so iterate there.
-- A pull request from `develop` into `main` is a release. GitHub only merges
-  a pull request into `main` when its checks pass.
+- A pull request from `develop` into `main` is a release. GitHub merges a
+  pull request into `main` only when its checks pass.
+- Before you open that pull request, raise each floor in `engines.node` to
+  the latest security release of its Node line, and change the same versions
+  in `package-lock.json`, the `test` matrix in `.github/workflows/ci.yml`,
+  the required checks of the `main` and `develop` rulesets, the README,
+  `docs/` and `guide/setup.md`.
 - When such a pull request merges, the release workflow runs the tests,
   publishes the next version with npm's trusted publishing, and creates the
   `v` tag and a GitHub release with generated notes.
@@ -137,5 +144,6 @@ label.
 | `major`                               | 0.1.4 → 1.0.0     |
 | `skip-release`                        | nothing published |
 
-npm keeps the version numbers, so `package.json` in the repository stays at
-`0.0.0-development`, and the release workflow never commits to `main`.
+The release workflow picks the next version from the version already on
+npm, so `package.json` in the repository stays at `0.0.0-development`, and
+the workflow never commits to `main`.

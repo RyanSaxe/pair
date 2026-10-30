@@ -4,13 +4,11 @@ import { idPattern } from "../../shared/records.mjs";
 import { exists, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { message } from "./proposal-fields.mjs";
 
-// What the reviewer chose for the next round when they sent feedback.
-// A submission from a tab opened before the choice existed has none, and
-// reads as iterate.
+// A submission from a tab opened before pair offered the next-round choice
+// has no next, and nextOf treats it as iterate.
 export const nextChoices = ["iterate", "plan", "build"];
 export const nextOf = (payload) => payload.next ?? "iterate";
 
-// What the reviewer sends: feedback on a round.
 export function submissions(session) {
   const { directory, transition, sameRound, exclusive } = session;
   function withDrawingPaths(event) {
@@ -79,6 +77,10 @@ export function submissions(session) {
         !Array.isArray(data.groups),
       "groups must be an object",
     );
+    // The notes loop below replaces each note's attachments with the hub's
+    // record of them, so submit copies the groups first for draftSent to
+    // compare with the draft.
+    const sent = structuredClone({ groups: data.groups });
     if (data.groups.alignUnflagged !== undefined)
       requireValue(
         typeof data.groups.alignUnflagged === "boolean",
@@ -117,16 +119,30 @@ export function submissions(session) {
           );
       }
     }
-    /* Images hang off the note they illustrate, and a note may only name an
-       image this session holds, so a submission cannot point the agent at a
-       path the hub never wrote. */
-    if (Array.isArray(data.groups.notes)) {
+    /* Each image belongs to the note it illustrates, and storedAttachment
+       accepts only an image the hub stored for this session, so a
+       submission cannot point the agent at a path the hub never wrote. */
+    if (data.groups.notes !== undefined) {
+      requireValue(Array.isArray(data.groups.notes), "notes must be an array");
       for (const note of data.groups.notes) {
-        if (note?.attachments === undefined) continue;
+        requireValue(
+          note &&
+            ["id", "topic", "anchor", "text"].every(
+              (key) => typeof note[key] === "string",
+            ) &&
+            note.text.trim(),
+          "Notes require id, topic, anchor and text",
+        );
+        requireValue(
+          note.quote === undefined || typeof note.quote === "string",
+          "A note's quote must be text",
+        );
+        if (note.attachments === undefined) continue;
         requireValue(
           Array.isArray(note.attachments),
           "A note's attachments must be an array",
         );
+        const images = [];
         for (const item of note.attachments) {
           requireValue(
             item &&
@@ -136,11 +152,9 @@ export function submissions(session) {
               Number.isInteger(item.bytes),
             "An attachment needs id, path, type and bytes",
           );
-          requireValue(
-            await session.uploadName(item.id),
-            `Image ${item.id} is not in this session`,
-          );
+          images.push(await session.storedAttachment(item));
         }
+        note.attachments = images;
       }
     }
     const file = path.join(directory, "feedback", data.id + ".json");
@@ -163,18 +177,31 @@ export function submissions(session) {
       "Finish every listed page before submitting feedback",
       409,
     );
+    // A tab can send before its next status poll shows that another tab or
+    // device sent this round's feedback. The agent acts on the first submission
+    // as soon as the hub wakes it, so the hub keeps that one and refuses this
+    // one.
+    requireValue(
+      session.state.latestSubmissionRound !== data.round,
+      `Round ${data.round} already has feedback, so the hub did not save what you just sent. Your comments and message stay in your draft for the next round.`,
+      409,
+      { roundSent: true },
+    );
     const event = await session.saveEvent(data);
+    await session.draftSent(sent);
     await transition({
-      stage: session.state.stage === "working" ? "working" : "submitted",
+      stage: "submitted",
       latestSubmissionId: data.id,
-      // The round of a submission the agent answers with its next round.
-      // The frame shows the agent's progress until that round is complete.
+      // The agent answers this submission with its next round, and the
+      // frame shows the agent's progress until that round is complete.
       latestSubmissionRound: data.round,
-      // Every browser counts the agent's running time from this.
+      // The frame in every browser counts the agent's running time from
+      // roundStartedAt.
       roundStartedAt: event.receivedAt,
       wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       takeover: null,
-      // Build it approves the work, which this session builds from here on.
+      // With Build it, the reviewer approves the work, and the agent builds
+      // it in this session from now on.
       ...(data.next === "build"
         ? {
             build: { round: data.round, submission: data.id, at: timestamp() },

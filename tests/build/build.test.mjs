@@ -17,8 +17,8 @@ const data = {
   pages: [{ id: "p", title: "P", html: "<p>x</p>" }],
 };
 
-// A page source whose CSS and JavaScript are files beside it, as an author
-// writes them.
+// pageSource writes the page's CSS and JavaScript as files beside its source,
+// as an author does, and builds the page.
 async function pageSource({ cssText, jsText, ...page }) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-page-"));
   try {
@@ -41,8 +41,6 @@ async function pageSource({ cssText, jsText, ...page }) {
     await fs.rm(directory, { recursive: true, force: true });
   }
 }
-// The text inside the block that opens with `prelude {`, found by counting
-// braces from its opening one.
 const block = (css, prelude) => {
   const open = css.indexOf(`${prelude} {`) + prelude.length + 1;
   assert.ok(open > prelude.length, `no ${prelude} block`);
@@ -52,8 +50,9 @@ const block = (css, prelude) => {
   }
   assert.fail(`${prelude} never closes`);
 };
-// The page's text with each data: URL decoded, so a check finds a file
-// whether the build writes it inline or encodes it.
+// carried returns the page's text followed by each decoded data: URL, so a
+// check finds a file's text whether the build writes it inline or as a data:
+// URL.
 const carried = (html) =>
   [
     html,
@@ -62,9 +61,9 @@ const carried = (html) =>
     ),
   ].join("\n");
 
-// The cascade ranks a later layer above an earlier one and an unlayered rule
-// above both, so a page rule inside the plan layer loses to a component rule,
-// and its scope limits it to its own page and round.
+// CSS ranks a later layer above an earlier one and an unlayered rule above
+// both. A page rule inside the plan layer therefore loses to a component rule,
+// and its @scope limits it to its own page and round.
 test("page CSS reaches only its own page, below the component layer", async () => {
   const html = await pageSource({ cssText: "p{color:red}" });
   const style = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
@@ -98,8 +97,8 @@ test("every component's styles and behavior reach the page", async () => {
   }
 });
 
-// A page's script runs after the frame's modules, so planUI.define is
-// available to it before the first page renders.
+// The browser runs a page's script after the frame's modules, so planUI.define
+// exists before the frame renders the first page.
 test("a page's script is the last module in the document", async () => {
   const jsText = 'export function setup() { planUI.define("mine", {}); }';
   const html = await pageSource({ jsText });
@@ -111,8 +110,9 @@ test("a page's script is the last module in the document", async () => {
   assert.ok(modules.slice(0, -1).every((script) => !script.includes(jsText)));
 });
 
-// A round builds every page from the bundle stored with its Agreed, so a
-// round published before the frame's modules existed keeps its frame.
+// The hub builds every page of a round from the frame bundle stored with the
+// round's Agreed. A round published before the frame had modules must still
+// build with its one script.
 test("a bundle stored before the frame's modules builds its one script", async () => {
   const parts = [
     "offers",
@@ -152,8 +152,8 @@ test("a closing style tag in page CSS is refused", async () => {
   );
 });
 
-// The frame opens its Work page at #work, so a page with that ID would never
-// show.
+// The frame opens its Work page at #work, so the frame would never show a page
+// with that ID.
 test("a page whose ID names one of the frame's own pages is refused", async () => {
   await assert.rejects(
     pageSource({ id: "work", title: "Clearing Work" }),
@@ -177,6 +177,26 @@ test("page JavaScript may read the frame's root elements but not change them", a
   );
 });
 
+// The frame imports the script as a module and calls the setup it exports, so a
+// script that does not parse leaves the page with no behavior.
+test("page JavaScript must parse and export setup, and the build never runs it", async () => {
+  await assert.rejects(
+    pageSource({
+      jsText: "export function setup(root) {\n  const x = ;\n}",
+    }),
+    /page\.js line 2 does not parse: SyntaxError: Unexpected token ';'$/,
+  );
+  for (const jsText of [
+    "throw new Error('ran');\nexport const setup = (root) => {};",
+    "function setup(root) {}\nexport { setup };",
+  ])
+    await assert.doesNotReject(pageSource({ jsText }), jsText);
+  await assert.rejects(
+    pageSource({ jsText: "// export function setup(root) {}\nlet a = 1;" }),
+    /Page JavaScript must export setup\(root, planUI\)/,
+  );
+});
+
 const page = (html, extra = {}) => ({
   ...data,
   pages: [{ id: "p", title: "P", html }],
@@ -189,36 +209,39 @@ const decision = (options) =>
 const option = (value = "a") =>
   `<button data-value="${value}" data-label="${value}">${value}</button>`;
 
-const refused = (plan, message) =>
-  assert.rejects(assemble(plan), (error) => {
-    assert.match(error.message, message);
-    return true;
-  });
+// pair build refuses a page for each problem that problems() lists, so these
+// tests call problems() directly.
+const refused = async (plan, message) =>
+  assert.match(problems(plan).join("\n"), message);
 
-test("an option label of exactly 24 characters is accepted", async () => {
+test("an option label of exactly 24 characters is accepted", () => {
   const long = "x".repeat(24);
-  const html = await assemble(
-    page(
-      decision(
-        `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
+  assert.deepEqual(
+    problems(
+      page(
+        decision(
+          `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
+        ),
       ),
     ),
+    [],
   );
-  assert.match(html, /x{24}/);
 });
 
-// The rule is "no h1", not "no repeated words".
+// The builder refuses an h1, not a heading that repeats the title.
 test("a page may repeat its title in a lower heading", async () => {
   await assert.doesNotReject(assemble(page("<h2>P</h2><p>x</p>")));
 });
 
-test("a group's label is not held to the option limit", async () => {
-  const html = await assemble(
-    page(
-      `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+test("a group's label is not held to the option limit", () => {
+  assert.deepEqual(
+    problems(
+      page(
+        `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+      ),
     ),
+    [],
   );
-  assert.match(html, /y{60}/);
 });
 
 test("the build refuses each structural problem and names it", async () => {
@@ -242,6 +265,16 @@ test("the build refuses each structural problem and names it", async () => {
     ),
     /^page "p": option label "x{25}" is 25 characters, over 24$/m,
   );
+  // A ">" inside a quoted attribute value does not end the tag, so the builder
+  // still reads the whole label.
+  await refused(
+    page(
+      decision(
+        `<button data-value="a" data-label="Retry -> ${"x".repeat(16)}">a</button>${option("b")}`,
+      ),
+    ),
+    /^page "p": option label "Retry -> x{16}" is 25 characters, over 24$/m,
+  );
   await refused(
     page("<h1>P</h1><p>x</p>"),
     /^page "p": remove the h1, because the frame shows the page title as the page's only h1\. Start headings at h2\.$/m,
@@ -253,6 +286,10 @@ test("the build refuses each structural problem and names it", async () => {
   await refused(
     page(decision(option())),
     /^page "p": decision "d" has 1 option\. Give it at least two\.$/m,
+  );
+  await refused(
+    page(decision(option() + option())),
+    /^page "p": options in "d" share data-value "a"\. Give each option in a group its own data-value\.$/m,
   );
   await refused(
     page(`<section data-question="q" data-label="Q"><h3>?</h3></section>`),
@@ -294,12 +331,25 @@ test("the build refuses each structural problem and names it", async () => {
   );
   await refused(
     page(`<a href="#nope">x</a>`),
-    /^page "p": link "#nope" names no page$/m,
+    /^page "p": link "#nope" names no page of the round and no element on this page\. The round's pages are agreed and p\.$/m,
   );
   await refused(
     page(`<div data-prototype="ghost"></div>`),
     /^page "p": prototype "ghost" does not exist$/m,
   );
+  for (const src of [
+    "shot.png",
+    "./a/shot.png",
+    "/tmp/shot.png",
+    "file:///tmp/shot.png",
+  ])
+    await refused(
+      page(`<img src="${src}" alt="">`),
+      new RegExp(
+        `^page "p": img src "${src.replace(/[./]/g, "\\$&")}" is a file path, which the hub does not serve\\. Embed the image in src as a data: URI\\.$`,
+        "m",
+      ),
+    );
   for (const value of ["3;7", "9-3", "0", "abc", ""])
     await refused(
       page(`<pre data-language="ts" data-lines="${value}">a\nb</pre>`),
@@ -308,21 +358,34 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
+  // The hub assembles every stored page again at each publish, so assemble()
+  // must accept a page that an older pair build accepted.
+  await assert.doesNotReject(assemble(page(`<img src="shot.png" alt="">`)));
+  await refused(
+    page(
+      `<p>x</p>\n<pre data-language="ts" data-file="a.ts">\nfirst<T>(items)\nok\nif (a</b) {}\n</pre>`,
+    ),
+    /^page "p": the ts code block "a\.ts" has a < that the browser reads as a tag on lines 3 and 5 of the page's HTML, first at "<T>\(items\)"\. Write &lt; for each < in a code block or a diagram\.$/m,
+  );
+  await refused(
+    page(`<div data-diagram>flowchart LR\n  A["x<br/>y"]</div>`),
+    /^page "p": the diagram has a < that the browser reads as a tag on line 2 of the page's HTML, first at "<br\/>y"\]"\. Write &lt; for each < in a code block or a diagram\.$/m,
+  );
   await refused(
     page(`<pre data-language="ts" data-lines="611-621">\na\nb\n</pre>`),
     /^page "p": data-lines "611-621" names line 621, and the block has 2 lines\. Count from the block's first line, and put the file's line numbers in data-caption\.$/m,
   );
 });
 
-// A fragment is matched as text, so one with regular expression syntax in it
-// neither throws nor matches another id.
+// problems() matches a link's fragment as text, so a fragment with regular
+// expression syntax neither throws nor matches another id.
 test("a link names no page unless an id equals its fragment", () => {
   assert.deepEqual(
     problems(page('<a href="#x(">x</a><a href="#a.b">y</a><i id="aXb"></i>')),
-    [
-      'page "p": link "#x(" names no page',
-      'page "p": link "#a.b" names no page',
-    ],
+    ["#x(", "#a.b"].map(
+      (link) =>
+        `page "p": link "${link}" names no page of the round and no element on this page. The round's pages are agreed and p.`,
+    ),
   );
 });
 
@@ -331,12 +394,13 @@ test("a checklist box is refused for the checked attribute, not for the word in 
     page(
       `<fieldset data-multiselect="s" data-label="S"><label>${input} A</label></fieldset>`,
     );
-  await assert.doesNotReject(
-    assemble(
+  assert.deepEqual(
+    problems(
       checklist(
         '<input type="checkbox" data-value="a" data-label="Types checked by tsc">',
       ),
     ),
+    [],
   );
   await refused(
     checklist('<input type="checkbox" data-value="a" data-label="A" checked>'),
@@ -344,16 +408,39 @@ test("a checklist box is refused for the checked attribute, not for the word in 
   );
 });
 
-test("well-formed controls, anchors and blocks pass", async () => {
-  const html = await assemble(
+// The frame finds an option's control with closest(), and the browser renders
+// nothing inside an HTML comment.
+test("an option counts for the nearest control around it, and a commented control is not one", () => {
+  assert.deepEqual(
+    problems(
+      page(
+        `<section data-choice="vd" data-label="V">` +
+          `<article data-value="one" data-label="One">${decision(option() + option("b"))}</article>` +
+          `<article data-value="two" data-label="Two">t</article></section>`,
+      ),
+    ),
+    [],
+  );
+  assert.deepEqual(
+    problems(page(`<p>x</p><!-- ${decision(option())} -->`)),
+    [],
+  );
+});
+
+test("well-formed controls, anchors and blocks pass", () => {
+  const found = problems(
     page(
       decision(option() + option("b")) +
+        `<section data-choice="arrow" data-label="Retry -> fail">${option()}${option("b")}</section>` +
         `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
         `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
         `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +
+        `<pre data-language="ts">f&lt;T&gt;(a < b, a<=b, a <- b, 1<2)</pre>` +
         `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
         `<div data-prototype="demo"></div>` +
-        `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>`,
+        `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>` +
+        `<img src="data:image/png;base64,iVBORw0KGgo=" alt=""><img src="https://example.com/a.png" alt="">` +
+        `<img src="http://example.com/a.png" alt=""><img src="//example.com/a.png" alt=""><img class="later" alt="">`,
       {
         prototypes: [
           { id: "demo", title: "Demo", html: "<p>d</p>", height: 100 },
@@ -361,7 +448,7 @@ test("well-formed controls, anchors and blocks pass", async () => {
       },
     ),
   );
-  assert.match(html, /id="plan-data"/);
+  assert.deepEqual(found, []);
 });
 
 test("an Agreed page opens with a task, and the plan data carries it", async () => {
@@ -393,9 +480,10 @@ test("an Agreed page opens with a task, and the plan data carries it", async () 
 test("a page source builds a standalone preview", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  // The frame draws the page title, so the page's own heading is an h2.
-  const content =
-    '<h2>Interface</h2><pre data-language="text">literal </script> and $&</pre>';
+  // The frame draws the page title, so the page's own heading is an h2. The raw
+  // </script> checks that the builder escapes it inside the script element that
+  // contains the page's data.
+  const content = "<h2>Interface</h2><p>literal </script> and $&</p>";
   await fs.writeFile(path.join(directory, "interface.html"), content);
   await fs.writeFile(
     path.join(directory, "custom.css"),
@@ -432,7 +520,9 @@ test("a page source builds a standalone preview", async (t) => {
     pageData(html).page.jsText,
     'export function setup(root) { root.dataset.test = "ready"; }',
   );
-  const output = path.join(directory, "round.html");
+  // The out/1 directories do not exist, so this run checks that pair build
+  // creates them.
+  const output = path.join(directory, "out", "1", "round.html");
   await exec(process.execPath, [pair, "build", source, output]);
   assert.equal(await fs.readFile(output, "utf8"), html);
   await assert.rejects(
@@ -440,13 +530,157 @@ test("a page source builds a standalone preview", async (t) => {
     /already exists, and pair never overwrites a file/,
   );
 
-  // npm installs the command as a symlink to src/cli.mjs.
+  // npm installs pair as a symlink to src/cli.mjs, so pair build must run
+  // through a link.
   const link = path.join(directory, "pair");
   await fs.symlink(pair, link);
   const linked = path.join(directory, "linked.html");
   await exec(process.execPath, [link, "build", source, linked]);
   assert.equal(await fs.readFile(linked, "utf8"), html);
   await assert.rejects(exec(process.execPath, [link, "build"]), { code: 1 });
+});
+
+// pair build measures the request that pair publish would send, so the agent
+// learns the limit before it has a file it cannot publish.
+test("the build lists a page too big to publish with its other problems and writes nothing", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const source = path.join(directory, "big.json");
+  const output = path.join(directory, "big.html");
+  const image = `<img alt="" src="data:image/png;base64,${"A".repeat(10_000_000)}">`;
+  const write = (html) =>
+    fs.writeFile(
+      source,
+      JSON.stringify({
+        name: "t",
+        round: "1",
+        title: "T",
+        page: { id: "big", title: "Big", html },
+      }),
+    );
+  await write(`<h1>Big</h1>${image}`);
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", source, output]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /^pair: page "big": .*h1/m);
+      assert.match(
+        error.stderr,
+        /^page "big" is too big to publish\. The publish would send the hub \d+(\.\d)? MB, and the hub accepts at most 20 MB\. pair build writes a page's content into the built file twice, so the images embedded in one page can total about 6\.7 MB\. Crop or resize the images, or save them as JPEG or WebP\. Then build the page again and publish the new file\.$/m,
+      );
+      return true;
+    },
+  );
+  assert.equal(
+    await fs.access(output).then(
+      () => true,
+      () => false,
+    ),
+    false,
+  );
+});
+
+// A browser decodes &lt;, &gt; and &amp; inside a textarea. The decoded
+// textarea matches the file's text only if pair build escaped it.
+test("a diff input that names its JSON file builds with the file's exact text, and a missing or malformed file is refused", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const before = "<p>Fish &amp; chips &lt;3</p>\n";
+  const after = "<p>Fish & chips</p>\n</textarea>\n";
+  const text = `${JSON.stringify(
+    {
+      before,
+      after,
+      patch:
+        "--- a/fish.html\n+++ b/fish.html\n@@ -1 +1,2 @@\n-<p>Fish &amp; chips &lt;3</p>\n+<p>Fish & chips</p>\n+</textarea>\n",
+    },
+    null,
+    2,
+  )}\n`;
+  await fs.writeFile(path.join(directory, "fish.json"), text);
+  await fs.writeFile(path.join(directory, "bad.json"), '{"before":"a"}');
+  const withDiffs = (html) =>
+    buildPage(path.join(directory, "page.json"), {
+      name: "t",
+      round: "1",
+      title: "T",
+      page: { id: "p", title: "P", html },
+    });
+  const pasted = '{"before":"a","after":"b","patch":""}';
+  const built = pageData(
+    await withDiffs(
+      `<textarea data-diff-input="fish.json" hidden></textarea>` +
+        `<textarea data-diff-input hidden>${pasted}</textarea>`,
+    ),
+  ).page.html.match(
+    /^<textarea data-diff-input="fish\.json" hidden>([^<]*)<\/textarea><textarea data-diff-input hidden>([^<]*)<\/textarea>$/,
+  );
+  assert.ok(built, "the textareas are not as written");
+  const decoded = built[1].replace(
+    /&(lt|gt|amp);/g,
+    (entity, name) => ({ lt: "<", gt: ">", amp: "&" })[name],
+  );
+  assert.equal(decoded, text);
+  assert.equal(built[2], pasted);
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="none.json"></textarea>`),
+    {
+      message: `data-diff-input names none.json, and ${path.join(directory, "none.json")} cannot be read. Write it with pair diff BEFORE AFTER ${path.join(directory, "none.json")}`,
+    },
+  );
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="bad.json"></textarea>`),
+    {
+      message: `data-diff-input names bad.json, and ${path.join(directory, "bad.json")} is not JSON with before, after and patch strings. Name a file that pair diff BEFORE AFTER OUT.json wrote`,
+    },
+  );
+  await assert.rejects(
+    withDiffs(`<textarea data-diff-input="fish.json">${pasted}</textarea>`),
+    {
+      message:
+        "data-diff-input names fish.json, and the textarea is not empty. Leave it empty.",
+    },
+  );
+});
+
+test("pair build lists a css or js file it cannot read with the page's other problems, and writes nothing", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const source = path.join(directory, "source.json");
+  await fs.writeFile(
+    source,
+    JSON.stringify({
+      name: "build",
+      round: "1",
+      title: "Build",
+      page: {
+        id: "p",
+        title: "P",
+        html: "<h1>P</h1>",
+        css: "page.css",
+        js: "page.mjs",
+      },
+    }),
+  );
+  const output = path.join(directory, "out", "p.html");
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", source, output]),
+    ({ stderr }) => {
+      assert.equal(
+        stderr,
+        [
+          `pair: page "p": css names page.css, and pair build cannot read ${path.join(directory, "page.css")}. Write that file, or correct the path in css.`,
+          `page "p": js names page.mjs, and pair build cannot read ${path.join(directory, "page.mjs")}. Write that file, or correct the path in js.`,
+          `page "p": remove the h1, because the frame shows the page title as the page's only h1. Start headings at h2.`,
+          "",
+        ].join("\n"),
+      );
+      return true;
+    },
+  );
+  await assert.rejects(fs.access(path.join(directory, "out")), {
+    code: "ENOENT",
+  });
 });
 
 test("an error from pair build starts with pair:", async () => {
@@ -515,8 +749,8 @@ test("the component fixture builds", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-fixture-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const output = path.join(directory, "fixture.html");
-  // The build refuses a page that breaks one of its rules, so this fails
-  // when a fixture page does.
+  // assemble() refuses a page that breaks a build rule, so this test fails when
+  // a fixture page breaks one.
   await exec(process.execPath, [
     path.join(root, "tests/fixture/build.mjs"),
     output,

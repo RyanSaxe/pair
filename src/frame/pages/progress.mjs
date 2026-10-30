@@ -1,19 +1,21 @@
 import { scroller } from "#frame/app/places.mjs";
 import { $ } from "#frame/app/util.mjs";
 
-/* A move the reader makes changes the header and the sidebar at the click,
-   and the reading column once the new page is complete. Until then the
-   column keeps the previous page. If the new page is not complete 200 ms
-   after the click, a thin bar draws along the top of the column at a pace
-   that would fill it in 3 s, and waits at 90%. When the page is complete,
-   a move that showed the bar crossfades to it over 1 s while the bar fades
-   out at the same pace; a quicker move swaps at once.
+/* When the reader moves to another page, the frame updates the header and
+   the sidebar at the click, and updates the reading column once the new
+   page is complete. Until then the column shows the previous page. If the
+   new page is not complete 200 ms after the click, a thin bar grows along
+   the top of the column at a pace that would fill it in 3 s, and stops at
+   90%. When the page is complete, a move that showed the bar crossfades to
+   the page over 1 s while the bar fades out at the same pace. A quicker
+   move swaps at once.
 
    A move to another page of the frame, such as another session or a
-   notification's link, is a page load. The old page leaves the time of the
+   notification's link, is a page load. The old page saves the time of the
    click in sessionStorage, so the new page's bar counts from the click.
-   The browser's view transition is not used across page loads, because in
-   some Chrome setups it showed a blank white frame between the pages. */
+   The frame does not use the browser's view transition across page loads,
+   because in some Chrome setups it showed a blank white frame between the
+   pages. */
 const DELAY_MS = 200;
 const FULL_MS = 3000;
 const HOLD = 0.9;
@@ -33,7 +35,8 @@ function stored(key, value) {
     if (value === null) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, value);
   } catch {
-    /* Without storage, a move into another session counts from its load. */
+    /* When sessionStorage throws, a move into another session counts from
+       the new page's load. */
   }
   return null;
 }
@@ -51,14 +54,14 @@ export function installProgress() {
   bar.className = "move-bar";
   bar.setAttribute("aria-hidden", "true");
   document.querySelector(".main-column").prepend(bar);
-  // A recent click on the old page starts this page's move.
   const at = Number(stored(CLICK_KEY));
   stored(CLICK_KEY, null);
   if (at && Date.now() - at < 5000) beginMove(at);
 }
-// The copy keeps every id, so the styles scoped to #page-content still
-// reach it. It sits behind a closed shadow root with copies of the page's
-// stylesheets, where no lookup in the document finds it.
+// copyColumn() keeps every id in the copy, so the styles scoped to
+// #page-content still apply to it. The copy is inside a closed shadow root
+// with copies of the page's stylesheets, so no lookup in the document finds
+// its duplicate IDs.
 function copyColumn() {
   const column = $("content");
   const pane = scroller().getBoundingClientRect();
@@ -79,9 +82,10 @@ function copyColumn() {
   document.body.append(frame);
   return frame;
 }
-// The bar's animation starts at the click with a delay, so the browser
-// shows it on time even while the page is busy drawing. The bar's own
-// opacity is 0, and the animation's frames are opaque.
+// startBar() starts the animation at the click with a delay, so the browser
+// shows the bar on time even while the page is busy drawing. The bar's own
+// opacity is 0 and the animation's frames are opaque, so the bar is
+// invisible during the delay.
 function startBar() {
   bar.getAnimations().forEach((animation) => animation.cancel());
   const delay = Math.max(0, movingSince + DELAY_MS - Date.now());
@@ -99,7 +103,8 @@ function startBar() {
     },
   );
 }
-// The bar is on screen once its delay has passed.
+// getComputedTiming().progress is null until the delay has passed, so
+// barShown() is true only while the bar is on screen.
 function barShown() {
   return grow?.effect.getComputedTiming().progress != null;
 }
@@ -110,7 +115,8 @@ function finishBar(shown) {
   if (!shown || reduced()) return growing.cancel();
   const reached = growing.effect.getComputedTiming().progress * HOLD;
   growing.cancel();
-  // The bar keeps its pace while it fades out, so the finish never jumps.
+  // The fade-out continues the bar at the same pace, so the bar does not jump
+  // at the finish.
   bar.animate(
     [
       { transform: `scaleX(${reached})`, opacity: 1 },
@@ -122,11 +128,11 @@ function finishBar(shown) {
     { duration: FADE_MS, easing: "linear" },
   );
 }
-// show() calls this before it replaces the page. A move already under way
-// keeps its bar and its picture of the page the reader left.
+// show() calls beginMove() before it replaces the page. During a move that
+// is already under way, beginMove() returns early and keeps the bar and the
+// copy of the page the reader left.
 export function beginMove(at = null) {
   if (movingSince !== null) return;
-  // A move during a crossfade ends it where it is.
   fading?.remove();
   fading = null;
   $("page-content")
@@ -136,7 +142,6 @@ export function beginMove(at = null) {
   if (drawnOnce) picture = copyColumn();
   startBar();
 }
-// show() calls this once the page on screen is complete.
 export function arrived() {
   drawnOnce = true;
   if (movingSince === null) return;

@@ -1,4 +1,3 @@
-/* The count over a list that starts empty. */
 planUI.define("scope-checklist", {
   match: ".scope-list[data-multiselect]",
   setup(list) {
@@ -10,6 +9,7 @@ planUI.define("scope-checklist", {
       line.innerHTML = `<b>${checked} of ${boxes.length}</b> included`;
     };
     for (const box of boxes) box.addEventListener("change", update);
+    list.addEventListener("plan:draft", update);
     update();
   },
 });

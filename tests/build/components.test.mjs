@@ -10,8 +10,6 @@ const shipped = new URL(
   import.meta.url,
 );
 
-// A directory under $XDG_CONFIG_HOME/pair/components with the name of one of
-// pair's components replaces it in every page pair build writes.
 test("a user component replaces pair's in a built page", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-components-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));

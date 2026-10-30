@@ -13,6 +13,7 @@ import {
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
+import { placeMarks } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { displayedRound, pageIndicator } from "#frame/pages/pages.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
@@ -36,13 +37,11 @@ import {
   switchTab,
 } from "#frame/sync/rounds.mjs";
 
-// The rows the reviewer opened, by round and row, so a poll or a rebuild
-// keeps them open and a new round starts with every row closed.
+// opened contains a key with the round and the row for each row that the
+// reviewer opened. A poll or a rebuild keeps those rows open, and a new
+// round starts with every row closed.
 const opened = new Set();
-// The label and note of each drawn row, which every render updates in place.
 const drawn = new Map();
-// A working row with a note is a button that opens the note under it. Every
-// other row is a line of text, as before.
 function drawRow(slot, stopped, key) {
   const noted = slot.state === "active" && !stopped && Boolean(slot.note);
   const row = document.createElement(noted ? "button" : "div");
@@ -74,16 +73,12 @@ function drawRow(slot, stopped, key) {
   return [row, note];
 }
 export function renderActivity() {
-  // A read-only round shows what was sent on it, without agent activity.
   if (mode === "readonly") {
     $("agent-activity").hidden = true;
     $("sent-feedback").hidden = false;
     renderSentFeedback();
     return;
   }
-  // The agent's progress shows at the top of Current's Agreed, from the send
-  // or the round's Agreed to its last page. The left tab shows only what was
-  // sent on it.
   const past = selectedTab === "past";
   $("sent-feedback").hidden = !past;
   if (past) renderSentFeedback();
@@ -106,15 +101,19 @@ export function renderActivity() {
       pageIndicator("complete"),
       document.createTextNode(finished),
     );
-  // A thread started from the card sits under it, or under the finished line
-  // once the card hides, so it moves when the card shows or hides.
-  if (wasHidden !== !visible) placeThreads();
+  // The page's blocks move under the note bars when the card hides and
+  // placeProgress collapses its threads, so renderActivity places the marks.
+  if (wasHidden !== !visible) {
+    placeThreads();
+    placeMarks();
+  }
   if (visible) drawActivity(running);
 }
-// The progress card's contents. running says the agent works on a round, so
-// the heading shows how long it has taken.
+// running is true while the agent works on a round, and drawActivity then
+// shows the elapsed time in the heading.
 export function drawActivity(running) {
-  // The footer contains only Message the agent, so it goes with the button.
+  // The footer contains only the Message the agent button, so the footer
+  // hides whenever that button would.
   $("activity-footer").hidden = !noteEditable();
   $("activity-message-tip").textContent = messageTiming(remote?.holder);
   const model = activityModel({
@@ -124,14 +123,12 @@ export function drawActivity(running) {
     inFlight: submissionInFlight,
   });
   const { slots, stopped } = model;
-  // The hub records when the agent's round started: the send, or for round 1
-  // the pair start that created the session.
+  // The hub sets roundStartedAt at the send, or for round 1 at the pair start
+  // that created the session.
   const startedAt = remote?.roundStartedAt;
   $("activity-elapsed").textContent =
     running && startedAt ? since(startedAt) : "";
   $("activity-title").textContent = model.title;
-  // The summary, then the round's note and its age, which turns late as a
-  // row's label does.
   $("activity-summary").textContent = [model.summary, model.note?.text]
     .filter(Boolean)
     .join(" · ");
@@ -141,13 +138,21 @@ export function drawActivity(running) {
     age.classList.toggle("late", model.note.late);
     $("activity-summary").append(" · ", age);
   }
+  if (model.reportLine) {
+    const line = document.createElement("span");
+    line.textContent = model.reportLine.text;
+    line.classList.toggle("late", model.reportLine.late);
+    $("activity-summary").append(" · ", line);
+  }
   const round = remote?.openRound?.round || remote?.current?.round;
-  // A row rebuilds when a page's state changes or its first note arrives,
-  // never on a later note, so the list does not redraw on every report.
+  // drawActivity rebuilds the rows when a page's state changes or its first
+  // note arrives, and not on a later note, so the list does not redraw on
+  // every report.
   const signature = JSON.stringify([
     stopped,
     model.failed,
     model.track,
+    model.sweep,
     round,
     slots.map(({ id, title, state, note }) => [
       id,
@@ -170,6 +175,10 @@ export function drawActivity(running) {
       track.className = `track ${model.track}`;
       segments.append(track);
     }
+    // Each unstarted segment draws its part of one sweep, so index counts
+    // only the unstarted segments.
+    const unstarted = slots.filter((slot) => slot.state !== "ready").length;
+    let index = 0;
     for (const slot of slots) {
       const item = document.createElement("i");
       item.className =
@@ -177,13 +186,19 @@ export function drawActivity(running) {
           ? "done"
           : slot.state === "active" && !stopped
             ? "now"
-            : "";
+            : model.sweep
+              ? "sweep"
+              : "";
+      if (item.className === "sweep") {
+        item.style.setProperty("--index", index++);
+        item.style.setProperty("--count", unstarted);
+      }
       segments.append(item);
       rows.append(...drawRow(slot, stopped, `${round}:page:${slot.id}`));
     }
   }
-  // Each render sets the labels in place, so the times advance between
-  // rebuilds.
+  // This loop sets the labels in place on every render, so the times
+  // advance between rebuilds.
   for (const slot of slots) {
     const row = drawn.get(`${round}:page:${slot.id}`);
     if (!row) continue;
@@ -192,13 +207,11 @@ export function drawActivity(running) {
     row.row.classList.toggle("late", Boolean(label.late));
     if (row.note) row.note.textContent = label.note || "";
   }
-  // When the wake fails, another agent can take the session over.
   const handoff = $("activity-handoff");
   handoff.hidden = !model.failed;
   if (model.failed && !handoff.firstChild)
     handoff.append(handoffLine(remote.handoff));
 }
-// Crumbs separated by chevrons.
 function crumbTrail(crumbs) {
   return crumbs.flatMap((crumb, index) => {
     const node =
@@ -213,9 +226,8 @@ function crumbTrail(crumbs) {
     return [mark, node];
   });
 }
-// Inside a linked session, the line under the header names the session it
-// came from, as the way back, then this session. The hub names the parent
-// in the page and in each status.
+// The hub includes the parent in the built page's session data and in each
+// status, so parentCrumbs reads the status first.
 function parentCrumbs() {
   const parent = remote?.parent || session.parent;
   if (!parent) return [];
@@ -225,7 +237,6 @@ function parentCrumbs() {
   return [link, remote?.current?.title || plan.title];
 }
 function drawHistoryLabel(label, old, past, parent) {
-  // A closed session names itself, after its parent when it has one.
   if (old && session.closed) {
     const name = document.createElement("b");
     name.textContent = plan.title;
@@ -254,21 +265,19 @@ function drawHistoryLabel(label, old, past, parent) {
   here.textContent = parent[1];
   label.replaceChildren(...crumbTrail([parent[0], here]));
 }
-// Every page of a past round, its Feedback page included, names the
-// round. Current never has the strip. A tab click leaves the page on screen,
-// so the strip shows whenever that page belongs to the earlier round,
-// whichever tab is chosen. A linked session always shows the strip, with
-// its parent's name first.
+// A tab click leaves the page on screen, so renderHistory shows the strip
+// whenever the page on screen belongs to the earlier round, whichever tab
+// is selected.
 export function renderHistory() {
-  const old = mode === "readonly";
+  const old = mode === "readonly" || session.closed;
   const past = editable && displayedRound === pastRound;
   const parent = parentCrumbs();
   const strip = $("history-strip");
   strip.hidden = !(old || past || parent.length);
   if (strip.hidden) return;
   const label = $("history-label");
-  // A poll redraws the line only when it changed, so a pointer on the
-  // parent's name keeps its hover.
+  // renderHistory redraws the line only when it changed, so a pointer on the
+  // parent's name keeps its hover state.
   const key = JSON.stringify([
     old,
     past && pastRound,
@@ -287,7 +296,8 @@ export function renderHistory() {
     ? () => location.assign(`${base}/`)
     : () => switchTab("current");
 }
-// The Pages heading in the sidebar shows the page round's status. The text stays while the status fades out.
+// renderRound sets the text only while a round runs, so the last text stays
+// visible while the idle status fades out.
 export function renderRound() {
   const model = editable ? roundModel({ remote }) : null;
   for (const status of document.querySelectorAll("[data-round-status]")) {

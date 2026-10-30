@@ -17,9 +17,9 @@ const proposal = async (directory, id) =>
     await fs.readFile(path.join(directory, "proposals", `${id}.json`), "utf8"),
   );
 
-// A parent session with round 1 published and three cards: deck, which the
-// reviewer started in a sub-session after the agent joined outline into
-// it, and notes, which nobody started. The CLI runs as a separate agent.
+// parent creates a parent session with round 1 published and three cards. The
+// agent joins outline into deck, the reviewer starts deck in a sub-session, and
+// nobody starts notes. The CLI runs as a separate agent.
 async function parent(t) {
   const h = await hub(t);
   const home = path.join(h.home, "cli");
@@ -65,9 +65,6 @@ test("pair start --from creates a session for a started proposal, linked both wa
     dir: child,
     url: `/s/${linked.sessionId}/`,
   });
-  // The output names both sessions and prints the card with the cards
-  // joined into it and the reviewer's message, for the agent that runs the
-  // new session.
   for (const line of [
     `Session   ${child}`,
     `Parent    ${a.directory}`,
@@ -83,8 +80,6 @@ test("pair start --from creates a session for a started proposal, linked both wa
   ])
     assert.ok(output.includes(line), `${line} in:\n${output}`);
   assert.doesNotMatch(output, /May change/);
-  // The new session's holder is this agent, and pair status names the
-  // parent in the new session and the link in the parent.
   const own = await cli.run("status", "--session-dir", child);
   assert.match(own, /^Next: Publish Agreed with round 1's page list/);
   assert.match(
@@ -118,13 +113,13 @@ test("pair start --from refuses a missing --proposal, a directory with no sessio
     /No pair session at .*elsewhere/,
   );
   await refuses(from("--proposal", "slides"), /No proposal slides/);
-  // A card the reviewer has not started is not an instruction to run it.
+  // A card that the reviewer has not started is not an instruction to run it,
+  // so pair start --from refuses it.
   await refuses(from("--proposal", "notes"), /has not approved proposal notes/);
   await from("--proposal", "deck");
   const linked = (await sessions()).length;
   await assert.rejects(from("--proposal", "deck"), /already linked to session/);
   assert.equal((await sessions()).length, linked);
-  // The first link stands.
   assert.equal(
     (await proposal(a.directory, "deck")).started.session.dir,
     path.join(
@@ -134,8 +129,9 @@ test("pair start --from refuses a missing --proposal, a directory with no sessio
   );
 });
 
-// A card started with Plan it first gets the moment that plans first, and
-// pair status says so on the card until its session chooses Build it.
+// When the reviewer starts a card with Plan it first, pair start --from prints
+// the start-from-plan moment. pair status shows the card as planning first
+// until the reviewer chooses Build it in the card's session.
 test("pair start --from prints the plan-first moment, and pair status says the card is planning first", async (t) => {
   const { a, cli, from } = await parent(t);
   const started = await a.request(`${a.base}/api/proposals/notes/start`, {

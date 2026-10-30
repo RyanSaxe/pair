@@ -1,7 +1,6 @@
-/* A formula, and the table that names its terms. */
-/* KaTeX runs with no trust option, so \htmlClass is refused and a colour
-   has to be a literal in the source. The literal is swapped for a class
-   here, which is what lets a term follow the theme. */
+/* KaTeX runs with no trust option, so it refuses \htmlClass, and a colour
+   has to be a literal in the source. This behavior swaps each palette
+   literal for a class, so a term follows the theme. */
 const termPalette = ["#1d4ed8", "#a16207", "#047857", "#9333ea"];
 const termColors = termPalette.map((hex) => {
   const probe = document.createElement("span");
@@ -15,9 +14,9 @@ function termRow(term, index, show) {
   row.tabIndex = 0;
   const symbol = document.createElement("dt");
   symbol.className = `term-${index + 1}`;
-  /* A term is LaTeX like the formula it names, not always a bare letter, so
-     it goes through the same engine. KaTeX is loaded by the time a row is
-     built. A term that does not parse keeps its source. */
+  /* A term is LaTeX like the formula it belongs to, not always a bare
+     letter, so KaTeX renders it too. KaTeX has loaded by the time a row is
+     built. A term that does not parse shows its source. */
   try {
     window.katex.render(term.symbol || "", symbol, {
       throwOnError: true,
@@ -78,11 +77,11 @@ async function renderMath(element) {
     await Promise.all([
       script(
         libraries.katex,
-        "sha384-cMkvdD8LoxVzGF/RPUKAcvmm49FQ0oxwDF3BGKtDXcEc+T1b2N+teh/OJfpU0jr6",
+        "sha384-a1WQdjRj162i159OYq041X6I4K8NenkrI09LlPmiHg0YOb7CR+wJOraXwK9abpnE",
       ),
       script(
         libraries.katexCss,
-        "sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP",
+        "sha384-WwGtaC6ywCHxA5cstpj/3+xIZvTez8dq2IcBQaXRkenHZ7FVVq1ZROtURwfbtTlG",
         true,
       ),
     ]);

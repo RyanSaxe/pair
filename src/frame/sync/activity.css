@@ -25,8 +25,9 @@
   margin: 3px 0 11px;
 }
 .activity-segments {
+  --gap: 4px;
   display: flex;
-  gap: 4px;
+  gap: var(--gap);
   margin-bottom: 10px;
 }
 .activity-segments i {
@@ -47,8 +48,6 @@
     opacity: 0.35;
   }
 }
-/* Before the page list exists the bar is one track. It carries a sliding
-   segment while the agent works on the feedback. */
 .activity-segments i.track {
   position: relative;
   overflow: hidden;
@@ -70,6 +69,21 @@
     transform: translateX(340%);
   }
 }
+/* Each unstarted segment draws its own part of one slider that spans all
+   the unstarted segments, so the gaps between segments stay clear. */
+.activity-segments i.sweep {
+  position: relative;
+  overflow: hidden;
+}
+.activity-segments i.sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 calc(var(--index) * (-100% - var(--gap)));
+  width: calc((var(--count) * (100% + var(--gap)) - var(--gap)) * 0.3);
+  border-radius: 4px;
+  background: var(--accent);
+  animation: track-slide 1.8s ease-in-out infinite;
+}
 .activity-page {
   padding: 3px 0;
   font-size: var(--text-small);
@@ -77,7 +91,6 @@
 .activity-page span:nth-child(2) {
   flex: 1;
 }
-/* A working row with a note is a button that opens the note under it. */
 button.activity-page {
   width: 100%;
   border: 0;
@@ -98,7 +111,8 @@ button.activity-page[aria-expanded="true"] small::after {
 #activity-summary .late {
   color: var(--attention);
 }
-/* The 18px mark and the row's 8px gap put the note under the page's name. */
+/* The 26px margin is the 18px mark plus the row's 8px gap, so the note
+   lines up under the page's name. */
 .activity-note {
   margin: 0 0 4px 26px;
   color: var(--muted);
@@ -119,7 +133,6 @@ button.activity-page[aria-expanded="true"] small::after {
   font-size: var(--text-tiny);
   overflow-wrap: anywhere;
 }
-/* The footer contains only Message the agent, on the right, below a rule. */
 .activity-footer {
   position: relative;
   display: flex;
@@ -128,8 +141,8 @@ button.activity-page[aria-expanded="true"] small::after {
   padding-top: 9px;
   border-top: 1px solid var(--line);
 }
-/* The button's tooltip opens under its right edge, with the arrow under the
-   button, so it stays inside a phone's window. */
+/* The tooltip is aligned to the button's right edge, so it stays inside a
+   phone's window. */
 .activity-footer .thread-tip {
   right: 0;
   left: auto;
@@ -145,7 +158,8 @@ button.activity-page[aria-expanded="true"] small::after {
   .activity-segments i.now {
     animation: none;
   }
-  .activity-segments i.track.moving::after {
+  .activity-segments i.track.moving::after,
+  .activity-segments i.sweep::after {
     animation: none;
     opacity: 0.5;
   }

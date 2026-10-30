@@ -1,9 +1,6 @@
-// A refusal of the arguments, which names what is wrong and where the
-// command's help is.
 export const usageError = (name, text) =>
   new Error(`${text} Run pair ${name} --help.`);
 
-// "a", "a and b", "a, b and c".
 export const listing = (items) =>
   items.length < 2
     ? items.join("")
@@ -13,8 +10,6 @@ const flagsOf = (entry) => Object.entries(entry.flags || {});
 const flagName = ([key, flag]) =>
   flag.value ? `--${key} ${flag.value}` : `--${key}`;
 
-// The command the arguments name in the table, with the arguments after its
-// name.
 export function findCommand(commands, argv) {
   const [name] = argv;
   return Object.hasOwn(commands, name)
@@ -22,10 +17,6 @@ export function findCommand(commands, argv) {
     : null;
 }
 
-// Reads a command's arguments: a flag is --name VALUE, or --name alone for a
-// flag without a value. An unknown flag, an extra argument and a flag given
-// twice are refused, except a flag that repeats. Returns the options, with
-// the arguments in args.
 export function parse({ name, entry, rest }) {
   const refuse = (text) => {
     throw usageError(name, text);
@@ -75,7 +66,6 @@ export function parse({ name, entry, rest }) {
   return options;
 }
 
-// Wraps text to width columns, with indent before every line but the first.
 function wrap(text, width, indent = "") {
   const lines = [];
   let line = "";
@@ -103,8 +93,6 @@ function usage(name, entry) {
   return ["pair", name, ...args, ...flags].join(" ");
 }
 
-// What pair COMMAND --help prints: the command's purpose, its usage, and
-// each flag with the required ones marked.
 export function helpText({ name, entry }) {
   if (entry.help) return `${entry.help}\n`;
   const rows = [
@@ -135,8 +123,6 @@ const groups = {
   pages: "Pages:",
   setup: "Setup:",
 };
-// What pair --help prints: every command in the table with its purpose, by
-// group.
 export function overview(commands) {
   const listed = Object.entries(commands).filter(([, entry]) => !entry.hidden);
   const width = Math.max(...listed.map(([name]) => name.length)) + 2;

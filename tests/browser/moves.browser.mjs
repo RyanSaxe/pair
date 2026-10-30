@@ -3,10 +3,11 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
-// A page is complete once its components have drawn, so a component whose
-// setup settles after data-slow milliseconds makes a page that slow. Every
-// document registers it as the frame creates planUI, before the first page
-// renders, through the page API planUI.define.
+// The frame counts a page as complete once its components have drawn, so a
+// component whose setup settles after data-slow milliseconds makes the page
+// that slow. slowComponent runs in every document and registers the component
+// through planUI.define as soon as the frame creates planUI, before the first
+// page renders.
 function slowComponent() {
   let ui;
   Object.defineProperty(window, "planUI", {
@@ -62,7 +63,8 @@ const complete = (page, id) =>
     id,
     { timeout: 5000 },
   );
-// The previous page's picture is the inert, fixed copy of the column.
+// The frame shows the previous page as an inert, fixed copy of the column, and
+// picture() looks for that copy.
 const picture = (page) =>
   page.evaluate(() =>
     [...document.body.children].some(
@@ -80,8 +82,8 @@ const barAnimations = (page) =>
       })),
   );
 
-// Whether any part of the bar is on screen: inside the window and inside
-// every ancestor that clips its overflow.
+// barOnScreen counts the bar as on screen only when part of it is inside the
+// window and inside every ancestor that clips overflow.
 const barOnScreen = (page) =>
   page.evaluate(() => {
     const bar = document.querySelector(".move-bar");
@@ -159,8 +161,8 @@ test("a page load into a slow page runs no view transition and shows the bar", a
   const other = await s.h.session();
   assert.equal((await other.publish(round("other"))).code, 200);
   // A view transition across page loads showed a blank white frame in some
-  // Chrome setups, so each frame of the new document records whether one
-  // runs, and whether the bar is on screen.
+  // Chrome setups. The init script records, for each animation frame of the new
+  // document, whether a view transition runs and whether the bar is on screen.
   await s.page.addInitScript(() => {
     window.moveFrames = [];
     const sample = () => {
@@ -209,8 +211,9 @@ test("with reduced motion a slow move shows the bar still and swaps in with no f
 });
 
 // On a phone the page list is in a dialog, and the column scrolls inside
-// .app-body, which clips anything outside it. A move back to a page returns
-// to where the reader left it, so the page can be scrolled while it draws.
+// .app-body, which clips anything outside it. The frame returns a move back to
+// a page to where the reader left it, so the page can be scrolled down while it
+// draws.
 test("on a phone a slow move shows the bar under the header, even onto a page scrolled down", async (t) => {
   const s = await setup(t, {
     viewport: { width: 390, height: 844 },

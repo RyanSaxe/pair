@@ -1,21 +1,19 @@
-// Work the agent has given no update on for config.quietMs is quiet: a page
-// of the open round it started, since its last note or else its start, and
-// a proposal started here that is not done and has a part left or no parts
-// yet, since its parts last changed or else its start. While any work is
-// quiet, every next step names it. When no pair command has run on the
-// session for as long either, the hub wakes the holder, once for each page
-// or card until that page or card gets an update.
+// Work is quiet when the agent has given no update on it for config.quietMs.
+// A started page of the open round counts from its last note, or from its
+// start. A proposal started here that is not done, with a part left or no
+// parts yet, counts from the last change to its parts, or from its start.
+// While any work is quiet, nextStep names it. When no pair command has run
+// on the session for config.quietMs either, the hub wakes the holder, once
+// for each page or card until it gets an update.
 
-// A card whose parts are all done or dropped waits only for the page that
-// shows the work, so the agent has no part left to update.
+// When every part of a card is done or dropped, the only work left is the
+// page that shows it, so the agent has no part to update.
 const partsLeft = (card) =>
   !card.status?.parts?.length ||
   card.status.parts.some((part) => part.state === "left");
 const count = (number, word) => `${number} ${word}${number === 1 ? "" : "s"}`;
 const minutes = (ms) => Math.floor(ms / 60_000);
 
-// The quiet pages and cards at the time now, in milliseconds. Each has the
-// time of its last update, at.
 export function quietItems({ openRound, proposals }, now, ms) {
   const pages = (openRound?.pages || [])
     .filter((slot) => slot.state === "active")
@@ -38,21 +36,22 @@ export function quietItems({ openRound, proposals }, now, ms) {
   return [...pages, ...cards].filter((item) => now - Date.parse(item.at) > ms);
 }
 
-// The commands that update the kinds of work in items, joined into one
-// clause.
+// A card with no update has no parts, and the hub refuses --status-done on a
+// part the card does not list, so that card gets --status-left instead.
 function updates(items, directory) {
-  const kinds = new Set(items.map((item) => item.kind));
+  const cards = items.filter((item) => item.kind === "proposal");
   return [
-    kinds.has("page") &&
+    items.some((item) => item.kind === "page") &&
       `post a note on each page you are still working on with pair progress --session-dir ${directory} --page ID --note "…"`,
-    kinds.has("proposal") &&
+    cards.some((card) => card.updated) &&
       `mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…"`,
+    cards.some((card) => !card.updated) &&
+      `for each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part`,
   ]
     .filter(Boolean)
     .join(", and ");
 }
 
-// The line every next step ends with while items are quiet.
 export function quietStep(items, now, ms, directory) {
   const since = {
     page: "last note",
@@ -66,7 +65,6 @@ export function quietStep(items, now, ms, directory) {
   return `No update in ${count(minutes(ms), "minute")}: ${named.join(", ")}. ${action[0].toUpperCase()}${action.slice(1)}.`;
 }
 
-// The wake line when items are quiet and no pair command has run for ms.
 export function quietWake(items, ms, directory) {
   const named = items.map((item) => `${item.kind} ${item.id}`).join(", ");
   const cards = items.some((item) => item.kind === "proposal")
@@ -77,12 +75,13 @@ export function quietWake(items, ms, directory) {
 
 export function quiet(session) {
   const { directory, config } = session;
-  // The hub keeps no record of commands across a restart, so a session it
-  // loads counts from the hub's start.
+  // The hub does not save the time of the last command, so after a restart
+  // the time since the last command counts from when the hub loaded the
+  // session.
   let commandAt = Date.now();
-  // The quiet pages and cards already named in a wake, each with the time of
-  // its last update, so a page or card that gets an update can be in a wake
-  // again.
+  // woken contains a key for each quiet page or card already named in a
+  // wake. The key includes the time of the last update, so a page or card
+  // that gets an update can be in a later wake.
   let woken = new Set();
   const key = (item) => `${item.kind} ${item.id} ${item.at}`;
   const items = (now) =>
@@ -102,14 +101,15 @@ export function quiet(session) {
       ? quietStep(quiet, now, config.quietMs, directory)
       : null;
   }
-  // Any agent command on the session, a subagent's included, because a
-  // subagent runs its commands in its parent's environment.
+  // act and hold call commandRan for every agent command, a subagent's
+  // included, because a subagent runs its commands in its parent's
+  // environment.
   const commandRan = () => {
     commandAt = Date.now();
   };
-  // Runs from the hub's timer. The hub sends no second wake for a page or
-  // card that was in an earlier wake and has had no update since, and a wake
-  // for newly quiet work names it with the rest of the quiet work.
+  // The hub's timer calls wakeIfQuiet. It sends no second wake for a page
+  // or card that was in an earlier wake and has had no update since, and a
+  // wake for newly quiet work names all the quiet work.
   async function wakeIfQuiet(now = Date.now()) {
     const quiet = items(now);
     woken = new Set(quiet.map(key).filter((item) => woken.has(item)));

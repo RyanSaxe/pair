@@ -5,8 +5,8 @@ import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep } from "../support/hub.mjs";
 
-// A round whose Overview has a block a page thread can target, with the
-// filler above and below it.
+// Overview contains a block that a page thread can target, between the filler
+// above and below it.
 const round = (number, filler = "") => ({
   ...planData(number),
   pages: [
@@ -29,7 +29,8 @@ async function setup(t) {
   const url = (rest) => `${h.server.origin}${session.base}/${rest}`;
   const publish = async (number, filler) =>
     assert.equal((await session.publish(round(number, filler))).code, 200);
-  // The agent reads each submission, as it would before the next round.
+  // The agent reads each submission, as it does before it publishes the next
+  // round.
   const send = async (number) => {
     const sent = await session.feedback(session.event("feedback-only", number));
     assert.equal(sent.code, 200, JSON.stringify(sent.body));
@@ -46,8 +47,8 @@ async function setup(t) {
     assert.equal(started.code, 201, JSON.stringify(started.body));
     return id;
   };
-  // The agent's first reply is the thread's row 1. With as set to "html",
-  // text is the reply's markup.
+  // The agent's first reply is row 1 of the thread. With as set to "html", text
+  // is the reply's markup.
   const reply = async (id, text = "Here.", as = "text") =>
     assert.equal(
       (await session.action("reply", { note: id, [as]: text })).code,
@@ -62,9 +63,10 @@ const focused = (page, id, row = 1) =>
     `thread-${id}-${row}`,
     { timeout: 5000 },
   );
-// Once a page loads, the browser scrolls to the element whose ID the
-// address's # part names and focuses it, or clears focus when that element
-// cannot take it. By a task and two frames after the load, it has.
+// After a page loads, the frame scrolls to the element whose ID the URL's
+// fragment names and focuses it, or clears focus when that element cannot take
+// focus. The frame has done so by a task and two animation frames after the
+// load.
 const afterLoad = (page) =>
   page.evaluate(
     () =>
@@ -74,7 +76,8 @@ const afterLoad = (page) =>
         ),
       ),
   );
-// The reply sits whole between the header and the bottom of the window.
+// inView asserts that the whole reply is between the header and the bottom of
+// the window.
 async function inView(page, id, row = 1) {
   const place = await page
     .locator(`#thread-${id}-${row}`)
@@ -96,8 +99,8 @@ const cards = (page, id) =>
   page.locator(`pair-thread[data-thread="${id}"]`).count();
 const title = (page, text) =>
   page.locator("#page-title", { hasText: text }).waitFor({ timeout: 5000 });
-// The bell marks every event it finds on its first load as seen, so each
-// test waits for the bell to show before the agent replies.
+// The frame marks every event it finds at the bell's first load as seen, so
+// each test waits for the bell to show before the agent replies.
 const bellReady = (page) => page.locator("#bell").waitFor();
 async function bell(page) {
   await page.locator("#bell").click();
@@ -112,8 +115,9 @@ test("a loaded session draws its header from the answers in its page", async (t)
   const asked = [];
   page.on("request", (request) => asked.push(new URL(request.url()).pathname));
   await page.goto(s.url(""));
-  // The bell shows once the first status and session list are drawn. The
-  // frame asks the hub for either only if the page did not carry it.
+  // The frame shows the bell once it has drawn the first status and session
+  // list. The frame requests either from the hub only when the page did not
+  // include it.
   await bellReady(page);
   assert.deepEqual(
     asked.filter((path) => /\/api\/(status|sessions)$/.test(path)),
@@ -133,8 +137,6 @@ test("a Progress reply's link opens its card and focuses the reply", async (t) =
   assert.equal(await card.getAttribute("collapsed"), null);
 });
 
-// The bell links a reply on the overall comment to the thread's page,
-// overall, and the thread's card is at the end of Review.
 test("an overall reply's link opens Review with the thread at its end and focuses the reply, and so does the bell from another page", async (t) => {
   const s = await setup(t);
   await s.publish("1");
@@ -154,8 +156,8 @@ test("an overall reply's link opens Review with the thread at its end and focuse
   await focused(page, id, 2);
 });
 
-// A reply's link names the reply's page, and the page can give one of its
-// own elements the page's ID.
+// A reply's link contains the reply's page ID, and a page can give one of its
+// own elements that same ID. The frame must still focus the reply.
 test("a reply's link keeps the reply focused after the page loads when an element of its page has the page's ID", async (t) => {
   const s = await setup(t);
   const published = await s.session.publish({
@@ -230,7 +232,7 @@ test("a long reply opened from the bell lands whole between the header and the b
   });
   if (!page) return;
   await bellReady(page);
-  // Uncut, the reply is several screens tall.
+  // The reply is several screens tall before the frame cuts it.
   await s.reply(id, "The retry runs once after a short wait. ".repeat(300));
   await bell(page);
   await focused(page, id);
@@ -239,10 +241,11 @@ test("a long reply opened from the bell lands whole between the header and the b
   await inView(page, id);
 });
 
-// Each screenshot loads only after the bell has scrolled to the reply it
-// opens, and has no height until it loads. In the agent's earlier reply, the
-// text under the screenshots cuts that reply to its usual height before they
-// load. On the page, the screenshots above the thread are never cut.
+// Each screenshot loads only after the frame has scrolled to the reply that the
+// bell line opens, and a screenshot has no height until it loads. In the
+// agent's earlier reply, the text under the screenshots is long enough that the
+// frame cuts the reply to its usual height before they load. On the page, the
+// frame never cuts the screenshots above the thread.
 const screenshot = (n) =>
   `<figure><img src="http://images.localhost/${n}.svg" width="370" alt="Screenshot ${n}"><figcaption>Screenshot ${n}.</figcaption></figure>`;
 const shots = [1, 2, 3].map(screenshot).join("");
@@ -279,7 +282,8 @@ for (const [where, filler, earlier] of [
     await page.waitForFunction(() =>
       [...document.images].every((image) => image.complete),
     );
-    // A screenshot's height and the cut of its reply each take a frame.
+    // Applying a screenshot's height and cutting its reply each take an
+    // animation frame.
     await page.evaluate(
       () =>
         new Promise((resolve) =>
@@ -289,7 +293,7 @@ for (const [where, filler, earlier] of [
     await inView(page, id, 2);
   });
 
-test("each Progress thread has one card, and none while Current waits", async (t) => {
+test("each Progress thread has one card, and Current's waiting card shows only a thread sent after the feedback", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const first = await s.thread("1", "progress");
@@ -306,15 +310,44 @@ test("each Progress thread has one card, and none while Current waits", async (t
   await page.reload();
   const second = await s.thread("1", "progress");
   await s.reply(second);
-  // Two status polls.
-  await sleep(3000);
+  await page.locator(`pair-thread[data-thread="${second}"]`).waitFor();
   assert.equal(await cards(page, first), 0);
-  assert.equal(await cards(page, second), 0);
+  assert.equal(await cards(page, second), 1);
   await page.locator("#past-tab").click();
   await agreed.click();
-  await page.locator(`pair-thread[data-thread="${second}"]`).waitFor();
+  await page.locator(`pair-thread[data-thread="${first}"]`).waitFor();
   assert.equal(await cards(page, first), 1);
-  assert.equal(await cards(page, second), 1);
+  assert.equal(await cards(page, second), 0);
+});
+
+test("the bell and a reply's link open a thread sent while Current waits on Current's progress card", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  await s.send("1");
+  const id = await s.thread("1", "progress");
+  const page = await open(t, s.url("#agreed"));
+  if (!page) return;
+  await bellReady(page);
+  await s.reply(id);
+  await bell(page);
+  await selected(page, "current");
+  await focused(page, id);
+  await page.goto(s.url(`?target=thread-${id}-1#agreed`));
+  await focused(page, id);
+  await selected(page, "current");
+  // Once the next round's Agreed is on screen, the thread is on that round's
+  // progress card, and the bell opens it there from Last round too.
+  await s.publish("2");
+  await page.goto(s.url("#agreed"));
+  await page.locator(`pair-thread[data-thread="${id}"]`).waitFor();
+  await page.locator("#past-tab").click();
+  await page.locator('#page-list [data-page="agreed"]').click();
+  await selected(page, "past");
+  await bellReady(page);
+  await s.reply(id, "Here again.");
+  await bell(page);
+  await selected(page, "current");
+  await focused(page, id, 2);
 });
 
 test("Back to current opens the waiting Agreed, not an empty Review", async (t) => {
@@ -322,7 +355,7 @@ test("Back to current opens the waiting Agreed, not an empty Review", async (t) 
   await s.publish("1");
   const page = await open(t, s.url("#feedback"));
   if (!page) return;
-  // The frame saves feedback as round 1's place.
+  // The frame saves Review as round 1's place once the view shows.
   await page.locator("#review-view").waitFor();
   await s.send("1");
   const waiting = async () => {
@@ -347,7 +380,7 @@ test("the left tab reads Last round for the round before Current's, and Round 1 
   await s.publish("3");
   const page = await open(t, s.url("#agreed"));
   if (!page) return;
-  // The tab is enabled once the first status has loaded round 2.
+  // The frame enables the tab once the first status poll has loaded round 2.
   await page
     .locator("#past-tab:not([disabled])", { hasText: "Last round" })
     .waitFor();
@@ -368,8 +401,9 @@ test("the sidebar opens and closes at 1280px, where it slides without drawing ou
   const sidebar = page.locator("#sidebar");
   const expanded = async (value) =>
     assert.equal(await toggle.getAttribute("aria-expanded"), String(value));
-  // Holds the sidebar's slide at its midpoint and reports what shows 10px
-  // left of the frame, where a 1280px window has ground beside the frame.
+  // leftOfFrameMidSlide pauses the sidebar's slide at its midpoint and reports
+  // what is 10px left of the frame. A 1280px window shows the background there,
+  // which the function reports as "ground".
   const leftOfFrameMidSlide = () =>
     page.evaluate(() => {
       const slides = document.getElementById("sidebar").getAnimations();
@@ -387,7 +421,6 @@ test("the sidebar opens and closes at 1280px, where it slides without drawing ou
       for (const item of slides) item.play();
       return hit?.closest("#sidebar") ? "sidebar" : "ground";
     });
-  // Where the page column starts, from the frame's left edge.
   const columnAt = (left) =>
     page.waitForFunction(
       (expected) =>
@@ -408,7 +441,6 @@ test("the sidebar opens and closes at 1280px, where it slides without drawing ou
   await sidebar.waitFor({ state: "hidden" });
   await expanded(false);
   await columnAt(border);
-  // This browser keeps the choice.
   await page.reload();
   await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
   await expanded(false);
@@ -419,8 +451,6 @@ test("the sidebar opens and closes at 1280px, where it slides without drawing ou
   await sidebar.waitFor();
   await columnAt(border + width);
 
-  // At 375px the sidebar starts closed and the page keeps its width under
-  // it. Choosing a page closes it, and so does a tap on the dimmed page.
   await page.setViewportSize({ width: 375, height: 812 });
   await sidebar.waitFor({ state: "hidden" });
   await expanded(false);
@@ -441,8 +471,8 @@ test("the sidebar opens and closes at 1280px, where it slides without drawing ou
   assert.equal(await sidebar.isVisible(), false);
 });
 
-// Review and Work are each a few screens tall here, with threads on the
-// overall comment and proposals.
+// The test makes Review and Work each a few screens tall, with threads on the
+// overall comment and with proposals.
 test("Review and Work opened from their addresses keep focus on their heading and stay at the top, on a phone and on desktop", async (t) => {
   const s = await setup(t);
   await s.publish("1");
@@ -476,7 +506,8 @@ test("Review and Work opened from their addresses keep focus on their heading an
             width,
             hash,
             focus: document.activeElement.id,
-            // The page scrolls in main above 720px and in .app-body below.
+            // The frame scrolls the page in main above 720px and in .app-body
+            // below 720px.
             tops: [
               document.scrollingElement,
               document.querySelector("main"),
@@ -492,7 +523,8 @@ test("Review and Work opened from their addresses keep focus on their heading an
   assert.deepEqual(seen, expected);
 });
 
-// A page's headings can carry the IDs the frame gives Work and Review.
+// A page author can give a heading the same ID that the frame gives Work or
+// Review.
 test("the sidebar marks the page on screen when the page reuses the IDs of Work and Review", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -531,8 +563,6 @@ test("the sidebar marks the page on screen when the page reuses the IDs of Work 
   }
 });
 
-// Inside a linked session, the line under the header names its parent as
-// the way back, and stays one line at 375px with long names.
 test("a linked session's line under the header leads back to its parent and stays one line", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -602,4 +632,34 @@ test("a link to a section of the page scrolls to it and stays on the page", asyn
   });
   await page.locator("#page-title", { hasText: "Overview" }).waitFor();
   assert.equal(new URL(page.url()).hash, "#overview");
+});
+
+test("a round tab lists its pages and leaves the page on screen in its own round until a page is picked", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  const id = await s.thread("1", "page");
+  await s.send("1");
+  await s.publish("2", "<p>Round two adds this line.</p>");
+  const page = await open(t, s.url("#overview"));
+  if (!page) return;
+  await page.locator("#past-tab:not([disabled])").waitFor();
+  const content = page.locator("#page-content");
+  await content.getByText("Round two adds this line.").first().waitFor();
+  await page.locator("#past-tab").click();
+  await selected(page, "past");
+  await page.locator("#review-row", { hasText: "Feedback" }).waitFor();
+  assert.equal(await content.getByText("Round two adds this line.").count(), 2);
+  assert.equal(await cards(page, id), 0);
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  await page.keyboard.press("Escape");
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator(`pair-thread[data-thread="${id}"]`).waitFor();
+  assert.equal(await content.getByText("Round two adds this line.").count(), 0);
+  await page.locator("#current-tab").click();
+  await selected(page, "current");
+  assert.equal(await cards(page, id), 1);
+  await page.locator('#page-list [data-page="overview"]').click();
+  await content.getByText("Round two adds this line.").first().waitFor();
+  assert.equal(await cards(page, id), 0);
 });

@@ -19,7 +19,7 @@ session to your browser and wakes the agent when you respond.
   pauses it. The hub exits once no session has been live for
   `PAIR_HUB_IDLE_SECONDS`, and the next `pair start` starts a new hub on the
   same port.
-- A new hub loads every session from disk, so each session keeps its URL.
+- A new hub loads every session from disk, so a session's URL stays the same.
 - When `pair start` finds a hub that runs a different version of pair while
   a session is live, it uses that hub and prints a warning. The next
   `pair start` that finds no live session stops the old hub and starts one
@@ -29,13 +29,27 @@ session to your browser and wakes the agent when you respond.
 
 - Every pair tab asks the hub for the session list every 5 seconds, with
   each session's latest events for the bell.
+- The hub records which bell lines you cleared, which pages you opened and
+  which proposal cards you saw on Work, and sends those records with the
+  session list. A phone on the `PAIR_HUB_HOST` address and a computer then
+  show the same bell, sessions badge and **New** marks, within one poll of
+  each other. Layout preferences, such as the sidebar, stay in each browser.
+- The hub keeps each session's completed feedback and numbers each change it
+  receives. Every pair tab sends what you complete and reads the hub's copy when
+  a status poll shows a newer revision. When two devices change the same item,
+  the change the hub receives later wins, and a removed note stays removed. Text
+  you typed but did not complete stays in the browser you typed it in.
+- When the hub or another tab changes the draft, the frame updates the choices,
+  answers, drawings and note marks on the page at once. It draws the whole page
+  again only while you are not typing on the page, using a dialog or a
+  prototype, or part way through a video, so none of those is replaced.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
   tab asked in the last 90 seconds, and otherwise to give you the link in
   chat.
 - The hub redirects the root URL, `http://127.0.0.1:4747/` by default, to
-  the session that has waited longest for your review, or else to the
+  the session whose waiting round was published earliest, or else to the
   session you opened last. You can bookmark it.
 
 ## When the hub wakes the agent
@@ -70,22 +84,24 @@ proposals you declined and the linked sessions you closed.
 
 A page of the open round that the agent started is quiet when its last
 note, or its start when it has no note, is more than 10 minutes old. A
-proposal started here that is not done is quiet when its parts last
-changed, or it started when it has no parts, more than 10 minutes ago.
+proposal started here is quiet when it is not done, has no parts or a part
+left, and has had no change to its parts for more than 10 minutes, counted
+from its start when it has no parts.
 Agents often post no note and mark no part while a subagent does the work,
 and the progress card and Work then show you no progress.
 
-- While a page or a proposal is quiet, every session command's next step
-  ends with a line that names it, with the time of its last update, and the
-  `pair progress` or `pair propose` command that updates it.
+- While a page or a proposal is quiet, the next step that every session
+  command prints ends with a line that gives its ID, how many minutes ago it
+  last changed, and the `pair progress` or `pair propose` command that
+  updates it.
 - The hub checks the live sessions once a minute. When a page or a proposal
   is quiet and no `pair` command has run on the session for 10 minutes, the
-  hub wakes the holder with a line that names the quiet work. A subagent's
+  hub wakes the holder with a line that lists the quiet work. A subagent's
   commands count, because a subagent runs them in its parent's environment.
-- The hub sends no second wake for a page or a proposal until it gets an
-  update: a new note on the page, or a change to the proposal's parts.
-  Another command is not an update. When another page or proposal becomes quiet, the hub
-  sends a new wake that names all the quiet work.
+- The hub sends no second wake for a page or a proposal until the agent
+  updates it with a new note on the page or a change to the proposal's
+  parts. Any other command is not an update. When another page or proposal
+  becomes quiet, the hub sends a new wake that lists all the quiet work.
 - The hub keeps the time of the last command in memory, so after a restart
   it counts from its own start.
 
@@ -129,26 +145,26 @@ Codex calls threads, on a shared app-server daemon. The daemon listens on
   its turn ends.
 
 Codex asks you to approve each command its sandbox blocks, every `pair`
-command included, unless an allow rule names the command. `pair start`
+command included, unless an allow rule matches the command. `pair start`
 refuses under Codex until `~/.codex/rules/pair.rules` exists, and
 `pair setup-codex` writes that file.
 
 ### Copilot CLI
 
-Copilot CLI only takes messages from the hub when you start it with
+Copilot CLI accepts messages from the hub only when you start it with
 `--ui-server`. Without that flag, `pair start` refuses and prints
 `copilot --ui-server --resume <session id>`.
 
 ### pi and opencode
 
-The hub can only send a message to pi through pair's extension, and to
-opencode through pair's plugin. You register each one once. When pi runs
+The hub can send a message to pi only through pair's extension, and to
+opencode only through pair's plugin. You register each one once. When pi runs
 without the extension, or opencode without the plugin, `pair start` refuses
 and prints the `pi install` command, or the plugin's path and the opencode
 config file to add it to.
 
 The hub records a wake as sent, with `wake.last.ok` set to `true`, once the
-extension or the plugin answers that it has taken the message, which
+extension or the plugin replies that it has received the message, which
 happens before the agent reads it.
 
 When pi or opencode has exited, the wake fails with
@@ -160,7 +176,7 @@ When pi or opencode has exited, the wake fails with
 `pair status` shows the holder and the result of the hub's last wake for
 your feedback or a Start.
 
-- The result of each wake has `via`, the path the message took, such as
+- The result of each wake has `via`, the delivery path the hub used, such as
   `steer` or `queue` for Codex, or `parent` when the hub sent it to the
   parent of a Codex subagent.
 - Each wake also sets `holder.steerable` in `status.json`, which is `true`
@@ -170,13 +186,14 @@ your feedback or a Start.
 
 ## Storage
 
-pair keeps everything under `$XDG_STATE_HOME/pair/`, or
+pair stores everything under `$XDG_STATE_HOME/pair/`, or
 `~/.local/state/pair/`.
 
 ```text
 hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
+  seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
 sessions/<dir>/      the directory name is not the session ID
   status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it
   connection.json    session ID, hub origin, agent token, the agent CLI's name
@@ -184,9 +201,10 @@ sessions/<dir>/      the directory name is not the session ID
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
   rounds/            built rounds
+  draft.json         your completed notes, choices and answers, until you send
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
-  scenes/            editable shapes of drawing answers
+  scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
   activity.json      the last 50 events, for the bell

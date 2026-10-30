@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
+import { assemble } from "../../src/build/assemble.mjs";
+import { buildPage } from "../../src/cli/build.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
+import { root, waitUntil } from "../support/hub.mjs";
 
-// Each figure's source element and what the frame draws into it. A diff
-// draws into the .change-view beside its input, in the same .change-review.
+// The frame draws a diff into the .change-view beside its input, inside the
+// same .change-review, instead of into the source element.
 const figures = {
   "[data-language]": { kind: "code", drawn: ".shiki" },
   "[data-diagram]": { kind: "diagram", drawn: "svg" },
@@ -15,7 +22,6 @@ const figures = {
 };
 const pageIds = ["decisions", "comparison", "figures", "slots"];
 
-// A figure on a visual decision's hidden tab is shown by clicking that tab.
 async function reveal(page, source) {
   const tab = await source.evaluate((element) => {
     const option = element.closest(".visual-option[hidden]");
@@ -72,7 +78,8 @@ for (const colorScheme of ["light", "dark"]) {
         );
         const { kind, drawn } = figures[selector];
         await reveal(page, source);
-        // "rendered", or the text of the figure's visible .renderer-error.
+        // The result is "rendered" or the text of the figure's visible
+        // .renderer-error.
         const result = await page
           .waitForFunction(
             ([source, drawn]) => {
@@ -95,8 +102,8 @@ for (const colorScheme of ["light", "dark"]) {
           `${pageId}, ${colorScheme}, ${kind} ${label}: ${result}`,
         );
       }
-      // The before-after and drawing components keep a hidden
-      // .renderer-error in their markup.
+      // The markup of the before-after and drawing components contains a hidden
+      // .renderer-error, so the test counts only visible ones.
       const errors = await page
         .locator("#page-content .renderer-error:visible")
         .allTextContents();
@@ -108,3 +115,191 @@ for (const colorScheme of ["light", "dark"]) {
     }
   });
 }
+
+// Pele reports a parse error through its returned error handle and its onError
+// callback. The frame must show the error inside that figure only.
+test("a malformed diagram preserves its source without hiding another diagram or the rest of the page", async (t) => {
+  const source = "flowchart LR\n  A[";
+  const html = await assemble({
+    name: "diagram-failure",
+    round: "1",
+    title: "Diagram failure",
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<p id="readable">Read the rest of this page.</p><div id="bad" data-diagram>${source}</div><div id="good" data-diagram>flowchart LR\n  A --> B</div>`,
+      },
+    ],
+  });
+  const page = await open(t, "http://pair.localhost/#overview", { html });
+  if (!page) return;
+  await page.locator("#bad + .renderer-error:visible").waitFor();
+  await page.locator("#good svg").waitFor();
+  assert.equal(await page.locator("#bad").textContent(), source);
+  // The error message quotes the source line with a caret under the column, and
+  // the caret lines up only when the frame keeps the line breaks.
+  assert.match(await page.locator("#bad + .renderer-error").innerText(), /\n/);
+  assert.equal(await page.locator("#readable").isVisible(), true);
+  assert.equal(await page.locator("#bad .pele-error, body > svg").count(), 0);
+});
+
+test("a complex diagram opens at readable size and scrolls within its modal on desktop and phone", async (t) => {
+  const source = ["flowchart LR"];
+  for (let stage = 0; stage < 8; stage++) {
+    for (let lane = 0; lane < 8; lane++) {
+      const node = `S${stage}L${lane}`;
+      source.push(`${node}["Stage ${stage + 1}, lane ${lane + 1}"]`);
+      if (!stage) continue;
+      source.push(`S${stage - 1}L${lane} --> ${node}`);
+      source.push(`S${stage - 1}L${(lane + 1) % 8} --> ${node}`);
+    }
+  }
+  const html = await assemble({
+    name: "complex-diagram",
+    round: "1",
+    title: "Complex diagram",
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: `<div data-diagram>${source.join("\n")}</div>`,
+      },
+    ],
+  });
+  for (const width of [1360, 375]) {
+    const page = await open(t, "http://pair.localhost/#overview", {
+      html,
+      viewport: { width, height: 700 },
+    });
+    if (!page) return;
+    await page
+      .locator("[data-diagram] svg")
+      .click({ position: { x: 2, y: 2 } });
+    const view = page.locator("#diagram-dialog[open] .lightbox-view");
+    await view.waitFor();
+    const size = await view.evaluate((element) => {
+      const svg = element.querySelector("svg");
+      const scale =
+        svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      return {
+        textSize:
+          parseFloat(
+            getComputedStyle(svg.querySelector(".pele-label")).fontSize,
+          ) * scale,
+        overflowX: element.scrollWidth > element.clientWidth,
+        overflowY: element.scrollHeight > element.clientHeight,
+        pageWidth: document.documentElement.scrollWidth,
+      };
+    });
+    assert.ok(
+      size.textSize >= 13,
+      `labels shrank to ${size.textSize}px at ${width}px`,
+    );
+    assert.equal(size.pageWidth, width);
+    assert.equal(size.overflowX, true);
+    assert.equal(size.overflowY, true);
+    await view.hover();
+    await page.mouse.wheel(10000, 10000);
+    await page.waitForFunction(() => {
+      const element = document.querySelector("#diagram-dialog .lightbox-view");
+      return element.scrollLeft > 0 && element.scrollTop > 0;
+    });
+    await page.keyboard.press("Escape");
+    assert.equal(
+      await page.locator("#diagram-dialog").evaluate((el) => el.open),
+      false,
+    );
+    await page.close();
+  }
+});
+
+// The frame loads the diff library from esm.sh, so this test is in the figures
+// suite, which CI runs in its own job.
+test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's choice over data-wrap, and keeps split rows level", async (t) => {
+  const prose = (end) =>
+    `The client retries a failed charge with a delay between attempts, logs each attempt with its request ID, and ${end}.`.repeat(
+      4,
+    );
+  const [before, after] = [prose("gives up"), prose("returns the last error")];
+  const input = {
+    before: `# Retry\n\n${before}\n`,
+    after: `# Retry\n\n${after}\n`,
+    patch: `diff --git a/retry.md b/retry.md\n--- a/retry.md\n+++ b/retry.md\n@@ -1,3 +1,3 @@\n # Retry\n \n-${before}\n+${after}\n`,
+  };
+  const [markup] = (
+    await fs.readFile(`${root}/src/components/before-after/markup.html`, "utf8")
+  ).split("<!-- For diagrams");
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-diff-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  await fs.writeFile(path.join(directory, "retry.json"), JSON.stringify(input));
+  const diff = (attributes) =>
+    markup
+      .replace('data-kind="diff"', `data-kind="diff" ${attributes}`)
+      .replace('"OUTPUT.json"', '"retry.json"');
+  const html = await buildPage(path.join(directory, "page.json"), {
+    name: "diff-wrap",
+    round: "1",
+    title: "Diff wrap",
+    page: {
+      id: "overview",
+      title: "Overview",
+      html: diff('id="scroll"') + diff('id="wrap" data-wrap'),
+    },
+  });
+  const page = await open(t, "http://pair.localhost/#overview", {
+    html,
+    viewport: { width: 1280, height: 900 },
+  });
+  if (!page) return;
+  // wrapping reads what the diff draws and what Wrap shows. shows() reads them
+  // again until they match or 30 seconds pass, so a failure reports what the
+  // diff shows.
+  const wrapping = (id) =>
+    page.locator(`#${id}`).evaluate((section) => ({
+      overflow: section
+        .querySelector("diffs-container")
+        ?.shadowRoot?.querySelector("pre")?.dataset.overflow,
+      pressed: section
+        .querySelector("[data-diff-wrap]")
+        .getAttribute("aria-pressed"),
+    }));
+  const shows = async (id, overflow) => {
+    const expected = { overflow, pressed: String(overflow === "wrap") };
+    await waitUntil(
+      async () => isDeepStrictEqual(await wrapping(id), expected),
+      30_000,
+    );
+    assert.deepEqual(await wrapping(id), expected, `#${id}`);
+  };
+  await shows("scroll", "scroll");
+  await shows("wrap", "wrap");
+  await page.locator("#scroll [data-diff-wrap]").click();
+  await page.locator("#wrap [data-diff-wrap]").click();
+  await shows("scroll", "wrap");
+  await shows("wrap", "scroll");
+  await page.reload();
+  await shows("scroll", "wrap");
+  await shows("wrap", "scroll");
+  await page.locator("#scroll [data-diff-style=split]").click();
+  await page
+    .locator("#scroll diffs-container")
+    .locator("pre[data-diff-type=split]")
+    .waitFor();
+  const rows = await page.locator("#scroll diffs-container").evaluate((box) =>
+    ["deletions", "additions"].map((side) =>
+      [
+        ...box.shadowRoot.querySelector(`code[data-${side}] [data-content]`)
+          .children,
+      ].map((row) => {
+        const { top, height } = row.getBoundingClientRect();
+        return { top, height };
+      }),
+    ),
+  );
+  assert.ok(
+    rows[0].some(({ height }) => height > 22),
+    "no row wrapped onto a second line",
+  );
+  assert.deepEqual(rows[1], rows[0]);
+});

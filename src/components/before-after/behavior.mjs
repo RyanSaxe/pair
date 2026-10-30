@@ -1,11 +1,10 @@
-/* The diff viewer over a before-and-after pair. planUI.diff owns the
-   renderer; this reads the pair out of the page and remembers the layout. */
 planUI.define("before-after", {
   match: ".change-review",
   setup(root, { page, planUI }) {
     const viewer = root.querySelector(".change-view");
     const error = root.querySelector("[data-diff-error]");
     const buttons = root.querySelectorAll("[data-diff-style]");
+    const wrapButton = root.querySelector("[data-diff-wrap]");
     const controls = root.querySelector(".change-controls");
     if (
       root.dataset.file &&
@@ -18,16 +17,32 @@ planUI.define("before-after", {
       controls.prepend(name);
     }
     const prefs = planUI.prefs;
-    // The element's own ID, so two diffs on a page keep separate layouts.
-    // A diff with no ID falls back to its position among the page's diffs.
-    const name =
-      root.id ||
-      [...root.closest("#page-content").querySelectorAll(".change-review")]
-        .indexOf(root)
-        .toString();
+    // The key uses the element's own ID, so planUI.prefs stores a separate
+    // layout for each diff on a page. A diff with no ID uses its position among
+    // the page's diffs.
+    const index = [
+      ...root.closest("#page-content").querySelectorAll(".change-review"),
+    ]
+      .indexOf(root)
+      .toString();
+    const name = root.id || index;
+    if (!root.id) {
+      const base = `pair-diff-${page.id}-${index}`;
+      let id = base;
+      let suffix = 1;
+      while (document.getElementById(id)) id = `${base}-${suffix++}`;
+      root.id = id;
+    }
     const key = `diff:${page.id}/${name}`;
-    // Split needs room for two columns; below 900px the unified view reads
-    // better. A click on the toggle overrides and is remembered per diff.
+    const wrapKey = `${key}:wrap`;
+    // data-wrap on the section opens the diff wrapped until the reviewer clicks
+    // Wrap, and the reviewer's choice then takes precedence.
+    const wrapped = () =>
+      (prefs.get(wrapKey) ??
+        (root.hasAttribute("data-wrap") ? "on" : "off")) === "on";
+    // The split view needs room for two columns, so a column narrower than
+    // 900px gets the unified view. A click on the toggle overrides the width,
+    // and planUI.prefs stores the choice for each diff.
     const automatic = () =>
       (root.closest("#page-content") || document.body).clientWidth >= 900
         ? "split"
@@ -49,7 +64,8 @@ planUI.define("before-after", {
     const render = async (diffStyle) => {
       style = diffStyle;
       try {
-        await planUI.diff(viewer, input, { diffStyle });
+        await planUI.diff(viewer, input, { diffStyle, wrap: wrapped() });
+        wrapButton?.setAttribute("aria-pressed", String(wrapped()));
         for (const button of buttons)
           button.setAttribute(
             "aria-pressed",
@@ -63,6 +79,11 @@ planUI.define("before-after", {
       button.onclick = () => {
         prefs.set(key, button.dataset.diffStyle);
         render(button.dataset.diffStyle);
+      };
+    if (wrapButton)
+      wrapButton.onclick = () => {
+        prefs.set(wrapKey, wrapped() ? "off" : "on");
+        render(style);
       };
     render(prefs.get(key) || automatic());
     new ResizeObserver(() => {

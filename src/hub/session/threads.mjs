@@ -5,8 +5,6 @@ import { problems } from "../../build/lint.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 
-// Every thread in a session, read from disk once. saveThread writes each
-// change back.
 export async function readThreads(directory) {
   const folder = path.join(directory, "threads");
   const names = (await fs.readdir(folder)).filter((name) =>
@@ -19,15 +17,15 @@ export async function readThreads(directory) {
 }
 const text = (value) => typeof value === "string" && value.trim().length > 0;
 const optional = (value) => value === undefined || typeof value === "string";
-// A reply shows something. What the reviewer answers with Send feedback goes
-// on a page instead.
+// The reviewer answers a decision, a checklist or a question only with Send
+// feedback, so checkReply refuses a reply that contains one.
 const control =
   /<[a-zA-Z][^>]*\sdata-(?:choice|multiselect|question|drawing-question)=/;
 // The hub quotes the reviewer's message in a thread's wake, as it does in a
 // Start's wake, so the holder can read a short message before it runs pair
-// read. A thread message has no length limit, so the hub quotes at most the
-// first 500 characters of a longer message, cut at a space, and pair read
-// prints the message whole.
+// read. A thread message has no length limit, so wakeNote quotes at most the
+// first 500 characters, cut at a space, and pair read prints the whole
+// message.
 const quoted = 500;
 function wakeNote(message) {
   const words = message.text;
@@ -48,8 +46,8 @@ function wakeNote(message) {
   return `\n\n${note}`;
 }
 
-// Threads: a note the reviewer sends to the agent at once, and the replies
-// under it. A thread never changes the round.
+// A thread is a note that the reviewer sends to the agent at once, with the
+// replies under it. No thread action changes the round.
 export function threads(session) {
   const { directory, threadRecords: records } = session;
   const readCommand = (id) =>
@@ -60,15 +58,44 @@ export function threads(session) {
     thread.updatedAt = timestamp();
     await atomic(path.join(directory, "threads", `${thread.id}.json`), thread);
   }
-  // The browser sees each thread without the result of its last wake,
-  // whose reason can name the holder's socket.
+  // shown leaves out the result of the thread's last wake, because its
+  // reason can contain the holder's socket path.
   const shown = ({ wake, ...thread }) => thread;
   const threadView = () =>
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .map(shown);
-  // A thread starts on a page of the round, or on Review's overall comment
-  // or on Work, which the frame names overall and work.
+  // threadLines gives the bell's Threads tab a line for each thread in the
+  // current round and each older thread still waiting for the agent, so the
+  // list stays short however many rounds a session runs. Every tab reads the
+  // session list every 5 seconds, so a line has only the start of the thread's
+  // first message. waitingSince is when the reviewer first wrote after the
+  // agent's last reply, and answeredAt is when that reply came. A line has the
+  // fields that a reply's event has, so the frame opens both the same way.
+  const lineLength = 160;
+  const threadLines = () =>
+    [...records.values()].flatMap((thread) => {
+      const { messages } = thread;
+      const reply = messages.findLast((item) => item.from === "agent");
+      const unanswered = messages[messages.indexOf(reply) + 1];
+      if (!unanswered && thread.round !== session.state.current?.round)
+        return [];
+      const line = {
+        thread: thread.id,
+        name: thread.page,
+        text: (messages[0]?.text || thread.anchor || "").slice(0, lineLength),
+        ...(thread.proposal
+          ? { page: "work", proposal: thread.proposal }
+          : { round: thread.round, page: thread.topic }),
+        ...(thread.target ? { target: thread.target } : {}),
+        ...(unanswered
+          ? { waitingSince: unanswered.at }
+          : { answeredAt: reply?.at }),
+      };
+      return [line];
+    });
+  // The frame sends the topic overall for Review's overall comment and work
+  // for the Work page.
   const ownTitles = {
     agreed: "Agreed so far",
     overall: "Overall feedback",
@@ -80,8 +107,6 @@ export function threads(session) {
       (slot) => slot.id === topic,
     )?.title;
   }
-  // Each message the reviewer sends: its text and the images it names,
-  // each of which the session must have.
   async function reviewerMessage(data) {
     requireValue(text(data.text), "A thread message needs text");
     const attachments = data.attachments ?? [];
@@ -95,15 +120,7 @@ export function threads(session) {
         item && typeof item.id === "string",
         "An attachment needs its image ID",
       );
-      const name = await session.uploadName(item.id);
-      requireValue(name, `Image ${item.id} is not in this session`);
-      const image = await session.readUpload(item.id);
-      images.push({
-        id: item.id,
-        path: path.join(directory, "uploads", name),
-        type: image.type,
-        bytes: image.bytes.length,
-      });
+      images.push(await session.storedAttachment(item));
     }
     return {
       from: "reviewer",
@@ -112,8 +129,9 @@ export function threads(session) {
       ...(images.length ? { attachments: images } : {}),
     };
   }
-  // The hub wakes the holder once for each message the reviewer sends,
-  // after the browser's request has its answer, with that message.
+  // The hub wakes the holder for each of the reviewer's messages, except one
+  // added while an earlier wake waits to be sent. wakeLater sends the wake
+  // after the hub answers the browser's request.
   function wakeLater(thread) {
     const message = thread.messages.at(-1);
     setTimeout(
@@ -131,8 +149,8 @@ export function threads(session) {
     // The agent may have opened the thread while the wake ran.
     const state =
       thread.state === "sending" ? (wake.ok ? "sent" : "failed") : thread.state;
-    // The status reads the thread in memory, so it shows the wake's result
-    // only once the file has it.
+    // threadView reads the thread from memory, so wakeHolder updates it in
+    // memory only after saveThread writes the wake's result to the file.
     const settled = { ...thread, wake, state };
     await saveThread(settled);
     Object.assign(thread, settled);
@@ -144,8 +162,6 @@ export function threads(session) {
       409,
     );
   }
-  // A thread on a proposal's card names the card instead of a round, a page
-  // and a block, and its page is the card's title.
   async function cardThread(data) {
     const card = session
       .proposalItems()
@@ -186,13 +202,32 @@ export function threads(session) {
       [data.quote, data.target, data.agreementId].every(optional),
       "A thread's quote, target and agreement are text",
     );
-    // Which appearance of the quote in its block the reviewer selected,
-    // counting from 1.
+    // occurrence is the appearance of the quote in its block that the
+    // reviewer selected, counting from 1.
     requireValue(
       data.occurrence === undefined ||
         (Number.isInteger(data.occurrence) && data.occurrence > 0),
       "A thread's occurrence is a whole number from 1",
     );
+    if (data.diffLine !== undefined)
+      requireValue(
+        data.diffLine &&
+          typeof data.diffLine === "object" &&
+          !Array.isArray(data.diffLine) &&
+          ["additions", "deletions"].includes(data.diffLine.side) &&
+          Number.isInteger(data.diffLine.lineNumber) &&
+          data.diffLine.lineNumber > 0 &&
+          text(data.quote) &&
+          text(data.target),
+        "A diff line needs a side, a positive line number, a quote and a target",
+      );
+    // diagramNode is the ID that Pele assigns to the diagram box the thread
+    // is on.
+    if (data.diagramNode !== undefined)
+      requireValue(
+        text(data.diagramNode) && text(data.quote) && text(data.target),
+        "A diagram box needs its ID, a quote and a target",
+      );
     const message = await reviewerMessage(data);
     const thread = {
       id: data.id,
@@ -204,6 +239,15 @@ export function threads(session) {
       ...(text(data.quote) ? { quote: data.quote.trim() } : {}),
       ...(text(data.target) ? { target: data.target } : {}),
       ...(data.occurrence > 1 ? { occurrence: data.occurrence } : {}),
+      ...(data.diffLine
+        ? {
+            diffLine: {
+              side: data.diffLine.side,
+              lineNumber: data.diffLine.lineNumber,
+            },
+          }
+        : {}),
+      ...(data.diagramNode ? { diagramNode: data.diagramNode } : {}),
       ...(text(data.agreementId) ? { agreementId: data.agreementId } : {}),
       state: "sending",
       readAt: null,
@@ -215,8 +259,6 @@ export function threads(session) {
     wakeLater(thread);
     return { thread: shown(thread) };
   }
-  // Open a new agent session on a card starts a thread of kind open-agent
-  // with the reviewer's message, and wakes the holder as any thread does.
   async function agentThread(card, text) {
     open();
     const at = timestamp();
@@ -235,8 +277,8 @@ export function threads(session) {
     wakeLater(thread);
     return shown(thread);
   }
-  // Until a session links to the card, the thread asks the holder to open
-  // the agent that runs pair start --from.
+  // Until a session links to the card, pair read --thread on an open-agent
+  // thread prints the step to open an agent that runs pair start --from.
   const opensAgent = (thread) =>
     thread.kind === "open-agent" &&
     !session.proposalItems().find((card) => card.id === thread.proposal)
@@ -249,15 +291,33 @@ export function threads(session) {
   async function addThreadMessage(id, data) {
     open();
     const thread = threadFor(id);
-    thread.messages.push(await reviewerMessage(data));
-    thread.state = "sending";
-    thread.readAt = null;
+    const replyId = data.replyId;
+    if (replyId !== undefined) {
+      requireValue(
+        typeof replyId === "string" && idPattern.test(replyId),
+        "A thread reply needs a valid reply ID",
+      );
+      if (thread.messages.some((message) => message.replyId === replyId))
+        return { thread: shown(thread) };
+    }
+    thread.messages.push({
+      ...(replyId === undefined ? {} : { replyId }),
+      ...(await reviewerMessage(data)),
+    });
+    // An agent can act on the message its wake quotes without running pair
+    // read, so each message wakes it again once the previous wake has reached
+    // it. A message added while a wake waits to be sent joins that wake, and
+    // pair read --thread prints it.
+    const sending = thread.state === "sending";
+    if (!sending) {
+      thread.state = "sending";
+      thread.readAt = null;
+    }
     await saveThread(thread);
-    wakeLater(thread);
+    if (!sending) wakeLater(thread);
     return { thread: shown(thread) };
   }
-  // The reviewer's thumbs up on one of the agent's messages, or its removal.
-  // The hub sends no wake for it.
+  // The hub sends no wake for a thumbs up or for its removal.
   async function acknowledge(id, data) {
     open();
     const thread = threadFor(id);
@@ -277,7 +337,7 @@ export function threads(session) {
     await saveThread(thread);
     return { thread: shown(thread) };
   }
-  // The bell drops the line of a reply the reviewer acknowledged.
+  // The frame's bell leaves out a reply that the reviewer gave a thumbs up.
   const withAcknowledgements = (events) =>
     events.map((event) =>
       event.thread &&
@@ -285,7 +345,7 @@ export function threads(session) {
         ? { ...event, acknowledged: true }
         : event,
     );
-  // The prototypes a reply may show are the ones its round already has.
+  // A reply can show only the prototypes that its round's pages contain.
   async function roundPrototypes(round) {
     const found = [];
     for (const slot of session
@@ -311,8 +371,9 @@ export function threads(session) {
     );
     requireValue(!found.length, found.join("\n"));
   }
-  // With no text the reply action marks the thread read and returns it, for
-  // pair read --thread, and with text or HTML it posts the agent's reply.
+  // pair read --thread calls reply with no text or HTML, and reply then
+  // marks the thread read and returns it. With text or HTML, reply posts the
+  // agent's reply.
   async function reply(data) {
     requireValue(
       idPattern.test(data.note || ""),
@@ -324,7 +385,7 @@ export function threads(session) {
       "pair reply takes --text or --file, not both",
     );
     if (data.text === undefined && data.html === undefined) {
-      // A thread the agent has answered stays answered when it is read again.
+      // Reading a thread again leaves a thread the agent answered as replied.
       if (
         thread.messages.at(-1).from === "reviewer" &&
         thread.state !== "read"
@@ -366,13 +427,11 @@ export function threads(session) {
     await session.addActivity({
       kind: "reply",
       name: thread.page,
-      // A reply on a card opens the Work page, under the card.
       ...(thread.proposal
         ? { page: "work", proposal: thread.proposal }
         : { round: thread.round, page: thread.topic }),
       ...(thread.target ? { target: thread.target } : {}),
       thread: thread.id,
-      // The reply's place in the thread, so a notification opens the reply.
       message: thread.messages.length - 1,
     });
     await session.transition(session.report());
@@ -381,9 +440,8 @@ export function threads(session) {
       next: `Go back to what you were doing. ${await session.nextStep()}`,
     };
   }
-  // Each thread with a reviewer message or thumbs up after the time given,
-  // or every thread when none is given, for pair read's index, oldest first.
-  // acknowledged numbers the agent messages with a thumbs up from 1.
+  // threadsSince lists threads for pair read's index. acknowledged contains
+  // the positions, counting from 1, of the messages with a thumbs up.
   function threadsSince(at) {
     return [...records.values()]
       .map((thread) => {
@@ -413,7 +471,8 @@ export function threads(session) {
         ...(acknowledged.length ? { acknowledged } : {}),
       }));
   }
-  // Agreed cites a thread that settled a decision, as it cites a note.
+  // The agent can cite a thread that settled a decision in Agreed's source,
+  // as it cites a note.
   function threadSource(id) {
     const thread = records.get(id);
     requireValue(
@@ -424,6 +483,7 @@ export function threads(session) {
   }
   return {
     threadView,
+    threadLines,
     startThread,
     agentThread,
     addThreadMessage,

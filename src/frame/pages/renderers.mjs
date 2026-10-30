@@ -1,4 +1,5 @@
 import { $, copyText, installPanel } from "#frame/app/util.mjs";
+import { libraries } from "#shared/libraries.mjs";
 
 let systemTheme;
 let preferredTheme = null;
@@ -14,7 +15,8 @@ export function installRenderers() {
       if (["light", "dark"].includes(value)) preferredTheme = value;
     }
   } catch {
-    /* Theme changes remain available without storage. */
+    /* When reading the cookie throws, the reader can still change the
+       theme. */
   }
   activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
   installPanel($("settings-pop"), $("settings"));
@@ -28,7 +30,8 @@ export function installRenderers() {
       if (/^https?:$/.test(location.protocol))
         document.cookie = `pair-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
     } catch {
-      /* Keep the explicit choice in memory when cookies are blocked. */
+      /* When the browser blocks cookies, the frame keeps the reader's
+         choice in memory only. */
     }
     theme();
   });
@@ -39,9 +42,13 @@ export function installRenderers() {
   });
 }
 export const charts = new Map();
+export const diagrams = new Map();
 const diffs = new Map();
-// In-flight renderers, so a page re-render can restore the scroll position
-// once the content has its height back.
+const diffLineSets = new Map();
+const noteHighlightCSS =
+  "::highlight(plan-note), ::highlight(plan-preview) { background-color: var(--mark); color: inherit; }";
+// renders contains the renderers in flight, so a re-render of the page can
+// restore the scroll position once the content has its height back.
 export const renders = new Set();
 export function track(task) {
   renders.add(task);
@@ -50,16 +57,17 @@ export function track(task) {
 }
 export const syntaxThemes = { light: "github-light", dark: "github-dark" };
 
-/* The height @pierre/diffs 1.4.2 gives a diff that it draws from a patch
-   alone, with overflow "scroll", as measured in Chromium and WebKit. Each
-   row is 22px, and the rows have 8px of space above and below. Before each
-   hunk that does not start at the line after the previous one stands an
-   "N unmodified lines" separator, 32px with 8px of space below it, and 8px
-   above it too after a hunk. In split view a run of removed lines and the
-   added lines after it share rows, so the run takes as many rows as its
-   longer side. "\\ No newline at end of file" takes a row, one for each
-   side it marks in unified view. renderDiff() reserves this height as
-   the viewer's min-height before the diff draws. */
+/* diffHeight() computes the height that @pierre/diffs 1.6.2 gives a diff
+   drawn from a patch alone, with overflow "scroll", as measured in Chromium
+   and WebKit. Each row is 22px, and the rows have 8px of space above and
+   below. Before each hunk that does not start at the line after the
+   previous hunk, the library draws an "N unmodified lines" separator, 32px
+   tall with 8px of space below it, and 8px above it too after a hunk. In
+   split view a run of removed lines shares rows with the added lines after
+   it, so the run uses as many rows as its longer side.
+   "\\ No newline at end of file" uses a row, one for each side it marks in
+   unified view. renderDiff() reserves this height as the viewer's
+   min-height before the diff draws. */
 const DIFF_ROW_PX = 22;
 const DIFF_SEPARATOR_PX = 32;
 const DIFF_SPACE_PX = 8;
@@ -69,7 +77,8 @@ export function diffHeight(patch, diffStyle = "split") {
   let space = 0;
   let run = { "-": 0, "+": 0, marked: new Set() };
   let previous = null;
-  // The new file's line after the previous hunk, and null before the first.
+  // next is the new file's line after the previous hunk, or null before the
+  // first hunk.
   let next = null;
   const endRun = () => {
     const { marked } = run;
@@ -85,7 +94,7 @@ export function diffHeight(patch, diffStyle = "split") {
       endRun();
       const start = Number(hunk[1]);
       const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
-      // A hunk with no new lines sits after its start line.
+      // A hunk with no new lines begins after its start line.
       const first = count ? start : start + 1;
       if (first > (next ?? 1))
         space += DIFF_SEPARATOR_PX + DIFF_SPACE_PX * (next === null ? 1 : 2);
@@ -121,34 +130,35 @@ export function theme() {
     viewer.setOptions({ ...viewer.options, theme: syntaxThemes[activeTheme] });
     viewer.rerender();
   }
-  // A preview page reads the theme cookie when it loads.
+  // A preview page reads the theme cookie when it loads, so theme() reloads
+  // each preview.
   for (const frame of document.querySelectorAll(".agreement-preview iframe"))
     frame.contentWindow?.location.reload();
-  // A component that bakes a colour into what it drew, rather than reading
-  // a token, redraws here. The diagram is the one that does.
+  // Page scripts can refresh values they computed from the previous theme.
   window.dispatchEvent(new CustomEvent("plan:theme", { detail: activeTheme }));
 }
 export function disposeRenderers() {
+  for (const diagram of diagrams.values()) diagram.destroy();
+  diagrams.clear();
   for (const chart of charts.values()) chart.dispose();
   charts.clear();
   clearDiffs();
 }
 
-/* Renderers and figures */
-export const libraries = {
-  shiki: "https://esm.sh/shiki@3.12.2",
-  diffs: "https://esm.sh/@pierre/diffs@1.4.2?bundle",
-  mermaid:
-    "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs",
-  elk: "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.2.3/dist/mermaid-layout-elk.esm.min.mjs",
-  katex: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js",
-  katexCss: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
-  echarts: "https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js",
-};
+export { libraries };
 const scripts = new Map();
 let diffsTask;
-// A token's colour in the theme on screen. A token holds both themes'
-// values in light-dark(), which only an element's style resolves.
+let peleTask;
+export function pele() {
+  peleTask ||= import(libraries.pele).catch((error) => {
+    peleTask = undefined;
+    throw error;
+  });
+  return peleTask;
+}
+// A token has both themes' values in light-dark(), and only an element's
+// computed style resolves light-dark(), so color() reads the token from a
+// probe element.
 export function color(name) {
   const probe = document.createElement("i");
   probe.style.color = `var(${name})`;
@@ -183,9 +193,12 @@ export function failed(element, error) {
     element.nextElementSibling?.classList.contains("renderer-error")
   )
     return;
-  const note = document.createElement("p");
+  const message = error.message || "Renderer unavailable; source preserved.";
+  // A parser's message can quote the source line and put a caret under the
+  // column, which is readable only with its line breaks in fixed-width text.
+  const note = document.createElement(message.includes("\n") ? "pre" : "p");
   note.className = "renderer-error";
-  note.textContent = error.message || "Renderer unavailable; source preserved.";
+  note.textContent = message;
   element.after(note);
 }
 export function figure(
@@ -231,7 +244,6 @@ export function copyButton(read) {
   };
   return button;
 }
-// The line another agent runs to take the session over, with Copy.
 export function handoffLine(line) {
   const row = document.createElement("div");
   row.className = "handoff";
@@ -243,8 +255,6 @@ export function handoffLine(line) {
   );
   return row;
 }
-/* A JSON array in a data attribute, for the components that take one:
-   data-notes on a code block, data-terms on a formula. */
 export function readData(value) {
   try {
     const parsed = JSON.parse(value || "[]");
@@ -300,18 +310,131 @@ export async function chart(element, options) {
 function clearDiffs() {
   for (const viewer of diffs.values()) viewer.cleanUp();
   diffs.clear();
+  diffLineSets.clear();
 }
 export function diff(element, input, options) {
   return track(renderDiff(element, input, options));
 }
-async function renderDiff(element, input, { diffStyle = "split" } = {}) {
+function composedParent(node) {
+  const root = node?.getRootNode?.();
+  return node?.parentElement || root?.host || null;
+}
+function viewerForNode(node) {
+  for (
+    let at = node?.nodeType === 1 ? node : node?.parentElement;
+    at;
+    at = composedParent(at)
+  ) {
+    const viewer = diffs.get(at);
+    if (viewer) return viewer;
+  }
+  return null;
+}
+export function diffLineForNode(node) {
+  if (!viewerForNode(node)) return null;
+  let line = node?.nodeType === 1 ? node : node?.parentElement;
+  for (; line; line = composedParent(line))
+    if (line.matches?.("[data-line][data-line-type]")) break;
+  if (!line) return null;
+  const side =
+    line.dataset.lineType === "change-deletion" ? "deletions" : "additions";
+  const lineNumber = Number(
+    side === "additions" && line.dataset.lineType === "context"
+      ? (line.dataset.altLine ?? line.dataset.line)
+      : line.dataset.line,
+  );
+  if (!Number.isInteger(lineNumber) || lineNumber < 1) return null;
+  return {
+    side,
+    lineNumber,
+  };
+}
+/* Chrome reports a selection made inside a diff's shadow root as anchored
+   at the element around the shadow host, so diffSelectionRange() takes the
+   range inside the diff from getComposedRanges. It returns null for a
+   selection outside a diff. */
+export function diffSelectionRange(selection) {
+  const anchor = selection?.anchorNode;
+  if (!anchor || !selection.getComposedRanges || !viewerForNode(anchor))
+    return null;
+  const element = anchor.nodeType === 1 ? anchor : anchor.parentElement;
+  const shadowRoots = [...element.querySelectorAll("*")]
+    .map((node) => node.shadowRoot)
+    .filter(Boolean);
+  if (!shadowRoots.length) return null;
+  return selection.getComposedRanges({ shadowRoots })[0] ?? null;
+}
+export function selectionAnchor(selection) {
+  return diffSelectionRange(selection)?.startContainer ?? selection?.anchorNode;
+}
+export function isDiffNode(node) {
+  return Boolean(viewerForNode(node));
+}
+export function diffForTarget(target) {
+  const block =
+    typeof target === "string" ? document.getElementById(target) : target;
+  if (!block) return null;
+  return [...diffs.keys()].find((element) => block.contains(element)) || null;
+}
+export function diffViews(root) {
+  return [...diffs.keys()].filter((element) => root.contains(element));
+}
+function threadSlot({ side, lineNumber }) {
+  return `pair-line-${side}-${lineNumber}`;
+}
+export function setDiffThreads(element, threads, cards) {
+  const viewer = diffs.get(element);
+  const container = element.querySelector(":scope > diffs-container");
+  if (!viewer?.setLineAnnotations || !container) return false;
+  const lines = new Map();
+  const cardsByLine = new Map();
+  for (const thread of threads) {
+    const line = thread.diffLine;
+    if (
+      !line ||
+      !["additions", "deletions"].includes(line.side) ||
+      !Number.isInteger(line.lineNumber) ||
+      line.lineNumber < 1
+    )
+      continue;
+    const slot = threadSlot(line);
+    lines.set(slot, line);
+    const card = cards.get(thread.id)?.card;
+    if (!card) continue;
+    card.removeAttribute("slot");
+    cardsByLine.set(slot, [...(cardsByLine.get(slot) || []), card]);
+  }
+  const annotations = [...lines.values()];
+  const signature = [...lines.keys()].sort().join("|");
+  if (diffLineSets.get(element) !== signature) {
+    viewer.setLineAnnotations(annotations);
+    viewer.rerender();
+    diffLineSets.set(element, signature);
+  }
+  for (const [key, lineCards] of cardsByLine) {
+    const name = viewer.getAnnotationSlotName(lines.get(key));
+    const wrapper = [...container.children].find(
+      (node) => node.hasAttribute("data-annotation-slot") && node.slot === name,
+    );
+    wrapper?.querySelector("[data-pair-thread-line]")?.remove();
+    wrapper?.append(...lineCards);
+  }
+  return true;
+}
+async function renderDiff(
+  element,
+  input,
+  { diffStyle = "split", wrap = false } = {},
+) {
   if (typeof input.patch !== "string") throw Error("A Git patch is required.");
   if (!input.patch) {
     element.textContent = "No changes.";
     return null;
   }
-  // Before the first await, so the box has the diff's height before the
-  // page paints, and keeps it: the diff draws into it and moves nothing.
+  // renderDiff() sets the min-height before the first await, so the box has
+  // the diff's height before the page paints, and the diff draws into it
+  // without moving anything. A wrapped line is taller than one row, so a
+  // wrapped diff can only grow past this minimum.
   element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
   diffsTask ||= import(libraries.diffs);
   const { FileDiff, parsePatchFiles } = await diffsTask;
@@ -320,29 +443,41 @@ async function renderDiff(element, input, { diffStyle = "split" } = {}) {
   // a task gives each diff a task of its own, so the page paints first.
   await new Promise((resolve) => setTimeout(resolve));
   if (!element.isConnected) return null;
+  const overflow = wrap ? "wrap" : "scroll";
   let viewer = diffs.get(element);
   if (viewer) {
-    viewer.setOptions({ ...viewer.options, diffStyle });
+    viewer.setOptions({ ...viewer.options, diffStyle, overflow });
     viewer.rerender();
     return viewer;
   }
   const files = parsePatchFiles(input.patch).flatMap((patch) => patch.files);
   if (files.length !== 1)
     throw Error("Each diff component requires one file pair.");
-  // The bar above the viewer names the file; the viewer's own header would
-  // repeat it with the path the patch was made from.
+  // The bar above the viewer shows the file name, and the viewer's own header
+  // would repeat it with the path the patch was made from.
   viewer = new FileDiff({
     theme: syntaxThemes[activeTheme],
     diffStyle,
     lineDiffType: "word-alt",
     diffIndicators: "classic",
-    // A long line scrolls sideways instead of wrapping, so every row is one
-    // line tall and diffHeight() can count the diff's height.
-    overflow: "scroll",
+    // Unless the page sets wrap, a long line scrolls sideways, so every row
+    // is one line tall and diffHeight() matches the diff's height.
+    overflow,
     disableFileHeader: true,
+    unsafeCSS: noteHighlightCSS,
+    onPostRender(_node, _viewer, phase) {
+      if (phase !== "unmount")
+        queueMicrotask(() => window.dispatchEvent(new Event("plan:diff")));
+    },
+    renderAnnotation(annotation) {
+      const placeholder = document.createElement("span");
+      placeholder.dataset.pairThreadLine = threadSlot(annotation);
+      return placeholder;
+    },
   });
   element.replaceChildren();
   viewer.render({ fileDiff: files[0], containerWrapper: element });
   diffs.set(element, viewer);
+  diffLineSets.set(element, "");
   return viewer;
 }

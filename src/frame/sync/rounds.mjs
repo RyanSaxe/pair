@@ -5,7 +5,6 @@ import {
   savedDraft,
   setState,
   state,
-  storedDraft,
 } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -25,7 +24,6 @@ import {
   setSubmittedRound,
   showingWaiting,
   shownPage,
-  storageKey,
   submittedRound,
   useView,
   views,
@@ -35,7 +33,12 @@ import {
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
-import { displayedRound, show, updateNavigation } from "#frame/pages/pages.mjs";
+import {
+  displayedRound,
+  redrawPage,
+  show,
+  updateNavigation,
+} from "#frame/pages/pages.mjs";
 import { updatePending } from "#frame/pages/pending.mjs";
 import { refreshWork } from "#frame/pages/work.mjs";
 import {
@@ -45,12 +48,16 @@ import {
   setRenderedFeedback,
   showSent,
 } from "#frame/review/review.mjs";
-import { submissionInFlight } from "#frame/review/send.mjs";
+import {
+  clearSubmissionError,
+  submissionInFlight,
+} from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
 
 export let selectedTab = "current";
-// What was sent on each past round the left tab has shown.
+// sentByRound contains the submission of each past round that the Previous
+// tab has shown.
 export const sentByRound = new Map();
 export const pageSets = new Map();
 const recordLoads = new Map();
@@ -62,8 +69,6 @@ export function setRemote(status) {
 export let connected = false;
 export let lastSubmission = null;
 let lastSubmissionLoadedId = null;
-// The submission sent on a round, or on the latest round when none is
-// named. Undefined when the hub could not say.
 async function fetchSubmission(round = null) {
   const response = await fetch(
     round
@@ -82,8 +87,8 @@ async function loadPastSubmission(round) {
   const draft = onScreen ? state : views.get(round)?.draft;
   if (submission && draft && !draft.submitted) showSent(draft, submission);
   if (!onScreen) return;
-  // The redraw keeps the reader's place, or the landing still under way,
-  // and the address's target.
+  // show() redraws with keepScroll and the address's target, so the reader's
+  // place, or a landing still under way, survives the redraw.
   const target = new URLSearchParams(location.search).get("target");
   if (!$("reading").hidden)
     show(page.id, target, { keepScroll: true, push: false });
@@ -102,7 +107,8 @@ export async function loadSubmission() {
   if (mode !== "readonly" && submission && submission.id !== key) return;
   lastSubmission = submission;
   lastSubmissionLoadedId = key;
-  // A read-only round has no draft, so its controls show what was sent.
+  // A read-only round has no draft, so showSent fills its controls from the
+  // submission.
   if (mode === "readonly" && submission) {
     showSent(state, submission);
     if (!$("reading").hidden)
@@ -110,8 +116,9 @@ export async function loadSubmission() {
   }
   renderSentFeedback();
 }
-// A round runs from the reader's send, and while any round's pages are
-// still being published, round 1 and a build from the handoff line included.
+// A round counts as running from the reader's send, and while any round's
+// pages are still being published. That includes round 1 and a build from
+// the handoff line.
 export const roundRunning = () =>
   (Boolean(submittedRound) && waiting()) || Boolean(remote?.openRound);
 export const roundFinished = () =>
@@ -121,7 +128,8 @@ export const roundFinished = () =>
   remote.current.round !== submittedRound &&
   remote.latestSubmissionRound === submittedRound;
 
-/* A published page is fetched once. Polls only update its place in the list. */
+/* loadPageRecord fetches a published page once, and a poll only updates
+   the page's place in the list. */
 export async function loadPageRecord(round, id) {
   const view = views.get(round);
   const manifest = pageSets.get(round);
@@ -138,8 +146,8 @@ export async function loadPageRecord(round, id) {
       throw Error("Wrong page record.");
     const entry = view.pages.find((item) => item.id === id);
     if (id === "agreed") {
-      // Agreed's source marks a plan round, so the round's data takes the
-      // mark when its Agreed loads.
+      // Agreed's source marks a plan round, so loadPageRecord sets
+      // view.plan.plan when Agreed loads.
       view.plan.plan = record.plan === true;
       view.agreements = record.page.agreements;
       view.task = record.page.task || null;
@@ -185,8 +193,8 @@ export async function loadPageRecord(round, id) {
       page.id === id &&
       !$("reading").hidden
     ) {
-      // The page on screen was a placeholder, so the landing that opened
-      // it, such as on a notification's target, reaches its anchor now.
+      // The page on screen was a placeholder, so show() now scrolls to the
+      // target of the landing that opened it, such as a notification's.
       const target = new URL(location.href).searchParams.get("target");
       show(id, target, { keepScroll: true, push: false, inPlace: true });
     }
@@ -237,7 +245,6 @@ function reconcilePages(view, manifest) {
   view.plan.pages = view.pages.filter((item) => item.id !== "agreed");
   if (plan.round === view.plan.round && !showingWaiting()) useView(view);
 }
-// A round this reader has not loaded, which its page set then fills in.
 function emptyView(round, { name, title }) {
   const view = {
     plan: { name, round, title, pages: [] },
@@ -247,8 +254,8 @@ function emptyView(round, { name, title }) {
   views.set(round, view);
   return view;
 }
-// Fetches a round's page list into the view viewFor gives, and loads its
-// Agreed. A round whose Agreed fails to load keeps the page list it had.
+// When Agreed fails to load, loadPageSet restores the round's previous
+// entry in pageSets.
 async function loadPageSet(round, viewFor, failure) {
   const response = await fetch(
     `${base}/api/page-set?round=${encodeURIComponent(round)}`,
@@ -298,8 +305,6 @@ async function syncPageSet() {
   return pageSetLoading;
 }
 const pastLoads = new Map();
-// Load a past round's page list and Agreed into a view the left tab can
-// show.
 function loadPastView(round) {
   if (!round) return Promise.resolve(false);
   if (views.has(round)) return Promise.resolve(true);
@@ -329,8 +334,6 @@ function loadPastView(round) {
   pastLoads.set(round, task);
   return task;
 }
-// The clock and an agreement's Open link load a past round into the left
-// tab. When its pages cannot load, it opens on its own read-only page.
 export async function openPast(round, { pageId = null, targetId = null } = {}) {
   const loaded = await loadPastView(round).catch(() => false);
   if (!loaded) {
@@ -341,29 +344,61 @@ export async function openPast(round, { pageId = null, targetId = null } = {}) {
   if (pageId) places[round] = { page: pageId, at: {} };
   switchTab("past", targetId, { showPage: true });
 }
-// Current's draft while a past round is on screen: the one set aside when
-// the reader left Current, or the saved one.
+// Current's draft is the one set aside when the reader left Current, or
+// else the saved draft.
 export function currentDraft() {
   const view = views.get(remote?.current?.round);
   if (view?.draft) return view.draft;
   return savedDraft(remote.current.round);
 }
-// Each tab reopens its round at the page and scroll position the reader
-// left, or at Agreed on a first visit.
+// listedTab is the tab whose round the sidebar lists. A tab click lists that
+// round's pages but leaves the page on screen, with its own round's draft
+// and threads, until the reader picks a page from the list.
+export let listedTab = "current";
+const tabAvailable = (tab) =>
+  tab === "current"
+    ? currentShown() || submissionInFlight
+    : tab !== "past" || pastAvailable();
+const viewFor = (tab) => {
+  const round = tab === "current" ? remote.current.round : pastRound;
+  return tab === "current" && (waiting() || submissionInFlight)
+    ? waitingView(round)
+    : views.get(round);
+};
+export function listedPages() {
+  if (listedTab === selectedTab)
+    return {
+      tab: selectedTab,
+      round: plan.round,
+      pages,
+      waiting: showingWaiting(),
+    };
+  const view = viewFor(listedTab);
+  return {
+    tab: listedTab,
+    round: view.plan.round,
+    pages: view.pages,
+    waiting: listedTab === "current" && Boolean(view.pages[0]?.waiting),
+  };
+}
+export function listTab(tab) {
+  if (!tabAvailable(tab)) return;
+  listedTab = tab;
+  updateNavigation(true);
+  review();
+}
 export function switchTab(tab, targetId = null, { showPage = true } = {}) {
-  if (tab === "current" && !currentShown() && !submissionInFlight) return;
-  if (tab === "past" && !pastAvailable()) return;
+  if (!tabAvailable(tab)) return;
   flushPlace();
   const round = tab === "current" ? remote.current.round : pastRound;
-  const view =
-    tab === "current" && (waiting() || submissionInFlight)
-      ? waitingView(round)
-      : views.get(round);
+  const view = viewFor(tab);
   views.get(plan.round).draft = state;
   selectedTab = tab;
+  listedTab = tab;
   useView(view);
   document.title = plan.title;
-  // The waiting view has no draft of its own; it holds the sent round's.
+  // The waiting view has no draft of its own, so it uses the sent round's
+  // draft.
   setState(
     views.get(round).draft ||
       (tab === "past" ? sentDraft(round) : savedDraft(round)),
@@ -382,28 +417,6 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();
 }
-// Every tab of a session saves its draft under one key. When another tab
-// saves the draft for the round this tab holds, this tab takes it over, so
-// it never saves its older copy back, such as one from before a send.
-export function installDraftSync() {
-  if (!editable) return;
-  window.addEventListener("storage", (event) => {
-    if (event.key !== storageKey) return;
-    const past = selectedTab === "past";
-    const view = past ? views.get(remote?.current?.round) : null;
-    const held = past ? view?.draft : state;
-    const draft = held && storedDraft(event.newValue, held.round);
-    if (!draft) return;
-    if (past) {
-      view.draft = draft;
-      return;
-    }
-    setState(draft);
-    if (!$("reading").hidden)
-      show(page.id, null, { keepScroll: true, push: false, inPlace: true });
-    review();
-  });
-}
 export async function poll() {
   try {
     const response = await fetch(`${base}/api/status`);
@@ -415,25 +428,28 @@ export async function poll() {
     if (editable && !submittedRound)
       setSubmittedRound(state.submitted?.round || remote.latestSubmissionRound);
     if (editable && !pastRound) setPastRound(submittedRound || null);
-    // A read-only page stays on its own round. A failed page-set fetch is
-    // retried on the next poll and does not mean the hub is unreachable.
+    // A read-only page stays on its own round. The next poll retries a
+    // failed page-set fetch, and the failure does not mean that the hub is
+    // unreachable.
     if (editable) {
       await syncPageSet().catch(() => {});
       await loadPastView(pastRound).catch(() => {});
     }
-    // Current's round was sent, here or in another browser: the left tab
-    // takes it, and a reader on Work stays there.
+    // When Current's round was sent, in this browser or another, the
+    // Previous tab shows it, and a reader on Work stays on Work.
     if (waiting() && !submissionInFlight) {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
         const onWork = shownPage() === "work";
         switchTab("current", null, { showPage: !onWork });
-        if (onWork) show("work", null, { keepScroll: true, push: false });
+        if (onWork)
+          show("work", null, { keepScroll: true, push: false, inPlace: true });
       }
     }
-    // The next round's Agreed arrived while Current waited. It replaces
-    // the pending Agreed without moving the reader or the scroll position.
+    // When the next round's Agreed arrives while Current waits, the frame
+    // replaces the pending Agreed without moving the reader or the scroll
+    // position.
     if (showingWaiting() && currentAvailable() && !submissionInFlight) {
       switchTab("current", null, { showPage: false });
       show(
@@ -454,6 +470,7 @@ export async function poll() {
       state.submitted?.id !== remote.latestSubmissionId
     ) {
       markSent(state, remote.latestSubmissionId, new Date().toISOString());
+      clearSubmissionError();
       persist();
     }
   } catch {
@@ -465,4 +482,5 @@ export async function poll() {
   renderRound();
   review();
   refreshWork();
+  redrawPage();
 }

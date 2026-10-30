@@ -22,7 +22,12 @@ import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
-import { switchTab } from "#frame/sync/rounds.mjs";
+import {
+  listTab,
+  listedTab,
+  selectedTab,
+  switchTab,
+} from "#frame/sync/rounds.mjs";
 import { toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
@@ -31,16 +36,16 @@ import {
   toggleSessions,
 } from "#frame/sync/sessions.mjs";
 
-/* The ×, Escape and a click outside each back out of a dialog. Backing
-   out of the note dialog keeps its text as a draft and drops the images it
-   uploaded. */
+/* The ×, Escape and a click outside each call backOut(). Backing out of the
+   note dialog keeps its text as a draft, and settleNoteImages() drops the
+   images uploaded from it. */
 function backOut(dialog) {
   if (dialog.id === "note-dialog") settleNoteImages();
 }
-/* A click outside counts only when the press and the release both land on
+/* A click counts as outside only when the press and the release both land on
    the backdrop, so a drag that starts in the dialog, such as selecting a
-   field's text, leaves it open. A click on the backdrop targets the
-   dialog itself, at a point outside its box. */
+   field's text, leaves the dialog open. The browser sets the target of a
+   click on the backdrop to the dialog itself, at a point outside its box. */
 function outside(dialog, event) {
   if (event.target !== dialog) return false;
   const box = dialog.getBoundingClientRect();
@@ -77,8 +82,9 @@ export function installEvents() {
     // The browser closes the dialog on Escape once this event returns.
     dialog.addEventListener("cancel", () => backOut(dialog));
   }
-  // A click inside an embedded frame never reaches this document, but it does
-  // move focus, so menus close on blur as well as on outside clicks.
+  // A click inside an embedded frame never reaches this document, but it
+  // moves focus, so the frame closes menus on blur as well as on outside
+  // clicks.
   window.addEventListener("blur", closeMenus);
   document.addEventListener("click", (event) => {
     const close = event.target.closest("[data-close]");
@@ -89,11 +95,12 @@ export function installEvents() {
     }
     const tab = event.target.closest("button[data-tab]");
     if (tab) {
-      switchTab(tab.dataset.tab, null, { showPage: false });
+      listTab(tab.dataset.tab);
       return;
     }
-    // The address's # part names the page on screen, so a link to a section
-    // of this page scrolls to it instead of asking for a page by that name.
+    // The frame uses the address's # part for the page on screen, so this
+    // handler scrolls to a section that a link on the page points to,
+    // instead of opening a page by that ID.
     const link = event.target.closest('a[href^="#"]');
     if (link && $("page-content").contains(link)) {
       const id = decodeURIComponent(link.getAttribute("href").slice(1));
@@ -108,6 +115,8 @@ export function installEvents() {
     const navigation = event.target.closest("[data-page]");
     if (navigation) {
       event.preventDefault();
+      if (listedTab !== selectedTab && $("page-list").contains(navigation))
+        switchTab(listedTab, null, { showPage: false });
       show(navigation.dataset.page);
     }
     if (!feedbackEditable()) return;
@@ -140,12 +149,11 @@ export function installEvents() {
       save();
     }
   });
-  /* Keys */
   document.addEventListener("keydown", (event) => {
-    /* Textareas keep Enter for newlines. Shift+Enter presses a question's
-       Answer and the note dialog's Add to feedback. The note dialog hides
-       Add to feedback when it only starts a thread, and Shift+Enter then
-       types a newline. */
+    /* Enter types a newline in a textarea, so Shift+Enter presses a
+       question's Answer and the note dialog's Add to feedback. When the note
+       dialog only starts a thread, the frame hides Add to feedback, and
+       Shift+Enter types a newline. */
     if (shiftEnter(event) && feedbackEditable()) {
       const area = event.target.closest("textarea");
       const answer = area
@@ -172,8 +180,11 @@ export function installEvents() {
       closeMenus();
       return;
     }
-    if (event.target.closest("input, textarea, select, [contenteditable]"))
-      return;
+    /* A key typed into a text field or a select belongs to that control, so
+       the shortcuts ignore it. A checkbox or a radio button uses no typed
+       keys, so the shortcuts still work while one has focus. The :read-write
+       selector matches the text fields. */
+    if (event.target.closest(":read-write, select")) return;
     if (document.querySelector("dialog[open]")) return;
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
@@ -186,7 +197,7 @@ export function installEvents() {
       const entry = numbered[Number(key) - 1];
       if (entry && entry.id !== session.sessionId) location.assign(entry.url);
     } else if (mode === "home") {
-      // Every key below acts on a page, and a home view has none.
+      // Every key below acts on a page, and the home view has no page.
       return;
     } else if (key === "]" || key === "[") {
       const order = pageOrder().map((item) => item.id);
@@ -194,9 +205,6 @@ export function installEvents() {
       const next = order[index + (key === "]" ? 1 : -1)];
       if (next) show(next);
     } else if (key === "j" || key === "k") {
-      /* The same blocks and cards a click can choose, so the keys reach the
-         comment control's target. Tab still steps through the controls
-         inside one. */
       const blocks = choosable();
       if (!blocks.length) return;
       const index = blocks.indexOf(chosen);

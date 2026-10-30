@@ -9,24 +9,25 @@ export const exists = async (file) =>
   );
 export const read = async (file) => JSON.parse(await fs.readFile(file, "utf8"));
 export const timestamp = () => new Date().toISOString();
-export function requireValue(condition, message, code = 400) {
-  if (!condition) throw Object.assign(new Error(message), { statusCode: code });
+// The hub adds details to the JSON it answers a refused request with.
+export function requireValue(condition, message, code = 400, details) {
+  if (!condition)
+    throw Object.assign(new Error(message), { statusCode: code, details });
 }
-// Text is written as it is, and anything else as JSON.
 export async function atomic(file, value) {
   const temporary = `${file}.${crypto.randomUUID()}.tmp`;
   const text = typeof value === "string" ? value : json(value);
   await fs.writeFile(temporary, text, { mode: 0o600 });
   await fs.rename(temporary, file);
 }
-// JSON inside a <script> element escapes "<", so no string in it can end
-// the element.
+// scriptJson() escapes "<" in JSON for a <script> element, so no string in it
+// can end the element.
 export const scriptJson = (value, space) =>
   JSON.stringify(value, null, space).replaceAll("<", "\\u003c");
 export const jsonScriptTag = (id, value, space) =>
   `<script type="application/json" id="${id}">${scriptJson(value, space)}</script>`;
-// The application/json <script> element with this id. The first group is
-// its JSON.
+// jsonScript() matches the application/json <script> element with this id, and
+// the match's first group is the element's JSON.
 export const jsonScript = (id) =>
   new RegExp(
     `<script\\b(?=[^>]*\\bid=["']${id}["'])(?=[^>]*\\btype=["']application\\/json["'])[^>]*>([\\s\\S]*?)<\\/script>`,

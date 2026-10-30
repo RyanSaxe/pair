@@ -13,6 +13,7 @@ import {
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
+import { draftStore } from "./draft.mjs";
 import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { proposals } from "./proposals.mjs";
@@ -22,9 +23,9 @@ import { nextOf, submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
-// tabOpen says whether a pair tab on this machine polled the hub recently,
-// and peer finds another session on the hub by its ID, for the session a
-// linked session came from.
+// tabOpen returns whether a pair tab on this machine polled the hub
+// recently. peer returns another session on the hub by its ID, which a
+// linked session uses to reach its parent.
 export async function loadSession(
   directory,
   config,
@@ -42,7 +43,6 @@ export async function loadSession(
         current: null,
         acknowledged: [],
         startedAt: timestamp(),
-        // Round 1 starts with the pair start that creates the session.
         roundStartedAt: timestamp(),
         updatedAt: timestamp(),
       };
@@ -50,15 +50,15 @@ export async function loadSession(
     idPattern.test(state.sessionId) && Array.isArray(state.acknowledged),
     "Invalid session state",
   );
-  // A session another program created names its round some other way, and
-  // pair reads only its own format.
+  // Another program can write a status.json whose current.round is not a
+  // string, and loadSession opens only pair's own format.
   requireValue(
     !state.current || typeof state.current.round === "string",
     `${directory} is not a pair session, so pair does not open it. Start a new session.`,
   );
-  // The session list numbers sessions in the order they started. A session
-  // from before startedAt existed takes its directory's creation time, which
-  // no later write changes.
+  // The frame numbers sessions in the order they started. A session created
+  // before pair wrote startedAt gets its directory's creation time, because
+  // no later write changes that time.
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
   for (const child of ["rounds", "feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
@@ -78,8 +78,8 @@ export async function loadSession(
   token ||= crypto.randomBytes(32).toString("hex");
   const base = `/s/${state.sessionId}`;
   const exclusive = serializer();
-  // The wake target holds a token or a socket path, so it lives in its own
-  // agent-private file and never in a browser response.
+  // The wake target contains a token or a socket path, so the hub stores it
+  // in wake.json and never sends it in a browser response.
   const wakeFile = path.join(directory, "wake.json");
   const transition = async (patch) => {
     const next = { ...state, ...patch, updatedAt: timestamp() };
@@ -87,7 +87,6 @@ export async function loadSession(
     state = next;
     return state;
   };
-  // Every submission, read from disk once. saveEvent adds each new one.
   const events = await Promise.all(
     (await fs.readdir(path.join(directory, "feedback")))
       .filter((name) => name.endsWith(".json"))
@@ -113,8 +112,8 @@ export async function loadSession(
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  // A closed session stays closed with feedback unread. A Start leaves the
-  // round as it is.
+  // A closed session stays closed even with unread feedback. A pending Start
+  // leaves the stage as it is, because answersRound excludes it.
   if ((await pending()).some(answersRound) && state.stage !== "complete")
     await transition({ stage: "submitted" });
   else await atomic(stateFile, state);
@@ -126,13 +125,12 @@ export async function loadSession(
     Boolean(state.current) &&
     !state.openRound &&
     ["ready", "updated"].includes(state.stage);
-  // A session's name: its round's title, or before its first round the
-  // title in its status.
   const title = () =>
     state.current ? state.current.title : state.title || "New session";
   const active = () => state.stage !== "complete" && !state.paused;
-  // The parts of a session share this context. A part calls another part's
-  // function through it, so no part depends on the order they are made in.
+  // Each session module, such as uploads or rounds, adds its functions to
+  // this object and calls the other modules' functions through it, so the
+  // order in which loadSession creates the modules does not matter.
   const session = {
     directory,
     config,
@@ -166,6 +164,7 @@ export async function loadSession(
     threads(session),
     await activity(session),
     await proposals(session),
+    await draftStore(session),
     links(session),
     quiet(session),
   );
@@ -173,11 +172,11 @@ export async function loadSession(
     const { roundPages, holder, formerHolders, ...visible } = state;
     return {
       ...visible,
-      // The holder's identity is a socket path or a thread ID, which stays
-      // out of the browser like the rest of the wake target. The frame
-      // cannot import the adapters, so the holder carries its CLI's name. Its
-      // steerable, from its last wake, is true when its agent CLI reads a
-      // message in the middle of a turn.
+      // The holder's identity is a socket path or a thread ID, so view
+      // leaves it out, like the rest of the wake target. The frame cannot
+      // import the adapters, so view adds the CLI's name. sendWake sets
+      // steerable from the last wake, and it is true when the agent CLI reads
+      // a message in the middle of a turn.
       holder: holder
         ? {
             harness: holder.harness,
@@ -213,15 +212,17 @@ export async function loadSession(
       proposals: session.proposalItems(),
     };
   }
-  // The browser draws every thread's card from its status. An agent reads a
-  // thread with pair read --thread, so its commands print the status without
-  // them.
+  // The frame draws every thread's card from browserView. An agent reads a
+  // thread with pair read --thread, so the status that pair commands print
+  // leaves the threads out.
   function browserView() {
     return {
       ...view(),
       sessionDir: directory,
       threads: session.threadView(),
       parent: session.parentView(),
+      draftId: session.draftView().id,
+      draftRevision: session.draftView().revision,
     };
   }
   async function latestFeedback(requestedRound) {
@@ -231,7 +232,10 @@ export async function loadSession(
     );
     const event = requestedRound
       ? events
-          .filter((item) => item.payload.round === requestedRound)
+          .filter(
+            (item) =>
+              answersRound(item) && item.payload.round === requestedRound,
+          )
           .sort((a, b) => b.sequence - a.sequence)[0]
       : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
         ? await read(
@@ -266,15 +270,12 @@ export async function loadSession(
       },
     };
   }
-  // A session is listed from the pair start that creates it. Before its
-  // first round it takes the title in its status, or "New session".
   function listing() {
     const round = state.current?.round ?? null;
     const set = state.roundPages?.[round];
     return {
       id: state.sessionId,
       title: title(),
-      // A linked session names the session and the proposal it came from.
       parentId: state.parent?.sessionId ?? null,
       proposal: state.parent?.proposal ?? null,
       closed: state.stage === "complete",
@@ -291,18 +292,20 @@ export async function loadSession(
             },
           }
         : {}),
-      // The current round's readable pages, so each tab can count the ones
-      // its browser has not opened.
+      // readyPages lists the current round's published pages until the
+      // reviewer sends feedback on it, so the frame can count the pages that
+      // this browser has not opened.
       readyPages: {
         round,
-        ids: set
-          ? [
-              "agreed",
-              ...set.pages
-                .filter((slot) => slot.recordPath)
-                .map(({ id }) => id),
-            ]
-          : [],
+        ids:
+          set && state.latestSubmissionRound !== round
+            ? [
+                "agreed",
+                ...set.pages
+                  .filter((slot) => slot.recordPath)
+                  .map(({ id }) => id),
+              ]
+            : [],
       },
       wakeFailed: state.wake?.last?.ok === false,
       paused: Boolean(state.paused),
@@ -312,6 +315,7 @@ export async function loadSession(
       url: base + "/",
       handoff: session.handoff,
       events: session.withAcknowledgements(session.activityItems()),
+      threads: session.threadLines(),
     };
   }
   return {
@@ -350,6 +354,8 @@ export async function loadSession(
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,
     act: session.act,
+    draftView: session.draftView,
+    changeDraft: session.changeDraft,
     browserView,
     latestFeedback,
     listing,

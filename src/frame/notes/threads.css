@@ -1,8 +1,6 @@
-/* A thread: a card under the block its note is on, under the progress
-   card, under a proposal's card on Work, or at the end of Review or Work,
-   in the frame's card style. The #reading, #work-view and #review-view prefix
-   outranks the page's own p rule and reaches cards outside the page's
-   content. */
+/* The #reading, #work-view and #review-view prefix gives these rules a
+   higher specificity than the page's own p rule, and it also matches cards
+   outside the page's content. */
 pair-thread {
   position: relative;
   display: grid;
@@ -20,11 +18,16 @@ pair-thread {
   margin: 0;
   font-size: var(--text-label);
 }
-/* The cards under a block are indented, and one accent line runs from the
-   block past each card to its head. A block, or a card, keeps the next
-   card 8px below it, so the line meets both. The card's data-thread makes
-   the rule outrank the frame's margin for a component or a figure. */
+/* The element before a card has an 8px bottom margin, so the accent line
+   that ::before draws meets both that element and the card. [data-thread]
+   gives this rule a higher specificity than the frame's margin for a
+   component or a figure. */
 :is(#reading, #work-view, #review-view) :has(+ pair-thread[data-thread]) {
+  margin-bottom: 8px;
+}
+/* placeProgress puts a thread after the finished line, which is hidden while
+   the progress card shows, so the rule above misses the progress card. */
+#agent-activity:has(+ #finished-line[hidden] + pair-thread[data-thread]) {
   margin-bottom: 8px;
 }
 pair-thread::before {
@@ -46,8 +49,8 @@ pair-thread:has(+ pair-thread)::after {
   left: -18px;
   border-left: 2px solid var(--accent);
 }
-/* A thread on the overall comment or on Work is on no block above it, so
-   its card sits in the column with no line from above. */
+/* A thread on the overall comment or on Work has no block above it, so its
+   card has no indent and no accent line. */
 .end-threads:not(:empty) {
   margin-top: 22px;
 }
@@ -72,7 +75,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   color: var(--muted);
   font-size: var(--text-meta);
 }
-/* A long head wraps, so a narrow card still says what the thread is on. */
+/* A long head wraps, so a narrow card still shows the whole name. */
 .thread-title {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -84,8 +87,6 @@ pair-thread[collapsed] > :not(.thread-head) {
 .thread-fold {
   flex: none;
 }
-/* The words a thread is on, marked as the page marks a note's, and cut at
-   two lines. */
 .thread-quote {
   display: -webkit-box;
   overflow: hidden;
@@ -124,8 +125,12 @@ pair-thread[collapsed] > :not(.thread-head) {
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* An auto column grows to a child's widest line, so a code block or table
+   inside a list or a div would push a reply past its card. These columns stay
+   at the card's width, and the code block or table scrolls. */
 .thread-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
 }
@@ -138,9 +143,8 @@ pair-thread[collapsed] > :not(.thread-head) {
   font-size: var(--text-tiny);
   font-weight: 400;
 }
-/* The thumbs up on an agent's message sits at the end of its name line, a
-   muted outline until the reviewer presses it and filled in the accent
-   after. Its negative margins keep the line's height. */
+/* The negative margins keep the 30px button from raising the name line's
+   height. */
 .thread-ack {
   float: right;
   display: inline-grid;
@@ -184,8 +188,6 @@ pair-thread[collapsed] > :not(.thread-head) {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
 }
-/* A long message is cut at about twelve lines under a fade, and Show all
-   opens it. */
 .thread-clamp {
   position: relative;
 }
@@ -203,9 +205,11 @@ pair-thread[collapsed] > :not(.thread-head) {
 }
 .thread-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
-/* The grid's gap spaces a message's blocks, so none keeps its own margin. */
+/* The grid's gap spaces a message's blocks, so this rule removes each
+   block's own margin. */
 .thread-content > * {
   margin-block: 0;
 }
@@ -232,9 +236,8 @@ pair-thread[collapsed] > :not(.thread-head) {
   font-weight: 700;
   text-align: center;
 }
-/* A tooltip has the soft accent ground and ink text, a small shadow
-   instead of a border, and an arrow at the icon that opened it. It ends
-   inside the line it opens under, so on a phone it stays in the window. */
+/* max-width keeps the tooltip inside the line it opens under, so on a phone
+   the tooltip stays in the window. */
 .thread-tip {
   position: absolute;
   top: calc(100% + 8px);
@@ -300,10 +303,30 @@ pair-thread[collapsed] > :not(.thread-head) {
 .thread-status:empty {
   display: none;
 }
+/* The 20px line height makes the field 32px tall, the height of the
+   buttons, at its own font size and at the 16px font size that a narrow
+   window gives every field. */
 .thread-reply {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
+}
+.thread-reply .btn {
+  height: 32px;
+}
+.thread-reply .btn svg {
+  width: 18px;
+  height: 18px;
+}
+.thread-reply .note-images,
+.thread-reply .renderer-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.thread-reply.dropping textarea {
+  border-style: dashed;
+  border-color: var(--accent);
 }
 .thread-reply textarea {
   flex: 1;
@@ -311,6 +334,7 @@ pair-thread[collapsed] > :not(.thread-head) {
   max-height: 200px;
   margin: 0;
   padding: 5px 8px;
+  line-height: 20px;
   resize: none;
   field-sizing: content;
   background: var(--ground);

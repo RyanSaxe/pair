@@ -2,14 +2,13 @@ import { jsonScript, requireValue } from "./util.mjs";
 
 export const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export const roundPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$/;
-// Page IDs the frame keeps for its own pages. The frame opens the page that
-// the address's # part names, and for each of these it opens its own page:
-// - agreed is Agreed so far, which only Agreed's source may name.
+// The frame uses these page IDs for its own pages. It opens the page that the
+// address's # part names, and each of these IDs opens a frame page:
+// - agreed is Agreed so far, which only Agreed's source may use.
 // - feedback is Review, called Feedback on a past round.
 // - work is Work, which lists the session's proposals.
 const reservedPageIds = ["agreed", "feedback", "work"];
 const reserved = `${reservedPageIds.slice(0, -1).join(", ")} and ${reservedPageIds.at(-1)} are reserved`;
-// A page ID is valid, not yet used in its round, and not reserved.
 const freePageId = (id, ids) =>
   idPattern.test(id || "") && !reservedPageIds.includes(id) && !ids.has(id);
 const titled = (item) => typeof item.title === "string" && item.title.trim();
@@ -168,8 +167,6 @@ function validPlan(data) {
   }
   return data;
 }
-// The task opens Agreed: what the plan is building towards, in a title and a
-// few sentences.
 function validTask(task) {
   requireValue(
     task && typeof task === "object" && !Array.isArray(task),
@@ -228,7 +225,7 @@ export function validPage(record) {
     );
   if (page.jsText)
     requireValue(
-      /export\s+(?:async\s+)?function\s+setup\s*\(/.test(page.jsText),
+      exportsSetup(page.jsText),
       "Page JavaScript must export setup(root, planUI)",
     );
   if (
@@ -239,8 +236,18 @@ export function validPage(record) {
   validPlan(pagePlan(record));
   return record;
 }
-// A page record as plan data on its own: Agreed carries the agreements and
-// the task, and any other page carries itself.
+// The frame calls the setup function that the page's module exports.
+// exportsSetup() removes the comments first and keeps each string whole, so an
+// export inside a comment does not count.
+function exportsSetup(js) {
+  const code = js.replace(
+    /("(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|`(?:\\[\s\S]|[^`\\])*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+    (match, string) => string ?? "",
+  );
+  return /\bexport\s+(?:(?:async\s+)?function\s+setup\s*\(|(?:const|let|var)\s+setup\s*=|\{[^}]*?\b(?:\w+\s+as\s+)?setup\s*[,}])/.test(
+    code,
+  );
+}
 export function pagePlan({ page, ...record }) {
   const agreed = page.id === "agreed";
   return {
@@ -258,7 +265,7 @@ export function pagePlan({ page, ...record }) {
 export function pageList(items) {
   requireValue(
     Array.isArray(items) && items.length > 0,
-    "List at least one page",
+    'Publish Agreed with --pages SRC/pages.json, a file that lists the pages after Agreed as { "pages": [{ "id": "…", "title": "…" }] }.',
   );
   const ids = new Set();
   for (const item of items) {
@@ -275,8 +282,8 @@ export function pageList(items) {
     version: null,
   }));
 }
-// Agreed lists the decisions that changed most recently first, and keeps the
-// agent's order among decisions that changed in the same round.
+// orderAgreements() puts the decisions that changed most recently first, and
+// keeps the agent's order among decisions that changed in the same round.
 export function orderAgreements(entries, earlier) {
   const byId = new Map(earlier.map((entry) => [entry.id, entry]));
   const next =

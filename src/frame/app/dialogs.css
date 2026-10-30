@@ -1,4 +1,3 @@
-/* Dialogs */
 dialog {
   color: var(--ink);
   background: var(--panel);
@@ -14,11 +13,9 @@ dialog::backdrop {
   gap: 10px;
   margin-bottom: 16px;
 }
-/* Every dialog grows with its content until it is --dialog-margin from
-   each edge of the window, and max-width: none lifts the browser's
-   smaller cap on a modal. Its title, any line under the title and its
-   button row stay in view, and .dialog-body, the part between them,
-   scrolls. */
+/* max-width: none removes the browser's smaller default maximum width for a
+   modal, so a dialog grows with its content until it is --dialog-margin
+   from each edge of the window. */
 .dialog {
   --dialog-padding: 24px;
   position: fixed;
@@ -40,8 +37,8 @@ dialog::backdrop {
   flex-direction: column;
   min-height: 0;
 }
-/* The body reaches across the dialog's side padding, so a list's hover
-   and a field's focus ring are not cut off where it scrolls. */
+/* The body extends across the dialog's side padding, so a list's hover and
+   a field's focus ring are not cut off where the body scrolls. */
 .dialog-body {
   min-height: 0;
   margin: 0 calc(-1 * var(--dialog-padding));
@@ -54,13 +51,11 @@ dialog::backdrop {
     padding-block: 16px;
   }
 }
-/* A dialog's text has no paragraph margin, so each dialog spaces its
-   lines itself. :where keeps this below any rule that names a class. */
+/* Paragraphs in a dialog have no margin, so each dialog sets its own
+   spacing. :where keeps this rule below any rule that names a class. */
 :where(.dialog) p {
   margin: 0;
 }
-/* A field's label, the field and the line under it sit close together,
-   and the label starts a group. */
 .dialog label {
   display: block;
   margin-top: var(--space-label);
@@ -71,8 +66,6 @@ dialog::backdrop {
   min-height: var(--field-height);
   margin: var(--space-field) 0;
 }
-/* A dialog's links are accent colored at the link weight, and underlined
-   only under the pointer. */
 .dialog :is(a, .link-btn) {
   font-weight: var(--link-weight);
   text-decoration: none;
@@ -82,9 +75,8 @@ dialog::backdrop {
     text-decoration: underline;
   }
 }
-/* The editor opens as a modal over the page, and on a phone takes all of
-   the window but every dialog's margin, because Excalidraw's toolbar
-   needs the width. */
+/* On a phone the drawing dialog fills the window except for the dialog
+   margin, because Excalidraw's toolbar needs the width. */
 .drawing-dialog {
   width: min(880px, 94vw);
   max-width: 94vw;
@@ -105,7 +97,8 @@ dialog::backdrop {
     height: calc(100dvh - 2 * var(--dialog-margin));
     max-height: none;
   }
-  /* The question alone, so the header leaves the drawing its height. */
+  /* This rule hides the line under the question, so the drawing keeps its
+     height. */
   .drawing-heading p {
     display: none;
   }
@@ -139,23 +132,23 @@ dialog::backdrop {
 .drawing-dialog .renderer-error {
   margin: 0 16px 8px;
 }
+/* The background is the color Excalidraw gives its white canvas in each
+   theme. */
 .drawing-dialog iframe {
   flex: 1;
   width: 100%;
   border: 0;
-  background: white;
+  background: light-dark(#ffffff, #121212);
 }
 .dialog h2 {
   margin: 0 0 14px;
   font-size: var(--text-title);
 }
-/* A head lays its heading out centered beside the close button, so the
-   heading takes no margin there. */
 .dialog .dialog-head h2 {
   margin: 0;
 }
-/* A button row holds only actions, with the primary on the right. The ×,
-   Escape and a click outside back out of a dialog, so no row has Cancel. */
+/* The ×, Escape and a click outside back out of a dialog, so no button row
+   has a Cancel button. */
 .dialog .actions {
   display: flex;
   justify-content: space-between;
@@ -213,12 +206,6 @@ dialog::backdrop {
   margin: 0;
   color: var(--muted);
 }
-/* Beside the reading column, not the window. .app caps at 1160px and
-   centres, so on a wide screen a control fixed to the window sits hundreds
-   of pixels right of the text. Below 1160px the max() is zero and the value
-   is the 22px it has always been. */
-/* Start a thread on the left and Add to feedback on the right, on one row
-   at every width. */
 .note-actions {
   display: flex;
   justify-content: space-between;
@@ -228,12 +215,10 @@ dialog::backdrop {
 .note-actions .btn.primary {
   margin-left: auto;
 }
-/* The note's field is one bordered box: the text area, and under it a
-   strip with the image button at its left, in line with the text. Text
-   scrolls only inside the text area, so the line being typed never runs
-   under the button. fitNoteText sets the text area's height to its text,
-   so the box grows from 120px to half the window, and past that the text
-   area shrinks to fit and scrolls. */
+/* The text scrolls only inside the text area, so the line being typed never
+   runs under the image button. fitNoteText() sets the text area's height to
+   fit its text, from 120px up to half the window, and past that the text
+   area scrolls. */
 .note-field {
   position: relative;
   display: flex;
@@ -260,7 +245,8 @@ dialog::backdrop {
   outline: none;
   resize: none;
 }
-/* The left margin is the text area's side padding. */
+/* The left margin equals the text area's side padding, so the button lines
+   up with the text. */
 .note-image-pick {
   flex: none;
   align-self: flex-start;
@@ -287,7 +273,7 @@ dialog::backdrop {
 .dialog.note #note-anchor {
   margin: 0 0 6px;
 }
-/* Settings' rows take the 2px inset of the label above them. */
+/* A settings row has the same 2px inset as the label above it. */
 .settings-row {
   display: flex;
   justify-content: space-between;
@@ -324,8 +310,6 @@ dialog::backdrop {
   color: var(--ink);
   font-weight: var(--weight-strong);
 }
-/* The bell's lines. Hover darkens the whole line, icons included, and the
-   icon under the pointer once more. */
 .session-list {
   display: grid;
   gap: 4px;
@@ -358,14 +342,27 @@ dialog::backdrop {
   font-style: normal;
   font-weight: var(--weight-strong);
 }
-/* A row and its icon buttons. */
+/* The Threads tab's rows have no Clear button, so a row's text can use the
+   column that the button would take. */
+#center-list.threads .session-line {
+  grid-template-columns: minmax(0, 1fr);
+}
+.center-group {
+  padding: 10px 10px 2px;
+  overflow: hidden;
+  font-size: var(--text-small);
+  font-weight: var(--weight-strong);
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .session-line {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
   gap: 4px;
-  /* The list bleeds 8px so a line's hover is wider than its text. */
+  /* The padding makes a line's hover background 8px wider than its text. */
   padding-right: 8px;
   border-radius: 8px;
 }
@@ -386,9 +383,8 @@ dialog::backdrop {
 .session-line .icon-btn {
   position: relative;
 }
-/* A tooltip has the soft accent ground and ink text, a small shadow
-   instead of a border, and an arrow at the icon that opened it. It opens
-   above the icon, so the last line's stays inside the dialog. */
+/* A tooltip opens above its icon, so the last line's tooltip stays inside
+   the dialog. */
 .line-tip {
   position: absolute;
   right: 0;
@@ -417,8 +413,6 @@ dialog::backdrop {
 .icon-btn:is(:hover, :focus-visible, .tipped) > .line-tip {
   visibility: visible;
 }
-/* A dialog's section labels take the sidebar's Pages heading style, and
-   each section starts 16px above its label. */
 .dialog .side-label {
   padding: 16px 2px 6px;
 }
@@ -427,8 +421,8 @@ dialog::backdrop {
   letter-spacing: 0;
   font-size: var(--text-meta);
 }
-/* The session list and the bell's list open under their buttons, in the
-   top layer, at the place the frame sets when each opens. */
+/* installPanel() sets the position of the session list and the bell's list
+   each time one opens. */
 .pop {
   position: fixed;
   inset: auto;
@@ -460,8 +454,6 @@ dialog::backdrop {
   text-transform: none;
   color: var(--attention);
 }
-/* The session's title beside the Rounds label, cut short on a narrow
-   panel. */
 .pop-detail {
   min-width: 0;
   overflow: hidden;
@@ -473,8 +465,8 @@ dialog::backdrop {
   text-transform: none;
   color: var(--muted);
 }
-/* A round's row is a session's row with no icon buttons, and with the
-   round's time in a fourth column inside the row's button. */
+/* The Rounds panel reuses the session row without its icon buttons, and
+   puts the round's time in a fourth column inside the row's button. */
 .round-list .sess-line {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -492,8 +484,6 @@ dialog::backdrop {
   font-size: var(--text-meta);
   white-space: nowrap;
 }
-/* A session's row: its number, title and status, then Copy and Close in
-   two fixed columns. */
 .sess-list {
   display: grid;
   gap: 2px;
@@ -511,13 +501,11 @@ dialog::backdrop {
 .sess-line.current {
   background: var(--accent-soft);
 }
-/* A session that is not a sub-session starts a group with its
-   sub-sessions, set a little apart from the group above. */
+/* A row without --depth is a session that is not a sub-session, and it
+   starts a group with its sub-sessions. */
 .sess-line:not([style*="--depth"]):not(:first-child) {
   margin-top: 6px;
 }
-/* A sub-session has no number. Its name sits one step in from the name of
-   the session it came from, after an arrow that fills that step. */
 .sess-line[style*="--depth"] .sess-row .t {
   padding-left: calc((var(--depth) - 1) * 18px);
 }
@@ -527,8 +515,8 @@ dialog::backdrop {
   color: var(--muted);
   font-weight: normal;
 }
-/* A closed session over its open sub-sessions reads in grey and has no
-   buttons, so its row spans their columns and Closed ends at the right. */
+/* A closed session that has open sub-sessions has no buttons, so its row
+   spans the button columns. */
 .sess-closed .sess-row {
   grid-column: 1 / -1;
   color: var(--muted);
@@ -599,9 +587,6 @@ dialog::backdrop {
   width: 14px;
   height: 14px;
 }
-/* A row's short status: warm when a round waits for you, blue for new
-   pages, muted text when paused or saved, and a breathing dot while the
-   agent works. */
 .pill {
   padding: 1px 7px;
   border-radius: 999px;

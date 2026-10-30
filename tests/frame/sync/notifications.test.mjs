@@ -62,8 +62,7 @@ function alertFixture({
     sessionId,
     open: (url) => opened.push(url),
   });
-  // A session whose round waits for the reviewer, with the event the hub
-  // adds when the round's last page publishes.
+  // The hub adds a waiting event when the agent publishes a round's last page.
   const entry = (id, round, extra = {}) => {
     const at = extra.publishedAt || new Date().toISOString();
     return {
@@ -188,7 +187,7 @@ test("each session start, waiting round and reply in another session alerts once
     needsYou: false,
     events: [
       { id: "e0", kind: "session", agent: "Codex", at },
-      // A reply event from before replies named their message.
+      // Reply events from older hubs have no message field.
       {
         id: "e1",
         kind: "reply",
@@ -231,17 +230,14 @@ test("each session start, waiting round and reply in another session alerts once
     ],
   );
   for (const item of a.sent) item.onclick();
-  // A session's start opens the session. A reply opens at the reply itself,
-  // and an event from before replies named their message opens at its
-  // thread's card.
   assert.deepEqual(a.opened, [
     "/s/s2/",
     "/s/s2/?target=thread-t0#overview",
     "/s/s2/?target=thread-t1-1#overview",
   ]);
-  // A round that waits alerts once, and opens the session. Once the round
-  // is sent it no longer alerts, so a tab that misses it while it waits
-  // never announces it.
+  // createReviewAlerts alerts for a waiting round only while needsYou is true,
+  // so the frame in a tab that first loads the round after the reviewer sent it
+  // never alerts for it.
   const waiting = a.entry("s3", "4", { publishedAt: later() });
   await a.alerts.update([waiting]);
   await a.alerts.update([waiting]);

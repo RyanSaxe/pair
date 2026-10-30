@@ -20,8 +20,8 @@ change, and anything you already know you want or do not want.
   <img alt="A plan page on a phone, with a decision's options as tabs and the first option open" src="../assets/plan-phone-light.png" width="390">
 </picture>
 
-- **Read the task first.** It is at the top of Agreed. The agent builds
-  every page on the task, so correct it as soon as it is wrong.
+- **Read the task first.** It is at the top of Agreed. The agent bases
+  every page on the task, so correct the task as soon as it is wrong.
 - **Choose every option you care about.** The agent does not count an
   option marked Recommended as your choice until you press it.
 - **Ask to see it.** When a page describes a layout, a flow or an interface
@@ -46,7 +46,7 @@ Check these points in the plan:
 
 - The plan shows every mock, wording and interface you approved, exactly as
   you approved it.
-- The plan says how to check that the work is done.
+- The plan states how to check that the work is done.
 - Every alignment on Agreed appears in the plan as you settled it.
 
 When the plan is wrong, comment on it and send with **Update the plan**,
@@ -55,6 +55,6 @@ again instead, send with **Back to iterating**.
 
 When the plan is right, send with **Build it**. The agent applies your
 comments as last changes to the plan, then builds the work in this session.
-[Build the work](build-the-work.md) covers what happens next. To build it in
+[Build the work](build-the-work.md) describes what happens next. To build it in
 another session instead, ask the agent to record a proposal for the work,
 and start that proposal on Work in a sub-session or with a new agent.

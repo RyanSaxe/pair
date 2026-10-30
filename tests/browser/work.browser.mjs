@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -9,8 +10,8 @@ const card = (id, title) => ({
   delivers: `${title}, delivered.`,
   recommend: "here",
 });
-// A session with round 1 waiting for the reviewer and two proposals, the
-// first from round 1's Overview page, open on Work.
+// work publishes round 1, which waits for the reviewer, proposes two cards, the
+// first from round 1's Overview page, and opens Work.
 async function work(t) {
   const h = await hub(t);
   const session = await h.session();
@@ -35,7 +36,6 @@ async function work(t) {
   return { session, page, tab, cards };
 }
 
-// The Work row's label, and each shown number with its title.
 const workRow = (page) =>
   page.locator("#work-row").evaluate((row) => {
     const count = (kind) => {
@@ -52,8 +52,6 @@ const workRow = (page) =>
 test("Start sends where the work runs and the message, and the running card quotes the message", async (t) => {
   const { session, page, tab, cards } = await work(t);
   if (!page) return;
-  // With nothing started, Work opens on Proposed, and the Work row shows
-  // the proposed number alone.
   await page
     .locator("#work-tab-proposed[aria-selected=true]")
     .waitFor({ timeout: 8000 });
@@ -62,16 +60,12 @@ test("Start sends where the work runs and the message, and the running card quot
     needs: null,
     proposed: ["2", "2 proposed"],
   });
-  // The line under the card's title names the page the card came from and
-  // links to it.
   const from = page.locator("[data-proposal-card=deck] .card-meta a");
   assert.equal(await from.textContent(), "From the Overview page");
   assert.equal(await from.getAttribute("href"), "#overview");
   await page.locator("[data-proposal-card=deck] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("#start-title", { hasText: "Build the deck" }).waitFor();
-  // The popup shows what the card delivers under its title, with no field
-  // labels.
   assert.equal(
     await dialog.locator("#start-delivers").textContent(),
     "Build the deck, delivered.",
@@ -81,7 +75,6 @@ test("Start sends where the work runs and the message, and the running card quot
     await dialog.locator("[data-where=here]").getAttribute("aria-checked"),
     "true",
   );
-  // Shift+Enter in the message box presses Start.
   await dialog.locator("#start-message").fill("Keep the header height.");
   await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
@@ -97,20 +90,19 @@ test("Start sends where the work runs and the message, and the running card quot
   await page
     .locator("[data-proposal-card=deck] .card-state", { hasText: "Working" })
     .waitFor();
-  // The card quotes the message, so it shows all the reviewer approved.
+  // The frame shows the reviewer's Start message on the card, so the card shows
+  // everything the reviewer approved.
   assert.equal(
     await page
       .locator("[data-proposal-card=deck] .proposal-message")
       .textContent(),
     "“Keep the header height.”",
   );
-  // The reader stays on Work.
   assert.equal(new URL(page.url()).hash, "#work");
 });
 
-// Only Send feedback answers a round. With round 1 waiting and a note
-// drafted on it, the reviewer starts two cards here: the round still waits,
-// the agent reads each Start, and the note is still a draft on Review.
+// The reviewer answers a round only with Send feedback, so starting a card must
+// leave the waiting round and its drafts in place.
 test("Start here leaves the waiting round open with its drafts, so a second card can start", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
@@ -132,8 +124,6 @@ test("Start here leaves the waiting round open with its drafts, so a second card
     assert.equal(read.event.payload.proposal, id);
     assert.equal((await session.status()).body.needsYou, true);
   }
-  // Both cards run here, and neither needs the reviewer while the round
-  // waits.
   await tab("running").locator(".work-count", { hasText: "2" }).waitFor();
   assert.equal(await tab("needs").locator(".work-count").textContent(), "0");
   await tab("running").click();
@@ -147,7 +137,8 @@ test("Start here leaves the waiting round open with its drafts, so a second card
     .locator("#feedback-groups", { hasText: "Keep the header height." })
     .waitFor();
   assert.equal(await page.locator("#submit").isEnabled(), true);
-  // A card names no round, done or not.
+  // The frame never writes a round in the line under a card's title, even after
+  // the card is done.
   const done = await session.action("propose", { id: "deck", done: true });
   assert.equal(done.code, 200, done.body.error);
   await page.locator("#work-row").click();
@@ -159,9 +150,6 @@ test("Start here leaves the waiting round open with its drafts, so a second card
   );
 });
 
-// On a phone, a proposed card with a long title keeps the line under its
-// title to one row and its buttons to one row: Decline on the left, and
-// Start on the right.
 test("a proposed card keeps its meta line and its buttons to one row each on a phone", async (t) => {
   const { session, page } = await work(t);
   if (!page) return;
@@ -190,7 +178,8 @@ test("a proposed card keeps its meta line and its buttons to one row each on a p
       foot: line(".proposal-foot :not(:has(*))"),
     };
   });
-  // Each line's text sits on one row when their middles agree.
+  // The test counts items whose vertical middles are within 2px of each other
+  // as one row.
   for (const name of ["meta", "foot"]) {
     const middles = rows[name].map(([, middle]) => middle);
     assert.ok(
@@ -209,9 +198,6 @@ test("a proposed card keeps its meta line and its buttons to one row each on a p
   );
 });
 
-// The choices, the message box and the button row keep their places
-// whichever choice is selected, so the popup never changes size. Each
-// choice's buttons sit in one row, on a desktop and on a 375px phone.
 test("the Start popup keeps one size and one row of buttons", async (t) => {
   const { session, page } = await work(t);
   if (!page) return;
@@ -257,7 +243,6 @@ test("the Start popup keeps one size and one row of buttons", async (t) => {
       }
     }
     for (const box of boxes) assert.deepEqual(box, boxes[0], `at ${width}px`);
-    // Only the chosen row of buttons can be pressed.
     await dialog.locator("[data-where=new-agent]").click();
     assert.equal(await dialog.locator("#start-open").isVisible(), true);
     assert.equal(await dialog.locator("#start-send").isVisible(), false);
@@ -272,13 +257,10 @@ test("Open a new agent session starts the card with a new agent and shows its th
   await page.locator("[data-proposal-card=export] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("[data-where=new-agent]").click();
-  // With a new agent chosen, Shift+Enter in the message box presses Open a
-  // new agent session.
   await dialog.locator("#start-message").fill("Use the board template.");
   await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
   assert.deepEqual((await cards())[1].started, "new-agent");
-  // Work follows the card to Running, with the thread under it.
   await page
     .locator("[data-proposal-card=export] .card-state", {
       hasText: "Opening a new agent session",
@@ -291,12 +273,8 @@ test("Open a new agent session starts the card with a new agent and shows its th
   assert.equal(threads[0].kind, "open-agent");
 });
 
-// A tap chooses a card on Work or the proposal component on a page, and
-// the comment control then comments on that proposal: its note names the
-// proposal, and its Start a thread starts the card's own thread. With no
-// card chosen it comments on Work, and on Review it adds the overall
-// comment. Once the round's feedback is sent it only starts threads, so
-// Shift+Enter types a new line.
+// After the round's feedback is sent, the comment control only starts threads,
+// so Shift+Enter types a new line.
 test("the comment control comments on a chosen card, the proposal component, Work and Review", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -344,7 +322,6 @@ test("the comment control comments on a chosen card, the proposal component, Wor
   await exported
     .locator("+ pair-thread", { hasText: "Keep the columns." })
     .waitFor();
-  // j chooses the first card, and c comments on it.
   await page.keyboard.press("j");
   await named("Comment on this proposal");
   await page.keyboard.press("c");
@@ -364,7 +341,6 @@ test("the comment control comments on a chosen card, the proposal component, Wor
   );
   assert.deepEqual(await threads(), [["work"], ["export"]]);
 
-  // Review shows its Overall heading only once there is an overall comment.
   await page.locator("#review-row").click();
   assert.equal(await page.locator("#overall-group").isVisible(), false);
   await comment("Add overall comment", "Ship it.", "Add to feedback");
@@ -439,9 +415,6 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
   assert.equal((await cards())[1].declined, false);
 });
 
-// The agent starts a card when the reviewer asks for the work in their own
-// words. The card quotes them, links to where they wrote them, and has no
-// button that stops the work.
 test("a card started on the reviewer's words quotes them and links to where they wrote them", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
@@ -471,11 +444,8 @@ test("a card started on the reviewer's words quotes them and links to where they
   assert.equal(await card.locator(".proposal-foot").count(), 0);
 });
 
-// The agent merges a card into a proposed one. The proposed card lists the
-// joined card, and so does its Start popup, under what the card delivers,
-// so the reviewer sees all they start. The joined card is in Done, naming
-// the card it joined where its source was, and the card still lists it
-// once it runs.
+// The frame lists each card the agent joined into a proposed card, on the card
+// and in its Start popup, so the reviewer sees all the work that Start begins.
 test("a proposed card and its Start popup list the cards joined into it", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
@@ -503,7 +473,6 @@ test("a proposed card and its Start popup list the cards joined into it", async 
   ]);
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
-  // A card with no joined card shows no list in its popup.
   await page.locator("[data-proposal-card=notes] .proposal-start").click();
   await dialog.locator("#start-title", { hasText: "Write notes" }).waitFor();
   assert.equal(await dialog.locator("#start-joined").isVisible(), false);
@@ -526,8 +495,6 @@ test("a proposed card and its Start popup list the cards joined into it", async 
   assert.equal(await exported.locator(".proposal-foot").count(), 0);
 });
 
-// A withdrawn card is in Done with the agent's reason, and Restore puts it
-// back in Proposed. A card done somewhere else says where.
 test("a withdrawn card shows the agent's reason and Restore brings it back, and a card done elsewhere says where", async (t) => {
   const { session, page, tab, cards } = await work(t);
   if (!page) return;
@@ -570,12 +537,6 @@ test("a withdrawn card shows the agent's reason and Restore brings it back, and 
   );
 });
 
-// A running card shows the agent's status: wider than 720px with every
-// part listed in the order the agent added it, and on a phone as the
-// count and the next left part until the reviewer taps it open, where it
-// stays when the agent writes a new status. A dropped part stays listed,
-// and the count leaves it out. A card with no status says so, a status
-// moves no card to another tab, and a finished card shows none.
 test("a running card shows the agent's status, folded on a phone until tapped", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
@@ -595,9 +556,8 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
     });
     assert.equal(written.code, 200, written.body.error);
   };
-  await status(["Outline"], ["Slides", "Speaker notes"]);
+  await status(["Outline"], ["Outline", "Slides", "Speaker notes"]);
   const box = page.locator("[data-proposal-card=deck] .proposal-status");
-  // The parts on screen, each with its mark's label.
   const parts = () =>
     box
       .locator("li")
@@ -637,7 +597,7 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
   assert.match(await summary.innerText(), /^1 of 3 done\s*·\s*Next: Slides$/);
   await summary.click();
   assert.equal((await parts()).length, 3);
-  await status(["Handout"], undefined, ["Slides"]);
+  await status(["Handout"], ["Handout"], ["Slides"]);
   await summary.filter({ hasText: "2 of 3 done" }).waitFor();
   assert.equal(await summary.textContent(), "2 of 3 done·Next: Speaker notes");
   assert.deepEqual(await parts(), [
@@ -656,9 +616,9 @@ test("a running card shows the agent's status, folded on a phone until tapped", 
   assert.equal(await box.count(), 0);
 });
 
-// A card reads New, with the sidebar's New label, until Work has shown it
-// on screen. A page's proposal component shows the label too but does not
-// count, and a card in Done never reads New.
+// The frame marks a card as seen only when Work shows it. A page's proposal
+// component also shows the New label, but the frame does not mark the card seen
+// there.
 test("a card reads New until Work shows it", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -670,8 +630,8 @@ test("a card reads New until Work shows it", async (t) => {
     const added = await session.action("propose", fields);
     assert.equal(added.code, 200, added.body.error);
   };
-  // A card recorded before this browser first loaded the session is not
-  // new to it.
+  // A card that the agent proposed before this browser first loaded the session
+  // is not New in this browser.
   await record(card("deck", "Build the deck"));
   const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
@@ -683,7 +643,6 @@ test("a card reads New until Work shows it", async (t) => {
     page.locator(`${where} [data-proposal-card=fresh] .page-new`);
   await label("#page-content").waitFor({ timeout: 8000 });
   assert.equal(await label("#page-content").textContent(), "New");
-  // A card's text keeps its size inside a page.
   const size = (where) =>
     page
       .locator(`${where} [data-proposal-card=fresh] .proposal-delivers`)
@@ -701,21 +660,17 @@ test("a card reads New until Work shows it", async (t) => {
       .count(),
     0,
   );
-  // Work records the card in this browser's storage once it is on screen.
   await page.waitForFunction(() =>
     (JSON.parse(localStorage.getItem("pair:cards:seen")) || []).some((key) =>
       key.endsWith("/fresh"),
     ),
   );
-  // A card in Done never reads New, and the others keep the label while
-  // Work stays on screen.
   await page.locator("#work-tab-done").click();
   await page.locator("#work-cards [data-proposal-card=gone]").waitFor();
   assert.equal(await page.locator("#work-cards .page-new").count(), 0);
   await page.locator("#work-tab-proposed").click();
   await label("#work-cards").waitFor();
 
-  // Once Work has shown it, the card reads New nowhere.
   await page.locator('#page-list [data-page="overview"]').click();
   await page.locator("#page-content .proposal-card").waitFor();
   assert.equal(await label("#page-content").count(), 0);
@@ -751,19 +706,18 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
   assert.equal((await child.publish(planData())).code, 200);
   const page = await open(t, `${h.server.origin}${parent.base}/#work`);
   if (!page) return;
-  // The card counts as running until the session listing says its
-  // sub-session waits, so Work must not settle on Running before then.
+  // The frame counts the card as running until the session list shows that its
+  // sub-session waits for the reviewer, so the test waits for Work to select
+  // Needs you.
   await page.locator('#work-tab-needs[aria-selected="true"]').waitFor();
   await page
     .locator("#work-cards [data-proposal-card=deck]")
     .waitFor({ timeout: 5000 });
-  // The Work row shows both numbers, each saying what it counts.
   assert.deepEqual(await workRow(page), {
     label: "Work, 1 needs you, 1 proposed",
     needs: ["1", "1 needs you"],
     proposed: ["1", "1 proposed"],
   });
-  // The needs-you pill ends the row, after the proposed number.
   const edges = await page.locator("#work-row").evaluate((row) => {
     const box = (kind) =>
       row.querySelector(`.count.${kind}`).getBoundingClientRect();
@@ -780,4 +734,71 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
     `the proposed number ends at ${edges.proposed.right}, the pill starts at ${edges.needs.left}`,
   );
   assert.equal(Math.round(edges.needs.right), Math.round(edges.rowEnd));
+});
+
+test("a card's reply box keeps focus and every key while the cards change, and Work draws the changes after the reviewer leaves the box", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await tab("proposed").click();
+  const id = crypto.randomUUID();
+  const started = await session.request(`${session.base}/api/threads`, {
+    id,
+    proposal: "deck",
+    text: "Is the deck one page?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const thread = page.locator(`pair-thread[data-thread="${id}"]`);
+  const field = thread.getByRole("textbox", { name: "Reply in this thread" });
+  await field.click();
+  // Each of these letters is one of the frame's single-key shortcuts when no
+  // text field has focus.
+  await page.keyboard.type("n s a ");
+  const revised = await session.action("propose", {
+    id: "export",
+    revise: true,
+    delivers: "The export, revised.",
+  });
+  assert.equal(revised.code, 200, revised.body.error);
+  // The frame polls status every 1.5 s, so the sleep covers two polls.
+  await sleep(3000);
+  await page.keyboard.type("r c ");
+  // The agent's reply moves the card to Needs you, and the reply reaches the
+  // thread card that the reviewer is typing in.
+  const replied = await session.action("reply", { note: id, text: "Yes." });
+  assert.equal(replied.code, 200, replied.body.error);
+  await thread.locator(".thread-message", { hasText: "Yes." }).waitFor();
+  await sleep(3000);
+  await page.keyboard.type("w g ");
+  // A poll also calls show("work") when the round's feedback arrives from
+  // another browser and when the next round's Agreed arrives.
+  const sent = await session.feedback(session.event("feedback-only", "1"));
+  assert.equal(sent.code, 200, JSON.stringify(sent.body));
+  assert.equal((await session.action("read")).code, 200);
+  await sleep(3000);
+  await page.keyboard.type("[ ");
+  const next = await session.publish(planData("2"));
+  assert.equal(next.code, 200, next.body.error);
+  await sleep(3000);
+  await page.keyboard.type("] ?");
+  const typed = "n s a r c w g [ ] ?";
+  assert.equal(await field.inputValue(), typed);
+  assert.equal(
+    await page.evaluate(() => document.activeElement.localName),
+    "textarea",
+  );
+  assert.equal(await page.locator("dialog[open]").count(), 0);
+  assert.equal(await page.evaluate(() => location.hash), "#work");
+
+  await page.locator("#work-view h1").click();
+  await tab("proposed")
+    .locator(".work-count", { hasText: /^1$/ })
+    .waitFor({ timeout: 5000 });
+  await tab("needs").click();
+  assert.equal(await field.inputValue(), typed);
+  await tab("proposed").click();
+  await page
+    .locator("#proposal-export .proposal-delivers", {
+      hasText: "The export, revised.",
+    })
+    .waitFor();
 });

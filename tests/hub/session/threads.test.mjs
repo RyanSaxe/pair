@@ -11,7 +11,8 @@ const png = Buffer.concat([
   Buffer.alloc(64),
 ]);
 
-// A session with round 1 published, and the reviewer's side of a thread.
+// published publishes round 1 in a new session and returns helpers for the
+// reviewer's side of a thread.
 async function published(t) {
   const h = await hub(t);
   const a = await h.session();
@@ -44,7 +45,7 @@ async function published(t) {
   return { h, a, upload, start, send, thread, settled };
 }
 
-test("a thread wakes the holder once for each message the reviewer sends, with the message", async (t) => {
+test("a thread wakes the holder with each message the reviewer sends, whether or not the agent read it", async (t) => {
   const { a, upload, start, send, thread, settled } = await published(t);
   const image = await upload();
   const started = await start({ attachments: [image] });
@@ -62,13 +63,35 @@ test("a thread wakes the holder once for each message the reviewer sends, with t
   );
   assert.equal(stored.messages[0].attachments[0].path, image.path);
   assert.equal(stored.wake.via, "inbox");
-  // A thread never changes the round, and its wake sets the holder's
-  // steerable, which the frame reads.
+  // A thread never changes the round. When the hub wakes the holder for it, the
+  // hub sets holder.steerable, which the frame reads.
   const status = (await a.status()).body;
   assert.equal(status.stage, "updated");
   assert.equal(status.latestSubmissionId, undefined);
   assert.equal(status.holder.steerable, true);
 
+  // An agent can act on the quoted message without reading the thread, so a
+  // second message wakes it again with that message.
+  const waiting = await send(id, { text: "Or a retry?" });
+  assert.equal(waiting.code, 201, waiting.body.error);
+  assert.equal(waiting.body.thread.state, "sending");
+  assert.equal(await settled(id), true);
+  assert.equal((await thread(id)).state, "sent");
+  assert.equal(wakes().length, 2);
+  const opened = await a.action("reply", { note: id });
+  assert.deepEqual(
+    opened.body.thread.messages.map((message) => message.text),
+    ["What happens to a failed item?", "Or a retry?"],
+  );
+  assert.equal((await thread(id)).state, "read");
+
+  // The hub cuts a message over 500 characters at a space, so the word
+  // across the 500th character is left out.
+  const words = "word ".repeat(99);
+  assert.equal((await send(id, { text: `${words}boundary` })).code, 201);
+  assert.equal(await settled(id), true);
+  assert.equal((await thread(id)).state, "sent");
+  assert.equal((await thread(id)).readAt, null);
   assert.equal(
     (await a.action("reply", { note: id, text: "Kept." })).code,
     200,
@@ -79,17 +102,85 @@ test("a thread wakes the holder once for each message the reviewer sends, with t
   assert.equal(await settled(id), true);
   assert.deepEqual(
     (await thread(id)).messages.map((message) => message.from),
-    ["reviewer", "agent", "reviewer"],
+    ["reviewer", "reviewer", "reviewer", "agent", "reviewer"],
   );
-  // The hub cuts a message over 500 characters at a space, so the word
-  // across the 500th character is left out.
-  const words = "word ".repeat(99);
-  assert.equal((await send(id, { text: `${words}boundary` })).code, 201);
-  assert.equal(await settled(id), true);
   assert.deepEqual(wakes().slice(1), [
-    `${line}\n\nThe reviewer's message, which pair read also prints:\nAnd a retry?`,
+    `${line}\n\nThe reviewer's message, which pair read also prints:\nOr a retry?`,
     `${line}\n\nThe beginning of the reviewer's message, which pair read prints whole:\n${words.trimEnd()}…`,
+    `${line}\n\nThe reviewer's message, which pair read also prints:\nAnd a retry?`,
   ]);
+});
+
+// The hub stores where a thread on one line of a diff or one box of a diagram
+// is, and refuses a malformed place.
+for (const { name, field, value, malformed } of [
+  {
+    name: "a diff thread keeps its selected side and line",
+    field: "diffLine",
+    value: { side: "deletions", lineNumber: 4 },
+    malformed: { side: "context", lineNumber: 0 },
+  },
+  {
+    name: "a thread on a diagram's box keeps the box's ID",
+    field: "diagramNode",
+    value: "W",
+    malformed: "  ",
+  },
+])
+  test(`${name} in status and storage`, async (t) => {
+    const { a, start, thread, settled } = await published(t);
+    const started = await start({ quote: "selected code", [field]: value });
+    assert.equal(started.code, 201, started.body.error);
+    const { id } = started.body.thread;
+    assert.deepEqual(started.body.thread[field], value);
+    await settled(id);
+    assert.deepEqual((await thread(id))[field], value);
+
+    const saved = JSON.parse(
+      await fs.readFile(
+        path.join(a.directory, "threads", `${id}.json`),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(saved[field], value);
+
+    const refused = await start({ quote: "selected code", [field]: malformed });
+    assert.equal(refused.code, 400);
+  });
+
+test("a repeated reply ID returns the saved thread without another message or wake", async (t) => {
+  const { a, start, send, thread, settled } = await published(t);
+  const { id } = (await start()).body.thread;
+  assert.equal(await settled(id), true);
+
+  const first = await send(id, { replyId: "reply-1", text: "Keep this." });
+  assert.equal(first.code, 201, first.body.error);
+  assert.equal(await settled(id), true);
+
+  const duplicate = await send(id, {
+    replyId: "reply-1",
+    text: "Discard this retry body.",
+  });
+  assert.equal(duplicate.code, 201, duplicate.body.error);
+  assert.equal(duplicate.body.thread.messages.length, 2);
+  assert.equal(duplicate.body.thread.state, "sent");
+  assert.equal(duplicate.body.thread.messages[1].replyId, "reply-1");
+  assert.equal(duplicate.body.thread.messages[1].text, "Keep this.");
+  await sleep(100);
+  assert.equal((await thread(id)).messages.length, 2);
+  assert.equal((await thread(id)).messages[1].text, "Keep this.");
+  assert.equal(a.inbox.wakes.length, 2);
+});
+
+test("a thread reply refuses a malformed reply ID without adding a message or wake", async (t) => {
+  const { a, start, send, thread, settled } = await published(t);
+  const { id } = (await start()).body.thread;
+  assert.equal(await settled(id), true);
+
+  const invalid = await send(id, { replyId: "bad id", text: "Discard this." });
+  assert.equal(invalid.code, 400);
+  assert.equal((await thread(id)).messages.length, 1);
+  assert.equal(a.inbox.wakes.length, 1);
 });
 
 // pair read --thread sends the reply action without text, and pair reply
@@ -138,13 +229,12 @@ test("the reply action marks the thread read, then posts text or a checked fragm
     replied.messages[1].html,
     '<pre data-language="js">retry(item);</pre>',
   );
-  // Reading a thread the agent has answered leaves it answered.
   await a.action("reply", { note: id });
   assert.equal((await thread(id)).state, "replied");
 });
 
-// The reviewer's thumbs up on the agent's reply: no wake, no bell line, and
-// the agent reads it on the thread.
+// The hub records the reviewer's thumbs up on the agent's reply without a wake
+// or a bell event, and the agent reads it on the thread.
 test("a thumbs up on a reply is recorded without a wake, drops its bell line and comes off again", async (t) => {
   const { h, a, start, thread, settled } = await published(t);
   const { id } = (await start()).body.thread;
@@ -163,7 +253,6 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
   assert.equal((await replyLine()).acknowledged, true);
   const read = await a.action("reply", { note: id });
   assert.match(read.body.next, /^The reviewer agreed with your last message/);
-  // Only the reviewer's message woke the holder.
   await sleep(100);
   assert.equal(a.inbox.wakes.length, 1);
 
@@ -178,10 +267,10 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
   assert.equal((await replyLine()).acknowledged, undefined);
 });
 
-// The progress card's Message the agent button starts its thread on Agreed,
-// which the round's page list never names.
-// Besides the round's pages, a thread starts on Agreed's progress card, on
-// Review's overall comment and on Work, and its wake names where.
+// Besides the round's pages, the reviewer can start a thread on Agreed's
+// progress card, on Review's overall comment and on Work, and the hub's wake
+// message contains the thread's place. Agreed is never in the round's page
+// list.
 test("a thread starts on Agreed's progress card, on the overall comment and on Work, and reading it names its place", async (t) => {
   const { a, start, settled } = await published(t);
   for (const [topic, anchor, target, page] of [
@@ -208,7 +297,7 @@ test("a thread starts on Agreed's progress card, on the overall comment and on W
 
 test("a thread the hub cannot wake the holder for shows as failed", async (t) => {
   const { a, start, thread, settled } = await published(t);
-  // The inbox is gone, as it is once the agent's session has ended.
+  // Closing the inbox stands in for an agent session that has ended.
   await a.inbox.close();
   const { id } = (await start()).body.thread;
   assert.equal(await settled(id), true);
@@ -267,4 +356,51 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   assert.equal(record.quote, "A failed item");
   assert.equal(record.occurrence, 2);
   assert.equal(record.href, "./example.1.html?target=failure#overview");
+});
+
+test("the session list has a line for each thread in the current round and each older thread still waiting", async (t) => {
+  const { a, start, h, send } = await published(t);
+  const lines = async () => {
+    const { sessions } = await (
+      await fetch(`${h.server.origin}/api/sessions`)
+    ).json();
+    return sessions.find((entry) => entry.id === a.id).threads;
+  };
+  const answered = crypto.randomUUID();
+  const waiting = crypto.randomUUID();
+  const long = "Why three retries? ".repeat(20);
+  assert.equal((await start({ id: answered, text: long })).code, 201);
+  assert.equal((await start({ id: waiting })).code, 201);
+  const asked = (await lines()).find((line) => line.thread === answered);
+  assert.equal(asked.text.length, 160);
+  assert.ok(asked.waitingSince);
+  assert.equal(asked.answeredAt, undefined);
+
+  const replied = await a.action("reply", { note: answered, text: "Here." });
+  assert.equal(replied.code, 200);
+  const line = (await lines()).find((item) => item.thread === answered);
+  assert.equal(line.waitingSince, undefined);
+  assert.ok(line.answeredAt);
+
+  // A later message waits from when the reviewer wrote it, and the line keeps
+  // the thread's first message.
+  const later = await send(answered, {
+    replyId: crypto.randomUUID(),
+    text: "And on refunds?",
+  });
+  assert.equal(later.code, 201, later.body.error);
+  const again = (await lines()).find((item) => item.thread === answered);
+  assert.ok(again.waitingSince > asked.waitingSince);
+  assert.equal(again.text, asked.text);
+  const closed = await a.action("reply", { note: answered, text: "Yes." });
+  assert.equal(closed.code, 200);
+
+  // The next round's list drops the answered thread and keeps the waiting one.
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  assert.deepEqual(
+    (await lines()).map((item) => item.thread),
+    [waiting],
+  );
 });

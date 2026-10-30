@@ -8,14 +8,9 @@
 ## Pair programming, now that your agent writes the code.
 
 In pair programming, one person drives and the other navigates. Agents write
-most of the code now, so `pair` helps you navigate. You read what
-the agent shows you, point out what is wrong, choose between the options it
-lays out, and approve each piece of work before the agent edits your project
-for it. You make the decisions, and you understand the code the agent
-writes.
-
-**Everything runs on your machine. Your agent works in the CLI you already
-use, and you review its work in your browser.**
+most of the code now, so `pair` helps you navigate. You read what the agent
+shows you, point out what is wrong, choose between the options it lays out, and
+approve each piece of work before the agent edits your project for it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/illustration-dark.png">
@@ -24,7 +19,8 @@ use, and you review its work in your browser.**
 
 ## Get started
 
-`pair` needs Node 22.0.0 or newer.
+`pair` needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or
+26.12.1 or newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -39,7 +35,7 @@ Then, in your project, invoke the `pair` skill with what you want to work on:
 
 The agent starts a session and opens it in your browser. When a pair tab is
 already open, the agent gives you the link instead.
-[Install](docs/getting-started/install.md) says what each agent CLI needs
+[Install](docs/getting-started/install.md) lists what each agent CLI needs
 first, and [Sessions and rounds](docs/concepts/sessions-and-rounds.md)
 explains what happens next.
 
@@ -56,7 +52,7 @@ starts the next round from your feedback.
 On each page, you can select any word or line and comment on it, or choose
 between the options the agent lays out. When you want an answer before the
 next round, you start a thread, and the agent replies while it keeps working.
-The agent only edits your project for work you approve.
+The agent edits your project only for work you approve.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/work-dark.png">

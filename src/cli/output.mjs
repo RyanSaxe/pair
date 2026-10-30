@@ -1,17 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { guideText } from "../shared/guide.mjs";
+import { agentRequestBytes } from "../shared/settings.mjs";
 
-// A session command's text over this many bytes goes to a file, because an
-// agent CLI cuts a command's output past a limit.
+// print() writes a session command's text over this many bytes to a file,
+// because an agent CLI cuts a command's output past a limit.
 const longOutput = 10_000;
-// The next step repeats at the end when the parts between it take more
+// print() repeats the next step at the end when the parts after it take more
 // lines than this.
 const longParts = 20;
 
-// The text of the moment a command names, from guide/moments/NAME.md and the
-// user's file of the same name. The hub has already acted on the command, so
-// a missing file only adds a line on stderr.
+// The hub has already acted on the command when momentText() runs, so a missing
+// moment file only adds a line on stderr.
 async function momentText(name) {
   try {
     return (await guideText(`moments/${name}.md`)).trim();
@@ -21,11 +21,6 @@ async function momentText(name) {
   }
 }
 
-// Writes a session command's output in one shape: the next step, the text
-// of each moment it names, then the data, each after a blank line, and the
-// next step again when the output is long. With --json it writes output.json instead.
-// A session command's output names its session directory, where data too
-// long to print goes, in a file whose path prints in its place.
 export async function print(output, { json, command }) {
   if (json) return console.log(JSON.stringify(output.json, null, 2));
   const next = output.next && `Next: ${output.next}`;
@@ -54,8 +49,8 @@ export async function print(output, { json, command }) {
   if (parts.length) console.log(parts.join("\n\n"));
 }
 
-// pair build and pair diff write OUTPUT with the wx flag, so the write
-// fails when the file exists, and the agent reads why.
+// pair build and pair diff write OUTPUT with the wx flag, so the write fails
+// with EEXIST when the file exists.
 export const refuseOverwrite = (output) => (error) => {
   if (error.code !== "EEXIST") throw error;
   throw new Error(
@@ -63,7 +58,20 @@ export const refuseOverwrite = (output) => (error) => {
   );
 };
 
-// Lines of a label and a value, with the values in one column.
+const megabytes = (bytes) => `${Number((bytes / 1_000_000).toFixed(1))} MB`;
+// pair build and pair publish each measure the request that pair publish sends.
+// pair build writes a page's content into the built file twice, and base64 makes
+// an image a third larger, so images can take 3/8 of the limit, less the size of
+// the frame. A third of the limit stays under that.
+export function tooBigToPublish(subject, request) {
+  const bytes = Buffer.byteLength(JSON.stringify(request));
+  return bytes <= agentRequestBytes
+    ? []
+    : [
+        `${subject} is too big to publish. The publish would send the hub ${megabytes(bytes)}, and the hub accepts at most ${megabytes(agentRequestBytes)}. pair build writes a page's content into the built file twice, so the images embedded in one page can total about ${megabytes(agentRequestBytes / 3)}. Crop or resize the images, or save them as JPEG or WebP. Then build the page again and publish the new file.`,
+      ];
+}
+
 export function rows(pairs) {
   const shown = pairs.filter(([, value]) => value !== undefined && value);
   const width = Math.max(...shown.map(([label]) => label.length)) + 2;

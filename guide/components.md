@@ -21,12 +21,11 @@ Never suggest this to the reviewer.
 
 ## Escaping
 
-A code block, a diagram's Mermaid text and the before-after JSON in
+A code block, a diagram's Mermaid text and before-after JSON pasted into
 `textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
-`&amp;` for each `&` in them. `pair build` does not catch a missed one, and
-the browser reads a bare `<` as the start of a tag. So `<T>` in code hides
-the rest of its line, and `<br/>` in a Mermaid label loses its line break,
-with no error.
+`&amp;` for each `&` in them. The browser reads a `<` before a letter, `/`,
+`!` or `?` as the start of a tag, and `pair build` refuses a code block or a
+diagram that has one. It does not catch a missed `&`.
 Leave `>` as it is, so `-->` and `->>` stay as written. In a formula inside
 a JSON string, write each backslash twice.
 
@@ -100,20 +99,23 @@ interactive content inside an option.
 
 ## Before and after
 
-For text or code, generate the input with Git:
+For text or code, generate the input with Git, and write it beside the
+page's JSON source:
 
 ```sh
-pair diff BEFORE AFTER OUTPUT.json
+pair diff BEFORE AFTER SRC/policy/retry.json
 ```
 
 Give it the whole files, not excerpts, so the patch numbers each line as the
 file does. Show each file's change as its own diff.
 
-Put that JSON in the markup's `textarea[data-diff-input]`, escaped, and put
-the file name in `data-file` on the section. The patch names the file by
-AFTER's base name, so give the proposed copy the file's real name, or a name
-that says what it is. `pair diff` requires Git and refuses to overwrite an
-existing output.
+Name the output in the markup's textarea, as
+`<textarea data-diff-input="retry.json" hidden></textarea>`, and put the
+changed file's name in `data-file` on the section. `pair build` reads that
+file from the page source's directory and writes its JSON into the textarea.
+The patch names the file by AFTER's base name, so give the proposed copy the
+file's real name, or a name that says what it is. `pair diff` requires Git
+and refuses to overwrite an existing output.
 
 For visual changes, fill the before and proposed slots and explain the
 change in the legend. Put the `added`, `removed` or `changed` class on
@@ -122,27 +124,30 @@ so do not set fixed colors in Mermaid `classDef` declarations.
 
 ## Diagrams
 
-Mermaid is the default. Draw a loop as a flowchart when the loop is the
-structure, a sequence diagram when the order of waits is the point, and a
-state diagram for modes. When Mermaid cannot draw the idea cleanly, draw the
-SVG by hand with the frame's tokens. `pair guide flow.svg` prints an
-example. A diagram renders at its drawn size and scrolls sideways when it is
-wider than the column.
+Use Mermaid source in `data-diagram` for flows, structures and simple
+charts. Choose any built-in diagram type supported by Pele 1.12.0. Draw a
+loop as a flowchart when the loop is the structure, a sequence diagram when
+the order of waits is the point, and a state diagram for modes.
 
-The text of `data-diagram` is the Mermaid source, one statement per line,
-escaped, so a line break in a label is `&lt;br/&gt;`. A click on a node
-whose ID matches a page ID opens that page. `pair build` does not check
-Mermaid.
+For custom rendering or interactions, call `await planUI.pele()` and use
+Pele's native API on your own element. Run `pair guide pages.md` for the
+loader and mount cleanup example. Use page CSS for Pele's public theme
+variables, SVG classes and source IDs. When Mermaid cannot draw the idea
+cleanly, draw SVG with the frame's tokens. Run `pair guide flow.svg` for an
+example.
 
-1. **Edges into a group.** An edge into a subgraph's first node passes
-   through the subgraph's title. Point the edge at the group, or lay the
-   flow out left to right.
-2. **Long chains.** A ten-hop line can stay at natural size when the order
-   is the whole point. Group the same flow when it needs to fit the column,
-   and label each group.
-3. **Labels.** Put one to three words in a node and the sentence in the
-   caption. Long labels widen every node in the rank and push the chain past
-   the column.
+Write one Mermaid statement per line in `data-diagram` and escape it as
+HTML text, so a line break in a label is `&lt;br/&gt;`. Use supported text
+formatting rather than arbitrary HTML labels. To link a node to a page,
+give it that page's ID. Use an explicit source URL link to override that
+page link. Open the built page to check the source, because `pair build`
+does not validate Mermaid syntax. Click a drawn diagram to inspect it
+at full size, and scroll the modal when the diagram is larger than the window.
+
+1. Point an edge at the group when the relation concerns the group.
+2. Keep a chain when the order is the point. Group related steps when the
+   groups help explain the flow, and label each group.
+3. Put one to three words in a node and the sentence in the caption.
 
 In these examples, `·` stands for a line break.
 
@@ -161,3 +166,12 @@ In these examples, `·` stands for a line break.
             caption: Checkout validates and prices. The client trips after five
             failures. The gateway times out at 8 s.
 ```
+
+## Charts and mathematical demonstrations
+
+Use Mermaid charts in `data-diagram` for explanatory figures. Use
+`data-chart` or `planUI.chart()` for ECharts features such as exact-value
+inspection, selectable series, data-range zoom and specialized numerical
+plots. For a mathematical demonstration, calculate samples in page
+JavaScript and update the returned ECharts instance with `setOption`.
+Use the formula component for equations.

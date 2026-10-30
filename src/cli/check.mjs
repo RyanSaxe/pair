@@ -7,18 +7,22 @@ import {
   rules,
   writeRules,
 } from "../../adapters/codex/rules.mjs";
-import { hubInfo, portOpen, readRecord } from "../hub/client.mjs";
-import { oldestNode, requireNode, settings } from "../shared/settings.mjs";
+import { hubInfo, ownStateDir, portOpen, readRecord } from "../hub/client.mjs";
+import { nodeFloor, requireNode, settings } from "../shared/settings.mjs";
 import { listen } from "../shared/util.mjs";
 import { rows } from "./output.mjs";
 
 async function portReport(config) {
   const { port } = config;
   if (!(await portOpen(port))) return { port, state: "free" };
-  const info = await hubInfo(port, await readRecord(config));
-  return info
-    ? { port, state: "hub", version: info.version, live: info.live }
-    : { port, state: "busy" };
+  const record = await readRecord(config);
+  const info = await hubInfo(port, record);
+  if (!info) return { port, state: "busy" };
+  // pair start refuses a hub unless this state directory's record has the hub's
+  // pid or the hub reports this state directory as its stateDir.
+  if (info.pid !== record?.pid && info.stateDir !== (await ownStateDir(config)))
+    return { port, state: "other-hub", pid: info.pid };
+  return { port, state: "hub", version: info.version, live: info.live };
 }
 function hubLine(hub) {
   if (hub.state === "os-assigned")
@@ -26,6 +30,8 @@ function hubLine(hub) {
   if (hub.state === "free") return `port ${hub.port} is free`;
   if (hub.state === "busy")
     return `port ${hub.port} is in use by another program`;
+  if (hub.state === "other-hub")
+    return `port ${hub.port} is in use by a pair hub that this state directory has no record of (pid ${hub.pid})`;
   const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
   return `port ${hub.port} is in use by a pair hub with ${sessions}, code ${hub.version}`;
 }
@@ -34,16 +40,17 @@ function codexLine(codex) {
   return `${codex.rules} ${codex.exists ? "differs from pair's rule" : "is missing"}`;
 }
 
-// The checks pair start needs to pass, one line each. A check that fails
-// outright refuses with its error. A busy hub port and a missing Codex rules
-// file each add a next step.
+// check() runs the checks that pair start needs to pass and prints one line for
+// each. A check that fails outright throws its error. A hub port in use by
+// another program or by another state directory's hub, and a missing Codex
+// rules file, each add a next step.
 export async function check() {
   const codex = await codexReport();
   let directory;
   const server = http.createServer((_, response) => response.end("ready"));
   try {
     requireNode();
-    // The hub writes under <state>/pair, so that is the directory to test.
+    // The hub writes under <state>/pair, so check() tests that directory.
     const base = settings().root;
     await fs.mkdir(base, { recursive: true });
     directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
@@ -70,16 +77,29 @@ export async function check() {
             `Set PAIR_HUB_PORT to a free port, because another program uses port ${hub.port}.`,
           ]
         : []),
+      ...(hub.state === "other-hub"
+        ? [
+            `Set PAIR_HUB_PORT to a free port, because another state directory's hub uses port ${hub.port}.`,
+          ]
+        : []),
       ...(codex && !codex.exists
         ? [
             `Ask the user whether pair may write ${codex.rules}. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
           ]
         : []),
     ];
+    // requireNode() has already refused a Node line with no floor, so
+    // nodeFloor() returns a floor here. A Node line later than the newest
+    // floor's line has no floor of its own, so check() then leaves the line out
+    // of the message.
+    const floor = nodeFloor();
+    const line = process.versions.node.startsWith(`${floor.line}.`)
+      ? ` on Node ${floor.line}`
+      : "";
     const lines = rows([
       [
         "node",
-        `${process.versions.node}, and pair needs ${oldestNode} or newer`,
+        `${process.versions.node}, and pair needs ${floor.release} or newer${line}`,
       ],
       ["storage", `${base}, writable`],
       ["loopback", "127.0.0.1 answers"],

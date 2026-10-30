@@ -1,5 +1,5 @@
-/* The round's status sits in the Pages heading, which is always there, so it
-   appears and fades without moving the list. */
+/* The round's status is inside the Pages heading, which is always there, so
+   the status appears and fades without moving the list. */
 .round-status {
   display: inline-flex;
   align-items: center;
@@ -16,6 +16,12 @@
 .round-status > span {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* An empty status is shorter than one with text, so a session with no status
+   would draw the heading and the list about 1.5px higher. The zero-width space
+   keeps the status one line tall. */
+.round-status > span::before {
+  content: "\200b";
 }
 .round-status i {
   flex: none;
@@ -68,17 +74,14 @@
   border-bottom-color: var(--accent);
   color: var(--ink);
 }
-/* A page name stays on one line, so a row never changes height. A page that
-   is not ready yet is dimmed and fades up when it publishes. The working
-   page is the only one with a mark, the breathing dot. */
 #page-list button {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  /* A grid item keeps its text's full width unless allowed to shrink, and
-     then a long name would push the row past the sidebar. */
+  /* A grid item does not shrink below its text's width unless min-width is
+     0, so without this a long name would push the row past the sidebar. */
   min-width: 0;
   padding: 6px 9px;
   border-radius: 6px;
@@ -106,8 +109,6 @@
 #page-list button .page-activity {
   flex: none;
 }
-/* A ready page of the current round that this browser has not opened, and
-   a proposal's card that it has not had on screen on Work. */
 #page-list button .page-new,
 .proposal-card .page-new {
   flex: none;
@@ -122,7 +123,6 @@
 #page-list button .page-activity:not(.active) {
   display: none;
 }
-/* The unsent count reads as text beside its label, as Current (4) does. */
 #review-row {
   justify-content: flex-start;
   gap: 4px;
@@ -156,8 +156,8 @@
   background: currentColor;
   animation: page-breathe 2s ease-in-out infinite;
 }
-/* A paused or unwoken agent is not working, so its active page stops
-   breathing and takes the attention color. */
+/* A paused or unwoken agent is not working, so the dot of its active page
+   stops breathing and uses the attention color. */
 .page-activity.active.stopped {
   color: var(--attention);
 }
@@ -180,7 +180,7 @@
   gap: 10px;
   color: var(--ink);
 }
-/* The mark sits beside the first line of a note that wraps. */
+/* height: 1lh keeps the mark beside the first line of a note that wraps. */
 .pending-state .page-activity {
   height: 1lh;
 }
@@ -231,8 +231,6 @@
   font-weight: inherit;
   line-height: inherit;
 }
-/* Work's two numbers: the proposed cards in grey, then the cards that need
-   the reviewer in the color the frame gives work that waits for them. */
 .work-counts {
   display: flex;
   flex: none;

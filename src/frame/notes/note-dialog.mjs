@@ -1,7 +1,6 @@
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, uuid } from "#frame/app/util.mjs";
 import {
-  base,
   feedbackEditable,
   noteEditable,
   page,
@@ -13,57 +12,79 @@ import {
   noteDraftKey,
   openAgentMessage,
 } from "#frame/notes/notes.mjs";
+import { editSketch } from "#frame/notes/drawing.mjs";
+import {
+  acceptImages,
+  forgetImages,
+  imageFigure,
+  uploadImages,
+} from "#frame/notes/images.mjs";
 import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 
-/* Images on a note. A screenshot pasted from the clipboard has no filename
-   and no path, and a file dropped from Finder arrives as a File the browser
-   will not give a path for, so the bytes go to the hub and it writes the
-   file. What comes back is a reference, which is what the note and the
-   draft carry; localStorage holds about 5MB and would not survive bytes. */
 let noteImages = [];
 let noteImagesAtOpen = [];
+let noteImagesRemoved = [];
 let noteImagesSaved = false;
+// settleNoteImages replaces this count, so attach can tell when the dialog
+// that started an upload has closed.
+let uploads = { running: 0 };
 export function setNoteImages(images) {
   noteImages = images;
   noteImagesAtOpen = images.map((item) => item.id);
 }
-const imageTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+/* The saved note still refers to each image it had when the dialog opened,
+   and backing out keeps the saved note as it was. So dropNoteImage deletes
+   such an image only when the reviewer saves the edit. */
+function dropNoteImage(item) {
+  if (noteImagesAtOpen.includes(item.id)) noteImagesRemoved.push(item);
+  else forgetImages([item]);
+}
 export function drawNoteImages() {
   const box = $("note-images");
   box.replaceChildren();
   box.hidden = !noteImages.length;
   for (const item of noteImages) {
-    const figure = document.createElement("figure");
-    figure.className = "note-image";
-    const image = document.createElement("img");
-    image.src = `${base}/api/upload/${encodeURIComponent(item.id)}`;
-    image.alt = "";
-    const drop = document.createElement("button");
-    drop.type = "button";
-    drop.className = "icon-btn";
-    drop.textContent = "✕";
-    drop.setAttribute("aria-label", "Remove this image");
-    drop.onclick = () => {
+    const figure = imageFigure(item, () => {
       noteImages = noteImages.filter((held) => held.id !== item.id);
-      forgetImages([item]);
+      dropNoteImage(item);
       drawNoteImages();
-    };
-    figure.append(image, drop);
+    });
+    if (item.scene) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "btn note-image-edit";
+      edit.textContent = "Edit sketch";
+      edit.onclick = () =>
+        editSketch(item, (sketch) => {
+          noteImages = noteImages.map((held) =>
+            held.id === item.id ? sketch : held,
+          );
+          dropNoteImage(item);
+          drawNoteImages();
+        }).catch((error) => imageError(error.message));
+      figure.append(edit);
+    }
     box.append(figure);
   }
+}
+// settleNoteImages deletes an image added here, such as a sketch, when the
+// reviewer backs out of the dialog, as it does for an attached image.
+export function addNoteImage(record) {
+  noteImages.push(record);
+  drawNoteImages();
 }
 export function imageError(message) {
   const line = $("note-image-error");
   line.textContent = message;
   line.hidden = !message;
 }
-/* The note's text area is as tall as its text, within the heights its box
-   allows. Safari and Firefox have no field-sizing, so the text is measured:
-   at height auto, the text area's scrollHeight is its text's height. The
-   scrollbar is hidden while measuring so it cannot narrow the text, and the
-   scroll positions the short measuring height moved are put back. */
+/* Safari and Firefox have no CSS field-sizing, so fitNoteText measures the
+   text. At height auto, the text area's scrollHeight is the text's height.
+   fitNoteText hides the scrollbar while it measures, so the scrollbar
+   cannot narrow the text, and then restores the scroll positions that the
+   short measuring height changed. */
 export function fitNoteText() {
   const area = $("note-text");
   const body = area.closest(".dialog-body");
@@ -75,42 +96,38 @@ export function fitNoteText() {
   area.style.height = `${height}px`;
   [area.scrollTop, body.scrollTop] = scrolled;
 }
-/* Paste, drop and the picker all arrive here. */
+function drawUploading() {
+  const busy = uploads.running > 0;
+  $("note-uploading").hidden = !busy;
+  $("note-save").disabled = busy;
+  $("note-thread").disabled = busy;
+}
+/* A note cannot be saved while an upload runs, so it cannot lose the image.
+   When the reviewer backs out first, the upload belongs to no note, so attach
+   deletes the image when the upload finishes. */
 async function attach(files) {
-  const images = [...files].filter((file) => imageTypes.includes(file.type));
-  if (!images.length) {
-    imageError("Attach a PNG, JPEG, WebP or GIF.");
-    return;
-  }
-  imageError("");
-  for (const file of images) {
-    try {
-      const response = await fetch(`${base}/api/upload`, {
-        method: "POST",
-        body: file,
-      });
-      const record = await response.json();
-      if (!response.ok) throw Error(record.error || "Upload failed.");
-      noteImages.push(record);
-      drawNoteImages();
-    } catch (error) {
-      imageError(error.message);
-    }
-  }
+  const started = uploads;
+  started.running++;
+  drawUploading();
+  await uploadImages(
+    files,
+    (record) => {
+      if (started === uploads) addNoteImage(record);
+      else forgetImages([record]);
+    },
+    (message) => {
+      if (started === uploads) imageError(message);
+    },
+  );
+  started.running--;
+  drawUploading();
 }
-/* A note the reviewer dropped takes its images with it, so the session does
-   not keep bytes nothing refers to. */
-export function forgetImages(items) {
-  for (const item of items || [])
-    fetch(`${base}/api/upload/${encodeURIComponent(item.id)}`, {
-      method: "DELETE",
-    }).catch(() => {});
-}
-/* A dialog the reviewer abandoned drops what it uploaded, so the session
-   never keeps bytes no note refers to. This runs when the reviewer backs
-   out of the dialog, by its ×, Escape or a click outside, and again before
-   the next one opens, rather than on the dialog's close event, which
-   saving a note also raises. */
+/* settleNoteImages deletes the images that a dialog uploaded when the
+   reviewer backs out of it, so the session keeps no image that no note
+   refers to. The frame calls it when the reviewer closes the dialog with
+   its ×, Escape or a click outside, and again before the next note opens.
+   The dialog's close event cannot call it, because saving a note also
+   fires that event. */
 export function settleNoteImages() {
   if (!noteImagesSaved)
     forgetImages(
@@ -118,12 +135,15 @@ export function settleNoteImages() {
     );
   noteImages = [];
   noteImagesAtOpen = [];
+  noteImagesRemoved = [];
   noteImagesSaved = false;
+  uploads = { running: 0 };
+  drawUploading();
 }
 
 export function installNoteDialog() {
   $("note-text").addEventListener("input", fitNoteText);
-  // A new window width wraps the text again.
+  // A new window width wraps the text again and changes its height.
   addEventListener("resize", () => {
     if ($("note-dialog").open) fitNoteText();
   });
@@ -132,33 +152,10 @@ export function installNoteDialog() {
     attach(event.target.files);
     event.target.value = "";
   };
-  $("note-dialog").addEventListener("paste", (event) => {
-    const files = [...event.clipboardData.items]
-      .filter((item) => item.kind === "file")
-      .map((item) => item.getAsFile())
-      .filter(Boolean);
-    if (!files.length) return;
-    event.preventDefault();
-    attach(files);
-  });
-  for (const type of ["dragover", "dragenter"])
-    $("note-dialog").addEventListener(type, (event) => {
-      event.preventDefault();
-      $("note-dialog").classList.add("dropping");
-    });
-  for (const type of ["dragleave", "drop"])
-    $("note-dialog").addEventListener(type, (event) => {
-      event.preventDefault();
-      if (
-        type === "dragleave" &&
-        $("note-dialog").contains(event.relatedTarget)
-      )
-        return;
-      $("note-dialog").classList.remove("dropping");
-      if (type === "drop") attach(event.dataTransfer.files);
-    });
-  /* Start a thread sends the note to the agent now instead of keeping it
-     for Send feedback, so the note leaves the draft and its images stay. */
+  acceptImages($("note-dialog"), attach);
+  /* startThread sends the note to the hub now instead of keeping it for
+     Send feedback, so this handler deletes the note's draft and keeps its
+     images. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
   $("note-thread").onclick = () => {
     const allowed = noteContext.proposal ? cardsEditable() : noteEditable();
@@ -180,25 +177,36 @@ export function installNoteDialog() {
     $("note-thread").click();
   });
   $("activity-message").onclick = openAgentMessage;
-  // The form's submit, which Shift+Enter also triggers, adds nothing to
-  // feedback while Add to feedback is hidden.
+  // Shift+Enter also submits the form, so the handler adds nothing to
+  // feedback while the Add to feedback button is hidden.
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
     if (!feedbackEditable() || $("note-save").hidden) return;
+    // Shift+Enter submits the form even while its button is disabled.
+    if ($("note-save").disabled) return;
     const text = $("note-text").value.trim();
     if (!text) return;
+    // Another device can delete the note while this dialog edits it. The
+    // edit then becomes a new note, so the reviewer's words are kept. Remove
+    // deleted the images the note had, so the new note has only the images
+    // added in this dialog.
+    const kept = state.notes.some((item) => item.id === editing);
+    const images = kept
+      ? noteImages
+      : noteImages.filter((item) => !noteImagesAtOpen.includes(item.id));
     const note = {
       ...noteContext,
-      id: editing || uuid(),
+      id: kept ? editing : uuid(),
       text,
       round: plan.round,
-      ...(noteImages.length ? { attachments: noteImages } : {}),
+      ...(images.length ? { attachments: images } : {}),
     };
-    if (editing)
+    if (kept) {
       state.notes = state.notes.map((item) =>
         item.id === editing ? note : item,
       );
-    else state.notes.push(note);
+      forgetImages(noteImagesRemoved);
+    } else state.notes.push(note);
     if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
     noteImagesSaved = true;
     save();

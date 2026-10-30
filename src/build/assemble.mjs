@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { moduleIntegrity } from "../shared/libraries.mjs";
 import { readPlanData } from "../shared/records.mjs";
 import { jsonScript, jsonScriptTag, scriptJson } from "../shared/util.mjs";
 import {
@@ -20,8 +21,6 @@ async function* files(directory) {
     else yield file;
   }
 }
-// Every module under src/frame/ by its #frame/ name, and each src/shared/
-// module one of them imports by a #shared/ name.
 async function frameModules() {
   const root = fileURLToPath(assets);
   const modules = {};
@@ -39,8 +38,8 @@ async function frameModules() {
     modules[name] = await read(`../shared/${name.slice("#shared/".length)}`);
   return modules;
 }
-// The frame's stylesheets in cascade order, which follows where each one's
-// first rule sat in the single stylesheet they came from.
+// A later stylesheet in this list wins a tie of specificity, so the list is the
+// frame's cascade order.
 const stylesheets = [
   "app/tokens.css",
   "app/base.css",
@@ -86,19 +85,26 @@ export async function frameBundle() {
     componentJs,
   };
 }
-// The names component behaviors use without importing them. registry.mjs
-// re-exports each one from the module that declares it.
+// Component behaviors use these names without importing them.
+// src/frame/app/registry.mjs re-exports each name from the module that declares
+// it.
 const componentNames = [
   "$",
   "base",
+  "canComment",
+  "canSketch",
   "color",
+  "commentOn",
   "copyButton",
+  "diagramBox",
+  "diagrams",
   "failed",
   "figure",
   "libraries",
   "lineRanges",
   "linkButton",
   "online",
+  "openSketch",
   "page",
   "pages",
   "plan",
@@ -108,8 +114,9 @@ const componentNames = [
   "syntaxThemes",
   "uuid",
 ];
-// A module in a data: URL has no base URL, so the frame's modules import
-// each other by #frame/… and #shared/… names, which the import map resolves.
+// A module in a data: URL has no base URL, so the frame's modules import each
+// other by #frame/… and #shared/… names, and the browser resolves those names
+// through the import map.
 function moduleScript({ modules, componentJs }) {
   const imports = {};
   for (const [name, text] of Object.entries(modules)) {
@@ -118,14 +125,16 @@ function moduleScript({ modules, componentJs }) {
       `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
   }
   return (
-    `<script type="importmap">\n${JSON.stringify({ imports })}\n</script>\n` +
+    `<script type="importmap">\n${JSON.stringify({ imports, integrity: moduleIntegrity })}\n</script>\n` +
     `<script type="module">\n` +
     `import { ${componentNames.join(", ")} } from "#frame/app/registry.mjs";\n` +
     `import "#frame/app/boot.mjs";\n${componentJs}\n</script>`
   );
 }
-// A round keeps the bundle stored when its Agreed was published. A bundle
-// with no format predates the split, and its files share one scope.
+// The hub stores the frame bundle with a round when it publishes the round's
+// Agreed, so an old round can have an older bundle. A bundle with no format
+// predates the frame's split into modules, and its files expect one shared
+// scope, so joinedScript() joins them into one module script.
 const joinedScript = (bundle) =>
   `<script type="module">\n${[
     bundle.offers,
@@ -141,23 +150,27 @@ export async function assemble(
   data,
   { css = "", js = "", allowUnknownPages = false, bundle } = {},
 ) {
-  // A page's script arrives here encoded, and buildPage has already
-  // checked it as written.
-  const found = problems(data, "", { allowUnknownPages });
+  // buildPage has already checked each page's HTML, and its script as written,
+  // which arrives here encoded. The hub assembles a round from its stored pages
+  // at each publish, so authoring: false keeps a page that an older pair build
+  // checked from failing its round.
+  const found = problems(data, "", { allowUnknownPages, authoring: false });
   if (found.length) throw new Error(found.join("\n"));
   const html = join(bundle || (await frameBundle()), data, css, js);
   readPlanData(html);
   return html;
 }
-// A session with nothing published shows the frame with its title and no
-// pages, and the frame draws the session's home view.
+// pair build measures a page's built file before it reports the page's problems,
+// so joinPage() joins a page that assemble() would refuse.
+export const joinPage = async (data, css, js) =>
+  join(await frameBundle(), data, css, js);
 export async function assembleHome(title) {
   return join(await frameBundle(), { title, pages: [] }, "", "");
 }
 function join(bundle, data, css, js) {
   const { shell, style, drawingEditor, componentCss } = bundle;
-  // A bundle stored before the dialogs had a file of their own carries them
-  // in its shell.
+  // A bundle stored before the dialogs moved to a file of their own contains
+  // them in its shell and has no dialogs field.
   return (
     shell
       .replace("<!-- DIALOGS -->", () => bundle.dialogs ?? "")
@@ -165,11 +178,12 @@ function join(bundle, data, css, js) {
       .replace(
         "<!-- FRAME_STYLE -->",
         // The cascade ranks an unlayered rule above every layered one, so the
-        // frame takes a layer of its own rather than staying outside them. A
-        // component rule then beats a plan rule of any specificity, and a plan
-        // that means it can still say !important.
-        // Page CSS arrives scoped to its page. Nesting it inside the component
-        // scope would exclude the root itself.
+        // frame's CSS goes in a layer of its own. A component rule then beats a
+        // plan rule of any specificity, and a plan rule can still win with
+        // !important.
+        //
+        // Page CSS is already scoped to its page, and nesting it inside the
+        // component scope would exclude the scope's root itself.
         () =>
           `<style>\n@layer frame, plan, components;\n@layer frame {\n${style}\n}\n` +
           `@layer plan {\n${css}\n}\n@scope (#page-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
@@ -178,8 +192,9 @@ function join(bundle, data, css, js) {
       .replace("<!-- FRAME_SCRIPT -->", () =>
         bundle.format === 2 ? moduleScript(bundle) : joinedScript(bundle),
       )
-      // A module, and after the frame's, so the plan's own script sees planUI
-      // and can register a component of its own before the first page renders.
+      // The plan's script is a module that runs after the frame's, so it can
+      // use planUI and register a component of its own before the first page
+      // renders.
       .replace(
         "<!-- CUSTOM_SCRIPT -->",
         () => `<script type="module">\n${js}\n</script>`,
@@ -187,8 +202,8 @@ function join(bundle, data, css, js) {
       .replace(jsonScript("plan-data"), () => jsonScriptTag("plan-data", data))
   );
 }
-// Rounds reuse page IDs, and the reader keeps several rounds loaded, so
-// page CSS and scripts match the round as well as the page.
+// Rounds reuse page IDs, and the frame keeps several rounds loaded, so page CSS
+// and scripts select the round as well as the page.
 function pageScope(id, round) {
   return `#page-content[data-page-id="${id}"][data-round="${round}"]`;
 }

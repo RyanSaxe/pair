@@ -1,7 +1,7 @@
-/* The side offsets are padding rather than margin: a margin adds to the
-   full width of main and scrolls the page sideways below a 1100px window.
-   The 56px on the left holds the bar that marks a chosen block, and the
-   right side matches it so the column sits evenly in main. */
+/* The side offsets are padding rather than margin, because a margin adds to
+   the full width of main and scrolls the page sideways below a 1100px
+   window. The 56px on the left makes room for the bar that marks a chosen
+   block, and the right side matches it so the column is centered in main. */
 .content {
   flex: 1 0 auto;
   margin: 0;
@@ -22,14 +22,23 @@
   position: relative;
   container: page / inline-size;
 }
-/* show() keeps a page hidden, with its layout, until its diagrams and
-   formulas draw. */
+/* whenDrawn() in pages.mjs sets data-drawing to keep a page hidden, with its
+   layout in place, until its diagrams and formulas have drawn. */
 #page-content[data-drawing] {
   visibility: hidden;
 }
 #page-content p,
 #page-content li {
   font-size: var(--text-body);
+}
+#page-title,
+#page-content
+  :is(p, li, dt, dd, blockquote, h1, h2, h3, h4, h5, h6):not(:is(td, th) *) {
+  overflow-wrap: anywhere;
+}
+#page-content table {
+  display: block;
+  overflow-x: auto;
 }
 .page-footer {
   display: flex;
@@ -73,7 +82,6 @@
   margin-left: auto;
   text-align: right;
 }
-/* Notes on the text */
 ::highlight(plan-note),
 ::highlight(plan-preview) {
   background-color: var(--mark);
@@ -120,10 +128,10 @@ mark.note-mark {
   overflow: hidden;
   background: var(--panel);
 }
-/* A component, a figure, a formula and a code block are blocks in the
-   page's rhythm, so the frame sets the space around each one at the top of
-   the page: 14px above and 22px below. The code and formula components set
-   margin: revert-layer there, so their own margins give way to this rule. */
+/* This rule sets the space around each top-level component, figure, formula
+   and code block on a page: 14px above and 22px below. The code and formula
+   components set margin: revert-layer there, so their own margins give way
+   to this rule. */
 #page-content
   > :is(
     [data-choice],
@@ -137,16 +145,10 @@ mark.note-mark {
   ) {
   margin: 14px 0 22px;
 }
-/* A slot supplies its own padding, so what it holds brings no outer margin
-   of its own: a <pre> brings 12/12 from the browser default, a .figure 14/18,
-   a table 16/16, a blockquote 10/10 and a paragraph 0/14. Zeroing only the
-   last child's bottom margin, which is what this was, left every one of them
-   sitting lower in its slot than it sat from the bottom.
-
-   A rule here used to drop a slot's bottom padding when a figure or a code
-   block ended it, so the block met the slot's edge. It named those four
-   elements and not a table, a blockquote or a paragraph, so what a slot
-   looked like depended on what an author had put in it last. */
+/* A slot supplies its own padding, so its first and last children have no
+   outer margin. Each kind of child brings its own default margins, such as
+   12px above and below a pre, so zeroing only the last child's bottom
+   margin would leave a larger gap above the content than below it. */
 :is(
     .visual-option,
     .visual-option > figure,
@@ -169,9 +171,8 @@ mark.note-mark {
   > :last-child {
   margin-bottom: 0;
 }
-/* A figure in a slot keeps its border and its radius. Flattening it made the
-   same block look like two different things depending on where it sat, and
-   the slot's own padding is what separates it from the card. */
+/* A figure in a slot keeps its border and its radius, so it looks the same
+   in a slot as on the page. The slot's padding separates it from the card. */
 :is(
     .visual-option > figure,
     .comparison-content,
@@ -216,17 +217,14 @@ mark.note-mark {
 .figure-caption b {
   color: var(--ink);
 }
-/* The comment control stays in a corner of the window. With nothing chosen
-   it is a quiet round icon that comments on the page, and for a selection
-   or a chosen block it grows leftward into a blue button that names its
-   target. The label's column widens from 0fr to 1fr, so the button grows to
-   the label's own width with no width measured in script. blocks.mjs sets
-   data-place, and on a wide window the right offset that centers the icon in
-   the gutter beside the page's text. */
-/* Growing, the shape and colour change first and the label fades in once
-   the button has its full width. Shrinking runs the same steps backward. So
-   the label is never drawn cut off by the edge of a button still changing
-   size. */
+/* The label's column widens from 0fr to 1fr, so the button grows to the
+   label's own width without a width measured in script. blocks.mjs sets
+   data-place, and on a wide window it also sets the right offset that
+   centers the icon in the gutter beside the page's text. */
+/* When the button grows, the shape and color change first, and the label
+   fades in once the button has its full width. Shrinking runs the same
+   steps in reverse. The label is therefore never cut off by the edge of a
+   button that is still changing size. */
 .comment-here {
   --grow: 180ms;
   --fade: 90ms;
@@ -306,11 +304,11 @@ mark.note-mark {
     transition: none !important;
   }
 }
-/* The bar sits in the padding the column already has: 56px on a desktop and
-   16px on a phone, so marking a block never narrows the text. It is one
-   element beside the page rather than a pseudo-element on the block, because
-   a table, a code block and a figure each scroll inside their own box and
-   would clip a bar that hung outside it. */
+/* The bar is in the padding the column already has, 56px on a desktop and
+   16px on a phone, so marking a block never narrows the text. The bar is
+   one element beside the page instead of a pseudo-element on the block,
+   because a table, a code block and a figure each scroll inside their own
+   box and would clip a bar outside it. */
 #reading,
 #work-view {
   position: relative;
@@ -326,15 +324,17 @@ mark.note-mark {
 .chosen-bar {
   background: var(--accent);
 }
-/* A block that carries notes, in the same place and a quieter colour, so the
-   accent always means the block you are about to comment on. */
+/* .note-bar marks a block that has notes, in the same place as the chosen
+   block's bar and in a quieter color, so the accent always marks the block
+   the reader is about to comment on. */
 .note-bar {
   background: var(--line-strong);
 }
 .context-link {
   font-size: var(--text-small);
 }
-/* Dialogs cover the current page, so its comment control steps aside. */
+/* An open dialog covers the page, so this rule hides the page's comment
+   control. */
 body:has(dialog[open]) .comment-here {
   display: none;
 }
@@ -343,7 +343,8 @@ body:has(dialog[open]) .comment-here {
     display: inline-block;
   }
   /* The bottom padding lets the last line scroll clear of the comment
-     control in the corner: its 16px offset, its 44px and 16px between. */
+     control in the corner. 76px is the control's 16px offset, its 44px
+     height and 16px of space. */
   .content {
     padding: 20px 16px calc(76px + env(safe-area-inset-bottom));
   }
@@ -357,7 +358,7 @@ body:has(dialog[open]) .comment-here {
   position: absolute;
   /* Above the header, whose z-index is 6. */
   z-index: 7;
-  /* Over the header's bottom border. */
+  /* top: -2px puts the bar over the header's bottom border. */
   top: -2px;
   left: 0;
   right: 0;
@@ -369,7 +370,7 @@ body:has(dialog[open]) .comment-here {
 .move-bar {
   opacity: 0;
 }
-/* A narrow window scrolls .app-body, which clips the bar above the column,
+/* At 720px and below .app-body scrolls and clips the bar above the column,
    so there the bar sticks to the top of .app-body, under the header,
    however far the page is scrolled. Its negative margin keeps it out of
    the layout. */

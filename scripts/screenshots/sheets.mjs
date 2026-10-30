@@ -1,19 +1,15 @@
-// Lays the screenshots out on a sheet and screenshots the sheet at 2x.
-// Both sheets share one grid: 1280 CSS pixels wide with 48 of margin.
+// This module lays screenshots out on a sheet and screenshots the sheet at 2x.
+// Both sheets use one grid, 1280 CSS pixels wide with a 48px margin.
 import path from "node:path";
 
 const uri = (png) => `data:image/png;base64,${png.toString("base64")}`;
 const esc = (text) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-// --- The terminal, drawn from what the staging's pair commands printed. ---
-
 const uuid =
   /\b([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g;
-// IDs keep their first eight characters, and "…" marks the rest.
 const short = (text) => text.replace(uuid, "$1…");
-// A command as typed, with the session directory cut to its ID and, for
-// propose, the flags after --title left out behind "…".
+// For propose, typed() replaces the flags from --delivers on with "…".
 function typed(args) {
   const parts = [];
   for (let i = 0; i < args.length; i++) {
@@ -60,8 +56,8 @@ function terminal(transcript) {
     out: lines.map(short),
   }));
 }
-// A line as words that never break inside, so it wraps only at a space,
-// with each piece colored: pair's tags, their attributes and plain text.
+// words() renders each word as a span that never breaks, so the terminal wraps
+// a line only at a space.
 function words(segments) {
   const all = [];
   let word = [];
@@ -111,8 +107,6 @@ function termHtml(transcript) {
   );
   return rows.join("");
 }
-
-// --- Shared look. ---
 
 function tokens(theme) {
   const dark = theme === "dark";
@@ -169,8 +163,6 @@ async function render(browser, html, check) {
   return png;
 }
 
-// --- The illustration: the terminal ⇄ the browser. ---
-
 export function composeIllustration(browser, theme, shot, transcript) {
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>${tokens(theme)}
 .canvas{grid-template-columns:448px 144px 592px}
@@ -198,7 +190,8 @@ export function composeIllustration(browser, theme, shot, transcript) {
 <div class="win browser"><div class="bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">127.0.0.1:4747</div><div></div></div><img src="${uri(shot.browser)}"></div>
 </div></body></html>`;
   return render(browser, html, async (page) => {
-    // Unattended runs must not ship a clipped terminal or a broken word.
+    // The script runs unattended, so it fails rather than write a clipped
+    // terminal or a broken word.
     const fit = await page.evaluate(() => {
       const body = document.querySelector(".term .body");
       const right = body.getBoundingClientRect().right - 16;
@@ -220,8 +213,6 @@ export function composeIllustration(browser, theme, shot, transcript) {
       );
   });
 }
-
-// --- Work on a phone: the card, the Start popup, the sub-session. ---
 
 export function composeWork(browser, theme, shot) {
   const phone = 320;

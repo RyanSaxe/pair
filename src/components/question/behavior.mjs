@@ -1,5 +1,5 @@
-/* The Answer button and the answered card. planUI.prefs keeps the state for
-   this session and round, so a reload comes back answered. */
+/* planUI.prefs records that the reviewer pressed Edit, so the card stays
+   open after a reload in that browser. */
 planUI.define("question", {
   match: ".question[data-question]",
   setup(card, { page, planUI }) {
@@ -18,8 +18,8 @@ planUI.define("question", {
       edit.hidden = !answered;
     };
     // Shift+Enter in the box presses Answer, and the button shows the key.
-    // The hint is added here rather than in the markup, so a page whose
-    // author copied the markup before it had the hint shows it too.
+    // setup adds the hint instead of the markup, so a page whose author copied
+    // the markup before it had the hint shows it too.
     if (!save.querySelector("kbd")) {
       const hint = document.createElement("kbd");
       hint.textContent = "⇧ ↵";
@@ -44,13 +44,23 @@ planUI.define("question", {
       show(false);
       area.focus();
     };
-    // The card shows as answered only while the draft has an answer for the
-    // question. A new round's draft has no answer that was sent.
-    if (
-      planUI.prefs.get(key) &&
-      planUI.answered(card.dataset.question) &&
-      area.value.trim()
-    )
-      show(true);
+    // The card shows as answered while the draft's answer for the question
+    // has the text in the box, so every browser that shares the draft shows
+    // the same state. Edit keeps the card open in the browser that pressed
+    // it. A new round's draft contains no answer that was sent.
+    const sync = () => {
+      const recorded = planUI.answered(card.dataset.question)?.text;
+      show(
+        planUI.prefs.get(key) !== "" &&
+          Boolean(recorded?.trim()) &&
+          recorded === area.value,
+      );
+      save.disabled = !area.value.trim();
+    };
+    // plan:draft leaves a box the reviewer is typing in as it is.
+    card.addEventListener("plan:draft", () => {
+      if (area !== document.activeElement) sync();
+    });
+    sync();
   },
 });

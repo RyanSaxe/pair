@@ -35,8 +35,7 @@
 .decision-option[aria-pressed="true"]::before {
   border: 5px solid var(--accent);
 }
-.decision-option > b,
-.decision-option > p {
+.decision-option > * {
   grid-column: 2;
 }
 .decision-option > b {

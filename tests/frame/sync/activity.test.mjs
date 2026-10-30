@@ -24,7 +24,8 @@ const run = (remote, extra = {}) =>
   activityModel({ remote, currentSet, submittedRound, now, ...extra });
 
 test("feedback waits without inventing page names", () => {
-  // A report on an earlier round does not count for this one.
+  // activityModel compares submission IDs and ignores the report's time, so a
+  // report from before s2 does not mark s2 as received.
   const waiting = run({
     current: { round: "1" },
     latestSubmissionId: "s2",
@@ -33,8 +34,15 @@ test("feedback waits without inventing page names", () => {
   });
   assert.equal(waiting.title, "Waiting for the agent");
   assert.deepEqual(waiting.slots, []);
-  assert.equal(waiting.track, "still");
+  assert.equal(waiting.track, "moving");
   assert.equal(waiting.summary, "Feedback saved");
+  const unwoken = run({
+    current: { round: "1" },
+    latestSubmissionId: "s2",
+    lastAcknowledgedId: "s1",
+    wake: { last: { ok: false } },
+  });
+  assert.equal(unwoken.track, "still");
   const sending = run({ current: { round: "1" } }, { inFlight: true });
   assert.equal(sending.title, "Sending feedback");
   assert.equal(sending.track, "moving");
@@ -129,8 +137,8 @@ test("a note without --page shows under the card's title before and after Agreed
       report: { at: "2026-01-01T00:09:30Z", note: "Reading", noteAt },
       ...extra,
     });
-  // A note keeps the time it was sent, so page notes since then do not
-  // reset its age.
+  // activityModel ages a note from noteAt, not from the later report.at, so
+  // reports after the note do not reset its age.
   const before = noted("2026-01-01T00:05:01Z");
   assert.deepEqual(before.note, {
     text: "Reading",
@@ -138,7 +146,6 @@ test("a note without --page shows under the card's title before and after Agreed
     late: false,
   });
   assert.equal(noted("2026-01-01T00:05:00Z").note.late, true);
-  // After Agreed the note stays.
   const after = noted("2026-01-01T00:09:00Z", {
     current: { round: "2" },
     openRound: {
@@ -147,16 +154,74 @@ test("a note without --page shows under the card's title before and after Agreed
     },
   });
   assert.equal(after.note.text, "Reading");
-  // A stopped agent's card names why, without its last note.
+  // For a paused agent, activityModel returns no note, and the summary gives
+  // the pause reason.
   const paused = noted("2026-01-01T00:09:00Z", { paused: { reason: "Wait" } });
   assert.equal(paused.note, null);
-  // Before the agent receives a new submission, its last note is not about it.
+  // Until the agent receives submission s3, its last note is about earlier
+  // feedback, so activityModel returns no note.
   const sent = noted("2026-01-01T00:09:00Z", { latestSubmissionId: "s3" });
   assert.equal(sent.note, null);
 });
 
+test("between pages, the unstarted segments sweep and the summary says when the agent last reported, until five minutes pass", () => {
+  const between = (report, extra = {}) =>
+    run({
+      current: { round: "2" },
+      ...read,
+      openRound: {
+        round: "2",
+        pages: [
+          { id: "loop", title: "Loop", state: "queued" },
+          { id: "steps", title: "Steps", state: "queued" },
+        ],
+      },
+      report,
+      ...extra,
+    });
+  const fresh = between({ at: "2026-01-01T00:08:00Z", note: null });
+  assert.equal(fresh.summary, "1 of 3 pages ready");
+  assert.deepEqual(fresh.reportLine, {
+    text: "Last report 2 min ago",
+    late: false,
+  });
+  assert.equal(fresh.sweep, true);
+  const quiet = between({ at: "2026-01-01T00:04:00Z", note: null });
+  assert.deepEqual(quiet.reportLine, {
+    text: "No report for 6 min",
+    late: true,
+  });
+  assert.equal(quiet.sweep, false);
+  const noted = between({
+    at: "2026-01-01T00:09:00Z",
+    note: "Reading the hub",
+    noteAt: "2026-01-01T00:09:00Z",
+  });
+  assert.equal(noted.reportLine, null);
+  assert.equal(noted.note.text, "Reading the hub");
+  assert.equal(noted.sweep, true);
+  const paused = between(
+    { at: "2026-01-01T00:09:00Z", note: null },
+    { paused: { reason: "Wait" } },
+  );
+  assert.equal(paused.reportLine, null);
+  assert.equal(paused.sweep, false);
+  // Once a page is at work, the frame shows the agent's last report in that
+  // page's row, so activityModel returns no report line.
+  const started = run({
+    current: { round: "2" },
+    ...read,
+    openRound: {
+      round: "2",
+      pages: [{ id: "loop", title: "Loop", state: "active" }],
+    },
+    report: { at: "2026-01-01T00:09:00Z", note: null },
+  });
+  assert.equal(started.reportLine, null);
+  assert.equal(started.sweep, false);
+});
+
 test("a session with nothing published prepares its first round, with the note in place of where the pages appear", () => {
-  // The home view has no page set and no submitted round.
   const first = (report) =>
     run(
       { current: null, report },
@@ -306,10 +371,10 @@ test("the card names the agent that took the session over, and when", () => {
 });
 
 test("the card shows outside a running round what the reviewer must know", () => {
-  // Another agent took the session over while the round is with the reviewer.
+  // agentNotice returns true for a takeover even at stage ready, while the
+  // round waits for the reviewer.
   const takeover = { name: "Codex", at: "2026-01-01T00:09:00Z" };
   assert.equal(agentNotice({ stage: "ready", takeover }), true);
-  // On a round nothing was sent on yet, it says when the pages finished.
   const first = run(
     {
       stage: "ready",
@@ -324,16 +389,17 @@ test("the card shows outside a running round what the reviewer must know", () =>
     },
   );
   assert.equal(first.title, "All pages ready");
-  // Accepting finished work woke no one: the card stays until the agent
-  // completes the session, and a failed wake from a finished round is gone.
+  // With a failed wake, agentNotice returns true at stage submitted. It returns
+  // false once the session is complete, and at stage updated, which the hub
+  // sets when the agent publishes a later round's last page.
   const failed = { wake: { last: { ok: false } } };
   assert.equal(agentNotice({ ...failed, stage: "submitted" }), true);
   assert.equal(agentNotice({ ...failed, stage: "complete" }), false);
   assert.equal(agentNotice({ ...failed, stage: "updated" }), false);
 });
 
-// Before its first wake, a holder has no steerable, and a session may have
-// no holder.
+// The hub sets holder.steerable only at a wake, and a session can have no
+// holder.
 test("the message tooltip changes only for a holder whose last wake waits for the turn to end", () => {
   const midTurn = messageTiming({ steerable: true });
   assert.equal(messageTiming({}), midTurn);

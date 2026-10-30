@@ -27,7 +27,9 @@ or delete the old output first. `pair publish --source SRC/policy` copies
 that directory to the session's `src/<round>/<page-id>/`, so keep built
 pages, previews and scratch files out of it. To revise an earlier round's
 page, copy its source from there and change its `round` to this one. Embed
-every local resource a page uses.
+every local resource a page uses. `pair build` refuses a page whose embedded
+images total more than about 6.7 MB, so crop or resize each screenshot before
+you embed it.
 
 You cannot change a page in its round after you publish it.
 `pair publish` checks each `#` link on the pages after Agreed, and refuses
@@ -138,8 +140,9 @@ titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
 | planUI.comment(anchor, quote)        | Open a note from a custom control.                                                                                                                                 |
 | planUI.enhance(element)              | Render components in content a script added.                                                                                                                       |
 | planUI.define(name, {match, setup})  | Register a component. `pair guide components/README.md` prints how.                                                                                                |
+| planUI.pele()                        | Return the complete Pele 1.12.0 module namespace asynchronously. Use its native API on an element without `data-diagram`.                                          |
 | planUI.chart(element, options)       | Return an ECharts instance asynchronously.                                                                                                                         |
-| planUI.diff(element, input, options) | Render one Git file patch. Input has before, after and patch strings. options.diffStyle is split or unified.                                                       |
+| planUI.diff(element, input, options) | Render one Git file patch. Input has before, after and patch strings. options.diffStyle is split or unified. Set options.wrap to true to wrap long lines.          |
 | planUI.prefs.get(key), set(key, v)   | Remember a viewing preference in the browser.                                                                                                                      |
 | planUI.mode                          | live, readonly or preview.                                                                                                                                         |
 | plan:page, plan:theme                | Window events after each page render (detail has page, element and round) and after a theme change.                                                                |
@@ -165,6 +168,46 @@ writes to `document.body` or `document.documentElement`, such as setting
 their `style`, `className`, `classList`, `dataset` or `innerHTML` or calling
 their `setAttribute`, `append`, `prepend` or `remove`, because those change
 the whole frame. Reading them, such as the body's width, is allowed.
+
+### Custom Pele rendering
+
+For custom diagrams, load Pele with `await planUI.pele()` and use its native
+API on an element you own. Leave `data-diagram` off that element. Use
+`render`, `mount`, `parse`, `enableZoom` and the other native exports with
+Pele's own options, including callbacks, icon resolvers and configuration.
+Handle a rejected load in your page script. Read the native API at
+`https://pele.run/api` and the public CSS reference at
+`https://pele.run/theming` when choosing methods, options and selectors.
+
+For a responsive diagram, call `mount` and destroy it when its host is
+removed. Observe `root`, whose children the frame replaces on each visit:
+
+```js
+export async function setup(root, planUI) {
+  const host = root.querySelector(".custom-flow");
+  const pele = await planUI.pele();
+  if (!host?.isConnected) return;
+
+  const diagram = pele.mount(host, "flowchart LR\n  Request --> Worker", {
+    onRender() {
+      // Attach custom interactions after each redraw.
+    },
+  });
+  const observer = new MutationObserver(() => {
+    if (host.isConnected) return;
+    diagram.destroy();
+    observer.disconnect();
+  });
+  observer.observe(root, { childList: true, subtree: true });
+}
+```
+
+For a single render, use `pele.render(source, options)` and insert its
+`svg` into your host. Supply the host's font and available width in the
+options. Use page CSS for Pele's public theme variables, SVG classes and
+source IDs. Use `onRender` to reapply custom interactions after a mount
+redraws. To include a selection in feedback, connect it to an existing
+choice or answer control.
 
 ## Comments
 

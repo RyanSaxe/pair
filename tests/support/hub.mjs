@@ -21,8 +21,6 @@ export const root = path.resolve(
 
 export const pair = path.join(root, "src/cli.mjs");
 
-// Text to match exactly inside a regular expression, such as a Windows path,
-// whose backslashes would otherwise read as escapes.
 export const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -51,8 +49,6 @@ export async function waitUntil(check, ms = 5000) {
   return false;
 }
 
-// A port that nothing listens on, for a hub the command spawns on a fixed
-// port.
 export async function freePort() {
   const server = net.createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -61,8 +57,8 @@ export async function freePort() {
   return port;
 }
 
-// Stops a hub the command spawned. An in-process hub's record has this
-// process's own pid, and signalling it would end the test run.
+// killHub skips an in-process hub, whose record contains this process's own
+// pid, because a signal to that pid would end the test run.
 export async function killHub(config) {
   try {
     const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
@@ -70,7 +66,7 @@ export async function killHub(config) {
     process.kill(record.pid, "SIGTERM");
     await waitUntil(() => !alive(record.pid), 3000);
   } catch {
-    /* No hub record, or the hub already exited. */
+    // The hub file is missing, or the hub has already exited.
   }
 }
 
@@ -94,13 +90,14 @@ export function planData(round = "1", name = "example") {
   };
 }
 
-// A stand-in for a Claude Code session: a socket the hub wakes the way it
-// wakes Claude Code. Each wake arrives as its auth line and its message.
-// After close, the next wake fails as a wake to a finished session does.
+// inbox stands in for a Claude Code session. The hub wakes it on its socket the
+// way the hub wakes Claude Code, and inbox records each wake as its auth line
+// and its message. After close, the next wake fails the way a wake to a
+// finished session fails.
 export async function inbox(t, home) {
-  // A socket path must stay under 104 bytes on macOS, so it sits in the
-  // hub's home rather than in a session directory. Windows has no socket
-  // files, so there it is a named pipe.
+  // macOS limits a socket path to 104 bytes, so inbox puts the socket in the
+  // hub's home rather than in a session directory. Windows has no socket files,
+  // so there inbox uses a named pipe.
   const name = crypto.randomBytes(4).toString("hex");
   const socket =
     process.platform === "win32"
@@ -121,10 +118,10 @@ export async function inbox(t, home) {
     });
   });
   await new Promise((resolve) => server.listen(socket, resolve));
-  // node:test skips a test's remaining after hooks once one throws, so this
-  // close may never run. Unreferenced, the socket cannot keep the test
-  // file's process alive, and a failed cleanup fails its test instead of
-  // stalling the run until CI cancels it.
+  // node:test skips a test's remaining after hooks once one throws, so close
+  // may never run. server.unref() stops the socket from keeping the test
+  // process alive, so a failed cleanup fails its test instead of stalling the
+  // run until CI cancels it.
   server.unref();
   const close = () => new Promise((resolve) => server.close(() => resolve()));
   t.after(close);
@@ -138,9 +135,8 @@ export async function inbox(t, home) {
   };
 }
 
-// An in-process hub on a port the OS assigns, in a home of its own. Every
-// session registers with its own inbox, so a test sees only its own wakes.
-// options replace settings that no environment variable sets.
+// Each session that hub() registers has its own inbox, so a test receives only
+// its own wakes. options override settings that no environment variable sets.
 export async function hub(t, extra = {}, options = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
   const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
@@ -149,10 +145,10 @@ export async function hub(t, extra = {}, options = {}) {
   t.after(async () => {
     await server.close();
     await killHub(config);
-    // The hub sends a wake after it answers the request that asked for it,
-    // so a wake can still be writing the session's state while this
-    // removes the home. rm then fails with ENOTEMPTY, which maxRetries
-    // retries.
+    // The hub sends a wake after it answers the request that asked for it, so
+    // the hub can still be writing the session's state while this cleanup
+    // removes the home. rm then fails with ENOTEMPTY, and maxRetries retries
+    // it.
     await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
   });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
@@ -167,9 +163,10 @@ export async function hub(t, extra = {}, options = {}) {
     });
     return { code: response.status, body: await response.json() };
   };
-  // A session registered by an inbox, or by the agent a pairCli runs as,
-  // so that the command can work on it. With start, it registers as pair
-  // start does, and with from and proposal as pair start --from does.
+  // session() registers a session with an inbox, or with the agent that cli
+  // runs as, so that cli commands can act on it. With start, it registers the
+  // way pair start does, and with from and proposal, the way pair start --from
+  // does.
   async function session({ cli, box, start, from, proposal } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
@@ -216,9 +213,10 @@ export async function hub(t, extra = {}, options = {}) {
         { action, sessionId: id, agent, ...data },
         headers,
       );
-    // A round goes out as an agent sends it: Agreed with the page list,
-    // then each page. The result is the first refusal, or the last page's.
-    // data.plan marks the round a plan in Agreed's source.
+    // publish() sends a round the way the agent does, Agreed with the page list
+    // first and then each page. It returns the first refusal, or the response
+    // to the last page. With data.plan, it marks the round as a plan in
+    // Agreed's source.
     const publish = async (data) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
@@ -282,14 +280,14 @@ export async function hub(t, extra = {}, options = {}) {
   };
 }
 
-// pair takes its wake target and its identity from the nearest agent CLI
-// among its ancestors. These commands run under a process named claude whose
-// inbox socket nobody listens on, so a test wake reaches no real session, and
-// the suite passes the same way under Claude Code, Codex, Copilot CLI or none
-// of them. With harness "codex" they run under a process named codex with a
-// thread ID instead. run returns stdout, output returns stdout and stderr,
-// and start creates a session and returns what start --json prints. With
-// cwd, every command runs in that directory.
+// The pair command finds its wake target and its identity in the nearest agent
+// CLI among its ancestor processes. pairCli runs each command under a process
+// named claude whose inbox socket has no listener, so a test wake reaches no
+// real session, and the suite passes the same way under Claude Code, Codex,
+// Copilot CLI or none of them. With harness "codex", the parent process is
+// named codex and has a thread ID instead. run returns stdout, output returns
+// stdout and stderr, and start creates a session and returns what start --json
+// prints. With cwd, every command runs in that directory.
 export async function pairCli(
   home,
   extra = {},

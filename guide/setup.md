@@ -1,15 +1,17 @@
 # Setup
 
-pair needs Node 22.0.0 or newer and has no dependencies. `pair start`
-checks what a session needs and refuses with the reason: Node too old, the
-hub port taken by another program, storage it cannot write, or a sandbox
-that blocks the hub. If Node is missing or too old, tell the reviewer that
-pair needs Node 22.0.0 or newer, and ask how they want to install it.
+pair needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or 26.12.1
+or newer, and has no dependencies. `pair start` checks what a session needs
+and refuses with the reason: Node too old, the hub port taken by another
+program or by another state directory's hub, storage it cannot write, or a sandbox that blocks the hub. If Node
+is missing or too old, tell the reviewer which of those Node releases pair
+needs, and ask how they want to install it.
 
 When `pair start` or another command fails, run `pair check`. It prints one
 line for each thing a session needs: the Node version, whether it can write
 session storage, whether 127.0.0.1 answers, whether the hub port is free,
-in use by a pair hub or in use by another program, and, when Codex is
+in use by this state directory's hub, in use by another state directory's hub,
+or in use by another program, and, when Codex is
 installed, whether Codex's rules file matches pair's rule.
 
 ## Sandboxes

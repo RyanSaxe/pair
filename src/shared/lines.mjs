@@ -1,6 +1,6 @@
-/** The lines a code block's data-lines names: lines and ranges separated by
-    commas, such as "7", "3-4" or "3-4, 9", counted from the block's first
-    line. Returns [from, to] pairs, or null when any part is not a line
+/** lineRanges() reads a code block's data-lines: lines and ranges separated
+    by commas, such as "7", "3-4" or "3-4, 9", counted from the block's first
+    line. It returns [from, to] pairs, or null when any part is not a line
     number from 1 or a range whose end is not before its start. `pair build`
     refuses a value that returns null, and the frame lights no line for it. */
 export function lineRanges(value) {

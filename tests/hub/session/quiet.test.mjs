@@ -122,7 +122,6 @@ test("the next-step line and the wake line name the quiet work and the commands 
     quietWake(both, tenMinutes, directory),
     `pair: no pair command has run in session ${directory} for 10 minutes, and these have had no update in that time: page ci-flakes, proposal node20-hang. Between your current steps, post a note on each page you are still working on with pair progress --session-dir ${directory} --page ID --note "…", and mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…", then go on with your work. Leave a card that waits for the reviewer as it is.`,
   );
-  // Each line names only the command for the kinds of work that are quiet.
   const card = [
     {
       kind: "proposal",
@@ -133,7 +132,12 @@ test("the next-step line and the wake line name the quiet work and the commands 
   ];
   assert.equal(
     quietStep(card, now, tenMinutes, directory),
-    `No update in 10 minutes: proposal node20-hang (started 11 minutes ago). Mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…".`,
+    `No update in 10 minutes: proposal node20-hang (started 11 minutes ago). For each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part.`,
+  );
+  const mixed = [{ ...both[1] }, { ...card[0], id: "docs-pass" }];
+  assert.equal(
+    quietWake(mixed, tenMinutes, directory),
+    `pair: no pair command has run in session ${directory} for 10 minutes, and these have had no update in that time: proposal node20-hang, proposal docs-pass. Between your current steps, mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…", and for each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part, then go on with your work. Leave a card that waits for the reviewer as it is.`,
   );
   const page = [
     { kind: "page", id: "ci-flakes", updated: false, at: ago(11 * minute) },
@@ -144,8 +148,8 @@ test("the next-step line and the wake line name the quiet work and the commands 
   );
 });
 
-// A session on a hub whose work is quiet after quietMs, with round 1's
-// Agreed published and its two pages listed.
+// openRound starts a hub that counts work as quiet after quietMs, and a session
+// with round 1's Agreed published and two pages in its page list.
 async function openRound(t, quietMs) {
   const h = await hub(t, {}, { quietMs, quietCheckMs: 20 });
   const a = await h.session();
@@ -189,18 +193,18 @@ test("every next step names quiet pages and cards until each gets an update", as
   assert.match(
     (await run("status")).next,
     new RegExp(
-      `\\nNo update in 0 minutes: page ci-flakes \\(started 0 minutes ago\\), proposal node20-hang \\(started 0 minutes ago\\)\\. Post a note on each page you are still working on with pair progress --session-dir ${dir} --page ID --note "…", and mark each finished part with pair propose --session-dir ${dir} --id ID --status-done "…"\\.$`,
+      `\\nNo update in 0 minutes: page ci-flakes \\(started 0 minutes ago\\), proposal node20-hang \\(started 0 minutes ago\\)\\. Post a note on each page you are still working on with pair progress --session-dir ${dir} --page ID --note "…", and for each proposal with no parts yet, record its parts with pair propose --session-dir ${dir} --id ID --status-left "…", with one flag for each part\\.$`,
     ),
   );
   await run("ack", { page: "ci-flakes", note: "Reading logs" });
   assert.match(
     (await run("status")).next,
-    /\nNo update in 0 minutes: proposal node20-hang \(started 0 minutes ago\)\. Mark each/,
+    /\nNo update in 0 minutes: proposal node20-hang \(started 0 minutes ago\)\. For each proposal with no parts yet, record its parts/,
   );
+  // The hub accepts the command that the line gives for a card with no parts.
   await run("propose", {
     id: "node20-hang",
-    statusDone: ["Reproduced the hang"],
-    statusLeft: ["Fix it"],
+    statusLeft: ["Reproduced the hang", "Fix it"],
   });
   assert.equal((await run("status")).next.includes("\n"), false);
 });
@@ -209,7 +213,8 @@ test("the hub wakes the holder once for quiet work when no command runs, and aga
   const quietMs = 300;
   const { a, run, wakeLines } = await openRound(t, quietMs);
   await run("progress", { start: ["ci-flakes"] });
-  // Commands that keep coming hold the wake back after the page is quiet.
+  // The hub sends no quiet wake while commands keep running, even after the
+  // page has had no update for quietMs.
   for (let elapsed = 0; elapsed < 2 * quietMs; elapsed += quietMs / 3) {
     await run("status");
     await sleep(quietMs / 3);
@@ -223,12 +228,12 @@ test("the hub wakes the holder once for quiet work when no command runs, and aga
       `^pair: no pair command has run in session ${literal(a.directory)} for 0 minutes, and these have had no update in that time: page ci-flakes\\. Between your current steps, post a note`,
     ),
   );
-  // Another command leaves the page quiet, and the page is in no second wake.
+  // A command that updates nothing does not make the hub wake again for the
+  // same quiet page.
   await run("status");
   await sleep(3 * quietMs);
   assert.equal(wakeLines().length, 1);
 
-  // A page started since the wake sends one, which names both pages.
   await run("progress", { start: ["docs-pass"] });
   assert.equal(await waitUntil(() => wakeLines().length === 2), true);
   assert.match(
@@ -236,7 +241,8 @@ test("the hub wakes the holder once for quiet work when no command runs, and aga
     /had no update in that time: page ci-flakes, page docs-pass\./,
   );
 
-  // A note on a page lets that page be in a wake again once it is quiet.
+  // A note on a page counts as an update, so the hub can name that page in a
+  // wake again once it is quiet.
   await run("ack", { page: "ci-flakes", note: "Reading logs" });
   assert.equal(await waitUntil(() => wakeLines().length === 3), true);
   assert.match(

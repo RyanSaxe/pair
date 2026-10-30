@@ -16,9 +16,10 @@ const card = (id, title) => ({
   delivers: `${title}, delivered.`,
   recommend: "new-agent",
 });
-// A parent session with round 1 waiting for the reviewer and two cards.
-// reviewer posts a card's route from the browser, and link registers a new
-// session as pair start --from does, from another agent's inbox.
+// linking publishes round 1 in a parent session, leaves it waiting for the
+// reviewer and adds two cards. reviewer posts to a card's route as the browser
+// does, and link registers a new session from another agent's inbox as pair
+// start --from does.
 async function linking(t) {
   const h = await hub(t);
   const a = await h.session();
@@ -63,7 +64,6 @@ test("Open a new agent session starts the card with a new agent and asks the hol
       message: "Use the board template.",
     },
   );
-  // The thread is on the card, and the holder is woken as for any thread.
   const { thread } = opened.body;
   assert.equal(thread.kind, "open-agent");
   assert.equal(thread.proposal, "deck");
@@ -73,7 +73,6 @@ test("Open a new agent session starts the card with a new agent and asks the hol
     a.inbox.wakes[0].message.message.content,
     new RegExp(`--thread ${thread.id}`),
   );
-  // Opening it neither answers the round nor saves a Start for pair read.
   const status = (await a.status()).body;
   assert.equal(status.needsYou, true);
   assert.equal((await a.action("read")).body.event, null);
@@ -83,13 +82,11 @@ test("Open a new agent session starts the card with a new agent and asks the hol
     read.body.next,
     new RegExp(`pair start --from ${literal(a.directory)} --proposal deck`),
   );
-  // Once the new agent's session links, the thread is an ordinary one.
   await link("deck");
   assert.equal(
     (await a.action("reply", { note: thread.id })).body.moment,
     "read-thread",
   );
-  // A card started here or already linked takes no new agent.
   assert.equal((await reviewer("deck", "open-agent")).code, 409);
   assert.equal(
     (await reviewer("notes", "start", { where: "here" })).code,
@@ -119,7 +116,6 @@ test("a Start in a sub-session wakes the holder, leaves the round waiting, and p
     read.next,
     `Run pair start --from ${a.directory} --proposal deck, then follow what it prints.`,
   );
-  // The round still waits for the reviewer after the agent read the Start.
   const status = (await a.status()).body;
   assert.equal(status.needsYou, true);
   assert.equal(status.stage, before.stage);
@@ -152,23 +148,20 @@ test("closing a linked session marks its card done once with no wake, and a clos
   const wakes = a.inbox.wakes.length;
   assert.equal((await close(deck)).code, 200);
   assert.equal((await cardOf("deck")).done.by, "close");
-  // --reopen undoes only the agent's own --done.
+  // The hub refuses --reopen here, because --reopen undoes only the agent's own
+  // --done, and the hub marked this card done when the linked session closed.
   assert.equal(
     (await a.action("propose", { id: "deck", reopen: true })).code,
     409,
   );
   await sleep(100);
   assert.equal(a.inbox.wakes.length, wakes, "no wake for a close");
-  // The parent's next pair read reports the close, and the one after it
-  // does not.
   const read = (await a.action("read")).body;
   assert.deepEqual(
     read.closed.map(({ id }) => id),
     ["deck"],
   );
   assert.deepEqual((await a.action("read")).body.closed, []);
-  // Closing the parent leaves it listed, closed, over its open sub-session,
-  // and both leave the list once that one closes.
   assert.equal((await close(a)).code, 200);
   assert.deepEqual(
     Object.keys(await listing()).sort(),
@@ -180,9 +173,9 @@ test("closing a linked session marks its card done once with no wake, and a clos
   assert.deepEqual(await listing(), {});
 });
 
-// The agent of a linked session writes the status of the work it runs
-// with its own session's directory, and the hub puts it on the card in
-// the parent, which the parent's directory also reaches.
+// The agent of a linked session reports status with its own session's
+// directory, and the hub writes the status on the card in the parent. The
+// parent's agent can also update that card with the parent's directory.
 test("a status from a linked session goes to the parent's card", async (t) => {
   const { h, a, reviewer, cardOf } = await linking(t);
   assert.equal(
@@ -197,7 +190,7 @@ test("a status from a linked session goes to the parent's card", async (t) => {
   const written = await child.action("propose", {
     id: "deck",
     statusDone: ["Outline"],
-    statusLeft: ["Slides"],
+    statusLeft: ["Outline", "Slides"],
   });
   assert.equal(written.code, 200, written.body.error);
   assert.deepEqual(written.body.parent, { id: a.id, title: "Example work" });
@@ -215,7 +208,8 @@ test("a status from a linked session goes to the parent's card", async (t) => {
     { text: "Outline", state: "done" },
     { text: "Slides", state: "done" },
   ]);
-  // The linked session runs only deck, so it reaches no other card.
+  // The linked session was started for deck, so the hub answers 404 for any
+  // other card.
   const other = await child.action("propose", {
     id: "notes",
     statusLeft: ["Draft"],
@@ -223,9 +217,9 @@ test("a status from a linked session goes to the parent's card", async (t) => {
   assert.equal(other.code, 404);
 });
 
-// Plan it first makes the card's own session plan before it builds. Here
-// refuses it, because a plan round here would mix with this session's
-// other work. Build it in the card's session marks the card built.
+// With Plan it first, the agent plans in the card's own session before it
+// builds. The hub refuses Plan it first with Here, because a plan round in
+// this session would mix with its other work.
 test("Plan it first starts a card whose session plans first, and Build it there marks the card built", async (t) => {
   const { h, a, reviewer, cardOf } = await linking(t);
   const here = await reviewer("deck", "start", {

@@ -32,7 +32,7 @@
 <div data-math>W_{\text{total}} = \sum_{i=1}^{n} t_i\left(k_i + \dfrac{d_i}{c_i}\right) + r\cdot m - s\cdot\dfrac{q}{p} + \beta\left(\dfrac{u}{v} - w\right)</div>
 <h2>Text diff</h2>
 <section class="change-review" data-kind="diff" data-file="src/charge.ts">
-  <div class="change-controls" role="group" aria-label="Diff layout"><button class="btn" data-diff-style="split">Side by side</button><button class="btn" data-diff-style="unified">Unified</button></div>
+  <div class="change-controls"><span class="change-layout" role="group" aria-label="Layout"><button type="button" data-diff-style="split">Side by side</button><button type="button" data-diff-style="unified">Unified</button></span><button class="change-wrap" type="button" data-diff-wrap>Wrap</button></div>
   <textarea data-diff-input hidden>{
   "before": "export async function charge(request) {\n  const client = new PaymentClient(config);\n  const result = await client.charge(request);\n  if (!result.ok) throw new PaymentError(result);\n  return result;\n}\n",
   "after": "export async function charge(request) {\n  const client = new PaymentClient(config);\n  const breaker = new CircuitBreaker({ threshold: 5, cooldown: 30_000 });\n  const result = await breaker.run(() =&gt; client.charge(request));\n  if (!result.ok) throw new PaymentError(result);\n  log.info(\"charge\", { id: request.id, ok: result.ok });\n  return result;\n}\n",
@@ -46,14 +46,15 @@
 <section class="change-pair" data-kind="pair of diagrams">
   <section><header>Before <span>− Removed or replaced</span></header><div class="change-content"><div data-diagram>flowchart LR
   C["Checkout"] --> P["PaymentClient"] --> G["Gateway"]
-  class P changed</div></div></section>
+  class P changed
+  class G removed</div></div></section>
   <section><header>Proposed <span>+ Added or changed</span></header><div class="change-content"><div data-diagram>flowchart LR
   C["Checkout"] --> P["PaymentClient"] --> B["Breaker"] --> G["Gateway"]
   class B added</div></div></section>
 </section>
 <div class="change-key"><span>− The client called the gateway directly</span><span>+ The breaker sits between them</span></div>
 <h2>The guide's pairs</h2>
-<h2>Link to a group, never into it from above</h2>
+<h2>Point group relationships at the group</h2>
 <section class="change-pair" data-kind="pair of diagrams">
   <section><header>Avoid <span>edge into the first node</span></header><div class="change-content"><div data-diagram>flowchart TB
   E["Pricing"] --> F
@@ -205,3 +206,16 @@
 <table><thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead><tbody><tr><td>threshold</td><td>5</td><td>Below the gateway's own rate limit of 10 per second per key.</td></tr><tr><td>cooldown</td><td>30 s</td><td>The gateway's documented failover time is 20 s.</td></tr><tr><td>timeout</td><td>8 s</td><td>p99 of successful charges is 3.1 s.</td></tr></tbody></table>
 <h2>Prototype</h2>
 <div data-prototype="breaker-ui"></div>
+
+<h2>Mermaid chart</h2>
+<div data-diagram data-caption="Failed charges per hour.">xychart-beta
+  x-axis ["09", "10", "11", "12"]
+  y-axis "Failures" 0 --> 12
+  bar [4, 9, 11, 7]</div>
+<h2>State diagram</h2>
+<div data-diagram>stateDiagram-v2
+  [*] --> Closed
+  Closed --> Open: Five failures
+  Open --> HalfOpen: Cooldown
+  HalfOpen --> Closed: Success
+  HalfOpen --> Open: Failure</div>

@@ -17,9 +17,9 @@ const card = {
   delivers: "The export uses the September schema.",
   recommend: "here",
 };
-// A session with round 1 published and waiting for the reviewer. propose
-// runs pair propose's action as the holder, and reviewer posts a card's
-// route from the browser.
+// proposing publishes round 1 and leaves it waiting for the reviewer. propose
+// runs pair propose's action as the holder, and reviewer posts to a card's
+// route as the browser does.
 async function proposing(t) {
   const h = await hub(t);
   const a = await h.session();
@@ -63,14 +63,14 @@ test("pair propose records one file per card and refuses an ID the session has",
     ),
     added,
   );
-  // Any agent may record a card, such as one the holder briefed.
+  // The hub records a card from any agent, such as a subagent the holder
+  // briefed.
   const briefed = (await h.inbox()).agent;
   const other = await propose(
     { ...card, id: "board-qa", title: "Board Q&A prep", page: "1/overview" },
     briefed,
   );
   assert.equal(other.code, 200, other.body.error);
-  // A card from a page keeps the page's title, which the card shows.
   assert.deepEqual(other.body.proposal.source, {
     page: { round: "1", id: "overview", title: "Overview" },
   });
@@ -99,7 +99,20 @@ test("pair propose records one file per card and refuses an ID the session has",
     "an ID that is not a slug",
   );
   assert.equal((await propose({ ...card, id: "x", page: "1/none" })).code, 400);
-  // Every pair tab's bell announces each card.
+  // toString and constructor are keys of Object.prototype, and not rounds of
+  // this session.
+  for (const [round, page] of [
+    ["toString", "work"],
+    ["constructor", "x"],
+  ]) {
+    const refused = await propose({
+      ...card,
+      id: "x",
+      page: `${round}/${page}`,
+    });
+    assert.equal(refused.code, 400);
+    assert.equal(refused.body.error, `Round ${round} has no page ${page}`);
+  }
   const listed = await a.request("/api/sessions");
   assert.deepEqual(
     listed.body.sessions[0].events
@@ -135,8 +148,8 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
     a.inbox.wakes[0].message.message.content,
     `pair: the reviewer approved proposal churn-export, "${card.title}", to run in session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\n${message}`,
   );
-  // Only the reviewer's feedback answers round 1, so it still waits for
-  // them.
+  // The reviewer answers round 1 only by sending feedback, so after a Start the
+  // round still waits for the reviewer.
   const waits = async () => (await a.status()).body.needsYou;
   assert.equal(await waits(), true);
 
@@ -163,13 +176,28 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
   assert.equal(answer.event.payload.message, message);
   assert.equal(answer.proposal.title, card.title);
   assert.equal((await cards())[0].started.where, "here");
-  // Reading the Start leaves round 1 waiting, so the next step builds the
-  // work now and publishes it in the next round, not in round 1.
+  // Reading the Start leaves round 1 waiting for feedback, so in the hub's next
+  // step the agent builds the work now and publishes its pages in the next
+  // round.
   assert.equal(await waits(), true);
   assert.match(
     answer.next,
     /^You published round 1, and the reviewer has not sent feedback on it yet\. .*build proposal churn-export, .*you publish the pages about this work in the next round\./,
   );
+});
+
+test("pair read prints a Start and feedback in the order the hub received them", async (t) => {
+  const { a, add, reviewer } = await proposing(t);
+  await add();
+  await reviewer("churn-export", "start", { where: "here" });
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  const first = (await a.action("read")).body.event;
+  assert.equal(first.payload.proposal, "churn-export");
+  const second = (await a.action("read")).body.event;
+  assert.equal(second.id, feedback.id);
+  assert.equal(second.sequence, first.sequence + 1);
+  assert.equal((await a.status()).body.stage, "working");
 });
 
 test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {
@@ -182,8 +210,6 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   assert.equal((await reviewer("churn-export", "decline")).code, 200);
   const start = await reviewer("churn-export", "start", { where: "here" });
   assert.equal(start.code, 409);
-  // A decline sends the agent nothing until it runs pair read, which
-  // prints it once.
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 0);
   assert.deepEqual(
@@ -207,10 +233,11 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   );
 });
 
-// The agent starts a card when the reviewer asks for the work in their own
-// words. The holder's own start is in its pair propose answer, so it leaves
-// nothing for pair read. Another agent's start runs as a Start does: the
-// hub wakes the holder, which reads the start with pair read.
+// The agent starts a card with --start when the reviewer asks for the work in
+// their own words. The hub returns the holder's own start in its answer to pair
+// propose, so it saves nothing for pair read. Another agent's start works like
+// the reviewer's Start, so the hub wakes the holder, and the holder reads the
+// start with pair read.
 test("pair propose --start starts a card on the reviewer's words, and only another agent's start waits for pair read", async (t) => {
   const { h, a, propose, add, cards, read } = await proposing(t);
   await add();
@@ -233,7 +260,6 @@ test("pair propose --start starts a card on the reviewer's words, and only anoth
   assert.equal(loose.body.error, "--quote goes with --start.");
   assert.equal((await cards())[0].started, null);
 
-  // The holder starts the card after it reads the reviewer's feedback.
   assert.equal((await a.feedback(a.event())).code, 200);
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
   assert.equal((await read()).event.payload.intent, "feedback-only");
@@ -255,8 +281,9 @@ test("pair propose --start starts a card on the reviewer's words, and only anoth
       thread: "go",
     },
   );
-  // The holder ran the command, whose answer names the start's moment, so
-  // the hub sends no wake and the next round publishes without a pair read.
+  // The holder ran pair propose, and the hub's answer contains the start's
+  // moment. The hub therefore sends no wake, and the holder publishes the next
+  // round without pair read.
   assert.equal(started.body.moment, "read-start-here");
   assert.match(started.body.next, /^Edit Agreed's task and alignments /);
   assert.equal((await a.publish(planData("2"))).code, 200);
@@ -268,9 +295,9 @@ test("pair propose --start starts a card on the reviewer's words, and only anoth
     409,
   );
 
-  // Another agent's start wakes the holder, as the reviewer's Start does.
-  // The reviewer's words can be in Review's overall comment, which --page
-  // names as the round's page overall.
+  // The hub wakes the holder for another agent's start, as it does for the
+  // reviewer's Start. The agent passes --page overall for words in Review's
+  // overall comment.
   const briefed = (await h.inbox()).agent;
   const apart = await propose(
     {
@@ -298,9 +325,9 @@ test("pair propose --start starts a card on the reviewer's words, and only anoth
     sub.next,
     `Run pair start --from ${a.directory} --proposal board-qa, then follow what it prints.`,
   );
-  // Work with a new agent saves no start for pair read, so the holder's
-  // next step is to open that agent. The reviewer's words here are on
-  // Work, which --page names as the round's page work.
+  // For a start with a new agent, the hub saves no start for pair read, so the
+  // holder's next step is to open that agent. The agent passes --page work for
+  // words on Work.
   await add({ id: "deck", title: "Build the deck" });
   const agent = await propose({
     id: "deck",
@@ -323,9 +350,6 @@ test("pair propose --start starts a card on the reviewer's words, and only anoth
   assert.equal((await read()).event, null);
 });
 
-// The agent clears a card nobody started with --withdraw and its reason.
-// The card is in Done as the declined ones are, and the reviewer's Restore
-// puts it back.
 test("--withdraw moves a card to Done with its reason, and Restore brings it back", async (t) => {
   const { propose, add, reviewer, cards, read } = await proposing(t);
   await add();
@@ -344,8 +368,6 @@ test("--withdraw moves a card to Done with its reason, and Restore brings it bac
     { at: undefined, reason },
   );
   assert.equal(withdrawn.body.proposal.declined, null);
-  // A withdrawn card takes no Start until it is restored, and pair read
-  // does not report it as declined.
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
     409,
@@ -363,7 +385,6 @@ test("--withdraw moves a card to Done with its reason, and Restore brings it bac
     (await reviewer("churn-export", "start", { where: "here" })).code,
     200,
   );
-  // A started card takes no --withdraw.
   const late = await propose({ id: "churn-export", withdraw: true, reason });
   assert.equal(late.code, 409);
   assert.deepEqual(
@@ -375,9 +396,6 @@ test("--withdraw moves a card to Done with its reason, and Restore brings it bac
   );
 });
 
-// Work started here is done when the agent says so. Any other card is done
-// with --where, when its work got done somewhere else, and --reopen undoes
-// the agent's own --done.
 test("--done marks work approved to run here done, --where marks any card done, and --reopen undoes either", async (t) => {
   const { propose, add, reviewer, cards } = await proposing(t);
   await add();
@@ -399,7 +417,6 @@ test("--done marks work approved to run here done, --where marks any card done, 
     { at: undefined, by: "agent", round: "1", where: "in #86" },
   );
   assert.equal(elsewhere.body.proposal.started, null);
-  // A done card takes no Start, and --reopen puts it back in Proposed.
   assert.equal(
     (await reviewer("churn-export", "start", { where: "here" })).code,
     409,
@@ -412,8 +429,8 @@ test("--done marks work approved to run here done, --where marks any card done, 
     (await reviewer("board-qa", "start", { where: "sub-session" })).code,
     200,
   );
-  // A card whose work runs in its own session finishes only when that
-  // session closes, so it keeps its link to the session.
+  // A card whose work runs in its own session is done only when that session
+  // closes, so the hub refuses --done for it and keeps its link to the session.
   assert.equal((await propose({ id: "board-qa", done: true })).code, 409);
   const linked = await propose({ id: "board-qa", done: true, where: "in #87" });
   assert.equal(linked.code, 409);
@@ -444,12 +461,13 @@ test("--done marks work approved to run here done, --where marks any card done, 
   );
 });
 
-// A status keeps one list of the parts of approved work, in the order the
-// agent added them. --status-left adds a part, --status-done marks one done
-// or adds it as done, and --status-drop marks a part the card lists
-// dropped. No flag removes a part, a status that changes no part leaves
-// status.at as it was, and none adds to the bell. The hub refuses a status
-// for work nobody started or that is finished, and --reopen clears it.
+// The hub stores a card's status as one list of parts, in the order the agent
+// added them. --status-left adds a part. --status-done and --status-drop mark a
+// listed part done or dropped, and the hub refuses a part the card does not
+// list instead of adding it. No flag removes a part. A status that changes no
+// part leaves status.at as it was, and the hub adds no event for any status.
+// The hub refuses a status for work nobody started or that is finished, and
+// --reopen clears the status.
 test("a status adds and marks the parts of approved work and never removes one", async (t) => {
   const { a, propose, add, reviewer, cards } = await proposing(t);
   await add();
@@ -467,6 +485,14 @@ test("a status adds and marks the parts of approved work and never removes one",
   const events = async () =>
     (await a.request("/api/sessions")).body.sessions[0].events.length;
   const before = await events();
+  const addFirst =
+    "To record a finished part it does not list, add it with --status-left";
+  const unlisted = await status({ statusDone: ["Export"] });
+  assert.equal(unlisted.code, 400);
+  assert.equal(
+    unlisted.body.error,
+    `Proposal churn-export has no parts yet, so it has no part "Export" to mark done. ${addFirst} "Export", then run --status-done "Export".`,
+  );
   const parts = async () =>
     (await cards())[0].status.parts.map(({ text, state }) => [text, state]);
   const changed = async (change) => {
@@ -475,18 +501,21 @@ test("a status adds and marks the parts of approved work and never removes one",
     return written.body.proposal.status;
   };
 
-  // The done parts of one call come before its left parts.
+  // The hub adds a call's left parts before it marks any part, so one call can
+  // add a part and mark it done.
   const first = await changed({
     statusDone: [" Read the September schema "],
-    statusLeft: ["Map the columns", "Write the export"],
+    statusLeft: [
+      "Read the September schema",
+      "Map the columns",
+      "Write the export",
+    ],
   });
   assert.deepEqual(first.parts, [
     { text: "Read the September schema", state: "done" },
     { text: "Map the columns", state: "left" },
     { text: "Write the export", state: "left" },
   ]);
-  // Restating every part, and a left flag for a part that is done, change
-  // nothing.
   assert.deepEqual(
     await changed({
       statusDone: ["Read the September schema"],
@@ -497,7 +526,7 @@ test("a status adds and marks the parts of approved work and never removes one",
   await sleep(5);
   const mixed = await changed({
     statusDone: ["Map the columns", "Check the totals"],
-    statusLeft: ["Email the team"],
+    statusLeft: ["Check the totals", "Email the team"],
     statusDrop: ["Write the export"],
   });
   assert(mixed.at > first.at, "a change to the parts moves status.at");
@@ -508,8 +537,6 @@ test("a status adds and marks the parts of approved work and never removes one",
     ["Check the totals", "done"],
     ["Email the team", "left"],
   ]);
-  // A dropped part stays dropped under --status-left, and --status-done
-  // marks it done.
   await changed({ statusLeft: ["Write the export"] });
   assert.deepEqual((await parts())[2], ["Write the export", "dropped"]);
   await changed({ statusDone: ["Write the export"] });
@@ -519,10 +546,14 @@ test("a status adds and marks the parts of approved work and never removes one",
   const kept = await parts();
   const sixteen = Array.from({ length: 16 }, (_, index) => `Part ${index}`);
   for (const [change, error] of [
-    // A refused part refuses the whole status.
+    // When the hub refuses one part, it applies none of the status.
     [
       { statusDone: ["Email the team"], statusDrop: ["Send the export"] },
       'Proposal churn-export has no part "Send the export" to drop. Its parts are "Read the September schema", "Map the columns", "Write the export", "Check the totals", "Email the team".',
+    ],
+    [
+      { statusDone: ["Email teh team"] },
+      `Proposal churn-export has no part "Email teh team" to mark done. Its parts are "Read the September schema", "Map the columns", "Write the export", "Check the totals" and "Email the team". ${addFirst} "Email teh team", then run --status-done "Email teh team".`,
     ],
     [
       { statusLeft: sixteen },
@@ -573,8 +604,8 @@ test("a status adds and marks the parts of approved work and never removes one",
   assert.equal(reopened.body.proposal.status, null);
 });
 
-// A card saved before parts had states lists its done and left parts
-// apart. The hub reads it as one list of parts, the done parts first.
+// A card saved before parts had states stores its done and left parts in two
+// lists. The hub reads them as one list, with the done parts first.
 test("a card saved with done and left parts reads as one list of parts", async (t) => {
   const { h, a, add, reviewer } = await proposing(t);
   await add();
@@ -609,12 +640,14 @@ test("a card saved with done and left parts reads as one list of parts", async (
   }
 });
 
-// The agent merges a card nobody started into a card whose work covers
-// it, proposed or started here. The joined card is done and names that
-// card. Finishing or reopening that card leaves its cards joined, and
-// --reopen on a joined card undoes the join. A card whose work runs in a
-// linked session, the card itself and a joined card take no joined card,
-// so the cards joined into a card move with it when it joins another.
+// The agent merges a card nobody started into a card whose work covers it,
+// either a proposed card or one started here. The hub marks the joined card
+// done and records which card it joined. Finishing or reopening that card
+// leaves its joined cards joined, and --reopen on a joined card undoes the
+// join. The hub refuses a join into a card whose work runs in a linked session,
+// into the card itself or into a joined card. When a card with joined cards
+// joins another, the hub moves its joined cards along, so no card is ever
+// joined into a joined card.
 test("--join merges a card into a proposed card or one approved to run here, and refuses every other card", async (t) => {
   const { propose, add, reviewer, cards } = await proposing(t);
   await add();
@@ -743,8 +776,6 @@ test("--join merges a card into a proposed card or one approved to run here, and
   assert.equal(placed.code, 400);
   assert.equal(placed.body.error, "--where goes with --done.");
 
-  // Finishing and reopening the started card leave its cards joined, and
-  // a done card takes no more.
   assert.equal((await propose({ id: "churn-export", done: true })).code, 200);
   await refused(
     "late",
@@ -762,8 +793,6 @@ test("--join merges a card into a proposed card or one approved to run here, and
   assert.equal(back.body.proposal.done, null);
   assert.deepEqual(await joinedTo(), [["keys", "churn-export"]]);
 
-  // A card joined into outline moves with outline to the card outline
-  // joins.
   assert.equal((await join("late", "outline")).code, 200);
   await refused(
     "outline",

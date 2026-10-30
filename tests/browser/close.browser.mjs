@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData } from "../support/hub.mjs";
+import { hub, planData, sleep } from "../support/hub.mjs";
 
 test("Close on this tab's own row asks first, then the tab turns read-only and names the session", async (t) => {
   const h = await hub(t);
@@ -36,8 +36,38 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   );
 });
 
-// On a phone, a closed session's line under the header stays one line:
-// only the session's long title is cut short, and "is closed" stays whole.
+test("closing a session before its first round turns its tabs read-only and names the session", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const url = `${h.server.origin}${session.base}/`;
+  const own = await open(t, url);
+  if (!own) return;
+  const phone = await open(t, url, { viewport: { width: 375, height: 812 } });
+  await phone.locator("#agent-activity:not([hidden])").waitFor();
+
+  await own.locator("#menu-button").click();
+  await own.locator(`[data-key="close:${session.id}"]:visible`).click();
+  await own.locator("#close-confirm").click();
+
+  for (const page of [own, phone]) {
+    await page.locator("#history-strip:not([hidden])").waitFor();
+    assert.equal(
+      await page.locator("#history-label").textContent(),
+      "New session is closed",
+    );
+    assert.equal(await page.locator("#agent-activity").isHidden(), true);
+    assert.equal(await page.locator("#submit").isHidden(), true);
+  }
+  // The frame reloads a home view whose status says the session closed, so the
+  // closed page must stop reading the status, or it reloads on every poll.
+  let loads = 0;
+  own.on("load", () => loads++);
+  await sleep(2000);
+  assert.equal(loads, 0);
+});
+
+// On a phone the frame shortens only the session's long title, and "is closed"
+// stays whole.
 test("a closed session's line under the header stays one line on a phone", async (t) => {
   const h = await hub(t);
   const session = await h.session();
