@@ -52,11 +52,20 @@ function allThreads() {
   const byId = new Map((remote?.threads || []).map((item) => [item.id, item]));
   for (const [id, local] of sent) {
     const stored = byId.get(id);
-    // allThreads uses the hub's copy once it contains every message that
-    // this browser sent.
-    if (stored && stored.messages.length >= local.messages.length)
-      sent.delete(id);
-    else byId.set(id, local);
+    if (!stored || stored.messages.length < local.messages.length) {
+      byId.set(id, local);
+      continue;
+    }
+    // allThreads uses the hub's copy once it contains every message that this
+    // browser sent. An agent reply can bring the hub's copy to the same length
+    // without the reviewer's reply, so allThreads compares the reply IDs.
+    const unsent = local.messages.filter(
+      ({ replyId }) =>
+        replyId && !stored.messages.some((item) => item.replyId === replyId),
+    );
+    if (unsent.length)
+      byId.set(id, { ...local, messages: [...stored.messages, ...unsent] });
+    else sent.delete(id);
   }
   return [...byId.values()];
 }
@@ -114,12 +123,14 @@ export function startThread(context, text, attachments) {
 }
 function sendReply(thread, text, attachments) {
   const { error, retry, ...rest } = thread;
+  const replyId = uuid();
+  const at = new Date().toISOString();
   sent.set(thread.id, {
     ...rest,
     state: "sending",
     messages: [
       ...thread.messages,
-      { from: "reviewer", at: new Date().toISOString(), text, attachments },
+      { from: "reviewer", at, replyId, text, attachments },
     ],
   });
   // A reply answers the agent's replies in the thread, so clearThread
@@ -129,7 +140,7 @@ function sendReply(thread, text, attachments) {
   void post(
     thread.id,
     `${base}/api/threads/${encodeURIComponent(thread.id)}/messages`,
-    { replyId: uuid(), text, attachments },
+    { replyId, text, attachments },
   );
 }
 
