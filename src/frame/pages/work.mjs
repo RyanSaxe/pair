@@ -312,7 +312,9 @@ export function openWork(target, stayed) {
     marked = new Set();
   }
   if (target || !stayed) followed = target;
-  refreshWork(true);
+  // A poll also calls show("work"), such as when the next round's Agreed
+  // arrives, so only opening Work or a target forces a redraw.
+  refreshWork(!stayed || Boolean(target));
 }
 function selectTab(id) {
   followed = null;
@@ -433,7 +435,12 @@ export function refreshWork(force = false) {
     cardsEditable(),
     remote?.current?.round,
   ]);
-  if (force || key !== drawnKey) {
+  // A redraw takes the thread cards out of the list, so the reply box the
+  // reviewer is typing in would lose focus and the next keys would reach the
+  // frame's shortcuts. The first poll after the reviewer leaves the box draws
+  // the change.
+  const typing = document.activeElement?.matches("#work-cards textarea");
+  if (force || (key !== drawnKey && !typing)) {
     drawnKey = key;
     renderWork(groups, shown, seen);
   }

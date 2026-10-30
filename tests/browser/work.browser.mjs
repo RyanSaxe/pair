@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -733,4 +734,71 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
     `the proposed number ends at ${edges.proposed.right}, the pill starts at ${edges.needs.left}`,
   );
   assert.equal(Math.round(edges.needs.right), Math.round(edges.rowEnd));
+});
+
+test("a card's reply box keeps focus and every key while the cards change, and Work draws the changes after the reviewer leaves the box", async (t) => {
+  const { session, page, tab } = await work(t);
+  if (!page) return;
+  await tab("proposed").click();
+  const id = crypto.randomUUID();
+  const started = await session.request(`${session.base}/api/threads`, {
+    id,
+    proposal: "deck",
+    text: "Is the deck one page?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const thread = page.locator(`pair-thread[data-thread="${id}"]`);
+  const field = thread.getByRole("textbox", { name: "Reply in this thread" });
+  await field.click();
+  // Each of these letters is one of the frame's single-key shortcuts when no
+  // text field has focus.
+  await page.keyboard.type("n s a ");
+  const revised = await session.action("propose", {
+    id: "export",
+    revise: true,
+    delivers: "The export, revised.",
+  });
+  assert.equal(revised.code, 200, revised.body.error);
+  // The frame polls status every 1.5 s, so the sleep covers two polls.
+  await sleep(3000);
+  await page.keyboard.type("r c ");
+  // The agent's reply moves the card to Needs you, and the reply reaches the
+  // thread card that the reviewer is typing in.
+  const replied = await session.action("reply", { note: id, text: "Yes." });
+  assert.equal(replied.code, 200, replied.body.error);
+  await thread.locator(".thread-message", { hasText: "Yes." }).waitFor();
+  await sleep(3000);
+  await page.keyboard.type("w g ");
+  // A poll also calls show("work") when the round's feedback arrives from
+  // another browser and when the next round's Agreed arrives.
+  const sent = await session.feedback(session.event("feedback-only", "1"));
+  assert.equal(sent.code, 200, JSON.stringify(sent.body));
+  assert.equal((await session.action("read")).code, 200);
+  await sleep(3000);
+  await page.keyboard.type("[ ");
+  const next = await session.publish(planData("2"));
+  assert.equal(next.code, 200, next.body.error);
+  await sleep(3000);
+  await page.keyboard.type("] ?");
+  const typed = "n s a r c w g [ ] ?";
+  assert.equal(await field.inputValue(), typed);
+  assert.equal(
+    await page.evaluate(() => document.activeElement.localName),
+    "textarea",
+  );
+  assert.equal(await page.locator("dialog[open]").count(), 0);
+  assert.equal(await page.evaluate(() => location.hash), "#work");
+
+  await page.locator("#work-view h1").click();
+  await tab("proposed")
+    .locator(".work-count", { hasText: /^1$/ })
+    .waitFor({ timeout: 5000 });
+  await tab("needs").click();
+  assert.equal(await field.inputValue(), typed);
+  await tab("proposed").click();
+  await page
+    .locator("#proposal-export .proposal-delivers", {
+      hasText: "The export, revised.",
+    })
+    .waitFor();
 });
