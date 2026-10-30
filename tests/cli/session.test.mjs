@@ -9,6 +9,7 @@ import {
   exists,
   hub,
   killHub,
+  literal,
   pairCli,
   planData,
   task,
@@ -286,7 +287,7 @@ async function sessionWithAgreed(t) {
       source,
       ...rest,
     );
-  return { sessionDir, agreed, overview, list, publish, run };
+  return { sessionDir, agreed, overview, list, page, publish, run };
 }
 
 // A link to the sessions directory stands in for /var and /private/var on
@@ -336,6 +337,35 @@ test("the hub refuses a kept source outside the session directory", async (t) =>
       "Source must be a directory inside the session directory",
     );
   }
+});
+
+test("a page over the hub's limit is refused with the limit and what to do, and the size the refusal names publishes", async (t) => {
+  const { sessionDir, agreed, list, page, publish } =
+    await sessionWithAgreed(t);
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const overview = { page: { id: "overview", title: "Overview" } };
+  const withImages = (name, bytes) =>
+    page(
+      name,
+      { page: { ...overview.page, file: `${name}.html` } },
+      `<img alt="" src="data:image/png;base64,${"A".repeat((bytes / 3) * 4)}">`,
+    );
+  const big = await withImages("big", 3_750_000);
+  await assert.rejects(publish(big.built, big.source), (error) => {
+    assert.equal(error.code, 1);
+    assert.match(
+      error.stderr,
+      new RegExp(
+        `^pair: ${literal(big.built)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 10 MB\\. pair build writes a page's content into that file twice, so the images embedded in one page can total about 3\\.3 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page to a new path and publish that file\\.\\n$`,
+      ),
+    );
+    return true;
+  });
+  const kept = path.join(sessionDir, "src", "1", "overview");
+  assert.equal(await exists(kept), false);
+  const fits = await withImages("fits", 3_300_000);
+  await publish(fits.built, fits.source);
+  assert.equal(await exists(path.join(kept, "fits.html")), true);
 });
 
 test("a publish with a missing --file names pair build and keeps no source", async (t) => {

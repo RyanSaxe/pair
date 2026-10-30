@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
-import { settings, version } from "../shared/settings.mjs";
+import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
 import {
   atomic,
   embedConfig,
@@ -272,7 +272,7 @@ export async function startHub(config = settings()) {
           403,
         );
         if (method === "POST" && parts[2] === "action") {
-          const data = await readBody(req, 10_000_000);
+          const data = await readBody(req, agentRequestBytes);
           return reply(200, await session.exclusive(() => session.act(data)));
         }
       }
