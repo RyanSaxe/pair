@@ -19,13 +19,11 @@ import {
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
-/* The Work page holds every proposal of the session, from the agent's pair
-   propose until the work is done, in four tabs. The hub stores four facts
-   on each card, started, declined, withdrawn and done, and the tab follows
-   from them and, for work in a linked session, from whether that session's
-   round waits for the reviewer. A card the agent joined into another is
-   done, and its done fact names that card. A page shows the same card with
-   the proposal component. */
+/* The hub stores four fields on each card: started, declined, withdrawn and
+   done. cardTab() derives a card's tab from them and, for work in a linked
+   session, from whether that session's round waits for the reviewer. A
+   card that the agent joined into another is done, and its done.joined
+   field contains the other card's ID. */
 
 export const workTabs = [
   { id: "needs", label: "Needs you", empty: "Nothing needs you." },
@@ -33,20 +31,18 @@ export const workTabs = [
   { id: "proposed", label: "Proposed", empty: "No proposed work." },
   { id: "done", label: "Done", empty: "No work is done yet." },
 ];
-// Whether the linked session that runs work started elsewhere waits for
-// the reviewer. Work started here runs until the agent marks it done,
-// whatever this session's round does, because the reviewer answers that
-// round with this session's own Send feedback.
+// Only work started elsewhere can wait for the reviewer. Work started here
+// stays running until the agent marks it done, whatever the state of this
+// session's round, because the reviewer answers that round with this
+// session's own Send feedback.
 const waits = (card, { linked = () => null } = {}) =>
   card.started.where !== "here" &&
   Boolean(linked(card.started.session?.id)?.needsYou);
-// A card the reviewer declined or the agent withdrew is listed with the
-// done ones.
 const finished = (card) =>
   Boolean(card.declined || card.withdrawn || card.done);
-// A card needs the reviewer when its thread has an agent reply they have
-// not cleared from the bell, or when the linked session its work runs in
-// waits for them.
+// A card needs the reviewer when its thread has an agent reply that the
+// reviewer has not cleared from the bell, or when the linked session that
+// runs its work waits for the reviewer.
 export function cardTab(card, context = {}) {
   if (context.unread?.has(card.id)) return "needs";
   if (finished(card)) return "done";
@@ -58,30 +54,25 @@ export function workGroups(cards, context) {
   for (const card of cards) groups[cardTab(card, context)].push(card);
   return groups;
 }
-// Work opens on the first tab with a card in it.
 export const openingTab = (groups) =>
   workTabs.find(({ id }) => groups[id].length)?.id || workTabs[0].id;
 
 const cards = () => remote?.proposals || [];
-// The cards the agent joined into a card, because that card's work covers
-// theirs.
 const joinedInto = (card) =>
   cards().filter((item) => item.done?.joined === card.id);
 const context = () => ({
   unread: unreadCards(),
   linked: listedSession,
 });
-// Which linked sessions wait for the reviewer, so a card redraws when one
-// starts or stops waiting.
+// linkedWaits() is part of the draw key in refreshWork(), so a card redraws
+// when its linked session starts or stops waiting.
 const linkedWaits = () =>
   cards().map((card) =>
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
   );
-// Start, Decline and Restore need the live session.
+// Start, Decline and Restore work only in the live session.
 export const cardsEditable = () =>
   editable && online && Boolean(remote) && remote.stage !== "complete";
-// The two numbers on the Work row: the cards that need the reviewer and
-// the proposed cards.
 export function workCounts() {
   const { needs, proposed } = workGroups(cards(), context());
   return { needs: needs.length, proposed: proposed.length };
@@ -93,12 +84,6 @@ const element = (tag, className, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
-// A card's state and the tone of its dot: Working here and Working in the
-// accent, Waiting for you in green, Done, Declined and Withdrawn in grey,
-// and Proposed with a hollow dot. Work started in a sub-session or with a
-// new agent reads Opening until its session links, and the two look the
-// same after that, except that work started with Plan it first reads
-// Planning until it is built.
 function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.withdrawn) return ["Withdrawn", "muted"];
@@ -111,16 +96,14 @@ function cardState(card, shown) {
       ? ["Opening a new agent session", "accent"]
       : ["Opening a sub-session", "accent"];
   if (waits(card, shown)) return ["Waiting for you", "ok"];
-  // Work started with Plan it first is planned until its session's
-  // reviewer chooses Build it.
+  // Work started with Plan it first is in planning until the reviewer of its
+  // session chooses Build it.
   if (card.started.planFirst && !card.started.built)
     return card.started.where === "new-agent"
       ? ["Planning with a new agent", "accent"]
       : ["Planning in a sub-session", "accent"];
   return ["Working", "accent"];
 }
-// The line under a card's title, here and on Agreed: a dot and a state,
-// then text that an ellipsis cuts short when the line is full.
 export function metaLine(state, tone, rest) {
   const line = element("div", "card-meta");
   if (state) {
@@ -135,11 +118,8 @@ export function metaLine(state, tone, rest) {
   }
   return line;
 }
-// Where the card came from, for work started elsewhere where it runs, for
-// work the agent marked done with --where, where it got done, and for a
-// card joined into another, that card's title. Running work started here
-// has no line, since its state says where it runs, and a card names no
-// round.
+// Running work started here has no line, because its state says where it
+// runs.
 function cardWhere(card) {
   if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
@@ -157,7 +137,6 @@ function cardWhere(card) {
       box.append("In its own session · ", sessionLink("Open", linked));
     else box.textContent = "Waiting for its session to start";
   } else {
-    // A card recorded with neither --page nor --thread has no line.
     const { page, thread } = card.source;
     if (page) box.append(pageLink(fromPage(page), page.round, page.id));
     else if (thread) box.append(threadLink("From a thread", thread));
@@ -165,8 +144,6 @@ function cardWhere(card) {
   }
   return box;
 }
-// The cards joined into a card, by title, under a rule at the foot of its
-// body.
 function joinedList(joined) {
   const box = element("div", "proposal-joined");
   const list = element("ul");
@@ -193,8 +170,9 @@ async function act(card, action) {
     refreshWork(true);
   }
 }
-// The hub answers each action with every card, which replaces the cards of
-// the last poll. After Start, Work shows the tab the card moved to.
+// The hub answers each action with every card, and changed() replaces the
+// cards from the last poll with them. After Start, Work shows the tab that
+// the card moved to.
 function changed(result, follow = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
@@ -202,12 +180,10 @@ function changed(result, follow = null) {
   const moved = follow && cards().find((card) => card.id === follow);
   if (moved && !$("work-view").hidden) selected = cardTab(moved, context());
   refreshWork(true);
-  // The next status shows the rest of what the action changed, such as the
-  // thread that Open a new agent session starts.
+  // poll() fetches the rest of what the action changed, such as the thread
+  // that Open a new agent session starts.
   void poll();
 }
-// The footer holds only buttons, in one row: Decline or Restore on the
-// left, and Start on the right.
 function actions(card) {
   const button = (className, label, run) => {
     const node = element("button", className, label);
@@ -230,12 +206,10 @@ function actions(card) {
     );
   return [left, right];
 }
-// One card, the same on Work and in the proposal component, with the New
-// label when fresh.
 export function cardElement(card, shown = context(), fresh = false) {
   const root = element("article", "proposal-card");
   root.dataset.proposalCard = card.id;
-  // The comment control names a chosen card by this.
+  // The comment control uses data-kind to name a chosen card.
   root.dataset.kind = "proposal";
   const head = element("p", "proposal-title");
   head.append(element("b", "", card.title));
@@ -243,12 +217,11 @@ export function cardElement(card, shown = context(), fresh = false) {
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
   body.append(head, metaLine(state, tone, cardWhere(card)));
-  // Approved work that is not finished shows its status.
   if (card.started && !finished(card)) body.append(statusBox(card));
   body.append(element("p", "proposal-delivers", card.delivers));
-  // The reviewer's words that started the card, or their message with
-  // Start, quoted under what the card delivers, so the card shows
-  // everything the reviewer approved.
+  // cardElement() quotes the reviewer's words that started the card, or the
+  // reviewer's message with Start, so the card shows everything the reviewer
+  // approved.
   const { started, withdrawn } = card;
   if (started?.by === "words") {
     const lead = element("p", "proposal-lead", "Started from your words");
@@ -269,7 +242,6 @@ export function cardElement(card, shown = context(), fresh = false) {
   const joined = joinedInto(card);
   if (joined.length) body.append(joinedList(joined));
   root.append(body);
-  // A card with no buttons, such as one that cannot change, has no footer.
   const buttons = cardsEditable() ? actions(card) : [];
   if (buttons.some((side) => side.children.length)) {
     const foot = element("div", "proposal-foot");
@@ -279,10 +251,11 @@ export function cardElement(card, shown = context(), fresh = false) {
   return root;
 }
 
-/* New: a card in a live session that this browser has not had on screen
-   on Work, unless it is in Done. A card on a page counts as seen only once
-   Work shows it. On Work, a card keeps the label until Work opens again, so
-   it does not lose it while the reviewer reads it. */
+/* The frame labels a card New on Work when the card is in a live session,
+   is not in Done, and no browser on the hub has shown it on Work. Showing
+   the card on a page does not count. The frame keeps the label on a card
+   on screen until Work opens again, so the label does not vanish while the
+   reviewer reads the card. */
 const labelled = (card) => cardsEditable() && !finished(card);
 const unseen = (card, seen) =>
   labelled(card) &&
@@ -290,7 +263,6 @@ const unseen = (card, seen) =>
   !seen.has(cardKey(session.sessionId, card.id));
 let marked = new Set();
 let watcher = null;
-// Records each card on screen on Work as seen, once half of it shows.
 function watchCards(list) {
   watcher?.disconnect();
   watcher = new IntersectionObserver(
@@ -309,18 +281,16 @@ function watchCards(list) {
     watcher.observe(node);
 }
 
-/* The page */
 let selected = workTabs[0].id;
-// Opening Work starts on the first tab with a card in it, once the hub has
-// listed the cards and the sessions their work runs in.
+// opening stays true from openWork() until the hub has listed the cards and
+// the sessions their work runs in, and then refreshWork() selects the first
+// tab with a card in it.
 let opening = false;
-// The target Work was opened at, such as a bell line's. While it names a
-// card, Work shows that card's tab, and moves with the card when it changes
-// tab, until the reader picks a tab or acts on a card.
+// followed is the target that Work was opened at, such as a bell line's.
+// While it names a card, the frame shows that card's tab and follows the
+// card when it changes tab, until the reader picks a tab or acts on a card.
 let followed = null;
 let drawnKey = "";
-// The card a target names: the card, or a thread on it or a message in
-// that thread.
 function cardAt(target) {
   if (!target) return null;
   const thread = (remote?.threads || []).find(
@@ -333,9 +303,8 @@ function cardAt(target) {
     (target.startsWith("proposal-") ? target.slice("proposal-".length) : null);
   return cards().find((card) => card.id === id) || null;
 }
-// Work opens on the tab of the card a target names, or else on its first
-// tab with a card in it. Shown again while on screen, it keeps its tab
-// unless a target names a card.
+// When Work is already on screen, openWork() keeps its tab unless a target
+// names a card.
 export function openWork(target, stayed) {
   if (!stayed) {
     opening = true;
@@ -390,7 +359,7 @@ function renderWork(groups, shown, seen) {
             shown,
             marked.has(card.id) && labelled(card),
           );
-          // A bell line on the card names it by this.
+          // A bell line links to the card by this ID.
           node.id = `proposal-${card.id}`;
           return node;
         })
@@ -403,11 +372,12 @@ function renderWork(groups, shown, seen) {
         ]),
   );
   watchCards(list);
-  // The chosen card was drawn again, or left the tab.
+  // The chosen card was drawn again or left the tab, so commentTarget()
+  // finds it again by its ID or ends the choice.
   commentTarget();
 }
-/* The component on a page: the card the hub has under the ID, or the text
-   the author wrote where no hub has the card. */
+/* On a page, drawProposal() shows the card that the hub has under the ID, or
+   the text the author wrote when no hub has the card. */
 const mounted = new Map();
 export function drawProposal(root) {
   mounted.set(root, "");
@@ -432,7 +402,6 @@ function paintProposal(root, seen = seenCards()) {
   root.dataset.proposalCard = card.id;
   root.replaceChildren(cardElement(card, shown, fresh));
 }
-// Every poll and every action draws the cards again when they changed.
 export function refreshWork(force = false) {
   if (remote) adoptCards(session.sessionId, cards());
   const seen = seenCards();
@@ -442,8 +411,8 @@ export function refreshWork(force = false) {
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards(), shown);
-  // A card whose work runs in another session needs the session listing to
-  // know whether it waits for the reviewer.
+  // The frame needs the session listing to know whether a card whose work
+  // runs in another session waits for the reviewer.
   const linkedKnown =
     sessionsListed() ||
     !cards().some((card) => card.started && card.started.where !== "here");

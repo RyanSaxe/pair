@@ -10,8 +10,8 @@
     <script>
       window.EXCALIDRAW_ASSET_PATH =
         "https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/";
-      // The frame's theme. Until Excalidraw draws, the editor shows the
-      // color Excalidraw gives a white canvas in that theme.
+      // Until Excalidraw draws, paintTheme fills the page with the color
+      // that Excalidraw gives a white canvas in the frame's theme.
       window.drawingTheme = __DRAWING_THEME__;
       function paintTheme() {
         document.documentElement.style.colorScheme = drawingTheme;
@@ -59,9 +59,9 @@
       const converter =
         "https://esm.sh/@excalidraw/mermaid-to-excalidraw@3.1.0";
       const nonce = __DRAWING_NONCE__;
-      /* The canvas stays white in either theme. Excalidraw's dark theme
-         inverts the canvas's colors on screen, and the saved PNG keeps the
-         light colors. */
+      /* The canvas background is white in both themes. Excalidraw's dark
+         theme inverts the canvas colors on screen, and exportToBlob saves
+         the PNG in the light colors. */
       let draft = {
         elements: [],
         appState: { viewBackgroundColor: "#ffffff" },
@@ -71,9 +71,9 @@
         parent.postMessage({ type, nonce, ...extra }, "*");
       // Excalidraw calls onChange on a scroll or a selection too. It raises an
       // element's version on each edit to the element, so the background and
-      // the sum of the versions change only when the drawing does. Each change
-      // to the drawing goes to the frame, which keeps it as a draft. The
-      // editor's own conversion of a diagram is no change.
+      // the sum of the versions change only when the drawing changes. onChange
+      // sends the frame a change only then, and never while convert() draws a
+      // diagram.
       const version = ({ elements, appState }) =>
         `${appState.viewBackgroundColor} ${elements.reduce(
           (sum, element) => sum + element.version,
@@ -122,10 +122,10 @@
       }
       /* The converter sizes each box for Excalifont, which Excalidraw adds
          to the document only once a scene uses it. With another font's
-         sizes, Excalidraw cuts letters off each label, so the editor draws
-         one hidden text element and waits for Excalifont before
-         converting. A font that failed to load stays failed, so the editor
-         then converts with the fallback font. */
+         sizes, Excalidraw cuts letters off each label, so convert draws one
+         hidden text element and waits for Excalifont before converting. A
+         font that failed to load stays failed, so when document.fonts.load
+         rejects, convert stops waiting and uses the fallback font. */
       async function convert(source) {
         const [{ parseMermaidToExcalidraw }, ready] = await Promise.all([
           import(converter),
@@ -176,14 +176,14 @@
               send("error", {
                 message: `Could not turn the diagram into a drawing: ${error.message}`,
               });
-              // The reviewer draws from an empty canvas, without the hidden
-              // text element.
+              // This removes the hidden text element, so the reviewer starts
+              // from an empty canvas.
               (await editor).updateScene({ elements: [] });
             } finally {
               converting = false;
             }
-          // A sketch opens with all of it in view, once Excalidraw has loaded
-          // it from initialData.
+          // Excalidraw loads initialData after the first render, so the
+          // editor waits for the elements before scrolling them into view.
           else if (fit) {
             const ready = await editor;
             for (let frame = 0; frame < 100; frame++) {

@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
-// These interactions belong to the frame. The fixed SVG fixture leaves
-// parsing and layout to the real-library figure suite.
+// This test checks the frame's handling of links in a stand-in SVG. The figure
+// suite in figures.mjs checks parsing and layout with the real library.
 test("diagram page links work by pointer and keyboard on the page and in the full-size dialog, while URL links keep their destination", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -77,8 +77,8 @@ test("diagram page links work by pointer and keyboard on the page and in the ful
   }
 });
 
-// A Pele whose bytes differ from its pinned hash must not run, whatever it
-// would draw.
+// The browser must not run a Pele whose bytes differ from its pinned hash, even
+// one that draws correctly.
 test("a diagram whose library fails to load or does not match its hash preserves its source and leaves the page readable", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -105,7 +105,7 @@ test("a diagram whose library fails to load or does not match its hash preserves
       }),
   ];
   for (const failure of failures) {
-    // The route added last answers first.
+    // Playwright tries the most recently added route first.
     await page.route(/pele@[^/]+\/dist\/pele\.js$/, failure);
     await page.goto(`${h.server.origin}${session.base}/#overview`);
     await page.locator(".renderer-error:visible").waitFor();
@@ -116,8 +116,8 @@ test("a diagram whose library fails to load or does not match its hash preserves
   }
 });
 
-// A note on one box of a diagram, from a click on the box in the full-size
-// dialog or from a drag across its label on the page.
+// boxNotePage opens a diagram page for the tests that note one box, by a click
+// on the box in the full-size dialog or by a drag across its label on the page.
 async function boxNotePage(t) {
   const h = await hub(t);
   const session = await h.session();
@@ -147,7 +147,6 @@ const noteDialog = async (page) => {
     quote: await page.locator("#note-quote").textContent(),
   };
 };
-// The fill of a box on the page, and the note color it takes once noted.
 const boxFill = (page, id) =>
   page
     .locator(`[data-diagram] .pele-node[data-id="${id}"] > rect`)
@@ -184,7 +183,6 @@ test("a click on a box in the full-size dialog opens a note quoting its label, a
     async () => (await boxFill(page, "gate")) === (await markColor(page)),
   );
   assert.notEqual(await boxFill(page, "details"), await markColor(page));
-  // The noted box opens its note, not the full-size dialog.
   await page.locator("[data-diagram] .pele-node[data-id=gate] text").click();
   assert.deepEqual(await noteDialog(page), {
     anchor: "Overview › Flow",

@@ -4,13 +4,11 @@ import { idPattern } from "../../shared/records.mjs";
 import { exists, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { message } from "./proposal-fields.mjs";
 
-// What the reviewer chose for the next round when they sent feedback.
-// A submission from a tab opened before the choice existed has none, and
-// reads as iterate.
+// A submission from a tab opened before pair offered the next-round choice
+// has no next, and nextOf treats it as iterate.
 export const nextChoices = ["iterate", "plan", "build"];
 export const nextOf = (payload) => payload.next ?? "iterate";
 
-// What the reviewer sends: feedback on a round.
 export function submissions(session) {
   const { directory, transition, sameRound, exclusive } = session;
   function withDrawingPaths(event) {
@@ -117,9 +115,9 @@ export function submissions(session) {
           );
       }
     }
-    /* Images hang off the note they illustrate, and a note may only name an
-       image this session holds, so a submission cannot point the agent at a
-       path the hub never wrote. */
+    /* Each image belongs to the note it illustrates, and storedAttachment
+       accepts only an image the hub stored for this session, so a
+       submission cannot point the agent at a path the hub never wrote. */
     if (data.groups.notes !== undefined) {
       requireValue(Array.isArray(data.groups.notes), "notes must be an array");
       for (const note of data.groups.notes) {
@@ -179,14 +177,16 @@ export function submissions(session) {
     await transition({
       stage: session.state.stage === "working" ? "working" : "submitted",
       latestSubmissionId: data.id,
-      // The round of a submission the agent answers with its next round.
-      // The frame shows the agent's progress until that round is complete.
+      // The agent answers this submission with its next round, and the
+      // frame shows the agent's progress until that round is complete.
       latestSubmissionRound: data.round,
-      // Every browser counts the agent's running time from this.
+      // The frame in every browser counts the agent's running time from
+      // roundStartedAt.
       roundStartedAt: event.receivedAt,
       wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       takeover: null,
-      // Build it approves the work, which this session builds from here on.
+      // With Build it, the reviewer approves the work, and the agent builds
+      // it in this session from now on.
       ...(data.next === "build"
         ? {
             build: { round: data.round, submission: data.id, at: timestamp() },

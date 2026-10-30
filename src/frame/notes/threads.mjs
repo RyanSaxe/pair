@@ -23,14 +23,10 @@ import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
-/* Threads. A note the reviewer sends to the agent at once, shown as a card
-   under its block with the agent's replies, without changing the page. The
-   hub stores each thread and every status poll carries them all, so the
-   cards follow the poll, and a message this browser sent shows at once and
-   until the poll has it. */
+/* The hub stores every thread, and each status poll returns all of them.
+   placeThreads draws the cards from the poll, and from sent for a message
+   that this browser sent and the poll does not show yet. */
 
-// ⌘ Enter on Apple systems and Ctrl Enter elsewhere send a thread or a
-// reply, and the dialog's hints say which.
 const apple = () =>
   /mac|iphone|ipad/i.test(
     navigator.userAgentData?.platform || navigator.platform || "",
@@ -44,18 +40,20 @@ export const sendKey = (event) =>
   !event.altKey &&
   (apple() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey);
 
-// What this browser sent that the poll does not show yet, by thread ID.
+// sent maps a thread ID to a thread that this browser sent and the hub's
+// poll does not show yet.
 const sent = new Map();
-// The card drawn for each thread on the page on screen.
 const cards = new Map();
-// The agent messages the reviewer opened with Show all.
+// opened contains the "threadId/index" key of each agent message that the
+// reviewer expanded with Show all.
 const opened = new Set();
 
 function allThreads() {
   const byId = new Map((remote?.threads || []).map((item) => [item.id, item]));
   for (const [id, local] of sent) {
     const stored = byId.get(id);
-    // The hub's copy replaces this browser's once it has every message.
+    // allThreads uses the hub's copy once it contains every message that
+    // this browser sent.
     if (stored && stored.messages.length >= local.messages.length)
       sent.delete(id);
     else byId.set(id, local);
@@ -71,7 +69,8 @@ async function post(id, url, body) {
     });
     const result = await response.json();
     if (!response.ok) throw Error(result.error || "The hub refused it.");
-    // A reply sent after this one keeps showing until its own answer.
+    // When the reviewer sent another reply after this one, sent keeps the
+    // longer local copy until the hub answers that reply.
     if (result.thread.messages.length >= (sent.get(id)?.messages.length ?? 0))
       sent.set(id, result.thread);
   } catch (error) {
@@ -85,7 +84,6 @@ async function post(id, url, body) {
 }
 export function startThread(context, text, attachments) {
   const now = new Date().toISOString();
-  // A thread on a proposal's card names the card in place of a page.
   const fields = context.proposal
     ? { id: uuid(), proposal: context.proposal }
     : {
@@ -124,8 +122,8 @@ function sendReply(thread, text, attachments) {
       { from: "reviewer", at: new Date().toISOString(), text, attachments },
     ],
   });
-  // The reply answers the agent's replies in the thread, so their lines
-  // leave the bell before the hub answers.
+  // A reply answers the agent's replies in the thread, so clearThread
+  // removes them from the bell before the hub responds.
   clearThread(thread.id);
   placeThreads();
   void post(
@@ -135,7 +133,6 @@ function sendReply(thread, text, attachments) {
   );
 }
 
-/* Times */
 function when(at) {
   const seconds = Math.round((Date.now() - Date.parse(at)) / 1000);
   if (seconds < 10) return "now";
@@ -145,15 +142,14 @@ function lasted(at) {
   const seconds = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 1000));
   return seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)} min`;
 }
-/* Messages */
 const element = (tag, className, text) => {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
 };
-// What Show all opens, such as "code, 30 lines", read from the message
-// before its components render.
+// contents describes what Show all reveals, such as "code, 30 lines". It
+// reads the message's HTML before the components render it.
 function contents(html) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -175,11 +171,10 @@ function contents(html) {
     if (root.querySelector(selector)) parts.push(name);
   return parts.join(" and ");
 }
-// A long message opens cut at about twelve lines, under a fade.
+// clampHeight matches the max-height of .thread-clamp.clamped in
+// threads.css.
 const clampHeight = 250;
-// What cuts each agent message, or shows it whole, by its clamp.
 const fits = new WeakMap();
-// The cards drawn since their messages were last cut.
 const unfitted = new Set();
 function agentBody(thread, message, index) {
   const clamp = element("div", "thread-clamp");
@@ -234,8 +229,8 @@ function images(message) {
 function messageRow(thread, message, index) {
   const agent = message.from === "agent";
   const row = element("div", "thread-message");
-  // A notification of a reply opens the page at this ID. Messages are only
-  // ever added at the end, so an index names the same message every time.
+  // The frame opens the page at this ID for a reply's notification. The hub
+  // only appends messages, so an index always names the same message.
   row.id = `thread-${thread.id}-${index}`;
   const avatar = element("span", "thread-avatar", agent ? "A" : "Y");
   avatar.classList.toggle("agent", agent);
@@ -256,7 +251,6 @@ function messageRow(thread, message, index) {
   return row;
 }
 
-/* The line under the reviewer's last message */
 function statusLine(thread) {
   const box = element("div", "thread-status");
   if (thread.error) {
@@ -310,12 +304,11 @@ function statusLine(thread) {
   return box;
 }
 
-/* The card */
 function buildCard(id) {
   const card = element("pair-thread", "thread");
   card.dataset.thread = id;
-  // A notification of a reply from before replies named their message opens
-  // the page at this ID.
+  // The frame opens the page at this ID for an older reply notification
+  // that has no message index.
   card.id = `thread-${id}`;
   const head = element("div", "thread-head");
   const title = element("span", "thread-title");
@@ -339,8 +332,8 @@ function buildCard(id) {
   card.append(head, quote, messages, element("div", "thread-status"), form);
   return { card, title, fold, quote, messages, form, shown: [], key: "" };
 }
-// folded is whether the card starts collapsed, which the reviewer's own
-// Collapse or Expand overrides.
+// folded is whether the card starts collapsed. The reviewer's own Collapse
+// or Expand, which prefs stores, overrides it.
 function drawCard(entry, thread, part, folded) {
   const choice = prefs.get(`thread:${thread.id}:collapsed`);
   const collapsed = choice ? choice === "1" : folded;
@@ -365,9 +358,10 @@ function drawCard(entry, thread, part, folded) {
   quote.replaceChildren("“", element("span", "", normalize(thread.quote)), "”");
   fold.textContent = collapsed ? "Expand" : "Collapse";
   fold.setAttribute("aria-expanded", String(!collapsed));
-  // Messages only ever arrive at the end, so the rendered ones stay, unless
-  // the agent replied before the hub had a reply this card showed at once,
-  // which puts the agent's reply before it.
+  // The hub only appends messages, so drawCard keeps the rendered rows. The
+  // exception is an agent reply that reached the hub before a reply that
+  // this card showed at once. The hub then lists the agent's reply first,
+  // so drawCard draws every row again.
   const shown = (message) =>
     message && `${message.from}\n${message.text ?? message.html}`;
   if (
@@ -384,8 +378,9 @@ function drawCard(entry, thread, part, folded) {
   card.querySelector(".thread-status").replaceWith(statusLine(thread));
   form.hidden = !editable || Boolean(thread.error);
 }
-// The decision a note named, the top-level block that holds its target or
-// quote, or none, which puts the card at the end.
+// blockOf returns the Agreed card or top-level block that contains the
+// thread's target or quote. When it returns null, placeThreads puts the card
+// at the end of the page.
 function blockOf(root, thread) {
   const top = (node) => {
     let at = node?.nodeType === 1 ? node : node?.parentElement;
@@ -403,12 +398,8 @@ function blockOf(root, thread) {
   const range = thread.quote && findText(root, thread.quote);
   return (range && top(range.startContainer)) || null;
 }
-// A thread started from the progress card is about the work in progress.
 const onProgress = (thread) =>
   thread.topic === "agreed" && thread.target === "agent-activity";
-// While the progress card shows, its threads sit under it, open. Once the
-// round is done and the card hides, they sit under the finished line at the
-// top of Agreed, collapsed unless the reviewer expanded one.
 function placeProgress(threads) {
   const live = !$("agent-activity").hidden;
   let after = live ? $("agent-activity") : $("finished-line");
@@ -423,17 +414,14 @@ function placeProgress(threads) {
     }
     after = entry.card;
   }
-  // The cards sit above the page's content, so the note bars move with it.
+  // The progress cards are above the page's content, so moving one moves the
+  // blocks under the note bars.
   if (moved) placeMarks();
 }
-// The card a thread on a proposal goes under: the card on Work, or the
-// proposal component on a page, whichever is on screen.
 const cardOf = (id) =>
   [
     ...document.querySelectorAll(`[data-proposal-card="${CSS.escape(id)}"]`),
   ].find((node) => !node.closest("[hidden]"));
-// A thread on the overall comment goes at the end of its round's Review,
-// and a thread on Work after Work's cards, whatever round it started in.
 function endOf(thread) {
   if (thread.topic === "work" && shownPage() === "work")
     return $("work-threads");
@@ -460,9 +448,6 @@ function placeEnds(threads) {
     for (const card of [...box.children].slice(listed.length)) card.remove();
   }
 }
-// Each thread goes under its block or its proposal's card, after the
-// threads started there before it. With four or more threads in one place,
-// all but the two newest start collapsed.
 export function placeThreads() {
   const root = $("page-content");
   const reading = page && !page.pending && !$("reading").hidden;
@@ -536,16 +521,16 @@ export function placeThreads() {
       });
     setDiffThreads(element, threads, cards);
   }
-  // A message's observer would cut it only at the next frame, after a
-  // scroll to a reply had measured every long message at its full height,
-  // so each card drawn here cuts its messages now that it is on the page.
+  // A message's ResizeObserver calls fit only at the next frame, after a
+  // scroll to a reply has measured each long message at its full height.
+  // placeThreads therefore calls fit for each card drawn here as soon as the
+  // card is on the page.
   for (const card of unfitted)
     if (card.isConnected)
       for (const clamp of card.querySelectorAll(".thread-clamp"))
         fits.get(clamp)();
   unfitted.clear();
 }
-// The times on the cards on screen count up between polls.
 function tick() {
   for (const { card } of cards.values()) {
     if (!card.isConnected) continue;
@@ -561,10 +546,10 @@ export function installThreads() {
     key.textContent = sendKeyLabel();
   for (const key of document.querySelectorAll("[data-send-modifier]"))
     key.textContent = modifier();
-  // A page render replaces the page's content, so its cards are drawn anew.
-  // Progress cards are outside #page-content, so the render leaves them in
-  // place. Remove every drawn card, or placeProgress() adds a second card for
-  // the same thread.
+  // A page render replaces #page-content, so the frame draws its cards anew.
+  // The render leaves the progress cards outside #page-content in place, so
+  // this handler removes every drawn card. Otherwise placeProgress() would
+  // add a second card for the same thread.
   window.addEventListener("plan:page", () => {
     for (const { card } of cards.values()) card.remove();
     cards.clear();

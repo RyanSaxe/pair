@@ -1,5 +1,5 @@
-// The frame's modules as a built page carries them: each one a base64 data:
-// URL in the page's import map. Returns their text, joined.
+// A built page contains each frame module as a base64 data: URL in its import
+// map. frameSource decodes them and returns their text joined.
 export function frameSource(html) {
   const map = html.match(/<script type="importmap">\n(.*)\n<\/script>/);
   if (!map) return "";

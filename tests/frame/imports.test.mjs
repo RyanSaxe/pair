@@ -3,9 +3,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-// Node resolves the #frame/… and #shared/… names through package.json, as
-// the page's import map does, so a missing export fails here. boot.mjs is
-// the one module that touches the document as it loads.
+// Node resolves the #frame/… and #shared/… names through imports in
+// package.json, as the browser resolves them through the page's import map, so
+// importing a module fails here on a missing export. The test skips
+// app/boot.mjs, the one module that touches document when it loads.
 const frame = fileURLToPath(new URL("../../src/frame/", import.meta.url));
 
 async function* modules(directory) {

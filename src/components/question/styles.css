@@ -1,5 +1,5 @@
-/* An accent bar down the left edge is how the frame marks the block the
-   reader chose, so the question wears its tag instead. */
+/* The frame marks the block the reader chose with an accent bar down the
+   left edge, so the question card uses its tag instead of a bar. */
 .question {
   display: grid;
   gap: 6px;
@@ -27,11 +27,10 @@
   field-sizing: content;
   background: var(--ground);
 }
-/* Answer turns the card into its answered state and leaves Edit where the
-   box was. The frame keeps the typed text on every keystroke but sends it
-   only once Answer records it, and the Send popup lists typed answers that
-   are not added. The answer in place of the box and the Edit button are the
-   answered state; the card takes no badge for it. */
+/* Answer puts the card in its answered state: the answer replaces the box,
+   Edit appears, and the card gets no badge. The frame stores the typed text
+   on every keystroke but sends it only after Answer records it, and the Send
+   popup lists typed answers that were not added. */
 .answer-text {
   margin: 4px 0 0;
   padding: 9px 11px;

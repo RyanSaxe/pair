@@ -10,13 +10,12 @@ const listedEvents = async (origin, id) =>
   (await (await fetch(`${origin}/api/sessions`)).json()).sessions.find(
     (item) => item.id === id,
   ).events;
-// What each event says, without the ID and time the hub gives it.
 const described = (events) => events.map(({ id, at, ...rest }) => rest);
 
 test("a session's start, a round that finishes and a reply each add one event, and a new hub keeps them", async (t) => {
   const h = await hub(t);
   const a = await h.session({ start: true });
-  // pair start again on the session it started adds nothing.
+  // A second pair start by the same agent adds no event.
   await h.register(a.directory, a.inbox.target, { start: true });
   assert.equal((await a.publish(planData("1"))).code, 200);
   const thread = crypto.randomUUID();
@@ -29,7 +28,8 @@ test("a session's start, a round that finishes and a reply each add one event, a
     text: "What happens to a failed item?",
   });
   assert.equal(started.code, 201, started.body.error);
-  // Reading a thread is not an event, and the reply is.
+  // For the reply action without text, the hub marks the thread read and adds
+  // no event. For a reply with text, the hub adds one.
   assert.equal((await a.action("reply", { note: thread })).code, 200);
   assert.equal(
     (await a.action("reply", { note: thread, text: "It is retried." })).code,

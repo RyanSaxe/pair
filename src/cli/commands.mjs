@@ -13,9 +13,9 @@ const sessionDir = {
 };
 const json = { text: "Print the result as one JSON object." };
 
-// Every command, in the order pair --help lists them. An entry has the line
-// pair --help prints (purpose), the paragraph its own --help starts with
-// (about), its flags and arguments, and the function that runs it.
+// pair --help lists the commands in this order. purpose is the line that pair
+// --help prints for a command, and about is the paragraph that the command's
+// own --help starts with.
 export const commands = {
   start: {
     group: "session",

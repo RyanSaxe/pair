@@ -1,49 +1,31 @@
-/* Which proposal cards this browser has had on screen on Work, in every
-   session on the hub, so a card it has not shown there reads New. It stays
-   in this browser's storage for the hub, so every tab on the hub shares
-   it, as the opened pages do. */
+import { hubRecord } from "#frame/sync/record.mjs";
 
-const storageKey = "pair:cards:seen";
-// The record, kept here too when browser storage is unavailable. Null means
-// this browser has never recorded anything.
-let fallback = null;
+/* The hub stores the IDs of the proposal cards that the frame has shown on
+   Work, across every session, so a phone and a computer label the same
+   other cards New. */
+
+const seen = hubRecord("cards", "pair:cards:seen");
 
 export const cardKey = (sessionId, cardId) => `${sessionId}/${cardId}`;
 
-export function seenCards() {
-  try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved !== null) return new Set(JSON.parse(saved));
-  } catch {
-    /* Storage is blocked; the copy below is this tab's. */
-  }
-  return fallback && new Set(fallback);
-}
-function store(seen) {
-  fallback = [...seen];
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(fallback));
-  } catch {
-    /* Keep the copy above. */
-  }
-}
-// A browser with no record adopts every card the hub lists as seen, so
-// the upgrade starts with no New cards.
+export const seenCards = seen.load;
+// When neither this browser nor the hub has a list, adoptCards counts every
+// card the hub lists as seen, so the first run after the upgrade shows no
+// New cards. seen.adopt() does nothing until the first session list
+// arrives, because the frame reads the hub's list from it.
 export function adoptCards(sessionId, cards) {
-  if (!seenCards()) store(cards.map((card) => cardKey(sessionId, card.id)));
+  seen.adopt(cards.map((card) => cardKey(sessionId, card.id)));
 }
 export function markSeen(sessionId, ids) {
-  const seen = seenCards() || new Set();
-  const size = seen.size;
-  for (const id of ids) seen.add(cardKey(sessionId, id));
-  if (seen.size !== size) store(seen);
+  seen.add(ids.map((id) => cardKey(sessionId, id)));
 }
-// After a listing from the hub, the cards of a session it no longer lists
-// as open go.
-export function syncSeen(sessions) {
-  const seen = seenCards();
-  if (!seen) return;
+// syncSeen runs after each session list from the hub and drops the cards of
+// sessions that the hub no longer lists as open. hub is the hub's list of
+// seen cards.
+export function syncSeen(sessions, hub) {
   const listed = new Set(sessions.map((entry) => entry.id));
-  const kept = [...seen].filter((key) => listed.has(key.split("/")[0]));
-  if (kept.length !== seen.size) store(kept);
+  seen.sync(
+    hub,
+    (keys) => new Set([...keys].filter((key) => listed.has(key.split("/")[0]))),
+  );
 }

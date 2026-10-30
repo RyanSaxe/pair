@@ -8,10 +8,10 @@ import { pageData, pagePlan, validPage } from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
 import { refuseOverwrite } from "./output.mjs";
 
-// A diff's textarea names the JSON file that pair diff wrote, as
-// data-diff-input="retry.json", or has that JSON pasted into it, escaped by
-// hand. The build writes a named file's JSON into the textarea escaped, so
-// the browser reads the file's text as it is.
+// A diff's textarea either has data-diff-input set to the JSON file that pair
+// diff wrote, as data-diff-input="retry.json", or contains that JSON pasted in
+// and escaped by hand. The build writes the named file's JSON into the textarea
+// escaped, so the browser reads the file's text as it is.
 const TEXTAREA = /(<textarea\b[^>]*>)([\s\S]*?)<\/textarea>/gi;
 const DIFF_FILE = /\sdata-diff-input\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 const diffFile = (open) => {
@@ -69,7 +69,7 @@ export async function buildPage(source, input) {
     );
   const directory = path.dirname(source);
   const read = (file) => fs.readFile(path.resolve(directory, file), "utf8");
-  // A css or js file that cannot be read is listed with the page's other
+  // The build lists a css or js file that cannot be read with the page's other
   // problems, so one build reports them all.
   const unreadable = [];
   const readNamed = (field) =>
@@ -118,8 +118,8 @@ export async function buildPage(source, input) {
     );
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
-  // assemble receives the page's script encoded, so it is checked here as
-  // written.
+  // assemble() receives the page's script encoded, so the build checks the
+  // script here as written.
   const authoredProblems = [
     ...unreadable,
     ...problems(data, page.jsText || "", { allowUnknownPages: true }),
@@ -138,8 +138,8 @@ export async function buildPage(source, input) {
 export async function build(source) {
   return buildPage(source, JSON.parse(await fs.readFile(source, "utf8")));
 }
-// The next step names the source's directory as --source, and for Agreed
-// the pages.json beside that directory, where guide/pages.md puts it.
+// For Agreed, main() adds --pages to the next step, with the pages.json in the
+// parent of the source's directory, the path that guide/pages.md gives.
 export async function main({ args: [source, output] }) {
   const html = await build(path.resolve(source));
   await fs.mkdir(path.dirname(path.resolve(output)), { recursive: true });

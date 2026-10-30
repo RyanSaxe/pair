@@ -18,12 +18,11 @@ import {
   statusChange,
 } from "./proposal-status.mjs";
 
-// Proposals: one card for each piece of work the agent proposes, from pair
-// propose until the work is done. Each card is a file in proposals/, because
-// a card changes after the round that showed it is published. Four facts,
-// each null until it happens, say where a card stands: started, declined,
-// withdrawn and done. The frame sorts the cards into the Work page's tabs
-// from those facts, so the hub stores no tab.
+// The hub stores each proposal card as a file in proposals/, because a card
+// changes after the round that showed it is published. The fields started,
+// declined, withdrawn and done are each null until that event happens. The
+// frame sorts the cards into Work's tabs from those fields, so the hub
+// stores no tab.
 export async function proposals(session) {
   const { directory, transition } = session;
   const folder = path.join(directory, "proposals");
@@ -61,9 +60,8 @@ export async function proposals(session) {
       409,
     );
   }
-  // Where the work came from: a thread, or a page of a round with the
-  // page's title from the round's page list. The reviewer also writes on
-  // Review's overall comment and on Work, which every round has.
+  // framePages lists Review's overall comment and Work, which every round
+  // has and no round's page list contains.
   const framePages = { overall: "Review", work: "Work" };
   function source(data) {
     requireValue(
@@ -109,7 +107,6 @@ export async function proposals(session) {
       withdrawn: null,
       done: null,
     });
-    // Every pair tab's bell announces the card.
     await session.addActivity({
       kind: "proposal",
       name: card.title,
@@ -119,7 +116,6 @@ export async function proposals(session) {
     });
     return card;
   }
-  // A revision replaces the fields given and keeps the rest.
   async function revise(card, data) {
     requireValue(
       !card.started,
@@ -151,14 +147,11 @@ export async function proposals(session) {
     );
     return save(card, patch);
   }
-  // Start, from the reviewer's button or from their words. Work here or in
-  // a sub-session saves a Start event, which the agent reads with pair
-  // read. Work with a new agent saves no event, because a separate agent
-  // runs pair start --from for it. A start the holder records saves no
-  // event either, because the holder's pair propose prints the start. A
-  // Start leaves the round as it was, wherever the work runs: only the
-  // reviewer's feedback answers a round, so a round that waits for them
-  // keeps waiting.
+  // start saves a Start event, which the agent reads with pair read, for
+  // work here or in a sub-session. It saves no event for work with a new
+  // agent, because a separate agent runs pair start --from for it. It saves
+  // none for a start the holder records, because the holder's pair propose
+  // prints the start.
   async function start(card, started, holder = false) {
     open();
     requireValue(
@@ -195,8 +188,8 @@ export async function proposals(session) {
     });
     return changed;
   }
-  // Runs after the request that started the card is answered, as the wake
-  // after a submission does.
+  // wakeLater runs wakeFor after the hub answers the request that started
+  // the card, as submit does for the wake after a submission.
   async function wakeFor(id) {
     const card = find(id);
     const { started } = card;
@@ -222,9 +215,8 @@ export async function proposals(session) {
       setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
   };
   const listed = () => ({ proposals: proposalItems() });
-  // The Start button on a card, with where the work runs and the reviewer's
-  // optional message. With a new agent, the answer carries the command the
-  // reviewer pastes into that agent, and the hub wakes no one.
+  // For a new agent, startProposal returns the command the reviewer pastes
+  // into that agent, and the hub sends no wake.
   async function startProposal(id, data) {
     const text = message(data);
     const where = place(data?.where, "Start's where");
@@ -239,11 +231,11 @@ export async function proposals(session) {
     wakeLater(id);
     return listed();
   }
-  // pair propose --start: the agent starts a card because the reviewer
-  // asked for the work in a note, a thread or the chat, with their words
-  // and, when it gives them, where they wrote them. The holder that runs it
-  // reads the start in that command's output, so the hub saves a start for
-  // pair read and wakes the holder only when another agent sends it.
+  // The agent runs pair propose --start when the reviewer asked for the work
+  // in a note, a thread or the chat, and it gives the reviewer's words and,
+  // when it has them, where the reviewer wrote them. A holder that runs it
+  // reads the start in that command's output, so the hub saves a Start for
+  // pair read and wakes the holder only when another agent runs it.
   async function startFromWords(card, data, holder) {
     const where = place(data.start, "--start");
     requireValue(
@@ -259,9 +251,10 @@ export async function proposals(session) {
     return started;
   }
   const fromCommand = (id) => `pair start --from ${directory} --proposal ${id}`;
-  // Open a new agent session on a card asks this session's holder, in a
-  // thread on the card, to open a separate agent that runs pair start
-  // --from. It starts the card with a new agent when it is not started.
+  // For Open a new agent session on a card, openAgent asks this session's
+  // holder, in a thread on the card, to open a separate agent that runs pair
+  // start --from. It first starts the card with a new agent when nobody has
+  // started it.
   async function openAgent(id, data) {
     open();
     const card = find(id);
@@ -288,9 +281,6 @@ export async function proposals(session) {
     );
     return { ...listed(), thread };
   }
-  // Decline takes a proposed card out of Proposed, and Restore puts a
-  // declined or withdrawn card back. Both leave a card already in that
-  // state as it is.
   async function declineProposal(id) {
     open();
     const card = find(id);
@@ -310,9 +300,6 @@ export async function proposals(session) {
       await save(card, { declined: null, withdrawn: null });
     return listed();
   }
-  // The agent withdraws a card nobody has started that no longer applies,
-  // with its reason. Withdrawn and declined cards are both in Done, and the
-  // reviewer's Restore puts either back.
   async function withdraw(card, data) {
     requireValue(
       !card.declined,
@@ -336,10 +323,9 @@ export async function proposals(session) {
       withdrawn: { at: timestamp(), reason: words(data, "reason") },
     });
   }
-  // The agent marks work started here done after its last page. With
-  // --where, it marks a card done whose work got done somewhere else,
-  // started here or not started. Only closing a linked session marks the
-  // card of work started there, so the card keeps its link to that session.
+  // With --where, the agent marks a card done whose work was finished
+  // somewhere else. Only closedSession marks a card done whose work runs in a
+  // linked session, so the card keeps its link to that session.
   async function done(card, data) {
     requireValue(
       !card.done,
@@ -373,14 +359,12 @@ export async function proposals(session) {
       },
     });
   }
-  // The cards the agent joined into a card.
   const joinedInto = (id) =>
     proposalItems().filter((card) => card.done?.joined === id);
-  // The agent merges a card nobody has started into OTHER, as
-  // proposal-joins.mjs describes. The joined card is done, and its done
-  // fact names OTHER. No card joins a joined card, so the cards already
-  // joined into the card move to OTHER with it. Every list of a card's
-  // joined cards comes from those facts, so finishing or reopening OTHER
+  // join marks the card done with done.joined set to OTHER's ID, as
+  // proposal-joins.mjs describes. No card joins a joined card, so join moves
+  // the cards already joined into this card to OTHER. Every list of a card's
+  // joined cards comes from done.joined, so finishing or reopening OTHER
   // leaves them joined.
   async function join(card, data) {
     const task = find(data.join);
@@ -396,9 +380,8 @@ export async function proposals(session) {
       },
     });
   }
-  // --reopen undoes the agent's own --done or --join, so the card returns
-  // to Running, or to Proposed when nobody started it. It clears the
-  // status, because the feedback that reopens work changes its parts.
+  // reopen clears the status, because the feedback that reopens work
+  // changes its parts.
   async function reopen(card) {
     requireValue(
       card.done,
@@ -412,9 +395,9 @@ export async function proposals(session) {
     );
     return save(card, { done: null, status: null });
   }
-  // A linked session's agent writes the status of the work it runs to the
-  // card in the parent. A status that changes no part leaves the card as
-  // it was, so status.at is the time of the last change to the parts.
+  // In a linked session, writeStatus writes the status to the card in the
+  // parent. A status that changes no part leaves the card as it was, so
+  // status.at is the time of the last change to the parts.
   async function writeStatus(id, data) {
     const owner = session.cardOwner(id, "pair propose");
     if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
@@ -426,9 +409,8 @@ export async function proposals(session) {
       return card;
     return save(card, { status: { at: timestamp(), parts } });
   }
-  // pair propose, from any agent: it records a card, or with one action
-  // flag changes the card that has the ID. holder says whether the holder
-  // sent it.
+  // Any agent can run pair propose. holder is true when the session's holder
+  // ran it.
   async function propose(data, holder) {
     open();
     const { id, action } = proposeAction(data);
@@ -442,8 +424,8 @@ export async function proposals(session) {
     if (action === "join") return join(card, data);
     return reopen(card);
   }
-  // pair read prints each card the reviewer declined once, and the hub
-  // sends no wake for a decline.
+  // The hub sends no wake for a decline, so pair read prints each declined
+  // card once.
   async function reportDeclined() {
     const unreported = proposalItems().filter(
       (card) => card.declined && !card.declined.reported,
@@ -454,9 +436,8 @@ export async function proposals(session) {
       });
     return unreported;
   }
-  // pair start --from links one session to a card started in a
-  // sub-session or with a new agent. Starting the card is the reviewer's
-  // instruction, so a card nobody started links to no session.
+  // Starting a card is the reviewer's instruction to do the work, so
+  // linkable refuses a card that nobody has started.
   function linkable(id) {
     open();
     const card = find(id);
@@ -479,21 +460,19 @@ export async function proposals(session) {
     const card = linkable(id);
     return save(card, { started: { ...card.started, session: linked } });
   };
-  // Closing a linked session marks its card done, once.
   async function closedSession(id, sessionId) {
     const card = cards.get(id);
     if (!card || card.done || card.started?.session?.id !== sessionId) return;
     await save(card, { done: { at: timestamp(), by: "close" } });
   }
-  // The first Build it in a linked session marks its card built.
   async function built(id, sessionId) {
     const card = cards.get(id);
     if (!card || card.started?.session?.id !== sessionId || card.started.built)
       return;
     await save(card, { started: { ...card.started, built: timestamp() } });
   }
-  // pair read prints each card whose linked session closed once, and the
-  // hub sends no wake for it.
+  // The hub sends no wake when a linked session closes, so pair read prints
+  // each card whose linked session closed once.
   async function reportClosed() {
     const unreported = proposalItems().filter(
       (card) => card.done?.by === "close" && !card.done.reported,

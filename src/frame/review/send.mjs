@@ -44,9 +44,6 @@ import {
 
 export let submissionError = "";
 export let submissionInFlight = false;
-// The header button. It opens the Send popup whenever the round can be
-// sent, and opens Feedback once Current's round is sent. Its count is the
-// drafted items that go with it.
 export function submitButton({
   inFlight,
   opensFeedback,
@@ -69,9 +66,6 @@ export function submitButton({
     primary: !opensFeedback && !waitingForPages,
   };
 }
-// The submission's text, which an export carries: the choice of what comes
-// next, the message, and every unsent item as the agent reads it, each
-// after a blank line.
 function feedbackText(next, message) {
   const lines = [
     `Feedback: ${plan.title}`,
@@ -81,8 +75,8 @@ function feedbackText(next, message) {
   ];
   if (message) lines.push("", "Message to the agent", message);
   const { notes, choices, answers } = unsentItems(state);
-  // A checklist the reviewer left alone reads like any other. An empty one
-  // means none picked.
+  // The text includes each checklist that the reviewer never touched, and
+  // an empty checklist means that the reviewer picked no item.
   const untouched = Object.values(state.choices).filter(
     (choice) => choice.kind === "multiple" && !choice.sentIn && !choice.touched,
   );
@@ -106,9 +100,8 @@ function feedbackText(next, message) {
       label,
       ...(note.quote ? ["Selected passage: " + note.quote] : []),
       text,
-      /* The bytes stay in the session directory, so the text names the file
-         rather than carrying it. An export the reviewer mails on says the
-         same, which is the only way the paths travel with it. */
+      /* The hub stores each image in the session directory, so the text
+         gives the file's path instead of the image. */
       ...(note.attachments || []).flatMap((item) => [
         `Image: ${item.path}`,
         ...(item.scene ? [`Sketch scene: ${item.scene.path}`] : []),
@@ -117,10 +110,9 @@ function feedbackText(next, message) {
   }
   return lines.join("\n");
 }
-// The submission for the draft with the reviewer's choice of what comes
-// next. The same draft and choice keep the same submission, so a retry
-// after a failed send sends it again under its ID, and a changed choice
-// or message makes a new one.
+// submission reuses state.pending while the draft, the choice and the
+// message are unchanged, so a retry after a failed send sends the same ID
+// again. A change to any of them makes a new submission with a new ID.
 function submission(next) {
   const groups = submissionGroups(state);
   const message = state.message?.trim() || "";
@@ -156,9 +148,6 @@ async function send(event) {
   setRemote(result.status);
   return result;
 }
-// Sends Current's draft with the choice from the Send popup and leaves
-// Current waiting on Agreed for the next round. Agreed shows the send while
-// it is in flight, and a failure returns the reader to where they were.
 export async function sendFeedback(next) {
   if (remote?.openRound || !feedbackEditable()) return;
   if (nothingToSend(state, next, isPlanRound())) return;
@@ -199,7 +188,8 @@ export async function sendFeedback(next) {
 export function installSend() {
   $("submit").onclick = () => {
     if (selectedTab === "past") {
-      // Current's round was already sent, so the button opens its Feedback.
+      // When Current's round is already sent, the handler opens that
+      // round's Feedback.
       if (!currentAvailable()) {
         places[submittedRound] = { page: "feedback", at: {} };
         void openPast(submittedRound);
@@ -213,8 +203,8 @@ export function installSend() {
     submissionError = "";
     review();
   };
-  // An export carries the choice the popup starts on, since the reviewer
-  // chooses only as they send.
+  // The reviewer picks what comes next only in the Send popup, so an export
+  // uses the popup's starting choice.
   $("export").onclick = () => {
     const event = submission(startingChoice(isPlanRound()));
     persist();

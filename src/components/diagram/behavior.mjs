@@ -1,4 +1,3 @@
-/* A Pele diagram, and the dialog that shows its rendered layout full size. */
 async function renderDiagram(element) {
   const source = (element.dataset.source ??= element.textContent);
   let mounted;
@@ -18,12 +17,13 @@ async function renderDiagram(element) {
       onRender(result) {
         element.style.setProperty("--diagram-width", `${result.width}px`);
         linkNodes(element);
-        // Pele draws the SVG again for a new width, without the marks on
-        // noted boxes.
+        // Pele draws the SVG again for a new width and drops the marks on noted
+        // boxes.
         queueMicrotask(() => window.dispatchEvent(new Event("plan:diagram")));
       },
       onError(error) {
-        // mount() calls this before returning its handle on an initial error.
+        // mount() calls onError before it returns its handle when the first
+        // render fails, so mounted is still unset then.
         if (mounted) queueMicrotask(() => report(error));
       },
     });
@@ -67,9 +67,9 @@ function linkedPage(event) {
   if (event.target.closest("a")) return null;
   return event.target.closest(".pele-node.linked")?.dataset.id;
 }
-/* Links use their own activation; the rest of the diagram opens full size.
-   A drag across a label selects it for a note, so only a click with
-   nothing selected opens the full-size copy. */
+/* Links keep their own activation, and a click elsewhere on the diagram
+   opens it full size. A drag across a label selects the label for a note, so
+   only a click with nothing selected opens the full-size copy. */
 $("page-content").addEventListener("click", (event) => {
   const svg = event.target.closest("[data-diagram] svg");
   if (!svg || event.target.closest("a, .pele-node.linked")) return;
@@ -77,7 +77,8 @@ $("page-content").addEventListener("click", (event) => {
   openLightbox(svg);
 });
 /* Page and component styles are scoped to #page-content, so the dialog moves
-   there while open. Keep its reference across page-content replacements. */
+   there while it is open, and returnLightboxHome() moves it back to its
+   original parent, lightboxHome. */
 const lightbox = $("diagram-dialog");
 const lightboxHome = lightbox.parentElement;
 function returnLightboxHome() {
@@ -86,8 +87,9 @@ function returnLightboxHome() {
 lightbox.addEventListener("close", () => {
   if (!lightbox.open) returnLightboxHome();
 });
-/* Repeat ancestor classes and inline variables so authored selectors and
-   before-and-after styles also match the enlarged copy. */
+/* withAncestors() repeats the ancestor classes and inline variables on the
+   copy, so authored selectors and before-and-after styles also match the
+   enlarged copy. */
 function withAncestors(svg, clone) {
   let copy = clone;
   const root = $("page-content");
@@ -136,11 +138,8 @@ function copySvg(svg) {
 function openLightbox(svg) {
   const dialog = lightbox;
   const diagram = svg.closest("[data-diagram]");
-  // A click on a box opens a note on it while a note can open.
   const noting = canComment() && !diagram.closest("pair-thread");
   dialog.classList.toggle("noting", noting);
-  // Sketch on this diagram opens an editable copy of it in the drawing
-  // editor, while the frame can keep a sketch.
   const sketch = $("diagram-sketch");
   sketch.hidden = !noting || !canSketch();
   sketch.onclick = () => {
@@ -190,9 +189,10 @@ function openLightbox(svg) {
 planUI.define("diagram", {
   match: "[data-diagram]",
   setup(element) {
-    /* A note on one box names its diagram by ID. A diagram that is a block
-       has the block's ID, and one inside a block takes its place among the
-       page's diagrams. A diagram in a thread's reply takes no note. */
+    /* A note on one box contains its diagram's ID. A diagram that is a block
+       uses the block's ID, and a diagram inside a block gets an ID from its
+       place among the page's diagrams. A diagram in a thread's reply cannot
+       have a note. */
     if (!element.id && !element.closest("pair-thread")) {
       const index = [...$("page-content").querySelectorAll("[data-diagram]")]
         .filter((item) => !item.closest("pair-thread"))

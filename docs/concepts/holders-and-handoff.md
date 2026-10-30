@@ -1,7 +1,7 @@
 # Holders and handoff
 
 Each session has one **holder**, the agent that last ran `pair start` on it.
-The hub only wakes the holder. A subagent runs its commands in its parent's
+The hub wakes only the holder. A subagent runs its commands in its parent's
 environment, so the hub treats a subagent as its parent. The agent that
 holds a session also holds its
 [sub-sessions](proposals-and-work.md#sub-sessions-and-new-agent-sessions),

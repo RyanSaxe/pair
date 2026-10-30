@@ -53,8 +53,9 @@ export function initializeChecklists() {
       };
     }
   }
-  // Saving an unchanged draft would write this tab's copy over one that
-  // another tab saved since, such as the copy that marks a send.
+  // persist() writes this tab's copy of the draft, so saving an unchanged
+  // draft would overwrite a copy that another tab saved since, such as the
+  // copy that records a send.
   if (JSON.stringify(state.choices) !== before) persist();
 }
 export function restoreChoices() {
@@ -79,8 +80,9 @@ export function restoreChoices() {
           ?.checked ?? input.defaultChecked;
     });
 }
-// Typed text is sent only once Answer records it, so text that differs
-// from the recorded answer is not added.
+// The frame records typed text in state.answers when the reviewer selects
+// Answer, and it sends only recorded text. Text that differs from the
+// recorded answer is therefore not added.
 const notAdded = (key) => {
   const text = state.drafts[key];
   return (
@@ -89,8 +91,6 @@ const notAdded = (key) => {
     text !== state.answers[key]?.text
   );
 };
-// The questions in Current's round whose typed text is not added, from
-// the pages loaded so far.
 export function notAddedAnswers() {
   const found = [];
   for (const topic of pages.filter(
@@ -112,7 +112,6 @@ export function notAddedAnswers() {
   }
   return found;
 }
-// Whether the draft has typed text for a question on the page.
 export const typedOn = (topic) =>
   Object.entries(state.drafts).some(
     ([key, text]) => key.startsWith(`${topic}/`) && typeof text === "string",

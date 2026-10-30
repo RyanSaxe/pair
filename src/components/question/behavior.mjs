@@ -1,5 +1,5 @@
-/* The Answer button and the answered card. planUI.prefs keeps the state for
-   this session and round, so a reload comes back answered. */
+/* planUI.prefs stores the answered state for this session and round, so the
+   card is still answered after a reload. */
 planUI.define("question", {
   match: ".question[data-question]",
   setup(card, { page, planUI }) {
@@ -18,8 +18,8 @@ planUI.define("question", {
       edit.hidden = !answered;
     };
     // Shift+Enter in the box presses Answer, and the button shows the key.
-    // The hint is added here rather than in the markup, so a page whose
-    // author copied the markup before it had the hint shows it too.
+    // setup adds the hint instead of the markup, so a page whose author copied
+    // the markup before it had the hint shows it too.
     if (!save.querySelector("kbd")) {
       const hint = document.createElement("kbd");
       hint.textContent = "⇧ ↵";
@@ -44,8 +44,8 @@ planUI.define("question", {
       show(false);
       area.focus();
     };
-    // The card shows as answered only while the draft has an answer for the
-    // question. A new round's draft has no answer that was sent.
+    // The card shows as answered only while the draft contains an answer for
+    // the question. A new round's draft contains no answer that was sent.
     if (
       planUI.prefs.get(key) &&
       planUI.answered(card.dataset.question) &&

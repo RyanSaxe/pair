@@ -35,9 +35,9 @@ async function selectQuote(page) {
       return selection.toString();
     }, quote);
   assert.equal(selected, quote);
-  // The frame reads the selection on selectionchange, which the browser
-  // fires after this call returns, and then names the selection in the
-  // comment control.
+  // The frame reads the selection on selectionchange, which the browser fires
+  // after this call returns. The frame then names the selection in the comment
+  // control, which this wait detects.
   await page
     .getByRole("button", { name: "Comment on selection", exact: true })
     .waitFor();
@@ -53,7 +53,8 @@ const popoverOpen = (page, id, open) =>
 test(`the frame's keys open sessions, pages and dialogs, and send answers, notes and threads`, async (t) => {
   const h = await hub(t);
   const session = await h.session();
-  // The frame numbers the sessions in the order they started.
+  // The frame numbers sessions in the order they started, so the sleep makes
+  // the start times differ.
   await sleep(20);
   const other = await h.session();
   assert.equal((await other.publish(planData("1", "other"))).code, 200);
@@ -80,8 +81,7 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
   const reopen = async () => {
     await page.goto(ownUrl);
     await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
-    // The badge counts the other session, whose round waits for you, once
-    // the session list has loaded.
+    // The sessions badge reads 1 once the frame has loaded the session list.
     await page.waitForFunction(
       () => document.querySelector("#sessions-count")?.textContent === "1",
     );
@@ -107,7 +107,8 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
   await page.keyboard.press("Escape");
   await popoverOpen(page, "sessions-pop", false);
 
-  // A reload to this session's own URL would clear the marker.
+  // Pressing 1 must not reload this session's own URL, and a reload would clear
+  // window.keysMarker.
   await page.evaluate(() => (window.keysMarker = true));
   await page.keyboard.press("1");
   await sleep(300);
@@ -121,7 +122,8 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
 
   await page.keyboard.press("]");
   await page.getByRole("heading", { name: "Page with controls" }).waitFor();
-  // A ticked checkbox keeps focus and takes no typed keys, so the keys act.
+  // A checked checkbox keeps focus but takes no typed keys, so the frame's keys
+  // still act.
   const metrics = page.getByRole("checkbox", { name: "Metrics" });
   await metrics.check();
   assert.equal(

@@ -20,8 +20,8 @@ export async function readRecord(config) {
   }
 }
 // The interactive-plan hub answers /api/hub on the same port with the same
-// fields, so only a reply naming pair is pair's hub. A pair hub whose code
-// predates that field is known instead by the pid in pair's own record.
+// fields, so hubInfo accepts only a reply whose app is "pair". A pair hub too
+// old to send app is accepted when its pid matches the pid in the hub record.
 export async function hubInfo(port, record) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/api/hub`, {
@@ -35,10 +35,9 @@ export async function hubInfo(port, record) {
     return null;
   }
 }
-// A hub's reply names the real path of the state directory it serves as
-// stateDir, which a hub whose code predates that field leaves out. Two
-// commands can reach one state directory by different paths, such as /tmp
-// and /private/tmp on macOS, so each side compares real paths.
+// Two commands can reach one state directory by different paths, such as
+// /tmp and /private/tmp on macOS, so the hub and the command each compare
+// real paths.
 export const ownStateDir = (config) =>
   fs.realpath(config.root).catch(() => path.resolve(config.root));
 function processAlive(pid) {
@@ -49,10 +48,10 @@ function processAlive(pid) {
     return error.code !== "ESRCH";
   }
 }
-// A record can outlive its hub, and after the machine restarts its pid can
-// name another program, which ps then shows. A pair hub's command ends in
-// cli.mjs hub. When ps fails or prints nothing, as it may in a sandbox, a
-// live process counts as the hub.
+// The hub record can remain after its hub exits, and after the machine
+// restarts, its pid can belong to another program. A pair hub's process
+// command ends in cli.mjs hub. When ps fails or prints nothing, as it can in a sandbox,
+// hubRunning treats any live process with the pid as the hub.
 function hubRunning(pid) {
   if (!processAlive(pid)) return false;
   let command;
@@ -84,9 +83,10 @@ async function waitFor(check, ms) {
   }
   return null;
 }
-// A hub answers on its port as soon as it listens, but writes its record
-// only after it has loaded every session on disk, and it cannot register a
-// session before then. So a hub counts as started once its record names it.
+// The hub answers on its port as soon as it listens, but it writes the hub
+// record only after it loads every session on disk, and it cannot register a
+// session before then. recordedHub therefore returns a hub only when the
+// record contains its pid.
 async function recordedHub(config) {
   const record = await readRecord(config);
   if (!record) return null;
@@ -103,8 +103,9 @@ async function spawnHub(config) {
   });
   child.unref();
   await log.close();
-  // When another start spawned a hub at the same moment, the one that took
-  // the port is the one the record names.
+  // When two commands spawn a hub at the same moment, only the hub that binds
+  // the port writes the record, so spawnHub waits for the record and not for
+  // its own child.
   const started = await waitFor(() => recordedHub(config), 15_000);
   requireValue(
     started,
@@ -118,8 +119,9 @@ async function ensureHub(config = settings()) {
   const record = await readRecord(config);
   const port = record?.port || config.port;
   const stateDir = await ownStateDir(config);
-  // A hub of another state directory never serves this one's sessions, so
-  // it counts as no hub here.
+  // A hub of another state directory cannot serve this one's sessions, so
+  // ensureHub treats it as no hub. A hub too old to send stateDir counts as
+  // this directory's hub.
   const ownHub = async (port) => {
     const info = await hubInfo(port, record);
     return info && (info.stateDir ?? stateDir) === stateDir ? info : null;
@@ -127,8 +129,8 @@ async function ensureHub(config = settings()) {
   let info = port ? await ownHub(port) : null;
   if (!info && record && processAlive(record.pid))
     info = await waitFor(() => ownHub(record.port), 5000);
-  // A hub of this state directory that answers with no record may still be
-  // loading its sessions.
+  // A hub of this state directory that answers before the record exists can
+  // still be loading its sessions, so ensureHub waits for the record.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
   if (info && info.version !== version) {
     if (info.live === 0) {
@@ -141,8 +143,9 @@ async function ensureHub(config = settings()) {
       );
   }
   if (!info) {
-    // A hub that runs but does not answer, as from inside a sandbox with no
-    // sockets, keeps its record for the commands that can reach it.
+    // A running hub may not answer this command, as when the command runs in
+    // a sandbox with no sockets. ensureHub then leaves the hub record in place
+    // for the commands that can reach the hub.
     requireValue(
       !(record && hubRunning(record.pid)),
       process.env.CODEX_SANDBOX
@@ -163,8 +166,6 @@ async function ensureHub(config = settings()) {
   }
   return { ...info, origin: `http://127.0.0.1:${info.port}` };
 }
-// Registers the session with the hub. pair start adds start and, for a new
-// session, its title.
 export async function attach(directory, config, wake, extra = {}) {
   const hub = await ensureHub(config);
   const record = await readRecord(config);

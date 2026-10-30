@@ -5,9 +5,9 @@ import path from "node:path";
 import test from "node:test";
 import { exec, pair, root } from "../support/hub.mjs";
 
-// pair components is how an agent learns which components exist and when
-// to use each, its own and the user's, and pair guide prints the markup the
-// user's build uses.
+// An agent runs pair components to learn which components exist and when to use
+// each, pair's and the user's. pair guide prints the markup that the user's
+// build uses.
 test("pair components lists pair's components and yours, and pair guide prints each one's markup", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-components-"));
   t.after(() => fs.rm(home, { recursive: true, force: true }));
@@ -35,15 +35,14 @@ test("pair components lists pair's components and yours, and pair guide prints e
   assert.deepEqual(from("yours"), ["decision", "timeline", "unnamed"]);
   const listed = (owner, name) =>
     components.find((item) => item.from === owner && item.name === name);
-  // A component's use is the comment on the first line of its markup.
+  // pair components reads a component's use from the HTML comment on the first
+  // line of its markup.html.
   assert.equal(
     listed("yours", "timeline").use,
     "Dated events in order along one axis",
   );
   assert.equal(listed("yours", "unnamed").use, null);
   assert(components.every((item) => item.from !== "pair" || item.use));
-  // The command a component lists prints the markup a build uses: yours
-  // where you have one of that name, and pair's otherwise.
   const markupOf = async (owner, name) =>
     (await run(...listed(owner, name).markup.split(" ").slice(1))).stdout;
   assert.equal(await markupOf("yours", "decision"), markup.decision);

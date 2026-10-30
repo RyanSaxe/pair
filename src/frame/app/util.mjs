@@ -1,10 +1,10 @@
 import { ago } from "#frame/app/time.mjs";
 
-/* A page's markup can reuse an ID the frame uses, such as a section with
-   id="reading". The page content comes before Work, Review and the dialogs in
-   the document, so getElementById would return the page's element, and the
-   frame would show and hide that element in place of its own. $ returns
-   the frame's element whenever the frame has one. */
+/* A page's markup can reuse an ID that the frame uses, such as a section
+   with id="reading". The page content comes before Work, Review and the
+   dialogs in the document, so getElementById would return the page's
+   element, and the frame would show and hide that element in place of its
+   own. $ returns the frame's element whenever one exists. */
 export function $(id) {
   const found = document.getElementById(id);
   const content = document.getElementById("page-content");
@@ -13,7 +13,7 @@ export function $(id) {
     if (!content.contains(element)) return element;
   return found;
 }
-// crypto.randomUUID exists only in a secure context; over plain http on a
+// crypto.randomUUID exists only in a secure context. Over plain http on a
 // Tailscale address, which is how a phone reaches the hub, it is undefined.
 export function uuid() {
   if (crypto.randomUUID) return crypto.randomUUID();
@@ -23,10 +23,10 @@ export function uuid() {
   const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0"));
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
-// The key a page's choice, checklist or question is kept under in a draft.
 export const controlKey = (topic, id) => `${topic}/${id}`;
-// Shift+Enter presses the main button under a text box, except one that
-// sends to the agent at once, which ⌘ Enter presses (sendKey in threads.mjs).
+// Shift+Enter presses the main button under a text box. A box whose button
+// sends to the agent at once uses ⌘ Enter instead, through sendKey in
+// threads.mjs.
 export const shiftEnter = (event) =>
   event.key === "Enter" &&
   event.shiftKey &&
@@ -34,15 +34,15 @@ export const shiftEnter = (event) =>
   !event.ctrlKey &&
   !event.altKey;
 export const hubUnreachable = "The hub is unreachable. Try again shortly.";
-// A request the hub never answered rejects with a TypeError; any other
-// error carries the hub's own reason.
+// fetch rejects with a TypeError when the hub never answers. Any other error
+// has the hub's own reason as its message.
 export const unreachable = (error, message = hubUnreachable) =>
   error instanceof TypeError ? message : error.message;
 export const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
 // A note's occurrence is which appearance of its words in its block the
-// reviewer selected, counting from 1. occurrenceAt gives the appearance of
-// needle in text that begins at start or later, and occurrenceIndex gives
-// where an appearance begins, or -1.
+// reviewer selected, counting from 1. occurrenceAt() returns the number of
+// the appearance of needle in text that begins at start or later, and
+// occurrenceIndex() returns where an appearance begins, or -1.
 export function occurrenceAt(text, needle, start) {
   let occurrence = 1;
   for (
@@ -61,8 +61,8 @@ export function occurrenceIndex(text, needle, occurrence = 1) {
 }
 export const plural = (count, word) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
-// The activity card counts seconds in its first minute, so a fresh report
-// visibly ticks up while the agent works.
+// recently() counts seconds in the first minute, so the activity card shows
+// the age of a fresh report ticking up while the agent works.
 export function recently(value) {
   const ms = Date.now() - Date.parse(value);
   if (!Number.isFinite(ms)) return "";
@@ -70,9 +70,9 @@ export function recently(value) {
   return ms < 60000 ? `${Math.round(ms / 1000)} s ago` : ago(value);
 }
 // Over plain http, which is how a phone reaches the hub, the browser has no
-// clipboard API, so the text is copied from a field selected for a moment.
-// The field goes inside an open dialog, because a modal makes the rest of
-// the page inert.
+// clipboard API, so copyText() selects the text in a temporary field and
+// copies it. The field goes inside an open dialog, because a modal dialog
+// makes the rest of the page inert.
 export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -96,9 +96,9 @@ export async function copyText(text) {
     }
   }
 }
-/* A top bar panel opens 6px under its button, lined up with the button's
-   left edge and kept 8px inside the window, and the button says whether
-   it is open. The button opens and closes it through popovertarget. */
+/* The button opens and closes the panel through its popovertarget
+   attribute, so installPanel() only places the panel and sets the button's
+   aria-expanded. */
 export function installPanel(panel, button) {
   panel.addEventListener("beforetoggle", (event) => {
     if (event.newState !== "open") return;

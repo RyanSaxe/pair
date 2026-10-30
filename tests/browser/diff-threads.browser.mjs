@@ -27,10 +27,10 @@ const pageHtml = `
   </details>
 </section>`;
 
-// Drags across the quote with the mouse, as a reviewer does, so the browser
-// reports the selection the way it reports a real one: from inside the
-// diff's shadow root, Chrome anchors it at the element around the shadow
-// host.
+// selectDiffText drags the mouse across the quote instead of setting a range,
+// so Chrome reports the selection as it reports a reviewer's. For a selection
+// inside the diff's shadow root, Chrome anchors it at the element around the
+// shadow host.
 async function selectDiffText(page, quote) {
   const view = page.locator(".change-view");
   const span = await view.evaluate((element, text) => {
@@ -125,7 +125,7 @@ async function startThread(page, session, quote, side, lineThreadCount = 1) {
   assert.equal(placement.lineThreadCount, lineThreadCount);
 }
 
-test("selecting diff text starts a thread in its line annotation", async (t) => {
+async function openDiff(t) {
   const h = await hub(t);
   const session = await h.session();
   const published = await session.publish({
@@ -137,17 +137,28 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
   assert.equal(published.code, 200, published.body.error);
 
   const page = await open(t, `${h.server.origin}${session.base}/#changes`);
-  if (!page) return;
+  if (!page) return {};
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".change-view *")].some(
       (node) => node.shadowRoot,
     ),
   );
+  return { session, page };
+}
+
+test("selecting diff text starts a thread in its line annotation", async (t) => {
+  const { session, page } = await openDiff(t);
+  if (!page) return;
   await startThread(page, session, 'return "open"', "additions");
   await startThread(page, session, 'return "hold"', "deletions");
   await startThread(page, session, "open", "additions", 2);
+});
 
+test("a note on diff text marks the words selected in the diff, and the mark shows the note on hover and opens it on a click", async (t) => {
+  const { page } = await openDiff(t);
+  if (!page) return;
   const quote = 'return "open"';
+  const note = "Keep the selected change marked.";
   await selectDiffText(page, quote);
   await page.getByRole("button", { name: "Comment on selection" }).click();
   await page.waitForFunction(
@@ -155,7 +166,7 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
     null,
     { timeout: 5000 },
   );
-  await page.locator("#note-text").fill("Keep the selected change marked.");
+  await page.locator("#note-text").fill(note);
   await page.getByRole("button", { name: "Add to feedback" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await page.waitForFunction(
@@ -166,12 +177,29 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
     quote,
     { timeout: 5000 },
   );
+  // The words marked are the ones selected in the diff, not their copy in
+  // the closed "Exact source and Git patch".
   assert.deepEqual(
     await page.evaluate(() =>
-      [...(CSS.highlights.get("plan-note") || [])].map((range) =>
-        range.toString(),
-      ),
+      [...(CSS.highlights.get("plan-note") || [])].map((range) => ({
+        text: range.toString(),
+        inDiff: Boolean(
+          range.startContainer.getRootNode().host?.closest(".change-view"),
+        ),
+      })),
     ),
-    [quote],
+    [{ text: quote, inDiff: true }],
   );
+
+  const mark = await page.evaluate(() => {
+    const [range] = CSS.highlights.get("plan-note");
+    const box = range.getBoundingClientRect();
+    return { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 };
+  });
+  await page.mouse.move(mark.x, mark.y, { steps: 3 });
+  await page.locator("#note-tip", { hasText: note }).waitFor({ timeout: 5000 });
+  await page.mouse.click(mark.x, mark.y);
+  await page.locator("#note-dialog[open]").waitFor({ timeout: 5000 });
+  assert.equal(await page.locator("#note-title").textContent(), "Edit note");
+  assert.equal(await page.locator("#note-text").inputValue(), note);
 });

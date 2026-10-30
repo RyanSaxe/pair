@@ -1,8 +1,8 @@
-/* pair build writes the width and height of each image a page embeds as a
-   data: URL, so the browser reserves the image's box before it decodes the
-   image. imageSize() reads them from a PNG, JPEG, WebP or GIF header, and
-   svgSize() from an SVG's viewBox. Each returns null for a header it cannot
-   read, and the image then keeps no size. */
+/* pair build writes the width and height of each image that a page embeds as
+   a data: URL, so the browser reserves the image's box before it decodes the
+   image. imageSize() reads the size from a PNG, JPEG, WebP or GIF header,
+   and svgSize() reads it from an SVG's viewBox. Each returns null for a
+   header it cannot read, and the build then writes no size for that image. */
 const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
 function dimensions(width, height) {
@@ -165,7 +165,8 @@ function imageAttributes(tag) {
   return attributes;
 }
 
-// An img tag, whose quoted attribute values can contain ">".
+// A quoted attribute value in an img tag can contain ">", so IMG_TAG skips over
+// quoted values.
 const IMG_TAG = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
 export function sizeImages(html) {
   return html.replace(IMG_TAG, (tag) => {

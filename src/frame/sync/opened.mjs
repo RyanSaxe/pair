@@ -1,13 +1,13 @@
-/* Which pages this browser has opened, in every session on the hub, so a
-   session's row can count the pages you have not opened and its Pages list
-   can mark them New. It stays in this browser's storage for the hub, so
-   every tab on the hub shares it. Only the pages of each session's current
-   round are kept, because a past round shows no New marks. */
+import { hubRecord } from "#frame/sync/record.mjs";
 
-const storageKey = "pair:pages:opened";
-// The record, kept here too when browser storage is unavailable. Null means
-// this browser has never recorded anything.
-let fallback = null;
+/* The hub stores the pages that the reviewer has opened, across every
+   session, so a phone and a computer count the same unopened pages. The
+   frame counts each session's unopened pages in the session list and marks
+   them New in the page list. The list contains only the pages of each
+   session's current round, because the frame shows no New marks on a past
+   round. */
+
+const opened = hubRecord("opened", "pair:pages:opened");
 
 export const pageKey = (sessionId, round, pageId) =>
   `${sessionId}/${round}/${pageId}`;
@@ -16,17 +16,18 @@ const listedKeys = (entry) =>
     pageKey(entry.id, entry.readyPages.round, id),
   );
 
-// How many of a listed session's ready pages are not in the opened set.
 export function countUnopened(entry, opened) {
   if (!opened) return 0;
   return listedKeys(entry).filter((key) => !opened.has(key)).length;
 }
-/* The record after a listing from the hub. A browser with no record adopts
-   every listed page as opened, so the upgrade starts with no "new" counts.
-   After that, a page of a session the hub no longer lists, or of a round a
-   session has moved on from, is dropped. */
+// When neither this browser nor the hub has a list, adoptOpened counts every
+// listed page as opened, so the first run after the upgrade shows no New
+// counts.
+export const adoptOpened = (sessions) => new Set(sessions.flatMap(listedKeys));
+// settle runs after each session list from the hub. It drops the pages of
+// sessions that the hub no longer lists and of rounds that a session has
+// moved past.
 export function settle(sessions, opened) {
-  if (!opened) return new Set(sessions.flatMap(listedKeys));
   const rounds = new Map(
     sessions.map((entry) => [entry.id, entry.readyPages?.round]),
   );
@@ -38,36 +39,20 @@ export function settle(sessions, opened) {
   );
 }
 
-export function openedPages() {
-  try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved !== null) return new Set(JSON.parse(saved));
-  } catch {
-    /* Storage is blocked; the copy below is this tab's. */
-  }
-  return fallback && new Set(fallback);
-}
-function store(opened) {
-  fallback = [...opened];
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(fallback));
-  } catch {
-    /* Keep the copy above. */
-  }
-}
-// Until the first listing from the hub, a browser has no record, and that
-// listing adopts the page on screen with every other one.
+export const openedPages = opened.load;
+// Until the first session list from the hub, this browser has no list.
+// adoptOpened then counts the page on screen as opened with every other
+// page.
 export function markOpened(sessionId, round, pageId) {
-  const opened = openedPages();
-  const key = pageKey(sessionId, round, pageId);
-  if (!opened || opened.has(key)) return false;
-  opened.add(key);
-  store(opened);
-  return true;
+  if (!opened.load()) return false;
+  return opened.add([pageKey(sessionId, round, pageId)]);
 }
-export function syncOpened(sessions) {
-  const before = openedPages();
-  const after = settle(sessions, before);
-  if (!before || after.size !== before.size) store(after);
+// hub is the hub's list of opened pages.
+export function syncOpened(sessions, hub) {
+  opened.sync(
+    hub,
+    (keys) => settle(sessions, keys),
+    () => adoptOpened(sessions),
+  );
 }
-export const isOpenedChange = (event) => event.key === storageKey;
+export const isOpenedChange = opened.isChange;

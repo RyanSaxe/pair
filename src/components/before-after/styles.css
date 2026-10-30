@@ -16,15 +16,15 @@
   font-size: var(--text-small);
   color: var(--muted);
 }
-/* A file name too long to share the row with the controls takes the row
-   to itself, and the controls move to a row of their own under it. */
+/* A file name too long to share the row with the controls gets the row to
+   itself, and the controls wrap to a row of their own under it. */
 .change-controls .change-file {
   flex: 1 1 auto;
   color: var(--ink);
   font-weight: var(--weight-strong);
   overflow-wrap: anywhere;
 }
-/* The layout switch is the visual decision's, .vd-layout. */
+/* These rules match .vd-layout in the visual decision's styles. */
 .change-layout {
   display: inline-flex;
   flex-shrink: 0;
@@ -46,8 +46,8 @@
   color: var(--accent);
   font-weight: var(--weight-strong);
 }
-/* Wrap is a toggle of its own, so a rule sets it apart from the switch.
-   A pressed Wrap keeps its weight, so its width does not change. */
+/* Wrap is a separate toggle, so it gets its own rule apart from the switch.
+   Wrap has the same font weight when pressed, so its width does not change. */
 .change-wrap {
   position: relative;
   flex-shrink: 0;
@@ -68,8 +68,8 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
-/* The header before the switch had two .btn buttons, and a page source
-   copied from an earlier round still has them. */
+/* Before the switch, the header had two .btn buttons, and a page source
+   copied from an earlier round still contains them. */
 .change-controls .btn {
   padding: 2px 8px;
   font-size: var(--text-meta);
@@ -79,10 +79,10 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
-/* The viewer's rows are 22px, the height diffHeight() counts. These sit on
-   .change-view, which diffs-container inherits, because Safari applies no
-   @scope rule to a shadow host, and pair build puts component styles in
-   @scope (#page-content). */
+/* The viewer's rows are 22px, the height that diffHeight() counts. These
+   variables are set on .change-view, which diffs-container inherits from,
+   because Safari applies no @scope rule to a shadow host, and pair build
+   puts component styles in @scope (#page-content). */
 .change-view {
   overflow: hidden;
   background: var(--code);
@@ -149,9 +149,9 @@
   max-width: 100%;
   height: auto;
 }
-/* The key is the pair's legend, so it sits against the pair and carries the
-   space under it. A pair without one keeps its own bottom margin, which is
-   what every other component root has. */
+/* The key is the pair's legend, so the key sits against the pair and the
+   margin goes under the key. A pair without a key has the bottom margin of
+   every other component root. */
 .change-pair:has(+ .change-key) {
   margin-bottom: 0;
 }

@@ -1,4 +1,3 @@
-/* The count over a list that starts empty. */
 planUI.define("scope-checklist", {
   match: ".scope-list[data-multiselect]",
   setup(list) {

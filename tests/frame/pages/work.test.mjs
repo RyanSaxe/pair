@@ -15,9 +15,6 @@ const counts = (groups) =>
     Object.entries(groups).map(([id, list]) => [id, list.length]),
   );
 
-// The tab of each card follows from its facts, the linked sessions' rounds
-// and the bell's unread replies, and Work opens on the first tab with a
-// card.
 test("Work counts each tab's cards and opens on the first tab with one", () => {
   const cards = [
     card("proposed"),
@@ -35,7 +32,8 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
   });
   assert.equal(openingTab(working), "running");
 
-  // A card with an unread reply needs the reviewer whatever its state.
+  // workGroups puts a card with an unread reply under needs, whatever its
+  // state.
   const replied = workGroups(cards, { unread: new Set(["replied", "done"]) });
   assert.deepEqual(
     Object.fromEntries(
@@ -50,8 +48,8 @@ test("Work counts each tab's cards and opens on the first tab with one", () => {
   );
   assert.equal(openingTab(replied), "needs");
 
-  // Work in a linked session waits for the reviewer while that session's
-  // round does.
+  // workGroups puts a card started in a linked session under needs while that
+  // session waits for the reviewer.
   const linked = (id) => ({ ...here, where: "new-agent", session: { id } });
   const sessions = { waiting: { needsYou: true }, busy: { needsYou: false } };
   const elsewhere = workGroups(

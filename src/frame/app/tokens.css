@@ -1,10 +1,7 @@
 :root {
   color-scheme: light;
-  /* One order for every layer, so a new piece of chrome cannot quietly
-     cover something. The sidebar slides over the page column and its
-     strip, never over the header. At 720px and below, the open sidebar and
-     the dimmed page cover the whole page. The comment control floats over
-     the page, under the header and the sidebar. */
+  /* This list orders the frame's layers, so a new piece of chrome cannot
+     cover another part by accident. */
   --z-comment: 5;
   --z-header: 6;
   --z-sidebar: 8;
@@ -32,10 +29,9 @@
   --mark: light-dark(#fff3bf, #4a3f14);
   --shadow:
     0 10px 30px light-dark(#0002, #0006), 0 1px 3px light-dark(#0001, #0004);
-  /* Type and spacing. A page reads at the body size, and every dialog and
-     the controls around a page use the smaller sizes, as the mocks do.
-     Every text size in the frame and the components is one of these; an
-     icon's glyph and the 16px an iOS field needs keep their own sizes. */
+  /* Every text size in the frame and the components comes from these
+     tokens. The exceptions are an icon's glyph and the 16px that an iOS
+     field needs. */
   --text-h1: 22px;
   --text-title: 16px;
   --text-h2: 15px;
@@ -56,10 +52,9 @@
   --space-label: 12px;
   --space-field: 6px;
   --field-height: 64px;
-  /* Every dialog stays this far from each edge of the window. At 10px,
-     with a dialog's 16px padding on a phone, the Start popup's Copy
-     command and Open a new agent session fit in one row at 375px with 9px
-     to spare. */
+  /* At 10px, with a dialog's 16px padding on a phone, the Start popup's Copy
+     command and Open a new agent session buttons fit in one row at 375px
+     with 9px to spare. */
   --dialog-margin: 10px;
   font:
     var(--text-body) / var(--leading-body) -apple-system,
@@ -71,8 +66,8 @@
   background: var(--ground);
   color: var(--ink);
 }
-/* Each colour token holds its light and its dark value, and color-scheme
-   picks one: the system's, unless the reader chose a theme. */
+/* Each color token is a light-dark() pair, and color-scheme selects one of
+   its values: the system's theme, unless the reader chose a theme. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;

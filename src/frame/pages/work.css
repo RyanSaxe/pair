@@ -1,4 +1,3 @@
-/* Work: the tabs, the cards, and the Start popup */
 .work-tabs {
   display: flex;
   gap: 4px;
@@ -37,7 +36,6 @@
 #work-error {
   margin: 0 0 12px;
 }
-/* A card, on Work and in the proposal component */
 .proposal-card {
   margin-bottom: 12px;
   border: 1px solid var(--line);
@@ -52,7 +50,7 @@
 }
 /* reading.css sizes every p and li on a page with #page-content p, and an
    ID outranks a class, so each rule that sizes a card's text also names
-   #page-content, as Agreed's rules do, to keep the sizes inside a page. */
+   #page-content, as Agreed's rules do. */
 .proposal-card .proposal-title,
 .proposal-card .proposal-delivers,
 .proposal-card .proposal-message,
@@ -65,8 +63,6 @@
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
 }
-/* The New label sits at the title's right, as on a page's row in the
-   sidebar. */
 .proposal-card .proposal-title {
   display: flex;
   justify-content: space-between;
@@ -74,8 +70,6 @@
   gap: 8px;
   margin-bottom: 2px;
 }
-/* The reviewer's words or message with Start, and the agent's reason for
-   withdrawing a card, keep their line breaks. */
 .proposal-card .proposal-message,
 .proposal-card .proposal-reason {
   margin-top: 6px;
@@ -83,8 +77,6 @@
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
-/* Above the reviewer's words that started a card: that they did, and
-   where they wrote them. */
 .proposal-card .proposal-lead,
 #page-content .proposal-card .proposal-lead {
   margin: 6px 0 0;
@@ -104,9 +96,6 @@
 .proposal-card .card-meta {
   margin-bottom: 6px;
 }
-/* The status of approved work, in a grey box under the meta line: the
-   count of its parts and, folded, the next part cut short on one line,
-   with a chevron at the right; open, every part with its mark. */
 .proposal-card .proposal-status,
 #page-content .proposal-card .proposal-status {
   margin: 0 0 8px;
@@ -191,8 +180,6 @@
 .proposal-status li.dropped .status-mark {
   color: var(--muted);
 }
-/* The cards joined into this one: a muted label and their titles, under a
-   rule across the body. */
 .proposal-joined {
   margin-top: 10px;
   padding-top: 8px;
@@ -215,8 +202,6 @@
   line-height: var(--leading-ui);
   overflow-wrap: anywhere;
 }
-/* The footer holds only buttons, so it stays one row: Decline or Restore
-   on the left, and Start on the right. */
 .proposal-foot {
   display: flex;
   justify-content: space-between;
@@ -244,8 +229,6 @@
 .proposal-foot-start .link-btn {
   color: var(--muted);
 }
-/* Start is the card's one filled button, the height of the footer's
-   text. */
 .proposal-actions .proposal-start {
   margin-left: 6px;
   padding: 2px 14px;
@@ -253,8 +236,6 @@
   font-size: var(--text-meta);
   line-height: 1.6;
 }
-/* The Start popup. What the card delivers sits a little closer under the
-   title than a dialog's body usually does. */
 .dialog.start .dialog-head {
   margin-bottom: 12px;
 }
@@ -262,9 +243,6 @@
   margin: 0 0 14px;
   font-size: var(--text-small);
 }
-/* The titles of the cards joined into this one, under a muted label,
-   between what it delivers and the choices. */
-/* The Send popup lists the typed answers that are not added the same way. */
 .start-joined,
 .send-not-added {
   margin: -6px 0 14px;
@@ -304,7 +282,6 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* Each choice's radio mark: a ring, filled when chosen. */
 .start-choices .tick {
   width: 12px;
   height: 12px;
@@ -333,8 +310,8 @@
   color: var(--danger);
 }
 /* Each choice's hint and its row of buttons share a grid cell with the
-   other choices', so the popup keeps one size whichever choice is
-   selected. */
+   other choices', so the popup's size does not change when the reviewer
+   selects another choice. */
 .start-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -348,10 +325,8 @@
 .start-hints > p {
   margin: 6px 0 0;
 }
-/* Plan it first, apart from the three places, in the checklist component's
-   row: a line above it, the title and its line on the left, and the box on
-   the right. dialogs.css comes later in the cascade, so the rule names the
-   dialog to outrank its .dialog label. */
+/* dialogs.css comes later in the cascade, so this rule names .dialog to
+   outrank the .dialog label rule there. */
 .dialog .start-plan-first {
   display: flex;
   align-items: center;
@@ -386,7 +361,6 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* Open a new agent session's tooltip opens above the button. */
 .start-open {
   position: relative;
 }
@@ -396,13 +370,11 @@
 .start-open:is(:hover, :focus-visible) > .line-tip {
   visibility: visible;
 }
-/* Each choice's buttons sit in one row, as in the note dialog: Copy
-   command on the left and the primary on the right. A window narrower
-   than 375px moves the primary under Copy command rather than past the
-   dialog's edge. The rows share a grid cell, so a row keeps its buttons at
-   their own height when the other row wraps. dialogs.css comes later in
-   the cascade, so these rules name the dialog to outrank its .dialog
-   .actions. */
+/* In a window narrower than 375px the primary button wraps under Copy
+   command instead of running past the dialog's edge. The rows share a grid
+   cell, so a row keeps its buttons at their own height when the other row
+   wraps. dialogs.css comes later in the cascade, so these rules name
+   .dialog.start to outrank the .dialog .actions rule there. */
 .dialog.start .actions {
   flex-wrap: wrap;
   align-items: flex-start;

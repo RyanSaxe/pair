@@ -1,13 +1,8 @@
-// The events the bell lists and alerts for: a session that starts, a round
-// that waits for the reviewer, an agent's reply and an agent's proposal. A
-// waiting round's line lasts while that round waits, and a reply's until
-// the reviewer gives it a thumbs up.
 const listedKinds = ["session", "waiting", "reply", "proposal"];
 export const announced = (entry, event) =>
   listedKinds.includes(event.kind) &&
   !event.acknowledged &&
   (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
-// What an event in a session says, in the bell and in its alert.
 export function eventTitle(event) {
   if (event.kind === "session") return `${event.agent} started a session`;
   if (event.kind === "waiting")
@@ -15,17 +10,15 @@ export function eventTitle(event) {
   if (event.kind === "proposal") return `Agent proposed ${event.name}`;
   return `Agent replied on ${event.name}`;
 }
-// The element an event opens at: the reply itself, the thread card for a
-// reply event from before replies named their message, or the block the
-// event names.
+// A reply event from before events included the message index opens at
+// the thread card.
 export function eventTarget(event) {
   if (!event.thread) return event.target;
   const card = `thread-${event.thread}`;
   return event.message === undefined ? card : `${card}-${event.message}`;
 }
-// Where an event happened: its page and target, in the round it happened
-// in. A round the session has moved on from opens read-only. An event on no
-// page, a session's start or a waiting round, opens the session's URL.
+// The r/ROUND path opens a round that the session has moved past as a
+// read-only page.
 export function eventHref(entry, event) {
   if (!event.page) return entry.url;
   const round =
@@ -36,7 +29,6 @@ export function eventHref(entry, event) {
   const target = at ? `?target=${encodeURIComponent(at)}` : "";
   return `${entry.url}${round}${target}#${encodeURIComponent(event.page)}`;
 }
-// A session whose agent the hub could not wake, once per round.
 export function wakeAlert(entry) {
   if (!entry?.wakeFailed || !entry.id || !entry.round) return null;
   return {
@@ -57,8 +49,6 @@ export function eventAlert(entry, event) {
     createdAt: event.at,
   };
 }
-// Alerts announce each line of the bell and an agent the hub could not
-// wake.
 const alertsFor = (entry) =>
   [
     wakeAlert(entry),
@@ -67,9 +57,10 @@ const alertsFor = (entry) =>
       .map((event) => eventAlert(entry, event)),
   ].filter(Boolean);
 
-// One permission and one enabled switch for the hub origin. Alerts are keyed
-// per session and round, or per event, so several tabs never announce the
-// same thing, and the session shown in the focused tab is never announced.
+// Every session on the hub shares one notification permission and one
+// enabled switch, because both belong to the hub's origin. Each alert's key
+// is its session and round, or its event, so several tabs never announce
+// the same thing. The frame never announces the session in the focused tab.
 export function createReviewAlerts({ window: host, button, sessionId, open }) {
   const prefix = "pair:alerts:";
   const memory = new Map();
@@ -94,7 +85,8 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
     try {
       host.localStorage.setItem(prefix + key, value);
     } catch {
-      /* Keep a usable preference when browser storage is unavailable. */
+      /* When browser storage is unavailable, memory still contains the
+         preference. */
     }
   };
   const serialize = (action) =>

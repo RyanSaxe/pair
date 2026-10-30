@@ -5,10 +5,10 @@ import path from "node:path";
 import test from "node:test";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 
-// The hub wakes a Copilot session in a child process, through the SDK that
-// ships inside Copilot CLI. This stand-in SDK appends the calls each child
-// makes as one line of the log, and refuses a send in each mode that
-// PAIR_TEST_REFUSE names.
+// The hub wakes a Copilot session from a child process, through the SDK that
+// ships inside Copilot CLI. This stand-in SDK appends each child's calls to the
+// log as one line, and it refuses a send in each mode that PAIR_TEST_REFUSE
+// names.
 const sdkSource = (log) => `import fs from "node:fs";
 const calls = [];
 export const approveAll = () => ({ kind: "approved" });
@@ -44,8 +44,6 @@ test("a Copilot wake sends the line into the turn in progress, and enqueues it w
   await fs.writeFile(sdk, sdkSource(log));
   const target = { harness: "copilot", sessionId: "s-1", port: 4321, sdk };
   const line = "pair: the reviewer submitted round 1 of session /s.";
-  // Each child connects, resumes the session, sends once and stops, even
-  // when the send fails.
   const child = (mode) => [
     [
       "client",

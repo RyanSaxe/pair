@@ -1,11 +1,10 @@
 import { base } from "#frame/app/view.mjs";
 
-/* Images on a note or a thread message. A screenshot pasted from the
-   clipboard has no filename and no path, and a file dropped from Finder
-   arrives as a File the browser will not give a path for, so the bytes go
-   to the hub and it writes the file. What comes back is a reference, which
-   is what the note, the message and the draft carry; localStorage holds
-   about 5MB and would not survive bytes. */
+/* The browser gives no path for a screenshot pasted from the clipboard or a
+   file dropped from Finder, so uploadImages sends the bytes to the hub,
+   which writes the file and returns a record. A note, a thread message and
+   a draft contain only that record, because localStorage has a limit of
+   about 5MB. */
 export const imageTypes = [
   "image/png",
   "image/jpeg",
@@ -14,8 +13,8 @@ export const imageTypes = [
 ];
 const source = (item) => `${base}/api/upload/${encodeURIComponent(item.id)}`;
 
-/* Paste, drop and the picker all arrive here. add receives each uploaded
-   image's reference, and error a message, or "" to clear it. */
+/* uploadImages calls add with each uploaded image's record, and error with
+   a message, or with "" to clear the message. */
 export async function uploadImages(files, add, error) {
   const images = [...files].filter((file) => imageTypes.includes(file.type));
   if (!images.length) {
@@ -37,8 +36,6 @@ export async function uploadImages(files, add, error) {
     }
   }
 }
-/* An image pasted or dropped on zone goes to attach, and zone has the class
-   dropping while a file is over it. A paste of text pastes as usual. */
 export function acceptImages(zone, attach) {
   zone.addEventListener("paste", (event) => {
     const files = [...event.clipboardData.items]
@@ -62,7 +59,6 @@ export function acceptImages(zone, attach) {
       if (type === "drop") attach(event.dataTransfer.files);
     });
 }
-/* An attached image's thumbnail, with the ✕ that calls remove. */
 export function imageFigure(item, remove) {
   const figure = document.createElement("figure");
   figure.className = "note-image";
@@ -78,8 +74,8 @@ export function imageFigure(item, remove) {
   figure.append(image, drop);
   return figure;
 }
-/* A note the reviewer dropped takes its images with it, so the session does
-   not keep bytes nothing refers to. */
+/* The frame deletes the uploads of a note the reviewer discarded, so the
+   session keeps no image that nothing refers to. */
 export function forgetImages(items) {
   for (const item of items || [])
     fetch(source(item), { method: "DELETE" }).catch(() => {});

@@ -3,15 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { configRoot } from "../shared/settings.mjs";
 
-/** pair's components, then the user's. A user keeps components of their
-    own outside pair, because pair is installed and updated as a unit, and a
-    component written into its own directory would be an edit to installed
+/** pair's components come first, then the user's. A user keeps components
+    outside pair, because pair is installed and updated as a unit, and a
+    component written into pair's directory would be an edit to installed
     software. */
 export const componentRoots = () => [
   fileURLToPath(new URL("../components/", import.meta.url)),
   path.join(configRoot(), "components"),
 ];
-/** The component directories, sorted, so registration order is fixed. */
+/** The sort fixes the registration order. */
 async function componentNames(root) {
   const entries = await fs
     .readdir(root, { withFileTypes: true })
@@ -21,9 +21,8 @@ async function componentNames(root) {
     .map((entry) => entry.name)
     .sort();
 }
-/** Every component, by name. A name in a later root replaces the same name
-    in an earlier one, which is how a user changes a shipped component
-    without forking pair. A root that does not exist contributes none. */
+/** A name in a later root replaces the same name in an earlier one, so a
+    user can change a shipped component without forking pair. */
 export async function componentDirectories(roots = componentRoots()) {
   const found = new Map();
   for (const [index, root] of roots.entries())
@@ -31,9 +30,6 @@ export async function componentDirectories(roots = componentRoots()) {
       found.set(name, { name, directory: path.join(root, name), root: index });
   return [...found.values()].sort((a, b) => (a.name < b.name ? -1 : 1));
 }
-/** One named file from every component that has it, in name order. A
-    component that ships no behavior, or no styles, is skipped rather than
-    contributing an empty part. */
 async function componentParts(roots, file, wrap) {
   const found = await componentDirectories(roots);
   const parts = await Promise.all(
@@ -49,10 +45,11 @@ async function componentParts(roots, file, wrap) {
 }
 export const componentStyles = (roots) =>
   componentParts(roots, "styles.css", (at, text) => `/* ${at} */\n${text}`);
-/* Each behavior is evaluated in a block, so what a component declares at the
-   top of its file stays inside it and two components cannot collide over a
-   name. The blocks run in the page's module script, which imports the
-   frame's helpers a component uses from app/registry.mjs. */
+/* componentBehaviors wraps each behavior in a block, so the names a
+   component declares at the top of its file stay inside the block and two
+   components cannot collide over a name. The blocks run in the page's module
+   script, which imports the frame helpers that components use from
+   app/registry.mjs. */
 export const componentBehaviors = (roots) =>
   componentParts(
     roots,

@@ -1,4 +1,3 @@
-/* An approved prototype in a sandboxed frame, with its source beneath. */
 function prototypeUrl(prototype) {
   if (online)
     return `${base}/r/${encodeURIComponent(plan.round)}/prototype/${encodeURIComponent(prototype.id)}`;

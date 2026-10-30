@@ -1,11 +1,9 @@
 import { requireValue, timestamp } from "../../shared/util.mjs";
 
-// A note on one page of the open round, which the progress card shows on
-// that page's row until the page publishes or gets a newer note.
 export function pageNotes(session) {
-  // Returns the state patch, so ack can apply it with its report in one
-  // transition. A note on a page not yet started marks it started, as
-  // pair progress --page would.
+  // notePage returns a state patch instead of writing it, so ack can apply
+  // the note and its report in one transition. A note on a page that has not
+  // started marks the page started, as pair progress --page does.
   function notePage(id, text) {
     const set = structuredClone(session.state.openRound);
     requireValue(
