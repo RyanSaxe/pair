@@ -45,7 +45,7 @@ async function published(t) {
   return { h, a, upload, start, send, thread, settled };
 }
 
-test("a thread wakes the holder with its first message and with each message after the agent read or answered it", async (t) => {
+test("a thread wakes the holder with each message the reviewer sends, whether or not the agent read it", async (t) => {
   const { a, upload, start, send, thread, settled } = await published(t);
   const image = await upload();
   const started = await start({ attachments: [image] });
@@ -70,14 +70,14 @@ test("a thread wakes the holder with its first message and with each message aft
   assert.equal(status.latestSubmissionId, undefined);
   assert.equal(status.holder.steerable, true);
 
-  // The agent has not read the thread, and pair read prints every message, so
-  // the hub sends no second wake for the second message.
+  // An agent can act on the quoted message without reading the thread, so a
+  // second message wakes it again with that message.
   const waiting = await send(id, { text: "Or a retry?" });
   assert.equal(waiting.code, 201, waiting.body.error);
-  assert.equal(waiting.body.thread.state, "sent");
-  await sleep(100);
+  assert.equal(waiting.body.thread.state, "sending");
+  assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
-  assert.equal(wakes().length, 1);
+  assert.equal(wakes().length, 2);
   const opened = await a.action("reply", { note: id });
   assert.deepEqual(
     opened.body.thread.messages.map((message) => message.text),
@@ -105,6 +105,7 @@ test("a thread wakes the holder with its first message and with each message aft
     ["reviewer", "reviewer", "reviewer", "agent", "reviewer"],
   );
   assert.deepEqual(wakes().slice(1), [
+    `${line}\n\nThe reviewer's message, which pair read also prints:\nOr a retry?`,
     `${line}\n\nThe beginning of the reviewer's message, which pair read prints whole:\n${words.trimEnd()}…`,
     `${line}\n\nThe reviewer's message, which pair read also prints:\nAnd a retry?`,
   ]);
@@ -151,9 +152,6 @@ test("a repeated reply ID returns the saved thread without another message or wa
   const { a, start, send, thread, settled } = await published(t);
   const { id } = (await start()).body.thread;
   assert.equal(await settled(id), true);
-  // Once the agent has read the thread, the hub wakes it again for a new
-  // message.
-  assert.equal((await a.action("reply", { note: id })).code, 200);
 
   const first = await send(id, { replyId: "reply-1", text: "Keep this." });
   assert.equal(first.code, 201, first.body.error);
