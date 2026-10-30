@@ -12,13 +12,6 @@ import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/threads.mjs";
 /* replyForm keeps the reply's text and images in state.replyDrafts until
    Send, so a reload keeps them. */
 
-const redraws = new WeakMap();
-// refreshReplies shows each reply draft that a merge of the hub's draft
-// changed, in the forms on screen.
-export function refreshReplies() {
-  for (const form of document.querySelectorAll("form.thread-reply"))
-    redraws.get(form)?.();
-}
 const draftOf = (id) =>
   state.replyDrafts?.[id] ?? { text: "", attachments: [] };
 function keep(id, draft) {
@@ -116,9 +109,5 @@ export function replyForm(id, send) {
   form.append(field, pick, submit, input, strip, problem);
   error("");
   draw();
-  redraws.set(form, () => {
-    field.value = draftOf(id).text;
-    draw();
-  });
   return form;
 }

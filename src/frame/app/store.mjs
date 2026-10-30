@@ -1,12 +1,6 @@
-import {
-  draftItems,
-  emptySynced,
-  forgetSent,
-} from "#frame/app/draft-merge.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { editable, prefsPrefix, storageKey } from "#frame/app/view.mjs";
 import { review } from "#frame/review/review.mjs";
-import { queuePush } from "#frame/sync/draft.mjs";
 import { selectedTab } from "#frame/sync/rounds.mjs";
 
 export const record = (value) =>
@@ -33,10 +27,6 @@ export function emptyDraft(round) {
     replyDrafts: {},
     submitted: null,
     pending: null,
-    // synced contains the revision and a digest of each item of the hub's
-    // draft at the last merge, so draftChanges() can tell which items the
-    // reviewer changed in this browser since then.
-    synced: emptySynced(),
   };
 }
 
@@ -47,8 +37,6 @@ export function loadDraft(saved, round) {
   if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
     return emptyDraft(round);
   const draft = { ...emptyDraft(round), ...saved };
-  if (!record(draft.synced) || !record(draft.synced.items))
-    draft.synced = emptySynced();
   if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
@@ -109,7 +97,6 @@ export function submissionGroups(draft) {
 // starts empty in the next round.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
-  const before = draftItems(draft);
   for (const note of draft.notes) note.sentIn ||= id;
   for (const choice of Object.values(draft.choices)) choice.sentIn ||= id;
   for (const [key, answer] of Object.entries(draft.answers)) {
@@ -119,7 +106,6 @@ export function markSent(draft, id, at) {
   draft.submitted = { id, at, round: draft.round, count };
   draft.message = "";
   draft.pending = null;
-  forgetSent(draft, before);
   return draft;
 }
 
@@ -174,7 +160,6 @@ export function persist() {
     $("storage-status").textContent =
       "Local storage unavailable. Export a copy to keep your feedback.";
   }
-  queuePush();
 }
 export function save() {
   persist();

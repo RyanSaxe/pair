@@ -13,7 +13,6 @@ import {
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
-import { draftStore } from "./draft.mjs";
 import { links } from "./links.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { proposals } from "./proposals.mjs";
@@ -164,7 +163,6 @@ export async function loadSession(
     threads(session),
     await activity(session),
     await proposals(session),
-    await draftStore(session),
     links(session),
     quiet(session),
   );
@@ -221,7 +219,6 @@ export async function loadSession(
       sessionDir: directory,
       threads: session.threadView(),
       parent: session.parentView(),
-      draftRevision: session.draftView().revision,
     };
   }
   async function latestFeedback(requestedRound) {
@@ -347,8 +344,6 @@ export async function loadSession(
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,
     act: session.act,
-    draftView: session.draftView,
-    changeDraft: session.changeDraft,
     browserView,
     latestFeedback,
     listing,

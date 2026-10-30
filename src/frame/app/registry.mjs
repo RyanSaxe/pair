@@ -76,7 +76,7 @@ export function createPlanUI() {
   return {
     answer: recordAnswer,
     drawing: drawingAnswer,
-    answered: drawingAnswer,
+    answered: (id) => Boolean(drawingAnswer(id)),
     draw: openDrawing,
     chart,
     pele,
