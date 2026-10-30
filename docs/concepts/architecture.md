@@ -49,7 +49,8 @@ The hub wakes the holder at these moments:
 
 - When you send feedback, unless the session is paused.
 - When you send a message in a [thread](threads.md), even while the session
-  is paused. The wake message contains your message, or its first 500
+  is paused, unless the agent has not read or answered the thread since the hub
+  last woke it. The wake message contains your message, or its first 500
   characters cut at a space when it is longer, the number of images you
   attached, and the `pair read --thread` command that prints the whole
   thread with the images' paths.
@@ -69,7 +70,9 @@ The hub wakes the holder at these moments:
 
 The hub sends no wake when you decline a proposal, give a reply a thumbs
 up, or close a linked session. The holder's next `pair read` prints the
-proposals you declined and the linked sessions you closed.
+proposals you declined and the linked sessions you closed. The agent sees a
+thread message that got no wake of its own when it runs `pair read --thread`,
+which prints every message.
 
 ### Quiet work
 
@@ -194,7 +197,7 @@ sessions/<dir>/      the directory name is not the session ID
   rounds/            built rounds
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
-  scenes/            editable shapes of drawing answers
+  scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
   activity.json      the last 50 events, for the bell

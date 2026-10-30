@@ -49,7 +49,8 @@ same name under `tests/`:
   the home view of a session with nothing published, `notes/` has the code for the
   reviewer's notes, threads, choices, answers and drawings, `review/` is the
   Review page and sending, and `sync/` reads rounds, sessions, activity and
-  notifications from the hub.
+  notifications from the hub and sends it the reviewer's cleared bell lines,
+  opened pages and seen cards.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.
