@@ -508,7 +508,7 @@ export async function startHub(config = settings()) {
             : error instanceof SyntaxError || error instanceof URIError
               ? 400
               : 500),
-        { error: error.message },
+        { error: error.message, ...error.details },
       );
     }
   }

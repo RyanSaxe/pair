@@ -69,7 +69,8 @@ function allThreads() {
   }
   return [...byId.values()];
 }
-async function post(id, url, body) {
+// post calls saved once the hub has the message, after a retry too.
+async function post(id, url, body, saved) {
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -82,16 +83,17 @@ async function post(id, url, body) {
     // longer local copy until the hub answers that reply.
     if (result.thread.messages.length >= (sent.get(id)?.messages.length ?? 0))
       sent.set(id, result.thread);
+    saved?.();
   } catch (error) {
     sent.set(id, {
       ...sent.get(id),
       error: unreachable(error),
-      retry: () => post(id, url, body),
+      retry: () => post(id, url, body, saved),
     });
   }
   placeThreads();
 }
-export function startThread(context, text, attachments) {
+export function startThread(context, text, attachments, saved) {
   const now = new Date().toISOString();
   const fields = context.proposal
     ? { id: uuid(), proposal: context.proposal }
@@ -115,11 +117,16 @@ export function startThread(context, text, attachments) {
     messages: [{ from: "reviewer", at: now, text, attachments }],
   });
   placeThreads();
-  void post(fields.id, `${base}/api/threads`, {
-    ...fields,
-    text,
-    attachments,
-  });
+  void post(
+    fields.id,
+    `${base}/api/threads`,
+    {
+      ...fields,
+      text,
+      attachments,
+    },
+    saved,
+  );
 }
 function sendReply(thread, text, attachments) {
   const { error, retry, ...rest } = thread;

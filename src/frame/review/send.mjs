@@ -22,6 +22,8 @@ import {
   submittedRound,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
+import { progressThread } from "#frame/notes/notes.mjs";
+import { startThread } from "#frame/notes/threads.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { itemSummary, review } from "#frame/review/review.mjs";
 import {
@@ -43,8 +45,12 @@ import {
 
 export let submissionError = "";
 export let submissionInFlight = false;
+// refusedMessage is the typed message of a send that the hub refused because
+// the round already has feedback.
+export let refusedMessage = "";
 export function clearSubmissionError() {
   submissionError = "";
+  refusedMessage = "";
 }
 export function submitButton({
   inFlight,
@@ -144,7 +150,8 @@ async function send(event) {
     body: JSON.stringify(event),
   });
   const result = await response.json();
-  if (!response.ok) throw Error(result.error);
+  if (!response.ok)
+    throw Object.assign(Error(result.error), { roundSent: result.roundSent });
   if (result.status.sessionId !== session.sessionId)
     throw Error("Session identity mismatch.");
   setRemote(result.status);
@@ -153,7 +160,7 @@ async function send(event) {
 export async function sendFeedback(next) {
   if (remote?.openRound || !feedbackEditable()) return;
   if (nothingToSend(state, next, isPlanRound())) return;
-  submissionError = "";
+  clearSubmissionError();
   const origin = shownPage();
   submissionInFlight = true;
   review();
@@ -186,10 +193,28 @@ export async function sendFeedback(next) {
             error,
             "Could not reach the hub. Your comments are saved here. Try Send feedback again.",
           );
+    refusedMessage = error.roundSent ? state.pending.event.message || "" : "";
     switchTab("current", null, { showPage: false });
     show(origin);
     review();
   }
+}
+// sendAsMessage starts the thread that Message the agent starts, so the agent
+// gets the refused message now and the round's submission stays as it is. Once
+// the hub has the thread, the message leaves the draft, so it does not go again
+// with the next round. Until then the draft keeps it, in case the hub never
+// receives the thread.
+function sendAsMessage() {
+  const text = refusedMessage;
+  clearSubmissionError();
+  if (selectedTab !== "current")
+    switchTab("current", null, { showPage: false });
+  show("agreed");
+  startThread(progressThread, text, [], () => {
+    if (selectedTab !== "current" || state.message?.trim() !== text) return;
+    state.message = "";
+    persist();
+  });
 }
 export function installSend() {
   $("submit").onclick = () => {
@@ -205,8 +230,9 @@ export function installSend() {
     }
     openSend();
   };
+  $("save-error-message").onclick = sendAsMessage;
   $("save-error-dismiss").onclick = () => {
-    submissionError = "";
+    clearSubmissionError();
     review();
   };
   // The reviewer picks what comes next only in the Send popup, so an export

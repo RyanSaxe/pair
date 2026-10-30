@@ -177,7 +177,17 @@
           <main>
             <div class="content" id="content">
               <div class="save-error" id="save-error" role="alert" hidden>
-                <span id="save-error-text"></span>
+                <div class="save-error-body">
+                  <span id="save-error-text"></span>
+                  <button
+                    class="btn"
+                    type="button"
+                    id="save-error-message"
+                    hidden
+                  >
+                    Send as a message
+                  </button>
+                </div>
                 <button
                   type="button"
                   id="save-error-dismiss"
