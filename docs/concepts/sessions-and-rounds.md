@@ -108,6 +108,11 @@ you.
 After you send, the Review page lists what you sent, with your choice and
 your message.
 
+The hub keeps one submission for each round. When you send from a second tab
+or device after the hub saved the round's feedback, the hub refuses that send,
+and the frame shows why. Your comments and message stay in that device's draft
+for the next round.
+
 ## Agreed
 
 Agreed is the first page of every round, and the sidebar lists it as Agreed

@@ -177,10 +177,19 @@ export function submissions(session) {
       "Finish every listed page before submitting feedback",
       409,
     );
+    // A tab can send before its next status poll shows that another tab or
+    // device sent this round's feedback. The agent acts on the first submission
+    // as soon as the hub wakes it, so the hub keeps that one and refuses this
+    // one.
+    requireValue(
+      session.state.latestSubmissionRound !== data.round,
+      `Round ${data.round} already has feedback, so the hub did not save what you just sent. Your comments and message stay in your draft for the next round.`,
+      409,
+    );
     const event = await session.saveEvent(data);
     await session.draftSent(sent);
     await transition({
-      stage: session.state.stage === "working" ? "working" : "submitted",
+      stage: "submitted",
       latestSubmissionId: data.id,
       // The agent answers this submission with its next round, and the
       // frame shows the agent's progress until that round is complete.

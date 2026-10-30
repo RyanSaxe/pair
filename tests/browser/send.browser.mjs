@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
 
 const choices = (page) =>
   page
@@ -61,6 +61,53 @@ test("Send feedback opens a popup that starts on Keep iterating and sends the ch
   assert.equal(payload.next, "plan");
   assert.equal(payload.message, "Show the plan in two pages.");
   assert.equal(payload.groups.alignUnflagged, false);
+});
+
+// A status poll can show another browser's send while this browser's request
+// is on its way to the hub, which then refuses it.
+test("a send the hub refuses shows the hub's reason, and the message stays in the draft for the next round", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/`);
+  if (!page) return;
+  await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
+  const other = session.event();
+  await page.route("**/api/feedback", async (route) => {
+    assert.equal((await session.feedback(other)).code, 200);
+    await page.waitForResponse(
+      async (response) =>
+        response.url().endsWith("/api/status") &&
+        (await response.json()).latestSubmissionId === other.id,
+    );
+    await sleep(100);
+    await route.continue();
+  });
+  await openPopup(page);
+  await page.locator("#send-message").fill("Sent from the phone.");
+  const refusal = page.waitForResponse("**/api/feedback");
+  await page.locator("#send-button").click();
+  const refused = await refusal;
+  assert.equal(refused.status(), 409);
+  const banner = page.locator("#save-error-text");
+  await banner.waitFor();
+  const reason = (await refused.json()).error;
+  assert.equal(await banner.textContent(), reason);
+  // The reviewer has not seen the reason until they dismiss it, so the status
+  // polls that show the round as sent leave it.
+  await page.locator("#submit:disabled").waitFor();
+  await page.waitForResponse("**/api/status");
+  assert.equal(await banner.textContent(), reason);
+  assert.equal((await session.action("read")).body.event.id, other.id);
+  assert.equal((await session.publish(planData("2"))).code, 200);
+  await page.locator('#round[aria-label="Rounds, on round 2"]').waitFor({
+    state: "attached",
+  });
+  await openPopup(page);
+  assert.equal(
+    await page.locator("#send-message").inputValue(),
+    "Sent from the phone.",
+  );
 });
 
 test("a plan round has the Plan tag and its own choices, and Review lists the choice sent", async (t) => {

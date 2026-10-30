@@ -19,7 +19,6 @@ import {
   setPastRound,
   setSubmittedRound,
   shownPage,
-  submittedCurrent,
   submittedRound,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
@@ -174,12 +173,16 @@ export async function sendFeedback(next) {
     void loadSubmission().catch(() => {});
   } catch (error) {
     submissionInFlight = false;
-    submissionError = submittedCurrent()
-      ? ""
-      : unreachable(
-          error,
-          "Could not reach the hub. Your comments are saved here. Try Send feedback again.",
-        );
+    // A status poll during the send can already have recorded this send as
+    // saved. A poll that shows another browser's send does not record it, so
+    // the reviewer still sees why the hub refused this one.
+    submissionError =
+      state.submitted?.round === plan.round
+        ? ""
+        : unreachable(
+            error,
+            "Could not reach the hub. Your comments are saved here. Try Send feedback again.",
+          );
     switchTab("current", null, { showPage: false });
     show(origin);
     review();

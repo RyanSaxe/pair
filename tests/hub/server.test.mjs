@@ -383,20 +383,27 @@ test("a session keeps one plan name and uses each round number once", async (t) 
   assert.equal((await a.publish(planData("2"))).code, 200);
 });
 
-test("queued rounds keep receipt order", async (t) => {
+// A tab can send before its next status poll shows that another tab or device
+// already sent the round's feedback.
+test("a round keeps its first feedback and refuses a later one, before and after the agent reads", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
-  const first = a.event(),
-    second = a.event();
-  await a.feedback(first);
-  await a.feedback(second);
+  const first = a.event();
+  assert.equal((await a.feedback(first)).code, 200);
+  assert.equal((await a.feedback(a.event())).code, 409);
+  assert.equal((await a.feedback(first)).code, 200);
   const read = (await a.action("read")).body.event;
   assert.equal(read.id, first.id);
-  const next = (await a.action("read")).body.event;
-  assert.equal(next.id, second.id);
-  assert.equal(next.sequence, read.sequence + 1);
-  assert.equal((await a.status()).body.stage, "working");
+  assert.equal((await a.feedback(a.event())).code, 409);
+  assert.equal((await a.action("read")).body.event, null);
+  assert.equal((await a.status()).body.latestSubmissionId, first.id);
+  assert.deepEqual(await fs.readdir(path.join(a.directory, "feedback")), [
+    `${first.id}.json`,
+  ]);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
 });
 
 // interactive-plan stores its sessions in its own format under its own state
