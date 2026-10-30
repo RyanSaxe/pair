@@ -443,7 +443,8 @@ export async function poll() {
         setPastRound(submittedRound);
         const onWork = shownPage() === "work";
         switchTab("current", null, { showPage: !onWork });
-        if (onWork) show("work", null, { keepScroll: true, push: false });
+        if (onWork)
+          show("work", null, { keepScroll: true, push: false, inPlace: true });
       }
     }
     // When the next round's Agreed arrives while Current waits, the frame

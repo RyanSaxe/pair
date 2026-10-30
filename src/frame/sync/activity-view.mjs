@@ -13,6 +13,7 @@ import {
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
+import { placeMarks } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { displayedRound, pageIndicator } from "#frame/pages/pages.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
@@ -100,10 +101,12 @@ export function renderActivity() {
       pageIndicator("complete"),
       document.createTextNode(finished),
     );
-  // placeProgress puts the card's threads under the card, or under the
-  // finished line while the card is hidden, so they move when the card
-  // shows or hides.
-  if (wasHidden !== !visible) placeThreads();
+  // The page's blocks move under the note bars when the card hides and
+  // placeProgress collapses its threads, so renderActivity places the marks.
+  if (wasHidden !== !visible) {
+    placeThreads();
+    placeMarks();
+  }
   if (visible) drawActivity(running);
 }
 // running is true while the agent works on a round, and drawActivity then

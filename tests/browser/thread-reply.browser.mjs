@@ -60,3 +60,53 @@ test("a reply to a waiting thread keeps its draft through a reload and posts its
   assert.equal(await field.inputValue(), "");
   assert.equal(await card.locator(".thread-reply figure").count(), 0);
 });
+
+test("a video in an agent's reply stays inside the thread card, with the reply's text, on a wide window and a phone", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "video",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Can you show me?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const replied = await session.action("reply", {
+    note: "video",
+    html: '<p>The order page appears after the second retry succeeds.</p><video controls width="1280" height="720"></video>',
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 375, height: 740 },
+  ]) {
+    const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+      viewport,
+    });
+    if (!page) return;
+    const card = page.locator('pair-thread[data-thread="video"]');
+    await card.locator("video").waitFor({ state: "attached" });
+    const fold = card.locator(".thread-more");
+    if (await fold.isVisible()) await fold.click();
+    const box = await card.evaluate((node) => {
+      const right = (selector) =>
+        node.querySelector(selector).getBoundingClientRect().right;
+      return {
+        card: node.getBoundingClientRect().right,
+        video: right("video"),
+        text: right(".thread-content p"),
+        thumb: right(".thread-ack"),
+        ratio:
+          node.querySelector("video").getBoundingClientRect().width /
+          node.querySelector("video").getBoundingClientRect().height,
+      };
+    });
+    assert.ok(box.video <= box.card, JSON.stringify(box));
+    assert.ok(box.text <= box.card, JSON.stringify(box));
+    assert.ok(box.thumb <= box.card, JSON.stringify(box));
+    assert.ok(Math.abs(box.ratio - 16 / 9) < 0.02, JSON.stringify(box));
+  }
+});
