@@ -60,3 +60,68 @@ test("a reply to a waiting thread keeps its draft through a reload and posts its
   assert.equal(await field.inputValue(), "");
   assert.equal(await card.locator(".thread-reply figure").count(), 0);
 });
+
+test("a code block or a wide table inside a wrapper scrolls within the thread card, on a wide window and a phone", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const line = `pair start --session-dir ${"/a-long-directory-name".repeat(12)}`;
+  const code = `<pre data-language="shell">${line}</pre>`;
+  const columns = Array.from(
+    { length: 12 },
+    (_, index) => `<td>Column${index}value</td>`,
+  ).join("");
+  const shapes = {
+    list: `<ul><li>${code}</li></ul>`,
+    numbered: `<ol><li>${code}</li></ol>`,
+    quote: `<blockquote>${code}</blockquote>`,
+    div: `<div>${code}</div>`,
+    fold: `<details open><summary>More</summary>${code}</details>`,
+    figure: `<figure>${code}<figcaption>A command.</figcaption></figure>`,
+    table: `<div><table><tbody><tr>${columns}</tr></tbody></table></div>`,
+  };
+  for (const [id, html] of Object.entries(shapes)) {
+    const started = await session.request(`${session.base}/api/threads`, {
+      id,
+      round: "1",
+      topic: "overview",
+      anchor: "Overview",
+      text: "How do I run it?",
+    });
+    assert.equal(started.code, 201, started.body.error);
+    const replied = await session.action("reply", { note: id, html });
+    assert.equal(replied.code, 200, replied.body.error);
+  }
+
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 375, height: 740 },
+  ]) {
+    const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+      viewport,
+    });
+    if (!page) return;
+    for (const id of Object.keys(shapes)) {
+      const card = page.locator(`pair-thread[data-thread="${id}"]`);
+      await card.locator(".thread-content").waitFor({ state: "attached" });
+      const expand = card.getByRole("button", { name: "Expand" });
+      if (await expand.count()) await expand.click();
+      const fold = card.locator(".thread-more");
+      if (await fold.isVisible()) await fold.click();
+      const box = await card.evaluate((node) => ({
+        card: node.getBoundingClientRect().right,
+        content: node.querySelector(".thread-content").getBoundingClientRect()
+          .right,
+        // A rule that only hid the overflow would pass the check on the
+        // edges, so the wide content must still scroll into view.
+        scrolls: [...node.querySelectorAll(".thread-content *")].some(
+          (element) =>
+            ["auto", "scroll"].includes(getComputedStyle(element).overflowX) &&
+            element.scrollWidth > element.clientWidth,
+        ),
+      }));
+      assert.ok(box.content <= box.card, `${id}: ${JSON.stringify(box)}`);
+      assert.ok(box.scrolls, `${id}: ${JSON.stringify(box)}`);
+    }
+  }
+});

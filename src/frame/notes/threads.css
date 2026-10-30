@@ -120,8 +120,12 @@ pair-thread[collapsed] > :not(.thread-head) {
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* An auto column grows to a child's widest line, so a code block or table
+   inside a list or a div would push a reply past its card. These columns stay
+   at the card's width, and the code block or table scrolls. */
 .thread-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
 }
@@ -196,6 +200,7 @@ pair-thread[collapsed] > :not(.thread-head) {
 }
 .thread-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 /* The grid's gap spaces a message's blocks, so this rule removes each
