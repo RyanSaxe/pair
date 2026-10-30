@@ -1,4 +1,4 @@
-import { ago } from "#frame/app/time.mjs";
+import { ago, since } from "#frame/app/time.mjs";
 import { $, installPanel } from "#frame/app/util.mjs";
 import {
   editable,
@@ -82,6 +82,29 @@ export function bellLines(sessions, cleared, thisId) {
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 
+// threadGroups gives the Threads tab one group per live session that has a
+// thread to show, this session first. Each group lists its waiting threads
+// first, longest wait first, because that is where the reviewer checks on an
+// agent, then its answered threads, newest first.
+export function threadGroups(sessions, thisId) {
+  const order = (entry) => (entry.id === thisId ? 0 : 1);
+  return sessions
+    .filter((entry) => !entry.closed && entry.threads?.length)
+    .toSorted((a, b) => order(a) - order(b))
+    .map((entry) => ({
+      entry,
+      lines: [
+        ...entry.threads
+          .filter((line) => line.waitingSince)
+          .sort((a, b) => a.waitingSince.localeCompare(b.waitingSince)),
+        ...entry.threads
+          .filter((line) => !line.waitingSince)
+          .sort((a, b) =>
+            (b.answeredAt || "").localeCompare(a.answeredAt || ""),
+          ),
+      ],
+    }));
+}
 // latest contains every session from the last session list, closed ones
 // included.
 let latest = [];
@@ -164,9 +187,46 @@ export function renderCenter(sessions, fromHub, hub) {
   }
 }
 
+let tab = "notifications";
+function threadRow(line, entry) {
+  return sessionLine({
+    key: `thread:${line.thread}`,
+    title: line.text,
+    state: line.waitingSince ? `Waiting ${since(line.waitingSince)}` : "",
+    words: line.waitingSince
+      ? ` · ${line.name}`
+      : `${line.name} · replied ${ago(line.answeredAt)}`,
+    tint: "",
+    open: () => {
+      clearThread(line.thread);
+      openLine({ ...line, entry });
+    },
+    icons: [],
+  });
+}
+function threadRows() {
+  return threadGroups(latest, session.sessionId).flatMap(({ entry, lines }) => {
+    const head = document.createElement("div");
+    head.className = "center-group";
+    head.textContent = sessionWords(entry, latest);
+    return [head, ...lines.map((line) => threadRow(line, entry))];
+  });
+}
 function drawCenter() {
   if (!isOpen()) return;
-  $("center-clear-all").hidden = !lines.length;
+  const threads = tab === "threads";
+  for (const button of $("center-tabs").querySelectorAll("[data-center]"))
+    button.setAttribute("aria-checked", String(button.dataset.center === tab));
+  $("center-list").classList.toggle("threads", threads);
+  $("center-clear-all").hidden = threads || !lines.length;
+  if (threads) {
+    const rows = threadRows();
+    $("center-empty").textContent = "No threads in the current rounds.";
+    $("center-empty").hidden = Boolean(rows.length);
+    redraw($("center-list"), rows);
+    return;
+  }
+  $("center-empty").textContent = "No notifications.";
   $("center-empty").hidden = Boolean(lines.length);
   redraw(
     $("center-list"),
@@ -188,6 +248,9 @@ function drawCenter() {
 }
 function openEvent(event) {
   clear([event.id]);
+  openLine(event);
+}
+function openLine(event) {
   toggleCenter(false);
   const target = eventTarget(event) || null;
   const round = event.round || plan.round;
@@ -223,6 +286,12 @@ export function installCenter() {
   installPanel($("center-pop"), $("bell"));
   $("center-pop").addEventListener("toggle", drawCenter);
   $("center-clear-all").onclick = () => clear(lines.map(({ id }) => id));
+  $("center-tabs").addEventListener("click", (event) => {
+    const chosen = event.target.closest("[data-center]")?.dataset.center;
+    if (!chosen) return;
+    tab = chosen;
+    drawCenter();
+  });
   // The storage event fires when another tab in this browser clears a line.
   window.addEventListener("storage", (event) => {
     if (cleared.isChange(event)) renderCenter(latest, false);

@@ -260,3 +260,46 @@ test("a new session adds a bell line that opens its home view, which loads the r
   await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
   assert.deepEqual(errors, []);
 });
+
+test("the Threads tab groups threads by session with no count, and a row opens its thread", async (t) => {
+  const h = await hub(t);
+  const here = await h.session();
+  const other = await h.session();
+  assert.equal((await here.publish(round("Retry policy"))).code, 200);
+  assert.equal((await other.publish(round("Search index"))).code, 200);
+  const waiting = await thread(here, "page");
+  const answered = await thread(here, "page");
+  await reply(here, answered);
+  const elsewhere = await thread(other, "page");
+
+  const page = await open(t, `${h.server.origin}${here.base}/#agreed`);
+  if (!page) return;
+  await bellReady(page);
+  await page.locator("#bell").click();
+  const tab = page.getByRole("radio", { name: "Threads" });
+  assert.equal(await tab.textContent(), "Threads");
+  await tab.click();
+  const rows = page.locator("#center-list .session-row");
+  await rows.nth(2).waitFor(poll);
+  assert.deepEqual(
+    await page.locator("#center-list .center-group").allTextContents(),
+    ["Retry policy", "Search index"],
+  );
+  const words = await rows.locator(".words").allTextContents();
+  assert.equal(words.length, 3);
+  assert.match(words[0], /^Waiting \d+ min · Overview$/);
+  assert.ok(words[1].startsWith("Overview · replied"), words[1]);
+  assert.match(words[2], /^Waiting \d+ min · Overview$/);
+  assert.equal(await page.locator("#center-clear-all").isVisible(), false);
+
+  await page.locator(`#center-list [data-key="thread:${waiting}"]`).click();
+  await page.locator("#center-pop").waitFor({ state: "hidden" });
+  await page.locator(`pair-thread[data-thread="${waiting}"]`).waitFor();
+  assert.equal(new URL(page.url()).hash, "#overview");
+
+  // Another session's row opens that session at the thread.
+  await page.locator("#bell").click();
+  await page.locator(`#center-list [data-key="thread:${elsewhere}"]`).click();
+  await page.waitForURL(`**${other.base}/**`);
+  await page.locator(`pair-thread[data-thread="${elsewhere}"]`).waitFor();
+});

@@ -65,6 +65,35 @@ export function threads(session) {
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .map(shown);
+  // threadLines gives the bell's Threads tab a line for each thread in the
+  // current round and each older thread still waiting for the agent, so the
+  // list stays short however many rounds a session runs. Every tab reads the
+  // session list every 5 seconds, so a line has only the start of the thread's
+  // first message. waitingSince is when the reviewer first wrote after the
+  // agent's last reply, and answeredAt is when that reply came. A line has the
+  // fields that a reply's event has, so the frame opens both the same way.
+  const lineLength = 160;
+  const threadLines = () =>
+    [...records.values()].flatMap((thread) => {
+      const { messages } = thread;
+      const reply = messages.findLast((item) => item.from === "agent");
+      const unanswered = messages[messages.indexOf(reply) + 1];
+      if (!unanswered && thread.round !== session.state.current?.round)
+        return [];
+      const line = {
+        thread: thread.id,
+        name: thread.page,
+        text: (messages[0]?.text || thread.anchor || "").slice(0, lineLength),
+        ...(thread.proposal
+          ? { page: "work", proposal: thread.proposal }
+          : { round: thread.round, page: thread.topic }),
+        ...(thread.target ? { target: thread.target } : {}),
+        ...(unanswered
+          ? { waitingSince: unanswered.at }
+          : { answeredAt: reply?.at }),
+      };
+      return [line];
+    });
   // The frame sends the topic overall for Review's overall comment and work
   // for the Work page.
   const ownTitles = {
@@ -454,6 +483,7 @@ export function threads(session) {
   }
   return {
     threadView,
+    threadLines,
     startThread,
     agentThread,
     addThreadMessage,

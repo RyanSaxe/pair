@@ -4,6 +4,7 @@ import {
   bellLines,
   sessionWords,
   settleCleared,
+  threadGroups,
 } from "../../../src/frame/sync/center.mjs";
 
 const event = (id, kind, at) => ({ id, kind, at });
@@ -73,4 +74,43 @@ test("a sub-session's bell line names its parent, and a closed parent adds no li
     "Sub-session of Q3 pricing deck · Build the deck",
   );
   assert.equal(sessionWords(parent, [parent, child]), "Q3 pricing deck");
+});
+
+test("the Threads tab has a group per live session, this session first, with each group's waiting threads before its answered ones", () => {
+  const waiting = (thread, waitingSince) => ({ thread, waitingSince });
+  const answered = (thread, answeredAt) => ({ thread, answeredAt });
+  const sessions = [
+    {
+      id: "other",
+      threads: [
+        answered("other-answered", "2026-09-28T09:45:00Z"),
+        waiting("other-waiting", "2026-09-28T10:00:00Z"),
+      ],
+    },
+    { id: "quiet", threads: [] },
+    {
+      id: "here",
+      threads: [
+        waiting("new", "2026-09-28T10:30:00Z"),
+        answered("answered-old", "2026-09-28T09:00:00Z"),
+        waiting("old", "2026-09-28T10:00:00Z"),
+        answered("answered-new", "2026-09-28T09:30:00Z"),
+      ],
+    },
+    {
+      id: "closed",
+      closed: true,
+      threads: [waiting("gone", "2026-09-28T08:00:00Z")],
+    },
+  ];
+  assert.deepEqual(
+    threadGroups(sessions, "here").map(({ entry, lines }) => [
+      entry.id,
+      lines.map(({ thread }) => thread),
+    ]),
+    [
+      ["here", ["old", "new", "answered-new", "answered-old"]],
+      ["other", ["other-waiting", "other-answered"]],
+    ],
+  );
 });
