@@ -8,12 +8,14 @@ planUI.define("drawing-question", {
     if (!button || !image || !error) return;
     const show = (answer) => {
       image.hidden = !answer;
-      if (answer)
-        image.src = `${base}/api/upload/${encodeURIComponent(answer.previewId)}`;
+      const src =
+        answer && `${base}/api/upload/${encodeURIComponent(answer.previewId)}`;
+      if (src && image.getAttribute("src") !== src) image.src = src;
       button.textContent = answer ? "Edit drawing" : "Draw your answer";
       card.toggleAttribute("data-drawn", Boolean(answer));
     };
     show(planUI.drawing(id));
+    card.addEventListener("plan:draft", () => show(planUI.drawing(id)));
     button.disabled = planUI.mode !== "live" || !online;
     button.onclick = async () => {
       error.hidden = true;

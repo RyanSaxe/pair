@@ -10,7 +10,7 @@ const poll = { timeout: 8000 };
 const html = `<p>The final launch video goes out on Friday.</p>
 <button type="button" data-comment="Result">Comment on the result</button>
 <div data-choice="approach" data-label="Approach"><button type="button" data-value="queue">Queue</button><button type="button" data-value="batch">Batch</button></div>
-<div data-multiselect="scope" data-label="Scope"><label><input type="checkbox" data-value="logs"> Logs</label><label><input type="checkbox" data-value="alerts"> Alerts</label></div>
+<div class="scope-list" data-multiselect="scope" data-label="Scope"><p class="scope-count"></p><label><input type="checkbox" class="scope-check" data-value="logs"> Logs</label><label><input type="checkbox" class="scope-check" data-value="alerts"> Alerts</label></div>
 <section class="question" data-question="limit" data-label="Retry limit" data-state="open">
   <h3>How many retries?</h3>
   <textarea rows="2" aria-label="Retry limit"></textarea>
@@ -22,12 +22,37 @@ const html = `<p>The final launch video goes out on Friday.</p>
   <textarea rows="2" aria-label="Owner"></textarea>
   <p class="answer-text" hidden></p>
   <div class="answer-actions"><button type="button" class="btn primary" data-answer>Answer</button><button type="button" class="btn" data-edit hidden>Edit</button></div>
+</section>
+<section class="drawing-question" data-drawing-question="endcard" data-label="End card">
+  <h3>Where does the logo sit?</h3>
+  <div class="drawing-stage"><div class="drawing-canvas"><img class="drawing-preview" alt="Saved drawing" hidden /></div><button class="btn" type="button" data-draw>Draw your answer</button></div>
+  <p class="renderer-error" data-drawing-error role="status" hidden></p>
 </section>`;
 const round = (number) => {
   const data = planData(number);
   data.pages[0].html = html;
   return data;
 };
+
+// silence is one second of a WAV file, which a video element can load, so a
+// test can move a real media element's position without a binary fixture.
+function silence() {
+  const rate = 8000;
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + rate, 4);
+  header.write("WAVEfmt ", 8);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(rate, 24);
+  header.writeUInt32LE(rate, 28);
+  header.writeUInt16LE(1, 32);
+  header.writeUInt16LE(8, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(rate, 40);
+  return Buffer.concat([header, Buffer.alloc(rate, 0x80)]).toString("base64");
+}
 
 // session() publishes the round and a thread whose agent reply has a video,
 // so a test can tell when the frame draws the page again: the thread card
@@ -49,7 +74,7 @@ async function session(t) {
   );
   const replied = await s.action("reply", {
     note: "video",
-    html: "<p>Here it is.</p><video controls muted></video>",
+    html: `<p>Here it is.</p><video controls muted src="data:audio/wav;base64,${silence()}"></video>`,
   });
   assert.equal(replied.code, 200, replied.body.error);
   return {
@@ -181,6 +206,63 @@ test("what the reviewer completes on one device appears on the other, and text t
       .count(),
     0,
   );
+});
+
+// A reviewer who stopped a video part way returns to the same place in it, so
+// the frame does not draw that page again, and each component on it has to
+// show the other device's change on the elements it already has.
+test("a page whose video has started shows what another device completes, and keeps the video", async (t) => {
+  const { session: s, url } = await session(t);
+  const computer = await open(t, url);
+  if (!computer) return;
+  const phone = await open(t, url, { viewport: { width: 375, height: 812 } });
+  const video = computer.locator("pair-thread video");
+  await video.waitFor();
+  await mark(computer);
+  await video.evaluate(async (element) => {
+    if (element.readyState < 1)
+      await new Promise((resolve) =>
+        element.addEventListener("loadedmetadata", resolve, { once: true }),
+      );
+    element.currentTime = 0.5;
+  });
+
+  await box(phone, "logs").check();
+  await computer.locator(".scope-count", { hasText: "1 of 2" }).waitFor(poll);
+  const limit = phone.locator('[data-question="limit"]');
+  await limit.getByRole("textbox").fill("Three");
+  await limit.getByRole("button", { name: "Answer" }).click();
+  const answered = computer.locator('[data-question="limit"]');
+  await answered.locator(".answer-text", { hasText: "Three" }).waitFor(poll);
+  await answered.locator("[data-edit]").waitFor(poll);
+  // Saving a real drawing needs the drawing editor, which
+  // tests/browser/drawing.browser.mjs covers, so this device's change arrives
+  // the way a saved drawing does.
+  const saved = await s.request(`${s.base}/api/draft`, {
+    changes: {
+      "answer/overview/endcard": {
+        topic: "overview",
+        label: "End card",
+        kind: "drawing",
+        round: "1",
+        sceneId: "scene",
+        previewId: "preview",
+      },
+    },
+  });
+  assert.equal(saved.code, 200, saved.body.error);
+  const drawn = computer.locator('[data-drawing-question="endcard"]');
+  await drawn.locator("[data-draw]", { hasText: "Edit drawing" }).waitFor(poll);
+  assert.equal(await drawn.locator(".drawing-preview").isHidden(), false);
+
+  // The phone changes its answer, and the card follows the new text.
+  await limit.locator("[data-edit]").click();
+  await limit.getByRole("textbox").fill("Four");
+  await limit.getByRole("button", { name: "Answer" }).click();
+  await answered.locator(".answer-text", { hasText: "Four" }).waitFor(poll);
+
+  assert.equal(await kept(computer), true);
+  assert.equal(await video.evaluate((element) => element.currentTime), 0.5);
 });
 
 // Two tabs of one browser save one copy of the draft in localStorage. Each

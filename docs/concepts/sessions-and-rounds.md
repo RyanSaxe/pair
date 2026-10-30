@@ -60,9 +60,23 @@ the header. The tab then shows that round, and its label changes to **Round N**.
 
 ## Feedback
 
-pair saves everything you do on the pages as a draft in your browser until
-you send it. **Send feedback** in the header opens a popup where you choose
-what the agent does next, and you send the round with the popup's button.
+pair saves everything you do on the pages as a draft until you send it. The
+hub keeps the feedback you completed, so you can start a round on your phone
+and continue it on your computer:
+
+- a note after **Add to feedback**, and its edits and removal
+- a choice in a decision and a checked box
+- an answer after **Answer** and a drawing after **Save drawing**
+- the **Everything else looks good** switch
+
+The browser you typed in keeps the rest, which no other device shows: the text
+in an open note dialog, an answer before **Answer**, a drawing you have not
+saved, a thread reply you have not sent and the message in the send popup. Your
+browser also keeps a copy of the feedback you completed, and it sends what you
+completed while the hub was unreachable when the hub answers again.
+
+**Send feedback** in the header opens a popup where you choose what the agent
+does next, and you send the round with the popup's button.
 
 In most rounds, the choices are:
 
