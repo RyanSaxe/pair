@@ -312,14 +312,16 @@ function addPageButton(item) {
 }
 let pageList;
 /* newMarks() marks New on each ready page of the live current round that no
-   browser on the hub has opened, and counts the page on screen as opened.
-   It returns the opened pages, or null when it marks no page. */
+   browser on the hub has opened, and counts the page on screen as opened
+   while the tab is visible. It returns the opened pages, or null when it
+   marks no page. */
 function newMarks(listed) {
   if (!editable || listed.tab !== "current" || listed.waiting) return null;
   if (listed.tab !== selectedTab) return openedPages();
   if (!current()) return null;
   const onScreen = pages.find((item) => item.id === visiblePageId());
   if (
+    document.visibilityState === "visible" &&
     onScreen &&
     pageStatus(onScreen) === "complete" &&
     markOpened(session.sessionId, plan.round, onScreen.id)
@@ -456,4 +458,5 @@ export function installPages() {
   $("navigation").append(tabs, pageList);
   updateNavigation(true);
   $("feedback-pages").addEventListener("click", openSidebar);
+  document.addEventListener("visibilitychange", () => updateNavigation());
 }
