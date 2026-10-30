@@ -46,11 +46,10 @@ export function applyChanges(draft, changes) {
 /* applySubmission removes the items in a submission, as markSent() does in
    the browser that sent it. It keeps an item that another device changed
    after the sending browser last merged the draft, because the submission
-   did not include that change, so the reviewer can still send it. When the
-   reviewer ticks a box, the frame records the checklist with the live
-   block's ID as its target, and initializeChecklists() rebuilds it with
-   another ID and the current round, so applySubmission compares items
-   without their target and round. */
+   did not include that change, so the reviewer can still send it.
+   initializeChecklists() rebuilds a checklist with the current round, and a
+   draft saved by an older frame has another ID as a checklist's target, so
+   applySubmission compares items without their target and round. */
 const content = ({ target, round, ...rest }) => rest;
 export function applySubmission(draft, payload) {
   const removed = {};

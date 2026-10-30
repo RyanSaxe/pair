@@ -66,3 +66,34 @@ test("a checklist sent from one browser starts unticked in the next round on bot
     assert.equal(await box(page, "5xx").isChecked(), false);
   }
 });
+
+test("Everything else looks good is on again in the next round after a send, on both browsers", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(round("1"))).code, 200);
+  const url = `${h.server.origin}${session.base}/#overview`;
+  const computer = await open(t, url);
+  if (!computer) return;
+  const phone = await open(t, url, { viewport: { width: 375, height: 812 } });
+
+  await box(phone, "5xx").check();
+  await phone.locator("#submit").click();
+  await phone.locator("#align-unflagged").uncheck();
+  // The tick and the switch reach the hub in one change, so the computer has
+  // merged the switch once it shows the tick.
+  await ticked(computer, "5xx");
+  await phone.locator("#send-button").click();
+  await nothingToSend(computer);
+  await session.action("read");
+  assert.equal((await session.publish(round("2"))).code, 200);
+  for (const page of [phone, computer]) {
+    await page.goto("about:blank");
+    await page.goto(url);
+    await onRound(page, "2");
+    // Each browser has merged the hub's draft by the second status poll.
+    await page.waitForTimeout(3500);
+    await page.locator("#submit").click();
+    await page.locator("#send-dialog[open]").waitFor(poll);
+    assert.equal(await page.locator("#align-unflagged").isChecked(), true);
+  }
+});

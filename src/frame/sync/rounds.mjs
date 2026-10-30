@@ -48,7 +48,10 @@ import {
   setRenderedFeedback,
   showSent,
 } from "#frame/review/review.mjs";
-import { submissionInFlight } from "#frame/review/send.mjs";
+import {
+  clearSubmissionError,
+  submissionInFlight,
+} from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
 
@@ -466,6 +469,7 @@ export async function poll() {
       state.submitted?.id !== remote.latestSubmissionId
     ) {
       markSent(state, remote.latestSubmissionId, new Date().toISOString());
+      clearSubmissionError();
       persist();
     }
   } catch {

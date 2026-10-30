@@ -20,7 +20,7 @@ import {
   topicTitle,
 } from "#frame/app/view.mjs";
 import { placeBar } from "#frame/notes/blocks.mjs";
-import { choiceTargets } from "#frame/notes/controls.mjs";
+import { pageTargets } from "#frame/notes/controls.mjs";
 import {
   drawNoteImages,
   fitNoteText,
@@ -42,7 +42,7 @@ export const known = {
 export function indexPage(topic) {
   const template = document.createElement("template");
   template.innerHTML = topic.html;
-  choiceTargets(template.content, topic.id);
+  pageTargets(template.content, topic.id);
   for (const group of template.content.querySelectorAll("[data-choice]"))
     known.choices.add(controlKey(topic.id, group.dataset.choice));
   for (const group of template.content.querySelectorAll("[data-multiselect]"))

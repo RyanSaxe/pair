@@ -172,6 +172,20 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
   );
 });
 
+test("pair read prints a Start and feedback in the order the hub received them", async (t) => {
+  const { a, add, reviewer } = await proposing(t);
+  await add();
+  await reviewer("churn-export", "start", { where: "here" });
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  const first = (await a.action("read")).body.event;
+  assert.equal(first.payload.proposal, "churn-export");
+  const second = (await a.action("read")).body.event;
+  assert.equal(second.id, feedback.id);
+  assert.equal(second.sequence, first.sequence + 1);
+  assert.equal((await a.status()).body.stage, "working");
+});
+
 test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {
   const { a, add, reviewer, cards, read } = await proposing(t);
   await add();

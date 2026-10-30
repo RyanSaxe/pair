@@ -126,7 +126,7 @@ export function changedPages(before, after) {
 }
 
 // markSent() deletes a sent answer's typed text or drawing, so the question
-// starts empty in the next round.
+// starts empty in the next round, and it resets the message and the switch.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
   const before = draftItems(draft);
@@ -138,6 +138,7 @@ export function markSent(draft, id, at) {
   }
   draft.submitted = { id, at, round: draft.round, count };
   draft.message = "";
+  draft.alignUnflagged = true;
   draft.pending = null;
   forgetSent(draft, before);
   return draft;

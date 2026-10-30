@@ -130,7 +130,7 @@ test("a submission removes the items it sent and keeps an item changed since", a
     "note/n2": note("n2", "Edited on another device."),
     "choice/overview/approach": null,
     "answer/overview/why": null,
-    alignUnflagged: false,
+    alignUnflagged: null,
   });
   assert.equal(
     sent.body.status.draftRevision,
