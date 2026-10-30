@@ -458,12 +458,17 @@ export function openNote({
   fitNoteText();
   $("note-text").focus();
 }
+export const progressThread = {
+  topic: "agreed",
+  anchor: "Progress",
+  target: "agent-activity",
+};
 /* The progress card's button calls openAgentMessage to start a thread about
    the work in progress. The dialog shows only Start a thread, because the
    frame sends this message to the agent now and not with the round's
    feedback. */
 export function openAgentMessage() {
-  openNote({ topic: "agreed", anchor: "Progress", target: "agent-activity" });
+  openNote(progressThread);
   if (!$("note-dialog").open) return;
   $("note-title").textContent = "Message the agent";
   $("note-label").textContent = "Message";

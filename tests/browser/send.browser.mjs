@@ -63,15 +63,29 @@ test("Send feedback opens a popup that starts on Keep iterating and sends the ch
   assert.equal(payload.groups.alignUnflagged, false);
 });
 
-// A status poll can show another browser's send while this browser's request
-// is on its way to the hub, which then refuses it.
-test("a send the hub refuses shows the hub's reason, and the message stays in the draft for the next round", async (t) => {
+const withChoice = (round) => {
+  const data = planData(round);
+  data.pages[0].html = `<div data-choice="approach" data-label="Approach">
+    <button type="button" data-value="queue">Queue</button>
+    <button type="button" data-value="retry">Retry</button>
+  </div>`;
+  return data;
+};
+async function openRound(t, options) {
   const h = await hub(t);
   const session = await h.session();
-  assert.equal((await session.publish(planData())).code, 200);
-  const page = await open(t, `${h.server.origin}${session.base}/`);
-  if (!page) return;
-  await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
+  assert.equal((await session.publish(withChoice("1"))).code, 200);
+  const page = await open(
+    t,
+    `${h.server.origin}${session.base}/#overview`,
+    options,
+  );
+  if (page) await page.locator('[data-choice="approach"]').waitFor();
+  return { session, page };
+}
+// A status poll can show another browser's send while this browser's request
+// is on its way to the hub, which then refuses it.
+async function refusedSend(page, session, message) {
   const other = session.event();
   await page.route("**/api/feedback", async (route) => {
     assert.equal((await session.feedback(other)).code, 200);
@@ -84,14 +98,32 @@ test("a send the hub refuses shows the hub's reason, and the message stays in th
     await route.continue();
   });
   await openPopup(page);
-  await page.locator("#send-message").fill("Sent from the phone.");
+  if (message) await page.locator("#send-message").fill(message);
   const refusal = page.waitForResponse("**/api/feedback");
   await page.locator("#send-button").click();
   const refused = await refusal;
   assert.equal(refused.status(), 409);
+  await page.locator("#save-error-text").waitFor();
+  return { other, reason: (await refused.json()).error };
+}
+const nextRound = async (page, session) => {
+  assert.equal((await session.publish(withChoice("2"))).code, 200);
+  await page.locator('#round[aria-label="Rounds, on round 2"]').waitFor({
+    state: "attached",
+  });
+};
+const asMessage = (page) =>
+  page.getByRole("button", { name: "Send as a message" });
+
+test("a send the hub refuses shows the hub's reason, and the message stays in the draft for the next round", async (t) => {
+  const { session, page } = await openRound(t);
+  if (!page) return;
+  const { other, reason } = await refusedSend(
+    page,
+    session,
+    "Sent from the phone.",
+  );
   const banner = page.locator("#save-error-text");
-  await banner.waitFor();
-  const reason = (await refused.json()).error;
   assert.equal(await banner.textContent(), reason);
   // The reviewer has not seen the reason until they dismiss it, so the status
   // polls that show the round as sent leave it.
@@ -99,10 +131,71 @@ test("a send the hub refuses shows the hub's reason, and the message stays in th
   await page.waitForResponse("**/api/status");
   assert.equal(await banner.textContent(), reason);
   assert.equal((await session.action("read")).body.event.id, other.id);
-  assert.equal((await session.publish(planData("2"))).code, 200);
-  await page.locator('#round[aria-label="Rounds, on round 2"]').waitFor({
-    state: "attached",
+  await nextRound(page, session);
+  await openPopup(page);
+  assert.equal(
+    await page.locator("#send-message").inputValue(),
+    "Sent from the phone.",
+  );
+});
+
+for (const [width, viewport] of [
+  ["a wide window", { width: 1280, height: 800 }],
+  ["375px", { width: 375, height: 740 }],
+])
+  test(`Send as a message at ${width} starts a progress thread, and only the message leaves the draft`, async (t) => {
+    const { session, page } = await openRound(t, { viewport });
+    if (!page) return;
+    await page.locator('[data-value="queue"]').click();
+    const { other } = await refusedSend(page, session, "Sent from the phone.");
+    await asMessage(page).click();
+    await page.locator("#save-error").waitFor({ state: "hidden" });
+    assert.equal(
+      await waitUntil(
+        async () => (await session.status()).body.threads.length === 1,
+      ),
+      true,
+    );
+    const status = (await session.status()).body;
+    const [thread] = status.threads;
+    assert.deepEqual(
+      [thread.topic, thread.anchor, thread.target, thread.round],
+      ["agreed", "Progress", "agent-activity", "1"],
+    );
+    assert.equal(thread.messages[0].text, "Sent from the phone.");
+    assert.equal(status.latestSubmissionId, other.id);
+    const read = (await session.action("read")).body;
+    assert.equal(read.event.id, other.id);
+    assert.deepEqual(
+      read.threads.map((item) => item.id),
+      [thread.id],
+    );
+    await nextRound(page, session);
+    await page.reload();
+    await page.locator("#submit", { hasText: "(1)" }).waitFor();
+    await openPopup(page);
+    assert.equal(await page.locator("#send-message").inputValue(), "");
   });
+
+test("a refused send with no typed message does not offer Send as a message", async (t) => {
+  const { session, page } = await openRound(t);
+  if (!page) return;
+  await refusedSend(page, session);
+  assert.equal(await asMessage(page).count(), 0);
+});
+
+test("the message stays in the draft when the hub never receives Send as a message", async (t) => {
+  const { session, page } = await openRound(t);
+  if (!page) return;
+  await refusedSend(page, session, "Sent from the phone.");
+  await page.route("**/api/threads", (route) => route.abort("connectionreset"));
+  const failed = page.waitForEvent("requestfailed");
+  await asMessage(page).click();
+  await failed;
+  await session.action("read");
+  await nextRound(page, session);
+  await page.reload();
+  await page.locator("#submit").waitFor();
   await openPopup(page);
   assert.equal(
     await page.locator("#send-message").inputValue(),
@@ -129,9 +222,11 @@ test("the error from a lost response clears once a status poll shows the hub sav
     await route.continue();
   });
   await openPopup(page);
+  await page.locator("#send-message").fill("Sent before the hub answered.");
   await page.locator("#send-button").click();
   const banner = page.locator("#save-error");
   await banner.waitFor();
+  assert.equal(await asMessage(page).count(), 0);
   polling = true;
   await banner.waitFor({ state: "hidden" });
   await page.locator("#submit:disabled").waitFor();

@@ -9,8 +9,10 @@ export const exists = async (file) =>
   );
 export const read = async (file) => JSON.parse(await fs.readFile(file, "utf8"));
 export const timestamp = () => new Date().toISOString();
-export function requireValue(condition, message, code = 400) {
-  if (!condition) throw Object.assign(new Error(message), { statusCode: code });
+// The hub adds details to the JSON it answers a refused request with.
+export function requireValue(condition, message, code = 400, details) {
+  if (!condition)
+    throw Object.assign(new Error(message), { statusCode: code, details });
 }
 export async function atomic(file, value) {
   const temporary = `${file}.${crypto.randomUUID()}.tmp`;

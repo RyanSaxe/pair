@@ -113,6 +113,11 @@ or device after the hub saved the round's feedback, the hub refuses that send,
 and the frame shows why. Your comments and message stay in that device's draft
 for the next round.
 
+When the refused send had a message, the error also offers **Send as a
+message**. That button starts a thread with your message, as **Message the
+agent** does, so the agent gets it now, and the frame takes the message out of
+the draft. Your notes and choices stay in the draft.
+
 ## Agreed
 
 Agreed is the first page of every round, and the sidebar lists it as Agreed

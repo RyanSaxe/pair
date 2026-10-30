@@ -185,6 +185,7 @@ export function submissions(session) {
       session.state.latestSubmissionRound !== data.round,
       `Round ${data.round} already has feedback, so the hub did not save what you just sent. Your comments and message stay in your draft for the next round.`,
       409,
+      { roundSent: true },
     );
     const event = await session.saveEvent(data);
     await session.draftSent(sent);
