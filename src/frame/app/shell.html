@@ -20,6 +20,13 @@
           document.documentElement.dataset.sidebar = "closed";
       } catch {}
     </script>
+    <!-- The browser runs module scripts in document order after it parses
+         the page, and the hub adds a render-blocking module after these, at
+         the end of the head. The browser paints the page only after the
+         frame's and the page's modules have run, so it never paints the
+         bare shell. -->
+    <!-- FRAME_SCRIPT -->
+    <!-- CUSTOM_SCRIPT -->
   </head>
   <body>
     <div class="app" id="app">
@@ -327,7 +334,5 @@
     <script type="application/json" id="plan-data">
       {}
     </script>
-    <!-- FRAME_SCRIPT -->
-    <!-- CUSTOM_SCRIPT -->
   </body>
 </html>

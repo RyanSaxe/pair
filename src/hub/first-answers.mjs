@@ -44,9 +44,9 @@ export async function firstAnswers(session, sessionList) {
 }
 
 // answerScript serves each stored response once, to a GET for the same path,
-// so every later poll reaches the hub. It is a module script in the head, so
-// the browser runs it before the frame's modules in the body.
-const answerScript = `<script type="module">
+// so every later poll reaches the hub. It is a classic script, so the browser
+// runs it as it parses the head, before any module script runs.
+const answerScript = `<script>
 (() => {
   const answers = new Map(
     Object.entries(

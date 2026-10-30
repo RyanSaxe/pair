@@ -21,6 +21,11 @@ test("every round page holds its first frame until its modules have run", async 
         text.trim(),
     );
     assert.equal(gates.length, 1, `/${route}`);
+    // The browser runs module scripts in document order, so the gate holds
+    // the first frame only for the modules before it.
+    const modules = [...page.matchAll(/<script\b[^>]*\btype="module"/g)];
+    assert.ok(modules.length > 1, `/${route}`);
+    assert.equal(page.indexOf(gates[0][0]), modules.at(-1).index, `/${route}`);
   }
 });
 

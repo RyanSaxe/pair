@@ -127,13 +127,14 @@ export async function startHub(config = settings()) {
   // Chrome can paint a page before it parses all of it, so a session the
   // reviewer switched to showed an empty sidebar and reading column before
   // the frame drew into them. A module script in the head with
-  // blocking="render" keeps the previous page on screen until the browser
-  // parses the page and runs its modules. The hub adds the script when it
-  // serves the page, so rounds built by an earlier pair get it too. The
-  // browser never runs a script with no text, so the script contains a
-  // comment. framePage puts the script last in the head, after everything
-  // else the hub adds there, so the head's other modules run before the first
-  // paint.
+  // blocking="render" keeps the previous page on screen until the browser runs
+  // it, and the browser runs module scripts in document order after it parses
+  // the page. framePage puts the script last in the head, after the frame's
+  // and the page's modules, so the first paint comes after they have run. A
+  // round built before those modules moved into the head has them at the end
+  // of the body, after this script, and Chrome can paint its bare frame first.
+  // The browser never runs a script with no text, so the script contains a
+  // comment.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
   const framePage = (session, html, flags, head) =>
     embedConfig(
