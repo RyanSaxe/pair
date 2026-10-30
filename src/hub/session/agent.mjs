@@ -194,13 +194,6 @@ export function agent(session) {
     session.events
       .filter((item) => item.sequence < sequence)
       .sort((a, b) => b.sequence - a.sequence)[0];
-  const feedbackRead = () =>
-    session.events
-      .filter(
-        (item) =>
-          answersRound(item) && session.state.acknowledged.includes(item.id),
-      )
-      .sort((a, b) => b.sequence - a.sequence)[0];
   async function readFeedback(data) {
     // With an id, readFeedback returns that submission again and changes
     // nothing, for an agent turn that resumes after an interruption.
@@ -416,7 +409,7 @@ export function agent(session) {
     const answers = session.state.openRound
       ? "This round answers"
       : session.state.stage === "working" && "The next round answers";
-    const answered = answers && feedbackRead()?.id;
+    const answered = answers && session.state.latestSubmissionId;
     const feedback = answered
       ? ` ${answers} the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
       : "";

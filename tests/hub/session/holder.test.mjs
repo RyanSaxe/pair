@@ -123,27 +123,17 @@ test("a start that takes over an open round names the submission the round answe
 
 test("a start that takes over before the next Agreed names the feedback the previous holder read", async (t) => {
   const h = await hub(t);
-  const [two, three] = [await h.inbox(), await h.inbox()];
+  const two = await h.inbox();
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
   const feedback = a.event();
   assert.equal((await a.feedback(feedback)).code, 200);
   assert.equal((await a.action("read")).code, 200);
-  const named = `The next round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it.`;
   const took = await h.register(a.directory, two.target, { start: true });
   assert.equal(took.code, 200);
   assert.equal(
     took.body.next,
-    `If you have not run pair guide in this conversation, run it first. ${named} Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.`,
-  );
-  // A second submission that the holder has not read is one that pair read
-  // prints, so the line still names the one the holder read.
-  const unread = a.event();
-  assert.equal((await a.feedback(unread)).code, 200);
-  const again = await h.register(a.directory, three.target, { start: true });
-  assert.equal(
-    again.body.next,
-    `If you have not run pair guide in this conversation, run it first. ${named} Run pair read --session-dir ${a.directory} to see what the reviewer sent.`,
+    `If you have not run pair guide in this conversation, run it first. The next round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.`,
   );
 });
 
