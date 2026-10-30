@@ -9,6 +9,7 @@ import {
   exists,
   hub,
   killHub,
+  literal,
   pairCli,
   planData,
   task,
@@ -286,8 +287,86 @@ async function sessionWithAgreed(t) {
       source,
       ...rest,
     );
-  return { sessionDir, agreed, overview, list, publish, run };
+  return { sessionDir, agreed, overview, list, page, publish, run };
 }
+
+// A link to the sessions directory stands in for /var and /private/var on
+// macOS, two paths to one directory.
+test("a publish keeps its source when --session-dir reaches the session by another path", async (t) => {
+  const { sessionDir, agreed, list, run } = await sessionWithAgreed(t);
+  const parent = path.dirname(sessionDir);
+  const link = `${parent}-link`;
+  await fs.symlink(parent, link);
+  const other = path.join(link, path.basename(sessionDir));
+  await run(
+    "publish",
+    "--session-dir",
+    other,
+    "--file",
+    agreed.built,
+    "--source",
+    agreed.source,
+    "--pages",
+    list,
+  );
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
+    true,
+  );
+});
+
+test("the hub refuses a kept source outside the session directory", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const html = await buildPage(path.join(a.directory, "source.json"), {
+    name: "example",
+    round: "1",
+    title: "Example work",
+    page: { id: "agreed", title: "Agreed so far", task, agreements: [] },
+  });
+  const beside = `${a.directory}-beside`;
+  const linked = path.join(a.directory, "src", "linked");
+  await fs.mkdir(path.dirname(linked), { recursive: true });
+  await fs.mkdir(beside);
+  await fs.symlink(beside, linked);
+  for (const source of [beside, linked, path.join(a.directory, "src", "no")]) {
+    const refused = await a.action("publish", { html, source });
+    assert.equal(refused.code, 400, source);
+    assert.equal(
+      refused.body.error,
+      "Source must be a directory inside the session directory",
+    );
+  }
+});
+
+test("a page over the hub's limit is refused with the limit and what to do, and the size the refusal names publishes", async (t) => {
+  const { sessionDir, agreed, list, page, publish } =
+    await sessionWithAgreed(t);
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const overview = { page: { id: "overview", title: "Overview" } };
+  const withImages = (name, bytes) =>
+    page(
+      name,
+      { page: { ...overview.page, file: `${name}.html` } },
+      `<img alt="" src="data:image/png;base64,${"A".repeat((bytes / 3) * 4)}">`,
+    );
+  const big = await withImages("big", 3_750_000);
+  await assert.rejects(publish(big.built, big.source), (error) => {
+    assert.equal(error.code, 1);
+    assert.match(
+      error.stderr,
+      new RegExp(
+        `^pair: ${literal(big.built)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 10 MB\\. pair build writes a page's content into that file twice, so the images embedded in one page can total about 3\\.3 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page to a new path and publish that file\\.\\n$`,
+      ),
+    );
+    return true;
+  });
+  const kept = path.join(sessionDir, "src", "1", "overview");
+  assert.equal(await exists(kept), false);
+  const fits = await withImages("fits", 3_300_000);
+  await publish(fits.built, fits.source);
+  assert.equal(await exists(path.join(kept, "fits.html")), true);
+});
 
 test("a publish with a missing --file names pair build and keeps no source", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);

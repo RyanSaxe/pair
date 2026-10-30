@@ -282,11 +282,12 @@ test("listed pages arrive independently and only the last completes the round", 
     await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
   ).json();
   assert.equal(completeSet.complete, true);
-  assert.equal(
-    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=missing`))
-      .status,
-    404,
-  );
+  for (const round of ["missing", "constructor"])
+    assert.equal(
+      (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=${round}`))
+        .status,
+      404,
+    );
   assert.equal(
     (
       await fetch(

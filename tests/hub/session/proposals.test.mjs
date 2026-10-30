@@ -99,6 +99,20 @@ test("pair propose records one file per card and refuses an ID the session has",
     "an ID that is not a slug",
   );
   assert.equal((await propose({ ...card, id: "x", page: "1/none" })).code, 400);
+  // toString and constructor are keys of Object.prototype, and not rounds of
+  // this session.
+  for (const [round, page] of [
+    ["toString", "work"],
+    ["constructor", "x"],
+  ]) {
+    const refused = await propose({
+      ...card,
+      id: "x",
+      page: `${round}/${page}`,
+    });
+    assert.equal(refused.code, 400);
+    assert.equal(refused.body.error, `Round ${round} has no page ${page}`);
+  }
   const listed = await a.request("/api/sessions");
   assert.deepEqual(
     listed.body.sessions[0].events
