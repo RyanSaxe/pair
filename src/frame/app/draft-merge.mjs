@@ -70,9 +70,6 @@ export function draftChanges(draft) {
   return changes;
 }
 
-// forgetSent deletes the synced record of each item that markSent() just
-// marked as sent, so draftChanges() does not send a removal for it. The hub
-// removes the sent items itself when it saves the submission.
 // recordPushed records the hub's value for each item that this browser just
 // sent and the hub kept. Without the record, a later removal here would match
 // the last merge, so draftChanges() would not send it, and the next
@@ -86,6 +83,9 @@ export function recordPushed(draft, changes, hub) {
       draft.synced.items[key] = { rev: item.rev, digest: digest(value) };
   }
 }
+// forgetSent deletes the synced record of each item that markSent() just
+// marked as sent, so draftChanges() does not send a removal for it. The hub
+// removes the sent items itself when it saves the submission.
 export function forgetSent(draft, before) {
   const after = draftItems(draft);
   for (const key of Object.keys(before))
@@ -131,9 +131,10 @@ function apply(draft, kind, id, value) {
    reached the hub yet, so the hub will receive it later and keep it. The
    hub refuses every change to a deleted note, so mergeDraft gives a note
    changed here after its delete a new ID, which keeps the reviewer's words
-   as a new note. mergeDraft never changes an item that this browser sent. With hold, mergeDraft only records the items whose value
-   here already matches the hub's, so the frame does not replace text that
-   the reviewer is typing. */
+   as a new note. mergeDraft never changes an item that this browser sent.
+   With hold, mergeDraft only records the items whose value here already
+   matches the hub's, so the frame does not replace text that the reviewer
+   is typing. */
 export function mergeDraft(draft, hub, { hold = false } = {}) {
   if (hub.revision < draft.synced.revision) draft.synced = emptySynced();
   const synced = draft.synced.items;
