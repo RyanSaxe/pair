@@ -51,17 +51,19 @@ export function applyChanges(draft, changes) {
    drawing under each sent answer's key, as markSent() does in the browser
    that sent it. It keeps an item that another device changed after the
    sending browser last merged the draft, because the submission did not
-   include that change, so the reviewer can still send it. */
+   include that change, so the reviewer can still send it. The frame records
+   one checklist with a different target and round depending on whether a
+   tick or initializeChecklists() wrote it, so applySubmission compares
+   items without those two fields. */
+const content = ({ target, round, ...rest }) => rest;
 export function applySubmission(draft, payload) {
   const removed = {};
   const unchanged = (key, sent) => {
     const value = draft.items[key]?.value ?? null;
-    return (
-      value === null ||
-      (key === "message"
-        ? typeof value === "string" && value.trim() === sent
-        : isDeepStrictEqual(value, sent))
-    );
+    if (value === null) return true;
+    if (key === "message")
+      return typeof value === "string" && value.trim() === sent;
+    return isDeepStrictEqual(content(value), content(sent));
   };
   for (const [key, sent] of sentItems(payload)) {
     if (!unchanged(key, sent)) continue;

@@ -194,6 +194,37 @@ test("a send in one browser clears the sent items in the other and keeps the res
   assert.equal(unsentItems(next).count, 1);
 });
 
+test("a send removes a checklist that the sending browser rebuilt with another target", () => {
+  const w = world();
+  const phone = w.device(),
+    computer = w.device();
+  const list = (target) => ({
+    kind: "multiple",
+    topic: "overview",
+    label: "Which failures are retried",
+    target,
+    round: "1",
+    touched: true,
+    options: [
+      { value: "5xx", label: "5xx responses", checked: true },
+      { value: "timeouts", label: "Timeouts", checked: false },
+    ],
+  });
+  // A tick on the page records the checklist with the live block's ID, and
+  // initializeChecklists() rebuilds it before a send with the ID it gives
+  // the page's copy.
+  computer.choices["overview/retryable"] = list("block-overview-1");
+  w.sync(computer);
+  w.sync(phone);
+  phone.choices["overview/retryable"] = list("multiselect-overview-0");
+  w.send(phone);
+  w.pull(computer);
+  assert.deepEqual(computer.choices, {});
+  const next = loadDraft(JSON.parse(JSON.stringify(phone)), "2");
+  w.pull(next);
+  assert.deepEqual(next.choices, {});
+});
+
 test("a send leaves an item that another browser changed after the sender's last merge", () => {
   const w = world();
   const phone = w.device(),
