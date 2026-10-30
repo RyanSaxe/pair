@@ -35,19 +35,14 @@ session to your browser and wakes the agent when you respond.
   show the same bell, sessions badge and **New** marks, within one poll of
   each other. Layout preferences, such as the sidebar, stay in each browser.
 - The hub keeps each session's completed feedback and numbers each change it
-  receives. Every pair tab sends the notes, choices, answers, saved drawings
-  and the **Everything else looks good** switch you change, and reads the
-  hub's copy when a status poll shows a newer revision. When two devices
-  change the same item, the change the hub receives later wins, and a removed
-  note stays removed. Text you typed but did not complete stays in the browser
-  you typed it in.
-- When the hub or another tab changes the draft, the frame sets the choices,
-  answers and note marks on the page at once. It draws the page again only
-  while you are not typing in a field on the page, using a dialog or a
-  prototype, pressing a control, or part way through a video or recording, so
-  none of those is replaced. A page with a video you started and did not finish
-  shows the rest of the change, such as an answered question's card, after you
-  leave the page and come back.
+  receives. Every pair tab sends what you complete and reads the hub's copy when
+  a status poll shows a newer revision. When two devices change the same item,
+  the change the hub receives later wins, and a removed note stays removed. Text
+  you typed but did not complete stays in the browser you typed it in.
+- When the hub or another tab changes the draft, the frame updates the choices,
+  answers, drawings and note marks on the page at once. It draws the whole page
+  again only while you are not typing on the page, using a dialog or a
+  prototype, or part way through a video, so none of those is replaced.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
