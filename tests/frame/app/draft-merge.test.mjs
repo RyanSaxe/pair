@@ -109,7 +109,7 @@ test("when both browsers edit one note, the change the hub receives later wins",
   assert.deepEqual(texts(computer), ["Computer's edit."]);
 });
 
-test("a deleted note stays deleted, whichever change reaches the hub first", () => {
+test("a deleted note stays deleted, and an edit saved after the delete survives as a new note", () => {
   for (const deleteFirst of [true, false]) {
     const w = world();
     const phone = w.device(),
@@ -118,9 +118,10 @@ test("a deleted note stays deleted, whichever change reaches the hub first", () 
     w.sync(phone);
     w.sync(computer);
     phone.notes = [];
-    computer.notes[0] = note("n1", "An edit made before the delete arrived.");
+    computer.notes[0] = note("n1", "An edit saved in an open dialog.");
     if (deleteFirst) {
       w.push(phone);
+      w.sync(computer);
       w.sync(computer);
     } else {
       w.push(computer);
@@ -128,9 +129,18 @@ test("a deleted note stays deleted, whichever change reaches the hub first", () 
       w.pull(computer);
     }
     w.pull(phone);
-    assert.deepEqual(texts(phone), [], `delete first: ${deleteFirst}`);
-    assert.deepEqual(texts(computer), [], `delete first: ${deleteFirst}`);
-    assert.deepEqual(draftChanges(computer), {});
+    const label = `delete first: ${deleteFirst}`;
+    // The edit reaches the hub after the delete only when the reviewer saved
+    // it without seeing the delete, so the frame keeps those words.
+    const kept = deleteFirst ? ["An edit saved in an open dialog."] : [];
+    assert.deepEqual(texts(phone), kept, label);
+    assert.deepEqual(texts(computer), kept, label);
+    assert.equal(w.hub.items["note/n1"].value, null, label);
+    assert.ok(
+      [...phone.notes, ...computer.notes].every((item) => item.id !== "n1"),
+      label,
+    );
+    assert.deepEqual(draftChanges(computer), {}, label);
   }
 });
 

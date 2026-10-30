@@ -1,3 +1,4 @@
+import { uuid } from "#frame/app/util.mjs";
 import { itemKey, splitKey } from "#shared/draft-items.mjs";
 
 const record = (value) =>
@@ -127,10 +128,10 @@ function apply(draft, kind, id, value) {
    whether any value here changed. For each item the hub changed since the
    last merge, the hub's value replaces this browser's value, unless the
    reviewer changed the item here since the last merge. That change has not
-   reached the hub yet, so the hub will receive it later and keep it. A
-   note's tombstone replaces even a change made here, because the hub refuses
-   to bring a deleted note back. mergeDraft never changes an item that this
-   browser sent. With hold, mergeDraft only records the items whose value
+   reached the hub yet, so the hub will receive it later and keep it. The
+   hub refuses every change to a deleted note, so mergeDraft gives a note
+   changed here after its delete a new ID, which keeps the reviewer's words
+   as a new note. mergeDraft never changes an item that this browser sent. With hold, mergeDraft only records the items whose value
    here already matches the hub's, so the frame does not replace text that
    the reviewer is typing. */
 export function mergeDraft(draft, hub, { hold = false } = {}) {
@@ -145,7 +146,7 @@ export function mergeDraft(draft, hub, { hold = false } = {}) {
     if (sentHere(draft, parts.kind, parts.id)) continue;
     const theirs = digest(item.value);
     const mine = digest(local[key]);
-    const finalDelete = parts.kind === "note" && item.value === null;
+    const dirty = mine !== (known?.digest ?? none);
     if (mine === theirs) {
       // draftItems() counts an untouched checklist as no item, and a
       // tombstone for its key means that another browser sent that
@@ -159,9 +160,11 @@ export function mergeDraft(draft, hub, { hold = false } = {}) {
         delete draft.choices[parts.id];
         changed = true;
       }
+    } else if (!hold && dirty && parts.kind === "note" && !item.value) {
+      draft.notes.find((note) => note.id === parts.id).id = uuid();
+      changed = true;
     } else {
-      if (hold) continue;
-      if (mine !== (known?.digest ?? none) && !finalDelete) continue;
+      if (hold || dirty) continue;
       apply(draft, parts.kind, parts.id, structuredClone(item.value));
       changed = true;
     }
