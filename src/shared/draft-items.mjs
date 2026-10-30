@@ -18,7 +18,8 @@ export function splitKey(key) {
 }
 
 // sentItems returns the key of each item in a submission, with the value
-// that the browser sent.
+// that the browser sent. The switch is an item only while it is off, as in the
+// frame's draftItems().
 export function sentItems({ groups }) {
   const sent = [];
   for (const note of groups.notes || [])
@@ -27,5 +28,6 @@ export function sentItems({ groups }) {
     sent.push([itemKey("choice", key), choice]);
   for (const [key, answer] of Object.entries(groups.answers || {}))
     sent.push([itemKey("answer", key), answer]);
+  if (groups.alignUnflagged === false) sent.push(["alignUnflagged", false]);
   return sent;
 }
