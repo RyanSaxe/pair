@@ -28,9 +28,9 @@ import {
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
-import { blockTargets, chooseBlock } from "#frame/notes/blocks.mjs";
+import { chooseBlock } from "#frame/notes/blocks.mjs";
 import {
-  choiceTargets,
+  pageTargets,
   restoreAnswers,
   restoreChoices,
 } from "#frame/notes/controls.mjs";
@@ -144,10 +144,7 @@ export function show(
     $("page-content").dataset.round = plan.round;
     $("page-content").innerHTML = page.pending ? pendingPage : page.html;
     if (page.pending) updatePending();
-    else {
-      blockTargets($("page-content"), page.id);
-      choiceTargets($("page-content"), page.id);
-    }
+    else pageTargets($("page-content"), page.id);
     if (page.id === "agreed" && !page.waiting) drawing = renderAgreements();
     else if (!page.pending) {
       restoreChoices();

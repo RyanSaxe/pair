@@ -110,6 +110,65 @@ test("a send the hub refuses shows the hub's reason, and the message stays in th
   );
 });
 
+// A question or a checklist that is a top-level block has its block's ID on
+// the live page.
+test("the links to a typed answer and a checklist land on them, also after a reload", async (t) => {
+  const filler = Array.from(
+    { length: 30 },
+    (_, index) => `<p>Paragraph ${index + 1}.</p>`,
+  ).join("");
+  const data = planData();
+  data.pages[0].html = `${filler}<section class="question" data-question="owner" data-label="Owner">
+    <h3>Who owns the retries?</h3>
+    <textarea aria-label="Your answer"></textarea>
+    <div class="answer-actions"><button type="button" class="btn primary" data-answer>Answer</button></div>
+  </section>${filler}<div class="scope-list" data-multiselect="scope" data-label="Scope">
+    <label class="scope-row"><span><strong>Alerts</strong></span><input type="checkbox" class="scope-check" data-value="alerts" data-label="Alerts" /></label>
+  </div>`;
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(data)).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`, {
+    viewport: { width: 1280, height: 500 },
+  });
+  if (!page) return;
+  const landed = async (selector) => {
+    const found = page.locator(`${selector}:focus`);
+    await found.waitFor();
+    const { top, bottom } = await found.evaluate((element) =>
+      element.getBoundingClientRect().toJSON(),
+    );
+    assert.ok(top >= 0 && bottom <= 500, `${selector} is at ${top}-${bottom}`);
+  };
+  const question = '[data-question="owner"]';
+  const checklist = '[data-multiselect="scope"]';
+
+  await page.locator(`${question} textarea`).fill("The payments team");
+  await openPopup(page);
+  await page.locator("#send-not-added-list a").click();
+  await landed(question);
+
+  await page.locator(`${checklist} input`).check();
+  await page.reload();
+  await page
+    .locator(`${checklist} input:checked`)
+    .waitFor({ state: "attached" });
+  await page.locator("#review-row").click();
+  await page
+    .locator(".feedback-item", { hasText: "Alerts" })
+    .getByRole("link", { name: "Edit on the page" })
+    .click();
+  await landed(checklist);
+
+  const id = await page.locator(checklist).getAttribute("id");
+  await openPopup(page);
+  await page.locator("#send-button").click();
+  assert.equal(
+    (await sent(session)).groups.choices["overview/scope"].target,
+    id,
+  );
+});
+
 test("a plan round has the Plan tag and its own choices, and Review lists the choice sent", async (t) => {
   const h = await hub(t);
   const session = await h.session();

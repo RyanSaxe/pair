@@ -291,9 +291,8 @@ test("a send removes a checklist that the sending browser rebuilt with another t
       { value: "timeouts", label: "Timeouts", checked: false },
     ],
   });
-  // A tick on the page records the checklist with the live block's ID, and
-  // initializeChecklists() rebuilds it before a send with the ID it gives
-  // the page's copy.
+  // A draft saved by an older frame records a checklist with the ID that
+  // frame gave its template of the page, not the live block's ID.
   computer.choices["overview/retryable"] = list("block-overview-1");
   w.sync(computer);
   w.sync(phone);
