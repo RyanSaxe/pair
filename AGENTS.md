@@ -205,13 +205,14 @@ Check every fixture page in the light and dark themes, at a wide window and at
 
 For anything that talks to the hub, such as sending feedback, the progress
 card, rounds, sessions or notifications, run a scratch hub. Give every command
-the same new state directory, a free port from 4880 to 4899 and
-`PAIR_WAKE=off`, with `env` in front of the command:
+the same new state directory, a free port from 4880 to 4899, `PAIR_WAKE=off`
+and an empty `PAIR_HUB_HOST`, so the hub listens only on 127.0.0.1, with `env` in
+front of the command:
 
 ```sh
 state=$(mktemp -d)
-env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off node src/cli.mjs check
-env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_HUB_HOST= PAIR_WAKE=off node src/cli.mjs check
+env XDG_STATE_HOME=$state PAIR_HUB_PORT=4880 PAIR_HUB_HOST= PAIR_WAKE=off PAIR_HUB_IDLE_SECONDS=60 node src/cli.mjs start --title "Scratch"
 ```
 
 A Codex from version 0.160 started with no `-c` override runs each command on
