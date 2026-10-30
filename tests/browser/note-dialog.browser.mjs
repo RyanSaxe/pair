@@ -249,3 +249,42 @@ test("the same words selected in two paragraphs keep separate drafts", async (t)
   const saved = await hubNotes("About the refunds.", "About the retries.");
   assert.notEqual(saved[0].target, saved[1].target);
 });
+
+// Two tabs of one browser save one draft in localStorage, so the second tab
+// loses the note when the first tab removes it.
+test("an edit saved after another tab removed the note sends as a new note, with only the images added in the edit", async (t) => {
+  const { session: s, url, hubNotes, onHub } = await session(t);
+  const blank = await open(t, "about:blank");
+  if (!blank) return;
+  const context = await blank.context().browser().newContext();
+  const first = await context.newPage();
+  const second = await context.newPage();
+
+  await first.goto(`${url}#overview`);
+  await comment(first, "Comment on the result");
+  await first.locator("#note-text").fill("The first words.");
+  await attach(first, 1);
+  await first.locator("#note-save").click();
+  await closed(first);
+  const [original] = await hubNotes("The first words.");
+
+  await second.goto(`${url}#feedback`);
+  await button(second, "Edit").click();
+  await opened(second);
+  await second.locator("#note-text").fill("The edited words.");
+  await attach(second, 2);
+
+  await first.goto(`${url}#feedback`);
+  await button(first, "Remove").click();
+  await waitUntil(async () => !(await onHub(original.attachments[0])));
+  await second.locator("#note-save").click();
+  await closed(second);
+
+  const [kept] = await hubNotes("The edited words.");
+  assert.notEqual(kept.id, original.id);
+  assert.equal(kept.attachments.length, 1);
+  assert.equal(await onHub(kept.attachments[0]), true);
+
+  const payload = await send(second, s);
+  assert.equal(payload.groups.notes[0].text, "The edited words.");
+});

@@ -187,14 +187,19 @@ export function installNoteDialog() {
     const text = $("note-text").value.trim();
     if (!text) return;
     // Another device can delete the note while this dialog edits it. The
-    // edit then becomes a new note, so the reviewer's words are kept.
+    // edit then becomes a new note, so the reviewer's words are kept. Remove
+    // deleted the images the note had, so the new note has only the images
+    // added in this dialog.
     const kept = state.notes.some((item) => item.id === editing);
+    const images = kept
+      ? noteImages
+      : noteImages.filter((item) => !noteImagesAtOpen.includes(item.id));
     const note = {
       ...noteContext,
       id: kept ? editing : uuid(),
       text,
       round: plan.round,
-      ...(noteImages.length ? { attachments: noteImages } : {}),
+      ...(images.length ? { attachments: images } : {}),
     };
     if (kept) {
       state.notes = state.notes.map((item) =>
