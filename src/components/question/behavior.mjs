@@ -48,12 +48,19 @@ planUI.define("question", {
     // has the text in the box, so every browser that shares the draft shows
     // the same state. Edit keeps the card open in the browser that pressed
     // it. A new round's draft contains no answer that was sent.
-    const recorded = planUI.answered(card.dataset.question)?.text;
-    if (
-      planUI.prefs.get(key) !== "" &&
-      recorded?.trim() &&
-      recorded === area.value
-    )
-      show(true);
+    const sync = () => {
+      const recorded = planUI.answered(card.dataset.question)?.text;
+      show(
+        planUI.prefs.get(key) !== "" &&
+          Boolean(recorded?.trim()) &&
+          recorded === area.value,
+      );
+      save.disabled = !area.value.trim();
+    };
+    // plan:draft leaves a box the reviewer is typing in as it is.
+    card.addEventListener("plan:draft", () => {
+      if (area !== document.activeElement) sync();
+    });
+    sync();
   },
 });
