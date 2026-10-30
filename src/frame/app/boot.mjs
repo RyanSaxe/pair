@@ -46,6 +46,7 @@ import {
   poll,
   selectedTab,
 } from "#frame/sync/rounds.mjs";
+import { installDraftHub, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 
 const planData = JSON.parse($("plan-data").textContent);
@@ -116,6 +117,7 @@ function bootRound() {
   installRegistry();
   installDrawing();
   installDraftSync();
+  installDraftHub();
   window.planUI = createPlanUI();
   document.title = plan.title;
   if (editable) initializeChecklists();
@@ -161,6 +163,7 @@ function bootRound() {
     }
     if (online && mode !== "preview") {
       poll().then(() => {
+        void syncDraft();
         // A notification's link puts its target in the address. While Current
         // waits, the frame shows the sent round's pages only under Previous,
         // so the target opens there, unless it is on Work, which every round
@@ -184,7 +187,7 @@ function bootRound() {
         pollSessions();
         setInterval(pollSessions, 5000);
       });
-      setInterval(poll, 1500);
+      setInterval(() => poll().then(syncDraft), 1500);
     } else review();
   }
   /* The browser runs a module after it parses the document, so readyState is
