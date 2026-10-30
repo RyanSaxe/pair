@@ -25,10 +25,18 @@ import { cardsEditable } from "#frame/pages/work.mjs";
 
 let noteImages = [];
 let noteImagesAtOpen = [];
+let noteImagesRemoved = [];
 let noteImagesSaved = false;
 export function setNoteImages(images) {
   noteImages = images;
   noteImagesAtOpen = images.map((item) => item.id);
+}
+/* The saved note still refers to each image it had when the dialog opened,
+   and backing out keeps the saved note as it was. So dropNoteImage deletes
+   such an image only when the reviewer saves the edit. */
+function dropNoteImage(item) {
+  if (noteImagesAtOpen.includes(item.id)) noteImagesRemoved.push(item);
+  else forgetImages([item]);
 }
 export function drawNoteImages() {
   const box = $("note-images");
@@ -37,7 +45,7 @@ export function drawNoteImages() {
   for (const item of noteImages) {
     const figure = imageFigure(item, () => {
       noteImages = noteImages.filter((held) => held.id !== item.id);
-      forgetImages([item]);
+      dropNoteImage(item);
       drawNoteImages();
     });
     if (item.scene) {
@@ -50,7 +58,7 @@ export function drawNoteImages() {
           noteImages = noteImages.map((held) =>
             held.id === item.id ? sketch : held,
           );
-          forgetImages([item]);
+          dropNoteImage(item);
           drawNoteImages();
         }).catch((error) => imageError(error.message));
       figure.append(edit);
@@ -107,6 +115,7 @@ export function settleNoteImages() {
     );
   noteImages = [];
   noteImagesAtOpen = [];
+  noteImagesRemoved = [];
   noteImagesSaved = false;
 }
 
@@ -163,11 +172,12 @@ export function installNoteDialog() {
       round: plan.round,
       ...(noteImages.length ? { attachments: noteImages } : {}),
     };
-    if (kept)
+    if (kept) {
       state.notes = state.notes.map((item) =>
         item.id === editing ? note : item,
       );
-    else state.notes.push(note);
+      forgetImages(noteImagesRemoved);
+    } else state.notes.push(note);
     if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
     noteImagesSaved = true;
     save();
