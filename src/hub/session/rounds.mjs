@@ -478,8 +478,12 @@ export function rounds(session) {
   }
   function pageSet(round) {
     requireValue(roundPattern.test(round || ""), "Invalid round");
-    const set = session.state.roundPages?.[round];
-    requireValue(set, "Unknown round", 404);
+    requireValue(
+      Object.hasOwn(session.state.roundPages || {}, round),
+      "Unknown round",
+      404,
+    );
+    const set = session.state.roundPages[round];
     return {
       round,
       generation: set.generation,
