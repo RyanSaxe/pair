@@ -33,7 +33,21 @@ session to your browser and wakes the agent when you respond.
   which proposal cards you saw on Work, and sends those records with the
   session list. A phone on the `PAIR_HUB_HOST` address and a computer then
   show the same bell, sessions badge and **New** marks, within one poll of
-  each other. Drafts and other preferences stay in each browser.
+  each other. Layout preferences, such as the sidebar, stay in each browser.
+- The hub keeps each session's completed feedback and numbers each change it
+  receives. Every pair tab sends the notes, choices, answers, saved drawings
+  and the **Everything else looks good** switch you change, and reads the
+  hub's copy when a status poll shows a newer revision. When two devices
+  change the same item, the change the hub receives later wins, and a removed
+  note stays removed. Text you typed but did not complete stays in the browser
+  you typed it in.
+- When the hub or another tab changes the draft, the frame sets the choices,
+  answers and note marks on the page at once. It draws the page again only
+  while you are not typing in a field on the page, using a dialog or a
+  prototype, pressing a control, or part way through a video or recording, so
+  none of those is replaced. A page with a video you started and did not finish
+  shows the rest of the change, such as an answered question's card, after you
+  leave the page and come back.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
@@ -192,6 +206,7 @@ sessions/<dir>/      the directory name is not the session ID
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
   rounds/            built rounds
+  draft.json         your completed notes, choices and answers, until you send
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
   scenes/            editable shapes of drawing answers
