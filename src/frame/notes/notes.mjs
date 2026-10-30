@@ -420,14 +420,9 @@ export function openNote({
     ...(proposal ? { proposal } : {}),
   };
   editing = id;
-  noteDraftKey = JSON.stringify([
-    topic,
-    anchor,
-    quote,
-    id,
-    agreementId,
-    ...(proposal ? [proposal] : []),
-  ]);
+  // The key includes everything that places the note, so two selections of
+  // the same words keep separate drafts.
+  noteDraftKey = JSON.stringify([id, noteContext]);
   const pageTitle = topicTitle(topic) || anchor;
   $("note-anchor").textContent =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;

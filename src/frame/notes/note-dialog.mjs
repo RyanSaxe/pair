@@ -25,10 +25,21 @@ import { cardsEditable } from "#frame/pages/work.mjs";
 
 let noteImages = [];
 let noteImagesAtOpen = [];
+let noteImagesRemoved = [];
 let noteImagesSaved = false;
+// settleNoteImages replaces this count, so attach can tell when the dialog
+// that started an upload has closed.
+let uploads = { running: 0 };
 export function setNoteImages(images) {
   noteImages = images;
   noteImagesAtOpen = images.map((item) => item.id);
+}
+/* The saved note still refers to each image it had when the dialog opened,
+   and backing out keeps the saved note as it was. So dropNoteImage deletes
+   such an image only when the reviewer saves the edit. */
+function dropNoteImage(item) {
+  if (noteImagesAtOpen.includes(item.id)) noteImagesRemoved.push(item);
+  else forgetImages([item]);
 }
 export function drawNoteImages() {
   const box = $("note-images");
@@ -37,7 +48,7 @@ export function drawNoteImages() {
   for (const item of noteImages) {
     const figure = imageFigure(item, () => {
       noteImages = noteImages.filter((held) => held.id !== item.id);
-      forgetImages([item]);
+      dropNoteImage(item);
       drawNoteImages();
     });
     if (item.scene) {
@@ -50,7 +61,7 @@ export function drawNoteImages() {
           noteImages = noteImages.map((held) =>
             held.id === item.id ? sketch : held,
           );
-          forgetImages([item]);
+          dropNoteImage(item);
           drawNoteImages();
         }).catch((error) => imageError(error.message));
       figure.append(edit);
@@ -85,15 +96,32 @@ export function fitNoteText() {
   area.style.height = `${height}px`;
   [area.scrollTop, body.scrollTop] = scrolled;
 }
-const attach = (files) =>
-  uploadImages(
+function drawUploading() {
+  const busy = uploads.running > 0;
+  $("note-uploading").hidden = !busy;
+  $("note-save").disabled = busy;
+  $("note-thread").disabled = busy;
+}
+/* A note cannot be saved while an upload runs, so it cannot lose the image.
+   When the reviewer backs out first, the upload belongs to no note, so attach
+   deletes the image when the upload finishes. */
+async function attach(files) {
+  const started = uploads;
+  started.running++;
+  drawUploading();
+  await uploadImages(
     files,
     (record) => {
-      noteImages.push(record);
-      drawNoteImages();
+      if (started === uploads) addNoteImage(record);
+      else forgetImages([record]);
     },
-    imageError,
+    (message) => {
+      if (started === uploads) imageError(message);
+    },
   );
+  started.running--;
+  drawUploading();
+}
 /* settleNoteImages deletes the images that a dialog uploaded when the
    reviewer backs out of it, so the session keeps no image that no note
    refers to. The frame calls it when the reviewer closes the dialog with
@@ -107,7 +135,10 @@ export function settleNoteImages() {
     );
   noteImages = [];
   noteImagesAtOpen = [];
+  noteImagesRemoved = [];
   noteImagesSaved = false;
+  uploads = { running: 0 };
+  drawUploading();
 }
 
 export function installNoteDialog() {
@@ -151,23 +182,31 @@ export function installNoteDialog() {
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
     if (!feedbackEditable() || $("note-save").hidden) return;
+    // Shift+Enter submits the form even while its button is disabled.
+    if ($("note-save").disabled) return;
     const text = $("note-text").value.trim();
     if (!text) return;
     // Another device can delete the note while this dialog edits it. The
-    // edit then becomes a new note, so the reviewer's words are kept.
+    // edit then becomes a new note, so the reviewer's words are kept. Remove
+    // deleted the images the note had, so the new note has only the images
+    // added in this dialog.
     const kept = state.notes.some((item) => item.id === editing);
+    const images = kept
+      ? noteImages
+      : noteImages.filter((item) => !noteImagesAtOpen.includes(item.id));
     const note = {
       ...noteContext,
       id: kept ? editing : uuid(),
       text,
       round: plan.round,
-      ...(noteImages.length ? { attachments: noteImages } : {}),
+      ...(images.length ? { attachments: images } : {}),
     };
-    if (kept)
+    if (kept) {
       state.notes = state.notes.map((item) =>
         item.id === editing ? note : item,
       );
-    else state.notes.push(note);
+      forgetImages(noteImagesRemoved);
+    } else state.notes.push(note);
     if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
     noteImagesSaved = true;
     save();
