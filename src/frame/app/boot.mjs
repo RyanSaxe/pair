@@ -40,13 +40,8 @@ import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
 import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
-import {
-  installDraftSync,
-  openPast,
-  poll,
-  selectedTab,
-} from "#frame/sync/rounds.mjs";
-import { syncDraft } from "#frame/sync/draft.mjs";
+import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
+import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 
 const planData = JSON.parse($("plan-data").textContent);

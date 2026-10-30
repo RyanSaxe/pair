@@ -3,8 +3,15 @@ import {
   mergeDraft,
   recordPushed,
 } from "#frame/app/draft-merge.mjs";
-import { persist, state } from "#frame/app/store.mjs";
-import { base, editable } from "#frame/app/view.mjs";
+import {
+  changedPages,
+  persist,
+  setState,
+  state,
+  storedDraft,
+} from "#frame/app/store.mjs";
+import { base, editable, storageKey, views } from "#frame/app/view.mjs";
+import { refreshReplies } from "#frame/notes/thread-reply.mjs";
 import { showChanges } from "#frame/pages/pages.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { connected, remote, selectedTab } from "#frame/sync/rounds.mjs";
@@ -39,7 +46,7 @@ function keep(next) {
 // merge saves the draft only when the merge changed it, so a tab that has
 // nothing new to merge never writes the copy that the other tabs load.
 function merge(before = JSON.stringify(state.synced)) {
-  if (!hub || !syncing()) return;
+  if (!syncing() || hub?.id !== remote.draftId) return;
   const pages = mergeDraft(state, hub);
   if (!pages && JSON.stringify(state.synced) === before) return;
   persist();
@@ -109,4 +116,28 @@ export async function syncDraft() {
   }
   merge();
   await push();
+}
+// Every tab of a session saves its draft under one key. When another tab
+// saves the draft for the round on screen here, this tab loads that draft,
+// so it never saves its older copy back, such as a copy from before a send.
+// The handler saves nothing itself, because each save starts this handler in
+// the other tabs.
+export function installDraftSync() {
+  if (!editable) return;
+  window.addEventListener("storage", (event) => {
+    if (event.key !== storageKey) return;
+    const past = selectedTab === "past";
+    const view = past ? views.get(remote?.current?.round) : null;
+    const held = past ? view?.draft : state;
+    const draft = held && storedDraft(event.newValue, held.round);
+    if (!draft) return;
+    if (past) {
+      view.draft = draft;
+      return;
+    }
+    const before = state;
+    setState(draft);
+    showChanges(changedPages(before, draft));
+    refreshReplies();
+  });
 }
