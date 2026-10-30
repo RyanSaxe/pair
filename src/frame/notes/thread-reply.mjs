@@ -1,5 +1,5 @@
 import { persist, state } from "#frame/app/store.mjs";
-import { $ } from "#frame/app/util.mjs";
+import { $, typingIn } from "#frame/app/util.mjs";
 import {
   acceptImages,
   forgetImages,
@@ -13,8 +13,8 @@ import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/threads.mjs";
    Send, so a reload keeps them. */
 
 const redraws = new WeakMap();
-// refreshReplies shows each reply draft that a merge of the hub's draft
-// changed, in the forms on screen.
+// refreshReplies shows the reply drafts that another tab changed in the
+// forms on screen, and leaves the box the reviewer is typing in as it is.
 export function refreshReplies() {
   for (const form of document.querySelectorAll("form.thread-reply"))
     redraws.get(form)?.();
@@ -116,8 +116,13 @@ export function replyForm(id, send) {
   form.append(field, pick, submit, input, strip, problem);
   error("");
   draw();
+  let attached = JSON.stringify(draftOf(id).attachments);
   redraws.set(form, () => {
-    field.value = draftOf(id).text;
+    const draft = draftOf(id);
+    if (typingIn(field)) return;
+    if (field.value !== draft.text) field.value = draft.text;
+    if (JSON.stringify(draft.attachments) === attached) return;
+    attached = JSON.stringify(draft.attachments);
     draw();
   });
   return form;

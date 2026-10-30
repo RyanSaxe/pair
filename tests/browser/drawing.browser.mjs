@@ -58,7 +58,7 @@ export function Excalidraw({ initialData, onChange, theme, excalidrawAPI }, node
 export const convertToExcalidrawElements = (skeleton) =>
   skeleton.map((element, index) => ({ id: String(index), version: 1, isDeleted: false, ...element }));
 export const exportToBlob = async () =>
-  new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])], { type: "image/png" });`,
+  new Blob([Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg=="), (char) => char.charCodeAt(0))], { type: "image/png" });`,
   converter: `export const parseMermaidToExcalidraw = async (source) => ({
   elements: [{ type: "rectangle", x: 0, y: 0, width: 100, height: 40, text: source }],
   files: {},
@@ -183,4 +183,58 @@ test("Sketch on this diagram opens its boxes in the drawing editor in the frame'
   const [image] = (await sent()).messages[0].attachments;
   assert.equal(image.type, "image/png");
   assert.match(image.scene.path, /\/scenes\/[0-9a-f]{16}\.excalidraw$/);
+});
+
+test("a redrawn sketch replaces the note's old sketch only when the edit is saved", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const plan = planData();
+  plan.pages[0].html = `<div data-diagram data-caption="Payment flow">flowchart LR\n  gate --> details</div>`;
+  assert.equal((await session.publish(plan)).code, 200);
+  const page = await open(t, "about:blank", {
+    args: ["--disable-site-isolation-trials"],
+  });
+  if (!page) return;
+  await stubPele(page);
+  await stubExcalidraw(page);
+  const url = `${h.server.origin}${session.base}/`;
+  await page.goto(`${url}#overview`);
+  const dialog = page.locator("#note-dialog");
+  const onHub = async (id) =>
+    (await session.request(`${session.base}/api/upload/${id}`)).code === 200;
+  const shown = async () =>
+    (await page.locator("#note-images img").getAttribute("src"))
+      .split("/")
+      .pop();
+  const redraw = async () => {
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("button", { name: "Edit sketch" }).click();
+    await page.frameLocator("#drawing-frame").locator(".stroke").waitFor();
+    await page.getByRole("button", { name: "Save sketch" }).click();
+    await page.locator("#drawing-dialog").waitFor({ state: "hidden" });
+    return shown();
+  };
+
+  await page.locator("[data-diagram] svg").click({ position: { x: 2, y: 2 } });
+  await page.getByRole("button", { name: "Sketch on this diagram" }).click();
+  await page.getByRole("button", { name: "Save sketch" }).click();
+  await page.locator("#note-dialog[open]").waitFor();
+  const saved = await shown();
+  await page.locator("#note-text").fill("Put a queue here.");
+  await page.locator("#note-save").click();
+  await dialog.waitFor({ state: "hidden" });
+  await page.goto(`${url}#feedback`);
+
+  const dropped = await redraw();
+  assert.notEqual(dropped, saved);
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await waitUntil(async () => !(await onHub(dropped))), true);
+  assert.equal(await onHub(saved), true);
+
+  const replacement = await redraw();
+  await page.locator("#note-save").click();
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await waitUntil(async () => !(await onHub(saved))), true);
+  assert.equal(await onHub(replacement), true);
 });

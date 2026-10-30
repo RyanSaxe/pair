@@ -1,12 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { assemble, pageScripts, pageStyles } from "../build/assemble.mjs";
+import { joinPage, pageScripts, pageStyles } from "../build/assemble.mjs";
 import { fieldProblems } from "../build/fields.mjs";
 import { sizeImages } from "../build/image-size.mjs";
 import { problems } from "../build/lint.mjs";
-import { pageData, pagePlan, validPage } from "../shared/records.mjs";
+import {
+  pageData,
+  pagePlan,
+  readPlanData,
+  validPage,
+} from "../shared/records.mjs";
 import { jsonScriptTag } from "../shared/util.mjs";
-import { refuseOverwrite } from "./output.mjs";
+import { refuseOverwrite, tooBigToPublish } from "./output.mjs";
 
 // A diff's textarea either has data-diff-input set to the JSON file that pair
 // diff wrote, as data-diff-input="retry.json", or contains that JSON pasted in
@@ -118,22 +123,25 @@ export async function buildPage(source, input) {
     );
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
-  // assemble() receives the page's script encoded, so the build checks the
-  // script here as written.
-  const authoredProblems = [
-    ...unreadable,
-    ...problems(data, page.jsText || "", { allowUnknownPages: true }),
-  ];
-  if (authoredProblems.length) throw new Error(authoredProblems.join("\n"));
-  const preview = await assemble(data, {
-    css: pageStyles([page], record.round),
-    js: pageScripts([page], record.round),
-    allowUnknownPages: true,
-  });
-  return preview.replace(
+  const preview = await joinPage(
+    data,
+    pageStyles([page], record.round),
+    pageScripts([page], record.round),
+  );
+  const html = preview.replace(
     "</body>",
     () => `${jsonScriptTag("page-data", record)}</body>`,
   );
+  // The built file contains the page's script encoded, so the build checks the
+  // script here as written.
+  const found = [
+    ...unreadable,
+    ...problems(data, page.jsText || "", { allowUnknownPages: true }),
+    ...tooBigToPublish(`page "${page.id}"`, { action: "publish", html }),
+  ];
+  if (found.length) throw new Error(found.join("\n"));
+  readPlanData(html);
+  return html;
 }
 export async function build(source) {
   return buildPage(source, JSON.parse(await fs.readFile(source, "utf8")));

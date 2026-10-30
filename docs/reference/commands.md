@@ -33,6 +33,9 @@ creates a session. A session command prints these, in order:
 2. The instructions for that moment of the session.
 3. Its result, with your words inside `pair_` tags.
 
+The result of `pair read` starts with the round, whether it is a plan, and the
+latest submission's ID, which `--submission` takes.
+
 While a page or a proposal has had no update for 10 minutes, the next step
 ends with a line about it, as
 [Quiet work](../concepts/architecture.md#quiet-work) describes.
@@ -95,6 +98,9 @@ it only to an address on a network you trust, such as your own Tailscale IP.
 pair refuses `0.0.0.0` and `::`, which would make the hub reachable from every
 network the machine is on. The routes that agents use need the session's
 bearer token on every address.
+
+While a hub runs, `pair start` refuses to use its port for another state
+directory, so give each state directory its own `PAIR_HUB_PORT`.
 
 A Codex from version 0.160 started with no `-c` override runs the agent's
 commands on its app-server daemon, with the daemon's environment, so a variable

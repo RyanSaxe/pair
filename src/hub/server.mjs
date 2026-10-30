@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
-import { settings, version } from "../shared/settings.mjs";
+import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
 import {
   atomic,
   embedConfig,
@@ -127,13 +127,14 @@ export async function startHub(config = settings()) {
   // Chrome can paint a page before it parses all of it, so a session the
   // reviewer switched to showed an empty sidebar and reading column before
   // the frame drew into them. A module script in the head with
-  // blocking="render" keeps the previous page on screen until the browser
-  // parses the page and runs its modules. The hub adds the script when it
-  // serves the page, so rounds built by an earlier pair get it too. The
-  // browser never runs a script with no text, so the script contains a
-  // comment. framePage puts the script last in the head, after everything
-  // else the hub adds there, so the head's other modules run before the first
-  // paint.
+  // blocking="render" keeps the previous page on screen until the browser runs
+  // it, and the browser runs module scripts in document order after it parses
+  // the page. framePage puts the script last in the head, after the frame's
+  // and the page's modules, so the first paint comes after they have run. A
+  // round built before those modules moved into the head has them at the end
+  // of the body, after this script, and Chrome can paint its bare frame first.
+  // The browser never runs a script with no text, so the script contains a
+  // comment.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
   const framePage = (session, html, flags, head) =>
     embedConfig(
@@ -272,7 +273,7 @@ export async function startHub(config = settings()) {
           403,
         );
         if (method === "POST" && parts[2] === "action") {
-          const data = await readBody(req, 10_000_000);
+          const data = await readBody(req, agentRequestBytes);
           return reply(200, await session.exclusive(() => session.act(data)));
         }
       }
@@ -287,31 +288,31 @@ export async function startHub(config = settings()) {
             Location: session.base + "/",
           });
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
+          // The hub serves a session the reviewer closed as read-only, so a
+          // tab left open on it cannot submit and wake an agent that has
+          // finished.
+          const closed = Boolean(session.state.dismissedAt);
+          const flags = closed ? { closed: true } : {};
+          const head = closed
+            ? ""
+            : firstAnswersHead(
+                await firstAnswers(session, await sessionList(req)),
+              );
           if (!session.state.current)
             return html(
               framePage(
                 session,
                 await assembleHome(session.listing().title),
-                { home: true },
-                firstAnswersHead(
-                  await firstAnswers(session, await sessionList(req)),
-                ),
+                { home: true, ...flags },
+                head,
               ),
             );
-          // The hub serves a session the reviewer closed as read-only, so a
-          // tab left open on it cannot submit and wake an agent that has
-          // finished.
-          const closed = Boolean(session.state.dismissedAt);
           return html(
             await roundPage(
               session,
               session.roundEntry(session.state.current.round),
-              closed ? { closed: true } : {},
-              closed
-                ? ""
-                : firstAnswersHead(
-                    await firstAnswers(session, await sessionList(req)),
-                  ),
+              flags,
+              head,
             ),
             {
               "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
@@ -349,12 +350,10 @@ export async function startHub(config = settings()) {
           return reply(200, session.browserView());
         // The browser sends no Origin header with a same-origin GET, so only
         // the Host check protects this read, as it protects the other reads.
-        // A drawing in progress is an Excalidraw scene, so the route accepts
-        // a body as large as a scene upload.
         if (rest[0] === "api" && rest[1] === "draft" && rest.length === 2) {
           if (method === "GET") return reply(200, session.draftView());
           if (method === "POST") {
-            const data = await readBody(req, uploadBytes);
+            const data = await readBody(req, 250_000);
             return reply(
               200,
               await session.exclusive(() => session.changeDraft(data)),
@@ -509,7 +508,7 @@ export async function startHub(config = settings()) {
             : error instanceof SyntaxError || error instanceof URIError
               ? 400
               : 500),
-        { error: error.message },
+        { error: error.message, ...error.details },
       );
     }
   }

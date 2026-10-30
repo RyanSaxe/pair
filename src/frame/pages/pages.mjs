@@ -28,9 +28,9 @@ import {
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
-import { blockTargets, chooseBlock } from "#frame/notes/blocks.mjs";
+import { chooseBlock } from "#frame/notes/blocks.mjs";
 import {
-  choiceTargets,
+  pageTargets,
   restoreAnswers,
   restoreChoices,
 } from "#frame/notes/controls.mjs";
@@ -100,6 +100,7 @@ export function show(
   targetId = null,
   { keepScroll = false, push = true, inPlace = false } = {},
 ) {
+  redrawHeld = false;
   // A thread or a card has overall as its note's page, and overall is on
   // Review.
   if (id === "overall") id = "feedback";
@@ -143,10 +144,7 @@ export function show(
     $("page-content").dataset.round = plan.round;
     $("page-content").innerHTML = page.pending ? pendingPage : page.html;
     if (page.pending) updatePending();
-    else {
-      blockTargets($("page-content"), page.id);
-      choiceTargets($("page-content"), page.id);
-    }
+    else pageTargets($("page-content"), page.id);
     if (page.id === "agreed" && !page.waiting) drawing = renderAgreements();
     else if (!page.pending) {
       restoreChoices();
@@ -189,6 +187,43 @@ export function show(
   whenDrawn(drawing, () => {
     if (!loading) arrived();
   });
+}
+/* showChanges shows the draft after it changed outside this tab's own
+   controls, from the hub or from another tab. pages names the pages whose
+   items changed, and null means any page. showChanges sets the choices,
+   answers and note marks on the page at once, and sends plan:draft to each
+   control, so a component updates what it derives from the draft, such as an
+   answered question. Drawing the page again covers a page's own scripts, but
+   it replaces every field, video and thread card on the page, so redrawPage
+   waits while the reviewer uses one of them or has a dialog open. The frame
+   calls redrawPage again after each status poll. */
+let redrawHeld = false;
+export function showChanges(pages = null) {
+  review();
+  if ($("reading").hidden || page.pending || (pages && !pages.has(page.id)))
+    return;
+  restoreChoices();
+  restoreAnswers();
+  if (page.id !== "agreed") markNotes();
+  for (const control of $("page-content").querySelectorAll(
+    "[data-multiselect], [data-question], [data-drawing-question]",
+  ))
+    control.dispatchEvent(new CustomEvent("plan:draft"));
+  redrawHeld = true;
+  redrawPage();
+}
+const fields =
+  "textarea, input:is([type=text], [type=search], :not([type])), [contenteditable], iframe, video, audio";
+// A video keeps its place only while the page keeps its element.
+const started = (media) =>
+  !media.paused || (media.currentTime > 0 && !media.ended);
+const inUse = () =>
+  Boolean(document.querySelector("dialog[open], #reading :active")) ||
+  (document.hasFocus() && Boolean(document.activeElement?.matches(fields))) ||
+  [...document.querySelectorAll("video, audio")].some(started);
+export function redrawPage() {
+  if (!redrawHeld || inUse() || $("reading").hidden) return;
+  show(page.id, null, { keepScroll: true, push: false, inPlace: true });
 }
 export function badge(count) {
   const row = $("review-row");
@@ -279,14 +314,16 @@ function addPageButton(item) {
 }
 let pageList;
 /* newMarks() marks New on each ready page of the live current round that no
-   browser on the hub has opened, and counts the page on screen as opened.
-   It returns the opened pages, or null when it marks no page. */
+   browser on the hub has opened, and counts the page on screen as opened
+   while the tab is visible. It returns the opened pages, or null when it
+   marks no page. */
 function newMarks(listed) {
   if (!editable || listed.tab !== "current" || listed.waiting) return null;
   if (listed.tab !== selectedTab) return openedPages();
   if (!current()) return null;
   const onScreen = pages.find((item) => item.id === visiblePageId());
   if (
+    document.visibilityState === "visible" &&
     onScreen &&
     pageStatus(onScreen) === "complete" &&
     markOpened(session.sessionId, plan.round, onScreen.id)
@@ -423,4 +460,5 @@ export function installPages() {
   $("navigation").append(tabs, pageList);
   updateNavigation(true);
   $("feedback-pages").addEventListener("click", openSidebar);
+  document.addEventListener("visibilitychange", () => updateNavigation());
 }

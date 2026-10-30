@@ -9,6 +9,7 @@ import {
   showingWaiting,
   waiting,
 } from "#frame/app/view.mjs";
+import { onCurrentAgreed } from "#frame/notes/threads.mjs";
 import { show, updateNavigation } from "#frame/pages/pages.mjs";
 import { refreshWork } from "#frame/pages/work.mjs";
 import {
@@ -18,7 +19,12 @@ import {
   eventTitle,
 } from "#frame/sync/notifications.mjs";
 import { hubRecord } from "#frame/sync/record.mjs";
-import { openPast, remote } from "#frame/sync/rounds.mjs";
+import {
+  openPast,
+  remote,
+  selectedTab,
+  switchTab,
+} from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
 /* The hub stores the IDs of the events that the reviewer cleared from the
@@ -187,7 +193,11 @@ function openEvent(event) {
   const round = event.round || plan.round;
   const own = event.entry.id === session.sessionId;
   if (own && event.page === "work" && editable) show("work", target);
-  else if (
+  else if (own && onCurrentAgreed(target)) {
+    if (selectedTab !== "current")
+      switchTab("current", null, { showPage: false });
+    show("agreed", target);
+  } else if (
     own &&
     round === plan.round &&
     !showingWaiting() &&

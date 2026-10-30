@@ -9,6 +9,7 @@ import {
   exists,
   hub,
   killHub,
+  literal,
   pairCli,
   planData,
   task,
@@ -286,8 +287,103 @@ async function sessionWithAgreed(t) {
       source,
       ...rest,
     );
-  return { sessionDir, agreed, overview, list, publish, run };
+  return { sessionDir, agreed, overview, list, page, publish, run };
 }
+
+// A link to the sessions directory stands in for /var and /private/var on
+// macOS, two paths to one directory.
+test("a publish keeps its source when --session-dir reaches the session by another path", async (t) => {
+  const { sessionDir, agreed, list, run } = await sessionWithAgreed(t);
+  const parent = path.dirname(sessionDir);
+  const link = `${parent}-link`;
+  await fs.symlink(parent, link);
+  const other = path.join(link, path.basename(sessionDir));
+  await run(
+    "publish",
+    "--session-dir",
+    other,
+    "--file",
+    agreed.built,
+    "--source",
+    agreed.source,
+    "--pages",
+    list,
+  );
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
+    true,
+  );
+});
+
+test("the hub refuses a kept source outside the session directory", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const html = await buildPage(path.join(a.directory, "source.json"), {
+    name: "example",
+    round: "1",
+    title: "Example work",
+    page: { id: "agreed", title: "Agreed so far", task, agreements: [] },
+  });
+  const beside = `${a.directory}-beside`;
+  const linked = path.join(a.directory, "src", "linked");
+  await fs.mkdir(path.dirname(linked), { recursive: true });
+  await fs.mkdir(beside);
+  await fs.symlink(beside, linked);
+  for (const source of [beside, linked, path.join(a.directory, "src", "no")]) {
+    const refused = await a.action("publish", { html, source });
+    assert.equal(refused.code, 400, source);
+    assert.equal(
+      refused.body.error,
+      "Source must be a directory inside the session directory",
+    );
+  }
+});
+
+// pair build refuses a page this big, so the padding stands in for a file that
+// an older pair build wrote or a page list that takes the request over the limit.
+test("a publish over the hub's limit is refused with the limit and what to do, and keeps no source", async (t) => {
+  const { sessionDir, agreed, overview, list, publish } =
+    await sessionWithAgreed(t);
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const big = path.join(path.dirname(overview.built), "big.html");
+  await fs.writeFile(
+    big,
+    (await fs.readFile(overview.built, "utf8")).replace(
+      "</body>",
+      () => `<!--${"A".repeat(20_000_000)}--></body>`,
+    ),
+  );
+  await assert.rejects(publish(big, overview.source), (error) => {
+    assert.equal(error.code, 1);
+    assert.match(
+      error.stderr,
+      new RegExp(
+        `^pair: ${literal(big)} is too big to publish\\. The publish would send the hub \\d+(\\.\\d)? MB, and the hub accepts at most 20 MB\\. pair build writes a page's content into the built file twice, so the images embedded in one page can total about 6\\.7 MB\\. Crop or resize the images, or save them as JPEG or WebP\\. Then build the page again and publish the new file\\.\\n$`,
+      ),
+    );
+    return true;
+  });
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "overview")),
+    false,
+  );
+});
+
+test("a page with images of the size the refusal names builds and publishes", async (t) => {
+  const { sessionDir, agreed, list, page, publish } =
+    await sessionWithAgreed(t);
+  await publish(agreed.built, agreed.source, "--pages", list);
+  const fits = await page(
+    "fits",
+    { page: { id: "overview", title: "Overview", file: "fits.html" } },
+    `<img alt="" src="data:image/png;base64,${"A".repeat((6_700_000 / 3) * 4)}">`,
+  );
+  await publish(fits.built, fits.source);
+  assert.equal(
+    await exists(path.join(sessionDir, "src", "1", "overview", "fits.html")),
+    true,
+  );
+});
 
 test("a publish with a missing --file names pair build and keeps no source", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);

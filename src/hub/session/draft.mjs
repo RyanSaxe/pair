@@ -1,6 +1,7 @@
+import crypto from "node:crypto";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { itemKey, sentItems, splitKey } from "../../shared/draft-items.mjs";
+import { sentItems, splitKey } from "../../shared/draft-items.mjs";
 import { atomic, read, requireValue } from "../../shared/util.mjs";
 
 const record = (value) =>
@@ -12,11 +13,6 @@ const shapes = {
     strings(value, ["id", "topic", "anchor", "text"]) && value.id === id,
   choice: (value) => strings(value, ["topic"]),
   answer: (value) => strings(value, ["topic"]),
-  draft: (value) => typeof value === "string" || record(value),
-  noteDraft: (value) => typeof value === "string",
-  replyDraft: (value) =>
-    strings(value, ["text"]) && Array.isArray(value.attachments),
-  message: (value) => typeof value === "string",
   alignUnflagged: (value) => typeof value === "boolean",
 };
 const valid = (key, value) => {
@@ -44,46 +40,42 @@ export function applyChanges(draft, changes) {
     if (item?.value === null && key.startsWith("note/")) continue;
     items[key] = { rev: ++revision, value };
   }
-  return { revision, items };
+  return { ...draft, revision, items };
 }
 
-/* applySubmission removes the items in a submission, and the typed text or
-   drawing under each sent answer's key, as markSent() does in the browser
-   that sent it. It keeps an item that another device changed after the
-   sending browser last merged the draft, because the submission did not
-   include that change, so the reviewer can still send it. When the
-   reviewer ticks a box, the frame records the checklist with the live
-   block's ID as its target, and initializeChecklists() rebuilds it with
-   another ID and the current round, so applySubmission compares items
-   without their target and round. */
+/* applySubmission removes the items in a submission, as markSent() does in
+   the browser that sent it. It keeps an item that another device changed
+   after the sending browser last merged the draft, because the submission
+   did not include that change, so the reviewer can still send it.
+   initializeChecklists() rebuilds a checklist with the current round, and a
+   draft saved by an older frame has another ID as a checklist's target, so
+   applySubmission compares items without their target and round. */
 const content = ({ target, round, ...rest }) => rest;
 export function applySubmission(draft, payload) {
   const removed = {};
-  const unchanged = (key, sent) => {
-    const value = draft.items[key]?.value ?? null;
-    if (value === null) return true;
-    if (key === "message")
-      return typeof value === "string" && value.trim() === sent;
-    return isDeepStrictEqual(content(value), content(sent));
-  };
   for (const [key, sent] of sentItems(payload)) {
-    if (!unchanged(key, sent)) continue;
-    removed[key] = null;
-    if (key.startsWith("answer/"))
-      removed[itemKey("draft", splitKey(key).id)] = null;
+    const value = draft.items[key]?.value ?? null;
+    if (value === null || isDeepStrictEqual(content(value), content(sent)))
+      removed[key] = null;
   }
   return applyChanges(draft, removed);
 }
 
+/* The draft's id names this copy of draft.json. When the file is missing or
+   unreadable, or was written before the hub kept only completed items, the
+   hub starts an empty draft with a new id. The frame then forgets which of
+   its items it had synced and sends each one again. */
 export async function draftStore(session) {
   const file = path.join(session.directory, "draft.json");
-  let draft = { revision: 0, items: {} };
-  // When draft.json is missing or unreadable, the hub starts an empty draft.
-  // The frame in each browser then finds the hub's revision below its own
-  // and sends its whole draft again.
+  let draft = { id: crypto.randomUUID(), revision: 0, items: {} };
   try {
     const saved = await read(file);
-    if (Number.isInteger(saved.revision) && record(saved.items)) draft = saved;
+    if (
+      typeof saved.id === "string" &&
+      Number.isInteger(saved.revision) &&
+      record(saved.items)
+    )
+      draft = saved;
   } catch {
     /* The empty draft above stands. */
   }

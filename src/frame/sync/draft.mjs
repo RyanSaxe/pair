@@ -3,72 +3,54 @@ import {
   mergeDraft,
   recordPushed,
 } from "#frame/app/draft-merge.mjs";
-import { persist, state } from "#frame/app/store.mjs";
-import { $ } from "#frame/app/util.mjs";
-import { base, editable, page, storageKey } from "#frame/app/view.mjs";
+import {
+  changedPages,
+  persist,
+  setState,
+  state,
+  storedDraft,
+} from "#frame/app/store.mjs";
+import { base, editable, storageKey, views } from "#frame/app/view.mjs";
 import { refreshReplies } from "#frame/notes/thread-reply.mjs";
-import { show } from "#frame/pages/pages.mjs";
-import { refreshWork } from "#frame/pages/work.mjs";
-import { review } from "#frame/review/review.mjs";
+import { showChanges } from "#frame/pages/pages.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { connected, remote, selectedTab } from "#frame/sync/rounds.mjs";
 
-/* The hub keeps the reviewer's unsent draft, so a phone and a computer
-   show the same notes, choices and answers. The frame also saves this
-   browser's copy in localStorage, and uses that copy alone when the hub is
-   unreachable or is a version that keeps no draft. */
+/* The hub keeps the items of the reviewer's draft that the reviewer
+   completed, so a phone and a computer show the same notes, choices and
+   answers. The frame also saves the whole draft in localStorage, and uses
+   that copy alone when the hub is unreachable or keeps no draft. */
 
 let hub = null;
-let merged = true;
 let pushing = false;
 let again = false;
 let timer = null;
 let refused = null;
 
-// An older hub sends no draftRevision. The frame syncs only Current's draft,
-// the one persist() saves, and not while a send is under way, because
-// markSent() must mark the items that the send included.
+// An older hub sends no draftId. The frame syncs only Current's draft, the
+// one persist() saves, and not while a send is under way, because markSent()
+// must mark the items that the send included.
 const syncing = () =>
   editable &&
   connected &&
-  remote?.draftRevision !== undefined &&
+  typeof remote?.draftId === "string" &&
   selectedTab === "current" &&
   !submissionInFlight;
-const dialogs = ["note-dialog", "drawing-dialog", "send-dialog"];
-const typing = () =>
-  dialogs.some((id) => $(id)?.open) ||
-  Boolean(
-    document.activeElement?.matches?.(
-      "textarea, input:is([type=text], [type=search], :not([type]))",
-    ),
-  );
 
-// keep ignores a draft older than one the frame has already seen, such as a
-// response to a read that started before a send.
+// keep holds the newest copy of the hub's draft that this tab has received.
 function keep(next) {
-  if (!next || !Number.isInteger(next.revision)) return;
-  if (hub && next.revision < hub.revision) return;
-  if (next.revision < (remote?.draftRevision ?? 0)) return;
-  if (hub?.revision !== next.revision) merged = false;
+  if (typeof next?.id !== "string" || !Number.isInteger(next.revision)) return;
+  if (hub?.id === next.id && next.revision < hub.revision) return;
   hub = next;
 }
-// applyHub waits while the reviewer types in a field or has a dialog open,
-// and the frame calls it again when the field loses focus or the dialog
-// closes, so the reviewer's typing is never replaced mid-word.
-export function applyHub() {
-  if (!hub || merged || !syncing()) return;
-  const hold = typing();
-  const before = JSON.stringify(state.synced);
-  const changed = mergeDraft(state, hub, { hold });
-  merged = !hold;
-  if (!changed && JSON.stringify(state.synced) === before) return;
+// merge saves the draft only when the merge changed it, so a tab that has
+// nothing new to merge never writes the copy that the other tabs load.
+function merge(before = JSON.stringify(state.synced)) {
+  if (!syncing() || hub?.id !== remote.draftId) return;
+  const pages = mergeDraft(state, hub);
+  if (!pages && JSON.stringify(state.synced) === before) return;
   persist();
-  if (!changed) return;
-  if (!$("reading").hidden)
-    show(page.id, null, { keepScroll: true, push: false, inPlace: true });
-  refreshReplies();
-  refreshWork();
-  review();
+  if (pages) showChanges(pages);
 }
 export function queuePush() {
   if (!syncing()) return;
@@ -96,10 +78,10 @@ async function push() {
     if (response.status >= 400 && response.status < 500) refused = body;
     if (response.ok) {
       const answer = await response.json();
-      if (Number.isInteger(answer?.revision) && answer.items)
-        recordPushed(state, JSON.parse(body).changes, answer);
+      const before = JSON.stringify(state.synced);
+      recordPushed(state, JSON.parse(body).changes, answer);
       keep(answer);
-      applyHub();
+      merge(before);
     }
   } catch {
     /* The change stays in this browser's draft, and syncDraft sends it
@@ -114,30 +96,48 @@ async function push() {
 }
 // The frame calls syncDraft after each poll() of the hub's status, so a
 // change the reviewer made while the hub was unreachable reaches the hub
-// after the next status the hub answers.
+// after the next status the hub answers. syncDraft merges whenever the draft
+// is behind the status, because another tab can save an older merge over
+// this tab's newer one.
 export async function syncDraft() {
   if (!syncing()) return;
+  const behind =
+    remote.draftId !== state.synced.id ||
+    remote.draftRevision > state.synced.revision;
+  const held =
+    hub?.id === remote.draftId && hub.revision >= remote.draftRevision;
   try {
-    if ((hub?.revision ?? -1) < remote.draftRevision && !pushing) {
+    if (behind && !held && !pushing) {
       const response = await fetch(`${base}/api/draft`);
       if (response.ok) keep(await response.json());
     }
   } catch {
     /* The next poll reads the draft again. */
   }
-  applyHub();
+  merge();
   await push();
 }
-export function installDraftHub() {
+// Every tab of a session saves its draft under one key. When another tab
+// saves the draft for the round on screen here, this tab loads that draft,
+// so it never saves its older copy back, such as a copy from before a send.
+// The handler saves nothing itself, because each save starts this handler in
+// the other tabs.
+export function installDraftSync() {
   if (!editable) return;
-  const later = () => setTimeout(applyHub, 0);
-  document.addEventListener("focusout", later);
-  for (const id of dialogs) $(id)?.addEventListener("close", later);
-  // installDraftSync() adds its storage handler first, so this handler
-  // merges the hub's draft again into the draft that another tab saved.
   window.addEventListener("storage", (event) => {
     if (event.key !== storageKey) return;
-    merged = false;
-    applyHub();
+    const past = selectedTab === "past";
+    const view = past ? views.get(remote?.current?.round) : null;
+    const held = past ? view?.draft : state;
+    const draft = held && storedDraft(event.newValue, held.round);
+    if (!draft) return;
+    if (past) {
+      view.draft = draft;
+      return;
+    }
+    const before = state;
+    setState(draft);
+    showChanges(changedPages(before, draft));
+    refreshReplies();
   });
 }

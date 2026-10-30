@@ -82,7 +82,7 @@ export async function proposals(session) {
       "--page takes ROUND/PAGE, such as 14/commenting",
     );
     const slot =
-      session.state.roundPages?.[round] &&
+      Object.hasOwn(session.state.roundPages || {}, round) &&
       (Object.hasOwn(framePages, id)
         ? { title: framePages[id] }
         : session.pageSet(round).pages.find((item) => item.id === id));

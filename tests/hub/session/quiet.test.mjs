@@ -132,7 +132,12 @@ test("the next-step line and the wake line name the quiet work and the commands 
   ];
   assert.equal(
     quietStep(card, now, tenMinutes, directory),
-    `No update in 10 minutes: proposal node20-hang (started 11 minutes ago). Mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…".`,
+    `No update in 10 minutes: proposal node20-hang (started 11 minutes ago). For each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part.`,
+  );
+  const mixed = [{ ...both[1] }, { ...card[0], id: "docs-pass" }];
+  assert.equal(
+    quietWake(mixed, tenMinutes, directory),
+    `pair: no pair command has run in session ${directory} for 10 minutes, and these have had no update in that time: proposal node20-hang, proposal docs-pass. Between your current steps, mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…", and for each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part, then go on with your work. Leave a card that waits for the reviewer as it is.`,
   );
   const page = [
     { kind: "page", id: "ci-flakes", updated: false, at: ago(11 * minute) },
@@ -188,17 +193,17 @@ test("every next step names quiet pages and cards until each gets an update", as
   assert.match(
     (await run("status")).next,
     new RegExp(
-      `\\nNo update in 0 minutes: page ci-flakes \\(started 0 minutes ago\\), proposal node20-hang \\(started 0 minutes ago\\)\\. Post a note on each page you are still working on with pair progress --session-dir ${dir} --page ID --note "…", and mark each finished part with pair propose --session-dir ${dir} --id ID --status-done "…"\\.$`,
+      `\\nNo update in 0 minutes: page ci-flakes \\(started 0 minutes ago\\), proposal node20-hang \\(started 0 minutes ago\\)\\. Post a note on each page you are still working on with pair progress --session-dir ${dir} --page ID --note "…", and for each proposal with no parts yet, record its parts with pair propose --session-dir ${dir} --id ID --status-left "…", with one flag for each part\\.$`,
     ),
   );
   await run("ack", { page: "ci-flakes", note: "Reading logs" });
   assert.match(
     (await run("status")).next,
-    /\nNo update in 0 minutes: proposal node20-hang \(started 0 minutes ago\)\. Mark each/,
+    /\nNo update in 0 minutes: proposal node20-hang \(started 0 minutes ago\)\. For each proposal with no parts yet, record its parts/,
   );
+  // The hub accepts the command that the line gives for a card with no parts.
   await run("propose", {
     id: "node20-hang",
-    statusDone: ["Reproduced the hang"],
     statusLeft: ["Reproduced the hang", "Fix it"],
   });
   assert.equal((await run("status")).next.includes("\n"), false);

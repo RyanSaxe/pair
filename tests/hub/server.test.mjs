@@ -383,20 +383,27 @@ test("a session keeps one plan name and uses each round number once", async (t) 
   assert.equal((await a.publish(planData("2"))).code, 200);
 });
 
-test("queued rounds keep receipt order", async (t) => {
+// A tab can send before its next status poll shows that another tab or device
+// already sent the round's feedback.
+test("a round keeps its first feedback and refuses a later one, before and after the agent reads", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
-  const first = a.event(),
-    second = a.event();
-  await a.feedback(first);
-  await a.feedback(second);
+  const first = a.event();
+  assert.equal((await a.feedback(first)).code, 200);
+  assert.equal((await a.feedback(a.event())).code, 409);
+  assert.equal((await a.feedback(first)).code, 200);
   const read = (await a.action("read")).body.event;
   assert.equal(read.id, first.id);
-  const next = (await a.action("read")).body.event;
-  assert.equal(next.id, second.id);
-  assert.equal(next.sequence, read.sequence + 1);
-  assert.equal((await a.status()).body.stage, "working");
+  assert.equal((await a.feedback(a.event())).code, 409);
+  assert.equal((await a.action("read")).body.event, null);
+  assert.equal((await a.status()).body.latestSubmissionId, first.id);
+  assert.deepEqual(await fs.readdir(path.join(a.directory, "feedback")), [
+    `${first.id}.json`,
+  ]);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 1);
 });
 
 // interactive-plan stores its sessions in its own format under its own state
@@ -446,6 +453,39 @@ test("the browser can read sent feedback without agent-only paths", async (t) =>
   assert.deepEqual(submission.groups.choices, {});
   const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
   assert.equal(invalid.code, 400);
+});
+
+// A Start saves an event with the round it started on and no feedback in it.
+test("a Start on a round leaves what the browser reads for that round", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const submission = () => a.request(`${a.base}/api/submission?round=1`);
+  const start = async (id) => {
+    const proposed = await a.action("propose", {
+      id,
+      title: "Refresh the export",
+      delivers: "The export uses the new schema.",
+      recommend: "here",
+    });
+    assert.equal(proposed.code, 200, proposed.body.error);
+    const started = await a.request(`${a.base}/api/proposals/${id}/start`, {
+      where: "here",
+    });
+    assert.equal(started.code, 200, started.body.error);
+  };
+
+  await start("before-send");
+  const unsent = await submission();
+  assert.equal(unsent.code, 200, JSON.stringify(unsent.body));
+  assert.equal(unsent.body.submission, null);
+
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  await start("after-send");
+  const sent = await submission();
+  assert.equal(sent.code, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.submission.id, feedback.id);
 });
 
 // On macOS, /tmp is a symbolic link to /private/tmp, so an agent can name one

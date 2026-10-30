@@ -36,13 +36,17 @@ export function quietItems({ openRound, proposals }, now, ms) {
   return [...pages, ...cards].filter((item) => now - Date.parse(item.at) > ms);
 }
 
+// A card with no update has no parts, and the hub refuses --status-done on a
+// part the card does not list, so that card gets --status-left instead.
 function updates(items, directory) {
-  const kinds = new Set(items.map((item) => item.kind));
+  const cards = items.filter((item) => item.kind === "proposal");
   return [
-    kinds.has("page") &&
+    items.some((item) => item.kind === "page") &&
       `post a note on each page you are still working on with pair progress --session-dir ${directory} --page ID --note "…"`,
-    kinds.has("proposal") &&
+    cards.some((card) => card.updated) &&
       `mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…"`,
+    cards.some((card) => !card.updated) &&
+      `for each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part`,
   ]
     .filter(Boolean)
     .join(", and ");

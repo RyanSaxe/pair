@@ -120,3 +120,37 @@ test("a start that takes over an open round names the submission the round answe
     `If you have not run pair guide in this conversation, run it first. This round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. You still have to publish these pages: overview. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`,
   );
 });
+
+test("a start that takes over before the next Agreed names the feedback the previous holder read", async (t) => {
+  const h = await hub(t);
+  const two = await h.inbox();
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  const took = await h.register(a.directory, two.target, { start: true });
+  assert.equal(took.code, 200);
+  assert.equal(
+    took.body.next,
+    `If you have not run pair guide in this conversation, run it first. The next round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.`,
+  );
+});
+
+test("a start that takes over names no submission after a complete round, or for feedback no agent has read", async (t) => {
+  const h = await hub(t);
+  const [two, three] = [await h.inbox(), await h.inbox()];
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  const complete = await h.register(a.directory, two.target, { start: true });
+  assert.doesNotMatch(complete.body.next, /--submission/);
+  assert.equal((await a.feedback(a.event("feedback-only", "2"))).code, 200);
+  const unread = await h.register(a.directory, three.target, { start: true });
+  assert.equal(
+    unread.body.next,
+    `If you have not run pair guide in this conversation, run it first. Run pair read --session-dir ${a.directory} to see what the reviewer sent.`,
+  );
+});

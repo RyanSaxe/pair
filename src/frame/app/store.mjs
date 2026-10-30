@@ -33,9 +33,9 @@ export function emptyDraft(round) {
     replyDrafts: {},
     submitted: null,
     pending: null,
-    // synced contains the revision and a digest of each item of the hub's
-    // draft at the last merge, so draftChanges() can tell which items the
-    // reviewer changed in this browser since then.
+    // synced contains the id and revision of the hub's draft at the last
+    // merge and a digest of each item, so draftChanges() can tell which items
+    // the reviewer changed in this browser since then.
     synced: emptySynced(),
   };
 }
@@ -105,8 +105,28 @@ export function submissionGroups(draft) {
   };
 }
 
+// changedPages returns the IDs of the pages whose notes, choices, answers or
+// typed answers differ between two drafts.
+export function changedPages(before, after) {
+  const pages = new Set();
+  const differ = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+  const notes = (draft) => new Map(draft.notes.map((note) => [note.id, note]));
+  const [old, next] = [notes(before), notes(after)];
+  for (const id of new Set([...old.keys(), ...next.keys()]))
+    if (differ(old.get(id), next.get(id)))
+      pages.add((old.get(id) ?? next.get(id)).topic);
+  for (const field of ["choices", "answers", "drafts"])
+    for (const key of new Set([
+      ...Object.keys(before[field]),
+      ...Object.keys(after[field]),
+    ]))
+      if (differ(before[field][key], after[field][key]))
+        pages.add(key.split("/")[0]);
+  return pages;
+}
+
 // markSent() deletes a sent answer's typed text or drawing, so the question
-// starts empty in the next round.
+// starts empty in the next round, and it resets the message and the switch.
 export function markSent(draft, id, at) {
   const { count } = unsentItems(draft);
   const before = draftItems(draft);
@@ -118,6 +138,7 @@ export function markSent(draft, id, at) {
   }
   draft.submitted = { id, at, round: draft.round, count };
   draft.message = "";
+  draft.alignUnflagged = true;
   draft.pending = null;
   forgetSent(draft, before);
   return draft;
