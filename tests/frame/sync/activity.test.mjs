@@ -34,8 +34,15 @@ test("feedback waits without inventing page names", () => {
   });
   assert.equal(waiting.title, "Waiting for the agent");
   assert.deepEqual(waiting.slots, []);
-  assert.equal(waiting.track, "still");
+  assert.equal(waiting.track, "moving");
   assert.equal(waiting.summary, "Feedback saved");
+  const unwoken = run({
+    current: { round: "1" },
+    latestSubmissionId: "s2",
+    lastAcknowledgedId: "s1",
+    wake: { last: { ok: false } },
+  });
+  assert.equal(unwoken.track, "still");
   const sending = run({ current: { round: "1" } }, { inFlight: true });
   assert.equal(sending.title, "Sending feedback");
   assert.equal(sending.track, "moving");
