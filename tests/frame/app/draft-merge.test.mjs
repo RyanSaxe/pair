@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   draftChanges,
   mergeDraft,
+  recordPushed,
 } from "../../../src/frame/app/draft-merge.mjs";
 import {
   emptyDraft,
@@ -27,11 +28,16 @@ function world() {
     get hub() {
       return hub;
     },
+    set hub(next) {
+      hub = JSON.parse(JSON.stringify(next));
+    },
     device: (round = "1") => emptyDraft(round),
     // push sends a browser's changes and merges the hub's answer, as push()
     // in src/frame/sync/draft.mjs does.
     push(draft) {
-      hub = wire(applyChanges(hub, wire(draftChanges(draft))));
+      const changes = wire(draftChanges(draft));
+      hub = wire(applyChanges(hub, changes));
+      recordPushed(draft, changes, hub);
       mergeDraft(draft, hub);
     },
     pull: (draft, options) => mergeDraft(draft, wire(hub), options),
@@ -326,6 +332,30 @@ test("a drawing in progress, a note being written and a reply draft with an imag
   assert.equal(computer.noteDrafts[noteKey], "Half a note.");
   assert.deepEqual(computer.replyDrafts.t1, reply);
   assert.deepEqual(draftChanges(computer), {});
+});
+
+test("a note typed past the push that sent its draft leaves no draft behind once added", () => {
+  const w = world();
+  const computer = w.device(),
+    fresh = w.device();
+  const key = '["overview","Overview","dead-letter queue",null,null]';
+  computer.noteDrafts[key] = "Who reads the";
+  // The push of the first words returns while the reviewer is still typing
+  // in the open note dialog, so the merge holds.
+  const changes = JSON.parse(JSON.stringify(draftChanges(computer)));
+  const hub = applyChanges(w.hub, changes);
+  w.hub = hub;
+  computer.noteDrafts[key] = "Who reads the dead-letter queue?";
+  recordPushed(computer, changes, hub);
+  mergeDraft(computer, hub, { hold: true });
+  // Add to feedback adds the note and deletes its draft.
+  computer.notes.push(note("n1", "Who reads the dead-letter queue?"));
+  delete computer.noteDrafts[key];
+  w.sync(computer);
+  w.sync(fresh);
+  assert.deepEqual(computer.noteDrafts, {});
+  assert.deepEqual(fresh.noteDrafts, {});
+  assert.deepEqual(texts(fresh), ["Who reads the dead-letter queue?"]);
 });
 
 test("a held merge keeps the text being typed and applies it later", () => {

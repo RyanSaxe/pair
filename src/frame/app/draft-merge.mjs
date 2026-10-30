@@ -72,6 +72,19 @@ export function draftChanges(draft) {
 // forgetSent deletes the synced record of each item that markSent() just
 // marked as sent, so draftChanges() does not send a removal for it. The hub
 // removes the sent items itself when it saves the submission.
+// recordPushed records the hub's value for each item that this browser just
+// sent and the hub kept. Without the record, a later removal here would match
+// the last merge, so draftChanges() would not send it, and the next merge
+// would bring the item back.
+export function recordPushed(draft, changes, hub) {
+  for (const [key, value] of Object.entries(changes)) {
+    const item = hub.items[key];
+    const known = draft.synced.items[key];
+    if (!item || (known && item.rev <= known.rev)) continue;
+    if (digest(item.value) === digest(value))
+      draft.synced.items[key] = { rev: item.rev, digest: digest(value) };
+  }
+}
 export function forgetSent(draft, before) {
   const after = draftItems(draft);
   for (const key of Object.keys(before))

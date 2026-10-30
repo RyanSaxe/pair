@@ -1,4 +1,8 @@
-import { draftChanges, mergeDraft } from "#frame/app/draft-merge.mjs";
+import {
+  draftChanges,
+  mergeDraft,
+  recordPushed,
+} from "#frame/app/draft-merge.mjs";
 import { persist, state } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { base, editable, page, storageKey } from "#frame/app/view.mjs";
@@ -91,7 +95,10 @@ async function push() {
     // again only after the reviewer changes the draft.
     if (response.status >= 400 && response.status < 500) refused = body;
     if (response.ok) {
-      keep(await response.json());
+      const answer = await response.json();
+      if (Number.isInteger(answer?.revision) && answer.items)
+        recordPushed(state, JSON.parse(body).changes, answer);
+      keep(answer);
       applyHub();
     }
   } catch {
