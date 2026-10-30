@@ -34,3 +34,24 @@ test("the hub decodes a character that a request splits between two chunks", asy
   assert.equal(code, 200);
   assert.equal((await a.status()).body.report.note, note);
 });
+
+test("the hub reads an agent request of 20 MB and refuses a larger one", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const sized = (bytes) => {
+    const empty = { action: "publish", sessionId: a.id, agent: a.agent };
+    const html = "x".repeat(
+      bytes - Buffer.byteLength(JSON.stringify({ ...empty, html: "" })),
+    );
+    return a.action("publish", { html });
+  };
+  const atLimit = await sized(20_000_000);
+  assert.equal(atLimit.code, 400);
+  assert.match(atLimit.body.error, /is not a page that pair build wrote/);
+  const over = await sized(20_000_001);
+  assert.equal(over.code, 413);
+  assert.equal(
+    over.body.error,
+    "The request is over the hub's limit of 20000000 bytes.",
+  );
+});

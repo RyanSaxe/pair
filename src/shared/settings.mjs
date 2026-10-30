@@ -32,9 +32,9 @@ export const version = ["src", "adapters"]
   .digest("hex")
   .slice(0, 12);
 
-// The hub refuses an agent command's request over this size, and pair publish
-// checks a page against it before it sends the page.
-export const agentRequestBytes = 10_000_000;
+// The hub refuses an agent command's request over this size. pair build and pair
+// publish check a page against it, so the agent learns the limit first.
+export const agentRequestBytes = 20_000_000;
 
 const stateHome = (env = process.env) =>
   env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
