@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 
 // The frame in each tab polls the session list every 5 s, so each wait allows 8
 // s.
@@ -66,4 +66,49 @@ test("two browsers on one hub show the same bell, sessions badge and New marks",
   await computer.locator("#work-row").click();
   await computer.locator("#work-cards [data-proposal-card=tidy]").waitFor();
   await label.waitFor({ ...poll, state: "detached" });
+});
+
+// Headless Chrome reports every tab as visible, so the test makes the page
+// report hidden and sends the event that a tab switch sends.
+test("a hidden tab leaves a new round's Agreed unopened until the reviewer comes back to the tab", async (t) => {
+  const h = await hub(t);
+  const own = await h.session();
+  assert.equal((await own.publish(planData())).code, 200);
+  const empty = { cleared: [], opened: [], cards: [] };
+  assert.equal((await own.request("/api/seen", empty)).code, 200);
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  await page.addInitScript(() => {
+    let visibility = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      get: () => visibility,
+    });
+    window.setVisibility = (next) => {
+      visibility = next;
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+  });
+  await page.goto(`${h.server.origin}${own.base}/`);
+  assert.equal((await own.feedback(own.event())).code, 200);
+  await page.locator("#agent-activity:not([hidden])").waitFor(poll);
+  await page.evaluate(() => window.setVisibility("hidden"));
+
+  assert.equal((await own.action("read")).code, 200);
+  assert.equal((await own.publish(planData("2"))).code, 200);
+  const opened = async () =>
+    (await own.request("/api/sessions")).body.seen.opened;
+  const key = `${own.id}/2/agreed`;
+  const newOn = (id) =>
+    page.locator(`#page-list [data-page="${id}"] .page-new`);
+  await newOn("overview").waitFor({ ...poll, state: "attached" });
+  await newOn("agreed").waitFor({ ...poll, state: "attached" });
+  assert.equal((await opened()).includes(key), false);
+
+  await page.evaluate(() => window.setVisibility("visible"));
+  assert.equal(await newOn("agreed").count(), 0);
+  assert.equal(
+    await waitUntil(async () => (await opened()).includes(key)),
+    true,
+  );
+  assert.equal(await newOn("overview").count(), 1);
 });

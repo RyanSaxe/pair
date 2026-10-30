@@ -232,7 +232,10 @@ export async function loadSession(
     );
     const event = requestedRound
       ? events
-          .filter((item) => item.payload.round === requestedRound)
+          .filter(
+            (item) =>
+              answersRound(item) && item.payload.round === requestedRound,
+          )
           .sort((a, b) => b.sequence - a.sequence)[0]
       : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
         ? await read(
@@ -289,18 +292,20 @@ export async function loadSession(
             },
           }
         : {}),
-      // readyPages lists the current round's published pages, so the frame
-      // can count the pages that this browser has not opened.
+      // readyPages lists the current round's published pages until the
+      // reviewer sends feedback on it, so the frame can count the pages that
+      // this browser has not opened.
       readyPages: {
         round,
-        ids: set
-          ? [
-              "agreed",
-              ...set.pages
-                .filter((slot) => slot.recordPath)
-                .map(({ id }) => id),
-            ]
-          : [],
+        ids:
+          set && state.latestSubmissionRound !== round
+            ? [
+                "agreed",
+                ...set.pages
+                  .filter((slot) => slot.recordPath)
+                  .map(({ id }) => id),
+              ]
+            : [],
       },
       wakeFailed: state.wake?.last?.ok === false,
       paused: Boolean(state.paused),

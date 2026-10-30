@@ -266,7 +266,7 @@ function drawHistoryLabel(label, old, past, parent) {
 // whenever the page on screen belongs to the earlier round, whichever tab
 // is selected.
 export function renderHistory() {
-  const old = mode === "readonly";
+  const old = mode === "readonly" || session.closed;
   const past = editable && displayedRound === pastRound;
   const parent = parentCrumbs();
   const strip = $("history-strip");

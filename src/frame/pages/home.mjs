@@ -1,6 +1,6 @@
 import { ago } from "#frame/app/time.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { base, plan } from "#frame/app/view.mjs";
+import { base, plan, session } from "#frame/app/view.mjs";
 import { pageIndicator, separator } from "#frame/pages/pages.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { drawActivity, renderHistory } from "#frame/sync/activity-view.mjs";
@@ -8,13 +8,14 @@ import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
 
 /* Once the agent publishes Agreed, the hub serves the round at the same
-   URL, so pollHome() reloads the page when a status has a round. */
+   URL, and once the reviewer closes the session, the hub serves the page as
+   closed. pollHome() reloads the page when a status shows either. */
 async function pollHome() {
   try {
     const response = await fetch(`${base}/api/status`);
     if (!response.ok) throw Error();
     const status = await response.json();
-    if (status.current) {
+    if (status.current || status.dismissedAt) {
       location.reload();
       return;
     }
@@ -75,16 +76,28 @@ function drawNavigation() {
   list.id = "page-list";
   list.append(agreed, separator(), work, separator(), review);
   $("navigation").append(tabs, list);
-  $("round").disabled = true;
 }
 // The page load counts as a move, as it does on a round's first page, and
 // the move ends after the first status draws the progress card.
 export function startHome() {
   $("page-title").textContent = plan.title;
-  drawNavigation();
-  beginMove();
-  void pollHome().finally(arrived);
+  $("round").disabled = true;
+  if (session.closed) showClosed();
+  else {
+    drawNavigation();
+    beginMove();
+    void pollHome().finally(arrived);
+    setInterval(pollHome, 1500);
+  }
   void pollSessions();
-  setInterval(pollHome, 1500);
   setInterval(pollSessions, 5000);
+}
+// The reload that shows a closed session counts as a move from the page
+// before it, so showClosed() ends that move.
+function showClosed() {
+  $("home-agent").textContent = "The agent published no pages.";
+  $("home-agent").hidden = false;
+  $("submit").hidden = true;
+  renderHistory();
+  arrived();
 }
