@@ -293,7 +293,7 @@ for (const [where, filler, earlier] of [
     await inView(page, id, 2);
   });
 
-test("each Progress thread has one card, and none while Current waits", async (t) => {
+test("each Progress thread has one card, and Current's waiting card shows only a thread sent after the feedback", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   const first = await s.thread("1", "progress");
@@ -310,15 +310,44 @@ test("each Progress thread has one card, and none while Current waits", async (t
   await page.reload();
   const second = await s.thread("1", "progress");
   await s.reply(second);
-  // The frame polls status every 1.5 s, so the sleep covers two polls.
-  await sleep(3000);
+  await page.locator(`pair-thread[data-thread="${second}"]`).waitFor();
   assert.equal(await cards(page, first), 0);
-  assert.equal(await cards(page, second), 0);
+  assert.equal(await cards(page, second), 1);
   await page.locator("#past-tab").click();
   await agreed.click();
-  await page.locator(`pair-thread[data-thread="${second}"]`).waitFor();
+  await page.locator(`pair-thread[data-thread="${first}"]`).waitFor();
   assert.equal(await cards(page, first), 1);
-  assert.equal(await cards(page, second), 1);
+  assert.equal(await cards(page, second), 0);
+});
+
+test("the bell and a reply's link open a thread sent while Current waits on Current's progress card", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  await s.send("1");
+  const id = await s.thread("1", "progress");
+  const page = await open(t, s.url("#agreed"));
+  if (!page) return;
+  await bellReady(page);
+  await s.reply(id);
+  await bell(page);
+  await selected(page, "current");
+  await focused(page, id);
+  await page.goto(s.url(`?target=thread-${id}-1#agreed`));
+  await focused(page, id);
+  await selected(page, "current");
+  // Once the next round's Agreed is on screen, the thread is on that round's
+  // progress card, and the bell opens it there from Last round too.
+  await s.publish("2");
+  await page.goto(s.url("#agreed"));
+  await page.locator(`pair-thread[data-thread="${id}"]`).waitFor();
+  await page.locator("#past-tab").click();
+  await page.locator('#page-list [data-page="agreed"]').click();
+  await selected(page, "past");
+  await bellReady(page);
+  await s.reply(id, "Here again.");
+  await bell(page);
+  await selected(page, "current");
+  await focused(page, id, 2);
 });
 
 test("Back to current opens the waiting Agreed, not an empty Review", async (t) => {

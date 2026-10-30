@@ -25,6 +25,11 @@ pair-thread {
 :is(#reading, #work-view, #review-view) :has(+ pair-thread[data-thread]) {
   margin-bottom: 8px;
 }
+/* placeProgress puts a thread after the finished line, which is hidden while
+   the progress card shows, so the rule above misses the progress card. */
+#agent-activity:has(+ #finished-line[hidden] + pair-thread[data-thread]) {
+  margin-bottom: 8px;
+}
 pair-thread::before {
   content: "";
   position: absolute;
@@ -120,8 +125,12 @@ pair-thread[collapsed] > :not(.thread-head) {
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* An auto column grows to a child's widest line, so a code block or table
+   inside a list or a div would push a reply past its card. These columns stay
+   at the card's width, and the code block or table scrolls. */
 .thread-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
 }
@@ -196,6 +205,7 @@ pair-thread[collapsed] > :not(.thread-head) {
 }
 .thread-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 /* The grid's gap spaces a message's blocks, so this rule removes each

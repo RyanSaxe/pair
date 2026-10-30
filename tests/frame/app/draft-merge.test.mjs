@@ -22,14 +22,11 @@ import {
 // passes each value through JSON, as HTTP and localStorage do, so no browser
 // shares an object with the hub.
 function world() {
-  let hub = { revision: 0, items: {} };
   const wire = (value) => JSON.parse(JSON.stringify(value));
+  let hub = { id: "h1", revision: 0, items: {} };
   return {
     get hub() {
-      return hub;
-    },
-    set hub(next) {
-      hub = JSON.parse(JSON.stringify(next));
+      return wire(hub);
     },
     device: (round = "1") => emptyDraft(round),
     // push sends a browser's changes and merges the hub's answer, as push()
@@ -38,26 +35,29 @@ function world() {
       const changes = wire(draftChanges(draft));
       hub = wire(applyChanges(hub, changes));
       recordPushed(draft, changes, hub);
-      mergeDraft(draft, hub);
+      mergeDraft(draft, wire(hub));
     },
-    pull: (draft, options) => mergeDraft(draft, wire(hub), options),
+    pull: (draft, copy = hub) => mergeDraft(draft, wire(copy)),
     sync(draft) {
       this.pull(draft);
       this.push(draft);
     },
     send(draft, id = "s1") {
-      // The payload has the fields of submission() in
+      // The payload has the field of submission() in
       // src/frame/review/send.mjs that applySubmission reads.
-      const message = draft.message.trim();
-      const payload = wire({
-        groups: submissionGroups(draft),
-        ...(message ? { message } : {}),
-      });
-      hub = wire(applySubmission(hub, payload));
+      hub = wire(
+        applySubmission(hub, wire({ groups: submissionGroups(draft) })),
+      );
       markSent(draft, id, "2026-10-29T00:00:00Z");
+    },
+    reset() {
+      hub = { id: "h2", revision: 0, items: {} };
     },
   };
 }
+// The tabs of a session in one browser save one copy of the draft, and each
+// tab loads the copy that another tab saved, as installDraftSync() does.
+const reopen = (draft) => storedDraft(JSON.stringify(draft), draft.round);
 const note = (id, text, topic = "overview") => ({
   topic,
   anchor: "Overview",
@@ -73,21 +73,71 @@ const choice = (value) => ({
   target: "choice-overview-0",
   round: "1",
 });
+const answer = (text) => ({
+  topic: "overview",
+  label: "Why",
+  text,
+  round: "1",
+});
 const texts = (draft) => draft.notes.map((item) => item.text);
 
-test("a note, a choice and a typed answer made in one browser reach the other", () => {
+test("what the reviewer completed in one browser reaches the other, and text typed before its button does not", () => {
   const w = world();
   const phone = w.device(),
     computer = w.device();
   phone.notes.push(note("n1", "Rename the flag."));
   phone.choices["overview/approach"] = choice("queue");
-  phone.drafts["overview/why"] = "Because retries pile up.";
+  phone.answers["overview/why"] = answer("Because retries pile up.");
+  phone.alignUnflagged = false;
+  phone.drafts["overview/limit"] = "Typed, but Answer not pressed.";
+  phone.noteDrafts['["overview","Overview","",null,null]'] = "Half a note.";
+  phone.replyDrafts.t1 = { text: "Half a reply.", attachments: [] };
+  phone.message = "Typed in the Send popup.";
   w.sync(phone);
-  assert.equal(w.pull(computer), true);
+  assert.deepEqual(Object.keys(w.hub.items).sort(), [
+    "alignUnflagged",
+    "answer/overview/why",
+    "choice/overview/approach",
+    "note/n1",
+  ]);
+  w.pull(computer);
   assert.deepEqual(texts(computer), ["Rename the flag."]);
   assert.equal(computer.choices["overview/approach"].value, "queue");
-  assert.equal(computer.drafts["overview/why"], "Because retries pile up.");
+  assert.equal(
+    computer.answers["overview/why"].text,
+    "Because retries pile up.",
+  );
+  assert.equal(computer.alignUnflagged, false);
+  assert.deepEqual(computer.drafts, {});
+  assert.deepEqual(computer.noteDrafts, {});
+  assert.deepEqual(computer.replyDrafts, {});
+  assert.equal(computer.message, "");
   assert.deepEqual(draftChanges(computer), {});
+});
+
+// Two tabs share the saved draft and its synced record, but each tab reads
+// the hub's draft on its own, so one tab can hold a copy older than the
+// merge the other tab saved. Merging that copy changed the record, the save
+// woke the other tab, and the two tabs rewrote the draft without end.
+test("a tab with an older copy of the hub's draft leaves the draft that another tab merged as it was", () => {
+  const w = world();
+  const first = w.device();
+  first.notes.push(note("n1", "Cut the video to fifteen seconds."));
+  const before = w.hub;
+  w.push(first);
+  const alive = w.hub;
+  const second = reopen(first);
+  const saved = JSON.stringify(second);
+  w.pull(second, before);
+  assert.equal(JSON.stringify(second), saved);
+  // The first tab deletes the note. The second tab still holds the copy in
+  // which the note exists, and merging it must not bring the note back.
+  first.notes = [];
+  w.push(first);
+  const after = reopen(first);
+  w.pull(after, alive);
+  assert.deepEqual(texts(after), []);
+  assert.deepEqual(draftChanges(after), {});
 });
 
 test("when both browsers edit one note, the change the hub receives later wins", () => {
@@ -161,22 +211,38 @@ test("a cleared choice and a choice picked again both follow the later change", 
   assert.equal(phone.choices["overview/approach"].value, "batch");
 });
 
+test("an answer changed on another device replaces the text of the old answer here, and keeps text typed since", () => {
+  const w = world();
+  const phone = w.device(),
+    computer = w.device();
+  // Answer keeps the typed text in the draft, and the box shows it first.
+  phone.drafts["overview/why"] = "First.";
+  phone.answers["overview/why"] = answer("First.");
+  w.sync(phone);
+  w.sync(computer);
+  computer.answers["overview/why"] = answer("Second.");
+  w.push(computer);
+  w.pull(phone);
+  assert.equal(phone.answers["overview/why"].text, "Second.");
+  assert.equal(phone.drafts["overview/why"], undefined);
+  phone.drafts["overview/why"] = "Typed since.";
+  computer.answers["overview/why"] = answer("Third.");
+  w.push(computer);
+  w.pull(phone);
+  assert.equal(phone.answers["overview/why"].text, "Third.");
+  assert.equal(phone.drafts["overview/why"], "Typed since.");
+});
+
 test("a send in one browser clears the sent items in the other and keeps the rest", () => {
   const w = world();
   const phone = w.device(),
     computer = w.device();
   phone.notes.push(note("n1", "Sent."));
   phone.choices["overview/approach"] = choice("queue");
-  phone.answers["overview/why"] = {
-    topic: "overview",
-    label: "Why",
-    text: "Retries.",
-    round: "1",
-  };
-  phone.drafts["overview/why"] = "Retries.";
-  phone.message = "Ship it.";
+  phone.answers["overview/why"] = answer("Retries.");
   w.sync(phone);
   w.sync(computer);
+  computer.drafts["overview/why"] = "Retries.";
   // Each browser builds an untouched checklist from the page, and the send
   // carries the phone's copy.
   for (const draft of [phone, computer])
@@ -199,7 +265,6 @@ test("a send in one browser clears the sent items in the other and keeps the res
   assert.deepEqual(computer.choices, {});
   assert.deepEqual(computer.answers, {});
   assert.deepEqual(computer.drafts, {});
-  assert.equal(computer.message, "");
   // The phone keeps what it sent until the next round, and the unsent note
   // reaches it.
   w.pull(phone);
@@ -226,9 +291,8 @@ test("a send removes a checklist that the sending browser rebuilt with another t
       { value: "timeouts", label: "Timeouts", checked: false },
     ],
   });
-  // A tick on the page records the checklist with the live block's ID, and
-  // initializeChecklists() rebuilds it before a send with the ID it gives
-  // the page's copy.
+  // A draft saved by an older frame records a checklist with the ID that
+  // frame gave its template of the page, not the live block's ID.
   computer.choices["overview/retryable"] = list("block-overview-1");
   w.sync(computer);
   w.sync(phone);
@@ -310,7 +374,7 @@ test("two tabs in one browser send the same change once", () => {
   const w = world();
   const first = w.device();
   first.notes.push(note("n1", "Typed in the first tab."));
-  const second = storedDraft(JSON.stringify(first), "1");
+  const second = reopen(first);
   w.push(first);
   const revision = w.hub.revision;
   w.sync(second);
@@ -319,73 +383,13 @@ test("two tabs in one browser send the same change once", () => {
   assert.deepEqual(draftChanges(second), {});
 });
 
-test("a drawing in progress, a note being written and a reply draft with an image reach the other browser", () => {
-  const w = world();
-  const phone = w.device(),
-    computer = w.device();
-  const scene = {
-    type: "excalidraw",
-    elements: [{ id: "box", type: "rectangle", x: 10, y: 20 }],
-    appState: { viewBackgroundColor: "#ffffff" },
-  };
-  const noteKey = JSON.stringify(["overview", "Overview", null]);
-  const reply = {
-    text: "The log is attached.",
-    attachments: [{ id: "0123456789abcdef" }],
-  };
-  phone.drafts["overview/sketch"] = scene;
-  phone.noteDrafts[noteKey] = "Half a note.";
-  phone.replyDrafts.t1 = reply;
-  w.sync(phone);
-  assert.equal(w.pull(computer), true);
-  assert.deepEqual(computer.drafts["overview/sketch"], scene);
-  assert.equal(computer.noteDrafts[noteKey], "Half a note.");
-  assert.deepEqual(computer.replyDrafts.t1, reply);
-  assert.deepEqual(draftChanges(computer), {});
-});
-
-test("a note typed past the push that sent its draft leaves no draft behind once added", () => {
-  const w = world();
-  const computer = w.device(),
-    fresh = w.device();
-  const key = '["overview","Overview","dead-letter queue",null,null]';
-  computer.noteDrafts[key] = "Who reads the";
-  // The push of the first words returns while the reviewer is still typing
-  // in the open note dialog, so the merge holds.
-  const changes = JSON.parse(JSON.stringify(draftChanges(computer)));
-  const hub = applyChanges(w.hub, changes);
-  w.hub = hub;
-  computer.noteDrafts[key] = "Who reads the dead-letter queue?";
-  recordPushed(computer, changes, hub);
-  mergeDraft(computer, hub, { hold: true });
-  // Add to feedback adds the note and deletes its draft.
-  computer.notes.push(note("n1", "Who reads the dead-letter queue?"));
-  delete computer.noteDrafts[key];
-  w.sync(computer);
-  w.sync(fresh);
-  assert.deepEqual(computer.noteDrafts, {});
-  assert.deepEqual(fresh.noteDrafts, {});
-  assert.deepEqual(texts(fresh), ["Who reads the dead-letter queue?"]);
-});
-
-test("a held merge keeps the text being typed and applies it later", () => {
-  const w = world();
-  const phone = w.device(),
-    computer = w.device();
-  phone.drafts["overview/why"] = "From the phone.";
-  w.sync(phone);
-  assert.equal(w.pull(computer, { hold: true }), false);
-  assert.equal(computer.drafts["overview/why"], undefined);
-  assert.equal(w.pull(computer), true);
-  assert.equal(computer.drafts["overview/why"], "From the phone.");
-});
-
-test("a hub whose draft is older than the browser's gets the browser's whole draft", () => {
+test("a hub that starts a new draft gets the browser's whole draft", () => {
   const w = world();
   const phone = w.device();
   phone.notes.push(note("n1", "Kept here."));
   w.sync(phone);
-  const restarted = { revision: 0, items: {} };
-  mergeDraft(phone, restarted);
+  assert.deepEqual(draftChanges(phone), {});
+  w.reset();
+  w.pull(phone);
   assert.deepEqual(Object.keys(draftChanges(phone)), ["note/n1"]);
 });

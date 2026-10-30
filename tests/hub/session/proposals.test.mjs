@@ -99,6 +99,20 @@ test("pair propose records one file per card and refuses an ID the session has",
     "an ID that is not a slug",
   );
   assert.equal((await propose({ ...card, id: "x", page: "1/none" })).code, 400);
+  // toString and constructor are keys of Object.prototype, and not rounds of
+  // this session.
+  for (const [round, page] of [
+    ["toString", "work"],
+    ["constructor", "x"],
+  ]) {
+    const refused = await propose({
+      ...card,
+      id: "x",
+      page: `${round}/${page}`,
+    });
+    assert.equal(refused.code, 400);
+    assert.equal(refused.body.error, `Round ${round} has no page ${page}`);
+  }
   const listed = await a.request("/api/sessions");
   assert.deepEqual(
     listed.body.sessions[0].events
@@ -170,6 +184,20 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
     answer.next,
     /^You published round 1, and the reviewer has not sent feedback on it yet\. .*build proposal churn-export, .*you publish the pages about this work in the next round\./,
   );
+});
+
+test("pair read prints a Start and feedback in the order the hub received them", async (t) => {
+  const { a, add, reviewer } = await proposing(t);
+  await add();
+  await reviewer("churn-export", "start", { where: "here" });
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  const first = (await a.action("read")).body.event;
+  assert.equal(first.payload.proposal, "churn-export");
+  const second = (await a.action("read")).body.event;
+  assert.equal(second.id, feedback.id);
+  assert.equal(second.sequence, first.sequence + 1);
+  assert.equal((await a.status()).body.stage, "working");
 });
 
 test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {

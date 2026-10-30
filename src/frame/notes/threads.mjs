@@ -21,7 +21,7 @@ import {
 } from "#frame/pages/renderers.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
+import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
    placeThreads draws the cards from the poll, and from sent for a message
@@ -52,15 +52,25 @@ function allThreads() {
   const byId = new Map((remote?.threads || []).map((item) => [item.id, item]));
   for (const [id, local] of sent) {
     const stored = byId.get(id);
-    // allThreads uses the hub's copy once it contains every message that
-    // this browser sent.
-    if (stored && stored.messages.length >= local.messages.length)
-      sent.delete(id);
-    else byId.set(id, local);
+    if (!stored || stored.messages.length < local.messages.length) {
+      byId.set(id, local);
+      continue;
+    }
+    // allThreads uses the hub's copy once it contains every message that this
+    // browser sent. An agent reply can bring the hub's copy to the same length
+    // without the reviewer's reply, so allThreads compares the reply IDs.
+    const unsent = local.messages.filter(
+      ({ replyId }) =>
+        replyId && !stored.messages.some((item) => item.replyId === replyId),
+    );
+    if (unsent.length)
+      byId.set(id, { ...local, messages: [...stored.messages, ...unsent] });
+    else sent.delete(id);
   }
   return [...byId.values()];
 }
-async function post(id, url, body) {
+// post calls saved once the hub has the message, after a retry too.
+async function post(id, url, body, saved) {
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -73,16 +83,17 @@ async function post(id, url, body) {
     // longer local copy until the hub answers that reply.
     if (result.thread.messages.length >= (sent.get(id)?.messages.length ?? 0))
       sent.set(id, result.thread);
+    saved?.();
   } catch (error) {
     sent.set(id, {
       ...sent.get(id),
       error: unreachable(error),
-      retry: () => post(id, url, body),
+      retry: () => post(id, url, body, saved),
     });
   }
   placeThreads();
 }
-export function startThread(context, text, attachments) {
+export function startThread(context, text, attachments, saved) {
   const now = new Date().toISOString();
   const fields = context.proposal
     ? { id: uuid(), proposal: context.proposal }
@@ -106,20 +117,27 @@ export function startThread(context, text, attachments) {
     messages: [{ from: "reviewer", at: now, text, attachments }],
   });
   placeThreads();
-  void post(fields.id, `${base}/api/threads`, {
-    ...fields,
-    text,
-    attachments,
-  });
+  void post(
+    fields.id,
+    `${base}/api/threads`,
+    {
+      ...fields,
+      text,
+      attachments,
+    },
+    saved,
+  );
 }
 function sendReply(thread, text, attachments) {
   const { error, retry, ...rest } = thread;
+  const replyId = uuid();
+  const at = new Date().toISOString();
   sent.set(thread.id, {
     ...rest,
     state: "sending",
     messages: [
       ...thread.messages,
-      { from: "reviewer", at: new Date().toISOString(), text, attachments },
+      { from: "reviewer", at, replyId, text, attachments },
     ],
   });
   // A reply answers the agent's replies in the thread, so clearThread
@@ -129,7 +147,7 @@ function sendReply(thread, text, attachments) {
   void post(
     thread.id,
     `${base}/api/threads/${encodeURIComponent(thread.id)}/messages`,
-    { replyId: uuid(), text, attachments },
+    { replyId, text, attachments },
   );
 }
 
@@ -167,6 +185,7 @@ function contents(html) {
     ["[data-math]", "a formula"],
     ["table", "a table"],
     ["[data-prototype]", "a prototype"],
+    ["video", "a video"],
   ])
     if (root.querySelector(selector)) parts.push(name);
   return parts.join(" and ");
@@ -400,13 +419,49 @@ function blockOf(root, thread) {
 }
 const onProgress = (thread) =>
   thread.topic === "agreed" && thread.target === "agent-activity";
+// sentWhileWaiting is true for a thread that the reviewer started from the
+// progress card after sending a round's feedback. The hub records the sent
+// round on the thread, but the card then shows the agent's work on the next
+// round, so the frame draws the thread on Current's Agreed. After the next
+// send, roundStartedAt is later than the thread, and the frame draws the thread
+// under its recorded round.
+const sentWhileWaiting = (thread) =>
+  editable &&
+  onProgress(thread) &&
+  thread.round === remote?.latestSubmissionRound &&
+  thread.createdAt >= remote.roundStartedAt;
+// onCurrentAgreed is true when target, from the bell or a link, is in a thread
+// that shows on Current's Agreed instead of under its recorded round.
+export const onCurrentAgreed = (target) =>
+  (remote?.threads || []).some(
+    (thread) =>
+      sentWhileWaiting(thread) &&
+      (target === `thread-${thread.id}` ||
+        target?.startsWith(`thread-${thread.id}-`)),
+  );
+// A page with page.pending set has no content to put a thread under. The
+// waiting Agreed is one of those, and it still has the progress card.
+const onShownPage = (thread) =>
+  sentWhileWaiting(thread)
+    ? selectedTab === "current" &&
+      plan.round === remote.current?.round &&
+      page.id === "agreed"
+    : !page.pending && thread.round === plan.round && thread.topic === page.id;
+// placeProgress puts the threads after the finished line, which is hidden while
+// the progress card shows. A thread's card therefore does not move when the
+// progress card hides, and its reply box keeps focus.
 function placeProgress(threads) {
   const live = !$("agent-activity").hidden;
-  let after = live ? $("agent-activity") : $("finished-line");
+  let after = $("finished-line");
   let moved = false;
   for (const thread of threads) {
     if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
     const entry = cards.get(thread.id);
+    // When the round finishes, drawCard would collapse the card and hide the
+    // reply box that the reviewer is typing in, so placeProgress records an
+    // Expand.
+    if (!live && entry.form.contains(document.activeElement))
+      prefs.set(`thread:${thread.id}:collapsed`, "0");
     drawCard(entry, thread, null, !live);
     if (after.nextElementSibling !== entry.card) {
       after.after(entry.card);
@@ -450,7 +505,7 @@ function placeEnds(threads) {
 }
 export function placeThreads() {
   const root = $("page-content");
-  const reading = page && !page.pending && !$("reading").hidden;
+  const reading = page && !$("reading").hidden;
   const groups = new Map();
   const diffGroups = new Map();
   const group = (at, thread) =>
@@ -467,8 +522,7 @@ export function placeThreads() {
     if (host) group(host, thread);
     else if (thread.proposal) cards.get(thread.id)?.card.remove();
     else if (endOf(thread)) ends.push(thread);
-    else if (reading && thread.round === plan.round && thread.topic === page.id)
-      list.push(thread);
+    else if (reading && onShownPage(thread)) list.push(thread);
     if (host || list.at(-1) === thread) ids.add(thread.id);
   }
   placeEnds(ends);
@@ -547,12 +601,15 @@ export function installThreads() {
   for (const key of document.querySelectorAll("[data-send-modifier]"))
     key.textContent = modifier();
   // A page render replaces #page-content, so the frame draws its cards anew.
-  // The render leaves the progress cards outside #page-content in place, so
-  // this handler removes every drawn card. Otherwise placeProgress() would
-  // add a second card for the same thread.
+  // The progress cards are outside #page-content, and the render leaves them
+  // in place, so the reply box the reviewer is typing in keeps its focus when
+  // the next round's Agreed arrives.
   window.addEventListener("plan:page", () => {
-    for (const { card } of cards.values()) card.remove();
-    cards.clear();
+    for (const [id, { card }] of cards) {
+      if (card.parentElement === $("reading")) continue;
+      card.remove();
+      cards.delete(id);
+    }
     placeThreads();
   });
   window.addEventListener("plan:diff", placeThreads);

@@ -35,6 +35,44 @@ test("browsers share what the reviewer cleared, opened and saw, and a new hub ke
   assert.deepEqual(await list(next.origin), expected);
 });
 
+// The frame counts each listed page that the reviewer has not opened as new, in
+// the Sessions list and its badge.
+test("the hub lists a round's pages as ready until the reviewer sends feedback on that round", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const readyPages = async () =>
+    (await a.request("/api/sessions")).body.sessions[0].readyPages;
+  assert.equal((await a.publish(planData())).code, 200);
+  const published = { round: "1", ids: ["agreed", "overview"] };
+  assert.deepEqual(await readyPages(), published);
+
+  // A Start does not answer the round, so its pages stay listed.
+  const proposed = await a.action("propose", {
+    id: "tidy",
+    title: "Tidy the list",
+    delivers: "The list, tidied.",
+    recommend: "here",
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const started = await a.request(`${a.base}/api/proposals/tidy/start`, {
+    where: "here",
+  });
+  assert.equal(started.code, 200, started.body.error);
+  assert.deepEqual(await readyPages(), published);
+
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.deepEqual(await readyPages(), { round: "1", ids: [] });
+
+  // The agent reads the Start and then the feedback.
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  assert.deepEqual(await readyPages(), {
+    round: "2",
+    ids: ["agreed", "overview"],
+  });
+});
+
 test("the record refuses another site's page and a body that is not lists of IDs", async (t) => {
   const h = await hub(t);
   const a = await h.session();

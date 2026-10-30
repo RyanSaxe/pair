@@ -208,7 +208,13 @@ main {
   box-shadow: var(--shadow);
   font-size: var(--text-small);
 }
-.save-error button {
+.save-error-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.save-error > button {
   margin-left: auto;
   font-size: 16px;
   line-height: 1;

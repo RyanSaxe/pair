@@ -20,7 +20,7 @@ import {
   topicTitle,
 } from "#frame/app/view.mjs";
 import { placeBar } from "#frame/notes/blocks.mjs";
-import { choiceTargets } from "#frame/notes/controls.mjs";
+import { pageTargets } from "#frame/notes/controls.mjs";
 import {
   drawNoteImages,
   fitNoteText,
@@ -42,7 +42,7 @@ export const known = {
 export function indexPage(topic) {
   const template = document.createElement("template");
   template.innerHTML = topic.html;
-  choiceTargets(template.content, topic.id);
+  pageTargets(template.content, topic.id);
   for (const group of template.content.querySelectorAll("[data-choice]"))
     known.choices.add(controlKey(topic.id, group.dataset.choice));
   for (const group of template.content.querySelectorAll("[data-multiselect]"))
@@ -420,14 +420,9 @@ export function openNote({
     ...(proposal ? { proposal } : {}),
   };
   editing = id;
-  noteDraftKey = JSON.stringify([
-    topic,
-    anchor,
-    quote,
-    id,
-    agreementId,
-    ...(proposal ? [proposal] : []),
-  ]);
+  // The key includes everything that places the note, so two selections of
+  // the same words keep separate drafts.
+  noteDraftKey = JSON.stringify([id, noteContext]);
   const pageTitle = topicTitle(topic) || anchor;
   $("note-anchor").textContent =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;
@@ -458,12 +453,17 @@ export function openNote({
   fitNoteText();
   $("note-text").focus();
 }
+export const progressThread = {
+  topic: "agreed",
+  anchor: "Progress",
+  target: "agent-activity",
+};
 /* The progress card's button calls openAgentMessage to start a thread about
    the work in progress. The dialog shows only Start a thread, because the
    frame sends this message to the agent now and not with the round's
    feedback. */
 export function openAgentMessage() {
-  openNote({ topic: "agreed", anchor: "Progress", target: "agent-activity" });
+  openNote(progressThread);
   if (!$("note-dialog").open) return;
   $("note-title").textContent = "Message the agent";
   $("note-label").textContent = "Message";

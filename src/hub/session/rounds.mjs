@@ -248,6 +248,13 @@ export function rounds(session) {
       409,
     );
   }
+  // The command names the kept source by the path in --session-dir, which can
+  // differ from the path the hub loaded the session by, such as /var/… and
+  // /private/var/… on macOS, so sourceInside compares real paths.
+  const sourceInside = async (source) =>
+    (await fs.realpath(source).catch(() => "")).startsWith(
+      (await fs.realpath(directory)) + path.sep,
+    );
   async function publishPage(html, source, pages) {
     requireValue(
       !(await pending()).length,
@@ -261,8 +268,7 @@ export function rounds(session) {
     );
     requireValue(
       source === undefined ||
-        (typeof source === "string" &&
-          path.resolve(source).startsWith(directory + path.sep)),
+        (typeof source === "string" && (await sourceInside(source))),
       "Source must be a directory inside the session directory",
     );
     requireValue(
@@ -478,8 +484,12 @@ export function rounds(session) {
   }
   function pageSet(round) {
     requireValue(roundPattern.test(round || ""), "Invalid round");
-    const set = session.state.roundPages?.[round];
-    requireValue(set, "Unknown round", 404);
+    requireValue(
+      Object.hasOwn(session.state.roundPages || {}, round),
+      "Unknown round",
+      404,
+    );
+    const set = session.state.roundPages[round];
     return {
       round,
       generation: set.generation,

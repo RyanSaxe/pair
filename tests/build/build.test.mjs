@@ -540,6 +540,46 @@ test("a page source builds a standalone preview", async (t) => {
   await assert.rejects(exec(process.execPath, [link, "build"]), { code: 1 });
 });
 
+// pair build measures the request that pair publish would send, so the agent
+// learns the limit before it has a file it cannot publish.
+test("the build lists a page too big to publish with its other problems and writes nothing", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-build-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const source = path.join(directory, "big.json");
+  const output = path.join(directory, "big.html");
+  const image = `<img alt="" src="data:image/png;base64,${"A".repeat(10_000_000)}">`;
+  const write = (html) =>
+    fs.writeFile(
+      source,
+      JSON.stringify({
+        name: "t",
+        round: "1",
+        title: "T",
+        page: { id: "big", title: "Big", html },
+      }),
+    );
+  await write(`<h1>Big</h1>${image}`);
+  await assert.rejects(
+    exec(process.execPath, [pair, "build", source, output]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /^pair: page "big": .*h1/m);
+      assert.match(
+        error.stderr,
+        /^page "big" is too big to publish\. The publish would send the hub \d+(\.\d)? MB, and the hub accepts at most 20 MB\. pair build writes a page's content into the built file twice, so the images embedded in one page can total about 6\.7 MB\. Crop or resize the images, or save them as JPEG or WebP\. Then build the page again and publish the new file\.$/m,
+      );
+      return true;
+    },
+  );
+  assert.equal(
+    await fs.access(output).then(
+      () => true,
+      () => false,
+    ),
+    false,
+  );
+});
+
 // A browser decodes &lt;, &gt; and &amp; inside a textarea. The decoded
 // textarea matches the file's text only if pair build escaped it.
 test("a diff input that names its JSON file builds with the file's exact text, and a missing or malformed file is refused", async (t) => {

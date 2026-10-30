@@ -9,7 +9,7 @@ Write a comment, then press **Start a thread** instead of **Add to
 feedback**. The shortcut is <kbd>⌘</kbd> <kbd>Enter</kbd> on a Mac, and
 <kbd>Ctrl</kbd> <kbd>Enter</kbd> elsewhere. The hub sends the comment to the
 agent at once, and pair shows the agent's reply in a card under the block
-you commented on.
+you commented on, or under the line when you selected words in a diff.
 
 Pressing **Comment** on a [proposal](proposals-and-work.md) starts a thread
 on it, which pair shows under the proposal's card.

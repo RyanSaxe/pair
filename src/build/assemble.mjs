@@ -160,6 +160,10 @@ export async function assemble(
   readPlanData(html);
   return html;
 }
+// pair build measures a page's built file before it reports the page's problems,
+// so joinPage() joins a page that assemble() would refuse.
+export const joinPage = async (data, css, js) =>
+  join(await frameBundle(), data, css, js);
 export async function assembleHome(title) {
   return join(await frameBundle(), { title, pages: [] }, "", "");
 }

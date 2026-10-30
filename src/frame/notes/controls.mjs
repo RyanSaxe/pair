@@ -1,5 +1,5 @@
 import { persist, save, state } from "#frame/app/store.mjs";
-import { $, controlKey } from "#frame/app/util.mjs";
+import { $, controlKey, typingIn } from "#frame/app/util.mjs";
 import {
   editable,
   feedbackEditable,
@@ -7,9 +7,14 @@ import {
   pages,
   plan,
 } from "#frame/app/view.mjs";
+import { blockTargets } from "#frame/notes/blocks.mjs";
 
 let answerTimer;
-export function choiceTargets(root, topic) {
+// pageTargets gives the same IDs to the live page and to a template of its
+// HTML, so a target read from a template exists on the live page. A control
+// that is a top-level block keeps its block's ID.
+export function pageTargets(root, topic) {
+  blockTargets(root, topic);
   for (const type of ["choice", "multiselect", "question"])
     root.querySelectorAll(`[data-${type}]`).forEach((group, index) => {
       group.id ||= `${type}-${topic}-${index}`;
@@ -41,7 +46,7 @@ export function initializeChecklists() {
   for (const topic of plan.pages.filter((item) => !item.pending)) {
     const template = document.createElement("template");
     template.innerHTML = topic.html;
-    choiceTargets(template.content, topic.id);
+    pageTargets(template.content, topic.id);
     for (const group of template.content.querySelectorAll(
       "[data-multiselect]",
     )) {
@@ -98,7 +103,7 @@ export function notAddedAnswers() {
   )) {
     const template = document.createElement("template");
     template.innerHTML = topic.html;
-    choiceTargets(template.content, topic.id);
+    pageTargets(template.content, topic.id);
     for (const group of template.content.querySelectorAll("[data-question]"))
       if (
         group.querySelector("textarea") &&
@@ -116,11 +121,13 @@ export const typedOn = (topic) =>
   Object.entries(state.drafts).some(
     ([key, text]) => key.startsWith(`${topic}/`) && typeof text === "string",
   );
+// restoreAnswers leaves the box the reviewer is typing in as it is.
 export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
     const key = controlKey(page.id, group.dataset.question);
-    area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
+    if (!typingIn(area))
+      area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
     area.readOnly = !editable;
   });
 }

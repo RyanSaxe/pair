@@ -10,7 +10,7 @@ import { requireNode, settings } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
-import { rows } from "./output.mjs";
+import { rows, tooBigToPublish } from "./output.mjs";
 import { proposalText } from "./tags.mjs";
 
 // fs.cp gives each copied directory its source's mode, and rm cannot empty a
@@ -318,6 +318,8 @@ export async function publish(options) {
   const action = { action: "publish", html };
   if (options.pages)
     action.pages = (await read(path.resolve(options.pages))).pages;
+  const [tooBig] = tooBigToPublish(file, action);
+  requireValue(!tooBig, tooBig);
   if (options.source)
     action.source = await keepSource(session.directory, options.source, html);
   let result;

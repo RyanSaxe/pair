@@ -40,19 +40,23 @@ button in the header opens and closes the sidebar. On a screen wider than
 close it. At 720px and narrower, the sidebar starts closed and slides over the
 page when you open it, and choosing a page closes it again.
 
-The **Last round** tab at the top of the sidebar shows the round before this
-one. To read an older round, open it from the Rounds button, the clock in
-the header. The tab then shows that round, and its label changes to **Round N**.
+The **Last round** tab at the top of the sidebar lists the pages of the round
+before this one, and **Current** lists this round's pages. The page on screen
+stays until you choose a page from the list. To read an older round, open it
+from the Rounds button, the clock in the header. The **Last round** tab then
+lists that round's pages, and its label changes to **Round N**.
 
 ## What you can do on a page
 
 | To                        | Do this                                                                                                                                 |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Choose between options    | Press an option. The agent does not count an option marked **Recommended** as your choice until you press it.                           |
-| Answer a question         | Type in its box, or draw when the question asks for a drawing.                                                                          |
+| Answer a question         | Type in its box and press **Answer**, or draw when the question asks for a drawing.                                                     |
 | Comment on words          | Select them and press **Comment on selection** at the bottom right.                                                                     |
 | Comment on a block        | Click the block, then press the button at the bottom right or <kbd>c</kbd>. Press <kbd>j</kbd> and <kbd>k</kbd> to move between blocks. |
 | Comment on the page       | With nothing selected, press the comment button at the bottom right, or <kbd>c</kbd>.                                                   |
+| Comment on a diagram box  | Click the diagram to open it full size, then click the box.                                                                             |
+| Sketch on a diagram       | Click the diagram to open it full size, then press **Sketch on this diagram**. When you save, pair attaches the sketch to a comment.    |
 | Get an answer now         | Send the comment as a [thread](threads.md).                                                                                             |
 | Approve or decline work   | Use the buttons on a proposal, on the page or on [Work](proposals-and-work.md).                                                         |
 | Review what you will send | Press <kbd>r</kbd>.                                                                                                                     |
@@ -61,8 +65,20 @@ the header. The tab then shows that round, and its label changes to **Round N**.
 ## Feedback
 
 pair saves everything you do on the pages as a draft until you send it. The
-hub keeps the draft, so a round you start on your phone continues on your
-computer, and your browser keeps a copy for when the hub is unreachable.
+hub keeps the feedback you completed, so you can start a round on your phone
+and continue it on your computer:
+
+- a note after **Add to feedback**, and its edits and removal
+- a choice in a decision and a checked box
+- an answer after **Answer** and a drawing after **Save drawing**
+- the **Everything else looks good** switch
+
+The browser you typed in keeps the rest, which no other device shows: the text
+in an open note dialog, an answer before **Answer**, a drawing you have not
+saved, a thread reply you have not sent and the message in the send popup. Your
+browser also keeps a copy of the feedback you completed, and it sends what you
+completed while the hub was unreachable when the hub answers again.
+
 **Send feedback** in the header opens a popup where you choose what the agent
 does next, and you send the round with the popup's button.
 
@@ -86,6 +102,9 @@ label is **Build it** when you choose Build it, and **Send** otherwise. The
 agent can also make a round a plan without your asking, when it judges that
 it knows enough to write one.
 
+pair sends a typed answer only after you press **Answer**. The popup lists
+each typed answer you have not added, with a link to its question.
+
 The popup also has a box for a message to the agent, which stays in your
 draft until you send it, and the switch **Everything else looks good**,
 which is on by default. When the switch is on, the agent treats everything
@@ -93,8 +112,18 @@ the pages stated as agreed, except where one of your comments challenges
 it. Turning the switch on never chooses an option or answers a question for
 you.
 
-After you send, the Review page lists what you sent, with your choice and
-your message.
+After you send, the round's **Feedback** page lists what you sent, with your
+choice and your message.
+
+The hub keeps one submission for each round. When you send from a second tab
+or device after the hub saved the round's feedback, the hub refuses that send,
+and the frame shows why. Your comments and message stay in that device's draft
+for the next round.
+
+When the refused send had a message, the error also offers **Send as a
+message**. That button starts a thread with your message, as **Message the
+agent** does, so the agent gets it now, and the frame takes the message out of
+the draft. Your notes and choices stay in the draft.
 
 ## Agreed
 
@@ -140,13 +169,14 @@ is listed under the session it came from, with an arrow, ↳, in place of a
 number. Each row has **Copy handoff line**, and ✕, which you press to close
 the session.
 
-- The number on the Sessions button shows how many other sessions need you.
-  A session needs you when it has a round waiting for you, an agent the hub
-  could not wake, or pages you have not opened. The number is orange when at
-  least one of those sessions has a waiting round or an agent the hub could
-  not wake, and blue otherwise. When no other session needs you, a grey
-  number shows how many other live sessions you have. pair never counts the
-  session in this tab.
+- The number on the Sessions button shows how many other sessions have a round
+  waiting for you, an agent the hub could not wake, or unopened pages in a round
+  you have not sent. pair stops counting a waiting round once you open that session or
+  clear its line from the bell, and the session list still marks that session
+  **Waiting**. The number is orange when pair counts a waiting round or an
+  agent the hub could not wake, and blue otherwise. When pair counts no
+  session, a grey number shows how many other live sessions you have. pair
+  never counts the session in this tab.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number. Sub-sessions have
   no number. <kbd>w</kbd> opens the next session with a round waiting for
   you, sub-sessions included.
@@ -163,13 +193,14 @@ The list has a line for each agent reply in a thread and each proposal an
 agent records, from every live session. It also has a line for each other
 session that starts or has a round waiting for you.
 
-| When you                          | pair removes        |
-| --------------------------------- | ------------------- |
-| Click a line or its ✕             | That line           |
-| Send a waiting round              | That round's line   |
-| Reply in a thread                 | That thread's lines |
-| Give an agent's reply a thumbs up | That reply's line   |
-| Press **Clear all**               | Every line          |
+| When you                          | pair removes                                 |
+| --------------------------------- | -------------------------------------------- |
+| Click a line or its ✕             | That line                                    |
+| Open a session                    | That session's start and waiting-round lines |
+| Send a waiting round              | That round's line                            |
+| Reply in a thread                 | That thread's lines                          |
+| Give an agent's reply a thumbs up | That reply's line                            |
+| Press **Clear all**               | Every line                                   |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">

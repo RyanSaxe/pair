@@ -163,9 +163,12 @@ export function activityModel({
         ? { text: quiet, late: true }
         : { text: `Last report ${ago(remote.report.at, now)}`, late: false }
       : null;
+  // The line moves from Send, whether or not the agent has received the
+  // feedback, because a slow wake must not look like a frozen page. It stops
+  // only when the card says that the agent stopped.
   const track = slots.length
     ? null
-    : inFlight || ((received || home) && !stopped)
+    : inFlight || ((latest || home) && !stopped)
       ? "moving"
       : "still";
   const sweep = between && !quiet;

@@ -30,7 +30,7 @@ import {
 import { installDrawing } from "#frame/notes/drawing.mjs";
 import { installNoteDialog } from "#frame/notes/note-dialog.mjs";
 import { findQuote, highlight, installNotes } from "#frame/notes/notes.mjs";
-import { installThreads } from "#frame/notes/threads.mjs";
+import { installThreads, onCurrentAgreed } from "#frame/notes/threads.mjs";
 import { installPages, show } from "#frame/pages/pages.mjs";
 import { startHome } from "#frame/pages/home.mjs";
 import { installProgress } from "#frame/pages/progress.mjs";
@@ -40,13 +40,8 @@ import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
 import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
-import {
-  installDraftSync,
-  openPast,
-  poll,
-  selectedTab,
-} from "#frame/sync/rounds.mjs";
-import { installDraftHub, syncDraft } from "#frame/sync/draft.mjs";
+import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
+import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 
 const planData = JSON.parse($("plan-data").textContent);
@@ -117,7 +112,6 @@ function bootRound() {
   installRegistry();
   installDrawing();
   installDraftSync();
-  installDraftHub();
   window.planUI = createPlanUI();
   document.title = plan.title;
   if (editable) initializeChecklists();
@@ -167,9 +161,14 @@ function bootRound() {
         // A notification's link puts its target in the address. While Current
         // waits, the frame shows the sent round's pages only under Previous,
         // so the target opens there, unless it is on Work, which every round
-        // has. A reload without a target returns to the past round that was
-        // on screen.
-        if (target && showingWaiting() && asked !== "work")
+        // has, or on Current's progress card. A reload without a target
+        // returns to the past round that was on screen.
+        if (
+          target &&
+          showingWaiting() &&
+          asked !== "work" &&
+          !onCurrentAgreed(target)
+        )
           void openPast(plan.round, {
             pageId: asked || "agreed",
             targetId: target,

@@ -33,6 +33,7 @@ import {
   show,
 } from "#frame/pages/pages.mjs";
 import {
+  refusedMessage,
   submissionError,
   submissionInFlight,
   submitButton,
@@ -428,6 +429,7 @@ export function review() {
   $("submit-error").textContent = submissionError;
   $("save-error").hidden = !submissionError || $("reading").hidden;
   $("save-error-text").textContent = submissionError;
+  $("save-error-message").hidden = !refusedMessage;
   if (locked)
     $("page-content")
       .querySelectorAll(
