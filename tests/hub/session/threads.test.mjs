@@ -357,3 +357,50 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   assert.equal(record.occurrence, 2);
   assert.equal(record.href, "./example.1.html?target=failure#overview");
 });
+
+test("the session list has a line for each thread in the current round and each older thread still waiting", async (t) => {
+  const { a, start, h, send } = await published(t);
+  const lines = async () => {
+    const { sessions } = await (
+      await fetch(`${h.server.origin}/api/sessions`)
+    ).json();
+    return sessions.find((entry) => entry.id === a.id).threads;
+  };
+  const answered = crypto.randomUUID();
+  const waiting = crypto.randomUUID();
+  const long = "Why three retries? ".repeat(20);
+  assert.equal((await start({ id: answered, text: long })).code, 201);
+  assert.equal((await start({ id: waiting })).code, 201);
+  const asked = (await lines()).find((line) => line.thread === answered);
+  assert.equal(asked.text.length, 160);
+  assert.ok(asked.waitingSince);
+  assert.equal(asked.answeredAt, undefined);
+
+  const replied = await a.action("reply", { note: answered, text: "Here." });
+  assert.equal(replied.code, 200);
+  const line = (await lines()).find((item) => item.thread === answered);
+  assert.equal(line.waitingSince, undefined);
+  assert.ok(line.answeredAt);
+
+  // A later message waits from when the reviewer wrote it, and the line keeps
+  // the thread's first message.
+  const later = await send(answered, {
+    replyId: crypto.randomUUID(),
+    text: "And on refunds?",
+  });
+  assert.equal(later.code, 201, later.body.error);
+  const again = (await lines()).find((item) => item.thread === answered);
+  assert.ok(again.waitingSince > asked.waitingSince);
+  assert.equal(again.text, asked.text);
+  const closed = await a.action("reply", { note: answered, text: "Yes." });
+  assert.equal(closed.code, 200);
+
+  // The next round's list drops the answered thread and keeps the waiting one.
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  assert.deepEqual(
+    (await lines()).map((item) => item.thread),
+    [waiting],
+  );
+});

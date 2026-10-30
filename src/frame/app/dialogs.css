@@ -342,6 +342,20 @@ dialog::backdrop {
   font-style: normal;
   font-weight: var(--weight-strong);
 }
+/* The Threads tab's rows have no Clear button, so a row's text can use the
+   column that the button would take. */
+#center-list.threads .session-line {
+  grid-template-columns: minmax(0, 1fr);
+}
+.center-group {
+  padding: 10px 10px 2px;
+  overflow: hidden;
+  font-size: var(--text-small);
+  font-weight: var(--weight-strong);
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .session-line {
   position: relative;
   display: grid;

@@ -28,10 +28,15 @@
   </div>
   <div class="sess-list round-list" id="round-list"></div>
 </div>
-<div class="pop" id="center-pop" popover aria-labelledby="center-title">
+<div class="pop" id="center-pop" popover aria-label="Notifications and threads">
   <div class="side-label">
-    <span id="center-title">Notifications</span
-    ><button class="link-btn" id="center-clear-all" type="button" hidden>
+    <div class="segmented" id="center-tabs" role="radiogroup" aria-label="Show">
+      <button type="button" role="radio" data-center="notifications">
+        Notifications
+      </button>
+      <button type="button" role="radio" data-center="threads">Threads</button>
+    </div>
+    <button class="link-btn" id="center-clear-all" type="button" hidden>
       Clear all
     </button>
   </div>
