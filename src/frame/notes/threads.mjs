@@ -178,6 +178,7 @@ function contents(html) {
     ["[data-math]", "a formula"],
     ["table", "a table"],
     ["[data-prototype]", "a prototype"],
+    ["video", "a video"],
   ])
     if (root.querySelector(selector)) parts.push(name);
   return parts.join(" and ");

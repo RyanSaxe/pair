@@ -341,13 +341,15 @@ th {
   color: var(--muted);
 }
 img,
-svg {
+svg,
+video {
   max-width: 100%;
 }
 /* pair build writes each image's width and height, so the browser reserves
    the image's box before it decodes the image. height: auto keeps the ratio
-   when max-width narrows the image. */
-img {
+   when max-width narrows the image or a video. */
+img,
+video {
   height: auto;
 }
 .renderer-error {
