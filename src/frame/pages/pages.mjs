@@ -194,11 +194,12 @@ export function show(
 /* showChanges shows the draft after it changed outside this tab's own
    controls, from the hub or from another tab. pages names the pages whose
    items changed, and null means any page. showChanges sets the choices,
-   answers and note marks on the page at once. Drawing the page again also
-   shows what a component derives from the draft, such as an answered
-   question, but it replaces every field, video and thread card on the page,
-   so redrawPage waits while the reviewer uses one of them or has a dialog
-   open. The frame calls redrawPage again after each status poll. */
+   answers and note marks on the page at once, and sends plan:draft to each
+   control, so a component updates what it derives from the draft, such as an
+   answered question. Drawing the page again covers a page's own scripts, but
+   it replaces every field, video and thread card on the page, so redrawPage
+   waits while the reviewer uses one of them or has a dialog open. The frame
+   calls redrawPage again after each status poll. */
 let redrawHeld = false;
 export function showChanges(pages = null) {
   review();
@@ -207,6 +208,10 @@ export function showChanges(pages = null) {
   restoreChoices();
   restoreAnswers();
   if (page.id !== "agreed") markNotes();
+  for (const control of $("page-content").querySelectorAll(
+    "[data-multiselect], [data-question], [data-drawing-question]",
+  ))
+    control.dispatchEvent(new CustomEvent("plan:draft"));
   redrawHeld = true;
   redrawPage();
 }

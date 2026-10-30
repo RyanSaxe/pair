@@ -1,12 +1,10 @@
 import { flushPlace, placeIn, places, savePlaces } from "#frame/app/places.mjs";
 import {
-  changedPages,
   markSent,
   persist,
   savedDraft,
   setState,
   state,
-  storedDraft,
 } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -26,7 +24,6 @@ import {
   setSubmittedRound,
   showingWaiting,
   shownPage,
-  storageKey,
   submittedRound,
   useView,
   views,
@@ -35,13 +32,11 @@ import {
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
-import { refreshReplies } from "#frame/notes/thread-reply.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import {
   displayedRound,
   redrawPage,
   show,
-  showChanges,
   updateNavigation,
 } from "#frame/pages/pages.mjs";
 import { updatePending } from "#frame/pages/pending.mjs";
@@ -418,28 +413,6 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();
-}
-// Every tab of a session saves its draft under one key. When another tab
-// saves the draft for the round on screen here, this tab loads that draft,
-// so it never saves its older copy back, such as a copy from before a send.
-export function installDraftSync() {
-  if (!editable) return;
-  window.addEventListener("storage", (event) => {
-    if (event.key !== storageKey) return;
-    const past = selectedTab === "past";
-    const view = past ? views.get(remote?.current?.round) : null;
-    const held = past ? view?.draft : state;
-    const draft = held && storedDraft(event.newValue, held.round);
-    if (!draft) return;
-    if (past) {
-      view.draft = draft;
-      return;
-    }
-    const before = state;
-    setState(draft);
-    showChanges(changedPages(before, draft));
-    refreshReplies();
-  });
 }
 export async function poll() {
   try {
