@@ -448,6 +448,39 @@ test("the browser can read sent feedback without agent-only paths", async (t) =>
   assert.equal(invalid.code, 400);
 });
 
+// A Start saves an event with the round it started on and no feedback in it.
+test("a Start on a round leaves what the browser reads for that round", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const submission = () => a.request(`${a.base}/api/submission?round=1`);
+  const start = async (id) => {
+    const proposed = await a.action("propose", {
+      id,
+      title: "Refresh the export",
+      delivers: "The export uses the new schema.",
+      recommend: "here",
+    });
+    assert.equal(proposed.code, 200, proposed.body.error);
+    const started = await a.request(`${a.base}/api/proposals/${id}/start`, {
+      where: "here",
+    });
+    assert.equal(started.code, 200, started.body.error);
+  };
+
+  await start("before-send");
+  const unsent = await submission();
+  assert.equal(unsent.code, 200, JSON.stringify(unsent.body));
+  assert.equal(unsent.body.submission, null);
+
+  const feedback = a.event();
+  assert.equal((await a.feedback(feedback)).code, 200);
+  await start("after-send");
+  const sent = await submission();
+  assert.equal(sent.code, 200, JSON.stringify(sent.body));
+  assert.equal(sent.body.submission.id, feedback.id);
+});
+
 // On macOS, /tmp is a symbolic link to /private/tmp, so an agent can name one
 // session by two paths.
 test("a session reached through a symbolic link is the same session", async (t) => {

@@ -232,7 +232,10 @@ export async function loadSession(
     );
     const event = requestedRound
       ? events
-          .filter((item) => item.payload.round === requestedRound)
+          .filter(
+            (item) =>
+              answersRound(item) && item.payload.round === requestedRound,
+          )
           .sort((a, b) => b.sequence - a.sequence)[0]
       : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
         ? await read(
