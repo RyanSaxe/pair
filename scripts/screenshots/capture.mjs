@@ -129,9 +129,9 @@ export async function ready(page) {
     throw new Error(`A figure failed to render: ${errors.join("; ")}`);
 }
 
-// load() opens about:blank first, because the frame reads the page ID from the
+// visit() opens about:blank first, because the frame reads the page ID from the
 // address's hash only when it loads.
-export async function load(page, url, id) {
+async function visit(page, url, id) {
   await page.goto("about:blank");
   await page.goto(`${url}#${id}`);
   await until(
@@ -141,6 +141,13 @@ export async function load(page, url, id) {
     id,
   );
   await ready(page);
+}
+// A tab that waits for a round opens Agreed when a poll finds the round, so
+// whether Agreed counts as opened would depend on the poll's timing. load()
+// always opens Agreed first, so every picture shows the same New marks.
+export async function load(page, url, id) {
+  await visit(page, url, "agreed");
+  if (id !== "agreed") await visit(page, url, id);
 }
 
 // The frame polls the hub for sessions and notifications every 5 s, so

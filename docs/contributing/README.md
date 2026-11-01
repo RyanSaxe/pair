@@ -96,9 +96,9 @@ pull request into a branch other than `main` that changes any of these:
 - `scripts/demo/`
 
 The workflow pushes the PNGs that the script rewrote to the pull request's
-branch, as a commit by `github-actions[bot]`. The illustration's terminal
-shows IDs that each run creates anew, so the workflow pushes one of these
-commits after every push to such a pull request.
+branch, as a commit by `github-actions[bot]`. The script keeps a PNG that shows
+the same picture, so the workflow pushes one of these commits only when a
+picture changes.
 
 Pull that commit before you push again. GitHub runs the checks on that
 commit only after someone with write access selects **Approve workflows to
