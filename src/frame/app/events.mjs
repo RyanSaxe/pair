@@ -23,7 +23,7 @@ import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
-import { closeSearch, openSearch, searchOpen } from "#frame/search/modal.mjs";
+import { openSearch } from "#frame/search/modal.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
   listTab,
@@ -186,8 +186,7 @@ export function installEvents() {
       !$("drawing-dialog").open
     ) {
       event.preventDefault();
-      if (searchOpen()) closeSearch();
-      else openSearch();
+      openSearch();
       return;
     }
     if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
