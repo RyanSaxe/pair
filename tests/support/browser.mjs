@@ -64,6 +64,16 @@ export async function open(
   return page;
 }
 
+// While the macOS keychain daemon is slow to answer, Chrome's certificate check
+// can outlast its 30 seconds for a TLS connection, and the page's import from
+// esm.sh fails. fetchEsmInNode has Node fetch the real module and hands it to
+// the page, so Chrome opens no connection.
+export function fetchEsmInNode(page) {
+  return page.route(/^https:\/\/esm\.sh\//, async (route) =>
+    route.fulfill({ response: await route.fetch() }),
+  );
+}
+
 // This stand-in for the Pele library renders one fixed SVG for the navigation
 // and dialog tests. tests/browser/figures.mjs tests real diagram rendering.
 const pele = `export function mount(element, source, options = {}) {
