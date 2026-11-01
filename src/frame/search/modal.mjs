@@ -1,30 +1,20 @@
 import { $, apple } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
+import { followPointer } from "#frame/search/pointer.mjs";
 import {
+  KINDS,
+  blankHtml,
   escapeHtml,
+  hasOwnText,
   marked,
+  rowHtml,
   rowKey,
-  snippet,
-  whereLine,
+  titleHtml,
 } from "#frame/search/rows.mjs";
 
-const KINDS = [
-  ["pages", "Pages"],
-  ["threads", "Threads"],
-  ["notes", "Notes"],
-  ["answers", "Answers"],
-  ["proposals", "Proposals"],
-  ["agreed", "Agreed"],
-];
-const WIDER = {
-  kinds: "every kind",
-  rounds: "all rounds",
-  sessions: "all sessions",
-};
 const PHONE = 720;
-const AIM_PX = 4;
-const AIM_SLOPE = 2;
-const REST_MS = 120;
+// A fast reply replaces the list before this, so most searches never show it.
+const SEARCHING_AFTER_MS = 150;
 // How far a key moves the selection. Ctrl+K is one of them on every system, so
 // it never closes the modal.
 const ARROW_STEPS = { ArrowDown: 1, ArrowUp: -1 };
@@ -32,26 +22,6 @@ const CTRL_STEPS = { j: 1, n: 1, k: -1, p: -1 };
 const stepOf = (event) =>
   ARROW_STEPS[event.key] ??
   (event.ctrlKey && !event.shiftKey && CTRL_STEPS[event.key.toLowerCase()]);
-
-const icon = (paths) =>
-  `<svg class="search-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-const GLYPHS = {
-  pages: icon('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>'),
-  threads: icon(
-    '<path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.6a8 8 0 1 1 15.6-3.9z"/>',
-  ),
-  notes: icon('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
-  answers: icon(
-    '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M8 12l3 3 5-6"/>',
-  ),
-  proposals: icon(
-    '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>',
-  ),
-  agreed: icon(
-    '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>',
-  ),
-  code: icon('<path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/>'),
-};
 
 // The search stays as the reader left it for as long as the tab is open, also
 // when the tab moves to another session. sessionStorage belongs to the tab, so
@@ -96,7 +66,7 @@ function openResult(row) {
 // The body of the preview pane: the row's heading and text, its words marked.
 function showPreview(pane, row) {
   pane.innerHTML = row
-    ? `<h3>${marked(row.heading || row.pageTitle || "Untitled", row.heading ? row.headingRanges : null)}</h3><div class="search-text${row.code ? " is-code" : ""}">${marked(row.text, row.ranges)}</div>`
+    ? `<h3>${titleHtml(row)}</h3>${hasOwnText(row) ? `<div class="search-text${row.code ? " is-code" : ""}">${marked(row.text, row.ranges)}</div>` : ""}`
     : "";
   pane
     .querySelector(".search-text mark")
@@ -158,8 +128,7 @@ export function installSearch() {
   const kindsButton = part(".search-kinds-button");
   let current = { results: [], counts: {}, total: 0 };
   let request = null;
-  let aim = null;
-  let rest = 0;
+  let searching = 0;
   let pressedOutside = false;
 
   kinds.innerHTML =
@@ -219,35 +188,20 @@ export function installSearch() {
   }
 
   function drawList() {
-    const { results } = current;
+    const { results, total, loading } = current;
     if (!results.length) {
-      const scope = state.allSessions ? "any session" : "this session";
-      const wider = current.wider;
-      list.innerHTML = `<div class="search-blank"><span>${
-        state.query.trim()
-          ? `No matches for “${escapeHtml(state.query.trim())}” here.`
-          : `Nothing in ${scope} yet.`
-      }</span>${
-        wider
-          ? `<button type="button" data-wider="${wider.filter}">Show ${wider.total} in ${WIDER[wider.filter]}</button>`
-          : ""
-      }</div>`;
+      list.innerHTML = blankHtml(state, current);
+      input.removeAttribute("aria-activedescendant");
       return;
     }
-    let html = "";
-    results.forEach((row, index) => {
-      html += `<div class="search-row" id="search-row-${index}" role="option" data-i="${index}" aria-selected="${index === state.selected}">
-        ${row.code ? GLYPHS.code : GLYPHS[row.kind]}
-        <div>
-          <div class="search-title">${marked(row.heading || row.pageTitle || "Untitled", row.heading ? row.headingRanges : null)}</div>
-          ${row.text ? `<div class="search-snippet">${snippet(row.text, row.ranges)}</div>` : ""}
-          <div class="search-where">${escapeHtml(whereLine(row, state))}</div>
-        </div>
-      </div>`;
-    });
-    if (current.total > results.length)
-      html += `<div class="search-end">Showing the best ${results.length} of ${current.total}. Keep typing to narrow them.</div>`;
-    if (current.loading)
+    let html = results.map((row, index) => rowHtml(row, index, state)).join("");
+    if (total > results.length)
+      html += `<div class="search-end">${
+        state.query.trim()
+          ? `Showing the best ${results.length} of ${total}. Keep typing to narrow them.`
+          : `Showing the newest ${results.length} of ${total}.`
+      }</div>`;
+    if (loading)
       html += `<div class="search-end">Still reading older sessions, so more may appear.</div>`;
     list.innerHTML = html;
     input.setAttribute("aria-activedescendant", `search-row-${state.selected}`);
@@ -285,6 +239,14 @@ export function installSearch() {
     if (!state.allSessions) params.set("session", session.sessionId);
     if (!state.allRounds) params.set("round", "latest");
     if (state.kinds.size) params.set("kinds", [...state.kinds].join(","));
+    // Until a slow reply arrives, nothing says "0 results" or "No matches" about
+    // words the field no longer has.
+    clearTimeout(searching);
+    searching = setTimeout(() => {
+      part(".search-count").textContent = "";
+      if (!current.results.length)
+        list.innerHTML = `<div class="search-blank"><span>Searching…</span></div>`;
+    }, SEARCHING_AFTER_MS);
     try {
       const reply = await fetch(`/api/search?${params}`, {
         signal: request.signal,
@@ -294,12 +256,14 @@ export function installSearch() {
     } catch (error) {
       // A newer search replaced this one, so its answer no longer matters.
       if (error.name === "AbortError") return;
+      clearTimeout(searching);
       current = { results: [], counts: {}, total: 0 };
       drawControls();
       list.innerHTML = `<div class="search-blank"><span>Search could not reach the hub.</span></div>`;
       drawPreview();
       return;
     }
+    clearTimeout(searching);
     const row = state.row;
     state.selected = keep
       ? Math.max(
@@ -352,7 +316,7 @@ export function installSearch() {
 
   function open() {
     if (!dialog.open) dialog.showModal();
-    aim = null;
+    pointer.reset();
     input.value = state.query;
     input.focus();
     input.select();
@@ -421,33 +385,9 @@ export function installSearch() {
     if (getSelection().isCollapsed) focusField();
   });
 
-  // A row follows the pointer, except while the pointer heads right, for the
-  // preview and Open, across rows the reader isn't choosing. A pointer that stops
-  // selects the row under it. Moves are measured from where the last one ended,
-  // and a list that redraws under a resting pointer sends one with no distance,
-  // so that pointer keeps the keyboard's selection.
-  list.addEventListener("mousemove", (event) => {
-    if (!kinds.hidden) return;
-    const here = { x: event.clientX, y: event.clientY };
-    const dx = here.x - (aim?.x ?? here.x);
-    const dy = here.y - (aim?.y ?? here.y);
-    aim ||= here;
-    if (Math.abs(dx) + Math.abs(dy) < AIM_PX) return;
-    aim = here;
-    clearTimeout(rest);
-    const row = event.target.closest(".search-row");
-    if (!row) return;
-    const select = () => {
-      if (row.isConnected && Number(row.dataset.i) !== state.selected)
-        moveSelection(Number(row.dataset.i));
-    };
-    if (dx > 0 && Math.abs(dy) < dx * AIM_SLOPE)
-      rest = setTimeout(select, REST_MS);
-    else select();
-  });
-  list.addEventListener("mouseleave", () => {
-    aim = null;
-    clearTimeout(rest);
+  const pointer = followPointer(list, {
+    paused: () => !kinds.hidden,
+    select: (index) => index !== state.selected && moveSelection(index),
   });
   // Scrolling the results on a phone drops the keyboard, so more rows show.
   list.addEventListener("touchmove", () => input.blur(), { passive: true });

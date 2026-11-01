@@ -442,6 +442,57 @@ test("a search that finds nothing offers one filter to loosen, and keeps the wor
   );
 });
 
+test("with nothing typed, a kind or round filter that hides everything says so and loosens", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const blank = page.locator(".search-blank");
+  await page.locator("#search-button").click();
+  await page.locator(".search-row").first().waitFor();
+  await page.locator(".search-kinds-button").click();
+  await page.locator('.search-kind[data-kind="threads"]').click();
+  await blank.waitFor();
+  assert.match(await blank.textContent(), /No threads in this session\./);
+  await page.keyboard.press("Escape");
+  await blank.locator("[data-wider]").click();
+  await page.locator(".search-row").first().waitFor();
+  assert.equal(
+    await page.locator(".search-kinds-button").textContent(),
+    "All kinds",
+  );
+});
+
+test("a slow search leaves no message about the words it replaced, and a failed one shows no count", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const blank = page.locator(".search-blank");
+  await page.locator("#search-button").click();
+  await type(page, "zzzzzz");
+  await blank.waitFor();
+  assert.match(await blank.textContent(), /zzzzzz/);
+
+  let answer;
+  const held = new Promise((resolve) => (answer = resolve));
+  await page.route(/\/api\/search\?q=walrus&/, async (route) => {
+    await held;
+    await route.continue().catch(() => {});
+  });
+  await page.fill(".search-input", "walrus");
+  await page.waitForFunction(
+    () => !document.querySelector(".search-blank").textContent.includes("zzz"),
+    null,
+    { timeout: 5000 },
+  );
+  assert.equal(await page.locator(".search-count").textContent(), "");
+  answer();
+  await page.locator(".search-row").first().waitFor();
+
+  await page.route(/\/api\/search\?q=lemur&/, (route) => route.abort());
+  await page.fill(".search-input", "lemur");
+  await page.locator(".search-blank").waitFor();
+  assert.equal(await page.locator(".search-count").textContent(), "");
+  assert.equal(await page.locator(".search-preview-head").isVisible(), false);
+});
+
 test("an answer to an older search never replaces a newer one", async (t) => {
   const { page } = await searchPage(t);
   if (!page) return;
