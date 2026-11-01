@@ -143,8 +143,9 @@ function startedText(card, started, submission, cards) {
   return [
     started.by === "words"
       ? `The reviewer asked for proposal ${card.id}, "${card.title}", in their own words, to run ${places[started.where]}.`
-      : `The reviewer approved proposal ${card.id}, "${card.title}", to run ${places[started.where]}.`,
+      : `The reviewer ${card.source?.reviewer ? "wrote" : "approved"} proposal ${card.id}, "${card.title}", to run ${places[started.where]}.`,
     `Delivers: ${card.delivers}`,
+    ...images(card.attachments),
     ...joinedText(card, cards, "", true),
     ...startMessage(card, started, submission),
   ].join("\n");

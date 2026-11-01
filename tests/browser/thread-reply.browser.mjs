@@ -175,3 +175,74 @@ test("a code block or a wide table inside a wrapper scrolls within the thread ca
     }
   }
 });
+
+// Component CSS is scoped, and a thread on a Work card sits outside
+// #page-content, so the scope must also cover a thread's own content.
+test("a code block in a thread on a Work card draws one box", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const proposed = await session.action("propose", {
+    id: "tidy",
+    title: "Tidy the list",
+    delivers: "The list, tidied.",
+    recommend: "here",
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "on-card",
+    round: "1",
+    topic: "work",
+    anchor: "Tidy the list",
+    proposal: "tidy",
+    text: "Which list?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const replied = await session.action("reply", {
+    note: "on-card",
+    html: '<p>This one.</p><pre data-language="text" data-file="list.txt">one\ntwo</pre>',
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+
+  const page = await open(t, `${h.server.origin}${session.base}/#work`);
+  if (!page) return;
+  const block = page.locator('#work-view pre[data-language="text"]');
+  await block.waitFor();
+  // The frame's generic pre rule draws this border, and the code component's
+  // rule removes it.
+  assert.equal(
+    await block.evaluate((node) => getComputedStyle(node).borderTopWidth),
+    "0px",
+  );
+});
+
+// The frame can draw a thread before Shiki replaces a code block's text, and
+// Shiki can fail to load at all, so the heading cannot depend on Shiki's lines.
+test("a thread on words in a code block names its line before Shiki has drawn it", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const data = planData();
+  data.pages[0].html +=
+    '<pre id="sample" data-language="js">const one = 1;\nconst two = 2;\nconst three = 3;</pre>';
+  assert.equal((await session.publish(data)).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "on-code",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    target: "sample",
+    quote: "const two = 2;",
+    text: "Why two?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  await page.route(/^https:\/\/esm\.sh\//, (route) => route.abort());
+  await page.goto(`${h.server.origin}${session.base}/#overview`);
+  await page
+    .locator('pair-thread[data-thread="on-code"]')
+    .getByText("On line 2")
+    .waitFor({ timeout: 10000 });
+  assert.equal(await page.locator("#sample .shiki").count(), 0);
+});

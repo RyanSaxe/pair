@@ -33,6 +33,13 @@ it. The chart draws into a box of fixed height, a code block's plain source
 already has its highlighted height, and the diff reserves its height before
 it draws.
 
+Search shows a reader's words through the page's own code and reads a block's
+text and attributes, so a component needs no code for search. Search opens
+content hidden by `hidden` or a closed `<details>` by itself. When a component
+hides content some other way, `setup` listens for the `plan:reveal` event, which
+the frame sends on the hidden element, and shows that element. Without a
+listener, the frame outlines the block.
+
 The frame renders a page by replacing `#page-content`, so `setup` runs again
 on every visit. Keep no state between renders. Keep a viewing preference the
 reviewer chose, such as a layout, in `planUI.prefs`, keyed by `page.id` and
@@ -58,7 +65,8 @@ page CSS and the frame's own styles, so a component's type and spacing rules
 override the frame's. Use the design tokens that `pair guide pages.md`
 prints.
 
-`pair build` also scopes component CSS to `#page-content`, so a selector
+`pair build` also scopes component CSS to `#page-content` and to the content
+of a thread message, so a selector
 that starts at `:root` or `html` never matches. Follow the theme with
 `light-dark()`, which reads the `color-scheme` that the frame sets.
 

@@ -50,9 +50,9 @@ same name under `tests/`:
   state every other part reads, `pages/` shows the pages, Agreed, Work and
   the home view of a session with nothing published, `notes/` has the code for the
   reviewer's notes, threads, choices, answers and drawings, `review/` is the
-  Review page and sending, and `sync/` reads rounds, sessions, activity and
-  notifications from the hub and sends it the reviewer's cleared bell lines,
-  opened pages and seen cards.
+  Review page and sending, `search/` is the search modal, and `sync/` reads
+  rounds, sessions, activity and notifications from the hub and sends it the
+  reviewer's cleared bell lines, opened pages and seen cards.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.
@@ -130,11 +130,18 @@ npx --yes eslint@10.11.0 .
 npm run test:browser
 ```
 
-`npm run test:browser` opens built pages in the installed Google Chrome
-through `playwright-core`. Run `npm ci` once in a checkout to install it.
-Without Google Chrome, a browser test skips with "Google Chrome is not
-installed". When the `CI` environment variable is set, as it is in GitHub
-Actions, the test fails instead of skipping.
+`npm run test:browser` opens built pages in Chrome for Testing through
+`playwright-core`. Run `npm ci` once in a checkout to install `playwright-core`,
+then `npx playwright-core install chromium` once, which installs the Chrome for
+Testing build for that version. Without it, a browser test skips with "Chrome
+for Testing is not installed". When the `CI` environment variable is set, as it
+is in GitHub Actions, the test fails instead of skipping.
+
+Test code and scratch scripts use Chrome for Testing, not Google Chrome. On
+macOS, each new Google Chrome adds keys to the keychain and reads all of them.
+Thousands of launches leave `secd` too busy for the certificate check of any
+Chrome on the machine, which then fails after 30 seconds. Chrome for Testing has
+no entitlement to those keys.
 
 The landing tests, in `tests/browser/landing.browser.mjs`, also run in the
 WebKit that Playwright installs, because every browser on an iPhone uses
@@ -246,18 +253,26 @@ When a pull request into a branch other than `main` changes `src/frame/`,
 `src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
 `scripts/demo/`, the `screenshots` job in `.github/workflows/screenshots.yml`
 runs `npm run screenshots` on GitHub's macOS 26 runner and pushes the PNGs
-it rewrote to the pull request's branch. The illustration's terminal shows
-IDs that each run creates anew, so the job pushes a commit after every push
-to such a pull request. Pull that commit before you push to the branch again.
-GitHub runs the checks on the job's commit only after someone with write
-access selects Approve workflows to run on the pull request.
+it rewrote to the pull request's branch. `npm run screenshots` keeps a PNG that
+shows the same picture, so the job commits only when a picture changes. Pull
+that commit before you push to the branch again.
+
+GitHub runs the checks on the job's commit only after someone with write access
+approves the run. An agent working on this repository has the owner's standing
+approval to do that without asking, for a pull request from a branch of this
+repository. `gh run list --status action_required` lists the held runs:
+
+```sh
+gh api -X POST repos/RyanSaxe/pair/actions/runs/RUN_ID/approve
+```
+
+Never approve a run from a fork, because that run executes someone else's code.
 
 For a change elsewhere that alters what the README's or the docs'
 screenshots show, and for a pull request from a fork, run
 `npm run screenshots` on macOS and commit the PNGs it rewrites. The script
 starts its own hub on a port the system assigns, with its state in a
-temporary directory, and takes each screenshot in the installed Google
-Chrome. The frame's text is the system font, so the script refuses to run on
+temporary directory, and takes each screenshot in Chrome for Testing. The frame's text is the system font, so the script refuses to run on
 another system, where lines would break in other places.
 
 When `npm run screenshots` fails, it saves a screenshot and the console log

@@ -253,27 +253,30 @@ function renderFeedback() {
   $("overall-group").hidden = !overall.length;
   $("overall-notes").replaceChildren(...overall.map(itemCard));
 }
-function sentEntries(submission) {
+export function sentEntries(submission) {
   if (!submission) return [];
   const groups = submission.groups || {};
   return [
     ...(groups.notes || []).map((note) => ({
       topic: note.topic,
       ...itemSummary("note", note, { label: "Comment" }),
+      id: note.id,
       quote: note.quote,
       images: (note.attachments || []).map((item) => item.id),
     })),
-    ...Object.values(groups.choices || {}).map((choice) => ({
+    ...Object.entries(groups.choices || {}).map(([id, choice]) => ({
       topic: choice.topic,
       ...itemSummary("choice", choice, { label: "Choice" }),
+      id,
     })),
-    ...Object.values(groups.answers || {}).map((answer) => ({
+    ...Object.entries(groups.answers || {}).map(([id, answer]) => ({
       topic: answer.topic,
       ...itemSummary("answer", answer, {
         label: "Answer",
         drawing: () => "Drawing attached",
       }),
       images: answer.kind === "drawing" ? [answer.previewId] : [],
+      id,
     })),
   ];
 }
@@ -283,11 +286,17 @@ function sentChoice(submission) {
   return [
     ...(label ? [{ heading: "What comes next", text: label }] : []),
     ...(submission.message
-      ? [{ heading: "Message to the agent", text: submission.message }]
+      ? [
+          {
+            id: submission.id,
+            heading: "Message to the agent",
+            text: submission.message,
+          },
+        ]
       : []),
   ];
 }
-function sentCard(entry) {
+export function sentCard(entry) {
   const card = document.createElement("div");
   card.className = "sent-card";
   const where =
@@ -359,8 +368,13 @@ export function renderSentFeedback() {
     return;
   }
   const entries = sentEntries(sent);
-  for (const entry of [...sentChoice(sent), ...entries])
-    list.append(sentCard(entry));
+  for (const entry of [...sentChoice(sent), ...entries]) {
+    const card = sentCard(entry);
+    // A search result in sent feedback opens at this card. The same card on its
+    // page has no ID, so the ID stays unique.
+    if (entry.id) card.id = `sent-${entry.id}`;
+    list.append(card);
+  }
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "muted";

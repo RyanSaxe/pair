@@ -177,6 +177,9 @@ the session.
   agent the hub could not wake, and blue otherwise. When pair counts no
   session, a grey number shows how many other live sessions you have. pair
   never counts the session in this tab.
+- A row shows **N new** when that session has N pages you have not opened in a
+  round you have not sent, beside the session's state, such as **Waiting**. A
+  blue number on the Sessions button counts the other sessions with such a row.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number. Sub-sessions have
   no number. <kbd>w</kbd> opens the next session with a round waiting for
   you, sub-sessions included.
@@ -201,6 +204,10 @@ session that starts or has a round waiting for you.
 | Reply in a thread                 | That thread's lines                          |
 | Give an agent's reply a thumbs up | That reply's line                            |
 | Press **Clear all**               | Every line                                   |
+
+pair counts a session as open while its tab's window has focus. A session on
+screen in a window you are not using keeps its lines in the bell of your other
+tabs until you click that window.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">

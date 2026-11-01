@@ -112,3 +112,40 @@ test("a hidden tab leaves a new round's Agreed unopened until the reviewer comes
   );
   assert.equal(await newOn("overview").count(), 1);
 });
+
+test("a waiting session's row counts its unopened pages beside Waiting, and the count falls as the reviewer opens them", async (t) => {
+  const h = await hub(t);
+  const own = await h.session();
+  assert.equal((await own.publish(planData())).code, 200);
+  const ownUrl = `${h.server.origin}${own.base}/`;
+  const page = await open(t, ownUrl);
+  if (!page) return;
+  // The first browser on a hub counts every page it can list as opened, so
+  // the other session publishes after the hub has that list.
+  assert.equal(
+    await waitUntil(async () =>
+      Boolean((await own.request("/api/sessions")).body.seen.opened),
+    ),
+    true,
+  );
+  const other = await h.session();
+  assert.equal(
+    (await other.publish({ ...planData(), title: "Other work" })).code,
+    200,
+  );
+
+  await page.goto(ownUrl);
+  await page.locator("#menu-button").click();
+  const row = page.locator("#sessions-list .sess-row", {
+    hasText: "Other work",
+  });
+  await row.locator(".pill.news", { hasText: "2 new" }).waitFor(poll);
+  await row.locator(".pill.need", { hasText: "Waiting" }).waitFor();
+
+  await page.goto(`${h.server.origin}${other.base}/`);
+  await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
+  await page.goto(ownUrl);
+  await page.locator("#menu-button").click();
+  await row.locator(".pill.news", { hasText: "1 new" }).waitFor(poll);
+  await row.locator(".pill.need", { hasText: "Waiting" }).waitFor();
+});

@@ -58,6 +58,18 @@ on screen on Work, and a card you see only on another page stays New. The
 hub stores which cards you have seen, so a phone and a computer on the same
 hub show the same New labels. pair never labels a card in Done as New.
 
+### Writing your own item
+
+**New work item**, at the top of Work, opens a form with a title and a
+description of up to 4,000 characters. You can add images to the description,
+as you do to a note. Choose where the work runs, as you do with Start, and
+press **Start**, or press **Save for later** to put the card in Proposed. pair
+keeps your text and images until the card exists, so closing the form or
+reloading the page loses nothing.
+
+The hub tells no agent about a saved card until you start it, and it refuses
+an agent's attempt to revise, withdraw or join a card you wrote.
+
 ### Status lines
 
 | Status line                                          | Meaning                                                                                  |

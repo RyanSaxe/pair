@@ -34,6 +34,9 @@ export function installRenderers() {
          choice in memory only. */
     }
     theme();
+    window.dispatchEvent(
+      new CustomEvent("pair:theme", { detail: preferredTheme }),
+    );
   });
   systemTheme.addEventListener("change", () => {
     if (preferredTheme) return;
@@ -41,12 +44,17 @@ export function installRenderers() {
     theme();
   });
 }
+export function useTheme(preferred) {
+  preferredTheme = preferred;
+  activeTheme = preferred || (systemTheme.matches ? "dark" : "light");
+  theme();
+}
 export const charts = new Map();
 export const diagrams = new Map();
 const diffs = new Map();
 const diffLineSets = new Map();
 const noteHighlightCSS =
-  "::highlight(plan-note), ::highlight(plan-preview) { background-color: var(--mark); color: inherit; }";
+  "::highlight(plan-note), ::highlight(plan-search), ::highlight(plan-preview) { background-color: var(--mark); color: var(--ink); }";
 // renders contains the renderers in flight, so a re-render of the page can
 // restore the scroll position once the content has its height back.
 export const renders = new Set();
@@ -148,6 +156,7 @@ export function disposeRenderers() {
 export { libraries };
 const scripts = new Map();
 let diffsTask;
+let diffsFailures = 0;
 let peleTask;
 export function pele() {
   peleTask ||= import(libraries.pele).catch((error) => {
@@ -436,7 +445,15 @@ async function renderDiff(
   // without moving anything. A wrapped line is taller than one row, so a
   // wrapped diff can only grow past this minimum.
   element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
-  diffsTask ||= import(libraries.diffs);
+  // A browser can keep a failed import and never ask again, so a retry has an
+  // address of its own. A fragment changes nothing on the server, and this
+  // library has no integrity hash to match.
+  const retry = diffsFailures ? `#${diffsFailures}` : "";
+  diffsTask ||= import(`${libraries.diffs}${retry}`).catch((error) => {
+    diffsTask = undefined;
+    diffsFailures++;
+    throw error;
+  });
   const { FileDiff, parsePatchFiles } = await diffsTask;
   // Once the library has loaded, the await above resumes in a microtask,
   // and the browser paints only after every microtask has run. Waiting for

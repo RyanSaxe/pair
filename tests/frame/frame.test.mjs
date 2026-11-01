@@ -67,8 +67,5 @@ test("round choices open a page", async () => {
       rounds.indexOf("async function openPast"),
     ),
   );
-  assert.match(
-    pastOpen,
-    /switchTab\("past", targetId, \{ showPage: true \}\);/,
-  );
+  assert.match(pastOpen, /switchTab\("past", targetId, \{ showPage: true,/);
 });

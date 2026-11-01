@@ -268,9 +268,11 @@ export async function loadSession(
       groups: {
         alignUnflagged: groups.alignUnflagged,
         notes: (groups.notes || []).map(
-          ({ topic, anchor, quote, text, attachments }) => ({
+          ({ id, topic, anchor, target, quote, text, attachments }) => ({
+            id,
             topic,
             anchor,
+            target,
             quote,
             text,
             attachments: (attachments || []).map(({ id }) => ({ id })),
@@ -349,6 +351,7 @@ export async function loadSession(
     removeUpload: session.removeUpload,
     close: session.close,
     startProposal: session.startProposal,
+    writeProposal: session.writeProposal,
     openAgent: session.openAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
@@ -374,6 +377,8 @@ export async function loadSession(
     hold: session.hold,
     wakeIfQuiet: session.wakeIfQuiet,
     roundEntry: session.roundEntry,
+    renderToday: session.renderToday,
+    renderPublished: session.renderPublished,
     pageSet: session.pageSet,
     pageRecord: session.pageRecord,
     prototype: session.prototype,

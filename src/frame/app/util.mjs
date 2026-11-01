@@ -30,6 +30,21 @@ export const typingIn = (element) =>
 // Shift+Enter presses the main button under a text box. A box whose button
 // sends to the agent at once uses ⌘ Enter instead, through sendKey in
 // threads.mjs.
+/* Safari and Firefox have no CSS field-sizing, so fitText measures the text.
+   At height auto, the text area's scrollHeight is the text's height. fitText
+   hides the scrollbar while it measures, so the scrollbar cannot narrow the
+   text, and then restores the scroll positions that the short measuring
+   height changed. */
+export function fitText(area) {
+  const body = area.closest(".dialog-body");
+  const scrolled = [area.scrollTop, body.scrollTop];
+  area.style.height = "auto";
+  area.style.overflowY = "hidden";
+  const height = area.scrollHeight;
+  area.style.overflowY = "";
+  area.style.height = `${height}px`;
+  [area.scrollTop, body.scrollTop] = scrolled;
+}
 export const shiftEnter = (event) =>
   event.key === "Enter" &&
   event.shiftKey &&
@@ -42,6 +57,10 @@ export const hubUnreachable = "The hub is unreachable. Try again shortly.";
 export const unreachable = (error, message = hubUnreachable) =>
   error instanceof TypeError ? message : error.message;
 export const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
+export const apple = () =>
+  /mac|iphone|ipad/i.test(
+    navigator.userAgentData?.platform || navigator.platform || "",
+  );
 // A note's occurrence is which appearance of its words in its block the
 // reviewer selected, counting from 1. occurrenceAt() returns the number of
 // the appearance of needle in text that begins at start or later, and

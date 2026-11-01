@@ -144,7 +144,7 @@ export function threads(session) {
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
-    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Between your current steps, run ${readCommand(thread.id)}, which prints the thread and how to answer it, then go on with your work.${wakeNote(message)}`;
+    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Before your next step, run ${readCommand(thread.id)}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.${wakeNote(message)}`;
     const wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
     const state =
@@ -407,7 +407,7 @@ export function threads(session) {
         thread: shown(thread),
         next: thread.messages.at(-1).acknowledgedAt
           ? "The reviewer agreed with your last message, so do not reply. Go back to what you were doing."
-          : `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
+          : `Post your answer with ${replyCommand(thread.id)} --text "…" for plain text, or with --file reply.html in place of --text for links, bold, code or lists, then go back to what you were doing.`,
         moment: "read-thread",
       };
     }

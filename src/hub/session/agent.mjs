@@ -50,11 +50,11 @@ export function agent(session) {
         (slot) => !slot.recordPath,
       );
       if (!slots.some((slot) => slot.state === "active"))
-        return `You still have to publish these pages: ${slots.map((slot) => slot.id).join(", ")}. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`;
+        return `You still have to publish these pages: ${slots.map((slot) => slot.id).join(", ")}. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`;
       const left = slots.map((slot) =>
         slot.state === "active" ? `${slot.id} (started)` : slot.id,
       );
-      return `You still have to publish these pages: ${left.join(", ")}. When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
+      return `You still have to publish these pages: ${left.join(", ")}. When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
     }
     if (session.state.stage === "working")
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";

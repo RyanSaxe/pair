@@ -11,6 +11,7 @@ import {
   current,
   currentShown,
   editable,
+  embedded,
   hasFeedbackPage,
   isPlanRound,
   olderPast,
@@ -29,6 +30,7 @@ import {
   viewKey,
 } from "#frame/app/view.mjs";
 import { chooseBlock } from "#frame/notes/blocks.mjs";
+import { markMatch, matchWords, setMatch } from "#frame/notes/match.mjs";
 import {
   pageTargets,
   restoreAnswers,
@@ -98,13 +100,15 @@ const hasWork = () => online && hasFeedbackPage;
 export function show(
   id,
   targetId = null,
-  { keepScroll = false, push = true, inPlace = false } = {},
+  { keepScroll = false, push = true, inPlace = false, match = null } = {},
 ) {
   redrawHeld = false;
+  // A re-render keeps an opened result's highlight, and any arrival replaces it.
+  if (!keepScroll) setMatch(matchWords(match), targetId, match);
   // A thread or a card has overall as its note's page, and overall is on
   // Review.
   if (id === "overall") id = "feedback";
-  if (!keepScroll && !inPlace) beginMove();
+  if (!keepScroll && !inPlace && !embedded) beginMove();
   // A re-render keeps the reader's place. Any other show() is an arrival,
   // and flushPlace() first saves the place it leaves.
   const kept = keepScroll ? placeOnScreen() : null;
@@ -174,7 +178,14 @@ export function show(
   url.hash = shownPage();
   url.searchParams.delete("target");
   if (targetId) url.searchParams.set("target", targetId);
-  if (push && url.href !== location.href) history.pushState(null, "", url);
+  if (!keepScroll) url.searchParams.delete("match");
+  if (match) url.searchParams.set("match", match);
+  // Back and a reload return to this round only when the address names it.
+  if (selectedTab === "past" && editable)
+    url.searchParams.set("round", plan.round);
+  else url.searchParams.delete("round");
+  if (push && !embedded && url.href !== location.href)
+    history.pushState(null, "", url);
   else history.replaceState(null, "", url);
   if (!inPlace) closeMenus();
   updateNavigation();
@@ -186,7 +197,9 @@ export function show(
   });
   whenDrawn(drawing, () => {
     if (!loading) arrived();
+    markMatch();
   });
+  Promise.allSettled([...renders]).then(markMatch);
 }
 /* showChanges shows the draft after it changed outside this tab's own
    controls, from the hub or from another tab. pages names the pages whose
@@ -324,6 +337,7 @@ function newMarks(listed) {
   const onScreen = pages.find((item) => item.id === visiblePageId());
   if (
     document.visibilityState === "visible" &&
+    !embedded &&
     onScreen &&
     pageStatus(onScreen) === "complete" &&
     markOpened(session.sessionId, plan.round, onScreen.id)

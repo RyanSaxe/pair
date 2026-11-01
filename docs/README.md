@@ -31,6 +31,8 @@ your browser.
   session to learn a codebase, a module or a pull request.
 - [Build the work](guides/build-the-work.md) explains how to follow the
   work you approved while the agent builds it, and how to review the result.
+- [Search](guides/search.md) explains how to find anything you read or wrote
+  in pair, across every session.
 
 ## Reference
 

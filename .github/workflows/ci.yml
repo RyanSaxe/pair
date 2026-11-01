@@ -43,9 +43,9 @@ jobs:
       # A test that runs past two minutes fails with its name.
       - run: node --test --test-timeout=120000
 
-  # The browser tests drive the runner image's Google Chrome. The landing
-  # tests also drive WebKit, which Playwright installs, with the system
-  # libraries it needs, for the playwright-core version that npm ci installs.
+  # The browser tests drive Chrome for Testing, and the landing tests also drive
+  # WebKit. Playwright installs both, with the system libraries they need, for
+  # the playwright-core version that npm ci installs.
   browser:
     runs-on: ubuntu-latest
     # The job takes under three minutes, so 15 minutes stops a hang without
@@ -58,7 +58,7 @@ jobs:
           node-version: 24
           check-latest: true
       - run: npm ci
-      - run: npx playwright-core install --with-deps webkit
+      - run: npx playwright-core install --with-deps chromium webkit
       - run: npm run test:browser
 
   # Every figure in the test fixture, in the light and dark themes. A figure
@@ -76,6 +76,7 @@ jobs:
           node-version: 24
           check-latest: true
       - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
       - run: npm run test:figures
 
   format:

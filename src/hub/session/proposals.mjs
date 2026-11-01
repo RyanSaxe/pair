@@ -9,6 +9,7 @@ import {
   proposeAction,
   words,
   written,
+  writtenCard,
 } from "./proposal-fields.mjs";
 import { joinable } from "./proposal-joins.mjs";
 import {
@@ -116,7 +117,14 @@ export async function proposals(session) {
     });
     return card;
   }
+  const notWritten = (card, verb) =>
+    requireValue(
+      !card.source?.reviewer,
+      `The reviewer wrote proposal ${card.id}, so you cannot ${verb} it. Record any other work as a new proposal.`,
+      409,
+    );
   async function revise(card, data) {
+    notWritten(card, "revise");
     requireValue(
       !card.started,
       `The reviewer approved proposal ${card.id} as it stands, so you cannot revise it. Record any further work as a new proposal.`,
@@ -202,9 +210,10 @@ export async function proposals(session) {
       started.where === "here"
         ? `in session ${directory}`
         : `in a sub-session of session ${directory}`;
+    const verb = card.source?.reviewer ? "wrote" : "approved";
     const what = fromWords
       ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
-      : `the reviewer approved proposal ${id}, "${card.title}", to run ${place}`;
+      : `the reviewer ${verb} proposal ${id}, "${card.title}", to run ${place}`;
     const line = `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`;
     const last = await session.sendWake(line);
     if (session.wake)
@@ -281,6 +290,22 @@ export async function proposals(session) {
     );
     return { ...listed(), thread };
   }
+  // writeProposal adds a card the reviewer wrote on Work, and data.action says
+  // what to do with it. Save leaves it in Proposed, and the hub tells no agent
+  // about it until the reviewer starts it.
+  async function writeProposal(data) {
+    open();
+    const fields = await writtenCard(session, data);
+    requireValue(
+      !cards.has(fields.id),
+      `This session already has work item ${fields.id}`,
+      409,
+    );
+    await save(fields);
+    if (data.action === "start") return startProposal(fields.id, data);
+    if (data.action === "open-agent") return openAgent(fields.id, data);
+    return listed();
+  }
   async function declineProposal(id) {
     open();
     const card = find(id);
@@ -301,6 +326,7 @@ export async function proposals(session) {
     return listed();
   }
   async function withdraw(card, data) {
+    notWritten(card, "withdraw");
     requireValue(
       !card.declined,
       `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
@@ -367,6 +393,7 @@ export async function proposals(session) {
   // joined cards comes from done.joined, so finishing or reopening OTHER
   // leaves them joined.
   async function join(card, data) {
+    notWritten(card, "join");
     const task = find(data.join);
     joinable(card, task);
     for (const item of joinedInto(card.id))
@@ -494,6 +521,7 @@ export async function proposals(session) {
     propose,
     writeStatus,
     startProposal,
+    writeProposal,
     declineProposal,
     restoreProposal,
   };

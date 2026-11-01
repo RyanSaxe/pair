@@ -1,10 +1,12 @@
 import { save, state } from "#frame/app/store.mjs";
 import { land } from "#frame/app/places.mjs";
-import { $, controlKey, shiftEnter } from "#frame/app/util.mjs";
+import { $, apple, controlKey, shiftEnter } from "#frame/app/util.mjs";
 import {
   editable,
+  embedded,
   feedbackEditable,
   mode,
+  online,
   page,
   pages,
   plan,
@@ -21,6 +23,7 @@ import { restoreChoices } from "#frame/notes/controls.mjs";
 import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
+import { openSearch } from "#frame/search/modal.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
   listTab,
@@ -174,8 +177,21 @@ export function installEvents() {
         return;
       }
     }
+    if (
+      online &&
+      mode !== "preview" &&
+      (apple() ? event.metaKey : event.ctrlKey) &&
+      !event.shiftKey &&
+      event.key.toLowerCase() === "k" &&
+      !$("drawing-dialog").open
+    ) {
+      event.preventDefault();
+      openSearch();
+      return;
+    }
     if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
       return;
+    if (embedded && event.key !== "Escape") return;
     if (event.key === "Escape") {
       closeMenus();
       return;
@@ -188,6 +204,7 @@ export function installEvents() {
     if (document.querySelector("dialog[open]")) return;
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
+    else if (key === "/" && online) openSearch();
     else if (key === "n") toggleCenter(true);
     else if (key === "g") toggleSessions(undefined, true);
     else if (key === "w") {

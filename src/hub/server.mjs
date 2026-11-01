@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
+import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
 import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
@@ -156,22 +157,64 @@ export async function startHub(config = settings()) {
     );
   const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
-    const html = await fs.readFile(entry.path, "utf8");
+    const unfinished =
+      (flags.readonly || flags.closed) &&
+      (await session.renderPublished(entry.round));
+    const html = unfinished || (await fs.readFile(entry.path, "utf8"));
     return framePage(session, html, flags, head);
   };
+  /* The search window loads a session's frame when a result needs it, on a
+     phone as well, so the frame is compressed, and a compressed one is kept
+     until its round changes. */
+  const EMBEDS_KEPT = 8;
+  const COMPRESS_OVER_BYTES = 64 * 1024;
+  const embeds = new Map();
+  async function embedPage(session, round) {
+    const closed =
+      session.state.stage === "complete" || session.state.dismissedAt;
+    const flags = closed
+      ? { closed: true }
+      : round === session.state.current?.round
+        ? {}
+        : { readonly: true };
+    const key = [
+      session.id,
+      round,
+      session.pageSet(round).generation,
+      Object.keys(flags),
+      session.state.parent?.sessionId,
+    ].join("|");
+    if (!embeds.has(key)) {
+      const page = framePage(
+        session,
+        await session.renderToday(round),
+        { embedded: true, ...flags },
+        "",
+      );
+      embeds.set(key, gzipSync(page));
+      if (embeds.size > EMBEDS_KEPT) embeds.delete(embeds.keys().next().value);
+    }
+    return embeds.get(key);
+  }
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
+      const text =
+        typeof value === "string" || Buffer.isBuffer(value)
+          ? value
+          : json(value);
+      // A session's status can reach megabytes, on a phone's connection too.
+      const large =
+        type === "application/json" &&
+        Buffer.byteLength(text) > COMPRESS_OVER_BYTES &&
+        /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
       res.writeHead(code, {
         "Content-Type": type,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        ...(large ? { "Content-Encoding": "gzip" } : {}),
         ...headers,
       });
-      res.end(
-        typeof value === "string" || Buffer.isBuffer(value)
-          ? value
-          : json(value),
-      );
+      res.end(large ? gzipSync(text) : text);
     };
     const html = (value, headers) =>
       reply(200, value, "text/html; charset=utf-8", headers);
@@ -198,12 +241,15 @@ export async function startHub(config = settings()) {
             query: params.get("q") || "",
             session: params.get("session"),
             round: params.get("round"),
+            closed: params.get("closed") === "1",
             here: params.get("here"),
             kinds,
             limit,
           }),
         );
       }
+      if (method === "GET" && url.pathname === "/api/search/sessions")
+        return reply(200, { sessions: search.sessionChoices() });
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
           app: "pair",
@@ -339,24 +385,49 @@ export async function startHub(config = settings()) {
                 head,
               ),
             );
-          return html(
-            await roundPage(
-              session,
-              session.roundEntry(session.state.current.round),
-              flags,
-              head,
-            ),
-            {
-              "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
-            },
-          );
+          // A round keeps the frame it was published with, and a frame from before
+          // search cannot open an older round in place, so a result in that round
+          // opens its read-only page instead.
+          const wanted = url.searchParams.get("round");
+          const entry = session.roundEntry(session.state.current.round);
+          if (
+            wanted &&
+            wanted !== session.state.current.round &&
+            !(await fs.readFile(entry.path, "utf8")).includes(
+              'id="search-button"',
+            )
+          ) {
+            const params = new URLSearchParams(url.searchParams);
+            params.delete("round");
+            const query = params.size ? `?${params}` : "";
+            return reply(302, "", "text/plain", {
+              Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
+            });
+          }
+          return html(await roundPage(session, entry, flags, head), {
+            "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
+          });
         }
         if (method === "GET" && rest[0] === "r" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {
               readonly: true,
+              ...(session.state.stage === "complete" ||
+              session.state.dismissedAt
+                ? { closed: true }
+                : {}),
             }),
           );
+        if (method === "GET" && rest[0] === "embed" && rest.length === 2) {
+          const wanted =
+            round() === "latest" ? session.state.current?.round : round();
+          return reply(
+            200,
+            await embedPage(session, wanted),
+            "text/html; charset=utf-8",
+            { "Content-Encoding": "gzip" },
+          );
+        }
         if (method === "GET" && rest[0] === "preview" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {
@@ -411,6 +482,18 @@ export async function startHub(config = settings()) {
           });
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close()));
+        }
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "proposals" &&
+          rest.length === 2
+        ) {
+          const data = await readBody(req, 50_000);
+          return reply(
+            200,
+            await session.exclusive(() => session.writeProposal(data)),
+          );
         }
         // Only start and open-agent have a body. The body of start contains
         // where the work runs, and both bodies can contain the reviewer's

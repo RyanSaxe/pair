@@ -38,5 +38,6 @@ This feedback begins a new round, and you decide what it covers.
   When its work was finished some other way, run the same command with
   `--done --where "…"` instead, saying where.
 - Run `pair progress --note "…"` now. After that, run it with `--page ID`
-  when you start each page and at least every five minutes until you
-  publish it, and give each subagent that command for its page.
+  as soon as you begin any work a page will report, such as the code it
+  describes or what it measures, and at least every five minutes until you
+  publish the page. Give each subagent that command for its page.

@@ -3,6 +3,7 @@ import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
+import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
@@ -65,6 +66,30 @@ export const commands = {
     },
     run: read,
   },
+  search: {
+    group: "session",
+    purpose: "Search what live sessions said, for what an earlier one settled",
+    about:
+      "Print the results that best match QUERY across live sessions, or closed ones too with --closed, with the session, round and page of each. A result is a record of what was said at the time, so check it against the code before you rely on it. QUERY works best as the two or three most distinctive words.",
+    usage:
+      "pair search --session-dir DIR QUERY [--kind KINDS] [--this-session] [--closed] [--limit N]",
+    args: [{ name: "QUERY" }],
+    flags: {
+      "session-dir": sessionDir,
+      kind: {
+        value: "KINDS",
+        text: "Limit results to these kinds, separated by commas: pages, threads, notes, answers, proposals and agreed.",
+      },
+      "this-session": { text: "Limit results to this session." },
+      closed: { text: "Include closed sessions." },
+      limit: {
+        value: "N",
+        text: "Change how many results print. The default is 10.",
+      },
+      json,
+    },
+    run: search,
+  },
   progress: {
     group: "session",
     purpose:
@@ -125,10 +150,13 @@ export const commands = {
         required: true,
         text: "The thread, from the wake message or pair read.",
       },
-      text: { value: "TEXT", text: "Your reply as plain text." },
+      text: {
+        value: "TEXT",
+        text: "Your reply as plain text. It refuses Markdown, which the reviewer would see as typed.",
+      },
       file: {
         value: "HTML",
-        text: "Your reply as an HTML fragment that passes pair build's page checks.",
+        text: "Your reply as an HTML fragment that passes pair build's page checks. Use it for links, bold, code and lists.",
       },
       json,
     },

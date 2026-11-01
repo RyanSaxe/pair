@@ -224,9 +224,33 @@ export async function openSession(options, { anyAgent = false } = {}) {
     );
     return result;
   }
+  // Search reads what every session holds, so it has no session token and takes
+  // the same route the frame does.
+  async function search(params, retry = true) {
+    const address = new URL("/api/search", connection.origin);
+    address.search = new URLSearchParams({
+      ...params,
+      here: connection.sessionId,
+    });
+    let response;
+    try {
+      response = await fetch(address, { signal: AbortSignal.timeout(15000) });
+    } catch (error) {
+      if (!retry || error.name !== "TypeError") throw error;
+      await register();
+      connection = await read(connectionFile);
+      checkConnection();
+      return search(params, false);
+    }
+    const result = await response.json();
+    requireValue(response.ok, result.error || "Search failed", response.status);
+    return result;
+  }
   return {
     directory,
     request,
+    search,
+    sessionId: () => connection.sessionId,
     url: () => `${connection.origin}/s/${connection.sessionId}/`,
     mayHaveActed: () => mayHaveActed,
   };

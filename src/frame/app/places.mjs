@@ -1,6 +1,12 @@
 import { record } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { editable, pastRound, placeKey, shownPage } from "#frame/app/view.mjs";
+import {
+  editable,
+  embedded,
+  pastRound,
+  placeKey,
+  shownPage,
+} from "#frame/app/view.mjs";
 import { displayedRound } from "#frame/pages/pages.mjs";
 import { renders } from "#frame/pages/renderers.mjs";
 import { selectedTab } from "#frame/sync/rounds.mjs";
@@ -108,7 +114,7 @@ function notePlace() {
   savePlaces();
 }
 export function savePlaces() {
-  if (!editable) return;
+  if (!editable || embedded) return;
   try {
     localStorage.setItem(
       placeKey,
@@ -119,6 +125,8 @@ export function savePlaces() {
   }
 }
 export const placeOnScreen = () => (held ? held.anchor() : readingAt());
+// A result's words scroll themselves into view once the page has landed.
+export const stopLanding = () => held?.stop();
 export const savedPlace = () => places[displayedRound]?.at?.[shownPage()];
 
 /* land() scrolls the page on screen to an anchor, which is one of these:
@@ -163,7 +171,7 @@ export function land(anchor, { focusHeading = true } = {}) {
   const id = anchor?.target ?? anchor?.id;
   if (!id) {
     box.scrollTop = 0;
-    if (focusHeading) heading().focus({ preventScroll: true });
+    if (focusHeading && !embedded) heading().focus({ preventScroll: true });
     notePlace();
     return;
   }
@@ -175,7 +183,11 @@ export function land(anchor, { focusHeading = true } = {}) {
   const find = () => view.querySelector(`[id="${CSS.escape(id)}"]`);
   const refocus = () =>
     queueMicrotask(() => {
-      if (document.activeElement === document.body && element?.isConnected)
+      if (
+        !embedded &&
+        document.activeElement === document.body &&
+        element?.isConnected
+      )
         element.focus({ preventScroll: true });
     });
   function arrive(next) {
@@ -190,9 +202,11 @@ export function land(anchor, { focusHeading = true } = {}) {
       .closest("pair-thread[collapsed]")
       ?.querySelector(".thread-fold")
       .click();
-    if (!element.hasAttribute("tabindex")) element.tabIndex = -1;
-    element.focus({ preventScroll: true });
-    element.addEventListener("blur", refocus);
+    if (!embedded) {
+      if (!element.hasAttribute("tabindex")) element.tabIndex = -1;
+      element.focus({ preventScroll: true });
+      element.addEventListener("blur", refocus);
+    }
     if (into === null)
       into = -Math.max(
         0,
@@ -234,7 +248,7 @@ export function land(anchor, { focusHeading = true } = {}) {
     anchor: () => ({ ...anchor, ...(into === null ? {} : { into }) }),
   };
   box.style.overflowAnchor = "none";
-  if (focusHeading && !(target && find()))
+  if (focusHeading && !embedded && !(target && find()))
     heading().focus({ preventScroll: true });
   place();
   box.addEventListener("scroll", place, { passive: true });

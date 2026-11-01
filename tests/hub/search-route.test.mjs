@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
@@ -97,6 +99,12 @@ test("session, round and kinds each narrow a search, and counts ignore kinds", a
   assert.equal(threads.body.counts.threads, 1);
   const both = await find("kestrel", { kinds: "threads,pages" });
   assert.equal(both.body.total, 4);
+  const sessions = await find("kestrel", { session: `${a.id},${b.id}` });
+  assert.equal(sessions.body.total, 4);
+  const rounds = await find("kestrel", { session: a.id, round: "1,2" });
+  assert.deepEqual(where(rounds.body).sort(), ["a1", "a2", "a2"]);
+  const oneAndLatest = await find("kestrel", { round: "1,latest" });
+  assert.equal(oneAndLatest.body.total, 4);
 });
 
 test("limit caps the rows and total still counts them all", async (t) => {
@@ -231,4 +239,62 @@ test("a response holds no token and no session directory", async (t) => {
   assert.ok(!text.includes(a.connection.token));
   assert.ok(!text.includes(a.directory));
   assert.equal((await find(a.connection.token)).body.total, 0);
+});
+
+test("a result in an older round of a session on an older frame opens read-only", async (t) => {
+  const { a } = await twoSessions(t);
+  const address = (extra = "") =>
+    a.request(`${a.base}/?round=1&target=block-overview-0${extra}`);
+  // Today's frame opens the older round itself, in the left tab.
+  assert.equal((await address()).code, 200);
+  const rounds = path.join(a.directory, "rounds");
+  for (const name of await fs.readdir(rounds)) {
+    const file = path.join(rounds, name);
+    const html = await fs.readFile(file, "utf8");
+    await fs.writeFile(file, html.replaceAll('id="search-button"', ""));
+  }
+  const moved = await address("&match=kestrel");
+  assert.equal(moved.code, 302);
+  assert.equal(
+    moved.headers.get("location"),
+    `${a.base}/r/1?target=block-overview-0&match=kestrel`,
+  );
+});
+
+test("a closed session stays out until a search asks for it or names it", async (t) => {
+  const { find, b, h } = await twoSessions(t);
+  assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
+  const live = await find("elsewhere");
+  assert.equal(live.body.total, 0);
+  assert.deepEqual(live.body.wider, { filter: "closed", total: 1 });
+  const asked = await find("elsewhere", { closed: "1" });
+  assert.equal(asked.body.results[0].closed, true);
+  assert.equal((await find("elsewhere", { session: b.id })).body.total, 1);
+  const { sessions } = await (
+    await fetch(`${h.server.origin}/api/search/sessions`)
+  ).json();
+  assert.equal(sessions.find(({ id }) => id === b.id).closed, true);
+  const other = sessions.find(({ id }) => id !== b.id);
+  assert.deepEqual(other.rounds, ["2", "1"]);
+});
+
+test("a closed round that never finished shows the pages it published", async (t) => {
+  const { h, settled } = await searcher(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [
+      page("sent", "Sent", "<p>The published otter.</p>"),
+      page("unsent", "Unsent", "<p>Never published.</p>"),
+    ],
+    stopAfter: 1,
+  });
+  assert.equal(published.code, 200, published.body.error);
+  await settled();
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  for (const address of [`${a.base}/r/1`, `${a.base}/`]) {
+    const text = await (await fetch(h.server.origin + address)).text();
+    assert.match(text, /published otter/);
+    assert.doesNotMatch(text, /"unsent"/);
+  }
 });
