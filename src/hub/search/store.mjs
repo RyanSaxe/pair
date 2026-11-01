@@ -5,8 +5,9 @@ import {
   agreedDocs,
   draftDocs,
   feedbackDocs,
-  pageDocs,
+  placed,
   proposalDocs,
+  readPage,
   threadDocs,
   titleDocs,
 } from "./extract.mjs";
@@ -56,7 +57,8 @@ const list = (directory) =>
 // one. Nothing here reads connection.json or wake.json, which hold secrets.
 async function sources(directory, status) {
   const found = [];
-  const add = (file, read) => found.push({ file, read });
+  const add = (file, read) =>
+    found.push({ file, read: (record, at) => ({ docs: read(record, at) }) });
   add("status.json", (record) => titleDocs(record));
   for (const [round, set] of Object.entries(status.roundPages ?? {})) {
     const paged = (name) => path.join("pages", round, path.basename(name));
@@ -66,9 +68,10 @@ async function sources(directory, status) {
       );
     for (const slot of set.pages ?? [])
       if (slot.recordPath)
-        add(paged(slot.recordPath), (record, at) =>
-          pageDocs(record.page, round, at),
-        );
+        found.push({
+          file: paged(slot.recordPath),
+          read: (record, at) => readPage(record.page, round, at),
+        });
   }
   for (const [folder, read] of [
     ["threads", threadDocs],
@@ -237,13 +240,13 @@ export function searchStore({ log = () => {} } = {}) {
         continue;
       }
       wrote = true;
-      let docs = [];
+      let contents = { docs: [] };
       try {
-        docs = read(await readJson(full), stat.mtimeMs);
+        contents = read(await readJson(full), stat.mtimeMs);
       } catch (error) {
         log(`search skipped ${full}: ${error.message}`);
       }
-      files.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, docs });
+      files.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, ...contents });
     }
     const removed = [...entry.files.keys()].some((file) => !files.has(file));
     entry.files = files;
@@ -253,9 +256,14 @@ export function searchStore({ log = () => {} } = {}) {
         roundNumber(round) > roundNumber(latest) ? round : latest,
       "0",
     );
-    entry.docs = grouped([...files.values()].flatMap((f) => f.docs)).map(
-      (doc) => ready(doc, entry.id),
-    );
+    const pages = new Map();
+    for (const { blocks } of files.values())
+      if (blocks) pages.set(`${blocks.round}/${blocks.page}`, blocks);
+    entry.docs = grouped(
+      [...files.values()]
+        .flatMap((f) => f.docs)
+        .map((doc) => placed(doc, pages)),
+    ).map((doc) => ready(doc, entry.id));
     entry.pageTitles = new Map();
     for (const doc of entry.docs)
       if (doc.type === "page title")
@@ -277,8 +285,8 @@ export function searchStore({ log = () => {} } = {}) {
       if (JSON.parse(head).version !== VERSION) return;
       for (const line of lines) {
         if (!line) continue;
-        const { file, mtimeMs, size, docs } = JSON.parse(line);
-        entry.files.set(file, { mtimeMs, size, docs });
+        const { file, ...cached } = JSON.parse(line);
+        entry.files.set(file, cached);
       }
     } catch (error) {
       entry.files.clear();
@@ -291,8 +299,8 @@ export function searchStore({ log = () => {} } = {}) {
       .then(async () => {
         if (closed) return;
         const lines = [JSON.stringify({ version: VERSION })];
-        for (const [file, { mtimeMs, size, docs }] of entry.files)
-          lines.push(JSON.stringify({ file, mtimeMs, size, docs }));
+        for (const [file, cached] of entry.files)
+          lines.push(JSON.stringify({ file, ...cached }));
         await atomic(
           path.join(entry.directory, CACHE),
           `${lines.join("\n")}\n`,
@@ -425,6 +433,7 @@ export function searchStore({ log = () => {} } = {}) {
       page: doc.page,
       pageTitle: titleOf(doc, entry),
       block: doc.block,
+      blockId: doc.blockId ?? null,
       item: doc.item,
       kind: doc.kind,
       type: doc.type,

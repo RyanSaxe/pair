@@ -501,3 +501,69 @@ test("a page's script is left out of results", async (t) => {
   const store = await reader(t, a);
   assert.equal((await store.search({ query: "tarsier" })).total, 0);
 });
+
+test("a result names the DOM id of the block that holds it", async (t) => {
+  const a = await pageSession(
+    t,
+    `<h2 id="own-id">The capybara</h2>
+     <p>The viscacha.</p>
+     loose agouti words`,
+    {
+      agreements: [
+        {
+          id: "scope",
+          title: "Scope",
+          html: "<p>The ocelot stays out.</p>",
+          sourceRefs: [{ kind: "conversation", text: "Said in chat." }],
+        },
+      ],
+    },
+  );
+  const store = await reader(t, a);
+  for (const [query, blockId] of [
+    ["capybara", "own-id"],
+    ["viscacha", "block-overview-1"],
+    ["agouti", null],
+    ["ocelot", null],
+  ]) {
+    const [row] = (await store.search({ query })).results;
+    assert.equal(row.blockId, blockId, query);
+  }
+  // A page title draws the first block of its page.
+  const [title] = (await store.search({ query: "Overview" })).results;
+  assert.equal(title.type, "page title");
+  assert.equal(title.blockId, "own-id");
+});
+
+test("a thread resolves its target to the block that holds it, from a page read or cached", async (t) => {
+  const a = await pageSession(
+    t,
+    `<section id="named"><p>Named.</p></section>
+     <div><span id="inner-part">Nested.</span></div>
+     <div><div data-multiselect="opts" data-label="Options"><p>A nested control.</p></div></div>
+     <p>Plain.</p>`,
+  );
+  const cases = [
+    ["named", "rhea", 0, "named"],
+    ["inner-part", "serval", 1, "block-overview-1"],
+    ["multiselect-overview-0", "caracal", 2, "block-overview-2"],
+    ["block-overview-3", "margay", 3, "block-overview-3"],
+    ["not-on-the-page", "ocelot", null, null],
+  ];
+  const check = async (store, [target, word, block, blockId]) => {
+    assert.equal(
+      (await thread(a, { target, text: `Is it the ${word}?` })).code,
+      201,
+    );
+    store.markChanged(a.id);
+    const [row] = (await store.search({ query: word })).results;
+    assert.equal(row.block, block, target);
+    assert.equal(row.blockId, blockId, target);
+  };
+  const first = await reader(t, a);
+  for (const entry of cases) await check(first, entry);
+  await first.close();
+  // Only the page's cached entry can say which block holds this thread's target.
+  const second = await reader(t, a);
+  await check(second, ["inner-part", "jaguarundi", 1, "block-overview-1"]);
+});

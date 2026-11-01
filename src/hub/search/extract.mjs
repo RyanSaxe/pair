@@ -120,6 +120,9 @@ function collect(node, page, words, inSvg = false) {
   return words;
 }
 
+const blockId = (node, topic, index) =>
+  node.attrs.id || `block-${topic}-${index}`;
+
 // A row shows a code icon for a block that is mostly code, and nothing else
 // reads this.
 function holdsCode(node) {
@@ -138,7 +141,7 @@ function holdsCode(node) {
 
 // The frame numbers a page's top-level elements, so a document's block is its
 // position among them. Top-level text belongs to no block.
-export function pageDocs(page, round, at) {
+export function pageDocs(page, round, at, tree = parse(page.html ?? "")) {
   const docs = [];
   const base = {
     kind: "pages",
@@ -150,7 +153,7 @@ export function pageDocs(page, round, at) {
   };
   let heading = "";
   let index = -1;
-  for (const child of parse(page.html ?? "").children) {
+  for (const child of tree.children) {
     if (child.text !== undefined) {
       const text = clean(child.text);
       if (text) docs.push({ ...base, block: null, heading, text });
@@ -166,6 +169,7 @@ export function pageDocs(page, round, at) {
       docs.push({
         ...base,
         block: index,
+        blockId: blockId(child, page.id, index),
         heading,
         text,
         ...(attrs ? { attrs } : {}),
@@ -173,6 +177,61 @@ export function pageDocs(page, round, at) {
       });
   }
   return docs;
+}
+
+/* A thread names the element it was written on, which can be a block or anything
+   inside one, so the store keeps which block holds each ID on a page. tops is
+   each top-level element's DOM ID, in the frame's numbering. inner is the block
+   that holds every other ID, including the IDs pageTargets in the frame gives a
+   control that has none. */
+function pageBlocks(page, round, tree) {
+  const tops = [];
+  const inner = {};
+  const controls = { choice: 0, multiselect: 0, question: 0 };
+  const visit = (node, block) => {
+    if (node.text !== undefined || node.tag === "template") return;
+    const { id } = node.attrs;
+    if (id) inner[id] ??= block;
+    for (const type of Object.keys(controls))
+      if (`data-${type}` in node.attrs) {
+        const count = controls[type]++;
+        if (!id) inner[`${type}-${page.id}-${count}`] ??= block;
+      }
+    for (const child of node.children ?? []) visit(child, block);
+  };
+  for (const child of tree.children) {
+    if (child.text !== undefined) continue;
+    visit(child, tops.length);
+    tops.push(blockId(child, page.id, tops.length));
+  }
+  return { round, page: page.id, tops, inner };
+}
+
+export function readPage(page, round, at) {
+  const tree = parse(page.html ?? "");
+  return {
+    docs: pageDocs(page, round, at, tree),
+    blocks: pageBlocks(page, round, tree),
+  };
+}
+
+// A page title draws the first block of its page, and a thread draws the block
+// that holds its target. Only the page's own file says which block that is, so
+// the store places these two once it has every file.
+export function placed(doc, pages) {
+  if (doc.kind !== "threads" && doc.type !== "page title") return doc;
+  const blocks = pages.get(`${doc.round}/${doc.page}`);
+  if (!blocks) return doc;
+  const { tops, inner } = blocks;
+  if (doc.type === "page title") return { ...doc, blockId: tops[0] ?? null };
+  const top = tops.indexOf(doc.target);
+  const block =
+    top >= 0
+      ? top
+      : Object.hasOwn(inner, doc.target)
+        ? inner[doc.target]
+        : null;
+  return block === null ? doc : { ...doc, block, blockId: tops[block] };
 }
 
 export function agreedDocs(page, round, at) {
@@ -197,13 +256,6 @@ export function agreedDocs(page, round, at) {
   return docs;
 }
 
-// A thread on a block names it in its target, so the preview can draw the
-// block under the message.
-function targetBlock(target, topic) {
-  const match = /^block-(.+)-(\d+)$/.exec(target ?? "");
-  return match && match[1] === topic ? Number(match[2]) : null;
-}
-
 export function threadDocs(thread) {
   const docs = [];
   (thread.messages ?? []).forEach((message, index) => {
@@ -218,7 +270,8 @@ export function threadDocs(thread) {
       type: "thread message",
       round: thread.round ?? null,
       page: thread.proposal ? "work" : (thread.topic ?? null),
-      block: targetBlock(thread.target, thread.topic),
+      block: null,
+      target: thread.target ?? null,
       item: `${thread.id}/${index}`,
       heading: thread.page || thread.anchor || "",
       text,
