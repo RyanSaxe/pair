@@ -588,7 +588,55 @@ test("a sent note or answer shows its block under the reader's words, and Open g
   await type(page, "iguana");
   await previewShows(page, "iguana");
   await page.keyboard.press("Enter");
+  await page.locator("#sent-n1").waitFor();
+  assert.equal(new URL(page.url()).hash, "#feedback");
+  assert.equal(new URL(page.url()).searchParams.get("target"), "sent-n1");
+});
+
+test("a result opened before the page hears its round was sent stays open, at its card", async (t) => {
+  const { a, page, origin } = await setUp(t);
+  if (!page) return;
+  // The round is sent from another browser, and this page's polls hear of it
+  // only once the result has opened. The frame's own polls go through.
+  let hear;
+  const heard = new Promise((done) => (hear = done));
+  await page.route(/\/api\/status$/, async (route) => {
+    if (route.request().frame() === page.mainFrame()) await heard;
+    await route.continue();
+  });
+  const event = a.event("feedback-only", "1", {
+    groups: {
+      notes: [
+        {
+          id: "n1",
+          round: "1",
+          topic: "overview",
+          target: "block-overview-1",
+          anchor: "Overview",
+          text: "An iguana would suit this better.",
+        },
+      ],
+    },
+  });
+  assert.equal((await a.feedback(event)).code, 200);
+  await waitUntil(
+    async () =>
+      !(await (await fetch(`${origin}/api/search?q=x`)).json()).loading,
+  );
+  await type(page, "iguana");
+  await previewShows(page, "iguana");
+  await page.keyboard.press("Enter");
   await page.waitForFunction(() => location.hash === "#feedback");
+  const status = page.waitForResponse(
+    async (response) =>
+      new URL(response.url()).pathname.endsWith("/api/status") &&
+      response.frame() === page.mainFrame() &&
+      (await response.json()).latestSubmissionRound === "1",
+  );
+  hear();
+  await status;
+  await page.locator("#sent-n1").waitFor();
+  assert.equal(new URL(page.url()).hash, "#feedback");
   assert.equal(new URL(page.url()).searchParams.get("target"), "sent-n1");
 });
 
