@@ -105,7 +105,7 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal(result.body.page.id, "agreed");
   assert(
     result.body.next.endsWith(
-      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
+      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
     ),
     result.body.next,
   );
@@ -165,7 +165,7 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.equal(progress.status, 200);
   assert.equal(
     progress.body.next,
-    'You still have to publish these pages: overview, detail (started). When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
+    'You still have to publish these pages: overview, detail (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
   );
   const before = await status();
   assert.equal(before.openRound.pages[1].state, "active");
