@@ -172,17 +172,6 @@ export function pageDocs(page, round, at) {
         ...(holdsCode(child) ? { code: true } : {}),
       });
   }
-  if (page.jsText && page.jsText.length <= SCRIPT_LIMIT) {
-    const text = clean(page.jsText);
-    if (text)
-      docs.push({
-        ...base,
-        block: null,
-        heading: page.title ?? "",
-        text,
-        code: true,
-      });
-  }
   return docs;
 }
 

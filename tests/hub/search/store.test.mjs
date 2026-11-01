@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { searchStore } from "../../../src/hub/search/store.mjs";
@@ -489,4 +490,14 @@ test("a row's text holds no raw markup", async (t) => {
     (await store.search({ query: "typescript" })).results[0].block,
     0,
   );
+});
+
+test("a page's script is left out of results", async (t) => {
+  const folder = await fs.mkdtemp(path.join(os.tmpdir(), "pair-search-"));
+  t.after(() => fs.rm(folder, { recursive: true, force: true }));
+  const js = path.join(folder, "page.js");
+  await fs.writeFile(js, "export function setup() { const tarsier = 1; }");
+  const a = await pageSession(t, "<p>Words.</p>", { page: { js } });
+  const store = await reader(t, a);
+  assert.equal((await store.search({ query: "tarsier" })).total, 0);
 });
