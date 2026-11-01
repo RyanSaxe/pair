@@ -567,3 +567,38 @@ test("a thread resolves its target to the block that holds it, from a page read 
   const second = await reader(t, a);
   await check(second, ["inner-part", "jaguarundi", 1, "block-overview-1"]);
 });
+
+test("a thread on an Agreed card is headed by its card", async (t) => {
+  const { a } = await session(t);
+  const onAgreed = { topic: "agreed", target: "agreement-scope" };
+  assert.equal(
+    (
+      await thread(a, {
+        ...onAgreed,
+        anchor: "Scope of the ocelot work",
+        text: "Why the jaguarundi?",
+      })
+    ).code,
+    201,
+  );
+  assert.equal(
+    (
+      await thread(a, {
+        ...onAgreed,
+        anchor: "Agreed so far",
+        target: undefined,
+        text: "And the coati?",
+      })
+    ).code,
+    201,
+  );
+  const store = await reader(t, a);
+  for (const [query, heading] of [
+    ["jaguarundi", "Scope of the ocelot work"],
+    ["coati", "Agreed so far"],
+  ]) {
+    const [row] = (await store.search({ query })).results;
+    assert.equal(row.heading, heading, query);
+    assert.equal(row.page, "agreed", query);
+  }
+});

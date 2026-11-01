@@ -273,7 +273,12 @@ export function threadDocs(thread) {
       block: null,
       target: thread.target ?? null,
       item: `${thread.id}/${index}`,
-      heading: thread.page || thread.anchor || "",
+      // Every thread on Agreed has the same page, so its anchor names its card.
+      heading:
+        (thread.topic === "agreed" && thread.anchor) ||
+        thread.page ||
+        thread.anchor ||
+        "",
       text,
       from: message.from,
       at: Date.parse(message.at) || 0,
