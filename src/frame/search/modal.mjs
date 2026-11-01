@@ -233,7 +233,10 @@ export function installSearch() {
         .map((crumb) => `<span>${escapeHtml(crumb)}</span>`)
         .join("");
     } else closeSheet();
-    // On a phone the preview shows only after a tap, so nothing loads before it.
+    // On a phone, a search's best result shows under the results with no tap.
+    // With nothing typed, the newest rows wait for a tap.
+    if (innerWidth <= PHONE && row && state.query.trim())
+      dialog.classList.add("is-sheet");
     if (innerWidth > PHONE || dialog.classList.contains("is-sheet"))
       preview.show(row, state.query);
     state.row = rowKey(row);
@@ -409,8 +412,6 @@ export function installSearch() {
     showKinds(false);
     void run();
   });
-  // Focus raises a phone's keyboard, and the results need the room.
-  input.addEventListener("focus", closeSheet);
 
   dialog.addEventListener("close", () => {
     preview.pause();

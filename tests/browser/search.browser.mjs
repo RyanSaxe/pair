@@ -275,7 +275,7 @@ test("the filters, the count and a long query's message fit the results at the n
 });
 
 for (const engine of ["chrome", "webkit"])
-  test(`on a phone in ${engine}, a tap shows the preview under the results, and the field returns to the results alone`, async (t) => {
+  test(`on a phone in ${engine}, the best result shows under the results, and the next is one tap`, async (t) => {
     const { page } = await searchPage(t, {
       engine,
       viewport: { width: 375, height: 760 },
@@ -290,21 +290,14 @@ for (const engine of ["chrome", "webkit"])
           document.activeElement === document.querySelector(".search-input"),
       );
     await page.locator("#search-button").tap();
-    await type(page, "about");
+    // With nothing typed, nothing shows, so nothing downloads.
+    await page.locator(".search-row").first().waitFor();
     assert.equal(await preview.isVisible(), false);
-    // Nothing shows before a tap, so nothing downloads.
-    await page.waitForTimeout(500);
     assert.equal(await page.locator(".search-frame").count(), 0);
 
-    // The keyboard's Search key drops the keyboard over the results.
-    await page.locator(".search-input").press("Enter");
-    assert.equal(await page.locator("#search-dialog[open]").count(), 1);
-    assert.equal(await fieldFocused(), false);
-    assert.equal(await preview.isVisible(), false);
-
-    await page.locator(".search-input").tap();
-    await page.locator(".search-row").first().tap();
-    assert.equal(await fieldFocused(), false);
+    // The best result shows under the results with no tap.
+    await type(page, "about");
+    await page.locator(".search-frame.is-shown").waitFor();
     const [listBox, previewBox] = [
       await list.boundingBox(),
       await preview.boundingBox(),
@@ -312,6 +305,13 @@ for (const engine of ["chrome", "webkit"])
     assert.ok(previewBox.y >= 760 / 2 - 2 && previewBox.y <= 760 / 2 + 2);
     assert.ok(listBox.y + listBox.height <= previewBox.y + 1);
     assert.equal(await page.locator(".search-open:visible").count(), 1);
+
+    // The keyboard's Search key drops the keyboard and stays on the results.
+    await page.locator(".search-input").press("Enter");
+    assert.equal(await page.locator("#search-dialog[open]").count(), 1);
+    assert.equal(await fieldFocused(), false);
+    assert.equal(await preview.isVisible(), true);
+
     // The next result is one tap, with the results still above.
     const blockText = () =>
       [
@@ -327,9 +327,6 @@ for (const engine of ["chrome", "webkit"])
     await page.locator(".search-row").nth(1).tap();
     await waitUntil(async () => (await page.evaluate(blockText)) !== first);
     assert.equal(await list.isVisible(), true);
-
-    await page.locator(".search-input").tap();
-    assert.equal(await preview.isVisible(), false);
     assert.equal(await page.locator(".search-row").count(), 2);
     await page.locator(".search-close").tap();
     assert.equal(await page.locator("#search-dialog[open]").count(), 0);
