@@ -65,6 +65,14 @@ asking the agent for the work in your own words. In the picture above, you
 start a proposal in a sub-session, a second session beside the one you are
 in, and follow the agent's progress there.
 
+To find anything you read or wrote, press <kbd>⌘K</kbd> or select the search
+icon, and type a few words. [Search](docs/guides/search.md) covers every session.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/search-dark.png">
+  <img alt="The search modal. The field, three filters and the results are on the left, and the block that matched is drawn on the right with the typed words highlighted." src="docs/assets/search-light.png">
+</picture>
+
 Your agent runs `pair` commands in its own shell. A small server on your
 machine, the hub, serves the pages to your browser and wakes the agent when
 you send feedback. [Architecture](docs/concepts/architecture.md) shows what
@@ -76,8 +84,8 @@ runs where, and [Concepts](docs/concepts/) explains each part.
   and its skill.
 - [Concepts](docs/concepts/) explains sessions, rounds, pages, Agreed,
   proposals and the hub.
-- [Guides](docs/guides/) covers planning a change, understanding code and
-  building the work.
+- [Guides](docs/guides/) covers planning a change, understanding code,
+  building the work and search.
 - [Reference](docs/reference/) lists every command and setting, and the
   files the agent reads.
 - [Troubleshooting](docs/troubleshooting.md) explains how to fix known

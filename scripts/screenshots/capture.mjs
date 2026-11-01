@@ -364,6 +364,21 @@ export async function stage(t, scratch) {
   await page.keyboard.press("Escape");
   await page.evaluate(() => document.activeElement.blur());
 
+  await page.locator("#search-button").click();
+  await page.locator(".search-input").fill("thread.target");
+  await page.locator(".search-frame.is-ready").waitFor();
+  await until(
+    page,
+    "Highlighting the words in the preview",
+    () =>
+      document
+        .querySelector(".search-frame")
+        .contentWindow.CSS.highlights.get("plan-preview")?.size > 0,
+  );
+  save("docs/assets/search", await inThemes(page));
+  await page.keyboard.press("Escape");
+  await page.locator("#search-dialog").waitFor({ state: "hidden" });
+
   await page.setViewportSize(phone);
   await page.evaluate(() => getSelection().removeAllRanges());
   await scrollTo(page, '[data-choice="answer"]');

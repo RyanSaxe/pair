@@ -3,6 +3,7 @@ import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
+import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
@@ -64,6 +65,29 @@ export const commands = {
       json,
     },
     run: read,
+  },
+  search: {
+    group: "session",
+    purpose: "Search what every session said, for what an earlier one settled",
+    about:
+      "Print the results that best match QUERY across every session, live and closed, with the session, round and page of each. A result is a record of what was said at the time, so check it against the code before you rely on it. QUERY works best as the two or three most distinctive words.",
+    usage:
+      "pair search --session-dir DIR QUERY [--kind KINDS] [--this-session] [--limit N]",
+    args: [{ name: "QUERY" }],
+    flags: {
+      "session-dir": sessionDir,
+      kind: {
+        value: "KINDS",
+        text: "Limit results to these kinds, separated by commas: pages, threads, notes, answers, proposals and agreed.",
+      },
+      "this-session": { text: "Limit results to this session." },
+      limit: {
+        value: "N",
+        text: "Change how many results print. The default is 10.",
+      },
+      json,
+    },
+    run: search,
   },
   progress: {
     group: "session",
