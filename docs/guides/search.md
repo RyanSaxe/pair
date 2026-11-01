@@ -2,7 +2,7 @@
 
 Search finds anything you read or wrote in pair, without you remembering its
 session or round. It covers pages, threads, notes, answers, proposals and
-Agreed, in live and closed sessions.
+Agreed, in live sessions, and in closed ones when you ask.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/search-dark.png">
@@ -32,8 +32,10 @@ Three menus sit above the results. A search starts on this session, all rounds
 and all kinds, and a menu you've changed is tinted. In each one you can choose
 several things, and its label shows a name, or a count once there are several.
 
-- **Sessions** offers all sessions, this session and every other session, newest
-  first.
+- **Sessions** offers all sessions, this session and every other live session,
+  newest first. All sessions means live ones. Include closed sessions, at the
+  bottom of the menu, adds closed ones to the search and to this list, and the
+  button then reads All + closed.
 - **Rounds** offers all rounds and the latest round, which is each session's
   newest round. When one session is chosen, it also lists that session's rounds,
   because a round number means something different in each session. Widening to
@@ -41,7 +43,8 @@ several things, and its label shows a name, or a count once there are several.
 - **Kinds** offers the six kinds, with how many results each has.
 
 When a search finds nothing, a button offers to loosen one filter and keeps your
-words.
+words. The last filter it offers is closed sessions. A result in a closed session
+says Closed on its row.
 
 ## The preview
 

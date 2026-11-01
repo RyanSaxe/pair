@@ -66,7 +66,8 @@ start a proposal in a sub-session, a second session beside the one you are
 in, and follow the agent's progress there.
 
 To find anything you read or wrote, press <kbd>⌘K</kbd> or select the search
-icon, and type a few words. [Search](docs/guides/search.md) covers every session.
+icon, and type a few words. [Search](docs/guides/search.md) covers live
+sessions, and closed ones when you ask.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/search-dark.png">

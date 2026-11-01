@@ -68,11 +68,11 @@ export const commands = {
   },
   search: {
     group: "session",
-    purpose: "Search what every session said, for what an earlier one settled",
+    purpose: "Search what live sessions said, for what an earlier one settled",
     about:
-      "Print the results that best match QUERY across every session, live and closed, with the session, round and page of each. A result is a record of what was said at the time, so check it against the code before you rely on it. QUERY works best as the two or three most distinctive words.",
+      "Print the results that best match QUERY across live sessions, or closed ones too with --closed, with the session, round and page of each. A result is a record of what was said at the time, so check it against the code before you rely on it. QUERY works best as the two or three most distinctive words.",
     usage:
-      "pair search --session-dir DIR QUERY [--kind KINDS] [--this-session] [--limit N]",
+      "pair search --session-dir DIR QUERY [--kind KINDS] [--this-session] [--closed] [--limit N]",
     args: [{ name: "QUERY" }],
     flags: {
       "session-dir": sessionDir,
@@ -81,6 +81,7 @@ export const commands = {
         text: "Limit results to these kinds, separated by commas: pages, threads, notes, answers, proposals and agreed.",
       },
       "this-session": { text: "Limit results to this session." },
+      closed: { text: "Include closed sessions." },
       limit: {
         value: "N",
         text: "Change how many results print. The default is 10.",
