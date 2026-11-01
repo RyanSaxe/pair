@@ -58,7 +58,8 @@ page CSS and the frame's own styles, so a component's type and spacing rules
 override the frame's. Use the design tokens that `pair guide pages.md`
 prints.
 
-`pair build` also scopes component CSS to `#page-content`, so a selector
+`pair build` also scopes component CSS to `#page-content` and to the content
+of a thread message, so a selector
 that starts at `:root` or `html` never matches. Follow the theme with
 `light-dark()`, which reads the `color-scheme` that the frame sets.
 
