@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { everywhere } from "../support/search.mjs";
 
 const pages = [
   {
@@ -54,7 +55,7 @@ async function setUp(t, setup = async () => {}) {
 
 async function openResult(page, query, { allSessions = false } = {}) {
   await page.locator("#search-button").click();
-  if (allSessions) await page.locator('[data-toggle="allSessions"]').click();
+  if (allSessions) await everywhere(page);
   const answered = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/search" &&

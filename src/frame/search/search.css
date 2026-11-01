@@ -83,9 +83,15 @@
   padding: 0 var(--search-pad) 10px;
   border-bottom: 1px solid var(--line);
 }
-.search-kinds-anchor {
+.search-menu-anchor {
   position: relative;
   display: flex;
+  flex: none;
+  min-width: 0;
+}
+/* A session's title is the one long label, so only its button shrinks. */
+.search-menu-anchor[data-menu="sessions"] {
+  flex: 0 1 auto;
 }
 .search-filter {
   padding-block: 4px;
@@ -98,7 +104,18 @@
     color: var(--ink);
   }
 }
-.search-kinds-button::after {
+.search-menu-button {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+}
+.search-menu-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-menu-button::after {
+  flex: none;
   content: "";
   display: inline-block;
   width: 5px;
@@ -113,23 +130,41 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
-.search-kinds {
+.search-menu {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
   z-index: 3;
   display: grid;
+  align-content: start;
   width: 200px;
+  max-height: min(340px, 60dvh);
   padding: 5px;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
-.search-kinds[hidden] {
+.search-menu[hidden] {
   display: none;
 }
-.search-kind {
+[data-menu="sessions"] > .search-menu {
+  right: auto;
+  left: 0;
+  width: 280px;
+}
+[data-menu="rounds"] > .search-menu {
+  right: auto;
+  left: 0;
+  width: 180px;
+}
+.search-menu-rule {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+.search-menu-item {
   position: relative;
   display: flex;
   align-items: center;
@@ -146,17 +181,22 @@
   cursor: pointer;
 }
 @media (hover: hover) {
-  .search-kind:hover {
+  .search-menu-item:hover {
     background: var(--ground);
   }
 }
-.search-kind b {
+.search-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-menu-item b {
   color: var(--muted);
   font-size: var(--text-small);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
-.search-kind[aria-pressed="true"]::before {
+.search-menu-item[aria-pressed="true"]::before {
   content: "";
   position: absolute;
   left: 10px;
@@ -167,7 +207,7 @@
   border-left: 1.6px solid var(--accent);
   transform: rotate(-45deg);
 }
-.search-kind[data-empty="true"]:not([aria-pressed="true"]) {
+.search-menu-item[data-empty="true"]:not([aria-pressed="true"]) {
   color: var(--muted);
 }
 
@@ -188,6 +228,11 @@
   padding: 8px;
   border-radius: 7px;
   cursor: pointer;
+}
+@media (hover: hover) {
+  .search-row:hover {
+    background: var(--ground);
+  }
 }
 .search-row[aria-selected="true"] {
   background: var(--accent-soft);

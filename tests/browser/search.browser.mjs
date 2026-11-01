@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
-import { pages, searchPage, selected, type } from "../support/search.mjs";
+import {
+  chooseInMenu,
+  everywhere,
+  pages,
+  searchPage,
+  selected,
+  type,
+} from "../support/search.mjs";
 
 test("the icon opens search, and typing filters the list as it goes", async (t) => {
   const { page } = await searchPage(t);
@@ -46,16 +53,17 @@ test("the words, filters, kinds and selected row survive reopening and moving to
   await page.keyboard.press("Alt+KeyS");
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-toggle="allSessions"]').textContent ===
-      "All sessions",
+      document.querySelector('[data-menu="sessions"] .search-menu-button')
+        .textContent === "All sessions",
   );
-  await page.locator(".search-kinds-button").click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
   const filtered = answered();
-  await page.locator('.search-kind[data-kind="pages"]').click();
+  await page.locator('[data-menu="kinds"] [data-value="pages"]').click();
   await filtered;
   await page.waitForFunction(
     () =>
-      document.querySelector(".search-kinds-button").textContent === "Pages",
+      document.querySelector('[data-menu="kinds"] .search-menu-button')
+        .textContent === "Pages",
   );
   await page.keyboard.press("Escape");
   await page.keyboard.press("ArrowDown");
@@ -78,11 +86,13 @@ test("the words, filters, kinds and selected row survive reopening and moving to
   await page.locator(".search-row").first().waitFor();
   assert.equal(await page.inputValue(".search-input"), "about");
   assert.equal(
-    await page.locator('[data-toggle="allSessions"]').textContent(),
+    await page
+      .locator('[data-menu="sessions"] .search-menu-button')
+      .textContent(),
     "All sessions",
   );
   assert.equal(
-    await page.locator(".search-kinds-button").textContent(),
+    await page.locator('[data-menu="kinds"] .search-menu-button').textContent(),
     "Pages",
   );
   assert.equal(await selectedRow().textContent(), chosen);
@@ -114,28 +124,35 @@ test("the filters narrow the list, and the kinds menu toggles each kind", async 
   if (!page) return;
   await page.locator("#search-button").click();
   await type(page, "about");
-  const button = page.locator(".search-kinds-button");
+  const button = page.locator('[data-menu="kinds"] .search-menu-button');
   assert.equal(await button.textContent(), "All kinds");
   await button.click();
-  await page.locator('.search-kind[data-kind="threads"]').click();
+  await page.locator('[data-menu="kinds"] [data-value="threads"]').click();
   await page.waitForFunction(
     () =>
-      document.querySelector(".search-kinds-button").textContent === "Threads",
+      document.querySelector('[data-menu="kinds"] .search-menu-button')
+        .textContent === "Threads",
   );
   await page.locator(".search-blank").waitFor();
-  await page.locator('.search-kind[data-kind="pages"]').click();
+  await page.locator('[data-menu="kinds"] [data-value="pages"]').click();
   await page.locator(".search-row").first().waitFor();
   assert.equal(await button.textContent(), "2 kinds");
-  await page.locator('.search-kind[data-kind=""]').click();
+  await page.locator('[data-menu="kinds"] [data-value=""]').click();
   await page.waitForFunction(
     () =>
-      document.querySelector(".search-kinds-button").textContent ===
-      "All kinds",
+      document.querySelector('[data-menu="kinds"] .search-menu-button')
+        .textContent === "All kinds",
   );
   // Esc closes the menu first, and then the modal.
-  assert.equal(await page.locator(".search-kinds").isVisible(), true);
+  assert.equal(
+    await page.locator('[data-menu="kinds"] .search-menu').isVisible(),
+    true,
+  );
   await page.keyboard.press("Escape");
-  assert.equal(await page.locator(".search-kinds").isVisible(), false);
+  assert.equal(
+    await page.locator('[data-menu="kinds"] .search-menu').isVisible(),
+    false,
+  );
   assert.equal(await page.locator("#search-dialog[open]").count(), 1);
 });
 
@@ -143,16 +160,16 @@ test("a search that finds nothing offers one filter to loosen, and keeps the wor
   const { page } = await searchPage(t);
   if (!page) return;
   await page.locator("#search-button").click();
-  await page.locator(".search-kinds-button").click();
-  await page.locator('.search-kind[data-kind="threads"]').click();
-  await page.locator(".search-kinds-button").click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
+  await page.locator('[data-menu="kinds"] [data-value="threads"]').click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
   await type(page, "walrus");
   // Enter takes the offer.
   await page.locator(".search-input").press("Enter");
   await page.locator(".search-row").first().waitFor();
   assert.equal(await page.inputValue(".search-input"), "walrus");
   assert.equal(
-    await page.locator(".search-kinds-button").textContent(),
+    await page.locator('[data-menu="kinds"] .search-menu-button').textContent(),
     "All kinds",
   );
 });
@@ -163,15 +180,15 @@ test("with nothing typed, a kind or round filter that hides everything says so a
   const blank = page.locator(".search-blank");
   await page.locator("#search-button").click();
   await page.locator(".search-row").first().waitFor();
-  await page.locator(".search-kinds-button").click();
-  await page.locator('.search-kind[data-kind="threads"]').click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
+  await page.locator('[data-menu="kinds"] [data-value="threads"]').click();
   await blank.waitFor();
   assert.match(await blank.textContent(), /No threads in this session\./);
   await page.keyboard.press("Escape");
   await blank.locator("[data-wider]").click();
   await page.locator(".search-row").first().waitFor();
   assert.equal(
-    await page.locator(".search-kinds-button").textContent(),
+    await page.locator('[data-menu="kinds"] .search-menu-button').textContent(),
     "All kinds",
   );
 });
@@ -245,17 +262,19 @@ test("the filters, the count and a long query's message fit the results at the n
   const { page } = await searchPage(t);
   if (!page) return;
   await page.locator("#search-button").click();
-  await page.locator('[data-toggle="allSessions"]').click();
-  await page.locator('[data-toggle="allRounds"]').click();
-  await page.locator(".search-kinds-button").click();
-  await page.locator('.search-kind[data-kind="proposals"]').click();
+  await everywhere(page);
+  await chooseInMenu(page, "rounds", "latest");
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
+  await page.locator('[data-menu="kinds"] [data-value="proposals"]').click();
   await page.keyboard.press("Escape");
   const fits = () =>
     page.evaluate(() => {
       const left = document.querySelector(".search-left");
       const count = document.querySelector(".search-count");
       const list = document.querySelector(".search-list");
-      const lastFilter = document.querySelector(".search-kinds-button");
+      const lastFilter = document.querySelector(
+        '[data-menu="kinds"] .search-menu-button',
+      );
       return {
         filters:
           lastFilter.getBoundingClientRect().right <=
@@ -331,3 +350,64 @@ for (const engine of ["chrome", "webkit"])
     await page.locator(".search-close").tap();
     assert.equal(await page.locator("#search-dialog[open]").count(), 0);
   });
+
+test("round numbers show for one session, and a label stays short however much is chosen", async (t) => {
+  const { h, page } = await searchPage(t, {
+    viewport: { width: 375, height: 760 },
+  });
+  if (!page) return;
+  const other = await h.session();
+  const published = await other.publish({
+    ...planData(),
+    title: `A very long session title ${"that keeps going ".repeat(6)}`,
+    pages,
+  });
+  assert.equal(published.code, 200, published.body.error);
+  await waitUntil(
+    async () =>
+      !(await (await fetch(`${h.server.origin}/api/search?q=x`)).json())
+        .loading,
+  );
+  const label = (menu) =>
+    page.locator(`[data-menu="${menu}"] .search-menu-button`).textContent();
+  const items = async (menu) =>
+    page
+      .locator(`[data-menu="${menu}"] .search-menu-item`)
+      .evaluateAll((all) => all.map((item) => item.textContent));
+  await page.locator("#search-button").click();
+  await type(page, "walrus");
+  // The sessions list loads as search opens.
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('[data-menu="sessions"] .search-menu-item')
+        .length > 2,
+  );
+
+  assert.deepEqual(await items("rounds"), [
+    "All rounds",
+    "Latest round",
+    "Round 1",
+  ]);
+  await chooseInMenu(page, "rounds", "1");
+  assert.equal(await label("rounds"), "Round 1");
+
+  // Round 1 means something different in each session, so more than one session
+  // has no round numbers, and the chosen one goes.
+  await chooseInMenu(page, "sessions", "");
+  assert.equal(await label("sessions"), "All sessions");
+  assert.equal(await label("rounds"), "All rounds");
+  assert.deepEqual(await items("rounds"), ["All rounds", "Latest round"]);
+
+  // One other session: its title shrinks, and the row stays on one line.
+  await chooseInMenu(page, "sessions", other.base.split("/").pop());
+  assert.match(await label("sessions"), /^A very long session title/);
+  const row = page.locator(".search-filters");
+  const fits = await row.evaluate((node) => ({
+    wide: node.scrollWidth <= node.clientWidth,
+    last: node.lastElementChild.getBoundingClientRect().right <= innerWidth,
+  }));
+  assert.deepEqual(fits, { wide: true, last: true });
+
+  await chooseInMenu(page, "sessions", "here");
+  assert.equal(await label("sessions"), "2 sessions");
+});

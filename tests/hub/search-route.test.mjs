@@ -99,6 +99,12 @@ test("session, round and kinds each narrow a search, and counts ignore kinds", a
   assert.equal(threads.body.counts.threads, 1);
   const both = await find("kestrel", { kinds: "threads,pages" });
   assert.equal(both.body.total, 4);
+  const sessions = await find("kestrel", { session: `${a.id},${b.id}` });
+  assert.equal(sessions.body.total, 4);
+  const rounds = await find("kestrel", { session: a.id, round: "1,2" });
+  assert.deepEqual(where(rounds.body).sort(), ["a1", "a2", "a2"]);
+  const oneAndLatest = await find("kestrel", { round: "1,latest" });
+  assert.equal(oneAndLatest.body.total, 4);
 });
 
 test("limit caps the rows and total still counts them all", async (t) => {

@@ -244,6 +244,8 @@ export async function startHub(config = settings()) {
           }),
         );
       }
+      if (method === "GET" && url.pathname === "/api/search/sessions")
+        return reply(200, { sessions: search.sessionChoices() });
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
           app: "pair",

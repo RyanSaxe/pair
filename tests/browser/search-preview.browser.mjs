@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { everywhere } from "../support/search.mjs";
 
 const pages = [
   {
@@ -79,8 +80,6 @@ async function setUp(t, options = {}) {
   return { h, a, b, page, origin };
 }
 
-const everywhere = (page) =>
-  page.locator('[data-toggle="allSessions"]').click();
 const type = async (page, query) => {
   const answered = page.waitForResponse(
     (response) =>
