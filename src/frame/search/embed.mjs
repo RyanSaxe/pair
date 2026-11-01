@@ -44,10 +44,10 @@ function arrived(row, id) {
   );
 }
 async function whenArrived(row, { page: id, target }) {
-  const limit = Date.now() + ARRIVE_LIMIT_MS;
+  const limit = performance.now() + ARRIVE_LIMIT_MS;
   while (
     wanted === target &&
-    Date.now() < limit &&
+    performance.now() < limit &&
     !arrived(row, id || "agreed")
   )
     await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
@@ -90,10 +90,10 @@ function dropPicture() {
   picture = null;
 }
 async function whenReady() {
-  const limit = Date.now() + READY_LIMIT_MS;
+  const limit = performance.now() + READY_LIMIT_MS;
   await whenLanded(limit);
   while (
-    Date.now() < limit &&
+    performance.now() < limit &&
     (renders.size || "drawing" in $("page-content").dataset)
   )
     await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
