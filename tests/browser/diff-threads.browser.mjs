@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { open } from "../support/browser.mjs";
+import { fetchEsmInNode, open } from "../support/browser.mjs";
 import { hub, waitUntil } from "../support/hub.mjs";
 
 const pageHtml = `
@@ -136,8 +136,15 @@ async function openDiff(t) {
   });
   assert.equal(published.code, 200, published.body.error);
 
-  const page = await open(t, `${h.server.origin}${session.base}/#changes`);
+  // These tests need the real diff library's shadow root and line annotations.
+  // Chrome cannot resolve esm.sh here, so a request that bypasses
+  // fetchEsmInNode fails on every run rather than only when Chrome stalls.
+  const page = await open(t, "about:blank", {
+    args: ["--host-resolver-rules=MAP esm.sh ~NOTFOUND"],
+  });
   if (!page) return {};
+  await fetchEsmInNode(page);
+  await page.goto(`${h.server.origin}${session.base}/#changes`);
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".change-view *")].some(
       (node) => node.shadowRoot,
