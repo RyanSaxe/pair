@@ -493,6 +493,17 @@ test("leaving the search window stops what plays in a frame", async (t) => {
   await page.waitForFunction(
     () => document.querySelector(".search-frame").contentWindow.pauses === 1,
   );
+  // The frame stays loaded, and it asks the hub for nothing while it's closed.
+  const asked = [];
+  page.on("request", (request) => {
+    if (
+      request.frame() !== page.mainFrame() &&
+      request.url().includes("/api/status")
+    )
+      asked.push(request.url());
+  });
+  await page.waitForTimeout(11000);
+  assert.deepEqual(asked, []);
 });
 
 test("a theme change reaches a frame that's already loaded", async (t) => {
