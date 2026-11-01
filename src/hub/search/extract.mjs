@@ -8,9 +8,10 @@ import { decode, parse, textOf } from "./html.mjs";
    One rule reads every block of a page, so a component needs no code here. A
    block's text is what a reader sees: its text nodes and the attributes the
    frame draws. Its attrs are the words of its other attributes, which rank below
-   its text, so a custom component's words stay findable. The only knowledge of a
-   component is that a diff keeps its patch as JSON in a textarea, beside the
-   viewer's own controls. */
+   its text, so a custom component's words stay findable. It knows three things
+   about pair's components: a diff keeps its patch as JSON in a textarea beside
+   the viewer's own controls, a prototype's HTML reads as its text, and a visual
+   option draws its data-label. */
 
 // An attribute named here holds no words a reader would search for. It sets how
 // an element behaves or looks, or it holds an ID that a component reads.
