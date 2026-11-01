@@ -1,5 +1,5 @@
 async function renderDiagram(element) {
-  const source = (element.dataset.source ??= element.textContent);
+  const source = (element.dataset.source ??= element.textContent.trim());
   let mounted;
   const report = (error) => {
     if (!element.isConnected) return;
