@@ -165,13 +165,21 @@
   width: 180px;
 }
 /* The session list can run long, so this choice stays in reach below it. */
+/* It spans the menu like a footer, so its tint meets the menu's edges and corners. */
 .search-menu-item[data-value="closed"] {
   position: sticky;
   z-index: 1;
   bottom: -5px;
+  height: 36px;
+  margin: 4px -5px -5px;
+  padding-inline: 31px 13px;
   border-top: 1px solid var(--line);
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 9px 9px;
   background: var(--panel);
+}
+.search-menu-item[data-value="closed"][aria-pressed="true"]::before {
+  left: 15px;
+  top: 12px;
 }
 .search-menu-rule {
   height: 1px;
