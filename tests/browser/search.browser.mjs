@@ -312,6 +312,17 @@ test("words the block doesn't draw as text show in a strip under it", async (t) 
   assert.equal((await previewState(page)).ready, true);
 });
 
+test("a page title's row leaves the strip hidden, because it has no text to show", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  await page.locator("#search-button").click();
+  await type(page, "second");
+  assert.equal(await selected(page).textContent(), "Second page");
+  await page.locator(".search-frame.is-ready").waitFor();
+  await page.waitForTimeout(600);
+  assert.equal((await previewState(page)).strip, false);
+});
+
 test("using a decision in the preview leaves the reviewer's draft alone", async (t) => {
   const { h, a, page } = await searchPage(t);
   if (!page) return;
