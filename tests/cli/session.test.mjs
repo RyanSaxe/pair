@@ -797,6 +797,22 @@ async function agreedFiles(directory, pages) {
   return ["--file", file, "--pages", list];
 }
 
+test("pair start takes --reopen only with --session-dir, and creates no session without it", async (t) => {
+  const h = await hub(t);
+  const root = path.join(h.home, "cli");
+  await fs.mkdir(root);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+  });
+  await assert.rejects(cli.run("start", "--reopen"), (error) => {
+    assert.equal(error.code, 1);
+    assert.match(error.stderr, /--reopen only with --session-dir/);
+    return true;
+  });
+  assert.deepEqual(await fs.readdir(h.config.sessions), []);
+});
+
 // pair start --title names a new session. The hub stores the name as the
 // session's title, and the first Agreed replaces it with the plan's title.
 test("pair start requires --title for a new session, and the first Agreed replaces it", async (t) => {
