@@ -410,6 +410,7 @@ for (const engine of ["chrome", "webkit"])
     await page.locator(".search-back").waitFor();
     await previewShows(page, "walrus");
     assert.equal(await page.locator(".search-preview").isVisible(), true);
+    assert.equal(await page.locator(".search-open:visible").count(), 1);
     await page.locator(".search-back").tap();
     assert.equal(await page.locator(".search-preview").isVisible(), false);
     assert.equal(await page.locator(".search-row").count(), 1);
