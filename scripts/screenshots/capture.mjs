@@ -373,7 +373,7 @@ export async function stage(t, scratch) {
     () =>
       document
         .querySelector(".search-frame.is-shown")
-        .contentWindow.CSS.highlights.get("plan-preview")?.size > 0,
+        .contentWindow.CSS.highlights.get("plan-search")?.size > 0,
   );
   save("docs/assets/search", await inThemes(page));
   await page.keyboard.press("Escape");
