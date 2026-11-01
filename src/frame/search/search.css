@@ -438,6 +438,8 @@
 }
 :root[data-embed] .main-column {
   margin-left: 0;
+  /* The sidebar's slide would hold the old margin after the page shows. */
+  transition: none;
 }
 :root[data-embed] .content {
   max-width: none;
