@@ -77,7 +77,7 @@
 .search-filters {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex: none;
   height: var(--search-filter-row);
   padding: 0 var(--search-pad) 10px;
@@ -95,7 +95,7 @@
 }
 .search-filter {
   padding-block: 4px;
-  padding-inline: 9px;
+  padding-inline: 8px;
   background: none;
   color: var(--muted);
 }
@@ -120,7 +120,7 @@
   display: inline-block;
   width: 5px;
   height: 5px;
-  margin: 0 2px 2px 7px;
+  margin: 0 1px 2px 6px;
   border-right: 1.4px solid currentColor;
   border-bottom: 1.4px solid currentColor;
   transform: rotate(45deg);
