@@ -72,7 +72,8 @@ software on their machine, record it as a proposal.
 
 Before you ask the reviewer something an earlier session may have settled,
 run `pair search --session-dir PATH "…"` with the two or three most distinctive
-words. A result is a record of what was said at the time, so check it against
+words. It searches live sessions, so add `--closed` when what you need may be in
+a closed one. A result is a record of what was said at the time, so check it against
 the code before you rely on it, and never treat one as the reviewer's permission
 for this session's work.
 

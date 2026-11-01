@@ -393,6 +393,14 @@ test("round numbers show for one session, and a label stays short however much i
         .length > 2,
   );
 
+  // A long name trims, so the menu never scrolls sideways.
+  await page.locator('[data-menu="sessions"] .search-menu-button').click();
+  const sideways = await page
+    .locator('[data-menu="sessions"] .search-menu')
+    .evaluate((menu) => menu.scrollWidth - menu.clientWidth);
+  assert.equal(sideways, 0);
+  await page.keyboard.press("Escape");
+
   assert.deepEqual(await items("rounds"), [
     "All rounds",
     "Latest round",
