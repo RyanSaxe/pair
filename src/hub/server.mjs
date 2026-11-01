@@ -590,11 +590,11 @@ export async function startHub(config = settings()) {
   const close = () => (closing ||= shutDown().then(settle));
   async function shutDown() {
     clearInterval(timer);
-    await search.close();
     for (const server of servers) {
       server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));
     }
+    await search.close();
     try {
       if ((await read(config.hubFile)).pid === process.pid)
         await fs.rm(config.hubFile, { force: true });
