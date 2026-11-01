@@ -244,11 +244,20 @@ When a pull request into a branch other than `main` changes `src/frame/`,
 `src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
 `scripts/demo/`, the `screenshots` job in `.github/workflows/screenshots.yml`
 runs `npm run screenshots` on GitHub's macOS 26 runner and pushes the PNGs
-it rewrote to the pull request's branch. The illustration's terminal shows
-IDs that each run creates anew, so the job pushes a commit after every push
-to such a pull request. Pull that commit before you push to the branch again.
-GitHub runs the checks on the job's commit only after someone with write
-access selects Approve workflows to run on the pull request.
+it rewrote to the pull request's branch. `npm run screenshots` keeps a PNG that
+shows the same picture, so the job commits only when a picture changes. Pull
+that commit before you push to the branch again.
+
+GitHub runs the checks on the job's commit only after someone with write access
+approves the run. An agent working on this repository has the owner's standing
+approval to do that without asking, for a pull request from a branch of this
+repository. `gh run list --status action_required` lists the held runs:
+
+```sh
+gh api -X POST repos/RyanSaxe/pair/actions/runs/RUN_ID/approve
+```
+
+Never approve a run from a fork, because that run executes someone else's code.
 
 For a change elsewhere that alters what the README's or the docs'
 screenshots show, and for a pull request from a fork, run
