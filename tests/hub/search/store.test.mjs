@@ -284,6 +284,31 @@ test("few results add rows for missing words and for words across a page", async
   assert.equal(acrossBlocks.results[0].page, "overview");
 });
 
+test("a block with every word ranks above a block that misses one", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: "<p>The dugong swims in warm bays.</p><p>The dugong swims at night.</p>",
+      },
+    ],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  const store = await reader(t, a);
+  const { results } = await store.search({ query: "dugong swims warm" });
+  assert.deepEqual(
+    results.map((row) => [row.block, row.partial]),
+    [
+      [0, null],
+      [1, "Has 2 of 3 words"],
+    ],
+  );
+});
+
 test("a long block's row carries only the words around its match", async (t) => {
   const h = await hub(t);
   const a = await h.session();
