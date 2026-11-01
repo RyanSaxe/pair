@@ -156,6 +156,7 @@ export function disposeRenderers() {
 export { libraries };
 const scripts = new Map();
 let diffsTask;
+let diffsFailures = 0;
 let peleTask;
 export function pele() {
   peleTask ||= import(libraries.pele).catch((error) => {
@@ -444,8 +445,13 @@ async function renderDiff(
   // without moving anything. A wrapped line is taller than one row, so a
   // wrapped diff can only grow past this minimum.
   element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
-  diffsTask ||= import(libraries.diffs).catch((error) => {
+  // A browser can keep a failed import and never ask again, so a retry has an
+  // address of its own. A fragment changes nothing on the server, and this
+  // library has no integrity hash to match.
+  const retry = diffsFailures ? `#${diffsFailures}` : "";
+  diffsTask ||= import(`${libraries.diffs}${retry}`).catch((error) => {
     diffsTask = undefined;
+    diffsFailures++;
     throw error;
   });
   const { FileDiff, parsePatchFiles } = await diffsTask;
