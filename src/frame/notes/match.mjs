@@ -258,12 +258,25 @@ const moved = () => {
   if (active) active.moved = true;
 };
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+// A closed fold around a root doesn't count as hidden, because marking opens it.
+function outsideFolds(root) {
+  let outer = root;
+  for (
+    let fold = root.closest("details:not([open])");
+    fold;
+    fold = fold.parentElement?.closest("details:not([open])")
+  )
+    outer = fold;
+  return outer;
+}
 const showing = (match) => {
   const roots = matchRoots(match);
   return (
     roots.length > 0 &&
     roots.every(
-      (root) => root.checkVisibility?.({ visibilityProperty: true }) !== false,
+      (root) =>
+        outsideFolds(root).checkVisibility?.({ visibilityProperty: true }) !==
+        false,
     )
   );
 };
@@ -312,7 +325,7 @@ export function setMatch(words, target, text = "") {
 export async function whenLanded(limit) {
   const mine = active;
   if (!mine) return;
-  await mine.landed;
+  await Promise.race([mine.landed, wait(limit - Date.now())]);
   do await wait(REMARK_MS);
   while (
     active === mine &&
