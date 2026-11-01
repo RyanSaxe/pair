@@ -286,11 +286,6 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
   assert.equal(prototype.body, demo.html);
   assert.match(prototype.headers.get("content-security-policy"), /sandbox/);
   assert.equal((await a.request(`${a.base}/r/1/prototype/nope`)).code, 404);
-  const stored = await fs.readFile(
-    path.join(a.directory, "rounds/example.1.html"),
-    "utf8",
-  );
-  assert.deepEqual(sessionConfig(stored), { sessionId: a.id, base: a.base });
   assert.deepEqual(h.record.hosts, ["127.0.0.1"]);
   const forged = await new Promise((resolve, reject) => {
     const request = http.request(
@@ -306,6 +301,40 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
     request.end();
   });
   assert.equal(forged, 403);
+});
+
+// A session from an older hub has its rounds saved in rounds/. The hub ignores
+// such a file for a round with page records, and reads it for a round without.
+test("a round is drawn on today's frame, and only a round with no page records reads a saved file", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  const rounds = path.join(a.directory, "rounds");
+  assert.equal(await exists(rounds), false);
+  const today = (await a.request(`${a.base}/`)).body;
+  assert.match(today, /id="search-button"/);
+  await fs.mkdir(rounds);
+  await fs.writeFile(
+    path.join(rounds, "example.1.html"),
+    today.replaceAll('id="search-button"', 'id="saved-round"'),
+  );
+  const pages = (origin) =>
+    Promise.all(
+      [`${a.base}/`, `${a.base}/r/1`].map(async (route) =>
+        (await fetch(origin + route)).text(),
+      ),
+    );
+  for (const page of await pages(h.server.origin))
+    assert.match(page, /id="search-button"/);
+  await h.server.close();
+  const file = path.join(a.directory, "status.json");
+  const { roundPages, ...older } = JSON.parse(await fs.readFile(file, "utf8"));
+  assert.ok(roundPages["1"]);
+  await fs.writeFile(file, JSON.stringify(older));
+  const next = await startHub(h.config);
+  t.after(next.close);
+  for (const page of await pages(next.origin))
+    assert.match(page, /id="saved-round"/);
 });
 
 test("a round URL with a malformed escape is a bad request", async (t) => {
@@ -343,15 +372,9 @@ test("explicit feedback is retryable, remains unread until read, and blocks prem
   const unknown = await a.action("read", { id: "nope" });
   assert.equal(unknown.code, 404);
   assert.match(unknown.body.error, /^This session has no submission nope\. /);
-  const original = await fs.readFile(
-    path.join(a.directory, "rounds/example.1.html"),
-    "utf8",
-  );
+  const original = await a.servedRound("1");
   assert.equal((await a.publish(planData("2"))).code, 200);
-  assert.equal(
-    await fs.readFile(path.join(a.directory, "rounds/example.1.html"), "utf8"),
-    original,
-  );
+  assert.equal(await a.servedRound("1"), original);
   assert.equal((await a.feedback(a.event())).code, 409);
   assert.equal((await a.publish(planData("2"))).code, 409);
   const status = JSON.parse(
@@ -374,10 +397,6 @@ test("a session keeps one plan name and uses each round number once", async (t) 
   assert.equal(
     renamed.body.error,
     'Every round of this session has the name "example". Set "name" in the page source to "example".',
-  );
-  assert.equal(
-    await exists(path.join(a.directory, "rounds/other.2.html")),
-    false,
   );
   assert.equal((await a.status()).body.current.name, "example");
   assert.equal((await a.publish(planData("2"))).code, 200);

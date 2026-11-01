@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import test from "node:test";
 import { assemble } from "../../../src/build/assemble.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
 import { hub, planData } from "../../support/hub.mjs";
 
-test("publication resolves exact mixed sources from saved feedback before hashing", async (t) => {
+test("publication resolves exact mixed sources from saved feedback", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
@@ -55,10 +53,7 @@ test("publication resolves exact mixed sources from saved feedback before hashin
   const data = { ...planData("2"), agreements: [entry] };
   const result = await a.publish(data);
   assert.equal(result.code, 200);
-  const snapshot = await fs.readFile(
-    path.join(a.directory, "rounds/example.2.html"),
-    "utf8",
-  );
+  const snapshot = await a.servedRound("2");
   const records = readPlanData(snapshot).agreements[0].sourceRecords;
   assert.equal(records.length, 3);
   assert.equal(records[0].text, feedback.groups.notes[0].text);
@@ -70,10 +65,6 @@ test("publication resolves exact mixed sources from saved feedback before hashin
   assert.equal(records[1].href, "./example.1.html?target=errors#overview");
   assert.deepEqual(records[2], entry.sourceRefs[2]);
   assert(!snapshot.includes(feedback.groups.notes[0].text));
-  assert.equal(
-    result.body.status.current.sha256,
-    crypto.createHash("sha256").update(snapshot).digest("hex"),
-  );
   await a.feedback(a.event("feedback-only", "2"));
   await a.action("read");
   for (const ref of [
@@ -154,10 +145,7 @@ test("choice sources preserve readable labels and complete checklist snapshots",
   };
   const published = await a.publish(data);
   assert.equal(published.code, 200);
-  const html = await fs.readFile(
-    path.join(a.directory, "rounds/example.2.html"),
-    "utf8",
-  );
+  const html = await a.servedRound("2");
   const sources = readPlanData(html).agreements[0].sourceRecords;
   assert.deepEqual(
     sources.map((source) => source.choice),
@@ -214,10 +202,7 @@ test("answers travel with feedback and resolve as agreement sources", async (t) 
   };
   const published = await a.publish({ ...planData("2"), agreements: [entry] });
   assert.equal(published.code, 200, published.body.error);
-  const html = await fs.readFile(
-    path.join(a.directory, "rounds/example.2.html"),
-    "utf8",
-  );
+  const html = await a.servedRound("2");
   const [record] = readPlanData(html).agreements[0].sourceRecords;
   assert.equal(record.kind, "answer");
   assert.equal(record.text, "Yes, keep the <sidebar>");
@@ -295,12 +280,7 @@ test("agreements survive topic changes and targeted feedback without rewriting s
     assert.equal(received.body.event.payload.intent, "feedback-only");
   }
   for (const [index, state] of states.entries()) {
-    const snapshot = readPlanData(
-      await fs.readFile(
-        path.join(a.directory, `rounds/example.${index + 1}.html`),
-        "utf8",
-      ),
-    );
+    const snapshot = readPlanData(await a.servedRound(String(index + 1)));
     assert.equal(snapshot.agreements[0].state, state);
     assert.equal(snapshot.agreements[0].id, entry.id);
   }

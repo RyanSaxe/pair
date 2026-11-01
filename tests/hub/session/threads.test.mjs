@@ -346,10 +346,7 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   );
   const cited = await a.publish({ ...planData("2"), agreements: [entry(id)] });
   assert.equal(cited.code, 200, cited.body.error);
-  const snapshot = await fs.readFile(
-    path.join(a.directory, "rounds/example.2.html"),
-    "utf8",
-  );
+  const snapshot = await a.servedRound("2");
   const [record] = readPlanData(snapshot).agreements[0].sourceRecords;
   assert.equal(record.kind, "thread");
   assert.equal(record.text, "What happens to a failed item?");
