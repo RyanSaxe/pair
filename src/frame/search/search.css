@@ -407,7 +407,9 @@
   .search-input {
     font-size: 16px;
   }
-  .search-preview-head,
+  .search-preview-head {
+    display: none;
+  }
   .search-cancel {
     display: block;
   }
