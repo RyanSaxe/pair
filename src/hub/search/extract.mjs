@@ -6,11 +6,30 @@ import { parse, textOf } from "./html.mjs";
    item.
 
    One rule reads every block of a page, so a component needs no code here. A
-   block's text is its text nodes and its attributes. The only knowledge of a
-   component is that a diff keeps its patch as JSON in a textarea. */
+   block's text is what a reader sees: its text nodes and the attributes the
+   frame draws. Its attrs are the words of its other attributes, which rank below
+   its text, so a custom component's words stay findable. The only knowledge of a
+   component is that a diff keeps its patch as JSON in a textarea, beside the
+   viewer's own controls. */
 
-// An attribute named here holds no words a reader would search for.
-const NOT_TEXT = new Set(["id", "class", "style", "src", "href"]);
+// An attribute named here holds no words a reader would search for. It sets how
+// an element behaves or looks, or it holds an ID that a component reads.
+const NOT_TEXT = new Set(
+  `id class style src href target rel type width height role hidden lang charset
+   preload poster loading controls muted loop autoplay playsinline tabindex rows
+   cols colspan rowspan scope for disabled readonly checked selected min max step
+   start data-kind data-state data-choice data-multiselect data-question
+   data-drawing-question data-value data-proposal data-line data-lines
+   data-proposed-lines data-math`.split(/\s+/),
+);
+// The frame draws these on the page, so their words are the block's text.
+const DRAWN = new Set([
+  "data-title",
+  "data-caption",
+  "data-file",
+  "data-notes",
+  "data-terms",
+]);
 // A hand-written script holds the words it draws. A bundled library is mostly
 // someone else's code, so a script over this size is left out.
 const SCRIPT_LIMIT = 32_000;
@@ -29,37 +48,59 @@ const prototypeText = (html) =>
       script.length > SCRIPT_LIMIT ? " " : script,
     );
 
-function collect(node, page, out, inSvg = false) {
+// A visual option's label is drawn on its tab, and most options repeat it in
+// their own words.
+const drawnLabel = (node, name, value) =>
+  name === "data-label" &&
+  node.tag === "article" &&
+  !textOf(node).toLowerCase().includes(value.toLowerCase());
+
+function textareaWords(node) {
+  const raw = (node.raw ?? "").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
+  try {
+    return JSON.parse(raw).patch ?? "";
+  } catch {
+    return node.raw ?? "";
+  }
+}
+
+function collect(node, page, words, inSvg = false) {
   if (node.text !== undefined) {
-    out.push(node.text);
-    return out;
+    words.text.push(node.text);
+    return words;
   }
   const svg = inSvg || node.tag === "svg";
+  const diff = (node.children ?? []).find(
+    (child) => child.tag === "textarea" && "data-diff-input" in child.attrs,
+  );
   for (const [name, value] of Object.entries(node.attrs ?? {})) {
-    if (NOT_TEXT.has(name) || !value || svg) continue;
+    if (svg || !value || value.startsWith("data:") || NOT_TEXT.has(name))
+      continue;
+    if (name.startsWith("aria-") && name !== "aria-label") continue;
     if (name === "data-prototype") {
       const prototype = (page.prototypes ?? []).find((p) => p.id === value);
       if (prototype)
-        out.push(
+        words.text.push(
           prototype.title ?? "",
           prototype.description ?? "",
           prototypeText(prototype.html ?? ""),
         );
-    } else out.push(value);
+    } else if (DRAWN.has(name) || drawnLabel(node, name, value))
+      words.text.push(value);
+    else if (!diff) words.attrs.push(value);
   }
-  if (node.tag === "style" || node.tag === "template") return out;
+  if (diff) {
+    words.text.push(textareaWords(diff));
+    return words;
+  }
+  if (node.tag === "style" || node.tag === "template") return words;
   if (node.tag === "textarea") {
-    try {
-      const raw = (node.raw ?? "").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
-      out.push(JSON.parse(raw).patch ?? "");
-    } catch {
-      out.push(node.raw ?? "");
-    }
-    return out;
+    words.text.push(textareaWords(node));
+    return words;
   }
-  if (node.raw) out.push(node.raw);
-  for (const child of node.children ?? []) collect(child, page, out, svg);
-  return out;
+  if (node.raw) words.text.push(node.raw);
+  for (const child of node.children ?? []) collect(child, page, words, svg);
+  return words;
 }
 
 // A row shows a code icon for a block that is mostly code, and nothing else
@@ -100,14 +141,17 @@ export function pageDocs(page, round, at) {
     }
     index++;
     if (child.tag === "style") continue;
-    const text = clean(collect(child, page, []).join(" "));
+    const words = collect(child, page, { text: [], attrs: [] });
+    const text = clean(words.text.join(" "));
+    const attrs = clean(words.attrs.join(" "));
     if (isHeading(child.tag)) heading = text;
-    if (text)
+    if (text || attrs)
       docs.push({
         ...base,
         block: index,
         heading,
         text,
+        ...(attrs ? { attrs } : {}),
         ...(holdsCode(child) ? { code: true } : {}),
       });
   }

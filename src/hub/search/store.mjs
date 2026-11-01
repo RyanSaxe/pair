@@ -17,7 +17,7 @@ import { prepare, scoreDoc } from "./matcher.mjs";
    cache entry counts only while its file's modified time and size and the
    extractor's version match, so it cannot go stale. Raise VERSION when
    extract.mjs changes what it reads. */
-const VERSION = 1;
+const VERSION = 2;
 const CACHE = "search.jsonl";
 export const KINDS = [
   "pages",
@@ -96,6 +96,7 @@ function grouped(entries) {
       doc.type === "page title" ? doc.page : "",
       doc.heading,
       doc.text,
+      doc.attrs ?? "",
     ].join("\0");
     const seen = groups.get(key);
     if (!seen) {
@@ -136,6 +137,12 @@ function clip(doc, ranges) {
   };
 }
 
+// A block with no words on it shows the words of its attributes.
+const shown = (doc, { textRanges = [], attrRanges = [] }) =>
+  doc.text
+    ? clip(doc, textRanges)
+    : clip({ ...doc, text: doc.attrs ?? "" }, attrRanges);
+
 // When few blocks have every word, a block with all but one word counts, and so
 // does a page whose blocks have every word between them.
 function partialRows(query, docs) {
@@ -158,12 +165,14 @@ function partialRows(query, docs) {
             score: 0,
             textRanges: [],
             headingRanges: [],
+            attrRanges: [],
           }),
         );
       entry.words.add(index);
       entry.score += hit.score;
       entry.textRanges.push(...hit.textRanges);
       entry.headingRanges.push(...hit.headingRanges);
+      entry.attrRanges.push(...hit.attrRanges);
     }
   });
   const tidy = (ranges) => {
@@ -180,6 +189,7 @@ function partialRows(query, docs) {
     entry.score /= entry.words.size;
     entry.textRanges = tidy(entry.textRanges);
     entry.headingRanges = tidy(entry.headingRanges);
+    entry.attrRanges = tidy(entry.attrRanges);
     if (parts.length >= 3 && entry.words.size === parts.length - 1)
       rows.push({
         ...entry,
@@ -362,12 +372,13 @@ export function searchStore({ log = () => {} } = {}) {
     const hits = [];
     const inScope = [];
     let total = 0;
+    let onBlocks = 0;
     for (const entry of sessions.values()) {
       if (session && entry.id !== session) continue;
       for (const doc of entry.docs) {
         if (!inRound(doc, round, entry)) continue;
-        // With nothing typed, the list shows the newest things that have text.
-        if (!prepared && !doc.text) continue;
+        // With nothing typed, the list shows the newest things that have words.
+        if (!prepared && !doc.text && !doc.attrs) continue;
         doc.here = doc.session === here;
         const hit = prepared ? scoreDoc(prepared, doc) : { score: doc.at };
         if (kinds.size === 0 || kinds.has(doc.kind)) inScope.push(doc);
@@ -375,10 +386,11 @@ export function searchStore({ log = () => {} } = {}) {
         counts[doc.kind]++;
         if (kinds.size && !kinds.has(doc.kind)) continue;
         total++;
+        if (!hit.inAttrs) onBlocks++;
         hits.push({ doc, ...hit });
       }
     }
-    if (prepared && hits.length < FEW_RESULTS) {
+    if (prepared && onBlocks < FEW_RESULTS) {
       const already = new Set(hits.map((hit) => hit.doc));
       for (const row of partialRows(
         query,
@@ -417,7 +429,7 @@ export function searchStore({ log = () => {} } = {}) {
       kind: doc.kind,
       type: doc.type,
       heading: doc.heading,
-      ...clip(doc, hit.textRanges ?? []),
+      ...shown(doc, hit),
       headingRanges: hit.headingRanges ?? [],
       also: doc.also.filter((round) => round !== doc.round),
       partial: hit.partial ?? null,
