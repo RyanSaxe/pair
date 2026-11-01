@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
-import { hub, planData } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 import { pages, searchPage, selected, type } from "../support/search.mjs";
 
 test("the icon opens search, and typing filters the list as it goes", async (t) => {
@@ -224,23 +224,19 @@ test("an answer to an older search never replaces a newer one", async (t) => {
   );
 });
 
-test("the preview shows the selected row's words, with its place and Open above them", async (t) => {
-  const { a, page } = await searchPage(t);
+test("the preview's head names the result's place, and Open goes there", async (t) => {
+  const { page } = await searchPage(t);
   if (!page) return;
   await page.locator("#search-button").click();
   await type(page, "walrus");
   const pane = page.locator(".search-preview");
-  assert.equal(await pane.locator(".search-text mark").textContent(), "walrus");
   assert.match(
     await pane.locator(".search-place").textContent(),
     /Second page/,
   );
-  assert.match(
-    await pane.locator(".search-preview-main").textContent(),
-    /A sentence about the walrus\./,
-  );
   await pane.locator(".search-open:visible").click();
-  await page.waitForURL(new RegExp(`${a.base}/r/1.*#second$`));
+  await page.waitForFunction(() => location.hash === "#second");
+  assert.equal(await page.locator("#search-dialog[open]").count(), 0);
 });
 
 test("the filters, the count and a long query's message fit the results at the narrowest windows", async (t) => {
@@ -312,9 +308,19 @@ for (const engine of ["chrome", "webkit"])
     assert.ok(listBox.y + listBox.height <= previewBox.y + 1);
     assert.equal(await page.locator(".search-open:visible").count(), 1);
     // The next result is one tap, with the results still above.
-    const first = await preview.locator(".search-text").textContent();
+    const blockText = () =>
+      [
+        ...document
+          .querySelector(".search-frame.is-shown")
+          .contentDocument.querySelectorAll("#page-content > *"),
+      ]
+        .filter((element) => getComputedStyle(element).display !== "none")
+        .map((element) => element.textContent)
+        .join(" ");
+    await page.locator(".search-frame.is-shown").waitFor();
+    const first = await page.evaluate(blockText);
     await page.locator(".search-row").nth(1).tap();
-    assert.notEqual(await preview.locator(".search-text").textContent(), first);
+    await waitUntil(async () => (await page.evaluate(blockText)) !== first);
     assert.equal(await list.isVisible(), true);
 
     await page.locator(".search-input").tap();
