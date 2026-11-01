@@ -230,7 +230,7 @@ function agentBody(thread, message, index) {
   if (message.html !== undefined) enhance(content);
   return [clamp, more];
 }
-function images(message) {
+export function images(message) {
   const strip = element("div", "thread-images");
   for (const item of message.attachments || []) {
     const link = element("a");

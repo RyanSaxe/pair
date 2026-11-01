@@ -380,6 +380,18 @@ export async function startHub(config = settings()) {
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close()));
         }
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "proposals" &&
+          rest.length === 2
+        ) {
+          const data = await readBody(req, 50_000);
+          return reply(
+            200,
+            await session.exclusive(() => session.writeProposal(data)),
+          );
+        }
         // Only start and open-agent have a body. The body of start contains
         // where the work runs, and both bodies can contain the reviewer's
         // message.

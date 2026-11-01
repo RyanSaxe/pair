@@ -1,5 +1,5 @@
 import { persist, save, state } from "#frame/app/store.mjs";
-import { $, uuid } from "#frame/app/util.mjs";
+import { $, fitText, uuid } from "#frame/app/util.mjs";
 import {
   feedbackEditable,
   noteEditable,
@@ -80,22 +80,7 @@ export function imageError(message) {
   line.textContent = message;
   line.hidden = !message;
 }
-/* Safari and Firefox have no CSS field-sizing, so fitNoteText measures the
-   text. At height auto, the text area's scrollHeight is the text's height.
-   fitNoteText hides the scrollbar while it measures, so the scrollbar
-   cannot narrow the text, and then restores the scroll positions that the
-   short measuring height changed. */
-export function fitNoteText() {
-  const area = $("note-text");
-  const body = area.closest(".dialog-body");
-  const scrolled = [area.scrollTop, body.scrollTop];
-  area.style.height = "auto";
-  area.style.overflowY = "hidden";
-  const height = area.scrollHeight;
-  area.style.overflowY = "";
-  area.style.height = `${height}px`;
-  [area.scrollTop, body.scrollTop] = scrolled;
-}
+export const fitNoteText = () => fitText($("note-text"));
 function drawUploading() {
   const busy = uploads.running > 0;
   $("note-uploading").hidden = !busy;
