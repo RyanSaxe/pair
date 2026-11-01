@@ -460,7 +460,7 @@ export function searchStore({ log = () => {} } = {}) {
     const started = performance.now();
     await Promise.all(
       [...sessions.values()]
-        .filter((entry) => entry.loaded && entry.changed)
+        .filter((entry) => entry.loaded && (entry.changed || entry.reading))
         .map(refresh),
     );
     const options = {
