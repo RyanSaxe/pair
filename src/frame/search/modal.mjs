@@ -1,6 +1,12 @@
 import { $, apple } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
-import { escapeHtml, marked, snippet, whereLine } from "#frame/search/rows.mjs";
+import {
+  escapeHtml,
+  marked,
+  rowKey,
+  snippet,
+  whereLine,
+} from "#frame/search/rows.mjs";
 
 const KINDS = [
   ["pages", "Pages"],
@@ -44,14 +50,36 @@ const GLYPHS = {
   code: icon('<path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/>'),
 };
 
-// The search stays as the reader left it for as long as the tab is open.
+// The search stays as the reader left it for as long as the tab is open, also
+// when the tab moves to another session. sessionStorage belongs to the tab, so
+// nothing reaches another device.
+const MEMORY = "pair:search";
 const state = {
   query: "",
   allSessions: false,
   allRounds: true,
   kinds: new Set(),
   selected: 0,
+  row: null,
 };
+function remember() {
+  try {
+    sessionStorage.setItem(
+      MEMORY,
+      JSON.stringify({ ...state, kinds: [...state.kinds] }),
+    );
+  } catch {
+    // Without storage, the search lasts as long as the page.
+  }
+}
+function recall() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(MEMORY));
+    if (saved) Object.assign(state, saved, { kinds: new Set(saved.kinds) });
+  } catch {
+    // Without storage, a search starts from the defaults.
+  }
+}
 let dialog;
 function openResult(row) {
   const target = Number.isInteger(row.block)
@@ -77,6 +105,7 @@ export function openSearch() {
 }
 
 export function installSearch() {
+  recall();
   const button = $("search-button");
   button.hidden = false;
   // The keys dialog names this system's keys, and the home view has no threads
@@ -221,9 +250,11 @@ export function installSearch() {
     for (const open of dialog.querySelectorAll(".search-open"))
       open.disabled = !row;
     showPreview(part(".search-preview-main"), row);
+    state.row = rowKey(row);
+    remember();
   }
 
-  async function run() {
+  async function run({ keep = false } = {}) {
     drawControls();
     request?.abort();
     request = new AbortController();
@@ -249,11 +280,21 @@ export function installSearch() {
       drawPreview();
       return;
     }
-    state.selected = 0;
+    const row = state.row;
+    state.selected = keep
+      ? Math.max(
+          current.results.findIndex((result) => rowKey(result) === row),
+          0,
+        )
+      : 0;
     drawControls();
     drawList();
     drawPreview();
-    list.scrollTop = 0;
+    if (keep)
+      list
+        .querySelector('[aria-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    else list.scrollTop = 0;
   }
 
   function moveSelection(index) {
@@ -290,7 +331,7 @@ export function installSearch() {
     input.value = state.query;
     input.focus();
     input.select();
-    void run();
+    void run({ keep: true });
   }
   dialog.addEventListener("search:open", open);
   button.addEventListener("click", open);

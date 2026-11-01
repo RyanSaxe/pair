@@ -37,6 +37,11 @@ export function snippet(text, ranges) {
   return (start ? "…" : "") + marked(text.slice(start, end), inside);
 }
 
+// A row stays the same result when a list is drawn again.
+export const rowKey = (row) =>
+  row &&
+  JSON.stringify([row.session, row.round, row.page, row.block, row.item]);
+
 export function whereLine(row, { allSessions }) {
   const parts = [];
   if (row.partial) parts.push(row.partial);

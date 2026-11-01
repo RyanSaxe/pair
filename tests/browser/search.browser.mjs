@@ -171,6 +171,93 @@ test("a slash in a note types a slash, and the modifier key still opens search",
   assert.equal(await page.inputValue("#note-text"), "/");
 });
 
+test("the words, filters, kinds and selected row survive reopening and moving to another session in the tab", async (t) => {
+  const { h, page } = await searchPage(t);
+  if (!page) return;
+  const other = await h.session();
+  const published = await other.publish({
+    ...planData("1", "other"),
+    pages: [
+      {
+        id: "elsewhere",
+        title: "Elsewhere",
+        html: "<p>Nothing about the animals.</p>",
+      },
+    ],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  const selectedRow = () =>
+    page.locator('.search-row[aria-selected="true"] .search-snippet');
+  const answered = () =>
+    page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/search",
+    );
+  await page.locator("#search-button").click();
+  await type(page, "about");
+  await page.keyboard.press("Alt+KeyS");
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-toggle="allSessions"]').textContent ===
+      "All sessions",
+  );
+  await page.locator(".search-kinds-button").click();
+  await page.locator('.search-kind[data-kind="pages"]').click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".search-kinds-button").textContent === "Pages",
+  );
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  const chosen = await selectedRow().textContent();
+  assert.equal(await page.locator(".search-row").count(), 3);
+
+  await page.keyboard.press("Escape");
+  const reopened = answered();
+  await page.keyboard.press("/");
+  await reopened;
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  assert.equal(await selectedRow().textContent(), chosen);
+
+  await page.goto(`${h.server.origin}${other.base}/#elsewhere`);
+  await page.locator("#search-button").waitFor();
+  const moved = answered();
+  await page.locator("#search-button").click();
+  await moved;
+  await page.locator(".search-row").first().waitFor();
+  assert.equal(await page.inputValue(".search-input"), "about");
+  assert.equal(
+    await page.locator('[data-toggle="allSessions"]').textContent(),
+    "All sessions",
+  );
+  assert.equal(
+    await page.locator(".search-kinds-button").textContent(),
+    "Pages",
+  );
+  assert.equal(await selectedRow().textContent(), chosen);
+});
+
+test("search works where the browser refuses its storage", async (t) => {
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  const h = await hub(t);
+  const a = await h.session();
+  const published = await a.publish({ ...planData(), pages });
+  assert.equal(published.code, 200, published.body.error);
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      get() {
+        throw new DOMException("Refused", "SecurityError");
+      },
+    });
+  });
+  await stubPele(page);
+  await page.goto(`${h.server.origin}${a.base}/#overview`);
+  await page.locator("#search-button").click();
+  await type(page, "walrus");
+  assert.equal(await page.locator(".search-row").count(), 1);
+});
+
 test("the filters narrow the list, and the kinds menu toggles each kind", async (t) => {
   const { page } = await searchPage(t);
   if (!page) return;
