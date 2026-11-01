@@ -163,6 +163,18 @@ async function counted(page) {
   );
 }
 
+// settled() retakes a screenshot until two in a row match, so a late layout or
+// a figure still drawing cannot reach the picture. A page that never holds still
+// gets its last shot, because an extra commit costs less than a failed run.
+async function settled(page, options) {
+  let shot = await page.screenshot(options);
+  for (let tries = 0; tries < 10; tries++) {
+    const next = await page.screenshot(options);
+    if (next.equals(shot)) return next;
+    shot = next;
+  }
+  return shot;
+}
 // page.screenshot() with animations: "disabled" stops the frame's animations,
 // so the same state always gives the same pixels.
 export async function inThemes(page, clip) {
@@ -179,27 +191,37 @@ export async function inThemes(page, clip) {
       theme,
     );
     await ready(page);
-    shots[theme] = await page.screenshot({ animations: "disabled", clip });
+    shots[theme] = await settled(page, { animations: "disabled", clip });
   }
   return shots;
 }
 
 // scrollTo() puts the element's top 6px under the header. With bottom, it puts
 // the element's bottom 54px above the window's bottom edge, clear of the
-// floating comment button.
+// floating comment button. A resize or a late figure can still move the element,
+// so scrollTo() keeps correcting until the position holds, and it scrolls by
+// whole pixels so that lines never land between two.
 async function scrollTo(page, selector, { bottom = false } = {}) {
   await page.evaluate(
-    ([selector, bottom]) => {
+    async ([selector, bottom]) => {
       const column = [
         document.querySelector("main"),
         document.querySelector(".app-body"),
       ].find((element) =>
         /auto|scroll/.test(getComputedStyle(element).overflowY),
       );
-      const box = document.querySelector(selector).getBoundingClientRect();
-      column.scrollTop += bottom
-        ? box.bottom - (innerHeight - 54)
-        : box.top - column.getBoundingClientRect().top - 6;
+      for (let still = 0, tries = 0; still < 6 && tries < 100; tries++) {
+        const box = document.querySelector(selector).getBoundingClientRect();
+        const before = column.scrollTop;
+        column.scrollTop = Math.round(
+          before +
+            (bottom
+              ? box.bottom - (innerHeight - 54)
+              : box.top - column.getBoundingClientRect().top - 6),
+        );
+        still = column.scrollTop === before ? still + 1 : 0;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
     },
     [selector, bottom],
   );
