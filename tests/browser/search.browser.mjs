@@ -121,10 +121,39 @@ test("the keys open and close search and move through it", async (t) => {
       document.querySelector('[data-toggle="allRounds"]').textContent ===
       "Latest round",
   );
-  await page.keyboard.press(`${modifier}+k`);
-  await page
-    .locator("#search-dialog:not([open])")
-    .waitFor({ state: "attached" });
+});
+
+test("inside the modal, Ctrl+J and Ctrl+K move on every system, and Ctrl+K never closes it", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const selectedIndex = () =>
+    page.locator('.search-row[aria-selected="true"]').getAttribute("data-i");
+  await page.keyboard.press("/");
+  await type(page, "about");
+  for (const [key, index] of [
+    ["Control+j", "1"],
+    ["Control+k", "0"],
+    ["Control+n", "1"],
+    ["Control+p", "0"],
+    ["ArrowDown", "1"],
+    ["ArrowUp", "0"],
+  ]) {
+    await page.keyboard.press(key);
+    assert.equal(await selectedIndex(), index, key);
+    assert.equal(await page.locator("#search-dialog[open]").count(), 1, key);
+  }
+  // With no element focused, as after a tap on a row, the keys still reach it.
+  await page.evaluate(() => document.activeElement.blur());
+  await page.keyboard.press("Control+j");
+  assert.equal(await selectedIndex(), "1");
+  await page.keyboard.press("Control+k");
+  assert.equal(await page.locator("#search-dialog[open]").count(), 1);
+  if (process.platform === "darwin") {
+    await page.keyboard.press("Meta+k");
+    await page
+      .locator("#search-dialog:not([open])")
+      .waitFor({ state: "attached" });
+  }
 });
 
 test("a slash in a note types a slash, and the modifier key still opens search", async (t) => {

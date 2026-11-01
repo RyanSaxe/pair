@@ -16,6 +16,13 @@ const WIDER = {
   sessions: "all sessions",
 };
 const PHONE = 720;
+// How far a key moves the selection. Ctrl+K is one of them on every system, so
+// it never closes the modal.
+const ARROW_STEPS = { ArrowDown: 1, ArrowUp: -1 };
+const CTRL_STEPS = { j: 1, n: 1, k: -1, p: -1 };
+const stepOf = (event) =>
+  ARROW_STEPS[event.key] ??
+  (event.ctrlKey && !event.shiftKey && CTRL_STEPS[event.key.toLowerCase()]);
 
 const icon = (paths) =>
   `<svg class="search-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
@@ -65,17 +72,20 @@ function showPreview(pane, row) {
     ?.scrollIntoView({ block: "center", behavior: "instant" });
 }
 
-export const searchOpen = () => Boolean(dialog?.open);
 export function openSearch() {
   dialog?.open || dialog?.dispatchEvent(new Event("search:open"));
-}
-export function closeSearch() {
-  dialog?.close();
 }
 
 export function installSearch() {
   const button = $("search-button");
   button.hidden = false;
+  // The keys dialog names this system's keys, and the home view has no threads
+  // to set them.
+  const [command, alt] = apple() ? ["⌘", "Option"] : ["Ctrl", "Alt"];
+  for (const key of document.querySelectorAll("[data-send-modifier]"))
+    key.textContent = command;
+  for (const key of document.querySelectorAll("[data-alt-modifier]"))
+    key.textContent = alt;
   dialog = document.createElement("dialog");
   dialog.className = "search";
   dialog.id = "search-dialog";
@@ -359,48 +369,56 @@ export function installSearch() {
     button.focus({ preventScroll: true });
   });
 
-  dialog.addEventListener("keydown", (event) => {
-    if (event.isComposing) return;
-    event.stopPropagation();
-    const key = event.key;
-    const modifier = apple() ? event.metaKey : event.ctrlKey;
-    // A search field clears its text on Esc and keeps the dialog open, so the
-    // modal handles Esc itself and keeps the query for the next time.
-    if (key === "Escape") {
-      event.preventDefault();
-      if (!kinds.hidden) showKinds(false);
-      else dialog.close();
-    } else if (modifier && !event.shiftKey && key.toLowerCase() === "k") {
-      event.preventDefault();
-      dialog.close();
-    } else if (key === "ArrowDown" || (event.ctrlKey && key === "n")) {
-      event.preventDefault();
-      moveSelection(state.selected + 1);
-    } else if (key === "ArrowUp" || (event.ctrlKey && key === "p")) {
-      event.preventDefault();
-      moveSelection(state.selected - 1);
-    } else if (key === "Enter") {
-      event.preventDefault();
-      openSelected();
-    } else if (event.altKey && event.code === "KeyS") {
-      event.preventDefault();
-      state.allSessions = !state.allSessions;
-      void run();
-    } else if (event.altKey && event.code === "KeyR") {
-      event.preventDefault();
-      state.allRounds = !state.allRounds;
-      void run();
-    } else if (key === "Tab") {
-      event.preventDefault();
-      const ids = ["", ...KINDS.map(([id]) => id)];
-      const at = state.kinds.size === 1 ? ids.indexOf([...state.kinds][0]) : 0;
-      const next =
-        ids[(at + (event.shiftKey ? -1 : 1) + ids.length) % ids.length];
-      state.kinds.clear();
-      if (next) state.kinds.add(next);
-      void run();
-    }
-  });
+  // While the modal is open, every key comes here first, wherever focus is. A
+  // tap on a row leaves no element focused.
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (!dialog.open || event.isComposing) return;
+      event.stopPropagation();
+      const key = event.key;
+      const step = stepOf(event);
+      // A search field clears its text on Esc and keeps the dialog open, so the
+      // modal handles Esc itself and keeps the query for the next time.
+      if (key === "Escape") {
+        event.preventDefault();
+        if (!kinds.hidden) showKinds(false);
+        else dialog.close();
+      } else if (
+        event.metaKey &&
+        !event.shiftKey &&
+        key.toLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        dialog.close();
+      } else if (step) {
+        event.preventDefault();
+        moveSelection(state.selected + step);
+      } else if (key === "Enter") {
+        event.preventDefault();
+        openSelected();
+      } else if (event.altKey && event.code === "KeyS") {
+        event.preventDefault();
+        state.allSessions = !state.allSessions;
+        void run();
+      } else if (event.altKey && event.code === "KeyR") {
+        event.preventDefault();
+        state.allRounds = !state.allRounds;
+        void run();
+      } else if (key === "Tab") {
+        event.preventDefault();
+        const ids = ["", ...KINDS.map(([id]) => id)];
+        const at =
+          state.kinds.size === 1 ? ids.indexOf([...state.kinds][0]) : 0;
+        const next =
+          ids[(at + (event.shiftKey ? -1 : 1) + ids.length) % ids.length];
+        state.kinds.clear();
+        if (next) state.kinds.add(next);
+        void run();
+      }
+    },
+    true,
+  );
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual
   // viewport to stop the last results sitting under the keyboard.
