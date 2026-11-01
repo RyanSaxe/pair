@@ -158,6 +158,15 @@ export function rounds(session) {
       bundle,
     });
   }
+  // A round's saved page is drawn again only when every page has published, and
+  // no frame fills in a read-only one, so a round that never finished shows the
+  // pages it published. It returns null for a round that finished.
+  function renderPublished(round) {
+    const set = session.state.roundPages?.[round];
+    if (!set || set.pages.every((slot) => slot.recordPath)) return null;
+    const pages = set.pages.filter((slot) => slot.recordPath);
+    return renderPageRound({ ...set, pages }, true);
+  }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);
     let current = session.state.current;
@@ -561,6 +570,7 @@ export function rounds(session) {
     pageProgress,
     roundEntry,
     renderToday,
+    renderPublished,
     pageSet,
     pageRecord,
     prototype,

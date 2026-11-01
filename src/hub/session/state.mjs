@@ -377,6 +377,7 @@ export async function loadSession(
     wakeIfQuiet: session.wakeIfQuiet,
     roundEntry: session.roundEntry,
     renderToday: session.renderToday,
+    renderPublished: session.renderPublished,
     pageSet: session.pageSet,
     pageRecord: session.pageRecord,
     prototype: session.prototype,

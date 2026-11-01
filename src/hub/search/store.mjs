@@ -183,11 +183,11 @@ export function searchStore({ log = () => {} } = {}) {
     entry.files = files;
     entry.title = status.title || status.current?.title || "New session";
     entry.closed = status.stage === "complete" || Boolean(status.dismissedAt);
-    entry.latest = Object.keys(status.roundPages ?? {}).reduce(
-      (latest, round) =>
-        roundNumber(round) > roundNumber(latest) ? round : latest,
-      "0",
+    entry.rounds = Object.keys(status.roundPages ?? {}).sort(
+      (a, b) => roundNumber(b) - roundNumber(a),
     );
+    entry.latest = entry.rounds[0] ?? "0";
+    entry.updatedAt = Date.parse(status.updatedAt) || 0;
     const pages = new Map();
     for (const { blocks } of files.values())
       if (blocks) pages.set(`${blocks.round}/${blocks.page}`, blocks);
@@ -269,7 +269,9 @@ export function searchStore({ log = () => {} } = {}) {
       id,
       directory,
       title: "",
+      rounds: [],
       latest: "0",
+      updatedAt: 0,
       files: new Map(),
       docs: [],
       pageTitles: new Map(),
@@ -300,13 +302,14 @@ export function searchStore({ log = () => {} } = {}) {
     if (entry) entry.changed = true;
   }
 
-  const inRound = (doc, round, entry) => {
-    if (!round) return true;
-    const wanted = round === "latest" ? entry.latest : round;
-    return doc.round === wanted || doc.also.includes(wanted);
-  };
+  const inRound = (doc, rounds, entry) =>
+    !rounds ||
+    rounds.some((round) => {
+      const wanted = round === "latest" ? entry.latest : round;
+      return doc.round === wanted || doc.also.includes(wanted);
+    });
 
-  function scan({ query, session, round, kinds, here, limit }) {
+  function scan({ query, session, round, kinds, closed, here, limit }) {
     const prepared = prepare(query);
     const counts = Object.fromEntries(KINDS.map((kind) => [kind, 0]));
     const hits = [];
@@ -314,7 +317,9 @@ export function searchStore({ log = () => {} } = {}) {
     let total = 0;
     let onBlocks = 0;
     for (const entry of sessions.values()) {
-      if (session && entry.id !== session) continue;
+      if (session && !session.has(entry.id)) continue;
+      // A closed session counts when the search asks for closed ones or names it.
+      if (entry.closed && !closed && !session) continue;
       for (const doc of entry.docs) {
         if (!inRound(doc, round, entry)) continue;
         // With nothing typed, the list shows the newest things that have words.
@@ -389,11 +394,16 @@ export function searchStore({ log = () => {} } = {}) {
       ["kinds", { kinds: new Set() }],
       ["rounds", { kinds: new Set(), round: null }],
       ["sessions", { kinds: new Set(), round: null, session: null }],
+      [
+        "closed",
+        { kinds: new Set(), round: null, session: null, closed: true },
+      ],
     ];
     for (const [filter, change] of steps) {
       if (filter === "kinds" && !options.kinds.size) continue;
       if (filter === "rounds" && !options.round) continue;
       if (filter === "sessions" && !options.session) continue;
+      if (filter === "closed" && options.closed) continue;
       const { total } = scan({ ...options, ...change });
       if (total) return { filter, total };
     }
@@ -405,6 +415,7 @@ export function searchStore({ log = () => {} } = {}) {
     session = null,
     round = null,
     kinds = [],
+    closed = false,
     here = null,
     limit = DEFAULT_LIMIT,
   }) {
@@ -416,9 +427,10 @@ export function searchStore({ log = () => {} } = {}) {
     );
     const options = {
       query,
-      session,
-      round,
+      session: session ? new Set(session.split(",")) : null,
+      round: round ? round.split(",") : null,
       kinds: new Set(kinds),
+      closed,
       here,
       limit,
     };
@@ -433,6 +445,13 @@ export function searchStore({ log = () => {} } = {}) {
     };
   }
 
+  // What a search can be narrowed to, the session worked on last first.
+  const sessionChoices = () =>
+    [...sessions.values()]
+      .filter((entry) => entry.loaded)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map(({ id, title, rounds, closed }) => ({ id, title, rounds, closed }));
+
   async function close() {
     closed = true;
     await queue;
@@ -441,5 +460,5 @@ export function searchStore({ log = () => {} } = {}) {
     );
   }
 
-  return { add, markChanged, search, close };
+  return { add, markChanged, search, sessionChoices, close };
 }

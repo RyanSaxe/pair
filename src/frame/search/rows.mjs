@@ -24,6 +24,7 @@ const WIDER = {
   kinds: "every kind",
   rounds: "all rounds",
   sessions: "all sessions",
+  closed: "closed sessions",
 };
 
 const icon = (paths) =>
@@ -94,36 +95,47 @@ export function whereLine(row, { allSessions }) {
   if (row.pageTitle && row.pageTitle !== titleText(row))
     parts.push(row.pageTitle);
   if (row.also?.length) parts.push(`also in ${row.also.length} earlier`);
+  if (row.closed) parts.push("Closed");
   if (allSessions) parts.push(row.sessionTitle);
   return parts.join(" · ");
 }
 
-export function rowHtml(row, index, { selected, allSessions }) {
+export function rowHtml(row, index, { selected, sessions }) {
   return `<div class="search-row" id="search-row-${index}" role="option" data-i="${index}" aria-selected="${index === selected}">
     ${row.code ? GLYPHS.code : GLYPHS[row.kind]}
     <div>
       <div class="search-title">${titleHtml(row)}</div>
       ${hasOwnText(row) ? `<div class="search-snippet">${snippet(row.text, row.ranges)}</div>` : ""}
-      <div class="search-where">${escapeHtml(whereLine(row, { allSessions }))}</div>
+      <div class="search-where">${escapeHtml(whereLine(row, { allSessions: sessions.length !== 1 }))}</div>
     </div>
   </div>`;
 }
 
 // With nothing typed, the hub offers nothing to loosen, and its counts say what
 // the kinds filter hides. Each step offers the next filter that is set.
-function looser({ query, kinds, allRounds, allSessions }, { wider, counts }) {
+function looser({ query, kinds, rounds, sessions }, { wider, counts }) {
   if (query.trim()) return wider;
   const hidden = Object.values(counts).reduce((a, b) => a + b, 0);
-  if (kinds.size && hidden) return { filter: "kinds", total: hidden };
-  if (!allRounds) return { filter: "rounds" };
-  if (!allSessions) return { filter: "sessions" };
+  if (kinds.length && hidden) return { filter: "kinds", total: hidden };
+  if (rounds.length) return { filter: "rounds" };
+  if (sessions.length) return { filter: "sessions" };
   return null;
 }
-function blankMessage({ query, kinds, allRounds, allSessions }) {
+function blankMessage({ query, kinds, rounds, sessions }) {
   const words = query.trim();
   if (words) return `No matches for “${escapeHtml(words)}” here.`;
-  const scope = `${allSessions ? "any session" : "this session"}${allRounds ? "" : "’s latest round"}`;
-  const chosen = KINDS.filter(([id]) => kinds.has(id))
+  const where = !sessions.length
+    ? "any session"
+    : sessions.length === 1 && sessions[0] === "here"
+      ? "this session"
+      : "the chosen sessions";
+  const when = !rounds.length
+    ? ""
+    : rounds.length === 1 && rounds[0] === "latest"
+      ? "’s latest round"
+      : "’s chosen rounds";
+  const scope = `${where}${when}`;
+  const chosen = KINDS.filter(([id]) => kinds.includes(id))
     .map(([, label]) => label.toLowerCase())
     .join(" or ");
   return chosen ? `No ${chosen} in ${scope}.` : `Nothing in ${scope} yet.`;
