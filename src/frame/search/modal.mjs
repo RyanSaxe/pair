@@ -407,71 +407,64 @@ export function installSearch() {
     button.focus({ preventScroll: true });
   });
 
+  function onKey(event) {
+    if (!dialog.open || event.isComposing) return;
+    event.stopPropagation();
+    const key = event.key;
+    const step = stepOf(event);
+    // A search field clears its text on Esc and keeps the dialog open, so the
+    // modal handles Esc itself and keeps the query for the next time.
+    if (key === "Escape") {
+      event.preventDefault();
+      if (!kinds.hidden) closeKinds();
+      else dialog.close();
+    } else if (event.metaKey && !event.shiftKey && key.toLowerCase() === "k") {
+      event.preventDefault();
+      dialog.close();
+    } else if (step) {
+      event.preventDefault();
+      if (kinds.hidden) moveSelection(state.selected + step);
+      else moveInKinds(step);
+    } else if (key === "Enter") {
+      // Enter presses a control that has focus.
+      if (event.target.closest("button")) return;
+      event.preventDefault();
+      if (!kinds.hidden) closeKinds();
+      // A phone keyboard's Search key drops the keyboard over the results.
+      else if (innerWidth <= PHONE && event.target === input) input.blur();
+      else if (current.results.length) openSelected();
+      else part("[data-wider]")?.click();
+    } else if (event.altKey && event.code === "KeyS") {
+      event.preventDefault();
+      state.allSessions = !state.allSessions;
+      void run();
+    } else if (event.altKey && event.code === "KeyR") {
+      event.preventDefault();
+      state.allRounds = !state.allRounds;
+      void run();
+    } else if (key === "Tab") {
+      // Tab moves through the controls, as in the frame's dialogs. From the
+      // menu, it moves on from the button that opened the menu.
+      if (!kinds.hidden) {
+        showKinds(false);
+        kindsButton.focus();
+      }
+    } else if (
+      (key.length === 1 || key === "Backspace") &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      event.target !== input &&
+      !(key === " " && event.target.closest("button"))
+    ) {
+      // A key typed anywhere in the modal goes to the field.
+      showKinds(false);
+      input.focus();
+    }
+  }
   // While the modal is open, every key comes here first, wherever focus is,
   // because a tap on a row can leave no element focused.
-  document.addEventListener(
-    "keydown",
-    (event) => {
-      if (!dialog.open || event.isComposing) return;
-      event.stopPropagation();
-      const key = event.key;
-      const step = stepOf(event);
-      // A search field clears its text on Esc and keeps the dialog open, so the
-      // modal handles Esc itself and keeps the query for the next time.
-      if (key === "Escape") {
-        event.preventDefault();
-        if (!kinds.hidden) closeKinds();
-        else dialog.close();
-      } else if (
-        event.metaKey &&
-        !event.shiftKey &&
-        key.toLowerCase() === "k"
-      ) {
-        event.preventDefault();
-        dialog.close();
-      } else if (step) {
-        event.preventDefault();
-        if (kinds.hidden) moveSelection(state.selected + step);
-        else moveInKinds(step);
-      } else if (key === "Enter") {
-        // Enter presses a control that has focus.
-        if (event.target.closest("button")) return;
-        event.preventDefault();
-        if (!kinds.hidden) closeKinds();
-        // A phone keyboard's Search key drops the keyboard over the results.
-        else if (innerWidth <= PHONE && event.target === input) input.blur();
-        else if (current.results.length) openSelected();
-        else part("[data-wider]")?.click();
-      } else if (event.altKey && event.code === "KeyS") {
-        event.preventDefault();
-        state.allSessions = !state.allSessions;
-        void run();
-      } else if (event.altKey && event.code === "KeyR") {
-        event.preventDefault();
-        state.allRounds = !state.allRounds;
-        void run();
-      } else if (key === "Tab") {
-        // Tab moves through the controls, as in the frame's dialogs. From the
-        // menu, it moves on from the button that opened the menu.
-        if (!kinds.hidden) {
-          showKinds(false);
-          kindsButton.focus();
-        }
-      } else if (
-        (key.length === 1 || key === "Backspace") &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        event.target !== input &&
-        !(key === " " && event.target.closest("button"))
-      ) {
-        // A key typed anywhere in the modal goes to the field.
-        showKinds(false);
-        input.focus();
-      }
-    },
-    true,
-  );
+  document.addEventListener("keydown", onKey, true);
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual
   // viewport to stop the last results sitting under the keyboard.
