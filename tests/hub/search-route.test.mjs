@@ -256,6 +256,28 @@ test("a closed session stays out until a search asks for it or names it", async 
   assert.deepEqual(other.rounds, ["2", "1"]);
 });
 
+test("the sessions list is right when no search has run since a session changed", async (t) => {
+  const { h, settled } = await searcher(t);
+  const a = await h.session();
+  await settled();
+  const listed = async () => {
+    const { sessions } = await (
+      await fetch(`${h.server.origin}/api/search/sessions`)
+    ).json();
+    return sessions.find(({ id }) => id === a.id);
+  };
+  const published = await a.publish(planData());
+  assert.equal(published.code, 200, published.body.error);
+  assert.deepEqual(await listed(), {
+    id: a.id,
+    title: "Example work",
+    rounds: ["1"],
+    closed: false,
+  });
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  assert.equal((await listed()).closed, true);
+});
+
 test("a closed round that never finished shows the pages it published", async (t) => {
   const { h, settled } = await searcher(t);
   const a = await h.session();
