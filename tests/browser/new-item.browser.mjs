@@ -53,7 +53,7 @@ test("New work item saves a card with its image, keeps an unsent draft, and star
   );
   await page.locator("#start-write-strip img").waitFor();
 
-  await page.locator(".actions:not([inert]) [data-start-save]").click();
+  await page.locator("#start-write-text").press("ControlOrMeta+Enter");
   const saved = page.locator("[data-proposal-card=dark-receipts]");
   await saved.getByText("You wrote this").waitFor();
   await saved.locator("img").waitFor();

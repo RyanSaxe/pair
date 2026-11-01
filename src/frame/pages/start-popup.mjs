@@ -1,5 +1,6 @@
 import { $, copyText, shiftEnter, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
+import { sendKey, sendKeyName } from "#frame/notes/threads.mjs";
 import {
   clearItem,
   drawItem,
@@ -196,8 +197,22 @@ async function copy() {
 }
 export function installStart() {
   installItem();
-  for (const button of $("start-dialog").querySelectorAll("[data-start-save]"))
+  for (const button of $("start-dialog").querySelectorAll(
+    "[data-start-save]",
+  )) {
+    button.setAttribute("aria-keyshortcuts", sendKeyName());
     button.onclick = () => send("save", button);
+  }
+  // The form's left button has the key of the note dialog's left button.
+  for (const id of ["start-write-title", "start-write-text"])
+    $(id).addEventListener("keydown", (event) => {
+      if (!sendKey(event)) return;
+      event.preventDefault();
+      const save = $("start-dialog").querySelector(
+        ".actions:not([inert]) [data-start-save]",
+      );
+      if (!save.hidden && !save.disabled) save.click();
+    });
   for (const row of rows()) row.onclick = () => select(row.dataset.where);
   arrowKeys(
     $("start-dialog").querySelector("[role=radiogroup]"),

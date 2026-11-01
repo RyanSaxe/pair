@@ -182,7 +182,9 @@
         popup, or send from the Send popup
       </dd>
       <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
-      <dd>Start a thread, or send a reply in one</dd>
+      <dd>
+        Start a thread, send a reply in one, or save a new work item for later
+      </dd>
       <dt><kbd>a</kbd></dt>
       <dd>Open Agreed</dd>
       <dt><kbd>Esc</kbd></dt>
@@ -334,7 +336,7 @@
   <div class="start-stack start-actions">
     <div class="actions" data-start-for="here sub-session">
       <button class="btn" type="button" data-start-save hidden>
-        Save for later
+        Save for later <kbd data-send-key></kbd>
       </button>
       <button
         class="btn primary"
@@ -347,7 +349,7 @@
     </div>
     <div class="actions" data-start-for="new-agent">
       <button class="btn" type="button" data-start-save hidden>
-        Save for later
+        Save for later <kbd data-send-key></kbd>
       </button>
       <button class="btn" type="button" id="start-copy">Copy command</button>
       <button
