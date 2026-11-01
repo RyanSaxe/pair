@@ -97,6 +97,25 @@ test("letters typed right after a reply box loses focus are not shortcuts", asyn
   assert.equal(hash(), "#agreed");
 });
 
+test("a reply box keeps focus when a page's script adds an element after its card", async (t) => {
+  const { page, field } = await replyBox(t);
+  if (!page) return;
+  await field.focus();
+  await page.evaluate(() =>
+    document
+      .getElementById("page-content")
+      .append(document.createElement("dialog")),
+  );
+  for (let polls = 0; polls < 2; polls++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
+  assert.equal(
+    await field.evaluate((box) => box === document.activeElement),
+    true,
+  );
+});
+
 test("a video in an agent's reply stays inside the thread card, with the reply's text, on a wide window and a phone", async (t) => {
   const h = await hub(t);
   const session = await h.session();
