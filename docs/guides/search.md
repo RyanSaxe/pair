@@ -17,7 +17,7 @@ filters on every keystroke. Typos and partial words still match.
 
 | Key                                                            | What it does                                         |
 | -------------------------------------------------------------- | ---------------------------------------------------- |
-| <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Ctrl+J</kbd> <kbd>Ctrl+K</kbd> | Moves through the results                            |
+| <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Ctrl+J</kbd> <kbd>Ctrl+K</kbd> | Moves through the results and shows each one         |
 | <kbd>Enter</kbd>                                               | Opens the selected result                            |
 | <kbd>Option+S</kbd>                                            | Switches between this session and all sessions       |
 | <kbd>Option+R</kbd>                                            | Switches between all rounds and the latest round     |
@@ -28,13 +28,17 @@ Search keeps your words and filters as you move between sessions in a tab.
 
 ## Narrow it
 
-Three buttons sit above the results. A search starts on this session, all
-rounds and all kinds, and a button that has changed is tinted.
+Three menus sit above the results. A search starts on this session, all rounds
+and all kinds, and a menu you've changed is tinted. In each one you can choose
+several things, and its label shows a name, or a count once there are several.
 
-- **This session** switches to all sessions.
-- **All rounds** switches to the latest round, which is each session's newest
-  round.
-- **All kinds** opens a menu of the six kinds, with how many results each has.
+- **Sessions** offers all sessions, this session and every other session, newest
+  first.
+- **Rounds** offers all rounds and the latest round, which is each session's
+  newest round. When one session is chosen, it also lists that session's rounds,
+  because a round number means something different in each session. Widening to
+  more than one session clears the round numbers you chose.
+- **Kinds** offers the six kinds, with how many results each has.
 
 When a search finds nothing, a button offers to loosen one filter and keeps your
 words.
@@ -53,17 +57,18 @@ choices, answers and proposals. Each goes to the result's own session and round,
 and a comment names them. An older round or a closed session allows what its page
 allows.
 
-On a phone, the best result shows under the results as you type, and a tap on
-another result moves the preview to it. With nothing typed, the newest results
-wait for a tap.
+A click on a result shows it, and the arrow keys show each result as you move.
+On a phone, the best result shows under the results as you type, and a tap shows
+another. With nothing typed, the newest results wait for a tap.
 
 ## Open a result
 
-Enter or Open closes search and goes to the result, scrolled to your words, which
-stay highlighted until you move to another page. A result in another live session
-opens that session, so you can still reply, and a result in a closed session opens
-read-only. The browser's Back and Forward return through each page and session,
-and moving through results adds nothing to them.
+Enter, Open or a click on the result that's showing closes search and goes to
+the result, scrolled to your words, which stay highlighted until you move to
+another page. A result in another live session opens that session, so you can
+still reply, and a result in a closed session opens read-only. The browser's
+Back and Forward return through each page and session, and moving through
+results adds nothing to them.
 
 ## What it leaves out
 
