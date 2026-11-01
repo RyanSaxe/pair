@@ -436,3 +436,57 @@ test("markup and a diff's own controls are not words on a block", async (t) => {
   const [diff] = (await store.search({ query: "quokkaLimit" })).results;
   assert.ok(diff.text.startsWith("--- a/retry.mjs"), diff.text);
 });
+
+test("a row's text holds no raw markup", async (t) => {
+  const escaped = JSON.stringify({
+    before: "",
+    after: "",
+    patch: "+export const pick = () => tayra();\n",
+  })
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const notes = JSON.stringify([{ line: 1, text: "The cooldown is reread." }]);
+  const a = await pageSession(
+    t,
+    `<pre data-language="typescript" data-file="src/breaker.ts" data-notes='${notes}'>const jerboa = 1;</pre>
+     <section class="change-review" data-kind="diff"><textarea data-diff-input hidden>${escaped}</textarea></section>
+     <div data-prototype="demo"></div>
+     <section class="visual-decision" data-choice="tabs" data-label="Tabs">
+       <h3>Which?</h3>
+       <article class="visual-option" data-value="a" data-label="Kiwi tab"><p>Beside the emu.</p></article>
+       <article class="visual-option" data-value="b" data-label="Second"><header>Second</header><p>Beside the rail.</p></article>
+     </section>`,
+    {
+      page: {
+        prototypes: [
+          {
+            id: "demo",
+            title: "A demo",
+            height: 200,
+            html: '<!doctype html><div class="hero"><b>Hello tamarin</b></div><script>const kinkajou = 1;</script>',
+          },
+        ],
+      },
+    },
+  );
+  const store = await reader(t, a);
+  for (const [query, expected] of [
+    ["jerboa", "src/breaker.ts The cooldown is reread. const jerboa = 1;"],
+    ["cooldown", "src/breaker.ts The cooldown is reread. const jerboa = 1;"],
+    ["tayra", "+export const pick = () => tayra();"],
+    ["tamarin", "A demo Hello tamarin"],
+    // A script's words stay findable, and the row keeps to the words on screen.
+    ["kinkajou", "A demo Hello tamarin"],
+    // A visual option's label is drawn on its tab.
+    ["kiwi", "Which? Kiwi tab Beside the emu. Second Beside the rail."],
+  ]) {
+    const [row] = (await store.search({ query })).results;
+    assert.equal(row.text, expected, query);
+  }
+  // A language is not on the block, and still finds it.
+  assert.equal(
+    (await store.search({ query: "typescript" })).results[0].block,
+    0,
+  );
+});

@@ -1,4 +1,4 @@
-import { parse, textOf } from "./html.mjs";
+import { decode, parse, textOf } from "./html.mjs";
 
 /* Each function here turns one record from a session's files into search
    documents. A document has its kind, one of the modal's six, and the type
@@ -48,6 +48,24 @@ const prototypeText = (html) =>
       script.length > SCRIPT_LIMIT ? " " : script,
     );
 
+const strings = (value) =>
+  typeof value === "string"
+    ? [value]
+    : value && typeof value === "object"
+      ? Object.values(value).flatMap(strings)
+      : [];
+
+// A component can keep words in an attribute as JSON, such as a code block's
+// line notes. Its strings are the words, and its keys and syntax are not.
+function attributeWords(value) {
+  if (value[0] !== "[" && value[0] !== "{") return value;
+  try {
+    return strings(JSON.parse(value)).join(" ");
+  } catch {
+    return value;
+  }
+}
+
 // A visual option's label is drawn on its tab, and most options repeat it in
 // their own words.
 const drawnLabel = (node, name, value) =>
@@ -56,11 +74,11 @@ const drawnLabel = (node, name, value) =>
   !textOf(node).toLowerCase().includes(value.toLowerCase());
 
 function textareaWords(node) {
-  const raw = (node.raw ?? "").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
+  const raw = decode(node.raw ?? "");
   try {
     return JSON.parse(raw).patch ?? "";
   } catch {
-    return node.raw ?? "";
+    return raw;
   }
 }
 
@@ -79,15 +97,13 @@ function collect(node, page, words, inSvg = false) {
     if (name.startsWith("aria-") && name !== "aria-label") continue;
     if (name === "data-prototype") {
       const prototype = (page.prototypes ?? []).find((p) => p.id === value);
-      if (prototype)
-        words.text.push(
-          prototype.title ?? "",
-          prototype.description ?? "",
-          prototypeText(prototype.html ?? ""),
-        );
+      if (prototype) {
+        words.text.push(prototype.title ?? "", prototype.description ?? "");
+        collect(parse(prototypeText(prototype.html ?? "")), page, words);
+      }
     } else if (DRAWN.has(name) || drawnLabel(node, name, value))
-      words.text.push(value);
-    else if (!diff) words.attrs.push(value);
+      words.text.push(attributeWords(value));
+    else if (!diff) words.attrs.push(attributeWords(value));
   }
   if (diff) {
     words.text.push(textareaWords(diff));
@@ -98,7 +114,8 @@ function collect(node, page, words, inSvg = false) {
     words.text.push(textareaWords(node));
     return words;
   }
-  if (node.raw) words.text.push(node.raw);
+  // Only a script is left with raw text, and a reader never sees it.
+  if (node.raw) words.attrs.push(node.raw);
   for (const child of node.children ?? []) collect(child, page, words, svg);
   return words;
 }
