@@ -83,6 +83,7 @@
   text-align: right;
 }
 ::highlight(plan-note),
+::highlight(plan-search),
 ::highlight(plan-preview) {
   background-color: var(--mark);
   color: inherit;

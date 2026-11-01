@@ -46,7 +46,7 @@ export const diagrams = new Map();
 const diffs = new Map();
 const diffLineSets = new Map();
 const noteHighlightCSS =
-  "::highlight(plan-note), ::highlight(plan-preview) { background-color: var(--mark); color: inherit; }";
+  "::highlight(plan-note), ::highlight(plan-search), ::highlight(plan-preview) { background-color: var(--mark); color: inherit; }";
 // renders contains the renderers in flight, so a re-render of the page can
 // restore the scroll position once the content has its height back.
 export const renders = new Set();

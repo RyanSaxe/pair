@@ -41,7 +41,7 @@ import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
 import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
-import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
+import { openPast, poll, selectedTab, switchTab } from "#frame/sync/rounds.mjs";
 import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
 import { installBlockDrawing } from "#frame/search/draw.mjs";
@@ -140,15 +140,30 @@ function bootRound() {
         ]);
     const target = query.get("target");
     const asked = location.hash.slice(1);
+    const match = query.get("match");
+    const askedRound = query.get("round");
     show(asked || place?.page || "", target, {
       keepScroll: false,
       push: false,
+      match,
     });
     window.addEventListener("popstate", () => {
       const url = new URL(location.href);
-      show(url.hash.slice(1) || pages[0].id, url.searchParams.get("target"), {
-        push: false,
-      });
+      const params = url.searchParams;
+      const round = params.get("round");
+      const pageId = url.hash.slice(1) || pages[0].id;
+      const options = { push: false, match: params.get("match") };
+      if (editable && round && round !== plan.round) {
+        void openPast(round, {
+          ...options,
+          pageId,
+          targetId: params.get("target"),
+        });
+        return;
+      }
+      if (editable && !round && selectedTab === "past")
+        switchTab("current", null, { showPage: false });
+      show(pageId, params.get("target"), options);
     });
     if (mode === "preview" && query.get("quote")) {
       const range = findQuote(
@@ -169,7 +184,14 @@ function bootRound() {
         // so the target opens there, unless it is on Work, which every round
         // has, or on Current's progress card. A reload without a target
         // returns to the past round that was on screen.
-        if (
+        if (editable && askedRound && askedRound !== plan.round)
+          void openPast(askedRound, {
+            pageId: asked || "agreed",
+            targetId: target,
+            match,
+            push: false,
+          });
+        else if (
           target &&
           showingWaiting() &&
           asked !== "work" &&

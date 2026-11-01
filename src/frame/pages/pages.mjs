@@ -29,6 +29,7 @@ import {
   viewKey,
 } from "#frame/app/view.mjs";
 import { chooseBlock } from "#frame/notes/blocks.mjs";
+import { markMatch, matchWords, setMatch } from "#frame/notes/match.mjs";
 import {
   pageTargets,
   restoreAnswers,
@@ -98,9 +99,11 @@ const hasWork = () => online && hasFeedbackPage;
 export function show(
   id,
   targetId = null,
-  { keepScroll = false, push = true, inPlace = false } = {},
+  { keepScroll = false, push = true, inPlace = false, match = null } = {},
 ) {
   redrawHeld = false;
+  // A re-render keeps an opened result's highlight, and any arrival replaces it.
+  if (!keepScroll) setMatch(matchWords(match), targetId);
   // A thread or a card has overall as its note's page, and overall is on
   // Review.
   if (id === "overall") id = "feedback";
@@ -174,6 +177,12 @@ export function show(
   url.hash = shownPage();
   url.searchParams.delete("target");
   if (targetId) url.searchParams.set("target", targetId);
+  if (!keepScroll) url.searchParams.delete("match");
+  if (match) url.searchParams.set("match", match);
+  // Back and a reload return to this round only when the address names it.
+  if (selectedTab === "past" && editable)
+    url.searchParams.set("round", plan.round);
+  else url.searchParams.delete("round");
   if (push && url.href !== location.href) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
   if (!inPlace) closeMenus();
@@ -186,7 +195,9 @@ export function show(
   });
   whenDrawn(drawing, () => {
     if (!loading) arrived();
+    markMatch();
   });
+  Promise.allSettled([...renders]).then(markMatch);
 }
 /* showChanges shows the draft after it changed outside this tab's own
    controls, from the hub or from another tab. pages names the pages whose

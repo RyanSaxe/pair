@@ -140,7 +140,9 @@ export function pageText(root) {
       return;
     if (
       node.nodeType === Node.ELEMENT_NODE &&
-      node.matches("script, style, pair-thread, textarea[data-diff-input]")
+      node.matches(
+        "script, style, pair-thread, textarea[data-diff-input], .katex-mathml",
+      )
     )
       return;
     if (node.shadowRoot) walk(node.shadowRoot);

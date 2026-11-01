@@ -29,6 +29,19 @@ export function eventHref(entry, event) {
   const target = at ? `?target=${encodeURIComponent(at)}` : "";
   return `${entry.url}${round}${target}#${encodeURIComponent(event.page)}`;
 }
+// A search result in another live session opens that session at its round, so
+// the reader can still reply. A closed session has only its read-only pages.
+export function resultHref(row, { target, match }) {
+  const address = new URLSearchParams();
+  if (!row.closed && row.round) address.set("round", row.round);
+  if (target) address.set("target", target);
+  if (match) address.set("match", match);
+  const query = address.size ? `?${address}` : "";
+  const hash = row.page ? `#${encodeURIComponent(row.page)}` : "";
+  const round =
+    row.closed && row.round ? `r/${encodeURIComponent(row.round)}` : "";
+  return `/s/${row.session}/${round}${query}${hash}`;
+}
 export function wakeAlert(entry) {
   if (!entry?.wakeFailed || !entry.id || !entry.round) return null;
   return {

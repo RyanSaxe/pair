@@ -236,6 +236,7 @@ export function searchStore({ log = () => {} } = {}) {
     const removed = [...entry.files.keys()].some((file) => !files.has(file));
     entry.files = files;
     entry.title = status.title || status.current?.title || "New session";
+    entry.closed = status.stage === "complete" || Boolean(status.dismissedAt);
     entry.latest = Object.keys(status.roundPages ?? {}).reduce(
       (latest, round) =>
         roundNumber(round) > roundNumber(latest) ? round : latest,
@@ -407,6 +408,7 @@ export function searchStore({ log = () => {} } = {}) {
     return {
       session: doc.session,
       sessionTitle: entry.title,
+      ...(entry.closed ? { closed: true } : {}),
       round: doc.round,
       page: doc.page,
       pageTitle: titleOf(doc, entry),

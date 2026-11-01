@@ -334,15 +334,23 @@ function loadPastView(round) {
   pastLoads.set(round, task);
   return task;
 }
-export async function openPast(round, { pageId = null, targetId = null } = {}) {
+export async function openPast(
+  round,
+  { pageId = null, targetId = null, match = null, push = true } = {},
+) {
   const loaded = await loadPastView(round).catch(() => false);
   if (!loaded) {
-    location.assign(`${base}/r/${encodeURIComponent(round)}`);
+    const address = new URLSearchParams();
+    if (targetId) address.set("target", targetId);
+    if (match) address.set("match", match);
+    const query = address.size ? `?${address}` : "";
+    const hash = pageId ? `#${encodeURIComponent(pageId)}` : "";
+    location.assign(`${base}/r/${encodeURIComponent(round)}${query}${hash}`);
     return;
   }
   setPastRound(round);
   if (pageId) places[round] = { page: pageId, at: {} };
-  switchTab("past", targetId, { showPage: true });
+  switchTab("past", targetId, { showPage: true, match, push });
 }
 // Current's draft is the one set aside when the reader left Current, or
 // else the saved draft.
@@ -387,7 +395,11 @@ export function listTab(tab) {
   updateNavigation(true);
   review();
 }
-export function switchTab(tab, targetId = null, { showPage = true } = {}) {
+export function switchTab(
+  tab,
+  targetId = null,
+  { showPage = true, match = null, push = true } = {},
+) {
   if (!tabAvailable(tab)) return;
   flushPlace();
   const round = tab === "current" ? remote.current.round : pastRound;
@@ -412,7 +424,7 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
     const place = view.waiting
       ? null
       : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
-    show(place?.page || "agreed", targetId);
+    show(place?.page || "agreed", targetId, { match, push });
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();

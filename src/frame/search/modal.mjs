@@ -1,5 +1,6 @@
 import { $, apple } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
+import { openResult } from "#frame/search/open.mjs";
 import { createPreview } from "#frame/search/preview.mjs";
 import { escapeHtml, marked, snippet, whereLine } from "#frame/search/rows.mjs";
 
@@ -47,14 +48,6 @@ const state = {
   selected: 0,
 };
 let dialog;
-let openResult = (row) => {
-  const target = Number.isInteger(row.block)
-    ? `?target=block-${encodeURIComponent(row.page)}-${row.block}`
-    : "";
-  location.assign(
-    `/s/${row.session}/r/${encodeURIComponent(row.round)}${target}#${encodeURIComponent(row.page)}`,
-  );
-};
 
 export const searchOpen = () => Boolean(dialog?.open);
 export function openSearch() {
@@ -63,11 +56,6 @@ export function openSearch() {
 export function closeSearch() {
   dialog?.close();
 }
-// The module that opens a result in place replaces the plain address above.
-export function useOpener(opener) {
-  openResult = opener;
-}
-
 export function installSearch() {
   const button = $("search-button");
   button.hidden = false;
@@ -296,7 +284,7 @@ export function installSearch() {
     const row = current.results[state.selected];
     if (!row) return;
     dialog.close();
-    openResult(row);
+    openResult(row, state.query);
   }
   function chooseRow(index) {
     moveSelection(index);

@@ -362,6 +362,10 @@ export async function startHub(config = settings()) {
           return html(
             await roundPage(session, session.roundEntry(round()), {
               readonly: true,
+              ...(session.state.stage === "complete" ||
+              session.state.dismissedAt
+                ? { closed: true }
+                : {}),
             }),
           );
         if (method === "GET" && rest[0] === "preview" && rest.length === 2)
