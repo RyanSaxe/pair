@@ -271,6 +271,16 @@ test("a change is found only after the session is marked changed", async (t) => 
   assert.equal((await store.search({ query: "wombat" })).total, 1);
 });
 
+test("a search during another search's read waits for that read", async (t) => {
+  const { a } = await session(t);
+  const store = await reader(t, a);
+  assert.equal((await thread(a)).code, 201);
+  store.markChanged(a.id);
+  const first = store.search({ query: "" });
+  assert.equal((await store.search({ query: "wombat" })).total, 1);
+  await first;
+});
+
 test("few results add rows for missing words and for words across a page", async (t) => {
   const { a } = await session(t);
   const store = await reader(t, a);
