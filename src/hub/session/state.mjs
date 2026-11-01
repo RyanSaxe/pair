@@ -350,6 +350,7 @@ export async function loadSession(
     removeUpload: session.removeUpload,
     close: session.close,
     startProposal: session.startProposal,
+    writeProposal: session.writeProposal,
     openAgent: session.openAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,

@@ -65,6 +65,7 @@ dialog::backdrop {
 .dialog textarea {
   min-height: var(--field-height);
   margin: var(--space-field) 0;
+  resize: none;
 }
 .dialog :is(a, .link-btn) {
   font-weight: var(--link-weight);
@@ -257,7 +258,8 @@ dialog::backdrop {
   border-radius: 7px;
   background: var(--panel);
 }
-.dialog.note.dropping .note-field::after {
+.dialog.note.dropping .note-field::after,
+.start-write.dropping .note-field::after {
   content: "Drop to attach";
   position: absolute;
   inset: 0;

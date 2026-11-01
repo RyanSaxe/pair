@@ -196,7 +196,9 @@
         popup, or send from the Send popup
       </dd>
       <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
-      <dd>Start a thread, or send a reply in one</dd>
+      <dd>
+        Start a thread, send a reply in one, or save a new work item for later
+      </dd>
       <dt><kbd>a</kbd></dt>
       <dd>Open Agreed</dd>
       <dt><kbd>Esc</kbd></dt>
@@ -221,6 +223,35 @@
   </div>
   <div class="dialog-body">
     <p class="start-delivers" id="start-delivers"></p>
+    <!-- New work item writes the card here, with the note dialog's field. The
+         frame copies the image button's icon from the note dialog. -->
+    <div class="start-write" id="start-write" hidden>
+      <label for="start-write-title">Title</label>
+      <input type="text" id="start-write-title" maxlength="80" required />
+      <label for="start-write-text">What should it do?</label>
+      <div class="note-field">
+        <textarea id="start-write-text" maxlength="4000" required></textarea>
+        <button
+          class="icon-btn note-image-pick"
+          type="button"
+          id="start-write-pick"
+          aria-label="Add an image"
+          title="Add an image"
+        ></button>
+        <input
+          type="file"
+          id="start-write-images"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          multiple
+          hidden
+        />
+      </div>
+      <div class="note-images" id="start-write-strip" hidden></div>
+      <p class="small" id="start-write-uploading" role="status" hidden>
+        Uploading image…
+      </p>
+      <p class="renderer-error" id="start-write-error" hidden></p>
+    </div>
     <div class="start-joined" id="start-joined" hidden>
       <p>Joined into this proposal</p>
       <ul id="start-joined-list"></ul>
@@ -277,25 +308,31 @@
         >
       </button>
     </div>
-    <label for="start-message">Message to the agent, optional</label>
-    <textarea
-      id="start-message"
-      maxlength="4000"
-      aria-describedby="start-hint-here"
-    ></textarea>
-    <div class="start-stack start-hints">
-      <p class="small" id="start-hint-here" data-start-for="here">
-        Sent to the agent with Start. This session's round stays open for your
-        feedback.
-      </p>
-      <p class="small" id="start-hint-sub-session" data-start-for="sub-session">
-        Sent to the agent with Start. This session's round stays open for your
-        feedback.
-      </p>
-      <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
-        The new agent reads this message when it starts. Copy command gives you
-        the command to paste into any agent.
-      </p>
+    <div id="start-message-box">
+      <label for="start-message">Message to the agent, optional</label>
+      <textarea
+        id="start-message"
+        maxlength="4000"
+        aria-describedby="start-hint-here"
+      ></textarea>
+      <div class="start-stack start-hints">
+        <p class="small" id="start-hint-here" data-start-for="here">
+          Sent to the agent with Start. This session's round stays open for your
+          feedback.
+        </p>
+        <p
+          class="small"
+          id="start-hint-sub-session"
+          data-start-for="sub-session"
+        >
+          Sent to the agent with Start. This session's round stays open for your
+          feedback.
+        </p>
+        <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
+          The new agent reads this message when it starts. Copy command gives
+          you the command to paste into any agent.
+        </p>
+      </div>
     </div>
     <!-- The frame disables and unchecks this switch when Here is selected,
          so a plan round never mixes with this session's other work. -->
@@ -312,6 +349,9 @@
   <p class="small" id="start-error" role="alert" hidden></p>
   <div class="start-stack start-actions">
     <div class="actions" data-start-for="here sub-session">
+      <button class="btn" type="button" data-start-save hidden>
+        Save for later <kbd data-send-key></kbd>
+      </button>
       <button
         class="btn primary"
         type="button"
@@ -322,6 +362,9 @@
       </button>
     </div>
     <div class="actions" data-start-for="new-agent">
+      <button class="btn" type="button" data-start-save hidden>
+        Save for later <kbd data-send-key></kbd>
+      </button>
       <button class="btn" type="button" id="start-copy">Copy command</button>
       <button
         class="btn primary start-open"
