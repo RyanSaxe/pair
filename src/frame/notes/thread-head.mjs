@@ -45,6 +45,15 @@ export function partOf(block, thread) {
     thread.quote &&
     findQuote(thread.quote, thread.target, thread.occurrence);
   if (!range || !block.contains(range.startContainer)) return null;
+  // Before Shiki replaces a code block's text, or when Shiki cannot load, the
+  // block has no line elements, so partOf counts the lines in its plain text.
+  const code = range.startContainer.parentElement.closest("[data-language]");
+  if (code && block.contains(code) && !code.querySelector(".shiki")) {
+    const before = document.createRange();
+    before.selectNodeContents(code);
+    before.setEnd(range.startContainer, range.startOffset);
+    return `line ${before.toString().split("\n").length}`;
+  }
   for (
     let at = range.startContainer.parentElement;
     at !== block;
