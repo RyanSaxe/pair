@@ -145,6 +145,9 @@ function initialize(section, { page, planUI }) {
     active = article.dataset.option;
     viewed = true;
     sync();
+    section
+      .querySelector('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
   layout.addEventListener("click", (event) => {
     const button = event.target.closest("[data-vd-layout]");

@@ -1,16 +1,21 @@
 import { fuzzyInField, lowerKeepingLength, strictInField } from "./words.mjs";
 
-/* Every word of the query must match in the heading or the text, in any order.
-   A word matches at the best of its tiers, tried cheapest first:
+/* Every word of the query must match in the heading, the text or the attrs, in
+   any order. A word matches at the best of its tiers, tried cheapest first:
      strict: exact word, word prefix, camelCase or -_/. part, substring
      fuzzy:  initials (wsl), letters in order, and one or two typos in a word
    The fuzzy tiers run only on documents that fail the strict tier, and they stop
-   for the rest of the scan once FUZZY_CUTOFF documents matched strictly.
+   for the rest of the scan once FUZZY_CUTOFF documents matched strictly. Attrs
+   are only tried strictly, and only for a word the heading and text don't have.
 
-   A document has heading, text and at, and may also have type and here, which
-   is true in the session the search was made from. A result is { score,
-   headingRanges, textRanges }, plus fuzzy and typo when they apply. */
+   A document has heading, text and at, and may also have attrs, type and here,
+   which is true in the session the search was made from. A result is { score,
+   headingRanges, textRanges, attrRanges }, plus fuzzy and typo when they apply,
+   and inAttrs when a word matched only in the attrs. */
 
+// Larger than the store's penalties for a row that has only some of the words,
+// so a row with no word on the block comes after every row with one.
+const ATTRS_PENALTY = 3000;
 const FUZZY_CUTOFF = 30;
 const MAX_RANGES = 48;
 const MASK_TEXT_LIMIT = 4096;
@@ -29,24 +34,12 @@ const KIND_BOOST = {
   task: 14,
   proposal: 14,
   alignment: 10,
-  decision: 10,
-  question: 8,
   "thread message": 8,
   note: 8,
   "typed answer": 8,
   "send message": 6,
-  "behavior case": 4,
   "chosen option": 4,
-  checklist: 4,
   "page block": 2,
-  prototype: 2,
-  chart: 0,
-  formula: 0,
-  table: 0,
-  "image label": 0,
-  "code block": 0,
-  "diagram source": -2,
-  diff: -6,
 };
 
 function letterBit(c) {
@@ -175,6 +168,8 @@ function scoreDoc(prepared, doc) {
   const origH = doc.heading ?? "";
   const lh = doc.lowerHeading ?? (doc.lowerHeading = lowerKeepingLength(origH));
   const lt = doc.lowerText ?? (doc.lowerText = lowerKeepingLength(orig));
+  const origA = doc.attrs ?? "";
+  const la = doc.lowerAttrs ?? (doc.lowerAttrs = lowerKeepingLength(origA));
   const mask = docMask(doc);
   const words = prepared.words;
   const fuzzyOn = prepared.fuzzyOn;
@@ -189,6 +184,7 @@ function scoreDoc(prepared, doc) {
     const hasLetters = (word.mask & ~mask) === 0;
     if (hasLetters && (lh.indexOf(word.w) !== -1 || lt.indexOf(word.w) !== -1))
       continue;
+    if (la.indexOf(word.w) !== -1) continue;
     if (!fuzzyOn || !word.fuzzy) return null;
     if (lt.indexOf(word.w[0]) === -1 && lh.indexOf(word.w[0]) === -1)
       return null;
@@ -200,14 +196,25 @@ function scoreDoc(prepared, doc) {
   let wholeHeading = true;
   let usedFuzzy = false;
   let usedTypo = false;
+  let inAttrs = false;
   const headingLists = [];
   const textLists = [];
+  const attrLists = [];
   const textHits = [];
   for (let k = 0; k < words.length; k++) {
     const word = words[k];
     let inHead = strictInField(word, lh, origH, true);
     let inText = word.n === 1 ? null : strictInField(word, lt, orig, false);
     if (!inHead && !inText) {
+      const attrHit =
+        word.n === 1 ? null : strictInField(word, la, origA, false);
+      if (attrHit) {
+        inAttrs = true;
+        attrLists.push(rangesFrom(attrHit));
+        wholeHeading = false;
+        total += attrHit.score;
+        continue;
+      }
       if (!fuzzyOn || !word.fuzzy) return null;
       inHead = fuzzyInField(word, lh, origH, true);
       if (!inHead) inText = fuzzyInField(word, lt, orig, false);
@@ -245,8 +252,9 @@ function scoreDoc(prepared, doc) {
   score += RECENCY_WEIGHT * (doc.at ?? 0);
   if (doc.type !== undefined) score += KIND_BOOST[doc.type] ?? 0;
   if (doc.here) score += THIS_SESSION_BONUS;
+  if (inAttrs) score -= ATTRS_PENALTY;
 
-  if (allStrict) {
+  if (allStrict && !inAttrs) {
     prepared.strictHits++;
     if (prepared.strictHits >= FUZZY_CUTOFF) prepared.fuzzyOn = false;
   }
@@ -254,9 +262,11 @@ function scoreDoc(prepared, doc) {
     score,
     headingRanges: mergeRanges(headingLists),
     textRanges: mergeRanges(textLists),
+    attrRanges: mergeRanges(attrLists),
   };
   if (usedFuzzy) result.fuzzy = true;
   if (usedTypo) result.typo = true;
+  if (inAttrs) result.inAttrs = true;
   return result;
 }
 

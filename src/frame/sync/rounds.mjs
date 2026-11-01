@@ -29,6 +29,7 @@ import {
   views,
   waiting,
   waitingView,
+  embedded,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
@@ -345,12 +346,20 @@ export async function openPast(
     if (match) address.set("match", match);
     const query = address.size ? `?${address}` : "";
     const hash = pageId ? `#${encodeURIComponent(pageId)}` : "";
-    location.assign(`${base}/r/${encodeURIComponent(round)}${query}${hash}`);
+    const older = `${base}/${embedded ? "embed" : "r"}/${encodeURIComponent(round)}${query}${hash}`;
+    if (embedded) location.replace(older);
+    else location.assign(older);
     return;
   }
   setPastRound(round);
   if (pageId) places[round] = { page: pageId, at: {} };
   switchTab("past", targetId, { showPage: true, match, push });
+}
+// From an older round's tab, a result in the current round moves back with no
+// page load.
+export function openCurrent({ pageId, targetId, match }) {
+  places[remote.current.round] = { page: pageId, at: {} };
+  switchTab("current", targetId, { showPage: true, match });
 }
 // Current's draft is the one set aside when the reader left Current, or
 // else the saved draft.

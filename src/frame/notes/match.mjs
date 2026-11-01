@@ -1,10 +1,15 @@
+import { stopLanding } from "#frame/app/places.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { clearHighlight, highlight, pageText } from "#frame/notes/notes.mjs";
+import { renders } from "#frame/pages/renderers.mjs";
 
-/* The modal's preview and an opened result both show a reader's words in a
-   drawn block. This code reads the block's text through shadow roots, so it
-   needs no knowledge of any component. */
+/* An opened result shows the reader's words in the page. This code reads a
+   block's text through shadow roots and asks nothing of any component, so a
+   custom component works too. */
 const MOST_PER_WORD = 200;
+// A short word is only a word when it stands alone, or "the" marks "other".
+const SHORT_WORD = 3;
+const isLetter = (char) => char !== undefined && /[\p{L}\p{N}_]/u.test(char);
 
 // The same length as text, so a position in one is a position in the other.
 function lowered(text) {
@@ -28,15 +33,22 @@ export function findWords(roots, words) {
       for (
         let at = lower.indexOf(word);
         at >= 0 && found < MOST_PER_WORD;
-        at = lower.indexOf(word, at + word.length), found++
+        at = lower.indexOf(word, at + word.length)
       ) {
+        if (
+          word.length <= SHORT_WORD &&
+          (isLetter(lower[at - 1]) || isLetter(lower[at + word.length]))
+        )
+          continue;
         const start = map[at];
         const end = map[at + word.length - 1];
         if (!start || !end) continue;
         const range = document.createRange();
         range.setStart(start.node, start.offset);
         range.setEnd(end.node, end.offset + 1);
+        range.word = word;
         ranges.push(range);
+        found++;
       }
     }
   }
@@ -58,56 +70,102 @@ function onScreen(range) {
     : element.getClientRects().length > 0;
 }
 
-/* A fold opens by itself. Anything else that hides its content hears
-   plan:reveal on the hidden element, and a component that hides content
-   answers it by showing that element. */
-function reveal(range) {
+/* What hides a range: the closed fold or the hidden element above it, or for
+   anything else, the outermost part that doesn't show. */
+function hiderOf(range) {
+  let hider = null;
   for (
     let at = range.startContainer.parentElement;
     at;
     at = composedParent(at)
   ) {
+    if (at.tagName === "DETAILS" && !at.open) return at;
+    if (at.hidden) return at;
+    if (at.checkVisibility && !at.checkVisibility()) hider = at;
+    else if (hider) break;
+  }
+  return hider;
+}
+
+/* A fold opens by itself. Anything else that hides its content hears
+   plan:reveal on the hidden element, and a component that hides content
+   answers it by showing that element. */
+function reveal(hider) {
+  for (let at = hider; at; at = composedParent(at)) {
     if (at.tagName === "DETAILS") at.open = true;
-    if (at.hidden)
+    if (at.hidden || at === hider)
       at.dispatchEvent(
         new CustomEvent("plan:reveal", { bubbles: true, composed: true }),
       );
   }
 }
 
-/* visibleRange() returns the range to scroll to, or null when no word is on
-   screen. With open set, it first opens what hides the words. A block still
-   drawing may yet show them, so its caller opens nothing until the block has
-   drawn. */
+/* A block shows the part with the most of the reader's words: the option or
+   fold that would show more of them than show now opens, and on a tie nothing
+   moves. A hidden element is one of several options, so opening it hides its
+   neighbors' words, and a fold hides nothing.
+   visibleRange() returns the range to scroll to, or null when no word can show.
+   With open set, it opens what hides the best part. A block still drawing may
+   yet show the words, so its caller opens nothing until the block has drawn. */
 export function visibleRange(ranges, { open = false } = {}) {
-  let target = ranges.find(onScreen);
-  if (!target && open && ranges.length) {
-    reveal(ranges.find((range) => !inTab(range)) ?? ranges[0]);
-    target = ranges.find(onScreen) ?? ranges.find(inTab);
+  const shown = [];
+  const hidden = new Map();
+  for (const range of ranges) {
+    if (inTab(range)) continue;
+    if (onScreen(range)) {
+      shown.push(range);
+      continue;
+    }
+    const hider = hiderOf(range);
+    if (!hider) continue;
+    if (!hidden.has(hider)) hidden.set(hider, { words: new Set(), range });
+    hidden.get(hider).words.add(range.word);
   }
-  return target ?? null;
+  let best = null;
+  let most = new Set(shown.map(({ word }) => word)).size;
+  for (const [hider, part] of hidden) {
+    const stays = hider.hidden
+      ? shown.filter(
+          ({ startContainer }) =>
+            !hider.parentElement?.contains(startContainer),
+        )
+      : shown;
+    const would = new Set([...part.words, ...stays.map(({ word }) => word)]);
+    if (would.size > most) {
+      most = would.size;
+      best = { ...part, hider };
+    }
+  }
+  if (best && open) {
+    reveal(best.hider);
+    if (onScreen(best.range)) return best.range;
+  }
+  return ranges.find(onScreen) ?? ranges.find(inTab) ?? null;
 }
 
-// A long line scrolls sideways inside its code block or diff, so the words are
-// centered there too.
+// Every scrolling box around the words moves them into view, and one that
+// already shows them stays where it is, so a line's start isn't cut off.
 export function scrollToRange(range) {
   const parent = range.startContainer.parentElement;
-  parent?.scrollIntoView({
-    block: "center",
-    inline: "nearest",
-    behavior: "instant",
-  });
-  const box = range.getBoundingClientRect();
   for (let at = parent; at; at = composedParent(at)) {
+    const box = range.getBoundingClientRect();
+    const style = getComputedStyle(at);
+    const page = at === document.documentElement;
+    const own = page
+      ? { left: 0, top: 0, right: innerWidth, bottom: innerHeight }
+      : at.getBoundingClientRect();
     if (
-      at.scrollWidth <= at.clientWidth + 1 ||
-      !/auto|scroll/.test(getComputedStyle(at).overflowX)
+      (page || /auto|scroll/.test(style.overflowX)) &&
+      at.scrollWidth > at.clientWidth + 1 &&
+      (box.left < own.left || box.right > own.right)
     )
-      continue;
-    const own = at.getBoundingClientRect();
-    if (box.left < own.left || box.right > own.right)
-      at.scrollLeft += box.left + box.width / 2 - own.left - own.width / 2;
-    break;
+      at.scrollLeft += box.left + box.width / 2 - (own.left + own.right) / 2;
+    if (
+      (page || /auto|scroll/.test(style.overflowY)) &&
+      at.scrollHeight > at.clientHeight + 1 &&
+      (box.top < own.top || box.bottom > own.bottom)
+    )
+      at.scrollTop += box.top + box.height / 2 - (own.top + own.bottom) / 2;
   }
 }
 
@@ -115,8 +173,11 @@ export function scrollToRange(range) {
    page. A page can redraw, and a code block or diff rewrites its text after it
    first draws, so markMatch() runs again after each change until clearMatch().
    The hub's text has the words even when the page can't paint them, such as a
-   word inside a drawn diagram, and then the nearest part of the block is marked. */
+   word inside a drawn diagram, and then the nearest part of the block is marked.
+   Once the reader scrolls or clicks, the page stays where they put it. */
 const REMARK_MS = 40;
+const DRAW_LIMIT_MS = 15000;
+const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
 let active = null;
 let observer = null;
 let timer = 0;
@@ -125,13 +186,15 @@ function clearMarked() {
   for (const element of document.querySelectorAll(".search-matched, .matched"))
     element.classList.remove("search-matched", "matched");
 }
-function matchRoot({ target }) {
-  if (!target) return $("page-content");
+function matchRoots({ target }) {
+  if (!target) return [$("page-title"), $("page-content")];
   if (target.startsWith("proposal-"))
-    return document.querySelector(
-      `[data-proposal-card="${CSS.escape(target.slice("proposal-".length))}"]`,
-    );
-  return document.getElementById(target);
+    return [
+      document.querySelector(
+        `[data-proposal-card="${CSS.escape(target.slice("proposal-".length))}"]`,
+      ),
+    ].filter(Boolean);
+  return [document.getElementById(target)].filter(Boolean);
 }
 // A long message is clamped until the reader asks for all of it.
 function openMessage(root) {
@@ -141,20 +204,28 @@ function openMessage(root) {
 
 export function markMatch() {
   if (!active) return;
-  const root = matchRoot(active);
-  if (!root) return;
-  if (active.target?.startsWith("thread-")) openMessage(root);
-  const ranges = findWords([root], active.words);
-  const target = visibleRange(ranges, { open: true });
+  const roots = matchRoots(active);
+  if (!roots.length) return;
+  if (active.target?.startsWith("thread-")) openMessage(roots[0]);
+  const whole =
+    active.words.length > 1 ? findWords(roots, [active.words.join(" ")]) : [];
+  const ranges = whole.length ? whole : findWords(roots, active.words);
+  const target = visibleRange(ranges, { open: active.drawn });
   clearMarked();
-  if (target?.startContainer.parentElement?.closest("svg"))
-    target.startContainer.parentElement
-      .closest(".pele-node")
-      ?.classList.add("matched");
-  else if (!target) root.classList.add("search-matched");
-  highlight("plan-search", ranges);
-  if (target && !active.scrolled) {
-    active.scrolled = true;
+  const figure = target?.startContainer.parentElement?.closest("svg");
+  if (figure)
+    (
+      target.startContainer.parentElement.closest(".pele-node") ?? figure
+    ).classList.add("matched");
+  else if (!target && active.drawn)
+    roots.at(-1).classList.add("search-matched");
+  highlight(
+    "plan-search",
+    ranges.filter((range) => inTab(range) || onScreen(range)),
+  );
+  if (target && !active.moved && active.scrolledAt !== target.word) {
+    active.scrolledAt = target.word;
+    stopLanding();
     scrollToRange(target);
   }
 }
@@ -162,10 +233,24 @@ function changed() {
   clearTimeout(timer);
   timer = setTimeout(markMatch, REMARK_MS);
 }
+const moved = () => {
+  if (active) active.moved = true;
+};
+const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+async function whenDrawn(mine) {
+  const limit = wait(DRAW_LIMIT_MS);
+  await wait(REMARK_MS);
+  while (renders.size)
+    await Promise.race([Promise.allSettled([...renders]), limit]);
+  if (active !== mine) return;
+  mine.drawn = true;
+  mine.scrolledAt = null;
+  markMatch();
+}
 export function setMatch(words, target) {
   clearMatch();
   if (!words?.length) return;
-  active = { words, target, scrolled: false };
+  active = { words, target, drawn: false, moved: false, scrolledAt: null };
   observer = new MutationObserver(changed);
   observer.observe(document.querySelector("main"), {
     subtree: true,
@@ -173,6 +258,10 @@ export function setMatch(words, target) {
     characterData: true,
   });
   window.addEventListener("plan:diff", changed);
+  document.addEventListener("toggle", changed, true);
+  for (const type of readerInputs)
+    addEventListener(type, moved, { capture: true, passive: true });
+  void whenDrawn(active);
 }
 export function clearMatch() {
   if (!active) return;
@@ -180,6 +269,8 @@ export function clearMatch() {
   clearTimeout(timer);
   observer?.disconnect();
   window.removeEventListener("plan:diff", changed);
+  document.removeEventListener("toggle", changed, true);
+  for (const type of readerInputs) removeEventListener(type, moved, true);
   clearHighlight("plan-search");
   clearMarked();
 }

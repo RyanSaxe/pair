@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
+import { gzipSync } from "node:zlib";
 import path from "node:path";
-import { assembleHome, assemblePreview } from "../build/assemble.mjs";
+import { assembleHome } from "../build/assemble.mjs";
 import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
 import {
   atomic,
@@ -159,6 +160,38 @@ export async function startHub(config = settings()) {
     const html = await fs.readFile(entry.path, "utf8");
     return framePage(session, html, flags, head);
   };
+  /* The search window loads a session's frame when a result needs it, on a
+     phone as well, so the frame is compressed, and a compressed one is kept
+     until its round changes. */
+  const EMBEDS_KEPT = 8;
+  const embeds = new Map();
+  async function embedPage(session, round) {
+    const closed =
+      session.state.stage === "complete" || session.state.dismissedAt;
+    const flags = closed
+      ? { closed: true }
+      : round === session.state.current?.round
+        ? {}
+        : { readonly: true };
+    const key = [
+      session.id,
+      round,
+      session.pageSet(round).generation,
+      Object.keys(flags),
+      session.state.parent?.sessionId,
+    ].join("|");
+    if (!embeds.has(key)) {
+      const page = framePage(
+        session,
+        await session.renderToday(round),
+        { embedded: true, ...flags },
+        "",
+      );
+      embeds.set(key, gzipSync(page));
+      if (embeds.size > EMBEDS_KEPT) embeds.delete(embeds.keys().next().value);
+    }
+    return embeds.get(key);
+  }
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
       res.writeHead(code, {
@@ -180,13 +213,6 @@ export async function startHub(config = settings()) {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const parts = url.pathname.split("/").slice(1);
       const method = req.method;
-      if (method === "GET" && url.pathname === "/preview")
-        return html(
-          embedConfig(await assemblePreview(), {
-            preview: true,
-            searchPreview: true,
-          }),
-        );
       if (method === "GET" && url.pathname === "/api/search") {
         const params = url.searchParams;
         const limit = Number(params.get("limit") || DEFAULT_LIMIT);
@@ -379,6 +405,16 @@ export async function startHub(config = settings()) {
                 : {}),
             }),
           );
+        if (method === "GET" && rest[0] === "embed" && rest.length === 2) {
+          const wanted =
+            round() === "latest" ? session.state.current?.round : round();
+          return reply(
+            200,
+            await embedPage(session, wanted),
+            "text/html; charset=utf-8",
+            { "Content-Encoding": "gzip" },
+          );
+        }
         if (method === "GET" && rest[0] === "preview" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {

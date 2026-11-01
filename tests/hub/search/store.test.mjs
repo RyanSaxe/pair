@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { searchStore } from "../../../src/hub/search/store.mjs";
@@ -57,6 +58,18 @@ async function session(t) {
   });
   assert.equal(published.code, 200, published.body.error);
   return { h, a };
+}
+
+async function pageSession(t, html, { page, ...plan } = {}) {
+  const h = await hub(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [{ id: "overview", title: "Overview", html, ...page }],
+    ...plan,
+  });
+  assert.equal(published.code, 200, published.body.error);
+  return a;
 }
 
 async function reader(t, a) {
@@ -295,19 +308,10 @@ test("few results add rows for missing words and for words across a page", async
 });
 
 test("a block with every word ranks above a block that misses one", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  const published = await a.publish({
-    ...planData(),
-    pages: [
-      {
-        id: "overview",
-        title: "Overview",
-        html: "<p>The dugong swims in warm bays.</p><p>The dugong swims at night.</p>",
-      },
-    ],
-  });
-  assert.equal(published.code, 200, published.body.error);
+  const a = await pageSession(
+    t,
+    "<p>The dugong swims in warm bays.</p><p>The dugong swims at night.</p>",
+  );
   const store = await reader(t, a);
   const { results } = await store.search({ query: "dugong swims warm" });
   assert.deepEqual(
@@ -320,23 +324,281 @@ test("a block with every word ranks above a block that misses one", async (t) =>
 });
 
 test("a long block's row carries only the words around its match", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
   const filler = "lorem ipsum ".repeat(400);
-  const published = await a.publish({
-    ...planData(),
-    pages: [
-      {
-        id: "overview",
-        title: "Overview",
-        html: `<p>${filler} the dugong sleeps ${filler}</p>`,
-      },
-    ],
-  });
-  assert.equal(published.code, 200, published.body.error);
+  const a = await pageSession(
+    t,
+    `<p>${filler} the dugong sleeps ${filler}</p>`,
+  );
   const store = await reader(t, a);
   const [row] = (await store.search({ query: "dugong" })).results;
   assert.ok(row.text.length <= 600);
   const [[from, to]] = row.ranges;
   assert.equal(row.text.slice(from, to).toLowerCase(), "dugong");
+});
+
+test("a word only in an attribute ranks below a word on a block, and a row shows only words on the block", async (t) => {
+  const a = await pageSession(
+    t,
+    `<x-card data-note="bandicoot">Visible words</x-card>
+     <p>The bandicoot digs.</p>
+     <x-card data-note="solo numbat"></x-card>
+     <x-card data-note="first pika"></x-card>
+     <x-card data-note="second pika"></x-card>`,
+  );
+  const store = await reader(t, a);
+  const { results } = await store.search({ query: "bandicoot" });
+  assert.deepEqual(
+    results.map((row) => [row.block, row.text, row.ranges.length]),
+    [
+      [1, "The bandicoot digs.", 1],
+      [0, "Visible words", 0],
+    ],
+  );
+  // A block with no words on it has only its attributes to show.
+  const [alone] = (await store.search({ query: "numbat" })).results;
+  assert.equal(alone.block, 2);
+  assert.equal(alone.text, "solo numbat");
+  assert.deepEqual(
+    alone.ranges.map(([from, to]) => alone.text.slice(from, to)),
+    ["numbat"],
+  );
+  // Copies are told apart by exact comparison, which includes the attributes.
+  assert.equal((await store.search({ query: "pika" })).total, 2);
+});
+
+test("attribute matches don't stop a search adding rows for few matches on blocks", async (t) => {
+  const cards = Array.from(
+    { length: 30 },
+    (_, index) =>
+      `<x-card data-note="zorilla genet mongoose ratel ${index}"></x-card>`,
+  ).join("");
+  const a = await pageSession(
+    t,
+    `${cards}<p>The zorilla met a genet and a rattel.</p>`,
+  );
+  const store = await reader(t, a);
+  const { results } = await store.search({ query: "zorilla genet mongoose" });
+  assert.equal(results[0].block, 30);
+  assert.equal(results[0].partial, "Has 2 of 3 words");
+  const typo = await store.search({ query: "ratel" });
+  assert.equal(typo.results[0].block, 30);
+});
+
+test("markup and a diff's own controls are not words on a block", async (t) => {
+  const a = await pageSession(
+    t,
+    `<p>Read this: button, checkbox, 1600, auto, true, set of cases, hazel-rail, side by side, layout split, exact source.</p>
+     <section class="decision" data-choice="hazel-rail" data-label="Rail">
+       <h3>Which one?</h3>
+       <button class="decision-option" type="button" data-value="moss" data-label="Moss"><b>Moss</b></button>
+       <button class="decision-option" type="button" data-value="fern" data-label="Fern"><b>Fern</b></button>
+     </section>
+     <div class="scope-list" data-multiselect="scope" data-label="Scope">
+       <label class="scope-row"><span>Heather</span><input type="checkbox" class="scope-check" data-value="heather" data-label="Heather" /></label>
+     </div>
+     <img width="1600" height="900" alt="" src="data:image/png;base64,AAAA" />
+     <video preload="auto" controls src="data:video/mp4;base64,AAAA"></video>
+     <div class="behavior-cases" data-kind="set of cases"><span aria-hidden="true">Clover</span></div>
+     <section class="change-review" data-kind="diff">
+       <div class="change-controls">
+         <span class="change-layout" role="group" aria-label="Layout">
+           <button type="button" data-diff-style="split">Side by side</button>
+           <button type="button" data-diff-style="unified">Unified</button>
+         </span>
+       </div>
+       <textarea data-diff-input hidden>${diffInput}</textarea>
+       <div class="change-view" aria-label="Before and proposed changes"></div>
+       <details class="change-source">
+         <summary>Exact source and Git patch</summary>
+         <h3>Before</h3><pre data-diff-source="before"></pre>
+       </details>
+     </section>`,
+  );
+  const store = await reader(t, a);
+  for (const query of [
+    "button",
+    "checkbox",
+    "1600",
+    "auto",
+    "true",
+    "set of cases",
+    "hazel-rail",
+    "side by side",
+    "layout split",
+    "exact source",
+  ]) {
+    const { results } = await store.search({ query });
+    assert.deepEqual(
+      results.map((row) => row.block),
+      [0],
+      query,
+    );
+  }
+  const [diff] = (await store.search({ query: "quokkaLimit" })).results;
+  assert.ok(diff.text.startsWith("--- a/retry.mjs"), diff.text);
+});
+
+test("a row's text holds no raw markup", async (t) => {
+  const escaped = JSON.stringify({
+    before: "",
+    after: "",
+    patch: "+export const pick = () => tayra();\n",
+  })
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const notes = JSON.stringify([{ line: 1, text: "The cooldown is reread." }]);
+  const a = await pageSession(
+    t,
+    `<pre data-language="typescript" data-file="src/breaker.ts" data-notes='${notes}'>const jerboa = 1;</pre>
+     <section class="change-review" data-kind="diff"><textarea data-diff-input hidden>${escaped}</textarea></section>
+     <div data-prototype="demo"></div>
+     <section class="visual-decision" data-choice="tabs" data-label="Tabs">
+       <h3>Which?</h3>
+       <article class="visual-option" data-value="a" data-label="Kiwi tab"><p>Beside the emu.</p></article>
+       <article class="visual-option" data-value="b" data-label="Second"><header>Second</header><p>Beside the rail.</p></article>
+     </section>`,
+    {
+      page: {
+        prototypes: [
+          {
+            id: "demo",
+            title: "A demo",
+            height: 200,
+            html: '<!doctype html><div class="hero"><b>Hello tamarin</b></div><script>const kinkajou = 1;</script>',
+          },
+        ],
+      },
+    },
+  );
+  const store = await reader(t, a);
+  for (const [query, expected] of [
+    ["jerboa", "src/breaker.ts The cooldown is reread. const jerboa = 1;"],
+    ["cooldown", "src/breaker.ts The cooldown is reread. const jerboa = 1;"],
+    ["tayra", "+export const pick = () => tayra();"],
+    ["tamarin", "A demo Hello tamarin"],
+    // A script's words stay findable, and the row keeps to the words on screen.
+    ["kinkajou", "A demo Hello tamarin"],
+    // A visual option's label is drawn on its tab.
+    ["kiwi", "Which? Kiwi tab Beside the emu. Second Beside the rail."],
+  ]) {
+    const [row] = (await store.search({ query })).results;
+    assert.equal(row.text, expected, query);
+  }
+  // A language is not on the block, and still finds it.
+  assert.equal(
+    (await store.search({ query: "typescript" })).results[0].block,
+    0,
+  );
+});
+
+test("a page's script is left out of results", async (t) => {
+  const folder = await fs.mkdtemp(path.join(os.tmpdir(), "pair-search-"));
+  t.after(() => fs.rm(folder, { recursive: true, force: true }));
+  const js = path.join(folder, "page.js");
+  await fs.writeFile(js, "export function setup() { const tarsier = 1; }");
+  const a = await pageSession(t, "<p>Words.</p>", { page: { js } });
+  const store = await reader(t, a);
+  assert.equal((await store.search({ query: "tarsier" })).total, 0);
+});
+
+test("a result names the DOM id of the block that holds it", async (t) => {
+  const a = await pageSession(
+    t,
+    `<h2 id="own-id">The capybara</h2>
+     <p>The viscacha.</p>
+     loose agouti words`,
+    {
+      agreements: [
+        {
+          id: "scope",
+          title: "Scope",
+          html: "<p>The ocelot stays out.</p>",
+          sourceRefs: [{ kind: "conversation", text: "Said in chat." }],
+        },
+      ],
+    },
+  );
+  const store = await reader(t, a);
+  for (const [query, blockId] of [
+    ["capybara", "own-id"],
+    ["viscacha", "block-overview-1"],
+    ["agouti", null],
+    ["ocelot", null],
+  ]) {
+    const [row] = (await store.search({ query })).results;
+    assert.equal(row.blockId, blockId, query);
+  }
+  // A page title draws the first block of its page.
+  const [title] = (await store.search({ query: "Overview" })).results;
+  assert.equal(title.type, "page title");
+  assert.equal(title.blockId, "own-id");
+});
+
+test("a thread resolves its target to the block that holds it, from a page read or cached", async (t) => {
+  const a = await pageSession(
+    t,
+    `<section id="named"><p>Named.</p></section>
+     <div><span id="inner-part">Nested.</span></div>
+     <div><div data-multiselect="opts" data-label="Options"><p>A nested control.</p></div></div>
+     <p>Plain.</p>`,
+  );
+  const cases = [
+    ["named", "rhea", 0, "named"],
+    ["inner-part", "serval", 1, "block-overview-1"],
+    ["multiselect-overview-0", "caracal", 2, "block-overview-2"],
+    ["block-overview-3", "margay", 3, "block-overview-3"],
+    ["not-on-the-page", "ocelot", null, null],
+  ];
+  const check = async (store, [target, word, block, blockId]) => {
+    assert.equal(
+      (await thread(a, { target, text: `Is it the ${word}?` })).code,
+      201,
+    );
+    store.markChanged(a.id);
+    const [row] = (await store.search({ query: word })).results;
+    assert.equal(row.block, block, target);
+    assert.equal(row.blockId, blockId, target);
+  };
+  const first = await reader(t, a);
+  for (const entry of cases) await check(first, entry);
+  await first.close();
+  // Only the page's cached entry can say which block holds this thread's target.
+  const second = await reader(t, a);
+  await check(second, ["inner-part", "jaguarundi", 1, "block-overview-1"]);
+});
+
+test("a thread on an Agreed card is headed by its card", async (t) => {
+  const { a } = await session(t);
+  const onAgreed = { topic: "agreed", target: "agreement-scope" };
+  assert.equal(
+    (
+      await thread(a, {
+        ...onAgreed,
+        anchor: "Scope of the ocelot work",
+        text: "Why the jaguarundi?",
+      })
+    ).code,
+    201,
+  );
+  assert.equal(
+    (
+      await thread(a, {
+        ...onAgreed,
+        anchor: "Agreed so far",
+        target: undefined,
+        text: "And the coati?",
+      })
+    ).code,
+    201,
+  );
+  const store = await reader(t, a);
+  for (const [query, heading] of [
+    ["jaguarundi", "Scope of the ocelot work"],
+    ["coati", "Agreed so far"],
+  ]) {
+    const [row] = (await store.search({ query })).results;
+    assert.equal(row.heading, heading, query);
+    assert.equal(row.page, "agreed", query);
+  }
 });

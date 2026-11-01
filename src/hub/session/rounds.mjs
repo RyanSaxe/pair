@@ -112,8 +112,10 @@ export function rounds(session) {
   }
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));
-  async function renderPageRound(set, complete) {
-    const bundle = await read(storedPagePath(set, set.bundlePath));
+  async function renderPageRound(set, complete, { today = false } = {}) {
+    const bundle = today
+      ? undefined
+      : await read(storedPagePath(set, set.bundlePath));
     const agreed = await read(storedPagePath(set, set.agreed));
     const records = await Promise.all(
       set.pages
@@ -466,6 +468,18 @@ export function rounds(session) {
     set.generation++;
     return commitPageRound(set);
   }
+  // The search window shows a published round on today's frame, so a result in
+  // an older session has the same frame as any other.
+  function renderToday(round) {
+    requireValue(
+      Object.hasOwn(session.state.roundPages || {}, round),
+      "Unknown round",
+      404,
+    );
+    return renderPageRound(session.state.roundPages[round], true, {
+      today: true,
+    });
+  }
   function roundEntry(round) {
     const entry = (session.state.rounds || []).find(
       (item) => item.round === round,
@@ -542,6 +556,7 @@ export function rounds(session) {
     publishPage,
     pageProgress,
     roundEntry,
+    renderToday,
     pageSet,
     pageRecord,
     prototype,

@@ -1,5 +1,5 @@
 import { $, unreachable } from "#frame/app/util.mjs";
-import { base, editable, online, session } from "#frame/app/view.mjs";
+import { base, editable, embedded, online, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import {
@@ -269,7 +269,7 @@ function watchCards(list) {
     (entries, observer) => {
       const shown = entries.filter((entry) => entry.isIntersecting);
       for (const entry of shown) observer.unobserve(entry.target);
-      if (shown.length)
+      if (shown.length && !embedded)
         markSeen(
           session.sessionId,
           shown.map((entry) => entry.target.dataset.proposalCard),
@@ -405,7 +405,7 @@ function paintProposal(root, seen = seenCards()) {
   root.replaceChildren(cardElement(card, shown, fresh));
 }
 export function refreshWork(force = false) {
-  if (remote) adoptCards(session.sessionId, cards());
+  if (remote && !embedded) adoptCards(session.sessionId, cards());
   const seen = seenCards();
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);

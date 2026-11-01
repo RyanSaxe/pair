@@ -1,119 +1,150 @@
-import { drawsBlock, wordsToMark } from "#frame/search/rows.mjs";
-
-/* The modal's side of the preview: the iframe with the one document that stays
-   loaded, and the page records it draws from. A page's record can be megabytes
-   when it holds images, so only the last few stay in memory. */
-const RECORDS_KEPT = 24;
-// The selection can move faster than a page's record arrives, so a result
-// draws once it has been selected for a moment.
+/* The modal's side of the preview: the frames, one for each session, each loaded
+   when a result first needs it. Moving between results in a session stays inside
+   its frame, and the last few frames stay loaded, so going back to one is
+   instant. A closed session is read-only, so its older rounds have frames of
+   their own. */
+const KEPT = 3;
+// The selection can move faster than a frame can follow, so a result shows once
+// it has been selected for a moment.
 const REST_MS = 60;
-// On a slow connection, the result's words show until its block arrives.
-const WORDS_AFTER_MS = 250;
+const LOADING_AFTER_MS = 250;
+const LOAD_LIMIT_MS = 30000;
+const POLL_MS = 20;
 
-export function createPreview({ frame, onWords, onDrawn, onMiss, onKey }) {
-  let ready = null;
-  const pageSets = new Map();
-  const records = new Map();
+const keyOf = (row) =>
+  row.closed && row.round ? `${row.session}|${row.round}` : row.session;
+const addressOf = (row) =>
+  `/s/${row.session}/embed/${row.closed && row.round ? encodeURIComponent(row.round) : "latest"}`;
+
+export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
+  const frames = new Map();
+  let shown = null;
   let restTimer = 0;
-  let wordsTimer = 0;
+  let loadingTimer = 0;
   let turn = 0;
 
-  function load() {
-    ready ||= new Promise((resolve) => {
-      frame.addEventListener(
-        "load",
-        async () => {
-          const win = frame.contentWindow;
-          while (!win.pairPreview)
-            await new Promise((done) => setTimeout(done, 20));
-          win.addEventListener("keydown", onKey);
-          resolve(win);
-        },
-        { once: true },
+  // A key belongs to the frame while the reader writes there or has something
+  // open in it. Any other key is the search window's.
+  function listen(win) {
+    win.addEventListener("keydown", (event) => {
+      const writing = event.target.closest?.(
+        "input, textarea, select, [contenteditable]",
       );
-      frame.src = "/preview";
+      const open = win.document.querySelector(
+        "dialog[open], [popover]:popover-open",
+      );
+      // A closed dialog's field can hold focus for a moment after it closes.
+      if (!writing?.checkVisibility() && !open) onKey(event);
     });
-    return ready;
   }
 
-  function record(row) {
-    const api = `/s/${row.session}/api`;
-    const key = `${row.session}|${row.round}|${row.page}`;
-    if (!records.has(key)) {
-      const setKey = `${row.session}|${row.round}`;
-      if (!pageSets.has(setKey))
-        pageSets.set(
-          setKey,
-          fetch(`${api}/page-set?round=${encodeURIComponent(row.round)}`).then(
-            (reply) => reply.json(),
-          ),
-        );
-      records.set(
-        key,
-        pageSets.get(setKey).then(async (set) => {
-          const slot = set.pages.find((item) => item.id === row.page);
-          const reply = await fetch(
-            `${api}/page?round=${encodeURIComponent(row.round)}&id=${encodeURIComponent(row.page)}&version=${slot.version}`,
-          );
-          if (!reply.ok) throw Error("Could not load this page.");
-          const { page } = await reply.json();
-          return { page, version: slot.version };
-        }),
-      );
-      records.get(key).catch(() => records.delete(key));
-      if (records.size > RECORDS_KEPT)
-        records.delete(records.keys().next().value);
+  function load(row) {
+    const key = keyOf(row);
+    let entry = frames.get(key);
+    if (entry) {
+      frames.delete(key);
+      frames.set(key, entry);
+      return entry;
     }
-    return records.get(key);
+    const frame = document.createElement("iframe");
+    frame.className = "search-frame";
+    frame.title = "The result, on its page";
+    frame.tabIndex = -1;
+    /* A page's own images and scripts can hold back the load event for a long
+       time, so this waits for the frame's code, not for the event. The event
+       still says when the address had no frame at all. */
+    const ready = new Promise((resolve, reject) => {
+      const limit = setTimeout(
+        () => reject(Error("The frame did not load.")),
+        LOAD_LIMIT_MS,
+      );
+      const poll = setInterval(() => {
+        const win = frame.contentWindow;
+        if (!win?.pairEmbed) return;
+        clearInterval(poll);
+        clearTimeout(limit);
+        listen(win);
+        resolve(win);
+      }, POLL_MS);
+      frame.addEventListener("load", () => {
+        if (frame.contentDocument?.getElementById("app")) return;
+        clearInterval(poll);
+        clearTimeout(limit);
+        reject(Error("The frame did not load."));
+      });
+    });
+    ready.catch(() => {
+      frame.remove();
+      frames.delete(key);
+    });
+    frame.src = addressOf(row);
+    host.append(frame);
+    entry = { frame, ready };
+    frames.set(key, entry);
+    if (frames.size > KEPT) {
+      const [oldest, gone] = frames.entries().next().value;
+      gone.frame.remove();
+      frames.delete(oldest);
+    }
+    return entry;
   }
 
-  async function draw(row, query, mine) {
-    clearTimeout(wordsTimer);
-    wordsTimer = setTimeout(
-      () => mine === turn && onWords(row),
-      WORDS_AFTER_MS,
-    );
+  function reveal(entry) {
+    if (shown === entry) return;
+    for (const other of frames.values()) {
+      other.frame.classList.toggle("is-shown", other === entry);
+      other.frame.contentWindow?.pairEmbed?.show(other === entry);
+    }
+    shown = entry;
+  }
+
+  async function open(row, query, mine) {
+    clearTimeout(loadingTimer);
+    const entry = load(row);
+    const same = shown === entry;
+    if (!same) {
+      shown?.frame.classList.remove("is-shown");
+      shown = null;
+      loadingTimer = setTimeout(
+        () => mine === turn && onLoading(row),
+        LOADING_AFTER_MS,
+      );
+    }
     try {
-      const [{ page, version }, win] = await Promise.all([record(row), load()]);
+      const win = await entry.ready;
       if (mine !== turn) return;
-      await win.pairPreview.draw({
-        key: `${row.session}|${row.round}|${row.page}|${row.block}|${row.item}`,
-        page,
-        round: row.round,
-        version,
-        block: row.block,
-        item: row.type === "alignment" ? row.item : null,
-        heading: row.type !== "page title",
-        said:
-          row.kind === "threads"
-            ? {
-                label: `${row.from === "reviewer" ? "You" : "Agent"} wrote, on this block`,
-                text: row.text,
-              }
-            : null,
-        words: wordsToMark(row, query),
-        report: ({ found, settled }) => {
-          if (mine === turn) onMiss(row, !found && settled && query.trim());
-        },
-      });
-      if (mine !== turn) return;
-      clearTimeout(wordsTimer);
-      onDrawn(row);
+      clearTimeout(loadingTimer);
+      win.pairEmbed.open(row, query);
+      reveal(entry);
+      onShown(row);
     } catch {
-      clearTimeout(wordsTimer);
-      if (mine === turn) onWords(row);
+      clearTimeout(loadingTimer);
+      if (mine === turn) onFailed(row);
     }
   }
 
   function show(row, query, { now = false } = {}) {
     clearTimeout(restTimer);
-    clearTimeout(wordsTimer);
+    clearTimeout(loadingTimer);
     const mine = ++turn;
-    if (!row) return onWords(null);
-    if (!drawsBlock(row)) return onWords(row);
-    if (now) void draw(row, query, mine);
-    else restTimer = setTimeout(() => draw(row, query, mine), REST_MS);
+    if (!row) {
+      shown?.frame.classList.remove("is-shown");
+      shown = null;
+      return onFailed(null);
+    }
+    if (now) void open(row, query, mine);
+    else restTimer = setTimeout(() => open(row, query, mine), REST_MS);
   }
 
-  return { load, show };
+  function pause() {
+    for (const { frame } of frames.values())
+      frame.contentWindow?.pairEmbed?.pause();
+  }
+
+  window.addEventListener("pair:theme", ({ detail }) => {
+    for (const { frame } of frames.values())
+      frame.contentWindow?.pairEmbed?.theme(detail);
+  });
+
+  return { show, pause };
 }

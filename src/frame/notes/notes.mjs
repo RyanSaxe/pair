@@ -11,11 +11,13 @@ import {
   agreedTask,
   agreements,
   editable,
+  embedded,
   feedbackEditable,
   noteEditable,
   online,
   page,
   pages,
+  plan,
   showingWaiting,
   topicTitle,
 } from "#frame/app/view.mjs";
@@ -426,8 +428,12 @@ export function openNote({
   // the same words keep separate drafts.
   noteDraftKey = JSON.stringify([id, noteContext]);
   const pageTitle = topicTitle(topic) || anchor;
-  $("note-anchor").textContent =
+  const place =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;
+  // In the search window, the comment may go to another session.
+  $("note-anchor").textContent = embedded
+    ? `${plan.title} › Round ${plan.round} › ${place}`
+    : place;
   $("note-quote").textContent = quote;
   $("note-quote").hidden = !quote;
   $("note-text").value =
