@@ -8,6 +8,7 @@ import {
   agreedTask,
   agreements,
   editable,
+  embedded,
   mode,
   online,
   pages,
@@ -44,7 +45,7 @@ import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
 import { openPast, poll, selectedTab, switchTab } from "#frame/sync/rounds.mjs";
 import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
-import { installBlockDrawing } from "#frame/search/draw.mjs";
+import { embedShowing, installEmbed } from "#frame/search/embed.mjs";
 import { installSearch } from "#frame/search/modal.mjs";
 
 const planData = JSON.parse($("plan-data").textContent);
@@ -118,8 +119,7 @@ function bootRound() {
   installDraftSync();
   window.planUI = createPlanUI();
   document.title = plan.title;
-  if (online && mode !== "preview") installSearch();
-  if (session.searchPreview) installBlockDrawing();
+  if (online && mode !== "preview" && !embedded) installSearch();
   if (editable) initializeChecklists();
   theme();
   renderRounds();
@@ -211,10 +211,18 @@ function bootRound() {
         // pollSessions() runs after the first status poll has placed the
         // thread cards, so the bell's first count includes a reply that is
         // already on screen.
+        // The search window waits for this, because going to a result needs
+        // the session's status.
+        if (embedded) {
+          installEmbed();
+          return;
+        }
         pollSessions();
         setInterval(pollSessions, 5000);
       });
-      setInterval(() => poll().then(syncDraft), 1500);
+      setInterval(() => {
+        if (!embedded || embedShowing()) void poll().then(syncDraft);
+      }, 1500);
     } else review();
   }
   /* The browser runs a module after it parses the document, so readyState is

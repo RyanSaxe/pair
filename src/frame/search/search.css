@@ -3,9 +3,9 @@
   position: fixed;
   inset: 0;
   margin: 8vh auto auto;
-  width: min(1040px, 100vw - 2 * var(--dialog-margin));
+  width: min(1240px, 100vw - 2 * var(--dialog-margin));
   max-width: none;
-  height: min(660px, 84dvh);
+  height: min(760px, 84dvh);
   max-height: none;
   padding: 0;
   overflow: hidden;
@@ -16,7 +16,7 @@
 }
 .search[open] {
   display: grid;
-  grid-template-columns: minmax(0, 40fr) minmax(0, 60fr);
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
 }
 .search-left {
   display: flex;
@@ -255,26 +255,11 @@
   width: 100%;
   height: 100%;
   border: 0;
-  background: var(--ground);
+  background: var(--panel);
   visibility: hidden;
 }
-.search-frame.is-ready {
+.search-frame.is-shown {
   visibility: visible;
-}
-.search-miss {
-  flex: none;
-  max-height: 34%;
-  padding: 8px 18px;
-  overflow-y: auto;
-  border-top: 1px solid var(--line);
-  background: var(--panel);
-  font-size: var(--text-small);
-  overflow-wrap: anywhere;
-}
-.search-miss b {
-  display: block;
-  color: var(--muted);
-  font-weight: var(--weight-strong);
 }
 .search-sheet-bar {
   display: none;
@@ -428,7 +413,7 @@
   .search.is-sheet .search-preview {
     visibility: visible;
   }
-  .search-frame.is-ready {
+  .search-frame.is-shown {
     visibility: inherit;
   }
   .search-sheet-bar {
@@ -445,46 +430,45 @@
   }
 }
 
-/* The preview document draws one block, with none of the page around it. */
-:root[data-search-preview] #page-title,
-:root[data-search-preview] #comment-here {
+/* The real frame in the search window: the page's own path, with no chrome and
+   only the block that holds the result. */
+:root[data-embed]
+  :is(
+    .frame-header,
+    .sidebar,
+    .sidebar-scrim,
+    .history-strip,
+    .note-count,
+    .page-footer,
+    .sent-page-comments
+  ) {
   display: none !important;
 }
-:root[data-search-preview] .app,
-:root[data-search-preview] main,
-:root[data-search-preview] .main-column {
+:root[data-embed]:not([data-embed-whole]) #page-title,
+:root[data-embed] .embed-hide {
+  display: none !important;
+}
+:root[data-embed] :is(.app, main, .main-column) {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0;
   border: 0;
 }
-:root[data-search-preview] .content {
+:root[data-embed] .content {
   max-width: none;
   padding: 14px 18px 28px;
 }
-:root[data-search-preview] #page-content {
-  position: relative;
-}
-:root[data-search-preview] #page-content > div > :first-child {
-  margin-top: 0;
-}
-.search-drawing {
-  position: absolute;
-  inset: 0 0 auto;
-  visibility: hidden;
-}
-.search-said {
-  margin: 0 0 14px;
-  padding: 8px 12px;
-  border-left: 2px solid var(--line-strong);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.search-said b {
-  display: block;
+.search-loading {
+  margin: 0;
   color: var(--muted);
   font-size: var(--text-small);
 }
 /* An opened result's words can't always be painted, and then its block shows
    which part of the page matched. */
-.search-matched {
+.search-matched,
+svg.matched {
   outline: 2px solid var(--mark);
   outline-offset: 4px;
   border-radius: 4px;

@@ -48,28 +48,3 @@ export function whereLine(row, { allSessions }) {
   if (row.also?.length) parts.push(`also in ${row.also.length} earlier`);
   return parts.join(" · ");
 }
-
-// A row draws a block when it has one, and an Agreed item draws its card.
-export const drawsBlock = (row) =>
-  Boolean(row.page && row.round) &&
-  (Number.isInteger(row.block) || row.type === "alignment");
-
-/* The words to highlight are each typed word, and for a typo the whole word the
-   matcher found. Words of one letter would mark most of a block. */
-export function wordsToMark(row, query) {
-  const parts = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((part) => part.length > 1);
-  const found = new Set(parts);
-  for (const [from, to] of row.ranges ?? []) {
-    let start = from;
-    let end = to;
-    while (start > 0 && /\w/.test(row.text[start - 1])) start--;
-    while (end < row.text.length && /\w/.test(row.text[end])) end++;
-    const word = row.text.slice(start, end).toLowerCase();
-    if (word.length > 1 && !parts.some((part) => word.includes(part)))
-      found.add(word);
-  }
-  return [...found].sort((a, b) => b.length - a.length);
-}

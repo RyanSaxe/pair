@@ -54,9 +54,6 @@ async function setUp(t, setup = async () => {}) {
 
 async function openResult(page, query, { allSessions = false } = {}) {
   await page.locator("#search-button").click();
-  await page.waitForFunction(
-    () => document.querySelector(".search-frame").contentWindow?.pairPreview,
-  );
   if (allSessions) await page.locator('[data-toggle="allSessions"]').click();
   const answered = page.waitForResponse(
     (response) =>

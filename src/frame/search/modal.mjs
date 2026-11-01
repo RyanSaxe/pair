@@ -91,9 +91,7 @@ export function installSearch() {
       </div>
       <div class="search-preview-main">
         <div class="search-words"></div>
-        <iframe class="search-frame" title="The matched block" tabindex="-1"></iframe>
       </div>
-      <div class="search-miss" hidden></div>
     </aside>`;
   document.body.append(dialog);
   const part = (selector) => dialog.querySelector(selector);
@@ -101,9 +99,7 @@ export function installSearch() {
   const list = part(".search-list");
   const kinds = part(".search-kinds");
   const kindsButton = part(".search-kinds-button");
-  const frame = part(".search-frame");
   const words = part(".search-words");
-  const miss = part(".search-miss");
   let current = { results: [], counts: {}, total: 0 };
   let request = null;
   let lastPointer = null;
@@ -188,30 +184,34 @@ export function installSearch() {
   }
 
   const preview = createPreview({
-    frame,
-    onWords(row) {
-      frame.classList.remove("is-ready");
-      miss.hidden = true;
+    host: part(".search-preview-main"),
+    onFailed(row) {
       words.hidden = false;
       words.innerHTML = row
-        ? `<h3>${marked(row.heading || row.pageTitle || "Untitled", row.heading ? row.headingRanges : null)}</h3><div class="search-text${row.code ? " is-code" : ""}">${marked(row.text, row.ranges)}</div>`
+        ? `<h3>${marked(row.heading || row.pageTitle || "Untitled", row.heading ? row.headingRanges : [])}</h3><div class="search-text${row.code ? " is-code" : ""}">${marked(row.text ?? "", row.ranges)}</div>`
         : "";
-      words
-        .querySelector(".search-text mark")
-        ?.scrollIntoView({ block: "center", behavior: "instant" });
     },
-    onDrawn() {
-      frame.classList.add("is-ready");
+    onLoading() {
+      words.hidden = false;
+      words.innerHTML = `<p class="search-loading">Loading…</p>`;
+    },
+    onShown() {
       words.hidden = true;
     },
-    onMiss(row, missing) {
-      miss.hidden = !missing || !row.text;
-      if (!miss.hidden)
-        miss.innerHTML = `<b>In this block, but not on screen:</b> ${snippet(row.text, row.ranges)}`;
-    },
     onKey(event) {
-      if (event.key === "Escape") dialog.close();
-      else input.focus();
+      dialog.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: event.key,
+          code: event.code,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          cancelable: true,
+        }),
+      );
+      event.preventDefault();
+      if (dialog.open) input.focus();
     },
   });
 
@@ -300,7 +300,6 @@ export function installSearch() {
     input.focus();
     input.select();
     void run();
-    void preview.load();
   }
   dialog.addEventListener("search:open", open);
   button.addEventListener("click", open);
@@ -373,17 +372,8 @@ export function installSearch() {
     void run();
   });
 
-  // A page's own code can take focus while it draws, which would send the next
-  // key into the preview, so the cursor stays in the search field on a wide
-  // window.
-  window.addEventListener("blur", () => {
-    setTimeout(() => {
-      if (dialog.open && innerWidth > PHONE && document.activeElement === frame)
-        input.focus();
-    });
-  });
-
   dialog.addEventListener("close", () => {
+    preview.pause();
     showKinds(false);
     closeSheet();
     button.focus({ preventScroll: true });

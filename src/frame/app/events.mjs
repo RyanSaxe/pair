@@ -3,6 +3,7 @@ import { land } from "#frame/app/places.mjs";
 import { $, apple, controlKey, shiftEnter } from "#frame/app/util.mjs";
 import {
   editable,
+  embedded,
   feedbackEditable,
   mode,
   online,
@@ -191,6 +192,7 @@ export function installEvents() {
     }
     if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
       return;
+    if (embedded && event.key !== "Escape") return;
     if (event.key === "Escape") {
       closeMenus();
       return;

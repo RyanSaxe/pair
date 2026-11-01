@@ -8,6 +8,7 @@ import {
   session,
   showingWaiting,
   waiting,
+  embedded,
 } from "#frame/app/view.mjs";
 import { onCurrentAgreed } from "#frame/notes/threads.mjs";
 import { show, updateNavigation } from "#frame/pages/pages.mjs";
@@ -24,6 +25,7 @@ import {
   remote,
   selectedTab,
   switchTab,
+  openCurrent,
 } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
@@ -275,6 +277,10 @@ export function openLine(event) {
   // under Previous only on an editable page.
   else if (own && editable && (round !== remote.current.round || waiting()))
     void openPast(round, { pageId: event.page, targetId: target, match });
+  else if (own && editable && selectedTab === "past")
+    openCurrent({ pageId: event.page, targetId: target, match });
+  else if (embedded)
+    location.replace(event.href ?? eventHref(event.entry, event));
   else location.assign(event.href ?? eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");

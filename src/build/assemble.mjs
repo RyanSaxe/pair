@@ -168,16 +168,6 @@ export const joinPage = async (data, css, js) =>
 export async function assembleHome(title) {
   return join(await frameBundle(), { title, pages: [] }, "", "");
 }
-// The search modal keeps this document loaded and draws each result in it, so it
-// has the frame and every component, and no pages of its own.
-export async function assemblePreview() {
-  return join(
-    await frameBundle(),
-    { name: "preview", round: "0", title: "Preview", pages: [] },
-    "",
-    "",
-  );
-}
 function join(bundle, data, css, js) {
   const { shell, style, drawingEditor, componentCss } = bundle;
   // A bundle stored before the dialogs moved to a file of their own contains

@@ -86,7 +86,8 @@
 ::highlight(plan-search),
 ::highlight(plan-preview) {
   background-color: var(--mark);
-  color: inherit;
+  /* The ink is fixed, so a word on a primary button stays readable. */
+  color: var(--ink);
 }
 mark.note-mark {
   background: var(--mark);

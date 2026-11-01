@@ -11,6 +11,7 @@ import {
   current,
   currentShown,
   editable,
+  embedded,
   hasFeedbackPage,
   isPlanRound,
   olderPast,
@@ -183,7 +184,8 @@ export function show(
   if (selectedTab === "past" && editable)
     url.searchParams.set("round", plan.round);
   else url.searchParams.delete("round");
-  if (push && url.href !== location.href) history.pushState(null, "", url);
+  if (push && !embedded && url.href !== location.href)
+    history.pushState(null, "", url);
   else history.replaceState(null, "", url);
   if (!inPlace) closeMenus();
   updateNavigation();
@@ -335,6 +337,7 @@ function newMarks(listed) {
   const onScreen = pages.find((item) => item.id === visiblePageId());
   if (
     document.visibilityState === "visible" &&
+    !embedded &&
     onScreen &&
     pageStatus(onScreen) === "complete" &&
     markOpened(session.sessionId, plan.round, onScreen.id)

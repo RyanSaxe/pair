@@ -4,10 +4,14 @@ import { submissionInFlight } from "#frame/review/send.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 export let session, base, online, mode, editable, hasFeedbackPage, query;
+// In the search window, the frame shows one result and leaves the reader's
+// place, history and what they've opened as they were.
+export let embedded = false;
 export let storageKey, placeKey, prefsPrefix;
 export function useSession(config, name, url) {
   session = config;
   base = typeof session.base === "string" ? session.base : "";
+  embedded = Boolean(session.embedded);
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
   /* The frame treats a closed session like an older round, from which
      nothing can be sent. */

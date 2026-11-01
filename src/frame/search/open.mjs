@@ -4,7 +4,7 @@ import { resultHref } from "#frame/sync/notifications.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
 
 // The element on the result's page that holds it.
-function targetOf(row) {
+export function targetOf(row) {
   if (row.kind === "threads") {
     const [thread, message] = row.item.split("/");
     return `thread-${thread}-${message}`;
@@ -14,11 +14,15 @@ function targetOf(row) {
   if (row.kind === "proposals") return `proposal-${row.item}`;
   if (row.draft) return null;
   if (row.kind === "notes" || row.kind === "answers") return `sent-${row.item}`;
-  return Number.isInteger(row.block) ? `block-${row.page}-${row.block}` : null;
+  // A block with its own id keeps it, so the hub says which id it has.
+  return (
+    row.blockId ??
+    (Number.isInteger(row.block) ? `block-${row.page}-${row.block}` : null)
+  );
 }
 
 // A sent note, answer or choice shows on its round's Feedback page.
-const pageOf = (row) =>
+export const pageOf = (row) =>
   !row.draft && (row.kind === "notes" || row.kind === "answers")
     ? "feedback"
     : row.page;
