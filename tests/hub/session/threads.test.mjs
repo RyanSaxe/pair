@@ -54,7 +54,7 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
   const wakes = () => a.inbox.wakes.map((wake) => wake.message.message.content);
-  const line = `pair: the reviewer wrote to you in a thread on "Overview" in session ${a.directory}. Between your current steps, run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer it, then go on with your work.`;
+  const line = `pair: the reviewer wrote to you in a thread on "Overview" in session ${a.directory}. Before your next step, run pair read --session-dir ${a.directory} --thread ${id}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.`;
   assert.deepEqual(wakes(), [
     `${line}\n\nThe reviewer's message, which pair read also prints:\nWhat happens to a failed item?\n\nThe reviewer attached an image to the message. pair read prints its path.`,
   ]);
