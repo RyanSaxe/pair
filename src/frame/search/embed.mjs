@@ -129,6 +129,7 @@ export function installEmbed() {
   window.pairEmbed = {
     async open(row, query) {
       pause();
+      showing = true;
       const target = targetOf(row);
       wanted = target;
       await ensurePageSet();
@@ -143,7 +144,11 @@ export function installEmbed() {
       showing = on;
       if (!on) pause();
     },
-    pause,
+    // Closing the search window leaves the frame loaded and idle.
+    pause() {
+      showing = false;
+      pause();
+    },
     theme: useTheme,
   };
 }

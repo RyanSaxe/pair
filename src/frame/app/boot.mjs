@@ -73,6 +73,7 @@ function bootHome() {
   startHome();
 }
 
+const EMBED_POLL_MS = 10000;
 function bootRound() {
   useView({
     plan: planData,
@@ -220,9 +221,13 @@ function bootRound() {
         pollSessions();
         setInterval(pollSessions, 5000);
       });
-      setInterval(() => {
-        if (!embedded || embedShowing()) void poll().then(syncDraft);
-      }, 1500);
+      // A session's status can be large, and a preview needs it only now and
+      // then, so the search window's frame asks less often, and only on screen.
+      if (embedded)
+        setInterval(() => {
+          if (embedShowing()) void poll().then(syncDraft);
+        }, EMBED_POLL_MS);
+      else setInterval(() => poll().then(syncDraft), 1500);
     } else review();
   }
   /* The browser runs a module after it parses the document, so readyState is
