@@ -122,7 +122,7 @@ const draftOf = async (origin, session) =>
     (await (await fetch(`${origin}${session.base}/api/draft`)).json()).items,
   );
 
-test("the preview is the session's own frame, showing only the result's block", async (t) => {
+test("the preview is the session's own frame, showing the result's whole page", async (t) => {
   const { page } = await setUp(t);
   if (!page) return;
   await type(page, "walrus");
@@ -130,7 +130,8 @@ test("the preview is the session's own frame, showing only the result's block", 
   const blocks = await visibleBlocks(page);
   assert.ok(blocks.some((text) => text.startsWith("The walrus")));
   assert.ok(blocks.includes("Plan heading"));
-  assert.ok(!blocks.some((text) => text.includes("lemur")));
+  assert.ok(blocks.some((text) => text.includes("lemur")));
+  assert.equal(await shown(page).locator("#page-title").isVisible(), true);
   assert.equal(await shown(page).locator(".frame-header").isVisible(), false);
   // A second result in the session stays in the same frame, with no load.
   await page.evaluate(() => {
@@ -158,7 +159,6 @@ test("a block with its own id shows in the preview, and Open lands on it", async
   await previewShows(page, "manatee");
   const blocks = await visibleBlocks(page);
   assert.ok(blocks.some((text) => text.startsWith("The manatee")));
-  assert.equal(blocks.length, 2);
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
     const marks = CSS.highlights?.get("plan-search");
@@ -292,10 +292,9 @@ test("a thread on a block shows the block with the thread's real card", async (t
   await shown(page).locator("pair-thread").waitFor();
   const blocks = await visibleBlocks(page);
   assert.ok(blocks.some((text) => text.startsWith("The walrus")));
-  assert.ok(!blocks.some((text) => text.includes("lemur")));
 });
 
-test("a proposal shows its Work card with nothing else from Work", async (t) => {
+test("a proposal shows on Work, at its card", async (t) => {
   const { a, page } = await setUp(t);
   if (!page) return;
   const proposed = await a.action("propose", {
@@ -309,7 +308,7 @@ test("a proposal shows its Work card with nothing else from Work", async (t) => 
   assert.equal(proposed.code, 200, proposed.body.error);
   await type(page, "tapir");
   await previewShows(page, "tapir");
-  assert.equal(await shown(page).locator("#work-title").isVisible(), false);
+  assert.equal(await shown(page).locator("#work-title").isVisible(), true);
   assert.equal(
     await shown(page).locator('[data-proposal-card="tapir-work"]').isVisible(),
     true,
@@ -521,7 +520,7 @@ test("a link in a block opens in the reader's tab, and the frame stays embedded"
     link.id = "away";
     link.href = "#options";
     link.textContent = "To the options";
-    doc.querySelector("#page-content > :not(.embed-hide)").append(link);
+    doc.querySelector("#page-content > *").append(link);
   });
   await shown(page).locator("#away").click();
   await page.waitForURL(new RegExp(`${a.base}/#options$`));
@@ -572,7 +571,7 @@ test("a sent note or answer shows its block under the reader's words, and Open g
   const frame = shown(page);
   assert.match(await frame.locator("#embed-sent").innerText(), /iguana/);
   assert.equal(await frame.locator("#block-overview-1").isVisible(), true);
-  assert.equal(await frame.locator("#block-overview-2").isVisible(), false);
+  assert.equal(await frame.locator("#block-overview-2").isVisible(), true);
 
   // A choice has no id of its own, so its block is found by the control.
   await type(page, "capybara");

@@ -498,23 +498,28 @@
   }
 }
 
-/* The real frame in the search window: the page's own path, with no chrome and
-   only the block that holds the result. */
+/* The real frame in the search window: the page's own path and scrolling, with
+   none of the app around it. */
 :root[data-embed]
   :is(
     .frame-header,
     .sidebar,
     .sidebar-scrim,
     .history-strip,
+    #agent-activity,
+    #finished-line,
     .note-count,
-    .page-footer,
-    .sent-page-comments
+    .page-footer
   ) {
   display: none !important;
 }
-:root[data-embed]:not([data-embed-whole]) #page-title,
-:root[data-embed] .embed-hide {
-  display: none !important;
+/* A sent note's words stay in view above the page they belong to. */
+:root[data-embed] #embed-sent {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  margin-bottom: 14px;
+  background: var(--panel);
 }
 /* The page keeps its own scrolling box, so the reader can scroll it. */
 :root[data-embed] .app {
