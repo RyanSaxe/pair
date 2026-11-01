@@ -253,7 +253,7 @@ function renderFeedback() {
   $("overall-group").hidden = !overall.length;
   $("overall-notes").replaceChildren(...overall.map(itemCard));
 }
-function sentEntries(submission) {
+export function sentEntries(submission) {
   if (!submission) return [];
   const groups = submission.groups || {};
   return [
@@ -296,7 +296,7 @@ function sentChoice(submission) {
       : []),
   ];
 }
-function sentCard(entry) {
+export function sentCard(entry) {
   const card = document.createElement("div");
   card.className = "sent-card";
   const where =

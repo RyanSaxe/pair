@@ -190,20 +190,32 @@ function clearMarked() {
   for (const element of document.querySelectorAll(".search-matched, .matched"))
     element.classList.remove("search-matched", "matched");
 }
+// Most targets have an id, and a proposal or a control has its own attribute.
+export function targetElement(target) {
+  if (target.startsWith("proposal-"))
+    return document.querySelector(
+      `[data-proposal-card="${CSS.escape(target.slice("proposal-".length))}"]`,
+    );
+  if (target.startsWith("control-")) {
+    const id = CSS.escape(target.slice("control-".length));
+    return document.querySelector(
+      `[data-choice="${id}"], [data-question="${id}"], [data-drawing-question="${id}"]`,
+    );
+  }
+  return document.getElementById(target);
+}
 function matchRoots({ target }) {
   if (!target)
     return $("review-view").hidden
       ? [$("page-title"), $("page-content")]
       : [$("review-view")];
-  if (target.startsWith("proposal-"))
-    return [
-      document.querySelector(
-        `[data-proposal-card="${CSS.escape(target.slice("proposal-".length))}"]`,
-      ),
-    ].filter(Boolean);
-  // A figure's title and caption sit outside the element that has the id.
-  const element = document.getElementById(target);
-  return [element?.closest("figure") ?? element].filter(Boolean);
+  // A figure's title and caption sit outside the element that has the id. A sent
+  // note's words sit in the card the search window draws above its block.
+  const element = targetElement(target);
+  return [
+    document.getElementById("embed-sent"),
+    element?.closest("figure") ?? element,
+  ].filter(Boolean);
 }
 // A long message is clamped until the reader asks for all of it.
 function openMessage(root) {
