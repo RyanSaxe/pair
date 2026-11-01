@@ -6,6 +6,7 @@ import { escapeHtml, KINDS } from "#frame/search/rows.mjs";
    or a count once there are several, so a button's label stays short. */
 export const HERE = "here";
 const LATEST = "latest";
+const CLOSED = "closed";
 const NAMES = ["sessions", "rounds", "kinds"];
 
 export const menusHtml = NAMES.map(
@@ -35,13 +36,19 @@ export function createMenus({ host, state }) {
     sessions: () => [
       ["", "All sessions"],
       [HERE, "This session"],
+      null,
       ...sessions
-        .filter(({ id }) => id !== session.sessionId)
+        .filter(
+          ({ id, closed }) =>
+            id !== session.sessionId && (state.closed || !closed),
+        )
         .map(({ id, title }) => [id, title]),
+      [CLOSED, "Include closed sessions"],
     ],
     rounds: () => [
       ["", "All rounds"],
       [LATEST, "Latest round"],
+      ...(roundNumbers().length ? [null] : []),
       ...roundNumbers().map((round) => [round, `Round ${round}`]),
     ],
     kinds: () => [["", "All kinds"], ...KINDS],
@@ -56,15 +63,18 @@ export function createMenus({ host, state }) {
   };
   function label(name) {
     const chosen = state[name];
-    if (!chosen.length) return `All ${name}`;
+    if (!chosen.length)
+      return name === "sessions" && state.closed
+        ? "All + closed"
+        : `All ${name}`;
     return chosen.length === 1
       ? labels[name](chosen)
       : `${chosen.length} ${name}`;
   }
+  const onlyHere = () =>
+    state.sessions.length === 1 && state.sessions[0] === HERE;
   const changed = (name) =>
-    name === "sessions"
-      ? state.sessions.length !== 1 || state.sessions[0] !== HERE
-      : state[name].length > 0;
+    name === "sessions" ? state.closed || !onlyHere() : state[name].length > 0;
 
   function fill(name, menu) {
     const list = items[name]();
@@ -73,9 +83,10 @@ export function createMenus({ host, state }) {
     menu.dataset.key = key;
     const focused = opened === name && document.activeElement?.dataset.value;
     menu.innerHTML = list
-      .map(
-        ([value, text], index) =>
-          `${index === 2 && name !== "kinds" ? '<div class="search-menu-rule"></div>' : ""}<button class="search-menu-item" type="button" data-value="${escapeHtml(value)}"><span>${escapeHtml(text)}</span>${name === "kinds" && value ? "<b></b>" : ""}</button>`,
+      .map((item) =>
+        item
+          ? `<button class="search-menu-item" type="button" data-value="${escapeHtml(item[0])}"><span>${escapeHtml(item[1])}</span>${name === "kinds" && item[0] ? "<b></b>" : ""}</button>`
+          : '<div class="search-menu-rule"></div>',
       )
       .join("");
     if (typeof focused === "string")
@@ -94,7 +105,13 @@ export function createMenus({ host, state }) {
         const { value } = item.dataset;
         item.setAttribute(
           "aria-pressed",
-          String(value ? state[name].includes(value) : !state[name].length),
+          String(
+            value === CLOSED
+              ? state.closed
+              : value
+                ? state[name].includes(value)
+                : !state[name].length,
+          ),
         );
         const count = item.querySelector("b");
         if (!count) continue;
@@ -107,6 +124,18 @@ export function createMenus({ host, state }) {
   const keepLatest = () => {
     state.rounds = state.rounds.filter((round) => round === LATEST);
   };
+
+  // Closed sessions are for a wider search, so asking for them leaves this
+  // session. Closing the list drops any closed session chosen from it.
+  function switchClosed() {
+    state.closed = !state.closed;
+    if (state.closed && onlyHere()) state.sessions = [];
+    if (!state.closed)
+      state.sessions = state.sessions.filter(
+        (id) => !sessions.find((item) => item.id === id)?.closed,
+      );
+    keepLatest();
+  }
 
   return {
     draw,
@@ -140,6 +169,7 @@ export function createMenus({ host, state }) {
       list[(at + step + list.length) % list.length].focus();
     },
     choose(name, value) {
+      if (value === CLOSED) return switchClosed();
       const chosen = state[name];
       state[name] = !value
         ? []
@@ -150,7 +180,7 @@ export function createMenus({ host, state }) {
     },
     // The keys switch between the first two choices of a menu.
     switchSessions() {
-      state.sessions = state.sessions.length ? [] : [HERE];
+      state.sessions = onlyHere() ? [] : [HERE];
       keepLatest();
     },
     switchRounds() {

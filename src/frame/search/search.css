@@ -159,6 +159,14 @@
   left: 0;
   width: 180px;
 }
+/* The session list can run long, so this choice stays in reach below it. */
+.search-menu-item[data-value="closed"] {
+  position: sticky;
+  bottom: -5px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+  background: var(--panel);
+}
 .search-menu-rule {
   height: 1px;
   margin: 4px 6px;

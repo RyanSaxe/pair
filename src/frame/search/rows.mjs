@@ -24,6 +24,7 @@ const WIDER = {
   kinds: "every kind",
   rounds: "all rounds",
   sessions: "all sessions",
+  closed: "closed sessions",
 };
 
 const icon = (paths) =>
@@ -94,6 +95,7 @@ export function whereLine(row, { allSessions }) {
   if (row.pageTitle && row.pageTitle !== titleText(row))
     parts.push(row.pageTitle);
   if (row.also?.length) parts.push(`also in ${row.also.length} earlier`);
+  if (row.closed) parts.push("Closed");
   if (allSessions) parts.push(row.sessionTitle);
   return parts.join(" · ");
 }

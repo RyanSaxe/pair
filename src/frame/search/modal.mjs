@@ -31,6 +31,7 @@ const MEMORY = "pair:search";
 const state = {
   query: "",
   sessions: [HERE],
+  closed: false,
   rounds: [],
   kinds: [],
   selected: 0,
@@ -200,6 +201,7 @@ export function installSearch() {
     if (state.sessions.length) params.set("session", menus.sessionIds());
     if (state.rounds.length) params.set("round", state.rounds.join(","));
     if (state.kinds.length) params.set("kinds", state.kinds.join(","));
+    if (state.closed) params.set("closed", "1");
     // Until a slow reply arrives, nothing says "0 results" or "No matches" about
     // words the field no longer has.
     clearTimeout(searching);
@@ -325,7 +327,8 @@ export function installSearch() {
       const filter = wider.dataset.wider;
       state.kinds = [];
       if (filter !== "kinds") state.rounds = [];
-      if (filter === "sessions") state.sessions = [];
+      if (filter === "sessions" || filter === "closed") state.sessions = [];
+      if (filter === "closed") state.closed = true;
       void run();
       return focusField();
     }

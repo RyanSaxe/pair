@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
-import { everywhere } from "../support/search.mjs";
+import { chooseInMenu, everywhere } from "../support/search.mjs";
 
 const pages = [
   {
@@ -493,7 +493,7 @@ test("a proposal in a closed session shows its card, and keys still work", async
     body: "{}",
   });
   assert.equal(closed.status, 200);
-  await everywhere(page);
+  await chooseInMenu(page, "sessions", "closed");
   await type(page, "closed tapir");
   await previewShows(page, "closed tapir");
   assert.equal(
@@ -623,7 +623,7 @@ test("a closed session shows read-only", async (t) => {
     body: "{}",
   });
   assert.equal(closed.status, 200);
-  await everywhere(page);
+  await chooseInMenu(page, "sessions", "closed");
   await type(page, "dugong sleeps");
   await previewShows(page, "dugong sleeps");
   assert.equal(

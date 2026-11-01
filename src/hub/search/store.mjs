@@ -309,7 +309,7 @@ export function searchStore({ log = () => {} } = {}) {
       return doc.round === wanted || doc.also.includes(wanted);
     });
 
-  function scan({ query, session, round, kinds, here, limit }) {
+  function scan({ query, session, round, kinds, closed, here, limit }) {
     const prepared = prepare(query);
     const counts = Object.fromEntries(KINDS.map((kind) => [kind, 0]));
     const hits = [];
@@ -318,6 +318,8 @@ export function searchStore({ log = () => {} } = {}) {
     let onBlocks = 0;
     for (const entry of sessions.values()) {
       if (session && !session.has(entry.id)) continue;
+      // A closed session counts when the search asks for closed ones or names it.
+      if (entry.closed && !closed && !session) continue;
       for (const doc of entry.docs) {
         if (!inRound(doc, round, entry)) continue;
         // With nothing typed, the list shows the newest things that have words.
@@ -392,11 +394,16 @@ export function searchStore({ log = () => {} } = {}) {
       ["kinds", { kinds: new Set() }],
       ["rounds", { kinds: new Set(), round: null }],
       ["sessions", { kinds: new Set(), round: null, session: null }],
+      [
+        "closed",
+        { kinds: new Set(), round: null, session: null, closed: true },
+      ],
     ];
     for (const [filter, change] of steps) {
       if (filter === "kinds" && !options.kinds.size) continue;
       if (filter === "rounds" && !options.round) continue;
       if (filter === "sessions" && !options.session) continue;
+      if (filter === "closed" && options.closed) continue;
       const { total } = scan({ ...options, ...change });
       if (total) return { filter, total };
     }
@@ -408,6 +415,7 @@ export function searchStore({ log = () => {} } = {}) {
     session = null,
     round = null,
     kinds = [],
+    closed = false,
     here = null,
     limit = DEFAULT_LIMIT,
   }) {
@@ -422,6 +430,7 @@ export function searchStore({ log = () => {} } = {}) {
       session: session ? new Set(session.split(",")) : null,
       round: round ? round.split(",") : null,
       kinds: new Set(kinds),
+      closed,
       here,
       limit,
     };
@@ -441,7 +450,7 @@ export function searchStore({ log = () => {} } = {}) {
     [...sessions.values()]
       .filter((entry) => entry.loaded)
       .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map(({ id, title, rounds }) => ({ id, title, rounds }));
+      .map(({ id, title, rounds, closed }) => ({ id, title, rounds, closed }));
 
   async function close() {
     closed = true;

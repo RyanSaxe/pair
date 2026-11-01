@@ -260,3 +260,41 @@ test("a result in an older round of a session on an older frame opens read-only"
     `${a.base}/r/1?target=block-overview-0&match=kestrel`,
   );
 });
+
+test("a closed session stays out until a search asks for it or names it", async (t) => {
+  const { find, b, h } = await twoSessions(t);
+  assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
+  const live = await find("elsewhere");
+  assert.equal(live.body.total, 0);
+  assert.deepEqual(live.body.wider, { filter: "closed", total: 1 });
+  const asked = await find("elsewhere", { closed: "1" });
+  assert.equal(asked.body.results[0].closed, true);
+  assert.equal((await find("elsewhere", { session: b.id })).body.total, 1);
+  const { sessions } = await (
+    await fetch(`${h.server.origin}/api/search/sessions`)
+  ).json();
+  assert.equal(sessions.find(({ id }) => id === b.id).closed, true);
+  const other = sessions.find(({ id }) => id !== b.id);
+  assert.deepEqual(other.rounds, ["2", "1"]);
+});
+
+test("a closed round that never finished shows the pages it published", async (t) => {
+  const { h, settled } = await searcher(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [
+      page("sent", "Sent", "<p>The published otter.</p>"),
+      page("unsent", "Unsent", "<p>Never published.</p>"),
+    ],
+    stopAfter: 1,
+  });
+  assert.equal(published.code, 200, published.body.error);
+  await settled();
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  for (const address of [`${a.base}/r/1`, `${a.base}/`]) {
+    const text = await (await fetch(h.server.origin + address)).text();
+    assert.match(text, /published otter/);
+    assert.doesNotMatch(text, /"unsent"/);
+  }
+});

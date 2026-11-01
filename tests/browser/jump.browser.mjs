@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
-import { everywhere } from "../support/search.mjs";
+import { chooseInMenu, everywhere } from "../support/search.mjs";
 
 const pages = [
   {
@@ -53,9 +53,14 @@ async function setUp(t, setup = async () => {}) {
   return { h, a, page, extra };
 }
 
-async function openResult(page, query, { allSessions = false } = {}) {
+async function openResult(
+  page,
+  query,
+  { allSessions = false, closed = false } = {},
+) {
   await page.locator("#search-button").click();
   if (allSessions) await everywhere(page);
+  if (closed) await chooseInMenu(page, "sessions", "closed");
   const answered = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/search" &&
@@ -320,7 +325,7 @@ test("a closed session opens read-only and says it is closed", async (t) => {
     return other;
   });
   if (!page) return;
-  await openResult(page, "dugong", { allSessions: true });
+  await openResult(page, "dugong", { closed: true });
   await page.waitForURL(new RegExp(`/s/${b.id}/r/1`));
   await highlighted(page, "dugong");
   assert.equal(

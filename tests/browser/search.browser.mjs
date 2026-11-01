@@ -411,3 +411,44 @@ test("round numbers show for one session, and a label stays short however much i
   await chooseInMenu(page, "sessions", "here");
   assert.equal(await label("sessions"), "2 sessions");
 });
+
+test("closed sessions stay out of search until the reader asks", async (t) => {
+  const { h, page } = await searchPage(t);
+  if (!page) return;
+  const other = await h.session();
+  const published = await other.publish({
+    ...planData(),
+    pages: [{ id: "old", title: "Old", html: "<p>The ancient tapir.</p>" }],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  assert.equal(
+    (await other.request(`${other.base}/api/dismiss`, {})).code,
+    200,
+  );
+  const label = () =>
+    page.locator('[data-menu="sessions"] .search-menu-button').textContent();
+  await page.locator("#search-button").click();
+  await everywhere(page);
+  await waitUntil(async () => {
+    const reply = await fetch(
+      `${h.server.origin}/api/search?q=${encodeURIComponent("ancient tapir")}&closed=1`,
+    );
+    return (await reply.json()).total > 0;
+  });
+  await type(page, "ancient tapir");
+  const wider = page.locator("[data-wider]");
+  await wider.waitFor();
+  assert.match(await wider.textContent(), /in closed sessions/);
+  await wider.click();
+  await page.locator(".search-row").first().waitFor();
+  assert.equal(await label(), "All + closed");
+  assert.match(
+    await page.locator(".search-where").first().textContent(),
+    /Closed/,
+  );
+
+  // Closing the list again takes them back out.
+  await chooseInMenu(page, "sessions", "closed");
+  assert.equal(await label(), "All sessions");
+  await wider.waitFor();
+});
