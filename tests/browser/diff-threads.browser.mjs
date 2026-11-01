@@ -210,3 +210,36 @@ test("a note on diff text marks the words selected in the diff, and the mark sho
   assert.equal(await page.locator("#note-title").textContent(), "Edit note");
   assert.equal(await page.locator("#note-text").inputValue(), note);
 });
+
+test("a diff draws on the next visit after the diff library failed to load once", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const published = await session.publish({
+    name: "diff-retry",
+    round: "1",
+    title: "Diff retry",
+    pages: [{ id: "changes", title: "Changes", html: pageHtml }],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  const page = await open(t, "about:blank", {
+    args: ["--host-resolver-rules=MAP esm.sh ~NOTFOUND"],
+  });
+  if (!page) return;
+  await page.route(/^https:\/\/esm\.sh\//, (route) => route.abort(), {
+    times: 1,
+  });
+  await page.goto(`${h.server.origin}${session.base}/#changes`);
+  await page.locator("[data-diff-error]:not(:empty)").first().waitFor();
+  await page.unroute(/^https:\/\/esm\.sh\//);
+  await fetchEsmInNode(page);
+  await page.locator('#page-list [data-page="agreed"]').click();
+  await page.locator('#page-list [data-page="changes"]').click();
+  await page.waitForFunction(
+    () =>
+      [...document.querySelectorAll(".change-view *")].some(
+        (node) => node.shadowRoot,
+      ),
+    null,
+    { timeout: 15000 },
+  );
+});
