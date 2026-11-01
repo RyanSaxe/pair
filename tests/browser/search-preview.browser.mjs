@@ -392,7 +392,7 @@ test("an older round opens in the session's frame, read-only like the page", asy
   assert.equal(await shown(page).locator("#comment-here").isVisible(), false);
 });
 
-test("a closed session shows read-only, and leaving stops what's playing", async (t) => {
+test("a closed session shows read-only", async (t) => {
   const { b, page, origin } = await setUp(t);
   if (!page) return;
   const closed = await fetch(`${origin}${b.base}/api/dismiss`, {
@@ -413,6 +413,24 @@ test("a closed session shows read-only, and leaving stops what's playing", async
     "readonly",
   );
   assert.equal(await shown(page).locator("#comment-here").isVisible(), false);
+});
+
+test("leaving the search window stops what plays in a frame", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "walrus");
+  await previewShows(page, "walrus");
+  await page.evaluate(() => {
+    const win = document.querySelector(".search-frame.is-shown").contentWindow;
+    win.pauses = 0;
+    const video = win.document.createElement("video");
+    video.pause = () => win.pauses++;
+    win.document.getElementById("page-content").append(video);
+  });
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(
+    () => document.querySelector(".search-frame").contentWindow.pauses === 1,
+  );
 });
 
 test("a theme change reaches a frame that's already loaded", async (t) => {
