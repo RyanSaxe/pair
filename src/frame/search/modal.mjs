@@ -22,6 +22,9 @@ const WIDER = {
   sessions: "all sessions",
 };
 const PHONE = 720;
+const AIM_PX = 4;
+const AIM_SLOPE = 2;
+const REST_MS = 120;
 // How far a key moves the selection. Ctrl+K is one of them on every system, so
 // it never closes the modal.
 const ARROW_STEPS = { ArrowDown: 1, ArrowUp: -1 };
@@ -155,7 +158,8 @@ export function installSearch() {
   const kindsButton = part(".search-kinds-button");
   let current = { results: [], counts: {}, total: 0 };
   let request = null;
-  let lastPointer = null;
+  let aim = null;
+  let rest = 0;
   let pressedOutside = false;
 
   kinds.innerHTML =
@@ -348,6 +352,7 @@ export function installSearch() {
 
   function open() {
     if (!dialog.open) dialog.showModal();
+    aim = null;
     input.value = state.query;
     input.focus();
     input.select();
@@ -416,15 +421,33 @@ export function installSearch() {
     if (getSelection().isCollapsed) focusField();
   });
 
-  // A row follows the pointer only when the pointer moved, so a list that
-  // redraws under a resting pointer keeps the keyboard's selection.
+  // A row follows the pointer, except while the pointer heads right, for the
+  // preview and Open, across rows the reader isn't choosing. A pointer that stops
+  // selects the row under it. Moves are measured from where the last one ended,
+  // and a list that redraws under a resting pointer sends one with no distance,
+  // so that pointer keeps the keyboard's selection.
   list.addEventListener("mousemove", (event) => {
-    const here = `${event.clientX},${event.clientY}`;
-    if (here === lastPointer || !kinds.hidden) return;
-    lastPointer = here;
+    if (!kinds.hidden) return;
+    const here = { x: event.clientX, y: event.clientY };
+    const dx = here.x - (aim?.x ?? here.x);
+    const dy = here.y - (aim?.y ?? here.y);
+    aim ||= here;
+    if (Math.abs(dx) + Math.abs(dy) < AIM_PX) return;
+    aim = here;
+    clearTimeout(rest);
     const row = event.target.closest(".search-row");
-    if (row && Number(row.dataset.i) !== state.selected)
-      moveSelection(Number(row.dataset.i));
+    if (!row) return;
+    const select = () => {
+      if (row.isConnected && Number(row.dataset.i) !== state.selected)
+        moveSelection(Number(row.dataset.i));
+    };
+    if (dx > 0 && Math.abs(dy) < dx * AIM_SLOPE)
+      rest = setTimeout(select, REST_MS);
+    else select();
+  });
+  list.addEventListener("mouseleave", () => {
+    aim = null;
+    clearTimeout(rest);
   });
   // Scrolling the results on a phone drops the keyboard, so more rows show.
   list.addEventListener("touchmove", () => input.blur(), { passive: true });

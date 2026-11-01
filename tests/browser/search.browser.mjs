@@ -23,6 +23,14 @@ const pages = [
     title: "Second page",
     html: "<p>A sentence about the walrus.</p><p>Another about the lemur.</p>",
   },
+  {
+    id: "many",
+    title: "Many blocks",
+    html: Array.from(
+      { length: 12 },
+      (_, number) => `<p>A llama numbered ${number}.</p>`,
+    ).join(""),
+  },
 ];
 
 async function searchPage(t, options = {}) {
@@ -365,6 +373,40 @@ test("Tab moves through the modal's controls, and each works by key", async (t) 
       "Latest round",
   );
   assert.equal(await focused(), "Latest round");
+});
+
+test("the selection holds while the pointer heads for Open, and follows the pointer through the list", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const selectedIndex = () =>
+    page.locator('.search-row[aria-selected="true"]').getAttribute("data-i");
+  const rowAt = async (index, along = 0.5) => {
+    const box = await page.locator(".search-row").nth(index).boundingBox();
+    return [box.x + box.width * along, box.y + box.height / 2];
+  };
+  await page.locator("#search-button").click();
+  await type(page, "llama");
+
+  // Down through the list, the selection follows the pointer.
+  await page.mouse.move(...(await rowAt(0)));
+  await page.mouse.move(...(await rowAt(6)), { steps: 12 });
+  assert.equal(await selectedIndex(), "6");
+
+  // On the way to Open, the path crosses the rows above the selected one.
+  const open = await page.locator(".search-open:visible").boundingBox();
+  await page.mouse.move(open.x + 10, open.y + 10, { steps: 24 });
+  assert.equal(await selectedIndex(), "6");
+
+  // Up through the list, it follows again, and a pointer that heads right and
+  // stops selects the row it stopped on.
+  await page.mouse.move(...(await rowAt(1, 0.2)), { steps: 12 });
+  assert.equal(await selectedIndex(), "1");
+  await page.mouse.move(...(await rowAt(2, 0.8)), { steps: 8 });
+  await page.waitForFunction(
+    () =>
+      document.querySelector('.search-row[aria-selected="true"]').dataset.i ===
+      "2",
+  );
 });
 
 test("a drag from the preview to the backdrop leaves the modal open", async (t) => {
