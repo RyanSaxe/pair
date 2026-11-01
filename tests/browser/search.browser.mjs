@@ -376,6 +376,16 @@ test("round numbers show for one session, and a label stays short however much i
       .evaluateAll((all) => all.map((item) => item.textContent));
   await page.locator("#search-button").click();
   await type(page, "walrus");
+  // The default labels fit whole.
+  const trimmed = () =>
+    page
+      .locator(".search-menu-button span")
+      .evaluateAll(
+        (labels) =>
+          labels.filter((label) => label.scrollWidth > label.clientWidth)
+            .length,
+      );
+  assert.equal(await trimmed(), 0);
   // The sessions list loads as search opens.
   await page.waitForFunction(
     () =>
@@ -396,6 +406,7 @@ test("round numbers show for one session, and a label stays short however much i
   await chooseInMenu(page, "sessions", "");
   assert.equal(await label("sessions"), "All sessions");
   assert.equal(await label("rounds"), "All rounds");
+  assert.equal(await trimmed(), 0);
   assert.deepEqual(await items("rounds"), ["All rounds", "Latest round"]);
 
   // One other session: its title shrinks, and the row stays on one line.
