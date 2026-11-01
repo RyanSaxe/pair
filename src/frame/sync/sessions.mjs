@@ -120,10 +120,11 @@ export function stateWords(entry) {
     return `Working · ${since(entry.updatedAt)}`;
   return "Live";
 }
-export function rowStatus(entry, unopened = 0) {
+// A row shows its unopened pages beside this status, so a session that waits
+// still says which pages are new.
+export function rowStatus(entry) {
   if (entry.needsYou) return { text: "Waiting", tone: "need" };
   if (entry.wakeFailed) return { text: "Can't wake", tone: "need" };
-  if (unopened) return { text: `${unopened} new`, tone: "news" };
   if (entry.paused) return { text: "Paused", tone: "quiet" };
   if (
     !entry.round ||
@@ -268,18 +269,24 @@ function sessionRow(entry, unopened, depth) {
     ? { text: closing.get(entry.id), tone: "quiet" }
     : current
       ? null
-      : rowStatus(entry, unopened);
+      : rowStatus(entry);
+  const marks = document.createElement("span");
+  marks.className = "marks";
+  const addPill = (text, tone) => {
+    const pill = document.createElement("span");
+    pill.className = `pill ${tone}`;
+    pill.textContent = text;
+    marks.append(pill);
+  };
+  if (unopened && !current && !closing.has(entry.id))
+    addPill(`${unopened} new`, "news");
   if (shown?.tone === "working") {
     const dot = document.createElement("span");
     dot.className = "working";
     dot.setAttribute("aria-label", "Working");
-    row.append(dot);
-  } else if (shown) {
-    const pill = document.createElement("span");
-    pill.className = `pill ${shown.tone}`;
-    pill.textContent = shown.text;
-    row.append(pill);
-  }
+    marks.append(dot);
+  } else if (shown) addPill(shown.text, shown.tone);
+  row.append(marks);
   row.onclick = () => {
     if (current) toggleSessions(false);
     else location.assign(entry.url);
