@@ -15,14 +15,16 @@ Select the magnifying glass in the header, or press <kbd>⌘K</kbd> on macOS,
 <kbd>Ctrl+K</kbd> elsewhere, or <kbd>/</kbd>. Type a few words, and the list
 filters on every keystroke. Typos and partial words still match.
 
-| Key                       | What it does                                         |
-| ------------------------- | ---------------------------------------------------- |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Moves through the results                            |
-| <kbd>Enter</kbd>          | Opens the selected result                            |
-| <kbd>Option+S</kbd>       | Switches between this session and all sessions       |
-| <kbd>Option+R</kbd>       | Switches between all rounds and the latest round     |
-| <kbd>Tab</kbd>            | Moves through the kinds                              |
-| <kbd>Esc</kbd>            | Closes search and keeps your words for the next time |
+| Key                                                            | What it does                                         |
+| -------------------------------------------------------------- | ---------------------------------------------------- |
+| <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Ctrl+J</kbd> <kbd>Ctrl+K</kbd> | Moves through the results                            |
+| <kbd>Enter</kbd>                                               | Opens the selected result                            |
+| <kbd>Option+S</kbd>                                            | Switches between this session and all sessions       |
+| <kbd>Option+R</kbd>                                            | Switches between all rounds and the latest round     |
+| <kbd>Tab</kbd>                                                 | Moves through the filters and Open                   |
+| <kbd>Esc</kbd>                                                 | Closes search and keeps your words for the next time |
+
+Search keeps your words and filters as you move between sessions in a tab.
 
 ## Narrow it
 
@@ -39,18 +41,27 @@ words.
 
 ## The preview
 
-The preview draws the block that matched, as the real component: a diff is the
-real diff, and a decision opens on the option that has your words. A thread shows
-its message above the block it's on. Words a block doesn't draw as text, such as
-an image's alt text, show in a strip under the block. On a phone, tap a result to
-see its preview, and select Open to go to its page.
+The preview is the result's real page, from the session's own frame, showing
+only the block with your words and its threads. A diff is the real diff, a
+proposal is its real card, and a decision shows what you chose. When your words
+are in an option or a fold that's closed, the preview opens the part that shows
+the most of them.
+
+Everything the page allows works in the preview: comments, threads, replies,
+choices, answers and proposals. Each goes to the result's own session and round,
+and a comment names them. An older round or a closed session allows what its page
+allows.
+
+On a phone, tap a result to see its preview under the results, and tap the next
+result to move on. While the on-screen keyboard is up, only the results show.
 
 ## Open a result
 
-Enter or Open closes search and goes to the result, scrolled to the block with
-your words highlighted until you move to another page. A result in another live
-session opens that session, so you can still reply, and a result in a closed
-session opens read-only. Back returns to where you were.
+Enter or Open closes search and goes to the result, scrolled to your words, which
+stay highlighted until you move to another page. A result in another live session
+opens that session, so you can still reply, and a result in a closed session opens
+read-only. The browser's Back and Forward return through each page and session,
+and moving through results adds nothing to them.
 
 ## What it leaves out
 
@@ -61,7 +72,11 @@ session opens read-only. Back returns to where you were.
   prototype.
 
 A round keeps the frame it was published with, so a round published before
-search has no search icon when you open its address directly.
+search has no search icon when you open its address directly. The preview shows
+it on today's frame.
+
+A custom component works with search without any code. See
+[Writing a component](../../src/components/README.md).
 
 ## Agents
 

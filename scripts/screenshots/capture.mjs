@@ -366,13 +366,13 @@ export async function stage(t, scratch) {
 
   await page.locator("#search-button").click();
   await page.locator(".search-input").fill("thread.target");
-  await page.locator(".search-frame.is-ready").waitFor();
+  await page.locator(".search-frame.is-shown").waitFor();
   await until(
     page,
     "Highlighting the words in the preview",
     () =>
       document
-        .querySelector(".search-frame")
+        .querySelector(".search-frame.is-shown")
         .contentWindow.CSS.highlights.get("plan-preview")?.size > 0,
   );
   save("docs/assets/search", await inThemes(page));
