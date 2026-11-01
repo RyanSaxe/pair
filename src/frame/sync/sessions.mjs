@@ -134,7 +134,7 @@ export function rowStatus(entry, unopened = 0) {
   return null;
 }
 /* A waiting round counts only while the bell still lists its line, and
-   renderCenter clears that line once a visible tab has shown the session.
+   renderCenter clears that line once a tab with focus has shown the session.
    A round that the reviewer opened therefore stops counting until its
    agent publishes again. cleared is the bell's set of cleared event IDs. */
 export function sessionsBadge(list, thisId, unopened, cleared) {

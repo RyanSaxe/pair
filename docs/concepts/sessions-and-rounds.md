@@ -202,6 +202,10 @@ session that starts or has a round waiting for you.
 | Give an agent's reply a thumbs up | That reply's line                            |
 | Press **Clear all**               | Every line                                   |
 
+pair counts a session as open while its tab's window has focus. A session on
+screen in a window you are not using keeps its lines in the bell of your other
+tabs until you click that window.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
   <img alt="The bell's list with another session's start and waiting round and an agent's reply, and the session button in orange because that session waits for you" src="../assets/bell-light.png">
