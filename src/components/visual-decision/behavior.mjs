@@ -138,6 +138,17 @@ function initialize(section, { page, planUI }) {
     list[next].focus();
     list[next].click();
   });
+  // Search asks for the option that holds a reader's words.
+  section.addEventListener("plan:reveal", (event) => {
+    const article = event.target.closest(".visual-option");
+    if (!article) return;
+    active = article.dataset.option;
+    viewed = true;
+    sync();
+    section
+      .querySelector('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
   layout.addEventListener("click", (event) => {
     const button = event.target.closest("[data-vd-layout]");
     if (!button) return;

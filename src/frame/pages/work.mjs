@@ -1,7 +1,7 @@
 import { $, unreachable } from "#frame/app/util.mjs";
-import { base, editable, online, session } from "#frame/app/view.mjs";
+import { base, editable, embedded, online, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
-import { placeThreads } from "#frame/notes/threads.mjs";
+import { images, placeThreads } from "#frame/notes/threads.mjs";
 import {
   fromPage,
   pageLink,
@@ -10,7 +10,7 @@ import {
   wordsPlace,
 } from "#frame/pages/card-links.mjs";
 import { statusBox } from "#frame/pages/card-status.mjs";
-import { openStart } from "#frame/pages/start-popup.mjs";
+import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
 import {
   listedSession,
   sessionsListed,
@@ -137,9 +137,10 @@ function cardWhere(card) {
       box.append("In its own session · ", sessionLink("Open", linked));
     else box.textContent = "Waiting for its session to start";
   } else {
-    const { page, thread } = card.source;
+    const { page, thread, reviewer } = card.source;
     if (page) box.append(pageLink(fromPage(page), page.round, page.id));
     else if (thread) box.append(threadLink("From a thread", thread));
+    else if (reviewer) box.textContent = "You wrote this";
     else return null;
   }
   return box;
@@ -219,6 +220,7 @@ export function cardElement(card, shown = context(), fresh = false) {
   body.append(head, metaLine(state, tone, cardWhere(card)));
   if (card.started && !finished(card)) body.append(statusBox(card));
   body.append(element("p", "proposal-delivers", card.delivers));
+  if (card.attachments?.length) body.append(images(card));
   // cardElement() quotes the reviewer's words that started the card, or the
   // reviewer's message with Start, so the card shows everything the reviewer
   // approved.
@@ -269,7 +271,7 @@ function watchCards(list) {
     (entries, observer) => {
       const shown = entries.filter((entry) => entry.isIntersecting);
       for (const entry of shown) observer.unobserve(entry.target);
-      if (shown.length)
+      if (shown.length && !embedded)
         markSeen(
           session.sessionId,
           shown.map((entry) => entry.target.dataset.proposalCard),
@@ -322,7 +324,15 @@ function selectTab(id) {
   refreshWork(true);
   $(`work-tab-${id}`)?.focus();
 }
+// The reviewer has already seen a card they wrote, so it gets no New label.
+const openForm = () =>
+  openNewItem((result, id) => {
+    markSeen(session.sessionId, [id]);
+    changed(result, id);
+  });
 function renderWork(groups, shown, seen) {
+  $("work-new").hidden = !cardsEditable();
+  $("work-new").onclick = openForm;
   const tabs = $("work-tabs");
   tabs.replaceChildren(
     ...workTabs.map(({ id, label }) => {
@@ -405,7 +415,7 @@ function paintProposal(root, seen = seenCards()) {
   root.replaceChildren(cardElement(card, shown, fresh));
 }
 export function refreshWork(force = false) {
-  if (remote) adoptCards(session.sessionId, cards());
+  if (remote && !embedded) adoptCards(session.sessionId, cards());
   const seen = seenCards();
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);

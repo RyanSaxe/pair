@@ -54,6 +54,7 @@ const stylesheets = [
   "pages/diagram.css",
   "app/dialogs.css",
   "app/modes.css",
+  "search/search.css",
 ];
 export async function frameBundle() {
   const roots = componentRoots();
@@ -183,10 +184,12 @@ function join(bundle, data, css, js) {
         // !important.
         //
         // Page CSS is already scoped to its page, and nesting it inside the
-        // component scope would exclude the scope's root itself.
+        // component scope would exclude the scope's root itself. An agent's
+        // reply can hold components, and a thread on a Work card or on Review
+        // sits outside #page-content, so the scope covers .thread-content too.
         () =>
           `<style>\n@layer frame, plan, components;\n@layer frame {\n${style}\n}\n` +
-          `@layer plan {\n${css}\n}\n@scope (#page-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
+          `@layer plan {\n${css}\n}\n@scope (#page-content, .thread-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
           `</style>`,
       )
       .replace("<!-- FRAME_SCRIPT -->", () =>

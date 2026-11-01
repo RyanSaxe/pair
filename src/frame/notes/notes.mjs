@@ -11,11 +11,13 @@ import {
   agreedTask,
   agreements,
   editable,
+  embedded,
   feedbackEditable,
   noteEditable,
   online,
   page,
   pages,
+  plan,
   showingWaiting,
   topicTitle,
 } from "#frame/app/view.mjs";
@@ -111,7 +113,7 @@ let opener = null;
    quote and a quote must match the page's own text. The returned text has
    each run of whitespace collapsed to one space, and map contains the node
    and offset of every other character. */
-function pageText(root) {
+export function pageText(root) {
   const map = [];
   let text = "",
     pendingSpace = false;
@@ -140,7 +142,9 @@ function pageText(root) {
       return;
     if (
       node.nodeType === Node.ELEMENT_NODE &&
-      node.matches("script, style, pair-thread, textarea[data-diff-input]")
+      node.matches(
+        "script, style, pair-thread, textarea[data-diff-input], .katex-mathml",
+      )
     )
       return;
     if (node.shadowRoot) walk(node.shadowRoot);
@@ -424,8 +428,12 @@ export function openNote({
   // the same words keep separate drafts.
   noteDraftKey = JSON.stringify([id, noteContext]);
   const pageTitle = topicTitle(topic) || anchor;
-  $("note-anchor").textContent =
+  const place =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;
+  // In the search window, the comment may go to another session.
+  $("note-anchor").textContent = embedded
+    ? `${plan.title} › Round ${plan.round} › ${place}`
+    : place;
   $("note-quote").textContent = quote;
   $("note-quote").hidden = !quote;
   $("note-text").value =

@@ -29,6 +29,7 @@ import {
   views,
   waiting,
   waitingView,
+  embedded,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
@@ -275,6 +276,15 @@ async function loadPageSet(round, viewFor, failure) {
   }
   return manifest;
 }
+// The search window's frame starts with no pages, so it reads their list first.
+export const ensurePageSet = () =>
+  pageSets.has(plan.round)
+    ? Promise.resolve()
+    : loadPageSet(
+        plan.round,
+        () => views.get(plan.round),
+        "Could not load page list.",
+      );
 async function syncPageSet() {
   const round = remote?.current?.round;
   if (!round || !remote.pageSetGeneration) return;
@@ -334,15 +344,31 @@ function loadPastView(round) {
   pastLoads.set(round, task);
   return task;
 }
-export async function openPast(round, { pageId = null, targetId = null } = {}) {
+export async function openPast(
+  round,
+  { pageId = null, targetId = null, match = null, push = true } = {},
+) {
   const loaded = await loadPastView(round).catch(() => false);
   if (!loaded) {
-    location.assign(`${base}/r/${encodeURIComponent(round)}`);
+    const address = new URLSearchParams();
+    if (targetId) address.set("target", targetId);
+    if (match) address.set("match", match);
+    const query = address.size ? `?${address}` : "";
+    const hash = pageId ? `#${encodeURIComponent(pageId)}` : "";
+    const older = `${base}/${embedded ? "embed" : "r"}/${encodeURIComponent(round)}${query}${hash}`;
+    if (embedded) location.replace(older);
+    else location.assign(older);
     return;
   }
   setPastRound(round);
   if (pageId) places[round] = { page: pageId, at: {} };
-  switchTab("past", targetId, { showPage: true });
+  switchTab("past", targetId, { showPage: true, match, push });
+}
+// From an older round's tab, a result in the current round moves back with no
+// page load.
+export function openCurrent({ pageId, targetId, match }) {
+  places[remote.current.round] = { page: pageId, at: {} };
+  switchTab("current", targetId, { showPage: true, match });
 }
 // Current's draft is the one set aside when the reader left Current, or
 // else the saved draft.
@@ -387,7 +413,11 @@ export function listTab(tab) {
   updateNavigation(true);
   review();
 }
-export function switchTab(tab, targetId = null, { showPage = true } = {}) {
+export function switchTab(
+  tab,
+  targetId = null,
+  { showPage = true, match = null, push = true } = {},
+) {
   if (!tabAvailable(tab)) return;
   flushPlace();
   const round = tab === "current" ? remote.current.round : pastRound;
@@ -412,7 +442,7 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
     const place = view.waiting
       ? null
       : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
-    show(place?.page || "agreed", targetId);
+    show(place?.page || "agreed", targetId, { match, push });
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();

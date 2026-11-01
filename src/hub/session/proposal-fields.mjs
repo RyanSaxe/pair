@@ -1,4 +1,4 @@
-import { requireValue } from "../../shared/util.mjs";
+import { requireValue, timestamp } from "../../shared/util.mjs";
 
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // here runs the work in this session's rounds. sub-session and new-agent run
@@ -50,6 +50,54 @@ export function message(data) {
   const text = data.message.trim();
   requireValue(text.length <= 4000, "The message exceeds 4,000 characters");
   return text;
+}
+// writtenCard returns the card the reviewer wrote on Work. Its description has
+// the same 4,000-character limit as Start's message, because no message goes
+// with it. The frame chooses the ID, because Copy command copies it before the
+// hub answers.
+const reviewerActions = ["save", "start", "open-agent"];
+export async function writtenCard(session, data) {
+  const id = typeof data?.id === "string" ? data.id : "";
+  requireValue(
+    slug.test(id) && id.length <= 60,
+    "A work item's ID is a slug of at most 60 characters",
+  );
+  requireValue(
+    reviewerActions.includes(data.action),
+    "A work item's action is save, start or open-agent",
+  );
+  const delivers =
+    typeof data.delivers === "string" ? data.delivers.trim() : "";
+  requireValue(
+    delivers && delivers.length <= 4000,
+    "A work item needs a description of at most 4,000 characters",
+  );
+  const attachments = data.attachments ?? [];
+  requireValue(
+    Array.isArray(attachments),
+    "A work item's attachments must be an array",
+  );
+  const images = [];
+  for (const item of attachments) {
+    requireValue(
+      item && typeof item.id === "string",
+      "An attachment needs its image ID",
+    );
+    images.push(await session.storedAttachment(item));
+  }
+  return {
+    id,
+    title: words(data, "title"),
+    delivers,
+    recommend: null,
+    source: { reviewer: true },
+    ...(images.length ? { attachments: images } : {}),
+    recordedAt: timestamp(),
+    started: null,
+    declined: null,
+    withdrawn: null,
+    done: null,
+  };
 }
 // With Plan it first, the agent in the card's own session plans before it
 // builds. A plan round in this session would mix with its other work, so

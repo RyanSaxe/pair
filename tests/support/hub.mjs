@@ -235,7 +235,8 @@ export async function hub(t, extra = {}, options = {}) {
         }),
         pages: data.pages.map(({ id, title }) => ({ id, title })),
       });
-      for (const page of data.pages) {
+      // With data.stopAfter, the rest of the round's pages never publish.
+      for (const page of data.pages.slice(0, data.stopAfter)) {
         if (result.code !== 200) break;
         result = await action("publish", { html: await build(page) });
       }

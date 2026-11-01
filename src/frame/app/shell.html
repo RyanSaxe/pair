@@ -98,6 +98,26 @@
         </button>
         <button
           class="icon-btn"
+          id="search-button"
+          type="button"
+          aria-label="Search"
+          hidden
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.8-3.8" />
+          </svg>
+        </button>
+        <button
+          class="icon-btn"
           id="settings"
           type="button"
           aria-label="Settings"
@@ -310,7 +330,12 @@
                 </nav>
               </section>
               <section id="work-view" hidden>
-                <h1 tabindex="-1" id="work-title">Work</h1>
+                <div class="work-head">
+                  <h1 tabindex="-1" id="work-title">Work</h1>
+                  <button class="btn" type="button" id="work-new" hidden>
+                    New work item
+                  </button>
+                </div>
                 <p
                   class="notice"
                   id="work-error"

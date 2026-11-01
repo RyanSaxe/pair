@@ -1,5 +1,6 @@
 // This module lays screenshots out on a sheet and screenshots the sheet at 2x.
 // Both sheets use one grid, 1280 CSS pixels wide with a 48px margin.
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 const uri = (png) => `data:image/png;base64,${png.toString("base64")}`;
@@ -22,6 +23,26 @@ function typed(args) {
   }
   return `pair ${parts.join(" ")}`;
 }
+// The terminal shows IDs that each run creates anew. fixedIds() gives each one
+// a stand-in from the order it first appears, so the same commands draw the same
+// picture on every run, whatever else the terminal shows.
+export function fixedIds(rows) {
+  const standIns = new Map();
+  const standIn = (id) => {
+    if (!standIns.has(id))
+      standIns.set(
+        id,
+        createHash("sha256")
+          .update(String(standIns.size))
+          .digest("hex")
+          .slice(0, 8),
+      );
+    return standIns.get(id);
+  };
+  const swap = (text) =>
+    text.replace(/\b[0-9a-f]{8}(?=…)|(?<=…\/)[0-9a-f]{8}\b/g, standIn);
+  return rows.map(({ cmd, out }) => ({ cmd: swap(cmd), out: out.map(swap) }));
+}
 function terminal(transcript) {
   const last = (what, test) => {
     const entry = transcript.findLast(test);
@@ -43,7 +64,7 @@ function terminal(transcript) {
     ({ args, text }) =>
       args[0] === "read" && /<pair_feedback [^>]*round="2"/.test(text),
   );
-  return [
+  const rows = [
     [publish, [pick(publish, /^Published .*$/m)]],
     [reply, [pick(reply, /^Posted your reply.*$/m)]],
     [propose, [pick(propose, /^Proposal .*$/m)]],
@@ -55,6 +76,7 @@ function terminal(transcript) {
     cmd: typed(entry.args),
     out: lines.map(short),
   }));
+  return fixedIds(rows);
 }
 // words() renders each word as a span that never breaks, so the terminal wraps
 // a line only at a space.

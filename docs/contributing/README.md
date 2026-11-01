@@ -66,11 +66,12 @@ to check in it.
 
 ## Browser tests
 
-The browser tests open built pages in the installed Google Chrome through
+The browser tests open built pages in Chrome for Testing through
 `playwright-core`, a devDependency. `npm install -g` skips devDependencies,
 so an installed `pair` has no `playwright-core`. Run `npm ci` once in a
-checkout before the first run. Without Google Chrome, a browser test skips.
-When the `CI` environment variable is set, as it is in GitHub Actions, the
+checkout, and then `npx playwright-core install chromium` once, before the first
+run. Without Chrome for Testing, a browser test skips. When the `CI` environment
+variable is set, as it is in GitHub Actions, the
 test fails instead.
 
 `npm run test:figures` checks that every figure in the fixture renders. CI
@@ -80,7 +81,7 @@ from esm.sh or jsDelivr fails the test while that CDN is down.
 ## Screenshots
 
 `npm run screenshots` writes the README's and the docs' PNGs from a demo
-session, in Google Chrome through the same `playwright-core`. It runs only
+session, in Chrome for Testing through the same `playwright-core`. It runs only
 on macOS, because the frame uses the system font, and lines break in other
 places on another system.
 
@@ -96,9 +97,11 @@ pull request into a branch other than `main` that changes any of these:
 - `scripts/demo/`
 
 The workflow pushes the PNGs that the script rewrote to the pull request's
-branch, as a commit by `github-actions[bot]`. The illustration's terminal
-shows IDs that each run creates anew, so the workflow pushes one of these
-commits after every push to such a pull request.
+branch, as a commit by `github-actions[bot]`. The script fixes the browser's
+clock, gives each run's IDs the same stand-ins and waits for the layout to
+settle, so a run with no visual change draws the same pictures. It keeps a PNG
+that differs only in faint edge pixels, so the workflow pushes one of these
+commits only when a picture changes.
 
 Pull that commit before you push again. GitHub runs the checks on that
 commit only after someone with write access selects **Approve workflows to

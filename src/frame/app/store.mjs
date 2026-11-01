@@ -31,6 +31,8 @@ export function emptyDraft(round) {
     drafts: {},
     noteDrafts: {},
     replyDrafts: {},
+    // itemDraft contains the unsent text and images of the New work item form.
+    itemDraft: null,
     submitted: null,
     pending: null,
     // synced contains the id and revision of the hub's draft at the last

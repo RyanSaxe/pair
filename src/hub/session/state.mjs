@@ -32,6 +32,7 @@ export async function loadSession(
   origin,
   tabOpen,
   peer = () => null,
+  changed = () => {},
 ) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
@@ -77,7 +78,17 @@ export async function loadSession(
   }
   token ||= crypto.randomBytes(32).toString("hex");
   const base = `/s/${state.sessionId}`;
-  const exclusive = serializer();
+  const serial = serializer();
+  // Every route that changes a session runs through exclusive, so this one call
+  // tells search that the session's files changed.
+  const exclusive = (task) =>
+    serial(async () => {
+      try {
+        return await task();
+      } finally {
+        changed(state.sessionId);
+      }
+    });
   // The wake target contains a token or a socket path, so the hub stores it
   // in wake.json and never sends it in a browser response.
   const wakeFile = path.join(directory, "wake.json");
@@ -257,9 +268,11 @@ export async function loadSession(
       groups: {
         alignUnflagged: groups.alignUnflagged,
         notes: (groups.notes || []).map(
-          ({ topic, anchor, quote, text, attachments }) => ({
+          ({ id, topic, anchor, target, quote, text, attachments }) => ({
+            id,
             topic,
             anchor,
+            target,
             quote,
             text,
             attachments: (attachments || []).map(({ id }) => ({ id })),
@@ -338,6 +351,7 @@ export async function loadSession(
     removeUpload: session.removeUpload,
     close: session.close,
     startProposal: session.startProposal,
+    writeProposal: session.writeProposal,
     openAgent: session.openAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
@@ -363,6 +377,8 @@ export async function loadSession(
     hold: session.hold,
     wakeIfQuiet: session.wakeIfQuiet,
     roundEntry: session.roundEntry,
+    renderToday: session.renderToday,
+    renderPublished: session.renderPublished,
     pageSet: session.pageSet,
     pageRecord: session.pageRecord,
     prototype: session.prototype,

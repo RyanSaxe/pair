@@ -8,6 +8,7 @@ import {
   session,
   showingWaiting,
   waiting,
+  embedded,
 } from "#frame/app/view.mjs";
 import { onCurrentAgreed } from "#frame/notes/threads.mjs";
 import { show, updateNavigation } from "#frame/pages/pages.mjs";
@@ -24,6 +25,7 @@ import {
   remote,
   selectedTab,
   switchTab,
+  openCurrent,
 } from "#frame/sync/rounds.mjs";
 import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
 
@@ -142,12 +144,14 @@ export function renderCenter(sessions, fromHub, hub) {
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
-    // A visible tab has shown its own session's start and waiting round, so
-    // renderCenter clears them, and the bell does not list them after the
-    // reviewer moves to another session.
+    // A tab with focus has shown its own session's start and waiting round,
+    // so renderCenter clears them, and the bell does not list them after the
+    // reviewer moves to another session. A tab can be visible in a window
+    // beside the one the reviewer is using, and clearing the lines from there
+    // would take them out of every tab's bell before the reviewer saw them.
     const own = sessions.find((entry) => entry.id === session.sessionId);
     const shown =
-      own && document.visibilityState === "visible"
+      own && document.hasFocus()
         ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
         : [];
     // When neither this browser nor the hub has a list, the last argument
@@ -250,28 +254,35 @@ function openEvent(event) {
   clear([event.id]);
   openLine(event);
 }
-function openLine(event) {
+// A bell line and a search result both open a place here. A result also carries
+// the words to highlight, and has its own address for when it needs a page load.
+export function openLine(event) {
   toggleCenter(false);
   const target = eventTarget(event) || null;
   const round = event.round || plan.round;
   const own = event.entry.id === session.sessionId;
-  if (own && event.page === "work" && editable) show("work", target);
+  const match = event.match ?? null;
+  if (own && event.page === "work" && editable) show("work", target, { match });
   else if (own && onCurrentAgreed(target)) {
     if (selectedTab !== "current")
       switchTab("current", null, { showPage: false });
-    show("agreed", target);
+    show("agreed", target, { match });
   } else if (
     own &&
     round === plan.round &&
     !showingWaiting() &&
-    (event.page === "overall" || pages.some((item) => item.id === event.page))
+    (["overall", "feedback"].includes(event.page) ||
+      pages.some((item) => item.id === event.page))
   )
-    show(event.page, target);
+    show(event.page, target, { match });
   // A read-only page has no Previous tab, so openEvent opens another round
   // under Previous only on an editable page.
   else if (own && editable && (round !== remote.current.round || waiting()))
-    void openPast(round, { pageId: event.page, targetId: target });
-  else location.assign(eventHref(event.entry, event));
+    void openPast(round, { pageId: event.page, targetId: target, match });
+  else if (own && editable && selectedTab === "past")
+    openCurrent({ pageId: event.page, targetId: target, match });
+  else if (embedded) show(event.page, target, { match });
+  else location.assign(event.href ?? eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");
 export function toggleCenter(open = !isOpen()) {
