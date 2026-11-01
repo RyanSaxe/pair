@@ -29,9 +29,9 @@ export const pageOf = (row) =>
     ? "feedback"
     : row.page;
 
-export function openResult(row, query) {
-  const page = pageOf(row);
-  const target = targetOf(row);
+export function openResult(row, query, place = {}) {
+  const page = place.page ?? pageOf(row);
+  const target = place.target ?? targetOf(row);
   const match = query.trim();
   const href = resultHref({ ...row, page }, { target, match });
   if (!row.round) return location.assign(href);
