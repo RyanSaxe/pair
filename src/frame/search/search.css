@@ -77,19 +77,25 @@
 .search-filters {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex: none;
   height: var(--search-filter-row);
   padding: 0 var(--search-pad) 10px;
   border-bottom: 1px solid var(--line);
 }
-.search-kinds-anchor {
+.search-menu-anchor {
   position: relative;
   display: flex;
+  flex: none;
+  min-width: 0;
+}
+/* A session's title is the one long label, so only its button shrinks. */
+.search-menu-anchor[data-menu="sessions"] {
+  flex: 0 1 auto;
 }
 .search-filter {
   padding-block: 4px;
-  padding-inline: 9px;
+  padding-inline: 8px;
   background: none;
   color: var(--muted);
 }
@@ -98,12 +104,23 @@
     color: var(--ink);
   }
 }
-.search-kinds-button::after {
+.search-menu-button {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+}
+.search-menu-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-menu-button::after {
+  flex: none;
   content: "";
   display: inline-block;
   width: 5px;
   height: 5px;
-  margin: 0 2px 2px 7px;
+  margin: 0 1px 2px 6px;
   border-right: 1.4px solid currentColor;
   border-bottom: 1.4px solid currentColor;
   transform: rotate(45deg);
@@ -113,25 +130,58 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
-.search-kinds {
+.search-menu {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
   z-index: 3;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   width: 200px;
+  max-height: min(340px, 60dvh);
   padding: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The last row stays in view, so a row the keys reach mustn't sit under it. */
+  scroll-padding-bottom: 36px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
-.search-kinds[hidden] {
+.search-menu[hidden] {
   display: none;
 }
-.search-kind {
+[data-menu="sessions"] > .search-menu {
+  right: auto;
+  left: 0;
+  width: 280px;
+}
+[data-menu="rounds"] > .search-menu {
+  right: auto;
+  left: 0;
+  width: 180px;
+}
+/* The session list can run long, so this choice stays in reach below it. */
+.search-menu-item[data-value="closed"] {
+  position: sticky;
+  z-index: 1;
+  bottom: -5px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+  background: var(--panel);
+}
+.search-menu-rule {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+.search-menu-item {
   position: relative;
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -146,17 +196,22 @@
   cursor: pointer;
 }
 @media (hover: hover) {
-  .search-kind:hover {
+  .search-menu-item:hover {
     background: var(--ground);
   }
 }
-.search-kind b {
+.search-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-menu-item b {
   color: var(--muted);
   font-size: var(--text-small);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
-.search-kind[aria-pressed="true"]::before {
+.search-menu-item[aria-pressed="true"]::before {
   content: "";
   position: absolute;
   left: 10px;
@@ -167,7 +222,7 @@
   border-left: 1.6px solid var(--accent);
   transform: rotate(-45deg);
 }
-.search-kind[data-empty="true"]:not([aria-pressed="true"]) {
+.search-menu-item[data-empty="true"]:not([aria-pressed="true"]) {
   color: var(--muted);
 }
 
@@ -188,6 +243,11 @@
   padding: 8px;
   border-radius: 7px;
   cursor: pointer;
+}
+@media (hover: hover) {
+  .search-row:hover {
+    background: var(--ground);
+  }
 }
 .search-row[aria-selected="true"] {
   background: var(--accent-soft);
@@ -248,11 +308,66 @@
   background: var(--ground);
 }
 .search-preview-main {
+  position: relative;
   flex: 1;
   min-height: 0;
+  background: var(--panel);
+}
+/* The line a page shows while it draws, along the top of the pane. */
+.search-progress {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  opacity: 0;
+  pointer-events: none;
+}
+.search-preview-main.is-loading .search-progress {
+  animation: search-progress 2.7s linear 250ms forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-preview-main.is-loading .search-progress {
+    animation-duration: 1ms;
+  }
+}
+@keyframes search-progress {
+  from {
+    opacity: 1;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(0.9);
+  }
+}
+.search-words {
+  position: absolute;
+  inset: 0;
   padding: 16px 18px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.search-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--panel);
+  visibility: hidden;
+}
+.search-frame.is-shown {
+  visibility: visible;
+}
+/* A block under another result's title dims, if it stays there long enough to
+   be read as that result. The line starts at the same moment. */
+.search-frame.is-stale {
+  opacity: 0.35;
+  transition: opacity 0s 250ms;
 }
 /* The head has the two rows of the field and the filters, so one rule runs
    across the modal: the session beside the field, and the round and page beside
@@ -376,7 +491,7 @@
   .search-session {
     display: none;
   }
-  .search-preview-main {
+  .search-words {
     padding: 12px var(--search-pad);
   }
   .search-snippet {
@@ -388,4 +503,50 @@
   .search-row {
     padding: 10px 8px;
   }
+}
+
+/* The real frame in the search window: the page's own path and scrolling, with
+   none of the app around it. */
+:root[data-embed]
+  :is(
+    .frame-header,
+    .sidebar,
+    .sidebar-scrim,
+    .history-strip,
+    #agent-activity,
+    #finished-line,
+    .note-count,
+    .page-footer
+  ) {
+  display: none !important;
+}
+/* A sent note's words stay in view above the page they belong to. */
+:root[data-embed] #embed-sent {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  margin-bottom: 14px;
+  background: var(--panel);
+}
+/* The page keeps its own scrolling box, so the reader can scroll it. */
+:root[data-embed] .app {
+  max-width: none;
+  border: 0;
+}
+:root[data-embed] .main-column {
+  margin-left: 0;
+  /* The sidebar's slide would hold the old margin after the page shows. */
+  transition: none;
+}
+:root[data-embed] .content {
+  max-width: none;
+  padding: 14px 18px 28px;
+}
+/* An opened result's words can't always be painted, and then its block shows
+   which part of the page matched. */
+.search-matched,
+svg.matched {
+  outline: 2px solid var(--mark);
+  outline-offset: -2px;
+  border-radius: 4px;
 }

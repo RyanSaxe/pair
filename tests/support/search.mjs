@@ -57,3 +57,11 @@ export const selected = (page) =>
   page.locator('.search-row[aria-selected="true"] .search-title');
 export const selectedIndex = (page) =>
   page.locator('.search-row[aria-selected="true"]').getAttribute("data-i");
+
+// Each menu stays open for more choices, so Esc closes it.
+export async function chooseInMenu(page, menu, value) {
+  await page.locator(`[data-menu="${menu}"] .search-menu-button`).click();
+  await page.locator(`[data-menu="${menu}"] [data-value="${value}"]`).click();
+  await page.keyboard.press("Escape");
+}
+export const everywhere = (page) => chooseInMenu(page, "sessions", "");

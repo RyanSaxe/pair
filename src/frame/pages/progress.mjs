@@ -62,7 +62,7 @@ export function installProgress() {
 // #page-content still apply to it. The copy is inside a closed shadow root
 // with copies of the page's stylesheets, so no lookup in the document finds
 // its duplicate IDs.
-function copyColumn() {
+export function copyColumn(prepare = () => {}) {
   const column = $("content");
   const pane = scroller().getBoundingClientRect();
   const box = column.getBoundingClientRect();
@@ -71,6 +71,7 @@ function copyColumn() {
   frame.style.cssText = `position:fixed;overflow:hidden;pointer-events:none;background:var(--panel);left:${pane.left}px;top:${pane.top}px;width:${pane.width}px;height:${pane.height}px`;
   const copy = column.cloneNode(true);
   copy.style.cssText = `position:absolute;left:${box.left - pane.left}px;top:${box.top - pane.top}px;width:${box.width}px;height:${box.height}px`;
+  prepare(copy);
   const canvases = copy.querySelectorAll("canvas");
   column.querySelectorAll("canvas").forEach((canvas, index) => {
     canvases[index].getContext("2d")?.drawImage(canvas, 0, 0);

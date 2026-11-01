@@ -36,14 +36,14 @@ test("the keys open and close search and move through it", async (t) => {
   await page.keyboard.press("Alt+KeyS");
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-toggle="allSessions"]').textContent ===
-      "All sessions",
+      document.querySelector('[data-menu="sessions"] .search-menu-button')
+        .textContent === "All sessions",
   );
   await page.keyboard.press("Alt+KeyR");
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-toggle="allRounds"]').textContent ===
-      "Latest round",
+      document.querySelector('[data-menu="rounds"] .search-menu-button')
+        .textContent === "Latest round",
   );
 });
 
@@ -100,24 +100,28 @@ test("a click outside the kinds menu only closes it, and the keys stay in the me
   await page.locator("#search-button").click();
   await type(page, "about");
 
-  await page.locator(".search-kinds-button").click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
   const rowBox = await page.locator(".search-row").first().boundingBox();
   await page.mouse.click(
     rowBox.x + rowBox.width - 4,
     rowBox.y + rowBox.height - 4,
   );
-  assert.equal(await page.locator(".search-kinds").isVisible(), false);
+  assert.equal(
+    await page.locator('[data-menu="kinds"] .search-menu').isVisible(),
+    false,
+  );
   assert.equal(await page.locator("#search-dialog[open]").count(), 1);
   assert.equal(page.url(), address);
 
   // The arrows move through the menu, and Enter toggles a kind and opens nothing.
-  await page.locator(".search-kinds-button").click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
   await page.keyboard.press("ArrowDown");
   assert.equal(await selectedIndex(page), "0");
   await page.keyboard.press("Enter");
   await page.waitForFunction(
     () =>
-      document.querySelector(".search-kinds-button").textContent === "Pages",
+      document.querySelector('[data-menu="kinds"] .search-menu-button')
+        .textContent === "Pages",
   );
   assert.equal(await page.locator("#search-dialog[open]").count(), 1);
   assert.equal(page.url(), address);
@@ -130,13 +134,13 @@ test("typing goes to the field after the menu closes, after a click on nothing, 
   await page.locator("#search-button").click();
   await type(page, "ab");
 
-  await page.locator(".search-kinds-button").click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
   await page.keyboard.press("Escape");
   await page.keyboard.type("o");
   assert.equal(await field(), "abo");
 
-  await page.locator(".search-kinds-button").click();
-  await page.locator(".search-kinds-button").click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
+  await page.locator('[data-menu="kinds"] .search-menu-button').click();
   await page.keyboard.type("u");
   assert.equal(await field(), "abou");
 
@@ -161,51 +165,53 @@ test("Tab moves through the modal's controls, and each works by key", async (t) 
     assert.equal(await focused(), label);
   }
   await page.keyboard.press("Enter");
-  assert.equal(await page.locator(".search-kinds").isVisible(), true);
+  assert.equal(
+    await page.locator('[data-menu="kinds"] .search-menu').isVisible(),
+    true,
+  );
   await page.keyboard.press("Tab");
-  assert.equal(await page.locator(".search-kinds").isVisible(), false);
+  assert.equal(
+    await page.locator('[data-menu="kinds"] .search-menu').isVisible(),
+    false,
+  );
   assert.match(await focused(), /^Open/);
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
+  assert.equal(await focused(), "All rounds");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-toggle="allRounds"]').textContent ===
-      "Latest round",
+      document.querySelector('[data-menu="rounds"] .search-menu-button')
+        .textContent === "Latest round",
   );
   assert.equal(await focused(), "Latest round");
 });
 
-test("the selection holds while the pointer heads for Open, and follows the pointer through the list", async (t) => {
+test("hover leaves the preview alone, a click shows a row, and a click on that row opens it", async (t) => {
   const { page } = await searchPage(t);
   if (!page) return;
-  const rowAt = async (index, along = 0.5) => {
+  const rowAt = async (index) => {
     const box = await page.locator(".search-row").nth(index).boundingBox();
-    return [box.x + box.width * along, box.y + box.height / 2];
+    return [box.x + box.width / 2, box.y + box.height / 2];
   };
   await page.locator("#search-button").click();
   await type(page, "llama");
 
-  // Down through the list, the selection follows the pointer.
-  await page.mouse.move(...(await rowAt(0)));
+  await page.mouse.move(...(await rowAt(3)));
   await page.mouse.move(...(await rowAt(6)), { steps: 12 });
-  assert.equal(await selectedIndex(page), "6");
+  assert.equal(await selectedIndex(page), "0");
 
-  // On the way to Open, the path crosses the rows above the selected one.
-  const open = await page.locator(".search-open:visible").boundingBox();
-  await page.mouse.move(open.x + 10, open.y + 10, { steps: 24 });
+  await page.locator(".search-row").nth(6).click();
   assert.equal(await selectedIndex(page), "6");
+  assert.equal(await page.locator("#search-dialog[open]").count(), 1);
 
-  // Up through the list, it follows again, and a pointer that heads right and
-  // stops selects the row it stopped on.
-  await page.mouse.move(...(await rowAt(1, 0.2)), { steps: 12 });
-  assert.equal(await selectedIndex(page), "1");
-  await page.mouse.move(...(await rowAt(2, 0.8)), { steps: 8 });
-  await page.waitForFunction(
-    () =>
-      document.querySelector('.search-row[aria-selected="true"]').dataset.i ===
-      "2",
-  );
+  await page.keyboard.press("ArrowUp");
+  assert.equal(await selectedIndex(page), "5");
+
+  await page.locator(".search-row").nth(5).click();
+  assert.equal(await page.locator("#search-dialog[open]").count(), 0);
 });
 
 test("a drag from the preview to the backdrop leaves the modal open", async (t) => {

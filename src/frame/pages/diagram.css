@@ -83,7 +83,7 @@
   stroke-dasharray: 4 4;
 }
 :is([data-diagram], .lightbox)
-  .pele-node.noted
+  .pele-node:is(.noted, .matched)
   > :is(rect, polygon, circle, ellipse, path):not([fill="none"]) {
   fill: var(--mark);
 }

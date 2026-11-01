@@ -112,14 +112,24 @@ export function rounds(session) {
   }
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));
-  async function renderPageRound(set, complete) {
-    const bundle = await read(storedPagePath(set, set.bundlePath));
+  async function renderPageRound(
+    set,
+    complete,
+    { today = false, withPages = !today } = {},
+  ) {
+    const bundle = today
+      ? undefined
+      : await read(storedPagePath(set, set.bundlePath));
     const agreed = await read(storedPagePath(set, set.agreed));
-    const records = await Promise.all(
-      set.pages
-        .filter((slot) => slot.recordPath)
-        .map((slot) => read(storedPagePath(set, slot.recordPath))),
-    );
+    // The search window's frame fetches each page it shows, so it doesn't carry
+    // a round's images.
+    const records = !withPages
+      ? []
+      : await Promise.all(
+          set.pages
+            .filter((slot) => slot.recordPath)
+            .map((slot) => read(storedPagePath(set, slot.recordPath))),
+        );
     const ready = new Map(
       records.map((record) => [record.page.id, record.page]),
     );
@@ -127,7 +137,7 @@ export function rounds(session) {
       id: slot.id,
       title: slot.title,
       html: ready.get(slot.id)?.html || "",
-      pending: !slot.recordPath,
+      pending: !withPages || !slot.recordPath,
       working: slot.state === "active",
     }));
     const all = [agreed.page, ...records.map((record) => record.page)];
@@ -136,7 +146,7 @@ export function rounds(session) {
       round: set.round,
       title: set.title,
       ...(set.plan ? { plan: true } : {}),
-      ...(complete ? {} : { pageMode: "partial" }),
+      ...(complete && withPages ? {} : { pageMode: "partial" }),
       pages,
       agreements: agreed.page.agreements,
       task: agreed.page.task,
@@ -150,6 +160,20 @@ export function rounds(session) {
       // from completing.
       allowUnknownPages: true,
       bundle,
+    });
+  }
+  // A round's saved page is drawn again only when every page has published, and
+  // no frame fills in a read-only one, so a round that never finished shows the
+  // pages it published. A round's own frame may be too old to draw them with
+  // today's components, so this uses today's. It returns null for a round that
+  // finished.
+  function renderPublished(round) {
+    const set = session.state.roundPages?.[round];
+    if (!set || set.pages.every((slot) => slot.recordPath)) return null;
+    const pages = set.pages.filter((slot) => slot.recordPath);
+    return renderPageRound({ ...set, pages }, true, {
+      today: true,
+      withPages: true,
     });
   }
   async function commitPageRound(set, source = null) {
@@ -466,6 +490,18 @@ export function rounds(session) {
     set.generation++;
     return commitPageRound(set);
   }
+  // The search window shows a published round on today's frame, so a result in
+  // an older session has the same frame as any other.
+  function renderToday(round) {
+    requireValue(
+      Object.hasOwn(session.state.roundPages || {}, round),
+      "Unknown round",
+      404,
+    );
+    return renderPageRound(session.state.roundPages[round], true, {
+      today: true,
+    });
+  }
   function roundEntry(round) {
     const entry = (session.state.rounds || []).find(
       (item) => item.round === round,
@@ -542,6 +578,8 @@ export function rounds(session) {
     publishPage,
     pageProgress,
     roundEntry,
+    renderToday,
+    renderPublished,
     pageSet,
     pageRecord,
     prototype,

@@ -34,6 +34,9 @@ export function installRenderers() {
          choice in memory only. */
     }
     theme();
+    window.dispatchEvent(
+      new CustomEvent("pair:theme", { detail: preferredTheme }),
+    );
   });
   systemTheme.addEventListener("change", () => {
     if (preferredTheme) return;
@@ -41,12 +44,17 @@ export function installRenderers() {
     theme();
   });
 }
+export function useTheme(preferred) {
+  preferredTheme = preferred;
+  activeTheme = preferred || (systemTheme.matches ? "dark" : "light");
+  theme();
+}
 export const charts = new Map();
 export const diagrams = new Map();
 const diffs = new Map();
 const diffLineSets = new Map();
 const noteHighlightCSS =
-  "::highlight(plan-note), ::highlight(plan-preview) { background-color: var(--mark); color: inherit; }";
+  "::highlight(plan-note), ::highlight(plan-search), ::highlight(plan-preview) { background-color: var(--mark); color: var(--ink); }";
 // renders contains the renderers in flight, so a re-render of the page can
 // restore the scroll position once the content has its height back.
 export const renders = new Set();
