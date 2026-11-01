@@ -81,12 +81,18 @@ const peleHash = `sha384-${createHash("sha384").update(pele).digest("base64")}`;
 export async function stubPele(page) {
   await page.route(/^http:\/\/127\.0\.0\.1:\d+\//, async (route) => {
     if (route.request().resourceType() !== "document") return route.fallback();
-    const response = await route.fetch();
-    const body = (await response.text()).replaceAll(
-      moduleIntegrity[libraries.pele],
-      peleHash,
-    );
-    return route.fulfill({ response, body });
+    // A test can end while the search window's frame is still loading, and then
+    // the hub is gone before this answers.
+    try {
+      const response = await route.fetch();
+      const body = (await response.text()).replaceAll(
+        moduleIntegrity[libraries.pele],
+        peleHash,
+      );
+      return await route.fulfill({ response, body });
+    } catch {
+      return route.abort().catch(() => {});
+    }
   });
   await page.route(/pele@[^/]+\/dist\/pele\.js$/, (route) =>
     route.fulfill({ body: pele, contentType: "text/javascript" }),
