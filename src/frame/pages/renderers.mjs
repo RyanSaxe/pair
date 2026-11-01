@@ -436,7 +436,10 @@ async function renderDiff(
   // without moving anything. A wrapped line is taller than one row, so a
   // wrapped diff can only grow past this minimum.
   element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
-  diffsTask ||= import(libraries.diffs);
+  diffsTask ||= import(libraries.diffs).catch((error) => {
+    diffsTask = undefined;
+    throw error;
+  });
   const { FileDiff, parsePatchFiles } = await diffsTask;
   // Once the library has loaded, the await above resumes in a microtask,
   // and the browser paints only after every microtask has run. Waiting for
