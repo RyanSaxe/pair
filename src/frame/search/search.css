@@ -244,37 +244,11 @@
   background: var(--ground);
 }
 .search-preview-main {
-  position: relative;
-  display: flex;
   flex: 1;
   min-height: 0;
-}
-.search-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: var(--ground);
-  visibility: hidden;
-}
-.search-frame.is-ready {
-  visibility: visible;
-}
-.search-miss {
-  flex: none;
-  max-height: 34%;
-  padding: 8px 18px;
+  padding: 16px 18px;
   overflow-y: auto;
-  border-top: 1px solid var(--line);
-  background: var(--panel);
-  font-size: var(--text-small);
-  overflow-wrap: anywhere;
-}
-.search-miss b {
-  display: block;
-  color: var(--muted);
-  font-weight: var(--weight-strong);
+  overscroll-behavior: contain;
 }
 .search-sheet-bar {
   display: none;
@@ -303,14 +277,6 @@
   font-size: var(--text-small);
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.search-words {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  padding: 16px 18px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 .search-preview-head {
   display: flex;
@@ -416,8 +382,6 @@
   .search-filter {
     height: 30px;
   }
-  /* The preview stays laid out at full size behind the results, so its document
-     is ready for the first tap and no iframe reloads. */
   .search-preview {
     position: absolute;
     inset: 0;
@@ -427,9 +391,6 @@
   }
   .search.is-sheet .search-preview {
     visibility: visible;
-  }
-  .search-frame.is-ready {
-    visibility: inherit;
   }
   .search-sheet-bar {
     display: flex;
@@ -443,42 +404,4 @@
   .search-row {
     padding: 10px 8px;
   }
-}
-
-/* The preview document draws one block, with none of the page around it. */
-:root[data-search-preview] #page-title,
-:root[data-search-preview] #comment-here {
-  display: none !important;
-}
-:root[data-search-preview] .app,
-:root[data-search-preview] main,
-:root[data-search-preview] .main-column {
-  border: 0;
-}
-:root[data-search-preview] .content {
-  max-width: none;
-  padding: 14px 18px 28px;
-}
-:root[data-search-preview] #page-content {
-  position: relative;
-}
-:root[data-search-preview] #page-content > div > :first-child {
-  margin-top: 0;
-}
-.search-drawing {
-  position: absolute;
-  inset: 0 0 auto;
-  visibility: hidden;
-}
-.search-said {
-  margin: 0 0 14px;
-  padding: 8px 12px;
-  border-left: 2px solid var(--line-strong);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.search-said b {
-  display: block;
-  color: var(--muted);
-  font-size: var(--text-small);
 }

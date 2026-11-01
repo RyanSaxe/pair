@@ -137,26 +137,12 @@ export function theme() {
   // Page scripts can refresh values they computed from the previous theme.
   window.dispatchEvent(new CustomEvent("plan:theme", { detail: activeTheme }));
 }
-// With a root, disposeRenderers() frees only the figures inside it, so the
-// search preview can replace one block while the next one draws.
-export function disposeRenderers(root = null) {
-  const inside = (element) => !root || root.contains(element);
-  for (const [element, diagram] of diagrams)
-    if (inside(element)) {
-      diagram.destroy();
-      diagrams.delete(element);
-    }
-  for (const [element, chart] of charts)
-    if (inside(element)) {
-      chart.dispose();
-      charts.delete(element);
-    }
-  for (const [element, viewer] of diffs)
-    if (inside(element)) {
-      viewer.cleanUp();
-      diffs.delete(element);
-      diffLineSets.delete(element);
-    }
+export function disposeRenderers() {
+  for (const diagram of diagrams.values()) diagram.destroy();
+  diagrams.clear();
+  for (const chart of charts.values()) chart.dispose();
+  charts.clear();
+  clearDiffs();
 }
 
 export { libraries };
@@ -320,6 +306,11 @@ export async function chart(element, options) {
   );
   instance.setOption(chartTheme(options));
   return instance;
+}
+function clearDiffs() {
+  for (const viewer of diffs.values()) viewer.cleanUp();
+  diffs.clear();
+  diffLineSets.clear();
 }
 export function diff(element, input, options) {
   return track(renderDiff(element, input, options));

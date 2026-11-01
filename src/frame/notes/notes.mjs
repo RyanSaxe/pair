@@ -111,7 +111,7 @@ let opener = null;
    quote and a quote must match the page's own text. The returned text has
    each run of whitespace collapsed to one space, and map contains the node
    and offset of every other character. */
-export function pageText(root) {
+function pageText(root) {
   const map = [];
   let text = "",
     pendingSpace = false;

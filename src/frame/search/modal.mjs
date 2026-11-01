@@ -1,6 +1,5 @@
 import { $, apple } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
-import { createPreview } from "#frame/search/preview.mjs";
 import { escapeHtml, marked, snippet, whereLine } from "#frame/search/rows.mjs";
 
 const KINDS = [
@@ -47,14 +46,24 @@ const state = {
   selected: 0,
 };
 let dialog;
-let openResult = (row) => {
+function openResult(row) {
   const target = Number.isInteger(row.block)
     ? `?target=block-${encodeURIComponent(row.page)}-${row.block}`
     : "";
   location.assign(
     `/s/${row.session}/r/${encodeURIComponent(row.round)}${target}#${encodeURIComponent(row.page)}`,
   );
-};
+}
+
+// The body of the preview pane: the row's heading and text, its words marked.
+function showPreview(pane, row) {
+  pane.innerHTML = row
+    ? `<h3>${marked(row.heading || row.pageTitle || "Untitled", row.heading ? row.headingRanges : null)}</h3><div class="search-text${row.code ? " is-code" : ""}">${marked(row.text, row.ranges)}</div>`
+    : "";
+  pane
+    .querySelector(".search-text mark")
+    ?.scrollIntoView({ block: "center", behavior: "instant" });
+}
 
 export const searchOpen = () => Boolean(dialog?.open);
 export function openSearch() {
@@ -62,10 +71,6 @@ export function openSearch() {
 }
 export function closeSearch() {
   dialog?.close();
-}
-// The module that opens a result in place replaces the plain address above.
-export function useOpener(opener) {
-  openResult = opener;
 }
 
 export function installSearch() {
@@ -101,11 +106,7 @@ export function installSearch() {
         <div class="search-crumbs"></div>
         <button class="search-open" type="button">Open ↵</button>
       </div>
-      <div class="search-preview-main">
-        <div class="search-words"></div>
-        <iframe class="search-frame" title="The matched block" tabindex="-1"></iframe>
-      </div>
-      <div class="search-miss" hidden></div>
+      <div class="search-preview-main"></div>
     </aside>`;
   document.body.append(dialog);
   const part = (selector) => dialog.querySelector(selector);
@@ -113,9 +114,6 @@ export function installSearch() {
   const list = part(".search-list");
   const kinds = part(".search-kinds");
   const kindsButton = part(".search-kinds-button");
-  const frame = part(".search-frame");
-  const words = part(".search-words");
-  const miss = part(".search-miss");
   let current = { results: [], counts: {}, total: 0 };
   let request = null;
   let lastPointer = null;
@@ -199,35 +197,7 @@ export function installSearch() {
     input.setAttribute("aria-activedescendant", `search-row-${state.selected}`);
   }
 
-  const preview = createPreview({
-    frame,
-    onWords(row) {
-      frame.classList.remove("is-ready");
-      miss.hidden = true;
-      words.hidden = false;
-      words.innerHTML = row
-        ? `<h3>${marked(row.heading || row.pageTitle || "Untitled", row.heading ? row.headingRanges : null)}</h3><div class="search-text${row.code ? " is-code" : ""}">${marked(row.text, row.ranges)}</div>`
-        : "";
-      words
-        .querySelector(".search-text mark")
-        ?.scrollIntoView({ block: "center", behavior: "instant" });
-    },
-    onDrawn() {
-      frame.classList.add("is-ready");
-      words.hidden = true;
-    },
-    onMiss(row, missing) {
-      miss.hidden = !missing || !row.text;
-      if (!miss.hidden)
-        miss.innerHTML = `<b>In this block, but not on screen:</b> ${snippet(row.text, row.ranges)}`;
-    },
-    onKey(event) {
-      if (event.key === "Escape") dialog.close();
-      else input.focus();
-    },
-  });
-
-  function drawPreview(options) {
+  function drawPreview() {
     const row = current.results[state.selected];
     part(".search-crumbs").innerHTML = row
       ? [row.sessionTitle, row.round && `Round ${row.round}`, row.pageTitle]
@@ -240,7 +210,7 @@ export function installSearch() {
       : "";
     for (const open of dialog.querySelectorAll(".search-open"))
       open.disabled = !row;
-    preview.show(row, state.query, options);
+    showPreview(part(".search-preview-main"), row);
   }
 
   async function run() {
@@ -303,7 +273,6 @@ export function installSearch() {
     if (innerWidth > PHONE) return openSelected();
     dialog.classList.add("is-sheet");
     input.blur();
-    drawPreview({ now: true });
   }
 
   function open() {
@@ -312,7 +281,6 @@ export function installSearch() {
     input.focus();
     input.select();
     void run();
-    void preview.load();
   }
   dialog.addEventListener("search:open", open);
   button.addEventListener("click", open);
@@ -383,16 +351,6 @@ export function installSearch() {
   input.addEventListener("input", () => {
     state.query = input.value;
     void run();
-  });
-
-  // A page's own code can take focus while it draws, which would send the next
-  // key into the preview, so the cursor stays in the search field on a wide
-  // window.
-  window.addEventListener("blur", () => {
-    setTimeout(() => {
-      if (dialog.open && innerWidth > PHONE && document.activeElement === frame)
-        input.focus();
-    });
   });
 
   dialog.addEventListener("close", () => {
