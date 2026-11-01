@@ -179,12 +179,17 @@ function bootRound() {
     if (online && mode !== "preview") {
       poll().then(() => {
         void syncDraft();
-        // A notification's link puts its target in the address. While Current
-        // waits, the frame shows the sent round's pages only under Previous,
-        // so the target opens there, unless it is on Work, which every round
-        // has, or on Current's progress card. A reload without a target
-        // returns to the past round that was on screen.
-        if (editable && askedRound && askedRound !== plan.round)
+        // Only the address opens an older round, so a reload and Back return to
+        // it and any other address opens Current. The waiting view has the sent
+        // round's number, so an address that names that round asks for the left
+        // tab. A notification's link puts its target in the address. While
+        // Current waits, the frame shows the sent round's pages only under
+        // Previous, so the target opens there, unless it is on Work, which every
+        // round has, or on Current's progress card.
+        const olderAsked =
+          askedRound &&
+          (askedRound !== plan.round || (!target && showingWaiting()));
+        if (editable && olderAsked)
           void openPast(askedRound, {
             pageId: asked || "agreed",
             targetId: target,
@@ -201,14 +206,6 @@ function bootRound() {
             pageId: asked || "agreed",
             targetId: target,
           });
-        else if (
-          editable &&
-          !embedded &&
-          !target &&
-          placeStore.tab === "past" &&
-          selectedTab === "current"
-        )
-          if (placeStore.past) void openPast(placeStore.past);
         // pollSessions() runs after the first status poll has placed the
         // thread cards, so the bell's first count includes a reply that is
         // already on screen.

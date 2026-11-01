@@ -101,8 +101,7 @@ test("the Review line names the comments and choices behind the count", () => {
 
 test("each round keeps its own remembered place", () => {
   const pages = ["overview", "steps", "feedback"];
-  const { tab, past, places } = readPlaces({
-    tab: "past",
+  const { past, places } = readPlaces({
     past: "1",
     places: {
       1: {
@@ -118,7 +117,6 @@ test("each round keeps its own remembered place", () => {
       },
     },
   });
-  assert.equal(tab, "past");
   assert.equal(past, "1");
   assert.deepEqual(placeFor(places, "1", pages), {
     page: "steps",
@@ -138,7 +136,6 @@ test("each round keeps its own remembered place", () => {
   assert.equal(placeFor(places, "3", pages), null);
   assert.equal(placeFor(places, "1", ["overview", "feedback"]), null);
   assert.deepEqual(readPlaces(null), {
-    tab: "current",
     past: null,
     places: {},
   });
