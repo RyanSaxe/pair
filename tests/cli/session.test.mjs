@@ -717,18 +717,30 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
   for (const part of ["one result", "Why one result per input?"])
     assert(thread?.includes(part), printed);
   const post = (...args) => cli.run("reply", ...dir, "--thread", id, ...args);
-  await post("--text", "So a retry can skip it.");
+  await post("--text", "So a retry can skip it: a - b, x*y and [1].");
   const file = path.join(root, "reply.html");
   await fs.writeFile(file, '<pre data-language="text">1 in, 1 out</pre>');
   await post("--file", file);
   await assert.rejects(post("--text", "x", "--file", file), { code: 1 });
   await assert.rejects(post(), { code: 1 });
+  // The reviewer would see Markdown in --text as typed.
+  for (const markdown of [
+    "**bold**",
+    "a [link](https://example.com)",
+    "run `pair`",
+    "one\n- two",
+  ])
+    await assert.rejects(post("--text", markdown), (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /post it with --file/);
+      return true;
+    });
   const { threads } = (await session.status()).body;
   assert.deepEqual(threads[0].messages.slice(1), [
     {
       from: "agent",
       at: threads[0].messages[1].at,
-      text: "So a retry can skip it.",
+      text: "So a retry can skip it: a - b, x*y and [1].",
     },
     {
       from: "agent",
