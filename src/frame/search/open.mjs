@@ -5,6 +5,8 @@ import { remote } from "#frame/sync/rounds.mjs";
 
 // The element on the result's page that holds it.
 export function targetOf(row) {
+  // A page title's result is the page itself, from its title down.
+  if (row.type === "page title") return null;
   if (row.kind === "threads") {
     const [thread, message] = row.item.split("/");
     return `thread-${thread}-${message}`;

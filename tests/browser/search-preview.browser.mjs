@@ -27,6 +27,12 @@ const pages = [
 <details><summary>Raw source</summary><pre data-language="text">${"filler line\n".repeat(400)}function pangolin() {}\n${"filler line\n".repeat(400)}</pre></details>`,
   },
 ];
+pages.push({
+  id: "figure",
+  title: "Quokka figure",
+  html: `<div data-diagram data-caption="The quokka's path.">flowchart LR
+  A["Quokka"] --> B["Burrow"]</div>`,
+});
 const otherPages = [
   {
     id: "elsewhere",
@@ -184,6 +190,57 @@ test("a block shows the part with the most of the reader's words, and a tie stay
   await type(page, "breaker envoy");
   await previewShows(page, "envoy");
   assert.equal(await open(), "Far");
+});
+
+test("a tie stays on the open option when the frame is new", async (t) => {
+  const { page } = await setUp(t, { viewport: { width: 1000, height: 800 } });
+  if (!page) return;
+  await type(page, "live breaker");
+  await previewShows(page, "breaker");
+  await page.waitForTimeout(400);
+  assert.equal(
+    await shown(page)
+      .locator('#page-content [role="tab"][aria-selected="true"]')
+      .textContent(),
+    "Near",
+  );
+});
+
+test("a figure that never finishes drawing leaves the search window working", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await page.route(/pele@[^/]+\/dist\/pele\.js$/, () => {});
+  await type(page, "quokka");
+  await page.locator(".search-frame.is-shown").waitFor();
+  await page.waitForTimeout(16000);
+  const alive = await Promise.race([
+    page.evaluate(() => "alive"),
+    new Promise((done) => setTimeout(() => done("frozen"), 3000)),
+  ]);
+  assert.equal(alive, "alive");
+});
+
+test("a key typed with focus in the frame goes to the search field, whole", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "walrus");
+  await previewShows(page, "walrus");
+  await shown(page).locator("#page-content p").first().click();
+  await page.keyboard.type("ab");
+  assert.equal(await page.inputValue(".search-input"), "walrusab");
+});
+
+test("a page title's result shows the page from its title down", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "options");
+  await page.locator(".search-frame.is-shown").waitFor();
+  await shown(page).locator("#page-title").waitFor();
+  assert.equal(
+    await shown(page).locator("#page-title").textContent(),
+    "Options",
+  );
+  assert.equal(await shown(page).locator(".search-matched").count(), 0);
 });
 
 test("a word in a long fold opens the fold and scrolls to the word itself", async (t) => {

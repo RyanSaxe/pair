@@ -70,10 +70,15 @@ function isolate() {
       )
     : wanted && document.getElementById(wanted);
   document.documentElement.toggleAttribute("data-embed-whole", !page);
+  // The round's progress and its threads sit above the page.
+  for (const part of document.querySelectorAll(
+    "#agent-activity, #finished-line, #finished-line ~ pair-thread",
+  ))
+    if (!part.contains(page)) hide(part);
   if (!page) return;
   const root = $("page-content");
   if (root.contains(page)) return showBlock(page, root);
-  const view = page.closest("#work-view, #review-view");
+  const view = page.closest("#work-view, #review-view, #reading");
   if (view) showCard(page, view);
 }
 function pause() {
