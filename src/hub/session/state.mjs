@@ -82,7 +82,13 @@ export async function loadSession(
   // Every route that changes a session runs through exclusive, so this one call
   // tells search that the session's files changed.
   const exclusive = (task) =>
-    serial(task).finally(() => changed(state.sessionId));
+    serial(async () => {
+      try {
+        return await task();
+      } finally {
+        changed(state.sessionId);
+      }
+    });
   // The wake target contains a token or a socket path, so the hub stores it
   // in wake.json and never sends it in a browser response.
   const wakeFile = path.join(directory, "wake.json");
