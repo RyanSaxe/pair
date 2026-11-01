@@ -678,8 +678,13 @@ test("the result on screen stays until the next is ready", async (t) => {
     sample();
   });
   await type(page, "pangolin");
+  // The search's reply can reach this process before the page has read it, so a
+  // wait for the line to end needs the line to have started. The words mark
+  // before the line ends, so previewShows can't stand in for this.
   await page.waitForFunction(
-    () => !document.querySelector(".is-loading.search-preview-main"),
+    () =>
+      window.frames_.some(({ loading }) => loading) &&
+      !window.frames_.at(-1).loading,
   );
   await previewShows(page, "pangolin");
   const frames = await page.evaluate(() => window.frames_);
@@ -687,7 +692,6 @@ test("the result on screen stays until the next is ready", async (t) => {
   assert.ok(
     frames.some(({ loading, opacity }) => loading && opacity === "0.35"),
   );
-  assert.equal(frames.at(-1).loading, false);
   assert.equal(
     await page.evaluate(
       () =>
