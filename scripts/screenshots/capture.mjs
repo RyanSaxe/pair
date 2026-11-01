@@ -142,10 +142,15 @@ async function visit(page, url, id) {
   );
   await ready(page);
 }
+// The frame words each time relative to the browser's clock, so a picture would
+// depend on how long its run took. load() fixes the clock at the start of the
+// run, before every event in it, so each time reads the same on every run.
+const runStarted = new Date();
 // A tab that waits for a round opens Agreed when a poll finds the round, so
 // whether Agreed counts as opened would depend on the poll's timing. load()
 // always opens Agreed first, so every picture shows the same New marks.
 export async function load(page, url, id) {
+  await page.clock.setFixedTime(runStarted);
   await visit(page, url, "agreed");
   if (id !== "agreed") await visit(page, url, id);
 }
