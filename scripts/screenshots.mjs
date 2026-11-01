@@ -1,5 +1,6 @@
 // npm run screenshots runs this script. It stages a demo session on a hub of
-// its own and writes the PNGs for the README and the docs from Google Chrome.
+// its own and writes the PNGs for the README and the docs from Chrome for
+// Testing.
 // It then stages a second session by running the pair command as an agent does,
 // and writes the illustration of a session and the picture of starting work on
 // a phone.

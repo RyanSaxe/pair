@@ -8,19 +8,23 @@ import "./env.mjs";
 // open() skips the test on that message, and fails it when CI is set, so a CI
 // run cannot pass by skipping.
 const missing = {
-  chrome: "Google Chrome is not installed",
+  chrome: "Chrome for Testing is not installed",
   webkit: "Playwright's WebKit is not installed",
 };
 
+// launch() starts Chrome for Testing, not Google Chrome. On macOS, each new
+// Google Chrome adds keys to the keychain and reads all of them, so thousands
+// of test runs leave secd too busy for any Chrome's certificate check. Chrome
+// for Testing has no entitlement to those keys.
 export async function launch({ args, engine = "chrome" } = {}) {
   try {
     return engine === "webkit"
       ? await webkit.launch()
-      : await chromium.launch({ channel: "chrome", args });
+      : await chromium.launch({ channel: "chromium", args });
   } catch (error) {
     const message = error.message || String(error);
     if (
-      /Chromium distribution ['"]chrome['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
+      /Chromium distribution ['"]chromium['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
         message,
       )
     )
