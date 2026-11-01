@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import test from "node:test";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
@@ -239,26 +237,6 @@ test("a response holds no token and no session directory", async (t) => {
   assert.ok(!text.includes(a.connection.token));
   assert.ok(!text.includes(a.directory));
   assert.equal((await find(a.connection.token)).body.total, 0);
-});
-
-test("a result in an older round of a session on an older frame opens read-only", async (t) => {
-  const { a } = await twoSessions(t);
-  const address = (extra = "") =>
-    a.request(`${a.base}/?round=1&target=block-overview-0${extra}`);
-  // Today's frame opens the older round itself, in the left tab.
-  assert.equal((await address()).code, 200);
-  const rounds = path.join(a.directory, "rounds");
-  for (const name of await fs.readdir(rounds)) {
-    const file = path.join(rounds, name);
-    const html = await fs.readFile(file, "utf8");
-    await fs.writeFile(file, html.replaceAll('id="search-button"', ""));
-  }
-  const moved = await address("&match=kestrel");
-  assert.equal(moved.code, 302);
-  assert.equal(
-    moved.headers.get("location"),
-    `${a.base}/r/1?target=block-overview-0&match=kestrel`,
-  );
 });
 
 test("a closed session stays out until a search asks for it or names it", async (t) => {

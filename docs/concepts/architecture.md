@@ -20,6 +20,10 @@ session to your browser and wakes the agent when you respond.
   `PAIR_HUB_IDLE_SECONDS`, and the next `pair start` starts a new hub on the
   same port.
 - A new hub loads every session from disk, so a session's URL stays the same.
+- The hub reads the frame's files once and keeps them until it exits. It draws
+  a round from those files and the round's records in `pages/<round>/` each
+  time a browser asks for the round, so a new hub shows every round of every
+  session with the frame from its own code.
 - When `pair start` finds a hub that runs a different version of pair while
   a session is live, it uses that hub and prints a warning. The next
   `pair start` that finds no live session stops the old hub and starts one
@@ -200,7 +204,7 @@ sessions/<dir>/      the directory name is not the session ID
   wake.json          how to wake the holder, such as its inbox socket or thread ID
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
-  rounds/            built rounds
+  rounds/            only from an older pair: built rounds, read for a round with no records in pages/
   draft.json         your completed notes, choices and answers, until you send
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB

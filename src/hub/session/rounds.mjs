@@ -1,12 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  assemble,
-  frameBundle,
-  pageScripts,
-  pageStyles,
-} from "../../build/assemble.mjs";
+import { assemble, pageScripts, pageStyles } from "../../build/assemble.mjs";
 import { linkProblems } from "../../build/lint.mjs";
 import { choiceText } from "../../shared/choices.mjs";
 import {
@@ -18,8 +13,6 @@ import {
   sourceItem,
 } from "../../shared/records.mjs";
 import {
-  atomic,
-  embedConfig,
   json,
   jsonScript,
   read,
@@ -112,14 +105,7 @@ export function rounds(session) {
   }
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));
-  async function renderPageRound(
-    set,
-    complete,
-    { today = false, withPages = !today } = {},
-  ) {
-    const bundle = today
-      ? undefined
-      : await read(storedPagePath(set, set.bundlePath));
+  async function renderPageRound(set, complete, { withPages = true } = {}) {
     const agreed = await read(storedPagePath(set, set.agreed));
     // The search window's frame fetches each page it shows, so it doesn't carry
     // a round's images.
@@ -159,51 +145,37 @@ export function rounds(session) {
       // page published before that check existed must not keep its round
       // from completing.
       allowUnknownPages: true,
-      bundle,
     });
   }
-  // A round's saved page is drawn again only when every page has published, and
-  // no frame fills in a read-only one, so a round that never finished shows the
-  // pages it published. A round's own frame may be too old to draw them with
-  // today's components, so this uses today's. It returns null for a round that
-  // finished.
-  function renderPublished(round) {
+  /* Every round draws fresh on today's frame, so restarting the hub updates every
+     session at once. A read-only round that never finished shows the pages it
+     published, because no frame fills in the rest. */
+  function renderRound(round, { readOnly = false } = {}) {
     const set = session.state.roundPages?.[round];
-    if (!set || set.pages.every((slot) => slot.recordPath)) return null;
-    const pages = set.pages.filter((slot) => slot.recordPath);
-    return renderPageRound({ ...set, pages }, true, {
-      today: true,
-      withPages: true,
-    });
+    if (!set) return null;
+    const published = set.pages.filter((slot) => slot.recordPath);
+    const finished = published.length === set.pages.length;
+    return readOnly
+      ? renderPageRound({ ...set, pages: published }, true)
+      : renderPageRound(set, finished);
   }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);
     let current = session.state.current;
     if (!current || current.round !== set.round || complete) {
-      let html;
+      // Drawing it now refuses a round that can't be drawn.
       try {
-        html = await renderPageRound(set, complete);
+        await renderPageRound(set, complete);
       } catch (error) {
         error.statusCode ||= 400;
         throw error;
       }
-      const stored = embedConfig(html, {
-        sessionId: session.state.sessionId,
-        base,
-      });
-      const name = complete
-        ? `${set.name}.${set.round}.html`
-        : `${set.name}.${set.round}.live.html`;
-      const file = path.join(directory, "rounds", name);
-      await atomic(file, stored);
       current = {
         name: set.name,
         round: set.round,
         title: set.title,
         ...(set.plan ? { plan: true } : {}),
-        path: file,
         url: base + "/",
-        sha256: crypto.createHash("sha256").update(stored).digest("hex"),
         publishedAt: timestamp(),
         source,
       };
@@ -231,16 +203,9 @@ export function rounds(session) {
       title: set.title,
       rounds,
     });
-    // The hub served the open round from the live file while its pages
-    // arrived, and it serves the complete file from now on. The waiting
-    // event puts the round in every pair tab's bell.
-    if (complete) {
-      await fs.rm(
-        path.join(directory, "rounds", `${set.name}.${set.round}.live.html`),
-        { force: true },
-      );
+    // The waiting event puts the round in every pair tab's bell.
+    if (complete)
       await session.addActivity({ kind: "waiting", round: set.round });
-    }
     return {
       status: view(),
       url: origin + current.url,
@@ -348,7 +313,6 @@ export function rounds(session) {
         ...(record.plan ? { plan: true } : {}),
         agreed: null,
         pages: slots,
-        bundlePath: null,
         generation: 1,
       };
     } else {
@@ -419,18 +383,6 @@ export function rounds(session) {
         set.agreed = recordPath;
         set.agreedVersion = version;
         set.agreedAt = timestamp();
-        // publishPage saves the frame bundle when Agreed publishes, and
-        // renderPageRound builds the round from that bundle until the round
-        // completes, so an update to pair in the middle of a round cannot
-        // mix two frames in one built file.
-        set.bundlePath = path.join(
-          recordDir,
-          `frame.${crypto.randomUUID()}.json`,
-        );
-        await fs.writeFile(set.bundlePath, json(await frameBundle()), {
-          mode: 0o600,
-          flag: "wx",
-        });
       } else {
         const slot = set.pages.find((item) => item.id === page.id);
         slot.recordPath = recordPath;
@@ -443,11 +395,9 @@ export function rounds(session) {
       if (opening)
         result.next = `${session.browserLine(result.url)} Then: ${result.next}`;
     } catch (error) {
-      // When a publish fails, publishPage removes the record and the frame
-      // bundle it wrote, so no file of a page that never published stays.
+      // When a publish fails, publishPage removes the record it wrote, so no
+      // file of a page that never published stays.
       await fs.rm(recordPath, { force: true });
-      if (page.id === "agreed" && set.bundlePath)
-        await fs.rm(set.bundlePath, { force: true });
       throw error;
     }
     return {
@@ -490,16 +440,15 @@ export function rounds(session) {
     set.generation++;
     return commitPageRound(set);
   }
-  // The search window shows a published round on today's frame, so a result in
-  // an older session has the same frame as any other.
-  function renderToday(round) {
+  // The search window's frame for a published round, without the round's pages.
+  function renderForPreview(round) {
     requireValue(
       Object.hasOwn(session.state.roundPages || {}, round),
       "Unknown round",
       404,
     );
     return renderPageRound(session.state.roundPages[round], true, {
-      today: true,
+      withPages: false,
     });
   }
   function roundEntry(round) {
@@ -578,8 +527,8 @@ export function rounds(session) {
     publishPage,
     pageProgress,
     roundEntry,
-    renderToday,
-    renderPublished,
+    renderForPreview,
+    renderRound,
     pageSet,
     pageRecord,
     prototype,

@@ -56,27 +56,30 @@ const stylesheets = [
   "app/modes.css",
   "search/search.css",
 ];
-export async function frameBundle() {
-  const roots = componentRoots();
-  const [
-    shell,
-    dialogs,
-    style,
-    modules,
-    drawingEditor,
-    componentCss,
-    componentJs,
-  ] = await Promise.all([
+// A running hub draws every page with the frame it started with, so updating
+// pair on disk can't pair a new frame with the old hub. Components can change
+// while it runs, because a reader can add their own.
+let frameFiles = null;
+const readFrameFiles = () =>
+  (frameFiles ??= Promise.all([
     read("app/shell.html"),
     read("app/dialogs.html"),
     Promise.all(stylesheets.map(read)).then((texts) => texts.join("\n")),
     frameModules(),
     read("notes/drawing-editor.html"),
+  ]));
+export async function frameBundle() {
+  const roots = componentRoots();
+  const [
+    [shell, dialogs, style, modules, drawingEditor],
+    componentCss,
+    componentJs,
+  ] = await Promise.all([
+    readFrameFiles(),
     componentStyles(roots),
     componentBehaviors(roots),
   ]);
   return {
-    format: 2,
     shell,
     dialogs,
     style,
@@ -132,32 +135,17 @@ function moduleScript({ modules, componentJs }) {
     `import "#frame/app/boot.mjs";\n${componentJs}\n</script>`
   );
 }
-// The hub stores the frame bundle with a round when it publishes the round's
-// Agreed, so an old round can have an older bundle. A bundle with no format
-// predates the frame's split into modules, and its files expect one shared
-// scope, so joinedScript() joins them into one module script.
-const joinedScript = (bundle) =>
-  `<script type="module">\n${[
-    bundle.offers,
-    bundle.finish,
-    bundle.notifications,
-    bundle.choices,
-    bundle.draft,
-    bundle.activity,
-    bundle.script,
-    bundle.componentJs,
-  ].join("\n")}\n</script>`;
 export async function assemble(
   data,
-  { css = "", js = "", allowUnknownPages = false, bundle } = {},
+  { css = "", js = "", allowUnknownPages = false } = {},
 ) {
   // buildPage has already checked each page's HTML, and its script as written,
   // which arrives here encoded. The hub assembles a round from its stored pages
-  // at each publish, so authoring: false keeps a page that an older pair build
-  // checked from failing its round.
+  // at each publish and each request, so authoring: false keeps a page that an
+  // older pair build checked from failing its round.
   const found = problems(data, "", { allowUnknownPages, authoring: false });
   if (found.length) throw new Error(found.join("\n"));
-  const html = join(bundle || (await frameBundle()), data, css, js);
+  const html = join(await frameBundle(), data, css, js);
   readPlanData(html);
   return html;
 }
@@ -170,11 +158,9 @@ export async function assembleHome(title) {
 }
 function join(bundle, data, css, js) {
   const { shell, style, drawingEditor, componentCss } = bundle;
-  // A bundle stored before the dialogs moved to a file of their own contains
-  // them in its shell and has no dialogs field.
   return (
     shell
-      .replace("<!-- DIALOGS -->", () => bundle.dialogs ?? "")
+      .replace("<!-- DIALOGS -->", () => bundle.dialogs)
       .replace("<!-- DRAWING_EDITOR -->", () => scriptJson(drawingEditor))
       .replace(
         "<!-- FRAME_STYLE -->",
@@ -192,9 +178,7 @@ function join(bundle, data, css, js) {
           `@layer plan {\n${css}\n}\n@scope (#page-content, .thread-content) {\n@layer components {\n${componentCss}\n}\n}\n` +
           `</style>`,
       )
-      .replace("<!-- FRAME_SCRIPT -->", () =>
-        bundle.format === 2 ? moduleScript(bundle) : joinedScript(bundle),
-      )
+      .replace("<!-- FRAME_SCRIPT -->", () => moduleScript(bundle))
       // The plan's script is a module that runs after the frame's, so it can
       // use planUI and register a component of its own before the first page
       // renders.
