@@ -104,11 +104,11 @@ export function show(
 ) {
   redrawHeld = false;
   // A re-render keeps an opened result's highlight, and any arrival replaces it.
-  if (!keepScroll) setMatch(matchWords(match), targetId);
+  if (!keepScroll) setMatch(matchWords(match), targetId, match);
   // A thread or a card has overall as its note's page, and overall is on
   // Review.
   if (id === "overall") id = "feedback";
-  if (!keepScroll && !inPlace) beginMove();
+  if (!keepScroll && !inPlace && !embedded) beginMove();
   // A re-render keeps the reader's place. Any other show() is an arrival,
   // and flushPlace() first saves the place it leaves.
   const kept = keepScroll ? placeOnScreen() : null;

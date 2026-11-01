@@ -23,9 +23,9 @@ export function targetOf(row) {
   );
 }
 
-// A sent note, answer or choice shows on its round's Feedback page.
+// A note, answer or choice shows on its round's Feedback or Review page.
 export const pageOf = (row) =>
-  !row.draft && (row.kind === "notes" || row.kind === "answers")
+  row.draft || row.kind === "notes" || row.kind === "answers"
     ? "feedback"
     : row.page;
 

@@ -1,5 +1,5 @@
 import { $ } from "#frame/app/util.mjs";
-import { page, plan } from "#frame/app/view.mjs";
+import { base, editable, page, plan } from "#frame/app/view.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { useTheme } from "#frame/pages/renderers.mjs";
 import { openResult, pageOf, targetOf } from "#frame/search/open.mjs";
@@ -9,7 +9,7 @@ import { ensurePageSet, remote } from "#frame/sync/rounds.mjs";
    way Open does, through the page's own code, so everything on screen is what
    the page draws. This code only hides what isn't the result. */
 const HIDE = "embed-hide";
-const ARRIVE_LIMIT_MS = 30000;
+const ARRIVE_LIMIT_MS = 15000;
 const ARRIVE_POLL_MS = 20;
 const isThread = (node) => node?.localName === "pair-thread";
 const isHeading = (node) => /^H[1-6]$/.test(node?.tagName ?? "");
@@ -30,8 +30,11 @@ function withThreads(node) {
     kept.add(at);
   return kept;
 }
+// What a page opens, such as a diagram's lightbox, isn't the page's content.
 function keepOnly(parent, kept) {
-  for (const child of parent.children) hide(child, !kept.has(child));
+  for (const child of parent.children)
+    if (!child.matches("dialog, [popover], summary"))
+      hide(child, !kept.has(child));
 }
 // A thread on a whole page has no block, and the frame puts its card at the end.
 function onWholePage(card) {
@@ -41,6 +44,8 @@ function onWholePage(card) {
   return thread && !thread.target && !thread.quote;
 }
 function showBlock(element, root) {
+  for (let at = element; at !== root; at = at.parentElement)
+    if (at.tagName === "DETAILS") at.open = true;
   let top = element;
   while (top.parentElement !== root) top = top.parentElement;
   if (isThread(top) && onWholePage(top)) return keepOnly(root, new Set([top]));
@@ -107,6 +112,24 @@ function pause() {
 }
 export function installEmbed() {
   document.documentElement.dataset.embed = "";
+  // A link that leaves the block opens in the reader's tab, on the real page.
+  document.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target.closest?.("a[href]");
+      if (!link || link.target === "_blank") return;
+      const url = new URL(link.href);
+      if (url.hash && document.getElementById(url.hash.slice(1))) return;
+      event.preventDefault();
+      // A link to a page resolves against this frame's own address.
+      if (url.pathname === location.pathname) {
+        url.pathname = `${base}/`;
+        url.search = "";
+      }
+      window.top.location.assign(url.href);
+    },
+    true,
+  );
   let queued = false;
   const soon = () => {
     if (queued) return;
@@ -135,8 +158,10 @@ export function installEmbed() {
       await ensurePageSet();
       if (wanted !== target) return;
       const match = query.trim();
-      if (row.round) openResult({ ...row, page: pageOf(row) }, query);
-      else show(row.page || "agreed", target, { match });
+      // A read-only frame has one round, so it never has to change round.
+      if (row.round && editable)
+        openResult({ ...row, page: pageOf(row) }, query);
+      else show(pageOf(row) || "agreed", target, { match });
       await whenArrived(row, target);
       isolate();
     },
