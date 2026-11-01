@@ -14,6 +14,9 @@ import {
 } from "#frame/search/rows.mjs";
 
 const PHONE = 720;
+// A phone's keyboard takes more height than this. The bar a phone shows over a
+// hardware keyboard and a collapsing address bar take less.
+const KEYBOARD_PX = 120;
 // A fast reply replaces the list before this, so most searches never show it.
 const SEARCHING_AFTER_MS = 150;
 // How far a key moves the selection. Ctrl+K is one of them on every system, so
@@ -128,6 +131,7 @@ export function installSearch() {
   let request = null;
   let searching = 0;
   let pressedOutside = false;
+  let revealOnDrop = false;
 
   const focusField = () => innerWidth > PHONE && input.focus();
   const closeMenu = () => {
@@ -265,17 +269,23 @@ export function installSearch() {
     dialog.close();
     openResult(row, state.query);
   }
-  // A click shows a row, and a click on the row that's showing opens it.
+  // A click shows a row, and a click on the row that's showing opens it. With the
+  // keyboard up, the preview has the selected row but no row is showing yet.
   function chooseRow(index) {
-    const sheet = dialog.classList.contains("is-sheet");
-    if (index === state.selected && (innerWidth > PHONE || sheet))
-      return openSelected();
-    if (innerWidth <= PHONE) {
+    const phone = innerWidth <= PHONE;
+    const typing = phone && dialog.classList.contains("is-typing");
+    const previewed =
+      index === state.selected &&
+      (!phone || dialog.classList.contains("is-sheet"));
+    if (previewed && !typing) return openSelected();
+    if (phone) {
       // The list shrinks to the top half, so the row scrolls into it afterward.
+      // A keyboard that's up shrinks it later, when it drops.
       dialog.classList.add("is-sheet");
+      revealOnDrop = typing;
       input.blur();
     }
-    moveSelection(index);
+    if (!previewed) moveSelection(index);
   }
 
   function open() {
@@ -340,7 +350,7 @@ export function installSearch() {
     if (getSelection().isCollapsed) focusField();
   });
 
-  // Scrolling the results on a phone drops the keyboard, so more rows show.
+  // Scrolling the results on a phone drops the keyboard, so the preview shows.
   list.addEventListener("touchmove", () => input.blur(), { passive: true });
 
   input.addEventListener("input", () => {
@@ -428,10 +438,21 @@ export function installSearch() {
   });
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual
-  // viewport to stop the last results sitting under the keyboard.
+  // viewport to stop the last results sitting under the keyboard. The same height
+  // says whether a keyboard is up, because a focused field may have a hardware
+  // keyboard or one that has dropped. A pinch shrinks the height by its scale.
   const fit = () => {
-    if (window.visualViewport)
-      dialog.style.setProperty("--search-height", `${visualViewport.height}px`);
+    if (!window.visualViewport) return;
+    const { height, scale } = visualViewport;
+    dialog.style.setProperty("--search-height", `${height}px`);
+    const typing = innerHeight - height * scale > KEYBOARD_PX;
+    dialog.classList.toggle("is-typing", typing);
+    if (typing) return;
+    if (revealOnDrop)
+      list
+        .querySelector('[aria-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    revealOnDrop = false;
   };
   visualViewport?.addEventListener("resize", fit);
   fit();

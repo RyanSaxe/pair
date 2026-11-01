@@ -491,6 +491,25 @@
   .search.is-sheet .search-preview {
     display: flex;
   }
+  /* While the keyboard is up, the results fill the window. The preview stays
+     laid out unseen at its size in the split, so its frame moves to the reader's
+     words and shows them as soon as the keyboard drops. When a tall keyboard
+     leaves the window shorter than the preview, the frame's move would scroll a
+     dialog with overflow: hidden and take the field off the screen. */
+  .search.is-typing[open] {
+    grid-template-rows: minmax(0, 1fr);
+    overflow: clip;
+  }
+  .search.is-typing .search-preview {
+    display: flex;
+    position: absolute;
+    inset: 0 0 auto;
+    height: 50dvh;
+    visibility: hidden;
+  }
+  .search.is-typing .search-frame.is-shown {
+    visibility: hidden;
+  }
   .search-preview-head {
     grid-template-rows: auto;
     height: 44px;

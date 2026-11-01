@@ -314,7 +314,8 @@ for (const engine of ["chrome", "webkit"])
     assert.equal(await preview.isVisible(), false);
     assert.equal(await page.locator(".search-frame").count(), 0);
 
-    // The best result shows under the results with no tap.
+    // With the field focused and no keyboard on the screen, as with a hardware
+    // keyboard, the best result shows under the results with no tap.
     await type(page, "about");
     await page.locator(".search-frame.is-shown").waitFor();
     const [listBox, previewBox] = [

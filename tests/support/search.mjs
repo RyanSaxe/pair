@@ -25,10 +25,13 @@ export const pages = [
   },
 ];
 
-export async function searchPage(t, options = {}) {
+export async function searchPage(
+  t,
+  { pages: planPages = pages, ...options } = {},
+) {
   const h = await hub(t);
   const a = await h.session();
-  const published = await a.publish({ ...planData(), pages });
+  const published = await a.publish({ ...planData(), pages: planPages });
   assert.equal(published.code, 200, published.body.error);
   const page = await open(t, "about:blank", options);
   if (!page) return {};
