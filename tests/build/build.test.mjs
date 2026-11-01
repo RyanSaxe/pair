@@ -72,13 +72,21 @@ test("page CSS reaches only its own page, below the component layer", async () =
   const scope = '@scope (#page-content[data-page-id="p"][data-round="1"])';
   assert.equal(block(plan, scope).trim(), "p{color:red}");
   assert.equal(style.split("p{color:red}").length, 2, "the rule appears once");
-  assert.ok(block(block(style, "@scope (#page-content)"), "@layer components"));
+  assert.ok(
+    block(
+      block(style, "@scope (#page-content, .thread-content)"),
+      "@layer components",
+    ),
+  );
 });
 
 test("every component's styles and behavior reach the page", async () => {
   const html = await assemble(data);
   const layer = block(
-    block(html.slice(html.indexOf("<style>")), "@scope (#page-content)"),
+    block(
+      html.slice(html.indexOf("<style>")),
+      "@scope (#page-content, .thread-content)",
+    ),
     "@layer components",
   );
   const text = carried(html);
