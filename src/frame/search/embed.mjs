@@ -1,6 +1,12 @@
+import { scroller } from "#frame/app/places.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { base, editable, page, plan } from "#frame/app/view.mjs";
-import { targetElement, whenLanded } from "#frame/notes/match.mjs";
+import {
+  matchWords,
+  setMatch,
+  targetElement,
+  whenLanded,
+} from "#frame/notes/match.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { copyColumn } from "#frame/pages/progress.mjs";
 import { renders, useTheme } from "#frame/pages/renderers.mjs";
@@ -30,6 +36,7 @@ function arrived(row, id) {
   if (id === "work") return !$("work-view").hidden;
   if (id === "feedback") return !$("review-view").hidden;
   return (
+    !$("reading").hidden &&
     (!row.round || plan.round === row.round) &&
     page.id === id &&
     !page.pending &&
@@ -98,6 +105,19 @@ function placeSent(entry) {
   card.id = "embed-sent";
   $("page-content").before(card);
 }
+// A fold around the result opens, as it does when Open lands on it.
+function openFolds(target) {
+  const element = target && targetElement(target);
+  for (let at = element; at; at = at.parentElement)
+    if (at.tagName === "DETAILS") at.open = true;
+}
+// Another result on the page on screen moves the page, and draws nothing again.
+function moveToResult(target, match) {
+  const element = target && targetElement(target);
+  if (element) element.scrollIntoView({ block: "center", behavior: "instant" });
+  else scroller().scrollTop = 0;
+  setMatch(matchWords(match), target, match);
+}
 // The reader's words are in the card, so nothing else moves the page to the block.
 function showUnderCard(target) {
   const block = targetElement(target);
@@ -134,22 +154,37 @@ export function installEmbed() {
       pause();
       showing = true;
       const asked = ++opens;
-      holdPicture();
       const sent = await sentPlace(row);
       if (asked !== opens) return;
       const place = sent ?? { page: pageOf(row), target: targetOf(row) };
       wanted = place.target;
-      await ensurePageSet();
-      if (asked !== opens) return;
       const match = query.trim();
-      // A read-only frame has one round, so it never has to change round.
-      if (row.round && editable) openResult(row, query, place);
-      else show(place.page || "agreed", place.target, { match });
-      await whenArrived(row, place);
-      if (asked !== opens) return;
-      placeSent(sent?.entry);
+      const id = place.page || "agreed";
+      if (
+        onScreen &&
+        id !== "work" &&
+        id !== "feedback" &&
+        !picture &&
+        arrived(row, id)
+      ) {
+        placeSent(sent?.entry);
+        openFolds(place.target);
+        moveToResult(place.target, match);
+      } else {
+        holdPicture();
+        await ensurePageSet();
+        if (asked !== opens) return;
+        // A read-only frame has one round, so it never has to change round.
+        if (row.round && editable) openResult(row, query, place);
+        else show(id, place.target, { match });
+        await whenArrived(row, place);
+        if (asked !== opens) return;
+        placeSent(sent?.entry);
+      }
       await whenReady();
       if (asked !== opens) return;
+      // A page can draw again after it arrives, so this comes last.
+      openFolds(place.target);
       if (sent) showUnderCard(sent.target);
       dropPicture();
     },
