@@ -234,6 +234,50 @@ test("a session's start and waiting round leave the bell once a tab has shown th
   assert.equal(await switchTo(a), "Notifications");
 });
 
+// A window beside the one the reviewer uses is on screen without focus. Headless
+// Chrome reports every page as visible and focused, so the test makes the tab
+// report no focus until it sets it.
+test("a session on screen in a window without focus keeps its waiting round in the other tabs' bells until that window has focus", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const b = await h.session();
+  const blank = await open(t, "about:blank");
+  if (!blank) return;
+  // Two tabs of one browser share storage only in a context made with
+  // newContext().
+  const context = await blank.context().browser().newContext();
+  const page = await context.newPage();
+  await page.goto(`${h.server.origin}${a.base}/`);
+  await bellReady(page);
+  const beside = await context.newPage();
+  await beside.addInitScript(() => {
+    let focused = false;
+    document.hasFocus = () => focused;
+    window.setFocused = (next) => (focused = next);
+  });
+  await beside.goto(`${h.server.origin}${b.base}/`);
+  await bellReady(beside);
+
+  assert.equal((await b.publish(round("Session B"))).code, 200);
+  const { sessions, seen } = (await b.request("/api/sessions")).body;
+  const line = sessions
+    .find(({ id }) => id === b.id)
+    .events.find(({ kind }) => kind === "waiting");
+  assert.equal(seen.cleared?.includes(line.id) ?? false, false);
+  await count(page, "1");
+  // Each session list that this tab reads after the publish would clear the
+  // line if the tab counted as seen, and the frame reads one every 5 s.
+  const listed = () => beside.waitForResponse(/\/api\/sessions$/, poll);
+  await listed();
+  await listed();
+  await count(page, "1");
+  const after = (await b.request("/api/sessions")).body.seen.cleared;
+  assert.equal(after?.includes(line.id) ?? false, false);
+
+  await beside.evaluate(() => window.setFocused(true));
+  await count(page, "");
+});
+
 test("a new session adds a bell line that opens its home view, which loads the round when Agreed publishes", async (t) => {
   const h = await hub(t);
   const a = await h.session();

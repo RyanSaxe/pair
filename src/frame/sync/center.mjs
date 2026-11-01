@@ -144,12 +144,14 @@ export function renderCenter(sessions, fromHub, hub) {
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
-    // A visible tab has shown its own session's start and waiting round, so
-    // renderCenter clears them, and the bell does not list them after the
-    // reviewer moves to another session.
+    // A tab with focus has shown its own session's start and waiting round,
+    // so renderCenter clears them, and the bell does not list them after the
+    // reviewer moves to another session. A tab can be visible in a window
+    // beside the one the reviewer is using, and clearing the lines from there
+    // would take them out of every tab's bell before the reviewer saw them.
     const own = sessions.find((entry) => entry.id === session.sessionId);
     const shown =
-      own && document.visibilityState === "visible"
+      own && document.hasFocus()
         ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
         : [];
     // When neither this browser nor the hub has a list, the last argument
