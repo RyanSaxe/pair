@@ -214,6 +214,29 @@ test("a copy across rounds is one row at the newest round", async (t) => {
   assert.deepEqual(rows[0].also, ["1"]);
 });
 
+test("a result names its page's title even when another page shares that title", async (t) => {
+  const { a } = await session(t);
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  const next = await a.publish({
+    ...planData("2"),
+    pages: [{ id: "renamed", title: "The lemur page", html: "<p>New.</p>" }],
+  });
+  assert.equal(next.code, 200, next.body.error);
+  const store = await reader(t, a);
+  const [row] = (await store.search({ query: "exponential backoff" })).results;
+  assert.equal(row.page, "overview");
+  assert.equal(row.pageTitle, "The lemur page");
+  const titles = await store.search({ query: "lemur", kinds: ["pages"] });
+  assert.deepEqual(
+    titles.results
+      .filter((result) => result.type === "page title")
+      .map((result) => result.page)
+      .sort(),
+    ["overview", "renamed"],
+  );
+});
+
 test("the cache stands in for a file until the file changes", async (t) => {
   const { a } = await session(t);
   const first = await reader(t, a);

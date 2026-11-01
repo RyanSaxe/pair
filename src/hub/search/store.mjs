@@ -92,6 +92,8 @@ function grouped(entries) {
       doc.kind,
       owned ? doc.item : "",
       doc.type === "alignment" ? doc.item : "",
+      // Two pages can share a title, and each opens its own page.
+      doc.type === "page title" ? doc.page : "",
       doc.heading,
       doc.text,
     ].join("\0");
