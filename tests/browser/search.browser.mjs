@@ -50,7 +50,9 @@ test("the words, filters, kinds and selected row survive reopening and moving to
       "All sessions",
   );
   await page.locator(".search-kinds-button").click();
+  const filtered = answered();
   await page.locator('.search-kind[data-kind="pages"]').click();
+  await filtered;
   await page.waitForFunction(
     () =>
       document.querySelector(".search-kinds-button").textContent === "Pages",
