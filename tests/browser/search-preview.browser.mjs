@@ -312,7 +312,7 @@ test("keys belong to the search field until the reader writes in the frame", asy
   );
   assert.equal(await page.locator("#search-dialog[open]").count(), 1);
   await shown(page).locator("body").press("Escape");
-  assert.equal(await page.locator("#search-dialog[open]").count(), 0);
+  await page.locator("#search-dialog[open]").waitFor({ state: "detached" });
 });
 
 test("moving through results adds nothing to Back or to what the reader has opened", async (t) => {

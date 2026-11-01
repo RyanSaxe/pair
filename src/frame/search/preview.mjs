@@ -33,7 +33,8 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
       const open = win.document.querySelector(
         "dialog[open], [popover]:popover-open",
       );
-      if (!writing && !open) onKey(event);
+      // A closed dialog's field can hold focus for a moment after it closes.
+      if (!writing?.checkVisibility() && !open) onKey(event);
     });
   }
 
