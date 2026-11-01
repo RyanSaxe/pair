@@ -18,7 +18,8 @@ test("the search window's route serves a published round on today's frame, compr
   assert.equal(reply.status, 200);
   assert.equal(reply.headers.get("content-encoding"), "gzip");
   const page = await reply.text();
-  assert.match(page, /The kestrel plan/);
+  // The frame fetches each page it shows, so it carries none of them.
+  assert.doesNotMatch(page, /The kestrel plan/);
   assert.match(page, /"embedded": true/);
   // It holds what a round's page holds, and no secret of the session.
   assert.doesNotMatch(page, new RegExp(a.connection.token));
@@ -35,7 +36,6 @@ test("an older round is read-only there, a closed session is closed, and an unkn
   assert.match(older, /"readonly": true/);
   const latest = await (await embed(h, a, "latest")).text();
   assert.doesNotMatch(latest, /"readonly": true/);
-  assert.match(latest, /<p>Two\.<\/p>|Two\./);
   assert.equal((await embed(h, a, "9")).status, 404);
   const closed = await fetch(`${h.server.origin}${a.base}/api/dismiss`, {
     method: "POST",

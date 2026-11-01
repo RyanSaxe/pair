@@ -117,11 +117,15 @@ export function rounds(session) {
       ? undefined
       : await read(storedPagePath(set, set.bundlePath));
     const agreed = await read(storedPagePath(set, set.agreed));
-    const records = await Promise.all(
-      set.pages
-        .filter((slot) => slot.recordPath)
-        .map((slot) => read(storedPagePath(set, slot.recordPath))),
-    );
+    // The search window's frame fetches each page it shows, so it doesn't carry
+    // a round's images.
+    const records = today
+      ? []
+      : await Promise.all(
+          set.pages
+            .filter((slot) => slot.recordPath)
+            .map((slot) => read(storedPagePath(set, slot.recordPath))),
+        );
     const ready = new Map(
       records.map((record) => [record.page.id, record.page]),
     );
@@ -129,7 +133,7 @@ export function rounds(session) {
       id: slot.id,
       title: slot.title,
       html: ready.get(slot.id)?.html || "",
-      pending: !slot.recordPath,
+      pending: today || !slot.recordPath,
       working: slot.state === "active",
     }));
     const all = [agreed.page, ...records.map((record) => record.page)];
@@ -138,7 +142,7 @@ export function rounds(session) {
       round: set.round,
       title: set.title,
       ...(set.plan ? { plan: true } : {}),
-      ...(complete ? {} : { pageMode: "partial" }),
+      ...(complete && !today ? {} : { pageMode: "partial" }),
       pages,
       agreements: agreed.page.agreements,
       task: agreed.page.task,

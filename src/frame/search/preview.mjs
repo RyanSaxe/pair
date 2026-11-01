@@ -7,8 +7,10 @@ const KEPT = 3;
 // The selection can move faster than a frame can follow, so a result shows once
 // it has been selected for a moment.
 const REST_MS = 60;
+// A frame not loaded yet costs a download, so it waits out a reader's typing.
+const LOAD_REST_MS = 300;
 const LOADING_AFTER_MS = 250;
-const LOAD_LIMIT_MS = 30000;
+const LOAD_LIMIT_MS = 60000;
 const POLL_MS = 20;
 
 const keyOf = (row) =>
@@ -133,7 +135,11 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
       return onFailed(null);
     }
     if (now) void open(row, query, mine);
-    else restTimer = setTimeout(() => open(row, query, mine), REST_MS);
+    else
+      restTimer = setTimeout(
+        () => open(row, query, mine),
+        frames.has(keyOf(row)) ? REST_MS : LOAD_REST_MS,
+      );
   }
 
   function pause() {

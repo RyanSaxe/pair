@@ -292,6 +292,9 @@ for (const engine of ["chrome", "webkit"])
     await page.locator("#search-button").tap();
     await type(page, "about");
     assert.equal(await preview.isVisible(), false);
+    // Nothing shows before a tap, so nothing downloads.
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator(".search-frame").count(), 0);
 
     // The keyboard's Search key drops the keyboard over the results.
     await page.locator(".search-input").press("Enter");
