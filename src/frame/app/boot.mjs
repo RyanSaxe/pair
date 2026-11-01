@@ -86,7 +86,7 @@ function bootRound() {
   views.set(plan.round, { plan, agreements, task: agreedTask, pages });
   setState(editable ? savedDraft(plan.round) : emptyDraft(plan.round));
   const placeStore = loadPlaces();
-  if (editable) setPastRound(placeStore.past);
+  if (editable && !embedded) setPastRound(placeStore.past);
   if (editable && state.submitted?.round === plan.round) {
     setSubmittedRound(plan.round);
     setPastRound(plan.round);
@@ -202,6 +202,7 @@ function bootRound() {
           });
         else if (
           editable &&
+          !embedded &&
           !target &&
           placeStore.tab === "past" &&
           selectedTab === "current"

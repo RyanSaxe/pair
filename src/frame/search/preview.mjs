@@ -100,23 +100,27 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
     shown = entry;
   }
 
+  function hideShown() {
+    shown?.frame.classList.remove("is-shown");
+    shown = null;
+  }
+
   async function open(row, query, mine) {
     clearTimeout(loadingTimer);
     const entry = load(row);
-    const same = shown === entry;
-    if (!same) {
-      shown?.frame.classList.remove("is-shown");
-      shown = null;
-      loadingTimer = setTimeout(
-        () => mine === turn && onLoading(row),
-        LOADING_AFTER_MS,
-      );
-    }
+    // Another session's block must not sit under this result's title.
+    if (shown !== entry) hideShown();
+    loadingTimer = setTimeout(() => {
+      if (mine !== turn) return;
+      hideShown();
+      onLoading(row);
+    }, LOADING_AFTER_MS);
     try {
       const win = await entry.ready;
       if (mine !== turn) return;
+      await win.pairEmbed.open(row, query);
+      if (mine !== turn) return;
       clearTimeout(loadingTimer);
-      win.pairEmbed.open(row, query);
       reveal(entry);
       onShown(row);
     } catch {
@@ -130,8 +134,7 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
     clearTimeout(loadingTimer);
     const mine = ++turn;
     if (!row) {
-      shown?.frame.classList.remove("is-shown");
-      shown = null;
+      hideShown();
       return onFailed(null);
     }
     if (now) void open(row, query, mine);
