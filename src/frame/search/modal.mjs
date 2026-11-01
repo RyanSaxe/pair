@@ -467,9 +467,21 @@ export function installSearch() {
       event.target !== input &&
       !(key === " " && event.target.closest("button"))
     ) {
-      // A key typed anywhere in the modal goes to the field.
+      // A key typed anywhere in the modal goes to the field. One typed in a
+      // preview's frame has gone by the time the field has focus, so it's typed
+      // here.
       showKinds(false);
       input.focus();
+      if (event.view !== window && key.length === 1) {
+        event.preventDefault();
+        input.setRangeText(
+          key,
+          input.selectionStart,
+          input.selectionEnd,
+          "end",
+        );
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
     }
   }
   // While the modal is open, every key comes here first, wherever focus is,

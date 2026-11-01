@@ -237,11 +237,20 @@ const moved = () => {
   if (active) active.moved = true;
 };
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+const showing = (match) =>
+  matchRoots(match).every(
+    (root) => root.checkVisibility?.({ visibilityProperty: true }) !== false,
+  );
 async function whenDrawn(mine) {
-  const limit = wait(DRAW_LIMIT_MS);
-  await wait(REMARK_MS);
-  while (renders.size)
-    await Promise.race([Promise.allSettled([...renders]), limit]);
+  const limit = Date.now() + DRAW_LIMIT_MS;
+  // The frame hides a page until its first draw is done, and until then no word
+  // counts as showing. Each pass waits on a timer, so the page keeps running.
+  do await wait(REMARK_MS);
+  while (
+    active === mine &&
+    Date.now() < limit &&
+    (renders.size || !showing(mine))
+  );
   if (active !== mine) return;
   mine.drawn = true;
   mine.scrolledAt = null;
