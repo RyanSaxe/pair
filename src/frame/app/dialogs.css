@@ -587,6 +587,11 @@ dialog::backdrop {
   width: 14px;
   height: 14px;
 }
+.sess-row .marks {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .pill {
   padding: 1px 7px;
   border-radius: 999px;

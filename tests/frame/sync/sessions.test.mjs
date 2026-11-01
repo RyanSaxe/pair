@@ -89,19 +89,18 @@ test("sessions keep the order they started in, and w reaches the next waiting on
 
 test("a row shows the first status that applies", () => {
   const cases = [
-    [{ needsYou: true, wakeFailed: true }, 2, "Waiting"],
-    [{ wakeFailed: true, paused: true }, 2, "Can't wake"],
-    [{ stage: "working", paused: true }, 2, "2 new"],
-    [{ paused: true, stage: "working" }, 0, "Paused"],
-    [{ stage: "working" }, 0, "Working"],
-    [{ stage: "updated", openRound: { ready: 1 } }, 0, "Working"],
+    [{ needsYou: true, wakeFailed: true }, "Waiting"],
+    [{ wakeFailed: true, paused: true }, "Can't wake"],
+    [{ paused: true, stage: "working" }, "Paused"],
+    [{ stage: "working" }, "Working"],
+    [{ stage: "updated", openRound: { ready: 1 } }, "Working"],
     // A session with round null has nothing published, so its agent is
     // preparing the first round.
-    [{ round: null, stage: "ready" }, 0, "Working"],
-    [{ stage: "complete" }, 0, undefined],
+    [{ round: null, stage: "ready" }, "Working"],
+    [{ stage: "complete" }, undefined],
   ];
-  for (const [fields, unopened, text] of cases)
-    assert.equal(rowStatus(entry("2", fields), unopened)?.text, text);
+  for (const [fields, text] of cases)
+    assert.equal(rowStatus(entry("2", fields))?.text, text);
 });
 
 // groupSessions orders sibling sub-sessions by start time, so session 2 comes
