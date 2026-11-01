@@ -67,17 +67,24 @@ export async function search(options) {
     limit: String(limit),
     ...(kinds.length ? { kinds: kinds.join(",") } : {}),
     ...(options["this-session"] ? { session: session.sessionId() } : {}),
+    ...(options.closed ? { closed: "1" } : {}),
   };
   let result = await session.search(params);
   for (let tries = 0; result.loading && tries < LOAD_TRIES; tries++) {
     await new Promise((done) => setTimeout(done, LOAD_WAIT_MS));
     result = await session.search(params);
   }
-  const scope = options["this-session"] ? "this session" : "all sessions";
+  const scope = options["this-session"]
+    ? "this session"
+    : options.closed
+      ? "all sessions"
+      : "live sessions";
   const count = `${result.total} result${result.total === 1 ? "" : "s"} in ${scope}`;
   const head = result.total
     ? `${count}, showing ${result.results.length}. ${WARNING}`
-    : `No results in ${scope}. Try fewer words, or other words.`;
+    : result.wider?.filter === "closed"
+      ? `No results in ${scope}. ${result.wider.total} in closed sessions, which --closed includes.`
+      : `No results in ${scope}. Try fewer words, or other words.`;
   return {
     data: [
       head,

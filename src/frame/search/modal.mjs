@@ -1,10 +1,9 @@
 import { $, apple } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
+import { createMenus, HERE, menusHtml } from "#frame/search/menus.mjs";
 import { openResult } from "#frame/search/open.mjs";
-import { followPointer } from "#frame/search/pointer.mjs";
 import { createPreview } from "#frame/search/preview.mjs";
 import {
-  KINDS,
   blankHtml,
   escapeHtml,
   hasOwnText,
@@ -31,18 +30,16 @@ const stepOf = (event) =>
 const MEMORY = "pair:search";
 const state = {
   query: "",
-  allSessions: false,
-  allRounds: true,
-  kinds: new Set(),
+  sessions: [HERE],
+  closed: false,
+  rounds: [],
+  kinds: [],
   selected: 0,
   row: null,
 };
 function remember() {
   try {
-    sessionStorage.setItem(
-      MEMORY,
-      JSON.stringify({ ...state, kinds: [...state.kinds] }),
-    );
+    sessionStorage.setItem(MEMORY, JSON.stringify(state));
   } catch {
     // Without storage, the search lasts as long as the page.
   }
@@ -50,7 +47,7 @@ function remember() {
 function recall() {
   try {
     const saved = JSON.parse(sessionStorage.getItem(MEMORY));
-    if (saved) Object.assign(state, saved, { kinds: new Set(saved.kinds) });
+    if (saved) Object.assign(state, saved);
   } catch {
     // Without storage, a search starts from the defaults.
   }
@@ -93,14 +90,7 @@ export function installSearch() {
         <input class="search-input" type="search" role="combobox" aria-expanded="true" aria-controls="search-list" aria-autocomplete="list" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Search" />
         <output class="search-count"></output>
       </div>
-      <div class="search-filters">
-        <button class="btn search-filter" type="button" data-toggle="allSessions"></button>
-        <button class="btn search-filter" type="button" data-toggle="allRounds"></button>
-        <div class="search-kinds-anchor">
-          <button class="btn search-filter search-kinds-button" type="button" aria-expanded="false"></button>
-          <div class="search-kinds" role="group" aria-label="Kinds" hidden></div>
-        </div>
-      </div>
+      <div class="search-filters">${menusHtml}</div>
       <div class="search-list" id="search-list" role="listbox" aria-label="Results" tabindex="-1"></div>
     </div>
     <aside class="search-preview">
@@ -127,70 +117,26 @@ export function installSearch() {
       showPreview(words, row);
     },
     onLoading() {
-      words.hidden = false;
-      words.innerHTML = '<p class="search-loading">Loading…</p>';
+      words.hidden = true;
     },
     onKey,
   });
   const input = part(".search-input");
   const list = part(".search-list");
-  const kinds = part(".search-kinds");
-  const kindsButton = part(".search-kinds-button");
+  const menus = createMenus({ host: part(".search-filters"), state });
   let current = { results: [], counts: {}, total: 0 };
   let request = null;
   let searching = 0;
   let pressedOutside = false;
 
-  kinds.innerHTML =
-    `<button class="search-kind" type="button" data-kind=""><span>All kinds</span></button>` +
-    KINDS.map(
-      ([id, label]) =>
-        `<button class="search-kind" type="button" data-kind="${id}"><span>${label}</span><b></b></button>`,
-    ).join("");
   const focusField = () => innerWidth > PHONE && input.focus();
-  // The keys move through the menu from the moment it opens.
-  const showKinds = (open) => {
-    kinds.hidden = !open;
-    kindsButton.setAttribute("aria-expanded", String(open));
-    if (open) kinds.firstElementChild.focus();
-  };
-  const closeKinds = () => {
-    showKinds(false);
+  const closeMenu = () => {
+    menus.show(null);
     focusField();
   };
-  function moveInKinds(step) {
-    const items = [...kinds.children];
-    const at = items.indexOf(document.activeElement);
-    items[(at + step + items.length) % items.length].focus();
-  }
 
   function drawControls() {
-    const sessions = part('[data-toggle="allSessions"]');
-    sessions.textContent = state.allSessions ? "All sessions" : "This session";
-    sessions.classList.toggle("is-set", state.allSessions);
-    const rounds = part('[data-toggle="allRounds"]');
-    rounds.textContent = state.allRounds ? "All rounds" : "Latest round";
-    rounds.classList.toggle("is-set", !state.allRounds);
-    const chosen = KINDS.filter(([id]) => state.kinds.has(id)).map(
-      ([, label]) => label,
-    );
-    kindsButton.textContent = !chosen.length
-      ? "All kinds"
-      : chosen.length === 1
-        ? chosen[0]
-        : `${chosen.length} kinds`;
-    kindsButton.classList.toggle("is-set", chosen.length > 0);
-    for (const kind of kinds.children) {
-      const id = kind.dataset.kind;
-      kind.setAttribute(
-        "aria-pressed",
-        String(id ? state.kinds.has(id) : state.kinds.size === 0),
-      );
-      if (id) {
-        kind.querySelector("b").textContent = current.counts[id] ?? 0;
-        kind.dataset.empty = String(!current.counts[id]);
-      }
-    }
+    menus.draw(current.counts);
     part(".search-count").textContent =
       state.query.trim() && current.total
         ? `${current.total} result${current.total === 1 ? "" : "s"}`
@@ -251,9 +197,10 @@ export function installSearch() {
       q: state.query,
       here: session.sessionId,
     });
-    if (!state.allSessions) params.set("session", session.sessionId);
-    if (!state.allRounds) params.set("round", "latest");
-    if (state.kinds.size) params.set("kinds", [...state.kinds].join(","));
+    if (state.sessions.length) params.set("session", menus.sessionIds());
+    if (state.rounds.length) params.set("round", state.rounds.join(","));
+    if (state.kinds.length) params.set("kinds", state.kinds.join(","));
+    if (state.closed) params.set("closed", "1");
     // Until a slow reply arrives, nothing says "0 results" or "No matches" about
     // words the field no longer has.
     clearTimeout(searching);
@@ -318,24 +265,26 @@ export function installSearch() {
     dialog.close();
     openResult(row, state.query);
   }
+  // A click shows a row, and a click on the row that's showing opens it.
   function chooseRow(index) {
-    if (innerWidth > PHONE) {
-      moveSelection(index);
+    const sheet = dialog.classList.contains("is-sheet");
+    if (index === state.selected && (innerWidth > PHONE || sheet))
       return openSelected();
+    if (innerWidth <= PHONE) {
+      // The list shrinks to the top half, so the row scrolls into it afterward.
+      dialog.classList.add("is-sheet");
+      input.blur();
     }
-    // The list shrinks to the top half, so the row scrolls into it afterward.
-    dialog.classList.add("is-sheet");
-    input.blur();
     moveSelection(index);
   }
 
   function open() {
     if (!dialog.open) dialog.showModal();
-    pointer.reset();
     input.value = state.query;
     input.focus();
     input.select();
     void run({ keep: true });
+    void menus.load().then(drawControls);
   }
   dialog.addEventListener("search:open", open);
   button.addEventListener("click", open);
@@ -359,35 +308,26 @@ export function installSearch() {
   dialog.addEventListener("click", (event) => {
     // A click outside the menu only closes the menu.
     if (
-      !kinds.hidden &&
-      !event.target.closest(".search-kinds, .search-kinds-button")
+      menus.opened() &&
+      !event.target.closest(".search-menu, .search-menu-button")
     )
-      return closeKinds();
+      return closeMenu();
     if (event.target === dialog) return pressedOutside && dialog.close();
-    const toggle = event.target.closest("[data-toggle]");
-    if (toggle) {
-      state[toggle.dataset.toggle] = !state[toggle.dataset.toggle];
-      void run();
-      // A key press has no click count, and it keeps its place in the Tab order.
-      if (event.detail) focusField();
-      return;
-    }
-    if (event.target.closest(".search-kinds-button"))
-      return kinds.hidden ? showKinds(true) : closeKinds();
-    const kind = event.target.closest(".search-kind");
-    if (kind) {
-      const id = kind.dataset.kind;
-      if (!id) state.kinds.clear();
-      else if (state.kinds.has(id)) state.kinds.delete(id);
-      else state.kinds.add(id);
+    const menu = event.target.closest("[data-menu]")?.dataset.menu;
+    if (event.target.closest(".search-menu-button"))
+      return menus.opened() === menu ? closeMenu() : menus.show(menu);
+    const item = event.target.closest(".search-menu-item");
+    if (item) {
+      menus.choose(menu, item.dataset.value);
       return void run();
     }
     const wider = event.target.closest("[data-wider]");
     if (wider) {
       const filter = wider.dataset.wider;
-      state.kinds.clear();
-      if (filter !== "kinds") state.allRounds = true;
-      if (filter === "sessions") state.allSessions = true;
+      state.kinds = [];
+      if (filter !== "kinds") state.rounds = [];
+      if (filter === "sessions" || filter === "closed") state.sessions = [];
+      if (filter === "closed") state.closed = true;
       void run();
       return focusField();
     }
@@ -400,22 +340,18 @@ export function installSearch() {
     if (getSelection().isCollapsed) focusField();
   });
 
-  const pointer = followPointer(list, {
-    paused: () => !kinds.hidden,
-    select: (index) => index !== state.selected && moveSelection(index),
-  });
   // Scrolling the results on a phone drops the keyboard, so more rows show.
   list.addEventListener("touchmove", () => input.blur(), { passive: true });
 
   input.addEventListener("input", () => {
     state.query = input.value;
-    showKinds(false);
+    menus.show(null);
     void run();
   });
 
   dialog.addEventListener("close", () => {
     preview.pause();
-    showKinds(false);
+    menus.show(null);
     closeSheet();
     button.focus({ preventScroll: true });
   });
@@ -429,39 +365,35 @@ export function installSearch() {
     // modal handles Esc itself and keeps the query for the next time.
     if (key === "Escape") {
       event.preventDefault();
-      if (!kinds.hidden) closeKinds();
+      if (menus.opened()) closeMenu();
       else dialog.close();
     } else if (event.metaKey && !event.shiftKey && key.toLowerCase() === "k") {
       event.preventDefault();
       dialog.close();
     } else if (step) {
       event.preventDefault();
-      if (kinds.hidden) moveSelection(state.selected + step);
-      else moveInKinds(step);
+      if (menus.opened()) menus.move(step);
+      else moveSelection(state.selected + step);
     } else if (key === "Enter") {
       // Enter presses a control that has focus.
       if (event.target.closest("button")) return;
       event.preventDefault();
-      if (!kinds.hidden) closeKinds();
+      if (menus.opened()) closeMenu();
       // A phone keyboard's Search key drops the keyboard over the results.
       else if (innerWidth <= PHONE && event.target === input) input.blur();
       else if (current.results.length) openSelected();
       else part("[data-wider]")?.click();
     } else if (event.altKey && event.code === "KeyS") {
       event.preventDefault();
-      state.allSessions = !state.allSessions;
+      menus.switchSessions();
       void run();
     } else if (event.altKey && event.code === "KeyR") {
       event.preventDefault();
-      state.allRounds = !state.allRounds;
+      menus.switchRounds();
       void run();
     } else if (key === "Tab") {
-      // Tab moves through the controls, as in the frame's dialogs. From the
-      // menu, it moves on from the button that opened the menu.
-      if (!kinds.hidden) {
-        showKinds(false);
-        kindsButton.focus();
-      }
+      // Tab moves through the controls, as in the frame's dialogs.
+      menus.leave();
     } else if (
       (key.length === 1 || key === "Backspace") &&
       !event.ctrlKey &&
@@ -473,7 +405,7 @@ export function installSearch() {
       // A key typed anywhere in the modal goes to the field. One typed in a
       // preview's frame has gone by the time the field has focus, so it's typed
       // here.
-      showKinds(false);
+      menus.show(null);
       input.focus();
       if (event.view !== window && key.length === 1) {
         event.preventDefault();
@@ -492,7 +424,7 @@ export function installSearch() {
   document.addEventListener("keydown", onKey, true);
   // A click inside a frame reaches only the frame, but it moves focus.
   window.addEventListener("blur", () => {
-    if (dialog.open) showKinds(false);
+    if (dialog.open) menus.show(null);
   });
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual

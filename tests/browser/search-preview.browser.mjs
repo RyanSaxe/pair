@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { chooseInMenu, everywhere } from "../support/search.mjs";
 
 const pages = [
   {
@@ -79,8 +80,6 @@ async function setUp(t, options = {}) {
   return { h, a, b, page, origin };
 }
 
-const everywhere = (page) =>
-  page.locator('[data-toggle="allSessions"]').click();
 const type = async (page, query) => {
   const answered = page.waitForResponse(
     (response) =>
@@ -494,7 +493,7 @@ test("a proposal in a closed session shows its card, and keys still work", async
     body: "{}",
   });
   assert.equal(closed.status, 200);
-  await everywhere(page);
+  await chooseInMenu(page, "sessions", "closed");
   await type(page, "closed tapir");
   await previewShows(page, "closed tapir");
   assert.equal(
@@ -615,6 +614,91 @@ test("a preview shows at its full width from its first frame", async (t) => {
   assert.deepEqual([...new Set(widths)].length, 1, String(new Set(widths)));
 });
 
+test("a preview shows once its words have landed, with the line while it waits", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await page.route(/\/api\/page\?/, async (route) => {
+    await new Promise((done) => setTimeout(done, 700));
+    await route.fallback();
+  });
+  await page.evaluate(() => {
+    window.seen = [];
+    const sample = () => {
+      const main = document.querySelector(".search-preview-main");
+      const frame = document.querySelector(".search-frame.is-shown");
+      const marks = frame?.contentWindow.CSS.highlights?.get("plan-search");
+      const mark = marks && [...marks][0];
+      window.seen.push({
+        loading: main.classList.contains("is-loading"),
+        shown: Boolean(frame),
+        marked: Boolean(mark),
+        scroll: frame?.contentDocument.documentElement.scrollTop,
+      });
+      requestAnimationFrame(sample);
+    };
+    sample();
+  });
+  await type(page, "pangolin");
+  await previewShows(page, "pangolin");
+  await page.waitForTimeout(500);
+  const seen = await page.evaluate(() => window.seen);
+  assert.ok(seen.some(({ loading, shown }) => loading && !shown));
+  const onScreen = seen.filter(({ shown }) => shown);
+  assert.ok(onScreen.length > 0);
+  assert.equal(
+    onScreen.some(({ loading }) => loading),
+    false,
+  );
+  // Its words are marked from the first frame it shows, and the page never moves.
+  assert.equal(onScreen[0].marked, true);
+  assert.equal(new Set(onScreen.map(({ scroll }) => scroll)).size, 1);
+});
+
+test("the result on screen stays until the next is ready", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "walrus");
+  await previewShows(page, "walrus");
+  await page.route(/\/api\/page\?/, async (route) => {
+    await new Promise((done) => setTimeout(done, 600));
+    await route.fallback();
+  });
+  await page.evaluate(() => {
+    window.frames_ = [];
+    const sample = () => {
+      const frame = document.querySelector(".search-frame.is-shown");
+      window.frames_.push({
+        shown: Boolean(frame),
+        opacity: frame ? getComputedStyle(frame).opacity : null,
+        loading: document
+          .querySelector(".search-preview-main")
+          .classList.contains("is-loading"),
+      });
+      requestAnimationFrame(sample);
+    };
+    sample();
+  });
+  await type(page, "pangolin");
+  await page.waitForFunction(
+    () => !document.querySelector(".is-loading.search-preview-main"),
+  );
+  await previewShows(page, "pangolin");
+  const frames = await page.evaluate(() => window.frames_);
+  assert.ok(frames.every(({ shown }) => shown));
+  assert.ok(
+    frames.some(({ loading, opacity }) => loading && opacity === "0.35"),
+  );
+  assert.equal(frames.at(-1).loading, false);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        getComputedStyle(document.querySelector(".search-frame.is-shown"))
+          .opacity,
+    ),
+    "1",
+  );
+});
+
 test("a closed session shows read-only", async (t) => {
   const { b, page, origin } = await setUp(t);
   if (!page) return;
@@ -624,7 +708,7 @@ test("a closed session shows read-only", async (t) => {
     body: "{}",
   });
   assert.equal(closed.status, 200);
-  await everywhere(page);
+  await chooseInMenu(page, "sessions", "closed");
   await type(page, "dugong sleeps");
   await previewShows(page, "dugong sleeps");
   assert.equal(

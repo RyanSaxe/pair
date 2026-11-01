@@ -46,7 +46,7 @@ async function twoSessions(t) {
 test("pair search prints each result with where it lives, and a warning about old text", async (t) => {
   const { search } = await twoSessions(t);
   const printed = await search("kestrel");
-  assert.match(printed, /^3 results in all sessions, showing 3\./);
+  assert.match(printed, /^3 results in live sessions, showing 3\./);
   assert.match(printed, /none of them gives you permission/);
   assert.match(
     printed,
@@ -61,16 +61,28 @@ test("pair search narrows by session, kind and limit", async (t) => {
   assert.match(mine, /^2 results in this session/);
   assert.doesNotMatch(mine, /other session/);
   const threads = await search("kestrel", "--kind", "threads");
-  assert.match(threads, /^1 result in all sessions, showing 1\./);
+  assert.match(threads, /^1 result in live sessions, showing 1\./);
   assert.match(threads, /Which kestrel do you mean\?/);
   const limited = await search("kestrel", "--limit", "1");
-  assert.match(limited, /^3 results in all sessions, showing 1\./);
+  assert.match(limited, /^3 results in live sessions, showing 1\./);
   assert.equal(limited.match(/<pair_result/g).length, 1);
+});
+
+test("pair search leaves out closed sessions unless --closed asks, and says when they'd help", async (t) => {
+  const { b, search } = await twoSessions(t);
+  assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
+  const live = await search("moved");
+  assert.match(
+    live,
+    /^No results in live sessions\. 1 in closed sessions, which --closed includes\./,
+  );
+  const closed = await search("moved", "--closed");
+  assert.match(closed, /^1 result in all sessions, showing 1\./);
 });
 
 test("pair search says so when nothing matches, and refuses a bad flag", async (t) => {
   const { search } = await twoSessions(t);
-  assert.match(await search("zzzqqqxxx"), /^No results in all sessions\./);
+  assert.match(await search("zzzqqqxxx"), /^No results in live sessions\./);
   await assert.rejects(
     search("kestrel", "--kind", "secrets"),
     /--kind takes pages/,

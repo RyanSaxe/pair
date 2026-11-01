@@ -293,6 +293,7 @@ export function setMatch(words, target, text = "") {
     drawn: false,
     moved: false,
     scrolledAt: null,
+    landed: null,
   };
   observer = new MutationObserver(changed);
   observer.observe(document.querySelector("main"), {
@@ -304,7 +305,20 @@ export function setMatch(words, target, text = "") {
   document.addEventListener("toggle", changed, true);
   for (const type of readerInputs)
     addEventListener(type, moved, { capture: true, passive: true });
-  void whenDrawn(active);
+  active.landed = whenDrawn(active);
+}
+// Resolves once the block has drawn, the words have been marked and the page has
+// moved to them, so the search window can show it with nothing left to jump.
+export async function whenLanded(limit) {
+  const mine = active;
+  if (!mine) return;
+  await mine.landed;
+  do await wait(REMARK_MS);
+  while (
+    active === mine &&
+    Date.now() < limit &&
+    Date.now() - changedAt < QUIET_MS
+  );
 }
 export function clearMatch() {
   if (!active) return;

@@ -157,7 +157,10 @@ export async function startHub(config = settings()) {
     );
   const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
-    const html = await fs.readFile(entry.path, "utf8");
+    const unfinished =
+      (flags.readonly || flags.closed) &&
+      (await session.renderPublished(entry.round));
+    const html = unfinished || (await fs.readFile(entry.path, "utf8"));
     return framePage(session, html, flags, head);
   };
   /* The search window loads a session's frame when a result needs it, on a
@@ -238,12 +241,15 @@ export async function startHub(config = settings()) {
             query: params.get("q") || "",
             session: params.get("session"),
             round: params.get("round"),
+            closed: params.get("closed") === "1",
             here: params.get("here"),
             kinds,
             limit,
           }),
         );
       }
+      if (method === "GET" && url.pathname === "/api/search/sessions")
+        return reply(200, { sessions: search.sessionChoices() });
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
           app: "pair",
