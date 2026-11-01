@@ -45,15 +45,17 @@ The preview is the result's real page, from the session's own frame, showing
 only the block with your words and its threads. A diff is the real diff, a
 proposal is its real card, and a decision shows what you chose. When your words
 are in an option or a fold that's closed, the preview opens the part that shows
-the most of them.
+the most of them. A note or answer you sent shows its block under a card with
+your words, because your words aren't in the block.
 
 Everything the page allows works in the preview: comments, threads, replies,
 choices, answers and proposals. Each goes to the result's own session and round,
 and a comment names them. An older round or a closed session allows what its page
 allows.
 
-On a phone, tap a result to see its preview under the results, and tap the next
-result to move on. While the on-screen keyboard is up, only the results show.
+On a phone, the best result shows under the results as you type, and a tap on
+another result moves the preview to it. With nothing typed, the newest results
+wait for a tap.
 
 ## Open a result
 
