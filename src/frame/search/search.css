@@ -304,6 +304,38 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  background: var(--panel);
+}
+/* The line a page shows while it draws, along the top of the pane. */
+.search-progress {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  opacity: 0;
+  pointer-events: none;
+}
+.search-preview-main.is-loading .search-progress {
+  animation: search-progress 2.7s linear 250ms forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-preview-main.is-loading .search-progress {
+    animation-duration: 1ms;
+  }
+}
+@keyframes search-progress {
+  from {
+    opacity: 1;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(0.9);
+  }
 }
 .search-words {
   position: absolute;
@@ -325,10 +357,10 @@
   visibility: visible;
 }
 /* A block under another result's title dims, if it stays there long enough to
-   be read as that result. */
+   be read as that result. The line starts at the same moment. */
 .search-frame.is-stale {
   opacity: 0.35;
-  transition: opacity 0s 120ms;
+  transition: opacity 0s 250ms;
 }
 /* The head has the two rows of the field and the filters, so one rule runs
    across the modal: the session beside the field, and the round and page beside
@@ -497,11 +529,6 @@
 :root[data-embed] .content {
   max-width: none;
   padding: 14px 18px 28px;
-}
-.search-loading {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-small);
 }
 /* An opened result's words can't always be painted, and then its block shows
    which part of the page matched. */

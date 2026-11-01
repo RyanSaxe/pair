@@ -1,8 +1,9 @@
 import { $ } from "#frame/app/util.mjs";
 import { base, editable, page, plan } from "#frame/app/view.mjs";
-import { targetElement } from "#frame/notes/match.mjs";
+import { targetElement, whenLanded } from "#frame/notes/match.mjs";
 import { show } from "#frame/pages/pages.mjs";
-import { useTheme } from "#frame/pages/renderers.mjs";
+import { copyColumn } from "#frame/pages/progress.mjs";
+import { renders, useTheme } from "#frame/pages/renderers.mjs";
 import { sentCard, sentEntries } from "#frame/review/review.mjs";
 import { openResult, pageOf, targetOf } from "#frame/search/open.mjs";
 import { ensurePageSet, remote } from "#frame/sync/rounds.mjs";
@@ -13,12 +14,16 @@ import { ensurePageSet, remote } from "#frame/sync/rounds.mjs";
 const HIDE = "embed-hide";
 const ARRIVE_LIMIT_MS = 15000;
 const ARRIVE_POLL_MS = 20;
+// A page that never settles still shows, once the reader has waited this long.
+const READY_LIMIT_MS = 8000;
 const isThread = (node) => node?.localName === "pair-thread";
 const isHeading = (node) => /^H[1-6]$/.test(node?.tagName ?? "");
 
 let wanted = null;
 let opens = 0;
 let showing = true;
+let onScreen = false;
+let picture = null;
 export const embedShowing = () => showing;
 
 const hide = (element, on = true) => element.classList.toggle(HIDE, on);
@@ -127,6 +132,35 @@ async function sentPlace(row) {
     : `control-${row.item.slice(row.page.length + 1)}`;
   return target ? { page: row.page, target, entry } : null;
 }
+/* The result on screen stays until the next one is ready, as a page stays until
+   the next page has drawn. The copy's stylesheets can't see the root's data-embed,
+   so what those rules hide comes out of the copy here. */
+function holdPicture() {
+  if (!onScreen || picture) return;
+  const padding = getComputedStyle($("content")).padding;
+  const whole = document.documentElement.hasAttribute("data-embed-whole");
+  picture = copyColumn((copy) => {
+    copy.style.padding = padding;
+    copy.style.maxWidth = "none";
+    for (const part of copy.querySelectorAll(
+      `.${HIDE}, .note-count, .page-footer, .sent-page-comments, .history-strip${whole ? "" : ", #page-title"}`,
+    ))
+      part.remove();
+  });
+}
+function dropPicture() {
+  picture?.remove();
+  picture = null;
+}
+async function whenReady() {
+  const limit = Date.now() + READY_LIMIT_MS;
+  await whenLanded(limit);
+  while (
+    Date.now() < limit &&
+    (renders.size || "drawing" in $("page-content").dataset)
+  )
+    await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
+}
 function placeSent(entry) {
   document.getElementById("embed-sent")?.remove();
   if (!entry) return;
@@ -181,6 +215,7 @@ export function installEmbed() {
       pause();
       showing = true;
       const asked = ++opens;
+      holdPicture();
       const sent = await sentPlace(row);
       if (asked !== opens) return;
       const place = sent ?? { page: pageOf(row), target: targetOf(row) };
@@ -195,9 +230,13 @@ export function installEmbed() {
       if (asked !== opens) return;
       placeSent(sent?.entry);
       isolate();
+      await whenReady();
+      if (asked !== opens) return;
+      dropPicture();
     },
     show(on) {
       showing = on;
+      onScreen = on;
       if (!on) pause();
     },
     // Closing the search window leaves the frame loaded and idle.

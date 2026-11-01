@@ -9,7 +9,6 @@ const KEPT = 3;
 const REST_MS = 60;
 // A frame not loaded yet costs a download, so it waits out a reader's typing.
 const LOAD_REST_MS = 300;
-const LOADING_AFTER_MS = 250;
 const LOAD_LIMIT_MS = 60000;
 const POLL_MS = 20;
 
@@ -22,8 +21,11 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
   const frames = new Map();
   let shown = null;
   let restTimer = 0;
-  let loadingTimer = 0;
   let turn = 0;
+  const bar = document.createElement("div");
+  bar.className = "search-progress";
+  host.append(bar);
+  const loading = (on) => host.classList.toggle("is-loading", on);
 
   // A key belongs to the frame while the reader writes there or has something
   // open in it. Any other key is the search window's.
@@ -107,39 +109,37 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
     shown = null;
   }
 
+  /* What's on screen stays, and dims if the wait is long, until the new result
+     has drawn and moved to its words, so it arrives whole. */
   async function open(row, query, mine) {
-    clearTimeout(loadingTimer);
     const entry = load(row);
-    // Another session's block must not sit under this result's title.
-    if (shown !== entry) hideShown();
-    loadingTimer = setTimeout(() => {
-      if (mine !== turn) return;
-      hideShown();
-      onLoading(row);
-    }, LOADING_AFTER_MS);
     try {
       const win = await entry.ready;
       if (mine !== turn) return;
       await win.pairEmbed.open(row, query);
       if (mine !== turn) return;
-      clearTimeout(loadingTimer);
+      loading(false);
       reveal(entry);
       onShown(row);
     } catch {
-      clearTimeout(loadingTimer);
-      if (mine === turn) onFailed(row);
+      if (mine !== turn) return;
+      loading(false);
+      hideShown();
+      onFailed(row);
     }
   }
 
   function show(row, query, { now = false } = {}) {
     clearTimeout(restTimer);
-    clearTimeout(loadingTimer);
     const mine = ++turn;
     shown?.frame.classList.add("is-stale");
     if (!row) {
+      loading(false);
       hideShown();
       return onFailed(null);
     }
+    loading(true);
+    onLoading();
     if (now) void open(row, query, mine);
     else
       restTimer = setTimeout(

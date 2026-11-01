@@ -117,8 +117,7 @@ export function installSearch() {
       showPreview(words, row);
     },
     onLoading() {
-      words.hidden = false;
-      words.innerHTML = '<p class="search-loading">Loading…</p>';
+      words.hidden = true;
     },
     onKey,
   });
