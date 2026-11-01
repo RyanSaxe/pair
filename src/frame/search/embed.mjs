@@ -2,7 +2,7 @@ import { $ } from "#frame/app/util.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { useTheme } from "#frame/pages/renderers.mjs";
 import { openResult, pageOf, targetOf } from "#frame/search/open.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
+import { ensurePageSet, remote } from "#frame/sync/rounds.mjs";
 
 /* The session's real frame, inside the search window. It goes to a result the
    way Open does, through the page's own code, so everything on screen is what
@@ -106,12 +106,15 @@ export function installEmbed() {
     subtree: true,
   });
   window.pairEmbed = {
-    open(row, query) {
+    async open(row, query) {
       pause();
-      wanted = targetOf(row);
+      const target = targetOf(row);
+      wanted = target;
+      await ensurePageSet();
+      if (wanted !== target) return;
       const match = query.trim();
       if (row.round) openResult({ ...row, page: pageOf(row) }, query);
-      else show(row.page || "agreed", wanted, { match });
+      else show(row.page || "agreed", target, { match });
       soon();
     },
     show(on) {

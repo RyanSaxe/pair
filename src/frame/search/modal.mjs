@@ -233,7 +233,9 @@ export function installSearch() {
         .map((crumb) => `<span>${escapeHtml(crumb)}</span>`)
         .join("");
     } else closeSheet();
-    preview.show(row, state.query);
+    // On a phone the preview shows only after a tap, so nothing loads before it.
+    if (innerWidth > PHONE || dialog.classList.contains("is-sheet"))
+      preview.show(row, state.query);
     state.row = rowKey(row);
     remember();
   }

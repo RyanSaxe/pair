@@ -276,6 +276,15 @@ async function loadPageSet(round, viewFor, failure) {
   }
   return manifest;
 }
+// The search window's frame starts with no pages, so it reads their list first.
+export const ensurePageSet = () =>
+  pageSets.has(plan.round)
+    ? Promise.resolve()
+    : loadPageSet(
+        plan.round,
+        () => views.get(plan.round),
+        "Could not load page list.",
+      );
 async function syncPageSet() {
   const round = remote?.current?.round;
   if (!round || !remote.pageSetGeneration) return;
