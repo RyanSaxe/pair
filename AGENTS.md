@@ -130,11 +130,18 @@ npx --yes eslint@10.11.0 .
 npm run test:browser
 ```
 
-`npm run test:browser` opens built pages in the installed Google Chrome
-through `playwright-core`. Run `npm ci` once in a checkout to install it.
-Without Google Chrome, a browser test skips with "Google Chrome is not
-installed". When the `CI` environment variable is set, as it is in GitHub
-Actions, the test fails instead of skipping.
+`npm run test:browser` opens built pages in Chrome for Testing through
+`playwright-core`. Run `npm ci` once in a checkout to install `playwright-core`,
+then `npx playwright-core install chromium` once, which installs the Chrome for
+Testing build for that version. Without it, a browser test skips with "Chrome
+for Testing is not installed". When the `CI` environment variable is set, as it
+is in GitHub Actions, the test fails instead of skipping.
+
+Test code and scratch scripts use Chrome for Testing, not Google Chrome. On
+macOS, each new Google Chrome adds keys to the keychain and reads all of them.
+Thousands of launches leave `secd` too busy for the certificate check of any
+Chrome on the machine, which then fails after 30 seconds. Chrome for Testing has
+no entitlement to those keys.
 
 The landing tests, in `tests/browser/landing.browser.mjs`, also run in the
 WebKit that Playwright installs, because every browser on an iPhone uses
@@ -256,8 +263,7 @@ For a change elsewhere that alters what the README's or the docs'
 screenshots show, and for a pull request from a fork, run
 `npm run screenshots` on macOS and commit the PNGs it rewrites. The script
 starts its own hub on a port the system assigns, with its state in a
-temporary directory, and takes each screenshot in the installed Google
-Chrome. The frame's text is the system font, so the script refuses to run on
+temporary directory, and takes each screenshot in Chrome for Testing. The frame's text is the system font, so the script refuses to run on
 another system, where lines would break in other places.
 
 When `npm run screenshots` fails, it saves a screenshot and the console log
