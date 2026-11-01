@@ -698,6 +698,111 @@ test("the result on screen stays until the next is ready", async (t) => {
   );
 });
 
+test("another result on the page on screen just moves the page", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "sentence");
+  await previewShows(page, "sentence");
+  const moves = await page.evaluate(async () => {
+    const frame = document.querySelector(".search-frame.is-shown");
+    const first = frame.contentDocument.querySelector("#page-content > p");
+    const row = () =>
+      document.querySelector('.search-row[aria-selected="true"]');
+    const before = row().dataset.i;
+    const dims = [];
+    const sample = () => {
+      dims.push(getComputedStyle(frame).opacity);
+      if (window.sampling) requestAnimationFrame(sample);
+    };
+    window.sampling = true;
+    sample();
+    document.querySelector(".search-input").dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await new Promise((done) => setTimeout(done, 600));
+    window.sampling = false;
+    return {
+      moved: row().dataset.i !== before,
+      same: first.isConnected,
+      dimmed: dims.includes("0.35"),
+    };
+  });
+  assert.deepEqual(moves, { moved: true, same: true, dimmed: false });
+});
+
+test("moving to a retired Agreed card in an older round shows it at once, with its fold open", async (t) => {
+  const { h, page, origin } = await setUp(t);
+  if (!page) return;
+  const old = await h.session();
+  const first = await old.publish({
+    ...planData(),
+    agreements: [
+      {
+        id: "old-scope",
+        title: "Old scope",
+        html: "<p>The capuchin left.</p>",
+        state: "retired",
+        sourceRefs: [{ kind: "conversation", text: "Said in chat." }],
+      },
+    ],
+    pages: [{ id: "overview", title: "Overview", html: "<p>Round one.</p>" }],
+  });
+  assert.equal(first.code, 200, first.body.error);
+  assert.equal((await old.feedback(old.event("feedback-only", "1"))).code, 200);
+  assert.equal((await old.action("read")).code, 200);
+  const second = await old.publish({
+    ...planData("2"),
+    pages: [
+      {
+        id: "overview",
+        title: "Overview",
+        html: "<p>The capuchin stayed.</p>",
+      },
+    ],
+  });
+  assert.equal(second.code, 200, second.body.error);
+  await waitUntil(
+    async () =>
+      !(await (await fetch(`${origin}/api/search?q=x`)).json()).loading,
+  );
+  await everywhere(page);
+  await type(page, "capuchin");
+  await previewShows(page, "capuchin");
+  // Go to the page's row first, so the card is a step from another round.
+  const selected = page.locator('.search-row[aria-selected="true"]');
+  const onCard = async () => /Agreed/.test(await selected.innerText());
+  if (await onCard()) {
+    await page.keyboard.press("ArrowDown");
+    await previewShows(page, "capuchin");
+    await page.waitForFunction(
+      () => !document.querySelector(".search-preview-main.is-loading"),
+    );
+    await page.keyboard.press("ArrowUp");
+  } else await page.keyboard.press("ArrowDown");
+  assert.equal(await onCard(), true);
+  const started = Date.now();
+  await page.waitForFunction(() =>
+    document.querySelector(".search-preview-main.is-loading"),
+  );
+  await page.waitForFunction(
+    () => !document.querySelector(".search-preview-main.is-loading"),
+    null,
+    { timeout: 20000 },
+  );
+  // A closed fold around the result used to hold it back for the whole limit.
+  assert.ok(Date.now() - started < 8000, `${Date.now() - started} ms`);
+  assert.equal(
+    await shown(page)
+      .locator(".agreement-retired")
+      .evaluate((node) => node.open),
+    true,
+  );
+});
+
 test("a closed session shows read-only", async (t) => {
   const { b, page, origin } = await setUp(t);
   if (!page) return;
