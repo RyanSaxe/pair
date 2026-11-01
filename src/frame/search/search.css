@@ -15,6 +15,7 @@
   box-shadow: var(--shadow);
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
+  -webkit-tap-highlight-color: transparent;
 }
 .search[open] {
   display: grid;
@@ -175,6 +176,7 @@
   padding: 6px;
   overflow-x: hidden;
   overflow-y: auto;
+  scroll-padding-block: 6px;
   overscroll-behavior: contain;
   user-select: none;
   -webkit-user-select: none;
@@ -212,6 +214,11 @@
 .search-row[aria-selected="true"] .search-title {
   font-weight: var(--weight-strong);
 }
+/* Darker than --muted, as the plan tag is, so it keeps a contrast of at least
+   4.5:1 on the selected row's background in both themes. */
+.search-row[aria-selected="true"] :is(.search-snippet, .search-where) {
+  color: color-mix(in srgb, var(--muted), var(--ink) 25%);
+}
 .search-snippet {
   color: var(--muted);
   font-size: var(--text-label);
@@ -225,7 +232,7 @@
   padding: 0 1px;
   border-radius: 2px;
   background: var(--mark);
-  color: inherit;
+  color: var(--ink);
 }
 .search-end {
   padding: 10px 8px 6px;
