@@ -382,6 +382,17 @@ export async function startHub(config = settings()) {
                 head,
               ),
             );
+          // A closed session's frame shows one round, so an older round opens at
+          // its own address.
+          const wanted = url.searchParams.get("round");
+          if (closed && wanted && wanted !== session.state.current.round) {
+            const params = new URLSearchParams(url.searchParams);
+            params.delete("round");
+            const query = params.size ? `?${params}` : "";
+            return reply(302, "", "text/plain", {
+              Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
+            });
+          }
           const entry = session.roundEntry(session.state.current.round);
           return html(await roundPage(session, entry, flags, head), {
             "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,

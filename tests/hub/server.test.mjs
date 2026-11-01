@@ -171,6 +171,29 @@ test("closing a session from the session list completes it and drops it from the
   });
 });
 
+// A closed session's frame shows one round, so a saved link to an older round
+// has to reach that round's own page.
+test("a saved link to a closed session's older round opens that round", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  await a.feedback(a.event());
+  await a.action("read");
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  const moved = await a.request(`${a.base}/?round=1&target=block-1`);
+  assert.equal(moved.code, 302);
+  assert.equal(moved.headers.get("location"), `${a.base}/r/1?target=block-1`);
+  assert.equal(
+    readPlanData((await a.request(moved.headers.get("location"))).body).round,
+    "1",
+  );
+  assert.equal(
+    readPlanData((await a.request(`${a.base}/?round=2`)).body).round,
+    "2",
+  );
+});
+
 // A tab opened before the reviewer closed the session with ✕ in the session
 // list can still post feedback.
 test("a closed session refuses feedback and wakes no agent", async (t) => {
