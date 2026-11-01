@@ -60,8 +60,7 @@ test("the icon opens search, and typing filters the list as it goes", async (t) 
   const { page } = await searchPage(t);
   if (!page) return;
   await page.locator("#search-button").click();
-  await page.locator("#search-dialog[open]").waitFor();
-  assert.ok(await page.locator(".search-row").count());
+  await page.locator(".search-row").first().waitFor();
   await type(page, "walrus");
   assert.equal(await page.locator(".search-row").count(), 1);
   assert.equal(await page.locator(".search-count").textContent(), "1 result");
@@ -274,7 +273,7 @@ test("the filters narrow the list, and the kinds menu toggles each kind", async 
   await page.locator(".search-blank").waitFor();
   await page.locator('.search-kind[data-kind="pages"]').click();
   await page.locator(".search-row").first().waitFor();
-  assert.equal(await button.textContent(), "Pages, Threads");
+  assert.equal(await button.textContent(), "2 kinds");
   await page.locator('.search-kind[data-kind=""]').click();
   await page.waitForFunction(
     () =>
@@ -331,7 +330,7 @@ test("the preview shows the selected row's words, with its place and Open above 
   const pane = page.locator(".search-preview");
   assert.equal(await pane.locator(".search-text mark").textContent(), "walrus");
   assert.match(
-    await pane.locator(".search-crumbs").textContent(),
+    await pane.locator(".search-place").textContent(),
     /Second page/,
   );
   assert.match(
@@ -342,29 +341,83 @@ test("the preview shows the selected row's words, with its place and Open above 
   await page.waitForURL(new RegExp(`${a.base}/r/1.*#second$`));
 });
 
+test("the filters, the count and a long query's message fit the results at the narrowest windows", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  await page.locator("#search-button").click();
+  await page.locator('[data-toggle="allSessions"]').click();
+  await page.locator('[data-toggle="allRounds"]').click();
+  await page.locator(".search-kinds-button").click();
+  await page.locator('.search-kind[data-kind="proposals"]').click();
+  await page.keyboard.press("Escape");
+  const fits = () =>
+    page.evaluate(() => {
+      const left = document.querySelector(".search-left");
+      const count = document.querySelector(".search-count");
+      const list = document.querySelector(".search-list");
+      const lastFilter = document.querySelector(".search-kinds-button");
+      return {
+        filters:
+          lastFilter.getBoundingClientRect().right <=
+          left.getBoundingClientRect().right,
+        count: count.scrollWidth <= count.clientWidth,
+        list: list.scrollWidth <= list.clientWidth,
+      };
+    });
+  const fitting = { filters: true, count: true, list: true };
+  for (const width of [721, 375]) {
+    await page.setViewportSize({ width, height: 760 });
+    await type(page, "about");
+    assert.deepEqual(await fits(), fitting, `${width}, a short query`);
+    await type(page, `http://example.test/${"nothing".repeat(30)}`);
+    assert.deepEqual(await fits(), fitting, `${width}, an unbroken query`);
+  }
+});
+
 for (const engine of ["chrome", "webkit"])
-  test(`on a phone in ${engine}, the filters fit and a tap opens the preview`, async (t) => {
+  test(`on a phone in ${engine}, a tap shows the preview under the results, and the field returns to the results alone`, async (t) => {
     const { page } = await searchPage(t, {
       engine,
       viewport: { width: 375, height: 760 },
       hasTouch: true,
     });
     if (!page) return;
+    const preview = page.locator(".search-preview");
+    const list = page.locator(".search-list");
+    const fieldFocused = () =>
+      page.evaluate(
+        () =>
+          document.activeElement === document.querySelector(".search-input"),
+      );
     await page.locator("#search-button").tap();
-    await type(page, "walrus");
-    const fit = await page.evaluate(() => {
-      const filters = document.querySelector(".search-filters");
-      return filters.scrollWidth <= filters.clientWidth;
-    });
-    assert.ok(fit);
-    assert.equal(await page.locator(".search-preview").isVisible(), false);
+    await type(page, "about");
+    assert.equal(await preview.isVisible(), false);
+
+    // The keyboard's Search key drops the keyboard over the results.
+    await page.locator(".search-input").press("Enter");
+    assert.equal(await page.locator("#search-dialog[open]").count(), 1);
+    assert.equal(await fieldFocused(), false);
+    assert.equal(await preview.isVisible(), false);
+
+    await page.locator(".search-input").tap();
     await page.locator(".search-row").first().tap();
-    await page.locator(".search-back").waitFor();
-    assert.equal(await page.locator(".search-preview").isVisible(), true);
+    assert.equal(await fieldFocused(), false);
+    const [listBox, previewBox] = [
+      await list.boundingBox(),
+      await preview.boundingBox(),
+    ];
+    assert.ok(previewBox.y >= 760 / 2 - 2 && previewBox.y <= 760 / 2 + 2);
+    assert.ok(listBox.y + listBox.height <= previewBox.y + 1);
     assert.equal(await page.locator(".search-open:visible").count(), 1);
-    await page.locator(".search-back").tap();
-    assert.equal(await page.locator(".search-preview").isVisible(), false);
-    assert.equal(await page.locator(".search-row").count(), 1);
-    await page.locator(".search-cancel").tap();
+    // The next result is one tap, with the results still above.
+    const first = await preview.locator(".search-text").textContent();
+    await page.locator(".search-row").nth(1).tap();
+    assert.notEqual(await preview.locator(".search-text").textContent(), first);
+    assert.equal(await list.isVisible(), true);
+
+    await page.locator(".search-input").tap();
+    assert.equal(await preview.isVisible(), false);
+    assert.equal(await page.locator(".search-row").count(), 2);
+    await page.locator(".search-close").tap();
     assert.equal(await page.locator("#search-dialog[open]").count(), 0);
   });

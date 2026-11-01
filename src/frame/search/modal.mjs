@@ -124,29 +124,29 @@ export function installSearch() {
       <div class="search-top">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
         <input class="search-input" type="search" role="combobox" aria-expanded="true" aria-controls="search-list" aria-autocomplete="list" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Search" />
-        <button class="search-cancel" type="button">Cancel</button>
+        <output class="search-count"></output>
       </div>
       <div class="search-filters">
-        <button class="search-filter" type="button" data-toggle="allSessions"></button>
-        <button class="search-filter" type="button" data-toggle="allRounds"></button>
-        <button class="search-filter search-kinds-button" type="button" aria-expanded="false"></button>
-        <output class="search-count"></output>
-        <div class="search-kinds" role="group" aria-label="Kinds" hidden></div>
+        <button class="btn search-filter" type="button" data-toggle="allSessions"></button>
+        <button class="btn search-filter" type="button" data-toggle="allRounds"></button>
+        <div class="search-kinds-anchor">
+          <button class="btn search-filter search-kinds-button" type="button" aria-expanded="false"></button>
+          <div class="search-kinds" role="group" aria-label="Kinds" hidden></div>
+        </div>
       </div>
       <div class="search-list" id="search-list" role="listbox" aria-label="Results"></div>
     </div>
     <aside class="search-preview">
-      <div class="search-sheet-bar">
-        <button class="search-back" type="button">‹ Results</button>
-        <span class="search-sheet-where"></span>
-        <button class="search-open" type="button">Open</button>
-      </div>
-      <div class="search-preview-head">
-        <div class="search-crumbs"></div>
-        <button class="search-open" type="button">Open ↵</button>
+      <div class="search-preview-head" hidden>
+        <div class="search-session"></div>
+        <div class="search-place"></div>
+        <button class="btn search-open" type="button">Open <kbd>↵</kbd></button>
       </div>
       <div class="search-preview-main"></div>
     </aside>`;
+  const close = $("close-button").content.firstElementChild.cloneNode(true);
+  close.classList.add("search-close");
+  dialog.append(close);
   document.body.append(dialog);
   const part = (selector) => dialog.querySelector(selector);
   const input = part(".search-input");
@@ -181,8 +181,8 @@ export function installSearch() {
     );
     kindsButton.textContent = !chosen.length
       ? "All kinds"
-      : chosen.length < 3
-        ? chosen.join(", ")
+      : chosen.length === 1
+        ? chosen[0]
         : `${chosen.length} kinds`;
     kindsButton.classList.toggle("is-set", chosen.length > 0);
     for (const kind of kinds.children) {
@@ -196,9 +196,10 @@ export function installSearch() {
         kind.dataset.empty = String(!current.counts[id]);
       }
     }
-    part(".search-count").textContent = state.query.trim()
-      ? `${current.total} result${current.total === 1 ? "" : "s"}`
-      : "";
+    part(".search-count").textContent =
+      state.query.trim() && current.total
+        ? `${current.total} result${current.total === 1 ? "" : "s"}`
+        : "";
   }
 
   function drawList() {
@@ -238,17 +239,20 @@ export function installSearch() {
 
   function drawPreview() {
     const row = current.results[state.selected];
-    part(".search-crumbs").innerHTML = row
-      ? [row.sessionTitle, row.round && `Round ${row.round}`, row.pageTitle]
-          .filter(Boolean)
-          .map((crumb) => `<span>${escapeHtml(crumb)}</span>`)
-          .join("")
-      : "";
-    part(".search-sheet-where").textContent = row
-      ? row.pageTitle || (row.round ? `Round ${row.round}` : row.sessionTitle)
-      : "";
-    for (const open of dialog.querySelectorAll(".search-open"))
-      open.disabled = !row;
+    part(".search-preview-head").hidden = !row;
+    if (row) {
+      const place = [row.round && `Round ${row.round}`, row.pageTitle].filter(
+        Boolean,
+      );
+      part(".search-session").textContent = place.length
+        ? row.sessionTitle
+        : "";
+      part(".search-place").innerHTML = (
+        place.length ? place : [row.sessionTitle]
+      )
+        .map((crumb) => `<span>${escapeHtml(crumb)}</span>`)
+        .join("");
+    } else closeSheet();
     showPreview(part(".search-preview-main"), row);
     state.row = rowKey(row);
     remember();
@@ -320,10 +324,14 @@ export function installSearch() {
     openResult(row);
   }
   function chooseRow(index) {
-    moveSelection(index);
-    if (innerWidth > PHONE) return openSelected();
+    if (innerWidth > PHONE) {
+      moveSelection(index);
+      return openSelected();
+    }
+    // The list shrinks to the top half, so the row scrolls into it afterward.
     dialog.classList.add("is-sheet");
     input.blur();
+    moveSelection(index);
   }
 
   function open() {
@@ -379,8 +387,7 @@ export function installSearch() {
       void run();
       return focusField();
     }
-    if (event.target.closest(".search-cancel")) return dialog.close();
-    if (event.target.closest(".search-back")) return closeSheet();
+    if (event.target.closest(".search-close")) return dialog.close();
     if (event.target.closest(".search-open")) return openSelected();
     const row = event.target.closest(".search-row");
     if (row) chooseRow(Number(row.dataset.i));
@@ -403,6 +410,8 @@ export function installSearch() {
     state.query = input.value;
     void run();
   });
+  // Focus raises a phone's keyboard, and the results need the room.
+  input.addEventListener("focus", closeSheet);
 
   dialog.addEventListener("close", () => {
     showKinds(false);
@@ -437,7 +446,9 @@ export function installSearch() {
         moveSelection(state.selected + step);
       } else if (key === "Enter") {
         event.preventDefault();
-        openSelected();
+        // A phone keyboard's Search key drops the keyboard over the results.
+        if (innerWidth <= PHONE && event.target === input) input.blur();
+        else openSelected();
       } else if (event.altKey && event.code === "KeyS") {
         event.preventDefault();
         state.allSessions = !state.allSessions;
