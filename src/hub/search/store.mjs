@@ -120,7 +120,10 @@ function ready(doc, id) {
 }
 
 function clip(doc, ranges) {
-  const limit = Number.isInteger(doc.block) ? BLOCK_CLIP : WORDS_CLIP;
+  const limit =
+    doc.kind === "pages" && Number.isInteger(doc.block)
+      ? BLOCK_CLIP
+      : WORDS_CLIP;
   if (doc.text.length <= limit) return { text: doc.text, ranges };
   const near = Math.max(0, (ranges[0]?.[0] ?? 0) - 120);
   const start = near && doc.text.indexOf(" ", near) + 1;

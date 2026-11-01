@@ -1,7 +1,14 @@
 import { enhance } from "#frame/app/registry.mjs";
 import { prefs } from "#frame/app/store.mjs";
 import { ago } from "#frame/app/time.mjs";
-import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
+import {
+  $,
+  apple,
+  normalize,
+  plural,
+  unreachable,
+  uuid,
+} from "#frame/app/util.mjs";
 import {
   base,
   editable,
@@ -27,10 +34,6 @@ import { remote, selectedTab } from "#frame/sync/rounds.mjs";
    placeThreads draws the cards from the poll, and from sent for a message
    that this browser sent and the poll does not show yet. */
 
-const apple = () =>
-  /mac|iphone|ipad/i.test(
-    navigator.userAgentData?.platform || navigator.platform || "",
-  );
 const modifier = () => (apple() ? "⌘" : "Ctrl");
 export const sendKeyLabel = () => `${modifier()} ↵`;
 export const sendKeyName = () => (apple() ? "Meta+Enter" : "Control+Enter");

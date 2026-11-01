@@ -54,6 +54,7 @@ const stylesheets = [
   "pages/diagram.css",
   "app/dialogs.css",
   "app/modes.css",
+  "search/search.css",
 ];
 export async function frameBundle() {
   const roots = componentRoots();
@@ -166,6 +167,16 @@ export const joinPage = async (data, css, js) =>
   join(await frameBundle(), data, css, js);
 export async function assembleHome(title) {
   return join(await frameBundle(), { title, pages: [] }, "", "");
+}
+// The search modal keeps this document loaded and draws each result in it, so it
+// has the frame and every component, and no pages of its own.
+export async function assemblePreview() {
+  return join(
+    await frameBundle(),
+    { name: "preview", round: "0", title: "Preview", pages: [] },
+    "",
+    "",
+  );
 }
 function join(bundle, data, css, js) {
   const { shell, style, drawingEditor, componentCss } = bundle;

@@ -69,7 +69,7 @@ export function linkButton(text, onclick) {
   button.onclick = onclick;
   return button;
 }
-function agreementCard(entry) {
+export function agreementCard(entry) {
   const card = document.createElement("section");
   card.className = "agreement-card";
   card.id = "agreement-" + entry.id;

@@ -13,6 +13,7 @@ import {
   pages,
   plan,
   query,
+  session,
   setPage,
   setPastRound,
   setSubmittedRound,
@@ -43,6 +44,8 @@ import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
 import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
 import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
+import { installBlockDrawing } from "#frame/search/draw.mjs";
+import { installSearch } from "#frame/search/modal.mjs";
 
 const planData = JSON.parse($("plan-data").textContent);
 useSession(
@@ -66,6 +69,7 @@ function bootHome() {
   window.planUI = createPlanUI();
   document.title = plan.title;
   theme();
+  if (online) installSearch();
   startHome();
 }
 
@@ -114,6 +118,8 @@ function bootRound() {
   installDraftSync();
   window.planUI = createPlanUI();
   document.title = plan.title;
+  if (online && mode !== "preview") installSearch();
+  if (session.searchPreview) installBlockDrawing();
   if (editable) initializeChecklists();
   theme();
   renderRounds();

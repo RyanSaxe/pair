@@ -42,6 +42,10 @@ export const hubUnreachable = "The hub is unreachable. Try again shortly.";
 export const unreachable = (error, message = hubUnreachable) =>
   error instanceof TypeError ? message : error.message;
 export const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
+export const apple = () =>
+  /mac|iphone|ipad/i.test(
+    navigator.userAgentData?.platform || navigator.platform || "",
+  );
 // A note's occurrence is which appearance of its words in its block the
 // reviewer selected, counting from 1. occurrenceAt() returns the number of
 // the appearance of needle in text that begins at start or later, and

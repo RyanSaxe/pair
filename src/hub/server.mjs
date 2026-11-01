@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
-import { assembleHome } from "../build/assemble.mjs";
+import { assembleHome, assemblePreview } from "../build/assemble.mjs";
 import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
 import {
   atomic,
@@ -180,6 +180,13 @@ export async function startHub(config = settings()) {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const parts = url.pathname.split("/").slice(1);
       const method = req.method;
+      if (method === "GET" && url.pathname === "/preview")
+        return html(
+          embedConfig(await assemblePreview(), {
+            preview: true,
+            searchPreview: true,
+          }),
+        );
       if (method === "GET" && url.pathname === "/api/search") {
         const params = url.searchParams;
         const limit = Number(params.get("limit") || DEFAULT_LIMIT);
