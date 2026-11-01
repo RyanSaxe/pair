@@ -268,10 +268,11 @@ export async function loadSession(
       groups: {
         alignUnflagged: groups.alignUnflagged,
         notes: (groups.notes || []).map(
-          ({ id, topic, anchor, quote, text, attachments }) => ({
+          ({ id, topic, anchor, target, quote, text, attachments }) => ({
             id,
             topic,
             anchor,
+            target,
             quote,
             text,
             attachments: (attachments || []).map(({ id }) => ({ id })),

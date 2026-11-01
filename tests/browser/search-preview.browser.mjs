@@ -529,6 +529,71 @@ test("a link in a block opens in the reader's tab, and the frame stays embedded"
   assert.ok(page.url().startsWith(origin));
 });
 
+test("a sent note or answer shows its block under the reader's words, and Open goes to its card", async (t) => {
+  const { a, page, origin } = await setUp(t);
+  if (!page) return;
+  const event = a.event("feedback-only", "1", {
+    groups: {
+      notes: [
+        {
+          id: "n1",
+          round: "1",
+          topic: "overview",
+          target: "block-overview-1",
+          anchor: "Overview",
+          text: "An iguana would suit this better.",
+        },
+        {
+          id: "n2",
+          round: "1",
+          topic: "overview",
+          anchor: "Overview",
+          text: "A gecko on the whole page.",
+        },
+      ],
+      choices: {
+        "options/place": {
+          kind: "single",
+          round: "1",
+          topic: "options",
+          label: "Place",
+          value: "far",
+          valueLabel: "Capybara",
+        },
+      },
+    },
+  });
+  assert.equal((await a.feedback(event)).code, 200);
+  await waitUntil(
+    async () =>
+      !(await (await fetch(`${origin}/api/search?q=x`)).json()).loading,
+  );
+  await type(page, "iguana");
+  await previewShows(page, "iguana");
+  const frame = shown(page);
+  assert.match(await frame.locator("#embed-sent").innerText(), /iguana/);
+  assert.equal(await frame.locator("#block-overview-1").isVisible(), true);
+  assert.equal(await frame.locator("#block-overview-2").isVisible(), false);
+
+  // A choice has no id of its own, so its block is found by the control.
+  await type(page, "capybara");
+  await previewShows(page, "capybara");
+  assert.match(await frame.locator("#embed-sent").innerText(), /Capybara/);
+  assert.equal(await frame.locator('[data-choice="place"]').isVisible(), true);
+
+  // A note on a whole page has no block, so it shows its card.
+  await type(page, "gecko");
+  await previewShows(page, "gecko");
+  assert.equal(await frame.locator("#embed-sent").count(), 0);
+  assert.equal(await frame.locator("#sent-n2").isVisible(), true);
+
+  await type(page, "iguana");
+  await previewShows(page, "iguana");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => location.hash === "#feedback");
+  assert.equal(new URL(page.url()).searchParams.get("target"), "sent-n1");
+});
+
 test("a closed session shows read-only", async (t) => {
   const { b, page, origin } = await setUp(t);
   if (!page) return;
