@@ -1,4 +1,5 @@
 import { $ } from "#frame/app/util.mjs";
+import { page, plan } from "#frame/app/view.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { useTheme } from "#frame/pages/renderers.mjs";
 import { openResult, pageOf, targetOf } from "#frame/search/open.mjs";
@@ -8,6 +9,8 @@ import { ensurePageSet, remote } from "#frame/sync/rounds.mjs";
    way Open does, through the page's own code, so everything on screen is what
    the page draws. This code only hides what isn't the result. */
 const HIDE = "embed-hide";
+const ARRIVE_LIMIT_MS = 30000;
+const ARRIVE_POLL_MS = 20;
 const isThread = (node) => node?.localName === "pair-thread";
 const isHeading = (node) => /^H[1-6]$/.test(node?.tagName ?? "");
 
@@ -81,6 +84,24 @@ function isolate() {
   const view = page.closest("#work-view, #review-view, #reading");
   if (view) showCard(page, view);
 }
+// A page still on its way shows a placeholder, and another page can show before
+// that, so the search window waits for the result's own page.
+function arrived(row) {
+  const id = pageOf(row) || "agreed";
+  if (id === "work") return !$("work-view").hidden;
+  if (id === "feedback") return !$("review-view").hidden;
+  return (
+    (!row.round || plan.round === row.round) &&
+    page.id === id &&
+    !page.pending &&
+    $("page-content").dataset.pageId === id
+  );
+}
+async function whenArrived(row, target) {
+  const limit = Date.now() + ARRIVE_LIMIT_MS;
+  while (wanted === target && Date.now() < limit && !arrived(row))
+    await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
+}
 function pause() {
   for (const media of document.querySelectorAll("video, audio")) media.pause();
 }
@@ -115,7 +136,8 @@ export function installEmbed() {
       const match = query.trim();
       if (row.round) openResult({ ...row, page: pageOf(row) }, query);
       else show(row.page || "agreed", target, { match });
-      soon();
+      await whenArrived(row, target);
+      isolate();
     },
     show(on) {
       showing = on;

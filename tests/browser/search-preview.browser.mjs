@@ -435,17 +435,21 @@ test("an older round opens in the session's frame, read-only like the page", asy
     async () =>
       !(await (await fetch(`${origin}/api/search?q=x`)).json()).loading,
   );
+  // A slow page must leave nothing else showing under the result's title.
+  await page.route(/\/api\/page\?/, async (route) => {
+    await new Promise((done) => setTimeout(done, 700));
+    await route.fallback();
+  });
   await type(page, "walrus");
+  await page.locator(".search-frame.is-shown").waitFor();
+  const firstShown = await page.evaluate(() => {
+    const content = document
+      .querySelector(".search-frame.is-shown")
+      .contentDocument.getElementById("page-content");
+    return [content.dataset.round, content.dataset.pageId];
+  });
+  assert.deepEqual(firstShown, ["1", "overview"]);
   await previewShows(page, "walrus");
-  assert.equal(
-    await page.evaluate(
-      () =>
-        document
-          .querySelector(".search-frame.is-shown")
-          .contentDocument.getElementById("page-content").dataset.round,
-    ),
-    "1",
-  );
   // The frame works this out once the round's status arrives.
   await shown(page).locator("#comment-here").waitFor({ state: "hidden" });
 });
