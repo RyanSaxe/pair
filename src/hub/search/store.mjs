@@ -178,6 +178,9 @@ function partialRows(query, docs) {
   const pages = new Map();
   const rows = [];
   for (const entry of found.values()) {
+    // Each word's score includes the recency bonus, so a row keeps the mean to
+    // stay on the scale of a block with every word.
+    entry.score /= entry.words.size;
     entry.textRanges = tidy(entry.textRanges);
     entry.headingRanges = tidy(entry.headingRanges);
     if (parts.length >= 3 && entry.words.size === parts.length - 1)
