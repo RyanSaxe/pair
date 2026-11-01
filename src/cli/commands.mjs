@@ -150,10 +150,13 @@ export const commands = {
         required: true,
         text: "The thread, from the wake message or pair read.",
       },
-      text: { value: "TEXT", text: "Your reply as plain text." },
+      text: {
+        value: "TEXT",
+        text: "Your reply as plain text. It refuses Markdown, which the reviewer would see as typed.",
+      },
       file: {
         value: "HTML",
-        text: "Your reply as an HTML fragment that passes pair build's page checks.",
+        text: "Your reply as an HTML fragment that passes pair build's page checks. Use it for links, bold, code and lists.",
       },
       json,
     },
