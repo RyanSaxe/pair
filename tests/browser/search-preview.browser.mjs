@@ -446,7 +446,8 @@ test("an older round opens in the session's frame, read-only like the page", asy
     ),
     "1",
   );
-  assert.equal(await shown(page).locator("#comment-here").isVisible(), false);
+  // The frame works this out once the round's status arrives.
+  await shown(page).locator("#comment-here").waitFor({ state: "hidden" });
 });
 
 test("a closed session shows read-only", async (t) => {
