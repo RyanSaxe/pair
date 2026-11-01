@@ -103,11 +103,6 @@ test("the keys open and close search and move through it", async (t) => {
       .getAttribute("data-i"),
     "0",
   );
-  await page.keyboard.press("Tab");
-  await page.waitForFunction(
-    () =>
-      document.querySelector(".search-kinds-button").textContent === "Pages",
-  );
   await page.keyboard.press("Alt+KeyS");
   await page.waitForFunction(
     () =>
@@ -287,6 +282,106 @@ test("the filters narrow the list, and the kinds menu toggles each kind", async 
   assert.equal(await page.locator("#search-dialog[open]").count(), 1);
 });
 
+test("a click outside the kinds menu only closes it, and the keys stay in the menu while it is open", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const address = page.url();
+  const selectedIndex = () =>
+    page.locator('.search-row[aria-selected="true"]').getAttribute("data-i");
+  await page.locator("#search-button").click();
+  await type(page, "about");
+
+  await page.locator(".search-kinds-button").click();
+  const rowBox = await page.locator(".search-row").first().boundingBox();
+  await page.mouse.click(
+    rowBox.x + rowBox.width - 4,
+    rowBox.y + rowBox.height - 4,
+  );
+  assert.equal(await page.locator(".search-kinds").isVisible(), false);
+  assert.equal(await page.locator("#search-dialog[open]").count(), 1);
+  assert.equal(page.url(), address);
+
+  // The arrows move through the menu, and Enter toggles a kind and opens nothing.
+  await page.locator(".search-kinds-button").click();
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await selectedIndex(), "0");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".search-kinds-button").textContent === "Pages",
+  );
+  assert.equal(await page.locator("#search-dialog[open]").count(), 1);
+  assert.equal(page.url(), address);
+});
+
+test("typing goes to the field after the menu closes, after a click on nothing, and from a control", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const field = () => page.inputValue(".search-input");
+  await page.locator("#search-button").click();
+  await type(page, "ab");
+
+  await page.locator(".search-kinds-button").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("o");
+  assert.equal(await field(), "abo");
+
+  await page.locator(".search-kinds-button").click();
+  await page.locator(".search-kinds-button").click();
+  await page.keyboard.type("u");
+  assert.equal(await field(), "abou");
+
+  await page.locator(".search-session").click();
+  await page.keyboard.type("t");
+  assert.equal(await field(), "about");
+
+  await page.locator(".search-open").focus();
+  await page.keyboard.type("s");
+  assert.equal(await field(), "abouts");
+});
+
+test("Tab moves through the modal's controls, and each works by key", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  const focused = () =>
+    page.evaluate(() => document.activeElement.textContent.trim());
+  await page.locator("#search-button").click();
+  await type(page, "about");
+  for (const label of ["This session", "All rounds", "All kinds"]) {
+    await page.keyboard.press("Tab");
+    assert.equal(await focused(), label);
+  }
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator(".search-kinds").isVisible(), true);
+  await page.keyboard.press("Tab");
+  assert.equal(await page.locator(".search-kinds").isVisible(), false);
+  assert.match(await focused(), /^Open/);
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-toggle="allRounds"]').textContent ===
+      "Latest round",
+  );
+  assert.equal(await focused(), "Latest round");
+});
+
+test("a drag from the preview to the backdrop leaves the modal open", async (t) => {
+  const { page } = await searchPage(t);
+  if (!page) return;
+  await page.locator("#search-button").click();
+  await type(page, "walrus");
+  const box = await page.locator(".search-preview-main").boundingBox();
+  await page.mouse.move(box.x + 30, box.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 30, 4, { steps: 5 });
+  await page.mouse.up();
+  assert.equal(await page.locator("#search-dialog[open]").count(), 1);
+  await page.mouse.click(4, 4);
+  assert.equal(await page.locator("#search-dialog[open]").count(), 0);
+});
+
 test("a search that finds nothing offers one filter to loosen, and keeps the words", async (t) => {
   const { page } = await searchPage(t);
   if (!page) return;
@@ -295,7 +390,8 @@ test("a search that finds nothing offers one filter to loosen, and keeps the wor
   await page.locator('.search-kind[data-kind="threads"]').click();
   await page.locator(".search-kinds-button").click();
   await type(page, "walrus");
-  await page.locator("[data-wider]").click();
+  // Enter takes the offer.
+  await page.locator(".search-input").press("Enter");
   await page.locator(".search-row").first().waitFor();
   assert.equal(await page.inputValue(".search-input"), "walrus");
   assert.equal(

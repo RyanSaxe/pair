@@ -134,7 +134,7 @@ export function installSearch() {
           <div class="search-kinds" role="group" aria-label="Kinds" hidden></div>
         </div>
       </div>
-      <div class="search-list" id="search-list" role="listbox" aria-label="Results"></div>
+      <div class="search-list" id="search-list" role="listbox" aria-label="Results" tabindex="-1"></div>
     </div>
     <aside class="search-preview">
       <div class="search-preview-head" hidden>
@@ -156,6 +156,7 @@ export function installSearch() {
   let current = { results: [], counts: {}, total: 0 };
   let request = null;
   let lastPointer = null;
+  let pressedOutside = false;
 
   kinds.innerHTML =
     `<button class="search-kind" type="button" data-kind=""><span>All kinds</span></button>` +
@@ -163,11 +164,22 @@ export function installSearch() {
       ([id, label]) =>
         `<button class="search-kind" type="button" data-kind="${id}"><span>${label}</span><b></b></button>`,
     ).join("");
+  const focusField = () => innerWidth > PHONE && input.focus();
+  // The keys move through the menu from the moment it opens.
   const showKinds = (open) => {
     kinds.hidden = !open;
     kindsButton.setAttribute("aria-expanded", String(open));
+    if (open) kinds.firstElementChild.focus();
   };
-  const focusField = () => innerWidth > PHONE && input.focus();
+  const closeKinds = () => {
+    showKinds(false);
+    focusField();
+  };
+  function moveInKinds(step) {
+    const items = [...kinds.children];
+    const at = items.indexOf(document.activeElement);
+    items[(at + step + items.length) % items.length].focus();
+  }
 
   function drawControls() {
     const sessions = part('[data-toggle="allSessions"]');
@@ -355,28 +367,36 @@ export function installSearch() {
   ])
     dialog.addEventListener(type, (event) => event.stopPropagation());
 
+  // A click counts as outside only when the press landed outside too, so a drag
+  // that selects the preview's text and ends on the backdrop leaves it open.
+  dialog.addEventListener("pointerdown", (event) => {
+    pressedOutside = event.target === dialog;
+  });
   dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) return dialog.close();
-    if (!event.target.closest(".search-kinds, .search-kinds-button"))
-      showKinds(false);
+    // A click outside the menu only closes the menu.
+    if (
+      !kinds.hidden &&
+      !event.target.closest(".search-kinds, .search-kinds-button")
+    )
+      return closeKinds();
+    if (event.target === dialog) return pressedOutside && dialog.close();
     const toggle = event.target.closest("[data-toggle]");
     if (toggle) {
       state[toggle.dataset.toggle] = !state[toggle.dataset.toggle];
       void run();
-      focusField();
+      // A key press has no click count, and it keeps its place in the Tab order.
+      if (event.detail) focusField();
       return;
     }
     if (event.target.closest(".search-kinds-button"))
-      return showKinds(kinds.hidden);
+      return kinds.hidden ? showKinds(true) : closeKinds();
     const kind = event.target.closest(".search-kind");
     if (kind) {
       const id = kind.dataset.kind;
       if (!id) state.kinds.clear();
       else if (state.kinds.has(id)) state.kinds.delete(id);
       else state.kinds.add(id);
-      void run();
-      focusField();
-      return;
+      return void run();
     }
     const wider = event.target.closest("[data-wider]");
     if (wider) {
@@ -390,14 +410,17 @@ export function installSearch() {
     if (event.target.closest(".search-close")) return dialog.close();
     if (event.target.closest(".search-open")) return openSelected();
     const row = event.target.closest(".search-row");
-    if (row) chooseRow(Number(row.dataset.i));
+    if (row) return chooseRow(Number(row.dataset.i));
+    // A click on nothing leaves the next key with the field, unless the click
+    // ended a selection of the preview's text.
+    if (getSelection().isCollapsed) focusField();
   });
 
   // A row follows the pointer only when the pointer moved, so a list that
   // redraws under a resting pointer keeps the keyboard's selection.
   list.addEventListener("mousemove", (event) => {
     const here = `${event.clientX},${event.clientY}`;
-    if (here === lastPointer) return;
+    if (here === lastPointer || !kinds.hidden) return;
     lastPointer = here;
     const row = event.target.closest(".search-row");
     if (row && Number(row.dataset.i) !== state.selected)
@@ -408,6 +431,7 @@ export function installSearch() {
 
   input.addEventListener("input", () => {
     state.query = input.value;
+    showKinds(false);
     void run();
   });
   // Focus raises a phone's keyboard, and the results need the room.
@@ -432,7 +456,7 @@ export function installSearch() {
       // modal handles Esc itself and keeps the query for the next time.
       if (key === "Escape") {
         event.preventDefault();
-        if (!kinds.hidden) showKinds(false);
+        if (!kinds.hidden) closeKinds();
         else dialog.close();
       } else if (
         event.metaKey &&
@@ -443,12 +467,17 @@ export function installSearch() {
         dialog.close();
       } else if (step) {
         event.preventDefault();
-        moveSelection(state.selected + step);
+        if (kinds.hidden) moveSelection(state.selected + step);
+        else moveInKinds(step);
       } else if (key === "Enter") {
+        // Enter presses a control that has focus.
+        if (event.target.closest("button")) return;
         event.preventDefault();
+        if (!kinds.hidden) closeKinds();
         // A phone keyboard's Search key drops the keyboard over the results.
-        if (innerWidth <= PHONE && event.target === input) input.blur();
-        else openSelected();
+        else if (innerWidth <= PHONE && event.target === input) input.blur();
+        else if (current.results.length) openSelected();
+        else part("[data-wider]")?.click();
       } else if (event.altKey && event.code === "KeyS") {
         event.preventDefault();
         state.allSessions = !state.allSessions;
@@ -458,15 +487,23 @@ export function installSearch() {
         state.allRounds = !state.allRounds;
         void run();
       } else if (key === "Tab") {
-        event.preventDefault();
-        const ids = ["", ...KINDS.map(([id]) => id)];
-        const at =
-          state.kinds.size === 1 ? ids.indexOf([...state.kinds][0]) : 0;
-        const next =
-          ids[(at + (event.shiftKey ? -1 : 1) + ids.length) % ids.length];
-        state.kinds.clear();
-        if (next) state.kinds.add(next);
-        void run();
+        // Tab moves through the controls, as in the frame's dialogs. From the
+        // menu, it moves on from the button that opened the menu.
+        if (!kinds.hidden) {
+          showKinds(false);
+          kindsButton.focus();
+        }
+      } else if (
+        (key.length === 1 || key === "Backspace") &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        event.target !== input &&
+        !(key === " " && event.target.closest("button"))
+      ) {
+        // A key typed anywhere in the modal goes to the field.
+        showKinds(false);
+        input.focus();
       }
     },
     true,
