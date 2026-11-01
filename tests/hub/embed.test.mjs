@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import test from "node:test";
 import { hub, planData } from "../support/hub.mjs";
 
@@ -44,4 +45,23 @@ test("an older round is read-only there, a closed session is closed, and an unkn
   });
   assert.equal(closed.status, 200);
   assert.match(await (await embed(h, a, "latest")).text(), /"closed": true/);
+});
+
+test("a large JSON reply is compressed, and a small one isn't", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish({ ...planData(), pages: [overview("<p>One.</p>")] });
+  const status = () => fetch(`${h.server.origin}${a.base}/api/status`);
+  assert.equal((await status()).headers.get("content-encoding"), null);
+  const started = await a.request(`${a.base}/api/threads`, {
+    id: crypto.randomUUID(),
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "kestrel ".repeat(20000),
+  });
+  assert.equal(started.code, 201);
+  const large = await status();
+  assert.equal(large.headers.get("content-encoding"), "gzip");
+  assert.match((await large.json()).threads[0].messages[0].text, /kestrel/);
 });
