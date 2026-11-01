@@ -5,19 +5,21 @@ import {
   agreedDocs,
   draftDocs,
   feedbackDocs,
-  pageDocs,
+  placed,
   proposalDocs,
+  readPage,
   threadDocs,
   titleDocs,
 } from "./extract.mjs";
 import { prepare, scoreDoc } from "./matcher.mjs";
+import { partialRows } from "./partial.mjs";
 
 /* The store keeps each session's search text in memory, and a cache of it in
    SESSION/search.jsonl, so a hub start reads only the files that changed. A
    cache entry counts only while its file's modified time and size and the
    extractor's version match, so it cannot go stale. Raise VERSION when
    extract.mjs changes what it reads. */
-const VERSION = 1;
+const VERSION = 2;
 const CACHE = "search.jsonl";
 export const KINDS = [
   "pages",
@@ -56,7 +58,8 @@ const list = (directory) =>
 // one. Nothing here reads connection.json or wake.json, which hold secrets.
 async function sources(directory, status) {
   const found = [];
-  const add = (file, read) => found.push({ file, read });
+  const add = (file, read) =>
+    found.push({ file, read: (record, at) => ({ docs: read(record, at) }) });
   add("status.json", (record) => titleDocs(record));
   for (const [round, set] of Object.entries(status.roundPages ?? {})) {
     const paged = (name) => path.join("pages", round, path.basename(name));
@@ -66,9 +69,10 @@ async function sources(directory, status) {
       );
     for (const slot of set.pages ?? [])
       if (slot.recordPath)
-        add(paged(slot.recordPath), (record, at) =>
-          pageDocs(record.page, round, at),
-        );
+        found.push({
+          file: paged(slot.recordPath),
+          read: (record, at) => readPage(record.page, round, at),
+        });
   }
   for (const [folder, read] of [
     ["threads", threadDocs],
@@ -96,6 +100,7 @@ function grouped(entries) {
       doc.type === "page title" ? doc.page : "",
       doc.heading,
       doc.text,
+      doc.attrs ?? "",
     ].join("\0");
     const seen = groups.get(key);
     if (!seen) {
@@ -139,75 +144,11 @@ function clip(doc, ranges) {
   };
 }
 
-// When few blocks have every word, a block with all but one word counts, and so
-// does a page whose blocks have every word between them.
-function partialRows(query, docs) {
-  const parts = query.trim().split(/\s+/);
-  if (parts.length < 2) return [];
-  const found = new Map();
-  parts.forEach((part, index) => {
-    const prepared = prepare(part);
-    if (!prepared) return;
-    for (const doc of docs) {
-      const hit = scoreDoc(prepared, doc);
-      if (!hit) continue;
-      let entry = found.get(doc);
-      if (!entry)
-        found.set(
-          doc,
-          (entry = {
-            doc,
-            words: new Set(),
-            score: 0,
-            textRanges: [],
-            headingRanges: [],
-          }),
-        );
-      entry.words.add(index);
-      entry.score += hit.score;
-      entry.textRanges.push(...hit.textRanges);
-      entry.headingRanges.push(...hit.headingRanges);
-    }
-  });
-  const tidy = (ranges) => {
-    const sorted = ranges.sort((a, b) => a[0] - b[0]);
-    return sorted.filter(
-      (range, index) => index === 0 || range[0] >= sorted[index - 1][1],
-    );
-  };
-  const pages = new Map();
-  const rows = [];
-  for (const entry of found.values()) {
-    // Each word's score includes the recency bonus, so a row keeps the mean to
-    // stay on the scale of a block with every word.
-    entry.score /= entry.words.size;
-    entry.textRanges = tidy(entry.textRanges);
-    entry.headingRanges = tidy(entry.headingRanges);
-    if (parts.length >= 3 && entry.words.size === parts.length - 1)
-      rows.push({
-        ...entry,
-        score: entry.score - 1000,
-        partial: `Has ${entry.words.size} of ${parts.length} words`,
-      });
-    const { session, round, page } = entry.doc;
-    const key = `${session}|${round}|${page}`;
-    let holder = pages.get(key);
-    if (!holder) pages.set(key, (holder = { words: new Set(), best: entry }));
-    for (const word of entry.words) holder.words.add(word);
-    if (entry.words.size > holder.best.words.size) holder.best = entry;
-  }
-  for (const holder of pages.values())
-    if (
-      holder.words.size === parts.length &&
-      !rows.some((row) => row.doc === holder.best.doc)
-    )
-      rows.push({
-        ...holder.best,
-        score: holder.best.score - 2000,
-        partial: "All words on this page",
-      });
-  return rows;
-}
+// A block with no words on it shows the words of its attributes.
+const shown = (doc, { textRanges = [], attrRanges = [] }) =>
+  doc.text
+    ? clip(doc, textRanges)
+    : clip({ ...doc, text: doc.attrs ?? "" }, attrRanges);
 
 export function searchStore({ log = () => {} } = {}) {
   const sessions = new Map();
@@ -230,13 +171,13 @@ export function searchStore({ log = () => {} } = {}) {
         continue;
       }
       wrote = true;
-      let docs = [];
+      let contents = { docs: [] };
       try {
-        docs = read(await readJson(full), stat.mtimeMs);
+        contents = read(await readJson(full), stat.mtimeMs);
       } catch (error) {
         log(`search skipped ${full}: ${error.message}`);
       }
-      files.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, docs });
+      files.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, ...contents });
     }
     const removed = [...entry.files.keys()].some((file) => !files.has(file));
     entry.files = files;
@@ -246,9 +187,14 @@ export function searchStore({ log = () => {} } = {}) {
         roundNumber(round) > roundNumber(latest) ? round : latest,
       "0",
     );
-    entry.docs = grouped([...files.values()].flatMap((f) => f.docs)).map(
-      (doc) => ready(doc, entry.id),
-    );
+    const pages = new Map();
+    for (const { blocks } of files.values())
+      if (blocks) pages.set(`${blocks.round}/${blocks.page}`, blocks);
+    entry.docs = grouped(
+      [...files.values()]
+        .flatMap((f) => f.docs)
+        .map((doc) => placed(doc, pages)),
+    ).map((doc) => ready(doc, entry.id));
     entry.pageTitles = new Map();
     for (const doc of entry.docs)
       if (doc.type === "page title")
@@ -270,8 +216,8 @@ export function searchStore({ log = () => {} } = {}) {
       if (JSON.parse(head).version !== VERSION) return;
       for (const line of lines) {
         if (!line) continue;
-        const { file, mtimeMs, size, docs } = JSON.parse(line);
-        entry.files.set(file, { mtimeMs, size, docs });
+        const { file, ...cached } = JSON.parse(line);
+        entry.files.set(file, cached);
       }
     } catch (error) {
       entry.files.clear();
@@ -284,8 +230,8 @@ export function searchStore({ log = () => {} } = {}) {
       .then(async () => {
         if (closed) return;
         const lines = [JSON.stringify({ version: VERSION })];
-        for (const [file, { mtimeMs, size, docs }] of entry.files)
-          lines.push(JSON.stringify({ file, mtimeMs, size, docs }));
+        for (const [file, cached] of entry.files)
+          lines.push(JSON.stringify({ file, ...cached }));
         await atomic(
           path.join(entry.directory, CACHE),
           `${lines.join("\n")}\n`,
@@ -365,12 +311,13 @@ export function searchStore({ log = () => {} } = {}) {
     const hits = [];
     const inScope = [];
     let total = 0;
+    let onBlocks = 0;
     for (const entry of sessions.values()) {
       if (session && entry.id !== session) continue;
       for (const doc of entry.docs) {
         if (!inRound(doc, round, entry)) continue;
-        // With nothing typed, the list shows the newest things that have text.
-        if (!prepared && !doc.text) continue;
+        // With nothing typed, the list shows the newest things that have words.
+        if (!prepared && !doc.text && !doc.attrs) continue;
         doc.here = doc.session === here;
         const hit = prepared ? scoreDoc(prepared, doc) : { score: doc.at };
         if (kinds.size === 0 || kinds.has(doc.kind)) inScope.push(doc);
@@ -378,10 +325,11 @@ export function searchStore({ log = () => {} } = {}) {
         counts[doc.kind]++;
         if (kinds.size && !kinds.has(doc.kind)) continue;
         total++;
+        if (!hit.inAttrs) onBlocks++;
         hits.push({ doc, ...hit });
       }
     }
-    if (prepared && hits.length < FEW_RESULTS) {
+    if (prepared && onBlocks < FEW_RESULTS) {
       const already = new Set(hits.map((hit) => hit.doc));
       for (const row of partialRows(
         query,
@@ -416,11 +364,12 @@ export function searchStore({ log = () => {} } = {}) {
       page: doc.page,
       pageTitle: titleOf(doc, entry),
       block: doc.block,
+      blockId: doc.blockId ?? null,
       item: doc.item,
       kind: doc.kind,
       type: doc.type,
       heading: doc.heading,
-      ...clip(doc, hit.textRanges ?? []),
+      ...shown(doc, hit),
       headingRanges: hit.headingRanges ?? [],
       also: doc.also.filter((round) => round !== doc.round),
       partial: hit.partial ?? null,

@@ -1,4 +1,4 @@
-import { parse, textOf } from "./html.mjs";
+import { decode, parse, textOf } from "./html.mjs";
 
 /* Each function here turns one record from a session's files into search
    documents. A document has its kind, one of the modal's six, and the type
@@ -6,11 +6,30 @@ import { parse, textOf } from "./html.mjs";
    item.
 
    One rule reads every block of a page, so a component needs no code here. A
-   block's text is its text nodes and its attributes. The only knowledge of a
-   component is that a diff keeps its patch as JSON in a textarea. */
+   block's text is what a reader sees: its text nodes and the attributes the
+   frame draws. Its attrs are the words of its other attributes, which rank below
+   its text, so a custom component's words stay findable. The only knowledge of a
+   component is that a diff keeps its patch as JSON in a textarea, beside the
+   viewer's own controls. */
 
-// An attribute named here holds no words a reader would search for.
-const NOT_TEXT = new Set(["id", "class", "style", "src", "href"]);
+// An attribute named here holds no words a reader would search for. It sets how
+// an element behaves or looks, or it holds an ID that a component reads.
+const NOT_TEXT = new Set(
+  `id class style src href target rel type width height role hidden lang charset
+   preload poster loading controls muted loop autoplay playsinline tabindex rows
+   cols colspan rowspan scope for disabled readonly checked selected min max step
+   start data-kind data-state data-choice data-multiselect data-question
+   data-drawing-question data-value data-proposal data-line data-lines
+   data-proposed-lines data-math`.split(/\s+/),
+);
+// The frame draws these on the page, so their words are the block's text.
+const DRAWN = new Set([
+  "data-title",
+  "data-caption",
+  "data-file",
+  "data-notes",
+  "data-terms",
+]);
 // A hand-written script holds the words it draws. A bundled library is mostly
 // someone else's code, so a script over this size is left out.
 const SCRIPT_LIMIT = 32_000;
@@ -29,38 +48,80 @@ const prototypeText = (html) =>
       script.length > SCRIPT_LIMIT ? " " : script,
     );
 
-function collect(node, page, out, inSvg = false) {
+const strings = (value) =>
+  typeof value === "string"
+    ? [value]
+    : value && typeof value === "object"
+      ? Object.values(value).flatMap(strings)
+      : [];
+
+// A component can keep words in an attribute as JSON, such as a code block's
+// line notes. Its strings are the words, and its keys and syntax are not.
+function attributeWords(value) {
+  if (value[0] !== "[" && value[0] !== "{") return value;
+  try {
+    return strings(JSON.parse(value)).join(" ");
+  } catch {
+    return value;
+  }
+}
+
+// A visual option's label is drawn on its tab, and most options repeat it in
+// their own words.
+const drawnLabel = (node, name, value) =>
+  name === "data-label" &&
+  node.tag === "article" &&
+  !textOf(node).toLowerCase().includes(value.toLowerCase());
+
+function textareaWords(node) {
+  const raw = decode(node.raw ?? "");
+  try {
+    return JSON.parse(raw).patch ?? "";
+  } catch {
+    return raw;
+  }
+}
+
+function collect(node, page, words, inSvg = false) {
   if (node.text !== undefined) {
-    out.push(node.text);
-    return out;
+    words.text.push(node.text);
+    return words;
   }
   const svg = inSvg || node.tag === "svg";
+  const diff = (node.children ?? []).find(
+    (child) => child.tag === "textarea" && "data-diff-input" in child.attrs,
+  );
   for (const [name, value] of Object.entries(node.attrs ?? {})) {
-    if (NOT_TEXT.has(name) || !value || svg) continue;
+    if (svg || !value || value.startsWith("data:") || NOT_TEXT.has(name))
+      continue;
+    if (name.startsWith("aria-") && name !== "aria-label") continue;
     if (name === "data-prototype") {
       const prototype = (page.prototypes ?? []).find((p) => p.id === value);
-      if (prototype)
-        out.push(
-          prototype.title ?? "",
-          prototype.description ?? "",
-          prototypeText(prototype.html ?? ""),
-        );
-    } else out.push(value);
+      if (prototype) {
+        words.text.push(prototype.title ?? "", prototype.description ?? "");
+        collect(parse(prototypeText(prototype.html ?? "")), page, words);
+      }
+    } else if (DRAWN.has(name) || drawnLabel(node, name, value))
+      words.text.push(attributeWords(value));
+    else if (!diff) words.attrs.push(attributeWords(value));
   }
-  if (node.tag === "style" || node.tag === "template") return out;
+  if (diff) {
+    words.text.push(textareaWords(diff));
+    return words;
+  }
+  if (node.tag === "style" || node.tag === "template") return words;
   if (node.tag === "textarea") {
-    try {
-      const raw = (node.raw ?? "").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
-      out.push(JSON.parse(raw).patch ?? "");
-    } catch {
-      out.push(node.raw ?? "");
-    }
-    return out;
+    words.text.push(textareaWords(node));
+    return words;
   }
-  if (node.raw) out.push(node.raw);
-  for (const child of node.children ?? []) collect(child, page, out, svg);
-  return out;
+  // Only a script is left with raw text, and a reader never sees it.
+  if (node.raw) words.attrs.push(node.raw);
+  for (const child of node.children ?? []) collect(child, page, words, svg);
+  return words;
 }
+
+const blockId = (node, topic, index) =>
+  node.attrs.id || `block-${topic}-${index}`;
 
 // A row shows a code icon for a block that is mostly code, and nothing else
 // reads this.
@@ -80,7 +141,7 @@ function holdsCode(node) {
 
 // The frame numbers a page's top-level elements, so a document's block is its
 // position among them. Top-level text belongs to no block.
-export function pageDocs(page, round, at) {
+export function pageDocs(page, round, at, tree = parse(page.html ?? "")) {
   const docs = [];
   const base = {
     kind: "pages",
@@ -92,7 +153,7 @@ export function pageDocs(page, round, at) {
   };
   let heading = "";
   let index = -1;
-  for (const child of parse(page.html ?? "").children) {
+  for (const child of tree.children) {
     if (child.text !== undefined) {
       const text = clean(child.text);
       if (text) docs.push({ ...base, block: null, heading, text });
@@ -100,29 +161,77 @@ export function pageDocs(page, round, at) {
     }
     index++;
     if (child.tag === "style") continue;
-    const text = clean(collect(child, page, []).join(" "));
+    const words = collect(child, page, { text: [], attrs: [] });
+    const text = clean(words.text.join(" "));
+    const attrs = clean(words.attrs.join(" "));
     if (isHeading(child.tag)) heading = text;
-    if (text)
+    if (text || attrs)
       docs.push({
         ...base,
         block: index,
+        blockId: blockId(child, page.id, index),
         heading,
         text,
+        ...(attrs ? { attrs } : {}),
         ...(holdsCode(child) ? { code: true } : {}),
       });
   }
-  if (page.jsText && page.jsText.length <= SCRIPT_LIMIT) {
-    const text = clean(page.jsText);
-    if (text)
-      docs.push({
-        ...base,
-        block: null,
-        heading: page.title ?? "",
-        text,
-        code: true,
-      });
-  }
   return docs;
+}
+
+/* A thread names the element it was written on, which can be a block or anything
+   inside one, so the store keeps which block holds each ID on a page. tops is
+   each top-level element's DOM ID, in the frame's numbering. inner is the block
+   that holds every other ID, including the IDs pageTargets in the frame gives a
+   control that has none. */
+function pageBlocks(page, round, tree) {
+  const tops = [];
+  const inner = {};
+  const controls = { choice: 0, multiselect: 0, question: 0 };
+  const visit = (node, block) => {
+    if (node.text !== undefined || node.tag === "template") return;
+    const { id } = node.attrs;
+    if (id) inner[id] ??= block;
+    for (const type of Object.keys(controls))
+      if (`data-${type}` in node.attrs) {
+        const count = controls[type]++;
+        if (!id) inner[`${type}-${page.id}-${count}`] ??= block;
+      }
+    for (const child of node.children ?? []) visit(child, block);
+  };
+  for (const child of tree.children) {
+    if (child.text !== undefined) continue;
+    visit(child, tops.length);
+    tops.push(blockId(child, page.id, tops.length));
+  }
+  return { round, page: page.id, tops, inner };
+}
+
+export function readPage(page, round, at) {
+  const tree = parse(page.html ?? "");
+  return {
+    docs: pageDocs(page, round, at, tree),
+    blocks: pageBlocks(page, round, tree),
+  };
+}
+
+// A page title draws the first block of its page, and a thread draws the block
+// that holds its target. Only the page's own file says which block that is, so
+// the store places these two once it has every file.
+export function placed(doc, pages) {
+  if (doc.kind !== "threads" && doc.type !== "page title") return doc;
+  const blocks = pages.get(`${doc.round}/${doc.page}`);
+  if (!blocks) return doc;
+  const { tops, inner } = blocks;
+  if (doc.type === "page title") return { ...doc, blockId: tops[0] ?? null };
+  const top = tops.indexOf(doc.target);
+  const block =
+    top >= 0
+      ? top
+      : Object.hasOwn(inner, doc.target)
+        ? inner[doc.target]
+        : null;
+  return block === null ? doc : { ...doc, block, blockId: tops[block] };
 }
 
 export function agreedDocs(page, round, at) {
@@ -147,13 +256,6 @@ export function agreedDocs(page, round, at) {
   return docs;
 }
 
-// A thread on a block names it in its target, so the preview can draw the
-// block under the message.
-function targetBlock(target, topic) {
-  const match = /^block-(.+)-(\d+)$/.exec(target ?? "");
-  return match && match[1] === topic ? Number(match[2]) : null;
-}
-
 export function threadDocs(thread) {
   const docs = [];
   (thread.messages ?? []).forEach((message, index) => {
@@ -168,9 +270,15 @@ export function threadDocs(thread) {
       type: "thread message",
       round: thread.round ?? null,
       page: thread.proposal ? "work" : (thread.topic ?? null),
-      block: targetBlock(thread.target, thread.topic),
+      block: null,
+      target: thread.target ?? null,
       item: `${thread.id}/${index}`,
-      heading: thread.page || thread.anchor || "",
+      // Every thread on Agreed has the same page, so its anchor names its card.
+      heading:
+        (thread.topic === "agreed" && thread.anchor) ||
+        thread.page ||
+        thread.anchor ||
+        "",
       text,
       from: message.from,
       at: Date.parse(message.at) || 0,
