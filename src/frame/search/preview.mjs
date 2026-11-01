@@ -92,8 +92,10 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
   }
 
   function reveal(entry) {
+    entry.frame.classList.remove("is-stale");
     if (shown === entry) return;
     for (const other of frames.values()) {
+      other.frame.classList.remove("is-stale");
       other.frame.classList.toggle("is-shown", other === entry);
       other.frame.contentWindow?.pairEmbed?.show(other === entry);
     }
@@ -101,7 +103,7 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
   }
 
   function hideShown() {
-    shown?.frame.classList.remove("is-shown");
+    shown?.frame.classList.remove("is-shown", "is-stale");
     shown = null;
   }
 
@@ -133,6 +135,7 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
     clearTimeout(restTimer);
     clearTimeout(loadingTimer);
     const mine = ++turn;
+    shown?.frame.classList.add("is-stale");
     if (!row) {
       hideShown();
       return onFailed(null);

@@ -177,24 +177,33 @@ export function scrollToRange(range) {
    Once the reader scrolls or clicks, the page stays where they put it. */
 const REMARK_MS = 40;
 const DRAW_LIMIT_MS = 15000;
+// A component rewrites its text as it draws, so a block counts as drawn once
+// it has been still for a moment.
+const QUIET_MS = 160;
 const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
 let active = null;
 let observer = null;
 let timer = 0;
+let changedAt = 0;
 
 function clearMarked() {
   for (const element of document.querySelectorAll(".search-matched, .matched"))
     element.classList.remove("search-matched", "matched");
 }
 function matchRoots({ target }) {
-  if (!target) return [$("page-title"), $("page-content")];
+  if (!target)
+    return $("review-view").hidden
+      ? [$("page-title"), $("page-content")]
+      : [$("review-view")];
   if (target.startsWith("proposal-"))
     return [
       document.querySelector(
         `[data-proposal-card="${CSS.escape(target.slice("proposal-".length))}"]`,
       ),
     ].filter(Boolean);
-  return [document.getElementById(target)].filter(Boolean);
+  // A figure's title and caption sit outside the element that has the id.
+  const element = document.getElementById(target);
+  return [element?.closest("figure") ?? element].filter(Boolean);
 }
 // A long message is clamped until the reader asks for all of it.
 function openMessage(root) {
@@ -207,8 +216,7 @@ export function markMatch() {
   const roots = matchRoots(active);
   if (!roots.length) return;
   if (active.target?.startsWith("thread-")) openMessage(roots[0]);
-  const whole =
-    active.words.length > 1 ? findWords(roots, [active.words.join(" ")]) : [];
+  const whole = active.phrase ? findWords(roots, [active.phrase]) : [];
   const ranges = whole.length ? whole : findWords(roots, active.words);
   const target = visibleRange(ranges, { open: active.drawn });
   clearMarked();
@@ -230,6 +238,7 @@ export function markMatch() {
   }
 }
 function changed() {
+  changedAt = Date.now();
   clearTimeout(timer);
   timer = setTimeout(markMatch, REMARK_MS);
 }
@@ -237,10 +246,15 @@ const moved = () => {
   if (active) active.moved = true;
 };
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
-const showing = (match) =>
-  matchRoots(match).every(
-    (root) => root.checkVisibility?.({ visibilityProperty: true }) !== false,
+const showing = (match) => {
+  const roots = matchRoots(match);
+  return (
+    roots.length > 0 &&
+    roots.every(
+      (root) => root.checkVisibility?.({ visibilityProperty: true }) !== false,
+    )
   );
+};
 async function whenDrawn(mine) {
   const limit = Date.now() + DRAW_LIMIT_MS;
   // The frame hides a page until its first draw is done, and until then no word
@@ -249,17 +263,25 @@ async function whenDrawn(mine) {
   while (
     active === mine &&
     Date.now() < limit &&
-    (renders.size || !showing(mine))
+    (renders.size || !showing(mine) || Date.now() - changedAt < QUIET_MS)
   );
   if (active !== mine) return;
   mine.drawn = true;
   mine.scrolledAt = null;
   markMatch();
 }
-export function setMatch(words, target) {
+export function setMatch(words, target, text = "") {
   clearMatch();
   if (!words?.length) return;
-  active = { words, target, drawn: false, moved: false, scrolledAt: null };
+  const phrase = text.trim().toLowerCase();
+  active = {
+    words,
+    target,
+    phrase: phrase.includes(" ") ? phrase : null,
+    drawn: false,
+    moved: false,
+    scrolledAt: null,
+  };
   observer = new MutationObserver(changed);
   observer.observe(document.querySelector("main"), {
     subtree: true,

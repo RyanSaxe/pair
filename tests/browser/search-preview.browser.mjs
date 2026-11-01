@@ -243,6 +243,28 @@ test("a page title's result shows the page from its title down", async (t) => {
   assert.equal(await shown(page).locator(".search-matched").count(), 0);
 });
 
+test("the reader can scroll a long result, and the page fills the pane", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "pangolin");
+  await previewShows(page, "pangolin");
+  const read = () =>
+    page.evaluate(() => {
+      const frame = document.querySelector(".search-frame.is-shown");
+      const main = frame.contentDocument.querySelector("main");
+      return {
+        top: main.scrollTop,
+        fills: main.clientHeight === frame.clientHeight,
+      };
+    });
+  const before = await read();
+  assert.equal(before.fills, true);
+  const box = await page.locator(".search-frame.is-shown").boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await waitUntil(async () => (await read()).top < before.top);
+});
+
 test("a word in a long fold opens the fold and scrolls to the word itself", async (t) => {
   const { page } = await setUp(t);
   if (!page) return;
@@ -452,6 +474,59 @@ test("an older round opens in the session's frame, read-only like the page", asy
   await previewShows(page, "walrus");
   // The frame works this out once the round's status arrives.
   await shown(page).locator("#comment-here").waitFor({ state: "hidden" });
+});
+
+test("a proposal in a closed session shows its card, and keys still work", async (t) => {
+  const { b, page, origin } = await setUp(t);
+  if (!page) return;
+  const proposed = await b.action("propose", {
+    id: "tapir-closed",
+    title: "Teach the closed tapir",
+    delivers: "A tapir that can swim.",
+    why: "It sinks.",
+    recommend: "here",
+    agent: b.agent,
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const closed = await fetch(`${origin}${b.base}/api/dismiss`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin },
+    body: "{}",
+  });
+  assert.equal(closed.status, 200);
+  await everywhere(page);
+  await type(page, "closed tapir");
+  await previewShows(page, "closed tapir");
+  assert.equal(
+    await shown(page)
+      .locator('[data-proposal-card="tapir-closed"]')
+      .isVisible(),
+    true,
+  );
+  assert.equal(
+    await page.evaluate(() => document.activeElement.className),
+    "search-input",
+  );
+});
+
+test("a link in a block opens in the reader's tab, and the frame stays embedded", async (t) => {
+  const { a, page, origin } = await setUp(t);
+  if (!page) return;
+  await type(page, "walrus");
+  await previewShows(page, "walrus");
+  await page.evaluate(() => {
+    const doc = document.querySelector(
+      ".search-frame.is-shown",
+    ).contentDocument;
+    const link = doc.createElement("a");
+    link.id = "away";
+    link.href = "#options";
+    link.textContent = "To the options";
+    doc.querySelector("#page-content > :not(.embed-hide)").append(link);
+  });
+  await shown(page).locator("#away").click();
+  await page.waitForURL(new RegExp(`${a.base}/#options$`));
+  assert.ok(page.url().startsWith(origin));
 });
 
 test("a closed session shows read-only", async (t) => {

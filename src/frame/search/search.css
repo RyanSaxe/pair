@@ -271,6 +271,12 @@
 .search-frame.is-shown {
   visibility: visible;
 }
+/* A block under another result's title dims, if it stays there long enough to
+   be read as that result. */
+.search-frame.is-stale {
+  opacity: 0.35;
+  transition: opacity 0s 120ms;
+}
 /* The head has the two rows of the field and the filters, so one rule runs
    across the modal: the session beside the field, and the round and page beside
    the filters. Each line has its own width, so a long session never cuts the
@@ -425,13 +431,13 @@
 :root[data-embed] .embed-hide {
   display: none !important;
 }
-:root[data-embed] :is(.app, main, .main-column) {
-  display: block;
-  width: 100%;
+/* The page keeps its own scrolling box, so the reader can scroll it. */
+:root[data-embed] .app {
   max-width: none;
-  height: auto;
-  margin: 0;
   border: 0;
+}
+:root[data-embed] .main-column {
+  margin-left: 0;
 }
 :root[data-embed] .content {
   max-width: none;
@@ -447,6 +453,6 @@
 .search-matched,
 svg.matched {
   outline: 2px solid var(--mark);
-  outline-offset: 4px;
+  outline-offset: -2px;
   border-radius: 4px;
 }

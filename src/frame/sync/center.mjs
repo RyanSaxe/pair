@@ -279,8 +279,7 @@ export function openLine(event) {
     void openPast(round, { pageId: event.page, targetId: target, match });
   else if (own && editable && selectedTab === "past")
     openCurrent({ pageId: event.page, targetId: target, match });
-  else if (embedded)
-    location.replace(event.href ?? eventHref(event.entry, event));
+  else if (embedded) show(event.page, target, { match });
   else location.assign(event.href ?? eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");
