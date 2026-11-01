@@ -164,6 +164,7 @@ export async function startHub(config = settings()) {
      phone as well, so the frame is compressed, and a compressed one is kept
      until its round changes. */
   const EMBEDS_KEPT = 8;
+  const COMPRESS_OVER_BYTES = 64 * 1024;
   const embeds = new Map();
   async function embedPage(session, round) {
     const closed =
@@ -194,17 +195,23 @@ export async function startHub(config = settings()) {
   }
   async function handle(req, res) {
     const reply = (code, value, type = "application/json", headers = {}) => {
+      const text =
+        typeof value === "string" || Buffer.isBuffer(value)
+          ? value
+          : json(value);
+      // A session's status can reach megabytes, on a phone's connection too.
+      const large =
+        type === "application/json" &&
+        Buffer.byteLength(text) > COMPRESS_OVER_BYTES &&
+        /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
       res.writeHead(code, {
         "Content-Type": type,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        ...(large ? { "Content-Encoding": "gzip" } : {}),
         ...headers,
       });
-      res.end(
-        typeof value === "string" || Buffer.isBuffer(value)
-          ? value
-          : json(value),
-      );
+      res.end(large ? gzipSync(text) : text);
     };
     const html = (value, headers) =>
       reply(200, value, "text/html; charset=utf-8", headers);
