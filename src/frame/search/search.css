@@ -136,11 +136,16 @@
   right: 0;
   z-index: 3;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   width: 200px;
   max-height: min(340px, 60dvh);
   padding: 5px;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The last row stays in view, so a row the keys reach mustn't sit under it. */
+  scroll-padding-bottom: 36px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -162,6 +167,7 @@
 /* The session list can run long, so this choice stays in reach below it. */
 .search-menu-item[data-value="closed"] {
   position: sticky;
+  z-index: 1;
   bottom: -5px;
   border-top: 1px solid var(--line);
   border-radius: 0 0 6px 6px;
@@ -175,6 +181,7 @@
 .search-menu-item {
   position: relative;
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 8px;

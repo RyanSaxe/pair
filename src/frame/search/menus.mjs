@@ -82,6 +82,8 @@ export function createMenus({ host, state }) {
     if (menu.dataset.key === key) return;
     menu.dataset.key = key;
     const focused = opened === name && document.activeElement?.dataset.value;
+    // The list can grow under the reader, so it stays where they had it.
+    const top = menu.scrollTop;
     menu.innerHTML = list
       .map((item) =>
         item
@@ -89,8 +91,11 @@ export function createMenus({ host, state }) {
           : '<div class="search-menu-rule"></div>',
       )
       .join("");
+    menu.scrollTop = top;
     if (typeof focused === "string")
-      menu.querySelector(`[data-value="${CSS.escape(focused)}"]`)?.focus();
+      menu
+        .querySelector(`[data-value="${CSS.escape(focused)}"]`)
+        ?.focus({ preventScroll: true });
   }
   function draw(counts = {}) {
     for (const name of NAMES) {
