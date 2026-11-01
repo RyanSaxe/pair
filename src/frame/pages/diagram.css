@@ -3,7 +3,7 @@
 .lightbox {
   width: fit-content;
   max-width: min(96vw, 1600px);
-  max-height: 92vh;
+  max-height: 92dvh;
   margin: auto;
   padding: 8px 12px 12px;
   border: 1px solid var(--line);
