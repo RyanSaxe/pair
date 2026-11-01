@@ -205,8 +205,8 @@ export function installSearch() {
       words.hidden = true;
     },
     onMiss(row, missing) {
-      miss.hidden = !missing;
-      if (missing)
+      miss.hidden = !missing || !row.text;
+      if (!miss.hidden)
         miss.innerHTML = `<b>In this block, but not on screen:</b> ${snippet(row.text, row.ranges)}`;
     },
     onKey(event) {
