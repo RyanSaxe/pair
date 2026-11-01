@@ -55,6 +55,7 @@ function recall() {
 }
 let dialog;
 function openResult(row) {
+  if (!row.round) return location.assign(`/s/${row.session}/`);
   const target = Number.isInteger(row.block)
     ? `?target=block-${encodeURIComponent(row.page)}-${row.block}`
     : "";
@@ -406,8 +407,8 @@ export function installSearch() {
     button.focus({ preventScroll: true });
   });
 
-  // While the modal is open, every key comes here first, wherever focus is. A
-  // tap on a row leaves no element focused.
+  // While the modal is open, every key comes here first, wherever focus is,
+  // because a tap on a row can leave no element focused.
   document.addEventListener(
     "keydown",
     (event) => {
