@@ -346,17 +346,28 @@ export async function startHub(config = settings()) {
                 head,
               ),
             );
-          return html(
-            await roundPage(
-              session,
-              session.roundEntry(session.state.current.round),
-              flags,
-              head,
-            ),
-            {
-              "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
-            },
-          );
+          // A round keeps the frame it was published with, and a frame from before
+          // search cannot open an older round in place, so a result in that round
+          // opens its read-only page instead.
+          const wanted = url.searchParams.get("round");
+          const entry = session.roundEntry(session.state.current.round);
+          if (
+            wanted &&
+            wanted !== session.state.current.round &&
+            !(await fs.readFile(entry.path, "utf8")).includes(
+              'id="search-button"',
+            )
+          ) {
+            const params = new URLSearchParams(url.searchParams);
+            params.delete("round");
+            const query = params.size ? `?${params}` : "";
+            return reply(302, "", "text/plain", {
+              Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
+            });
+          }
+          return html(await roundPage(session, entry, flags, head), {
+            "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
+          });
         }
         if (method === "GET" && rest[0] === "r" && rest.length === 2)
           return html(
