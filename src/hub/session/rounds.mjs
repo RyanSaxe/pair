@@ -112,14 +112,18 @@ export function rounds(session) {
   }
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));
-  async function renderPageRound(set, complete, { today = false } = {}) {
+  async function renderPageRound(
+    set,
+    complete,
+    { today = false, withPages = !today } = {},
+  ) {
     const bundle = today
       ? undefined
       : await read(storedPagePath(set, set.bundlePath));
     const agreed = await read(storedPagePath(set, set.agreed));
     // The search window's frame fetches each page it shows, so it doesn't carry
     // a round's images.
-    const records = today
+    const records = !withPages
       ? []
       : await Promise.all(
           set.pages
@@ -133,7 +137,7 @@ export function rounds(session) {
       id: slot.id,
       title: slot.title,
       html: ready.get(slot.id)?.html || "",
-      pending: today || !slot.recordPath,
+      pending: !withPages || !slot.recordPath,
       working: slot.state === "active",
     }));
     const all = [agreed.page, ...records.map((record) => record.page)];
@@ -142,7 +146,7 @@ export function rounds(session) {
       round: set.round,
       title: set.title,
       ...(set.plan ? { plan: true } : {}),
-      ...(complete && !today ? {} : { pageMode: "partial" }),
+      ...(complete && withPages ? {} : { pageMode: "partial" }),
       pages,
       agreements: agreed.page.agreements,
       task: agreed.page.task,
@@ -160,12 +164,17 @@ export function rounds(session) {
   }
   // A round's saved page is drawn again only when every page has published, and
   // no frame fills in a read-only one, so a round that never finished shows the
-  // pages it published. It returns null for a round that finished.
+  // pages it published. A round's own frame may be too old to draw them with
+  // today's components, so this uses today's. It returns null for a round that
+  // finished.
   function renderPublished(round) {
     const set = session.state.roundPages?.[round];
     if (!set || set.pages.every((slot) => slot.recordPath)) return null;
     const pages = set.pages.filter((slot) => slot.recordPath);
-    return renderPageRound({ ...set, pages }, true);
+    return renderPageRound({ ...set, pages }, true, {
+      today: true,
+      withPages: true,
+    });
   }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);
