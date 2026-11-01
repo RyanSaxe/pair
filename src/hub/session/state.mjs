@@ -32,6 +32,7 @@ export async function loadSession(
   origin,
   tabOpen,
   peer = () => null,
+  changed = () => {},
 ) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
@@ -77,7 +78,11 @@ export async function loadSession(
   }
   token ||= crypto.randomBytes(32).toString("hex");
   const base = `/s/${state.sessionId}`;
-  const exclusive = serializer();
+  const serial = serializer();
+  // Every route that changes a session runs through exclusive, so this one call
+  // tells search that the session's files changed.
+  const exclusive = (task) =>
+    serial(task).finally(() => changed(state.sessionId));
   // The wake target contains a token or a socket path, so the hub stores it
   // in wake.json and never sends it in a browser response.
   const wakeFile = path.join(directory, "wake.json");

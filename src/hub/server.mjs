@@ -17,6 +17,7 @@ import {
 } from "../shared/util.mjs";
 import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
 import { startFrom, withClosedParents } from "./linking.mjs";
+import { DEFAULT_LIMIT, KINDS, searchStore } from "./search/store.mjs";
 import { seenStore } from "./seen.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
@@ -69,6 +70,7 @@ export async function startHub(config = settings()) {
   const tabOpen = () => Date.now() - tabPolledAt < config.tabWindowMs;
   const log = (message) =>
     (config.log || console.log)(`${timestamp()} ${message}`);
+  const search = searchStore({ log });
   // A session directory can be reached by more than one path, such as
   // /tmp/… and /private/tmp/… on macOS. The hub keys a session by the real
   // path of its parent and its own name, because a new session's directory
@@ -84,11 +86,17 @@ export async function startHub(config = settings()) {
     const known = await canonical(directory);
     let session = byDirectory.get(known);
     if (!session) {
-      session = await loadSession(directory, config, origin, tabOpen, (id) =>
-        registry.get(id),
+      session = await loadSession(
+        directory,
+        config,
+        origin,
+        tabOpen,
+        (id) => registry.get(id),
+        search.markChanged,
       );
       registry.set(session.id, session);
       byDirectory.set(known, session);
+      void search.add(session.id, session.directory);
     }
     return session;
   }
@@ -172,6 +180,30 @@ export async function startHub(config = settings()) {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const parts = url.pathname.split("/").slice(1);
       const method = req.method;
+      if (method === "GET" && url.pathname === "/api/search") {
+        const params = url.searchParams;
+        const limit = Number(params.get("limit") || DEFAULT_LIMIT);
+        requireValue(
+          Number.isInteger(limit) && limit > 0 && limit <= 500,
+          "Invalid limit",
+        );
+        const kinds = (params.get("kinds") || "").split(",").filter(Boolean);
+        requireValue(
+          kinds.every((kind) => KINDS.includes(kind)),
+          "Invalid kinds",
+        );
+        return reply(
+          200,
+          await search.search({
+            query: params.get("q") || "",
+            session: params.get("session"),
+            round: params.get("round"),
+            here: params.get("here"),
+            kinds,
+            limit,
+          }),
+        );
+      }
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
           app: "pair",
@@ -558,6 +590,7 @@ export async function startHub(config = settings()) {
   const close = () => (closing ||= shutDown().then(settle));
   async function shutDown() {
     clearInterval(timer);
+    await search.close();
     for (const server of servers) {
       server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));
