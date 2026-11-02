@@ -146,8 +146,8 @@ function joinedList(joined) {
   return box;
 }
 let failure = "";
-// actedOn is the card the reader last pressed a button on, which holds its place
-// when it changes height.
+// actedOn is the card the reader last pressed a button on. readPlace() keeps that
+// card's top in place when the card changes height.
 let actedOn = null;
 async function act(card, action) {
   actedOn = card.id;

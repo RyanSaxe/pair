@@ -16,20 +16,28 @@ approve therefore has a card.
 ## The Work page
 
 **Work**, in the sidebar above Review, lists every proposal of the session,
-from the moment the agent records it, in four tabs:
+from the moment the agent records it, in three tabs:
 
-| Tab       | Lists                                                                                                                                                     |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Needs you | Proposals with an agent reply that you have not cleared from the bell, and work running in its own session when that session has a round waiting for you. |
-| Running   | Work you approved that is not finished yet.                                                                                                               |
-| Proposed  | Proposals waiting for you to start or decline them.                                                                                                       |
-| Done      | Finished work, proposals the agent joined into another, and proposals that you declined or the agent withdrew.                                            |
+| Tab      | Lists                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| Running  | Work you approved that is not finished yet.                                                                    |
+| Proposed | Proposals waiting for you to start or decline them.                                                            |
+| Done     | Finished work, proposals the agent joined into another, and proposals that you declined or the agent withdrew. |
 
-Work opens on the first tab that has a card in it. When you click a bell line
-or a system notification about a card, Work opens on that card's tab instead,
-with the card or the agent's reply in view. The Work row in the sidebar shows
-two numbers. The grey number is the number of cards in Proposed, and the
-orange one is the number in Needs you.
+pair puts a card on a tab by the card's own state alone. A reply from the agent,
+or a round waiting in the work's own session, adds a bell line and leaves the
+card on its tab. The status line of an unfinished card shows either one.
+
+Work opens on Proposed when a proposal is waiting for you to start it, and
+otherwise on the first tab that has a card in it. When you click a bell line or
+a system notification about a card, Work opens on that card's tab instead, with
+the card or the agent's reply in view. The Work row in the sidebar shows one
+orange number, the number of cards in Proposed.
+
+While you read a tab, the cards on screen keep their place when other cards
+change. A card on screen that changes tab, such as one you start or decline,
+stays where it is with its new status until you change tab. Until then, the
+tab's count can be lower than the number of cards it lists.
 
 ### Cards
 
@@ -63,9 +71,9 @@ hub show the same New labels. pair never labels a card in Done as New.
 **New work item**, at the top of Work, opens a form with a title and a
 description of up to 4,000 characters. You can add images to the description,
 as you do to a note. Choose where the work runs, as you do with Start, and
-press **Start**, or press **Save for later** to put the card in Proposed. pair
-keeps your text and images until the card exists, so closing the form or
-reloading the page loses nothing.
+press **Start**, or press **Save for later** to put the card in Proposed. Work
+then opens the card's tab with the card in view. pair keeps your text and images
+until the card exists, so closing the form or reloading the page loses nothing.
 
 The hub tells no agent about a saved card until you start it, and it refuses
 an agent's attempt to revise, withdraw or join a card you wrote.
@@ -80,7 +88,7 @@ an agent's attempt to revise, withdraw or join a card you wrote.
 | Planning in a sub-session, Planning with a new agent | You started the work with Plan it first, and have not chosen Build it in its session.    |
 | Working                                              | The work runs in its own session.                                                        |
 | Waiting for you                                      | The session the work runs in has a round waiting for you.                                |
-| Agent replied                                        | The agent replied in a thread on the card, and you have not cleared it from the bell.    |
+| Agent replied                                        | The agent replied on a card that is not finished, and the bell still lists that reply.   |
 | Done                                                 | The work is finished.                                                                    |
 | Declined                                             | You declined the proposal.                                                               |
 | Withdrawn                                            | The agent withdrew the proposal, and the card shows its reason.                          |
