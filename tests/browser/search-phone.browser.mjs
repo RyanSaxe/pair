@@ -123,6 +123,13 @@ const previewCovers = (page, { top, bottom }) =>
     },
     { top, bottom },
   );
+const onlyResults = (page) =>
+  page.waitForFunction(
+    () =>
+      !document
+        .querySelector(".search-preview")
+        .checkVisibility({ visibilityProperty: true }),
+  );
 // The preview in the bottom half of the modal, under the results.
 const splitShows = (page) =>
   page.waitForFunction(() => {
@@ -303,6 +310,60 @@ for (const engine of ["chrome", "webkit"]) {
       await previewCovers(page, { top: 380, bottom: 760 });
     });
   }
+
+  test(`on a phone in ${engine}, when the window shrinks with the keyboard, only the results show while typing in the search field, and the best result shows when it drops`, async (t) => {
+    const { page } = await searchPage(t, phone(engine));
+    if (!page) return;
+    await page.locator("#search-button").tap();
+    await page.setViewportSize({ width: 375, height: 400 });
+    await onlyResults(page);
+    await type(page, "narwhal");
+    await page.waitForFunction(wordInFrame, "narwhal");
+    assert.equal(await previewVisible(page), false);
+
+    await page.setViewportSize({ width: 375, height: 760 });
+    await previewCovers(page, { top: 380, bottom: 760 });
+    assert.equal(
+      await page.locator(".search-frame.is-shown").isVisible(),
+      true,
+    );
+    assert.ok(await page.evaluate(wordInFrame, "narwhal"));
+  });
+
+  test(`on a phone in ${engine}, a rotation is no keyboard, with the search field's focus or with none`, async (t) => {
+    const { page } = await searchPage(t, {
+      ...phone(engine),
+      viewport: { width: 375, height: 660 },
+    });
+    if (!page) return;
+    await page.locator("#search-button").tap();
+    await type(page, "narwhal");
+    for (const [width, height] of [
+      [660, 375],
+      [375, 660],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await previewCovers(page, { top: height / 2, bottom: height });
+    }
+    await page.locator(".search-input").blur();
+    await page.setViewportSize({ width: 660, height: 375 });
+    await previewCovers(page, { top: 375 / 2, bottom: 375 });
+  });
+
+  test(`on a phone in ${engine}, a window a person shrinks leaves the split, or brings it back once the search field loses focus`, async (t) => {
+    const { page } = await searchPage(t, phone(engine));
+    if (!page) return;
+    await page.locator("#search-button").tap();
+    await type(page, "narwhal");
+    await page.setViewportSize({ width: 375, height: 400 });
+    await onlyResults(page);
+    await page.locator(".search-input").blur();
+    await previewCovers(page, { top: 200, bottom: 400 });
+
+    await page.setViewportSize({ width: 375, height: 760 });
+    await page.setViewportSize({ width: 375, height: 400 });
+    await previewCovers(page, { top: 200, bottom: 400 });
+  });
 
   test(`on a phone in ${engine}, a note closed with no save brings the split back, and the search field's keyboard still shows only the results`, async (t) => {
     const page = await showNote(t, engine);

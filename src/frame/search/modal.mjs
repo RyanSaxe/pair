@@ -17,6 +17,8 @@ const PHONE = 720;
 // A phone's keyboard takes more height than this. The bar a phone shows over a
 // hardware keyboard and a collapsing address bar take less.
 const KEYBOARD_PX = 120;
+// Longer than a keyboard takes to drop.
+const DROP_REST_MS = 1000;
 // A fast reply replaces the list before this, so most searches never show it.
 const SEARCHING_AFTER_MS = 150;
 // How far a key moves the selection. Ctrl+K is one of them on every system, so
@@ -133,6 +135,8 @@ export function installSearch() {
   let searching = 0;
   let pressedOutside = false;
   let revealOnDrop = false;
+  let tallest = 0;
+  let tallestWidth = 0;
 
   const focusField = () => innerWidth > PHONE && input.focus();
   const closeMenu = () => {
@@ -290,7 +294,11 @@ export function installSearch() {
   }
 
   function open() {
-    if (!dialog.open) dialog.showModal();
+    if (!dialog.open) {
+      dialog.showModal();
+      tallestWidth = 0;
+      fit();
+    }
     input.value = state.query;
     input.focus();
     input.select();
@@ -439,24 +447,34 @@ export function installSearch() {
   });
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual
-  // viewport to stop the last results sitting under the keyboard. The same height
-  // says whether a keyboard is up, because a focused field may have a hardware
-  // keyboard or one that has dropped. A pinch shrinks the height by its scale.
+  // viewport to stop the last results sitting under the keyboard. A keyboard
+  // shortens the visual viewport on one phone and the whole window on another, so
+  // it counts as up when the height is well below the tallest since the modal
+  // opened, and a focused field can't say, because it may have a hardware keyboard
+  // or one that has dropped. A pinch shrinks the height by its scale. A rotation
+  // changes the width and a keyboard doesn't. The orientation media query can't
+  // tell them apart, because a keyboard can leave the window wider than it's tall.
   //
   // The results fill the window for the search field's keyboard, and until that
   // keyboard has dropped, because a tap on a row blurs the field first.
   //
-  // The preview fills the window while a field in it has focus, whatever the height
-  // says, because a window that shrinks with the keyboard shows no difference in
-  // height. iOS can pan the page to reach that field, so the modal follows the pan.
+  // The preview fills the window while a field in it has focus, whatever the
+  // height, so a note has room before the keyboard has risen. iOS can pan the page
+  // to reach that field, so the modal follows the pan.
   function fit() {
     if (!window.visualViewport) return;
     const { height, offsetTop, scale } = visualViewport;
+    const visible = height * scale;
+    if (innerWidth !== tallestWidth) {
+      tallest = innerHeight;
+      tallestWidth = innerWidth;
+    }
+    tallest = Math.max(tallest, visible);
     dialog.style.setProperty("--search-height", `${height}px`);
     dialog.style.setProperty("--search-top", `${offsetTop}px`);
     const writing = innerWidth <= PHONE && preview.writing();
     const typing =
-      innerHeight - height * scale > KEYBOARD_PX &&
+      tallest - visible > KEYBOARD_PX &&
       !writing &&
       (dialog.classList.contains("is-typing") ||
         document.activeElement === input);
@@ -473,5 +491,14 @@ export function installSearch() {
   visualViewport?.addEventListener("scroll", fit);
   // Moving between fields leaves the keyboard up, so the viewport doesn't resize.
   input.addEventListener("focus", fit);
+  // A window that a person shrank has no keyboard to drop, so its height after the
+  // field has lost focus is the height with no keyboard.
+  input.addEventListener("blur", () =>
+    setTimeout(() => {
+      if (!window.visualViewport || document.activeElement === input) return;
+      tallest = visualViewport.height * visualViewport.scale;
+      fit();
+    }, DROP_REST_MS),
+  );
   fit();
 }
