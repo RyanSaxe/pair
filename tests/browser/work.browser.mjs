@@ -38,14 +38,10 @@ async function work(t) {
 
 const workRow = (page) =>
   page.locator("#work-row").evaluate((row) => {
-    const count = (kind) => {
-      const mark = row.querySelector(`.count.${kind}`);
-      return mark && !mark.hidden ? [mark.textContent, mark.title] : null;
-    };
+    const mark = row.querySelector(".count");
     return {
       label: row.getAttribute("aria-label"),
-      needs: count("needs"),
-      proposed: count("proposed"),
+      number: mark.hidden ? null : mark.textContent,
     };
   });
 
@@ -57,8 +53,7 @@ test("Start sends where the work runs and the message, and the running card quot
     .waitFor({ timeout: 8000 });
   assert.deepEqual(await workRow(page), {
     label: "Work, 2 proposed",
-    needs: null,
-    proposed: ["2", "2 proposed"],
+    number: "2",
   });
   const from = page.locator("[data-proposal-card=deck] .card-meta a");
   assert.equal(await from.textContent(), "From the Overview page");
@@ -125,7 +120,6 @@ test("Start here leaves the waiting round open with its drafts, so a second card
     assert.equal((await session.status()).body.needsYou, true);
   }
   await tab("running").locator(".work-count", { hasText: "2" }).waitFor();
-  assert.equal(await tab("needs").locator(".work-count").textContent(), "0");
   await tab("running").click();
   for (const id of ["deck", "export"])
     assert.equal(
@@ -679,7 +673,7 @@ test("a card reads New until Work shows it", async (t) => {
   assert.equal(await label("#work-cards").count(), 0);
 });
 
-test("Work opens on Needs you when a card's sub-session waits for the reviewer", async (t) => {
+test("a card whose sub-session has a round waiting stays in Running and reads Waiting for you, and the sidebar counts only the proposal", async (t) => {
   const h = await hub(t);
   const parent = await h.session({ start: true });
   assert.equal((await parent.publish(planData())).code, 200);
@@ -706,34 +700,28 @@ test("Work opens on Needs you when a card's sub-session waits for the reviewer",
   assert.equal((await child.publish(planData())).code, 200);
   const page = await open(t, `${h.server.origin}${parent.base}/#work`);
   if (!page) return;
-  // The frame counts the card as running until the session list shows that its
-  // sub-session waits for the reviewer, so the test waits for Work to select
-  // Needs you.
-  await page.locator('#work-tab-needs[aria-selected="true"]').waitFor();
-  await page
-    .locator("#work-cards [data-proposal-card=deck]")
-    .waitFor({ timeout: 5000 });
+  await page.locator('#work-tab-proposed[aria-selected="true"]').waitFor();
   assert.deepEqual(await workRow(page), {
-    label: "Work, 1 needs you, 1 proposed",
-    needs: ["1", "1 needs you"],
-    proposed: ["1", "1 proposed"],
+    label: "Work, 1 proposed",
+    number: "1",
   });
-  const edges = await page.locator("#work-row").evaluate((row) => {
-    const box = (kind) =>
-      row.querySelector(`.count.${kind}`).getBoundingClientRect();
-    return {
-      rowEnd:
-        row.getBoundingClientRect().right -
-        parseFloat(getComputedStyle(row).paddingRight),
-      needs: box("needs"),
-      proposed: box("proposed"),
-    };
-  });
-  assert.ok(
-    edges.proposed.right < edges.needs.left,
-    `the proposed number ends at ${edges.proposed.right}, the pill starts at ${edges.needs.left}`,
+  const edges = await page.locator("#work-row").evaluate((row) => ({
+    rowEnd:
+      row.getBoundingClientRect().right -
+      parseFloat(getComputedStyle(row).paddingRight),
+    number: row.querySelector(".count").getBoundingClientRect().right,
+  }));
+  assert.equal(Math.round(edges.number), Math.round(edges.rowEnd));
+  await page.locator("#work-tab-running").click();
+  await page
+    .locator("[data-proposal-card=deck] .card-state", {
+      hasText: "Waiting for you",
+    })
+    .waitFor({ timeout: 5000 });
+  assert.equal(
+    await page.locator("#work-tab-running .work-count").textContent(),
+    "1",
   );
-  assert.equal(Math.round(edges.needs.right), Math.round(edges.rowEnd));
 });
 
 test("a card's reply box keeps focus and every key while the cards change, and Work draws the changes after the reviewer leaves the box", async (t) => {
@@ -762,8 +750,7 @@ test("a card's reply box keeps focus and every key while the cards change, and W
   // The frame polls status every 1.5 s, so the sleep covers two polls.
   await sleep(3000);
   await page.keyboard.type("r c ");
-  // The agent's reply moves the card to Needs you, and the reply reaches the
-  // thread card that the reviewer is typing in.
+  // The agent's reply reaches the thread card that the reviewer is typing in.
   const replied = await session.action("reply", { note: id, text: "Yes." });
   assert.equal(replied.code, 200, replied.body.error);
   await thread.locator(".thread-message", { hasText: "Yes." }).waitFor();
@@ -790,15 +777,15 @@ test("a card's reply box keeps focus and every key while the cards change, and W
   assert.equal(await page.evaluate(() => location.hash), "#work");
 
   await page.locator("#work-view h1").click();
-  await tab("proposed")
-    .locator(".work-count", { hasText: /^1$/ })
-    .waitFor({ timeout: 5000 });
-  await tab("needs").click();
-  assert.equal(await field.inputValue(), typed);
-  await tab("proposed").click();
   await page
     .locator("#proposal-export .proposal-delivers", {
       hasText: "The export, revised.",
     })
+    .waitFor({ timeout: 5000 });
+  await page
+    .locator("#proposal-deck .card-state", { hasText: "Agent replied" })
     .waitFor();
+  await tab("done").click();
+  await tab("proposed").click();
+  assert.equal(await field.inputValue(), typed);
 });

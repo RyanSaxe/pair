@@ -163,8 +163,6 @@ test("a line on a card opens Work on the card's tab at the reply or the card it 
   await bellReady(page);
   const reply = await cardReply(session, "export");
   await count(page, "1");
-  // Opening the line clears it, so the frame moves the card from Needs you back
-  // to Proposed.
   await openLine(page);
   await landed(page, "proposed", reply);
   await page.locator("#work-tab-running").click();

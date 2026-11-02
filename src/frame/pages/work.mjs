@@ -12,22 +12,16 @@ import {
 } from "#frame/pages/card-links.mjs";
 import { statusBox } from "#frame/pages/card-status.mjs";
 import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
-import {
-  listedSession,
-  sessionsListed,
-  unreadCards,
-} from "#frame/sync/center.mjs";
+import { listedSession, unreadCards } from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
 /* The hub stores four fields on each card: started, declined, withdrawn and
-   done. cardTab() derives a card's tab from them and, for work in a linked
-   session, from whether that session's round waits for the reviewer. A
-   card that the agent joined into another is done, and its done.joined
-   field contains the other card's ID. */
+   done. cardTab() derives a card's tab from them. A card that the agent joined
+   into another is done, and its done.joined field contains the other card's
+   ID. */
 
 export const workTabs = [
-  { id: "needs", label: "Needs you", empty: "Nothing needs you." },
   { id: "running", label: "Running", empty: "No work is running." },
   { id: "proposed", label: "Proposed", empty: "No proposed work." },
   { id: "done", label: "Done", empty: "No work is done yet." },
@@ -41,22 +35,19 @@ const waits = (card, { linked = () => null } = {}) =>
   Boolean(linked(card.started.session?.id)?.needsYou);
 const finished = (card) =>
   Boolean(card.declined || card.withdrawn || card.done);
-// A card needs the reviewer when its thread has an agent reply that the
-// reviewer has not cleared from the bell, or when the linked session that
-// runs its work waits for the reviewer.
-export function cardTab(card, context = {}) {
-  if (context.unread?.has(card.id)) return "needs";
+export function cardTab(card) {
   if (finished(card)) return "done";
-  if (card.started) return waits(card, context) ? "needs" : "running";
-  return "proposed";
+  return card.started ? "running" : "proposed";
 }
-export function workGroups(cards, context) {
+export function workGroups(cards) {
   const groups = Object.fromEntries(workTabs.map(({ id }) => [id, []]));
-  for (const card of cards) groups[cardTab(card, context)].push(card);
+  for (const card of cards) groups[cardTab(card)].push(card);
   return groups;
 }
 export const openingTab = (groups) =>
-  workTabs.find(({ id }) => groups[id].length)?.id || workTabs[0].id;
+  groups.proposed.length
+    ? "proposed"
+    : workTabs.find(({ id }) => groups[id].length)?.id || workTabs[0].id;
 
 const cards = () => remote?.proposals || [];
 const joinedInto = (card) =>
@@ -74,10 +65,7 @@ const linkedWaits = () =>
 // Start, Decline and Restore work only in the live session.
 export const cardsEditable = () =>
   editable && online && Boolean(remote) && remote.stage !== "complete";
-export function workCounts() {
-  const { needs, proposed } = workGroups(cards(), context());
-  return { needs: needs.length, proposed: proposed.length };
-}
+export const proposedCount = () => workGroups(cards()).proposed.length;
 
 const element = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -180,7 +168,7 @@ function changed(result, follow = null) {
   failure = "";
   followed = null;
   const moved = follow && cards().find((card) => card.id === follow);
-  if (moved && !$("work-view").hidden) selected = cardTab(moved, context());
+  if (moved && !$("work-view").hidden) selected = cardTab(moved);
   refreshWork(true);
   // poll() fetches the rest of what the action changed, such as the thread
   // that Open a new agent session starts.
@@ -286,9 +274,8 @@ function watchCards(list) {
 
 let selected = workTabs[0].id;
 export const workTab = () => selected;
-// opening stays true from openWork() until the hub has listed the cards and
-// the sessions their work runs in, and then refreshWork() selects the first
-// tab with a card in it.
+// opening stays true from openWork() until the hub has listed the cards, and
+// then refreshWork() selects the tab that Work opens on.
 let opening = false;
 // followed is the target that Work was opened at, such as a bell line's.
 // While it names a card, the frame shows that card's tab and follows the
@@ -424,17 +411,12 @@ export function refreshWork(force = false) {
     else mounted.delete(root);
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
-  const groups = workGroups(cards(), shown);
-  // The frame needs the session listing to know whether a card whose work
-  // runs in another session waits for the reviewer.
-  const linkedKnown =
-    sessionsListed() ||
-    !cards().some((card) => card.started && card.started.where !== "here");
+  const groups = workGroups(cards());
   const named = cardAt(followed);
   if (named) {
-    selected = cardTab(named, shown);
+    selected = cardTab(named);
     opening = false;
-  } else if (opening && remote && linkedKnown) {
+  } else if (opening && remote) {
     const kept = resumedWorkTab();
     selected = groups[kept] ? kept : openingTab(groups);
     opening = false;

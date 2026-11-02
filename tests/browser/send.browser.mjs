@@ -398,13 +398,11 @@ test("Plan it first is off with Here, and its card reads Planning until its sess
   // While the sub-session's plan round waits for the reviewer, the card reads
   // Waiting for you instead of Planning.
   assert.equal((await child.publish({ ...planData(), plan: true })).code, 200);
-  await page.locator("#work-tab-needs").click();
   await state.filter({ hasText: "Waiting for you" }).waitFor();
   const built = await child.feedback(
     child.event("feedback-only", "1", { next: "build" }),
   );
   assert.equal(built.code, 200, built.body.error);
-  await page.locator("#work-tab-running").click();
   await state.filter({ hasText: "Working" }).waitFor();
 });
 
