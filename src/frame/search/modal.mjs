@@ -123,6 +123,7 @@ export function installSearch() {
       words.hidden = true;
     },
     onKey,
+    onFocus: fit,
   });
   const input = part(".search-input");
   const list = part(".search-list");
@@ -441,11 +442,25 @@ export function installSearch() {
   // viewport to stop the last results sitting under the keyboard. The same height
   // says whether a keyboard is up, because a focused field may have a hardware
   // keyboard or one that has dropped. A pinch shrinks the height by its scale.
-  const fit = () => {
+  //
+  // The results fill the window for the search field's keyboard, and until that
+  // keyboard has dropped, because a tap on a row blurs the field first.
+  //
+  // The preview fills the window while a field in it has focus, whatever the height
+  // says, because a window that shrinks with the keyboard shows no difference in
+  // height. iOS can pan the page to reach that field, so the modal follows the pan.
+  function fit() {
     if (!window.visualViewport) return;
-    const { height, scale } = visualViewport;
+    const { height, offsetTop, scale } = visualViewport;
     dialog.style.setProperty("--search-height", `${height}px`);
-    const typing = innerHeight - height * scale > KEYBOARD_PX;
+    dialog.style.setProperty("--search-top", `${offsetTop}px`);
+    const writing = innerWidth <= PHONE && preview.writing();
+    const typing =
+      innerHeight - height * scale > KEYBOARD_PX &&
+      !writing &&
+      (dialog.classList.contains("is-typing") ||
+        document.activeElement === input);
+    dialog.classList.toggle("is-writing", writing);
     dialog.classList.toggle("is-typing", typing);
     if (typing) return;
     if (revealOnDrop)
@@ -453,7 +468,10 @@ export function installSearch() {
         .querySelector('[aria-selected="true"]')
         ?.scrollIntoView({ block: "nearest" });
     revealOnDrop = false;
-  };
+  }
   visualViewport?.addEventListener("resize", fit);
+  visualViewport?.addEventListener("scroll", fit);
+  // Moving between fields leaves the keyboard up, so the viewport doesn't resize.
+  input.addEventListener("focus", fit);
   fit();
 }

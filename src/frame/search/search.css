@@ -510,6 +510,22 @@
   .search.is-typing .search-frame.is-shown {
     visibility: hidden;
   }
+  /* A note's dialog opens inside the frame, so a keyboard over the split leaves
+     it no height for its text box. While the reader writes in the preview, the
+     frame takes the whole window. The results stay laid out under it, so they
+     come back as the reader left them. */
+  .search.is-writing[open] {
+    top: var(--search-top, 0);
+  }
+  .search.is-writing .search-preview {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    border-top: 0;
+  }
+  .search.is-writing .search-preview-head {
+    display: none;
+  }
   .search-preview-head {
     grid-template-rows: auto;
     height: 44px;

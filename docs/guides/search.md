@@ -60,12 +60,16 @@ and a comment names them. An older round or a closed session allows what its pag
 allows.
 
 A click on a result shows it, and the arrow keys show each result as you move.
-On a phone, only the results show while the keyboard is up. The keyboard drops
-when you press its Search key, scroll the results or tap a result. The preview
-then shows under the results, at the result you tapped or else the best result,
-and a tap shows another. With a hardware keyboard, which raises no keyboard on
-the screen, the preview stays under the results as you type. With nothing typed,
-the newest results wait for a tap.
+On a phone, only the results show while the keyboard is up for the search field.
+The keyboard drops when you press its Search key, scroll the results or tap a
+result. The preview then shows under the results, at the result you tapped or else
+the best result, and a tap shows another. With a hardware keyboard, which raises
+no keyboard on the screen, the preview stays under the results as you type. With
+nothing typed, the newest results wait for a tap.
+
+While you write in the preview on a phone, such as in a note or a reply, the
+preview fills the window. It goes back under the results when you leave the text
+box.
 
 ## Open a result
 
