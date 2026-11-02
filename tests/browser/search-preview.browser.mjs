@@ -108,6 +108,17 @@ const previewShows = (page, word) =>
       })
     );
   }, word);
+// The same, on the page that Open went to.
+const pageShows = (page, word) =>
+  page.waitForFunction(
+    (word) =>
+      [...(CSS.highlights?.get("plan-search") ?? [])].some(
+        (range) =>
+          range.toString().toLowerCase() === word &&
+          range.getBoundingClientRect().width > 0,
+      ),
+    word,
+  );
 const visibleBlocks = (page) =>
   page.evaluate(() => {
     const doc = document.querySelector(
@@ -171,6 +182,39 @@ test("a block with its own id shows in the preview, and Open lands on it", async
     );
   });
   assert.equal(new URL(page.url()).searchParams.get("target"), "own-table");
+});
+
+test("a typo marks the words its row marks, in the preview, after Open and from the address", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  for (const [query, words] of [
+    ["walrsu", ["walrus"]],
+    // The row marks only these letters of the word.
+    ["mnte", ["manatee"]],
+    ["lemur sentense", ["lemur", "sentence"]],
+  ]) {
+    await type(page, query);
+    for (const word of words) await previewShows(page, word);
+  }
+  await page.keyboard.press("Enter");
+  await pageShows(page, "lemur");
+  await pageShows(page, "sentence");
+  await page.reload();
+  await pageShows(page, "lemur");
+  await pageShows(page, "sentence");
+});
+
+test("an exact search of several words marks them as one phrase, and the address keeps them", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "walrus sentence");
+  await previewShows(page, "walrus sentence");
+  await page.keyboard.press("Enter");
+  await pageShows(page, "walrus sentence");
+  assert.equal(
+    new URL(page.url()).searchParams.get("match"),
+    "walrus sentence",
+  );
 });
 
 test("a block shows the part with the most of the reader's words, and a tie stays put", async (t) => {
