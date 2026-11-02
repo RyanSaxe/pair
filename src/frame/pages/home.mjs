@@ -4,6 +4,7 @@ import { base, plan, session } from "#frame/app/view.mjs";
 import { pageIndicator, separator } from "#frame/pages/pages.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { drawActivity, renderHistory } from "#frame/sync/activity-view.mjs";
+import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
 
@@ -20,6 +21,7 @@ async function pollHome() {
       return;
     }
     setRemote(status);
+    noticeHub(status.hubVersion);
   } catch {
     // When the request fails, the next poll tries again.
     return;

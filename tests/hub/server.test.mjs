@@ -7,6 +7,7 @@ import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
 import { startHub } from "../../src/hub/server.mjs";
 import { readPlanData } from "../../src/shared/records.mjs";
+import { version } from "../../src/shared/settings.mjs";
 import {
   exists,
   hub,
@@ -101,6 +102,7 @@ test("the hub lists open sessions needs-you first, and a paused one stays listed
   assert.deepEqual(sessionConfig(home.body), {
     sessionId: c.id,
     base: c.base,
+    hubVersion: version,
     home: true,
   });
 });
@@ -163,11 +165,13 @@ test("closing a session from the session list completes it and drops it from the
   assert.deepEqual(sessionConfig((await b.request(`${b.base}/`)).body), {
     sessionId: b.id,
     base: b.base,
+    hubVersion: version,
     closed: true,
   });
   assert.deepEqual(sessionConfig((await a.request(`${a.base}/`)).body), {
     sessionId: a.id,
     base: a.base,
+    hubVersion: version,
   });
 });
 
@@ -285,6 +289,7 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
   assert.deepEqual(sessionConfig(live), {
     sessionId: a.id,
     base: a.base,
+    hubVersion: version,
   });
   assert.equal(readPlanData(live).round, "2");
   const readonly = await a.request(`${a.base}/r/1`);
@@ -292,6 +297,7 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
   assert.deepEqual(sessionConfig(readonly.body), {
     sessionId: a.id,
     base: a.base,
+    hubVersion: version,
     readonly: true,
   });
   assert.equal(readPlanData(readonly.body).round, "1");
@@ -300,6 +306,7 @@ test("round routes inject read-only and preview flags and serve prototypes sandb
     {
       sessionId: a.id,
       base: a.base,
+      hubVersion: version,
       preview: true,
     },
   );

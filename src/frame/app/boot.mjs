@@ -40,6 +40,7 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
+import { installHubWatch } from "#frame/sync/hub-version.mjs";
 import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
 import { openPast, poll, selectedTab, switchTab } from "#frame/sync/rounds.mjs";
 import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
@@ -54,6 +55,7 @@ useSession(
   new URL(location.href),
 );
 document.documentElement.dataset.mode = mode;
+installHubWatch();
 if (mode === "home") bootHome();
 else bootRound();
 
