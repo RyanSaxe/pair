@@ -9,11 +9,10 @@ import {
 } from "#frame/app/view.mjs";
 import { displayedRound } from "#frame/pages/pages.mjs";
 import { renders } from "#frame/pages/renderers.mjs";
-import { selectedTab } from "#frame/sync/rounds.mjs";
 
 // The saved value contains, for each round, the last page the reader was on
 // and, for each page they read, the block they were reading and how far into
-// it. It also contains the tab and the past round that were on screen.
+// it. It also contains the past round the left tab shows.
 export function readPlaces(saved) {
   const places = {};
   const spot = (value) =>
@@ -30,13 +29,12 @@ export function readPlaces(saved) {
         if (spot(saved)) at[id] = spot(saved);
     return { page: value.page, at };
   };
-  if (!record(saved)) return { tab: "current", past: null, places };
+  if (!record(saved)) return { past: null, places };
   if (record(saved.places))
     for (const [round, value] of Object.entries(saved.places))
       if (record(value) && typeof value.page === "string")
         places[round] = place(value);
   return {
-    tab: saved.tab === "past" ? "past" : "current",
     past: typeof saved.past === "string" ? saved.past : null,
     places,
   };
@@ -48,7 +46,7 @@ export function placeFor(places, round, pageIds) {
 export let places = {};
 export const placeIn = (round, pageIds) => placeFor(places, round, pageIds);
 export function loadPlaces() {
-  let placeStore = { tab: "current", past: null, places: {} };
+  let placeStore = { past: null, places: {} };
   try {
     placeStore = readPlaces(JSON.parse(localStorage.getItem(placeKey)));
   } catch {
@@ -89,9 +87,9 @@ function readingAt() {
    from the clock, a reload, and the bell's jump to another session and back
    all return to the page and the block the reader left. A round with no
    entry opens at its first page. savePlaces() saves only for the live
-   reader, so a read-only page cannot overwrite the saved tabs. notePlace()
-   runs 250ms after the last scroll, before the frame shows another page,
-   and when the document unloads. */
+   reader, so a read-only page cannot overwrite the left tab's round.
+   notePlace() runs 250ms after the last scroll, before the frame shows
+   another page, and when the document unloads. */
 let placeTimer = 0;
 export function rememberPlace() {
   clearTimeout(placeTimer);
@@ -116,10 +114,7 @@ function notePlace() {
 export function savePlaces() {
   if (!editable || embedded) return;
   try {
-    localStorage.setItem(
-      placeKey,
-      JSON.stringify({ tab: selectedTab, past: pastRound, places }),
-    );
+    localStorage.setItem(placeKey, JSON.stringify({ past: pastRound, places }));
   } catch {
     /* When localStorage throws, the frame works without saved places. */
   }
