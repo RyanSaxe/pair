@@ -235,3 +235,10 @@ sub-session, the hub marks its proposal done in the session it came from. A
 closed session that still has open sub-sessions stays in the list as a grey
 heading above them, and pair removes it from the list once you close the
 last of them.
+
+To bring a closed session back, press Reopen on the line under its header and
+paste the command it copies into any agent. Nothing changes until an agent runs
+that command. The session then becomes live, with that agent as its holder, and
+an open tab on the session reloads as a live page. When the round was not
+finished at the close, the agent publishes the missing pages. When you reopen a
+sub-session, its proposal in the session it came from is no longer done.

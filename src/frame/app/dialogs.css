@@ -358,6 +358,21 @@ dialog::backdrop {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.center-group.waiting {
+  padding-top: 4px;
+  color: var(--attention);
+}
+#center-list hr {
+  margin: 8px 0 2px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.session-row.unopened .words em {
+  color: var(--attention);
+}
+.session-row.answered .title {
+  font-weight: normal;
+}
 .session-line {
   position: relative;
   display: grid;

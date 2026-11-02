@@ -61,6 +61,61 @@ test("a reply to a waiting thread keeps its draft through a reload and posts its
   assert.equal(await card.locator(".thread-reply figure").count(), 0);
 });
 
+async function replyBox(t) {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "retry",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "What happens to a failed item?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return {};
+  const field = page
+    .locator('pair-thread[data-thread="retry"]')
+    .getByRole("textbox", { name: "Reply in this thread" });
+  await field.waitFor();
+  return { page, field };
+}
+
+test("letters typed right after a reply box loses focus are not shortcuts", async (t) => {
+  const { page, field } = await replyBox(t);
+  if (!page) return;
+  await field.pressSequentially("and the");
+  await field.evaluate((box) => box.blur());
+  const hash = () => new URL(page.url()).hash;
+
+  for (const key of ["a", "r", "]"]) await page.keyboard.press(key);
+  assert.equal(hash(), "#overview");
+
+  await page.waitForTimeout(1600);
+  await page.keyboard.press("a");
+  assert.equal(hash(), "#agreed");
+});
+
+test("a reply box keeps focus when a page's script adds an element after its card", async (t) => {
+  const { page, field } = await replyBox(t);
+  if (!page) return;
+  await field.focus();
+  await page.evaluate(() =>
+    document
+      .getElementById("page-content")
+      .append(document.createElement("dialog")),
+  );
+  for (let polls = 0; polls < 2; polls++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
+  assert.equal(
+    await field.evaluate((box) => box === document.activeElement),
+    true,
+  );
+});
+
 test("a video in an agent's reply stays inside the thread card, with the reply's text, on a wide window and a phone", async (t) => {
   const h = await hub(t);
   const session = await h.session();

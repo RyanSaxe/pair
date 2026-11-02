@@ -148,6 +148,7 @@ export async function startHub(config = settings()) {
       {
         sessionId: session.id,
         base: session.base,
+        hubVersion: version,
         ...(session.state.parent ? { parent: session.parentView() } : {}),
         ...flags,
       },
@@ -437,7 +438,7 @@ export async function startHub(config = settings()) {
           });
         }
         if (method === "GET" && rest[0] === "api" && rest[1] === "status")
-          return reply(200, session.browserView());
+          return reply(200, { ...session.browserView(), hubVersion: version });
         // The browser sends no Origin header with a same-origin GET, so only
         // the Host check protects this read, as it protects the other reads.
         if (rest[0] === "api" && rest[1] === "draft" && rest.length === 2) {

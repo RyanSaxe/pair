@@ -205,6 +205,68 @@ test("a reply in the round just sent opens under Last round", async (t) => {
   await focused(page, onProgress);
 });
 
+test("after an older round was open, an address that doesn't name it opens Current", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  await s.send("1");
+  await s.publish("2");
+  await s.send("2");
+  await s.publish("3");
+  const blank = await open(t, "about:blank");
+  if (!blank) return;
+  // Tabs share a browser's saved places only in a context made with newContext().
+  const context = await blank.context().browser().newContext();
+  const older = await context.newPage();
+  await older.goto(s.url("?round=1"));
+  await selected(older, "past");
+  const onCurrent = async (page, address, heading) => {
+    // The bell shows after the first poll, the point at which the frame moves
+    // to any round the address asks for.
+    await bellReady(page);
+    await afterLoad(page);
+    assert.equal(
+      await page.locator("#current-tab").getAttribute("aria-selected"),
+      "true",
+      address,
+    );
+    await title(page, heading);
+    assert.equal(new URL(page.url()).searchParams.get("round"), null, address);
+    await page.close();
+  };
+  for (const [address, heading] of [
+    ["", "Agreed so far"],
+    ["#overview", "Overview"],
+    ["?round=3#overview", "Overview"],
+  ]) {
+    const page = await context.newPage();
+    await page.goto(s.url(address));
+    await onCurrent(page, address, heading);
+  }
+  const readOnly = await context.newPage();
+  await readOnly.goto(s.url("r/1"));
+  await readOnly.locator("#history-return").click();
+  await readOnly.waitForURL((url) => !url.pathname.includes("/r/"));
+  // Current opens at the page the reader last had on it.
+  await onCurrent(readOnly, "Back to current", "Overview");
+});
+
+// The waiting view has the sent round's number, so an address that names that
+// round must still move to the left tab.
+test("a reload on the round just sent stays there while Current waits", async (t) => {
+  const s = await setup(t);
+  await s.publish("1");
+  await s.send("1");
+  const page = await open(t, s.url(""));
+  if (!page) return;
+  await page.locator("#past-tab").click();
+  await page.locator('#page-list [data-page="overview"]').click();
+  await selected(page, "past");
+  await title(page, "Overview");
+  await page.reload();
+  await selected(page, "past");
+  await title(page, "Overview");
+});
+
 test("a reply in an older round opens in the left tab as its round, not /r/", async (t) => {
   const s = await setup(t);
   await s.publish("1");

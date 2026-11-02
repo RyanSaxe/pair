@@ -305,7 +305,7 @@ test("a new session adds a bell line that opens its home view, which loads the r
   assert.deepEqual(errors, []);
 });
 
-test("the Threads tab groups threads by session with no count, and a row opens its thread", async (t) => {
+test("the Threads tab puts threads waiting on any session's agent first, drops the section when none wait, and a row opens its thread", async (t) => {
   const h = await hub(t);
   const here = await h.session();
   const other = await h.session();
@@ -325,16 +325,37 @@ test("the Threads tab groups threads by session with no count, and a row opens i
   await tab.click();
   const rows = page.locator("#center-list .session-row");
   await rows.nth(2).waitFor(poll);
-  assert.deepEqual(
-    await page.locator("#center-list .center-group").allTextContents(),
-    ["Retry policy", "Search index"],
-  );
+  const groups = page.locator("#center-list .center-group");
+  assert.deepEqual(await groups.allTextContents(), [
+    "Waiting on the agent · 2",
+    "Retry policy",
+  ]);
   const words = await rows.locator(".words").allTextContents();
   assert.equal(words.length, 3);
-  assert.match(words[0], /^Waiting \d+ min · Overview$/);
-  assert.ok(words[1].startsWith("Overview · replied"), words[1]);
-  assert.match(words[2], /^Waiting \d+ min · Overview$/);
+  assert.match(words[0], /^Not opened · \d+ min · Search index$/);
+  assert.match(words[1], /^Not opened · \d+ min · Overview$/);
+  assert.ok(words[2].startsWith("Overview · replied"), words[2]);
   assert.equal(await page.locator("#center-clear-all").isVisible(), false);
+
+  // The row says so once the agent has run pair read on the thread.
+  assert.equal((await here.action("reply", { note: waiting })).code, 200);
+  await page
+    .locator(`#center-list [data-key="thread:${waiting}"] .words`, {
+      hasText: /^Read, no reply · \d+ min · Overview$/,
+    })
+    .waitFor(poll);
+
+  // With every thread answered, the section and its rule leave the list.
+  await reply(here, waiting);
+  await reply(other, elsewhere);
+  await page
+    .locator("#center-list .center-group", { hasText: "Search index" })
+    .waitFor(poll);
+  assert.deepEqual(await groups.allTextContents(), [
+    "Retry policy",
+    "Search index",
+  ]);
+  assert.equal(await page.locator("#center-list hr").count(), 0);
 
   await page.locator(`#center-list [data-key="thread:${waiting}"]`).click();
   await page.locator("#center-pop").waitFor({ state: "hidden" });

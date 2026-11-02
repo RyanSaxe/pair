@@ -33,7 +33,7 @@ import {
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
 import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
-import { placeThreads } from "#frame/notes/threads.mjs";
+import { onCurrentAgreed, placeThreads } from "#frame/notes/threads.mjs";
 import {
   displayedRound,
   redrawPage,
@@ -54,6 +54,7 @@ import {
   submissionInFlight,
 } from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
+import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
 
 export let selectedTab = "current";
@@ -466,15 +467,33 @@ export async function poll() {
       await loadPastView(pastRound).catch(() => {});
     }
     // When Current's round was sent, in this browser or another, the
-    // Previous tab shows it, and a reader on Work stays on Work.
+    // Previous tab shows it, and a reader on Work stays on Work. A place the
+    // reader opened from a result or a link stays open too, under Previous, as
+    // it would have opened had this poll come first.
     if (waiting() && !submissionInFlight) {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
         const onWork = shownPage() === "work";
-        switchTab("current", null, { showPage: !onWork });
-        if (onWork)
-          show("work", null, { keepScroll: true, push: false, inPlace: true });
+        const address = new URLSearchParams(location.search);
+        const target = address.get("target");
+        const match = address.get("match");
+        if (!onWork && (target || match) && !onCurrentAgreed(target))
+          await openPast(submittedRound, {
+            pageId: shownPage(),
+            targetId: target,
+            match,
+            push: false,
+          });
+        else {
+          switchTab("current", null, { showPage: !onWork });
+          if (onWork)
+            show("work", null, {
+              keepScroll: true,
+              push: false,
+              inPlace: true,
+            });
+        }
       }
     }
     // When the next round's Agreed arrives while Current waits, the frame
@@ -513,4 +532,5 @@ export async function poll() {
   review();
   refreshWork();
   redrawPage();
+  if (connected) noticeHub(remote.hubVersion);
 }

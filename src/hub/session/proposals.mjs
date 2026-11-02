@@ -492,6 +492,14 @@ export async function proposals(session) {
     if (!card || card.done || card.started?.session?.id !== sessionId) return;
     await save(card, { done: { at: timestamp(), by: "close" } });
   }
+  // The linked session runs again, so its card is no longer done. A later close
+  // marks the card done again, and pair read reports that close.
+  async function reopenedSession(id, sessionId) {
+    const card = cards.get(id);
+    if (card?.done?.by !== "close" || card.started?.session?.id !== sessionId)
+      return;
+    await save(card, { done: null });
+  }
   async function built(id, sessionId) {
     const card = cards.get(id);
     if (!card || card.started?.session?.id !== sessionId || card.started.built)
@@ -516,6 +524,7 @@ export async function proposals(session) {
     linkSession,
     joinedInto,
     closedSession,
+    reopenedSession,
     built,
     openAgent,
     propose,

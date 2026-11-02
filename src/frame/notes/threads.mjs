@@ -555,7 +555,13 @@ export function placeThreads() {
       } else {
         while (placed.has(after.nextElementSibling))
           after = after.nextElementSibling;
-        if (after.nextElementSibling !== entry.card) after.after(entry.card);
+        // Moving a card takes focus from its reply box, so a card the reviewer
+        // is typing in moves at the first poll after they leave it.
+        if (
+          after.nextElementSibling !== entry.card &&
+          !entry.form.contains(document.activeElement)
+        )
+          after.after(entry.card);
       }
       placed.add(entry.card);
     });

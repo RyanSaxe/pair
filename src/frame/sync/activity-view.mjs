@@ -1,5 +1,5 @@
 import { ago, since } from "#frame/app/time.mjs";
-import { $ } from "#frame/app/util.mjs";
+import { $, copyText } from "#frame/app/util.mjs";
 import {
   base,
   currentShown,
@@ -236,7 +236,28 @@ function parentCrumbs() {
   link.textContent = parent.title;
   return [link, remote?.current?.title || plan.title];
 }
+// copyResult is the button's text after a click, and the strip keeps it until
+// the agent runs the command. When the browser refuses the copy, the frame shows
+// the command for the reviewer to select.
+let copyResult = null;
+async function copyReopen() {
+  const command = `pair start --reopen --session-dir ${remote.sessionDir}`;
+  const copied = await copyText(command);
+  copyResult = copied ? "Copied" : "Copy failed";
+  const line = $("reopen-command");
+  line.firstElementChild.textContent = command;
+  line.hidden = copied;
+  renderHistory();
+}
 function drawHistoryLabel(label, old, past, parent) {
+  if (copyResult)
+    return label.replaceChildren(
+      ...crumbTrail([
+        copyResult === "Copied"
+          ? "Paste it into any agent to reopen"
+          : "Paste this into any agent to reopen",
+      ]),
+    );
   if (old && session.closed) {
     const name = document.createElement("b");
     name.textContent = plan.title;
@@ -284,11 +305,16 @@ export function renderHistory() {
     plan.round,
     Boolean(shownSubmission()),
     parent.map((crumb) => crumb.textContent ?? crumb),
+    copyResult,
   ]);
   if (label.dataset.key !== key) {
     label.dataset.key = key;
     drawHistoryLabel(label, old, past, parent);
   }
+  const reopen = $("history-reopen");
+  reopen.hidden = !session.closed || !remote?.sessionDir;
+  reopen.textContent = copyResult || "Reopen";
+  reopen.onclick = copyReopen;
   const button = $("history-return");
   button.hidden = old ? session.closed : !past || !currentShown();
   button.textContent = "Back to current";

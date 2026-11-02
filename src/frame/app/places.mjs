@@ -9,11 +9,10 @@ import {
 } from "#frame/app/view.mjs";
 import { displayedRound } from "#frame/pages/pages.mjs";
 import { renders } from "#frame/pages/renderers.mjs";
-import { selectedTab } from "#frame/sync/rounds.mjs";
 
 // The saved value contains, for each round, the last page the reader was on
 // and, for each page they read, the block they were reading and how far into
-// it. It also contains the tab and the past round that were on screen.
+// it. It also contains the past round the left tab shows.
 export function readPlaces(saved) {
   const places = {};
   const spot = (value) =>
@@ -30,13 +29,12 @@ export function readPlaces(saved) {
         if (spot(saved)) at[id] = spot(saved);
     return { page: value.page, at };
   };
-  if (!record(saved)) return { tab: "current", past: null, places };
+  if (!record(saved)) return { past: null, places };
   if (record(saved.places))
     for (const [round, value] of Object.entries(saved.places))
       if (record(value) && typeof value.page === "string")
         places[round] = place(value);
   return {
-    tab: saved.tab === "past" ? "past" : "current",
     past: typeof saved.past === "string" ? saved.past : null,
     places,
   };
@@ -48,13 +46,17 @@ export function placeFor(places, round, pageIds) {
 export let places = {};
 export const placeIn = (round, pageIds) => placeFor(places, round, pageIds);
 export function loadPlaces() {
-  let placeStore = { tab: "current", past: null, places: {} };
+  let placeStore = { past: null, places: {} };
   try {
     placeStore = readPlaces(JSON.parse(localStorage.getItem(placeKey)));
   } catch {
     /* When localStorage throws, every round opens at its first page. */
   }
   places = placeStore.places;
+  if (!embedded) {
+    resumed = takeReloadPlace();
+    resumedTab = resumed?.page === "work" ? resumed.workTab : null;
+  }
   return placeStore;
 }
 /* Above 720px main scrolls, and at 720px and below .app-body scrolls. */
@@ -89,9 +91,9 @@ function readingAt() {
    from the clock, a reload, and the bell's jump to another session and back
    all return to the page and the block the reader left. A round with no
    entry opens at its first page. savePlaces() saves only for the live
-   reader, so a read-only page cannot overwrite the saved tabs. notePlace()
-   runs 250ms after the last scroll, before the frame shows another page,
-   and when the document unloads. */
+   reader, so a read-only page cannot overwrite the left tab's round.
+   notePlace() runs 250ms after the last scroll, before the frame shows
+   another page, and when the document unloads. */
 let placeTimer = 0;
 export function rememberPlace() {
   clearTimeout(placeTimer);
@@ -116,10 +118,7 @@ function notePlace() {
 export function savePlaces() {
   if (!editable || embedded) return;
   try {
-    localStorage.setItem(
-      placeKey,
-      JSON.stringify({ tab: selectedTab, past: pastRound, places }),
-    );
+    localStorage.setItem(placeKey, JSON.stringify({ past: pastRound, places }));
   } catch {
     /* When localStorage throws, the frame works without saved places. */
   }
@@ -127,7 +126,50 @@ export function savePlaces() {
 export const placeOnScreen = () => (held ? held.anchor() : readingAt());
 // A result's words scroll themselves into view once the page has landed.
 export const stopLanding = () => held?.stop();
-export const savedPlace = () => places[displayedRound]?.at?.[shownPage()];
+export const savedPlace = () =>
+  resumed?.round === displayedRound && resumed.page === shownPage()
+    ? resumed.spot
+    : places[displayedRound]?.at?.[shownPage()];
+/* The tab's reload on a new hub returns to the block on screen, which the saved
+   places can't do: a read-only page saves none, and a round opened from the
+   address starts at the top of its page. The kept anchor stands in for the
+   address's target and match, which would land somewhere else. A load can show
+   the page more than once before the first status settles which tab it is on,
+   so the anchor lasts until the reader's first input. */
+const RELOAD_PLACE = "pair:reload-place";
+let resumed = null;
+let resumedTab = null;
+export function keepPlaceOverReload(workTab) {
+  sessionStorage.setItem(
+    RELOAD_PLACE,
+    JSON.stringify({
+      round: displayedRound,
+      page: shownPage(),
+      spot: placeOnScreen(),
+      workTab,
+    }),
+  );
+  const url = new URL(location.href);
+  url.searchParams.delete("target");
+  url.searchParams.delete("match");
+  history.replaceState(null, "", url);
+}
+// A reload on Work opens the tab the reader was on, and any other load opens the
+// first tab with a card in it.
+export function resumedWorkTab() {
+  const tab = resumedTab;
+  resumedTab = null;
+  return tab;
+}
+function takeReloadPlace() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(RELOAD_PLACE));
+    sessionStorage.removeItem(RELOAD_PLACE);
+    return saved;
+  } catch {
+    return null;
+  }
+}
 
 /* land() scrolls the page on screen to an anchor, which is one of these:
    - { target }, the ID of a reply, block or section from the address, the
@@ -276,4 +318,10 @@ export function land(anchor, { focusHeading = true } = {}) {
 export function installPlaces() {
   document.addEventListener("scroll", rememberPlace, true);
   addEventListener("pagehide", flushPlace);
+  for (const type of readerInputs)
+    addEventListener(type, () => (resumed = null), {
+      capture: true,
+      passive: true,
+      once: true,
+    });
 }

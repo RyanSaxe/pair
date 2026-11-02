@@ -1,4 +1,5 @@
 import { $, unreachable } from "#frame/app/util.mjs";
+import { resumedWorkTab } from "#frame/app/places.mjs";
 import { base, editable, embedded, online, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { images, placeThreads } from "#frame/notes/threads.mjs";
@@ -284,6 +285,7 @@ function watchCards(list) {
 }
 
 let selected = workTabs[0].id;
+export const workTab = () => selected;
 // opening stays true from openWork() until the hub has listed the cards and
 // the sessions their work runs in, and then refreshWork() selects the first
 // tab with a card in it.
@@ -433,7 +435,8 @@ export function refreshWork(force = false) {
     selected = cardTab(named, shown);
     opening = false;
   } else if (opening && remote && linkedKnown) {
-    selected = openingTab(groups);
+    const kept = resumedWorkTab();
+    selected = groups[kept] ? kept : openingTab(groups);
     opening = false;
   }
   const key = JSON.stringify([
