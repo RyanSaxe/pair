@@ -94,6 +94,7 @@ export async function startHub(config = settings()) {
         tabOpen,
         (id) => registry.get(id),
         search.markChanged,
+        (keys) => seen.addToStarted(keys, listed()),
       );
       registry.set(session.id, session);
       byDirectory.set(known, session);

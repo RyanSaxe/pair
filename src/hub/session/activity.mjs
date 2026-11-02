@@ -8,7 +8,8 @@ const kept = 50;
 // starts, when a round waits for the reviewer, when an agent records a
 // proposal and when the agent replies in a thread. Each event contains what
 // it is about and where the frame opens it, such as a round, a page and a
-// block on that page.
+// block on that page. The bell and the system notifications announce only what
+// is in this list, so a reopen empties it.
 export async function activity(session) {
   const file = path.join(session.directory, "activity.json");
   let events = (await exists(file)) ? (await read(file)).events : [];
@@ -19,5 +20,9 @@ export async function activity(session) {
     ].slice(-kept);
     await atomic(file, { events });
   }
-  return { addActivity, activityItems: () => events };
+  async function clearActivity() {
+    events = [];
+    await atomic(file, { events });
+  }
+  return { addActivity, clearActivity, activityItems: () => events };
 }
