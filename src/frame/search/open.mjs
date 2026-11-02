@@ -1,4 +1,5 @@
 import { base, session } from "#frame/app/view.mjs";
+import { isLetter } from "#frame/notes/match.mjs";
 import { openLine } from "#frame/sync/center.mjs";
 import { resultHref } from "#frame/sync/notifications.mjs";
 import { remote } from "#frame/sync/rounds.mjs";
@@ -29,10 +30,36 @@ export const pageOf = (row) =>
     ? "feedback"
     : row.page;
 
+function wordAround(text, from, to) {
+  while (isLetter(text[from - 1])) from--;
+  while (isLetter(text[to])) to++;
+  return text.slice(from, to);
+}
+
+/* The words to mark on the result's page: what the reader typed, and the word
+   around each mark of the row that they didn't type, such as the word a typo
+   found. A mark can be only some of a word's letters. The hub clips a block's
+   text, so a typed word can be on the page with no mark in the row, and the
+   marks add to the typed words instead of replacing them. */
+export function matchOf(row, query) {
+  const typed = query.trim();
+  const phrase = typed.toLowerCase().replace(/\s+/g, " ");
+  const spelled = new Set([phrase, ...phrase.split(" ")]);
+  const found = new Set();
+  for (const [text, ranges] of [
+    [row.text, row.ranges],
+    [row.heading, row.headingRanges],
+  ])
+    for (const [from, to] of ranges)
+      if (!spelled.has(text.slice(from, to).toLowerCase()))
+        found.add(wordAround(text, from, to));
+  return [typed, ...found].join(" ");
+}
+
 export function openResult(row, query, place = {}) {
   const page = place.page ?? pageOf(row);
   const target = place.target ?? targetOf(row);
-  const match = query.trim();
+  const match = matchOf(row, query);
   const href = resultHref({ ...row, page }, { target, match });
   if (!row.round) return location.assign(href);
   const own = row.session === session.sessionId;

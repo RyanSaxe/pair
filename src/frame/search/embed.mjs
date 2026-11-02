@@ -11,7 +11,7 @@ import { show } from "#frame/pages/pages.mjs";
 import { copyColumn } from "#frame/pages/progress.mjs";
 import { renders, useTheme } from "#frame/pages/renderers.mjs";
 import { sentCard, sentEntries } from "#frame/review/review.mjs";
-import { openResult, pageOf, targetOf } from "#frame/search/open.mjs";
+import { matchOf, openResult, pageOf, targetOf } from "#frame/search/open.mjs";
 import { ensurePageSet } from "#frame/sync/rounds.mjs";
 
 /* The session's real frame, inside the search window. It goes to a result the
@@ -158,7 +158,7 @@ export function installEmbed() {
       if (asked !== opens) return;
       const place = sent ?? { page: pageOf(row), target: targetOf(row) };
       wanted = place.target;
-      const match = query.trim();
+      const match = matchOf(row, query);
       const id = place.page || "agreed";
       if (
         onScreen &&
