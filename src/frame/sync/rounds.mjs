@@ -54,6 +54,7 @@ import {
   submissionInFlight,
 } from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
+import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
 
 export let selectedTab = "current";
@@ -531,4 +532,5 @@ export async function poll() {
   review();
   refreshWork();
   redrawPage();
+  if (connected) noticeHub(remote.hubVersion);
 }

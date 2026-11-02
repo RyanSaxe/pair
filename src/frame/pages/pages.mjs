@@ -230,9 +230,11 @@ const fields =
 // A video keeps its place only while the page keeps its element.
 const started = (media) =>
   !media.paused || (media.currentTime > 0 && !media.ended);
-const inUse = () =>
+export const fieldHasFocus = () =>
+  Boolean(document.activeElement?.matches(fields));
+export const inUse = () =>
   Boolean(document.querySelector("dialog[open], #reading :active")) ||
-  (document.hasFocus() && Boolean(document.activeElement?.matches(fields))) ||
+  (document.hasFocus() && fieldHasFocus()) ||
   [...document.querySelectorAll("video, audio")].some(started);
 export function redrawPage() {
   if (!redrawHeld || inUse() || $("reading").hidden) return;

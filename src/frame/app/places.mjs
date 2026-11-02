@@ -53,6 +53,10 @@ export function loadPlaces() {
     /* When localStorage throws, every round opens at its first page. */
   }
   places = placeStore.places;
+  if (!embedded) {
+    resumed = takeReloadPlace();
+    resumedTab = resumed?.page === "work" ? resumed.workTab : null;
+  }
   return placeStore;
 }
 /* Above 720px main scrolls, and at 720px and below .app-body scrolls. */
@@ -122,7 +126,50 @@ export function savePlaces() {
 export const placeOnScreen = () => (held ? held.anchor() : readingAt());
 // A result's words scroll themselves into view once the page has landed.
 export const stopLanding = () => held?.stop();
-export const savedPlace = () => places[displayedRound]?.at?.[shownPage()];
+export const savedPlace = () =>
+  resumed?.round === displayedRound && resumed.page === shownPage()
+    ? resumed.spot
+    : places[displayedRound]?.at?.[shownPage()];
+/* The tab's reload on a new hub returns to the block on screen, which the saved
+   places can't do: a read-only page saves none, and a round opened from the
+   address starts at the top of its page. The kept anchor stands in for the
+   address's target and match, which would land somewhere else. A load can show
+   the page more than once before the first status settles which tab it is on,
+   so the anchor lasts until the reader's first input. */
+const RELOAD_PLACE = "pair:reload-place";
+let resumed = null;
+let resumedTab = null;
+export function keepPlaceOverReload(workTab) {
+  sessionStorage.setItem(
+    RELOAD_PLACE,
+    JSON.stringify({
+      round: displayedRound,
+      page: shownPage(),
+      spot: placeOnScreen(),
+      workTab,
+    }),
+  );
+  const url = new URL(location.href);
+  url.searchParams.delete("target");
+  url.searchParams.delete("match");
+  history.replaceState(null, "", url);
+}
+// A reload on Work opens the tab the reader was on, and any other load opens the
+// first tab with a card in it.
+export function resumedWorkTab() {
+  const tab = resumedTab;
+  resumedTab = null;
+  return tab;
+}
+function takeReloadPlace() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(RELOAD_PLACE));
+    sessionStorage.removeItem(RELOAD_PLACE);
+    return saved;
+  } catch {
+    return null;
+  }
+}
 
 /* land() scrolls the page on screen to an anchor, which is one of these:
    - { target }, the ID of a reply, block or section from the address, the
@@ -271,4 +318,10 @@ export function land(anchor, { focusHeading = true } = {}) {
 export function installPlaces() {
   document.addEventListener("scroll", rememberPlace, true);
   addEventListener("pagehide", flushPlace);
+  for (const type of readerInputs)
+    addEventListener(type, () => (resumed = null), {
+      capture: true,
+      passive: true,
+      once: true,
+    });
 }
