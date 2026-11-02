@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
+import { searchPage, type } from "../support/search.mjs";
 
 // The frame counts a page as complete once its components have drawn, so a
 // component whose setup settles after data-slow milliseconds makes the page
@@ -64,13 +65,23 @@ const complete = (page, id) =>
     { timeout: 5000 },
   );
 // The frame shows the previous page as an inert, fixed copy of the column, and
-// picture() looks for that copy.
-const picture = (page) =>
-  page.evaluate(() =>
-    [...document.body.children].some(
-      (element) => element.inert && element.style.position === "fixed",
-    ),
+// picture() looks for that copy, on the page or in a frame on it.
+const holdsPicture = () =>
+  [...document.body.children].some(
+    (element) => element.inert && element.style.position === "fixed",
   );
+const picture = (target) => target.evaluate(holdsPicture);
+// A new size reaches a window as a resize event, so this returns once that event
+// has run in target, which is the page or a frame on it.
+async function resizeWindow(page, size, target = page) {
+  await target.evaluate(() => {
+    window.resized = new Promise((done) =>
+      addEventListener("resize", () => setTimeout(done), { once: true }),
+    );
+  });
+  await page.setViewportSize(size);
+  await target.evaluate(() => window.resized);
+}
 const barAnimations = (page) =>
   page.evaluate(() =>
     document
@@ -134,6 +145,45 @@ test("a slow move keeps the previous page, shows the bar after 200 ms, then cros
   );
   await s.page.waitForTimeout(1200);
   assert.equal(await picture(s.page), false);
+});
+
+test("a window that changes size drops the previous page's picture, during a move and during its fade", async (t) => {
+  const s = await setup(t, { viewport: { width: 1000, height: 800 } });
+  if (!s) return;
+  await pageLink(s.page, "slow").click();
+  assert.equal(await picture(s.page), true);
+  await resizeWindow(s.page, { width: 1400, height: 800 });
+  assert.equal(await picture(s.page), false);
+  await complete(s.page, "slow");
+  await pageLink(s.page, "later").click();
+  await complete(s.page, "later");
+  assert.equal(await picture(s.page), true);
+  await resizeWindow(s.page, { width: 1100, height: 800 });
+  assert.equal(await picture(s.page), false);
+});
+
+test("a window that changes size drops the result the search preview holds, and the next result still arrives", async (t) => {
+  const { page } = await searchPage(t, {
+    viewport: { width: 1200, height: 800 },
+  });
+  if (!page) return;
+  await page.locator("#search-button").click();
+  await type(page, "backoff");
+  const shown = page.locator(".search-frame.is-shown");
+  await shown.waitFor();
+  const frame = await (await shown.elementHandle()).contentFrame();
+  let release;
+  const released = new Promise((done) => (release = done));
+  await page.route(/\/api\/page\?/, async (route) => {
+    await released;
+    await route.fallback();
+  });
+  await type(page, "walrus");
+  await frame.waitForFunction(holdsPicture);
+  await resizeWindow(page, { width: 1000, height: 700 }, frame);
+  assert.equal(await picture(frame), false);
+  release();
+  await frame.locator("#page-content", { hasText: "walrus" }).waitFor();
 });
 
 test("a second click during a move keeps one bar and never shows the page clicked past", async (t) => {

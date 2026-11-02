@@ -54,6 +54,12 @@ export function installProgress() {
   bar.className = "move-bar";
   bar.setAttribute("aria-hidden", "true");
   document.querySelector(".main-column").prepend(bar);
+  // A copy keeps the pane's box in pixels, so it is wrong at a new window size.
+  window.addEventListener("resize", () => {
+    picture?.remove();
+    fading?.remove();
+    picture = fading = null;
+  });
   const at = Number(stored(CLICK_KEY));
   stored(CLICK_KEY, null);
   if (at && Date.now() - at < 5000) beginMove(at);
