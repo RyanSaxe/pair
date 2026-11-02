@@ -256,6 +256,20 @@ test("a closed session stays out until a search asks for it or names it", async 
   assert.deepEqual(other.rounds, ["2", "1"]);
 });
 
+test("a reopened session counts as live in search again", async (t) => {
+  const { find, b, h } = await twoSessions(t);
+  assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
+  assert.equal((await find("elsewhere")).body.total, 0);
+  const started = await h.register(b.directory, b.inbox.target, {
+    start: true,
+    reopen: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const live = await find("elsewhere");
+  assert.equal(live.body.total, 1);
+  assert.ok(!live.body.results[0].closed);
+});
+
 test("a closed round that never finished shows the pages it published", async (t) => {
   const { h, settled } = await searcher(t);
   const a = await h.session();

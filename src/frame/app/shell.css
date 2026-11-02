@@ -243,6 +243,20 @@ main {
 .history-strip a:not(:hover) {
   text-decoration: none;
 }
+.reopen-command {
+  flex: none;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-small);
+}
+/* A session's directory has no space to break at, and the reviewer selects the
+   command by hand. */
+.reopen-command code {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
 #round.older {
   color: var(--accent);
   background: var(--accent-soft);

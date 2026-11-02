@@ -31,6 +31,13 @@ export function links(session) {
       parent.closedSession(link().proposal, session.state.sessionId),
     );
   }
+  async function reopenLinked() {
+    const parent = parentOf();
+    if (!parent) return;
+    await parent.exclusive(() =>
+      parent.reopenedSession(link().proposal, session.state.sessionId),
+    );
+  }
   // When the reviewer starts a card with Plan it first, the agent of the
   // linked session plans before it builds, so hold gives pair start --from
   // the start-from-plan moment.
@@ -69,6 +76,7 @@ export function links(session) {
     parentView,
     linkParent,
     closeLinked,
+    reopenLinked,
     plansFirst,
     buildLinked,
     cardOwner,

@@ -53,7 +53,8 @@ the reviewer asks you to continue, run `pair start --session-dir PATH`,
 then `pair read`, which prints any feedback that arrived in the meantime.
 
 After the reviewer closes the session, start a new session if they ask you
-to continue the work.
+to continue the work. Run `pair start --reopen --session-dir PATH` only when
+the reviewer gives you that command, which makes the closed session live again.
 
 When the hub is down, the reviewer can export their feedback from the
 browser as a JSON file. Treat that file as feedback.

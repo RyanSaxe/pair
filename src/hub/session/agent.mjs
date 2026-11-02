@@ -118,6 +118,51 @@ export function agent(session) {
     await session.closeLinked();
     return { status: view() };
   }
+  // close replaces the stage, so stageBeforeClose works it out again from the
+  // session's submissions and rounds. Feedback that the agent read answers the
+  // current round until the agent publishes the next round.
+  async function stageBeforeClose() {
+    const { current, openRound, latestSubmissionRound } = session.state;
+    if ((await pending()).some(answersRound)) return "submitted";
+    if (!current) return "ready";
+    return openRound || latestSubmissionRound === current.round
+      ? "working"
+      : "updated";
+  }
+  // No agent has worked on the open round since the session closed, so reopen
+  // marks each started page as not started, and the progress card and the quiet
+  // check do not count the time since the close.
+  function restartPages() {
+    if (!session.state.openRound) return {};
+    const set = structuredClone(session.state.openRound);
+    for (const slot of set.pages) {
+      if (slot.state !== "active") continue;
+      slot.state = "queued";
+      delete slot.startedAt;
+      delete slot.note;
+      set.generation++;
+    }
+    return {
+      openRound: set,
+      roundPages: { ...session.state.roundPages, [set.round]: set },
+      pageSetGeneration: set.generation,
+    };
+  }
+  // pair start --reopen is the only command that undoes close. The reviewer
+  // gives it to an agent, which can be a former holder, so reopen also removes
+  // that agent's takeover notice, and requireHolder lets the agent start.
+  async function reopen(agent) {
+    await transition({
+      ...report(),
+      ...restartPages(),
+      stage: await stageBeforeClose(),
+      dismissedAt: null,
+      formerHolders: (session.state.formerHolders || []).filter(
+        (item) => !sameAgent(item, agent),
+      ),
+    });
+    await session.reopenLinked();
+  }
   // act runs this check for every command except pair status and pair
   // propose, and hold runs it for pair start. The first command from an agent
   // that lost the session fails with the time of the takeover, and
@@ -360,6 +405,9 @@ export function agent(session) {
     // holder's pair status would make requireHolder use up its takeover
     // notice.
     if (!start && held && !same) return {};
+    const reopening =
+      start && options.reopen === true && session.state.stage === "complete";
+    if (reopening) await reopen(agent);
     await requireHolder(agent, start);
     session.commandRan();
     await atomic(session.wakeFile, target);
@@ -400,7 +448,8 @@ export function agent(session) {
       };
     const next = start && (await nextStep());
     if (!next) return {};
-    if (same) return { next };
+    const moment = reopening ? { moment: "start-reopen" } : {};
+    if (same) return { next, ...moment };
     // An agent that takes the session over may never have run pair guide,
     // and it has not read the feedback that the previous holder read. An open
     // round answers that feedback. With stage "working" and no open round, the
@@ -415,6 +464,7 @@ export function agent(session) {
       : "";
     return {
       next: `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`,
+      ...moment,
     };
   }
   return {

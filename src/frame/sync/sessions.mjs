@@ -1,6 +1,6 @@
 import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
-import { mode, online, session } from "#frame/app/view.mjs";
+import { embedded, mode, online, session } from "#frame/app/view.mjs";
 import {
   installCenter,
   isClearedChange,
@@ -49,6 +49,15 @@ export function status() {
   // page, so it cannot send anything to an agent that the hub will never
   // wake again.
   if (remote?.dismissedAt && mode === "live") location.reload();
+  // When an agent reopens the session, this tab reloads as a live page.
+  if (
+    session.closed &&
+    !embedded &&
+    remote &&
+    remote.stage !== "complete" &&
+    !remote.dismissedAt
+  )
+    location.reload();
 }
 // byStart sorts sessions by start time, so a number key opens the same
 // session from every tab until a session closes.

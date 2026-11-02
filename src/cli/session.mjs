@@ -280,6 +280,11 @@ export async function start(options) {
       "start",
       "pair start takes --title only when it creates a session, not with --session-dir.",
     );
+  if (options.reopen && !resuming)
+    throw usageError(
+      "start",
+      "pair start takes --reopen only with --session-dir, the session to reopen.",
+    );
   if (!resuming && !from && !options.title?.trim())
     throw usageError(
       "start",
@@ -304,7 +309,7 @@ export async function start(options) {
     ...(from
       ? { from: path.resolve(options.from), proposal: options.proposal }
       : resuming
-        ? {}
+        ? { reopen: options.reopen }
         : { title: options.title.trim() }),
   });
   const card = started.proposal;
