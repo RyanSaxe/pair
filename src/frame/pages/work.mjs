@@ -1,5 +1,5 @@
 import { $, unreachable } from "#frame/app/util.mjs";
-import { resumedWorkTab } from "#frame/app/places.mjs";
+import { land, resumedWorkTab } from "#frame/app/places.mjs";
 import { base, editable, embedded, online, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { images, placeThreads } from "#frame/notes/threads.mjs";
@@ -166,15 +166,18 @@ async function act(card, action) {
   }
 }
 // The hub answers each action with every card, and changed() replaces the
-// cards from the last poll with them. After Start, Work shows the tab that
-// the card moved to.
-function changed(result, follow = null) {
+// cards from the last poll with them. A card the reviewer pressed a button on
+// is on screen already, and a card the reviewer just wrote is not, so Work shows
+// the written card, on its tab.
+function changed(result, written = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
   openedAt = null;
-  const moved = follow && cards().find((card) => card.id === follow);
-  if (moved && !$("work-view").hidden) selected = cardTab(moved);
+  const card = written && cards().find((item) => item.id === written);
+  const shown = card && !$("work-view").hidden;
+  if (shown) selected = cardTab(card);
   refreshWork(true);
+  if (shown) land({ target: `proposal-${card.id}` });
   // poll() fetches the rest of what the action changed, such as the thread
   // that Open a new agent session starts.
   void poll();
@@ -196,7 +199,10 @@ function actions(card) {
   if (proposed)
     right.append(
       button("btn primary proposal-start", "Start", () =>
-        openStart(card, joinedInto(card), (result) => changed(result, card.id)),
+        openStart(card, joinedInto(card), (result) => {
+          actedOn = card.id;
+          changed(result);
+        }),
       ),
     );
   return [left, right];

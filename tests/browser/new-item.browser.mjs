@@ -13,6 +13,43 @@ const fill = async (page, title, text) => {
   await page.locator("#start-write-text").fill(text);
 };
 
+test("the card the reviewer writes opens on its tab, in view at the end of a long list", async (t) => {
+  const h = await hub(t);
+  const own = await h.session();
+  assert.equal((await own.publish(planData())).code, 200);
+  for (const id of ["one", "two", "three", "four", "five", "six"]) {
+    const added = await own.action("propose", {
+      id,
+      title: `Card ${id}`,
+      delivers: "What this work delivers. ".repeat(12),
+      recommend: "here",
+    });
+    assert.equal(added.code, 200, added.body.error);
+  }
+  const page = await open(t, `${h.server.origin}${own.base}/#work`, {
+    viewport: { width: 1280, height: 600 },
+  });
+  if (!page) return;
+  await page.locator("[data-proposal-card=six]").waitFor();
+  await page.locator("#work-tab-running").click();
+  await page.locator("#work-new").click();
+  await fill(page, "Dark receipts", "The logo disappears.");
+  await page.locator("[data-start-save]").first().click();
+  const written = page.locator("[data-proposal-card=dark-receipts]");
+  await written.waitFor();
+  await page.locator("#work-tab-proposed[aria-selected=true]").waitFor();
+  await page.waitForFunction(
+    () => {
+      const { top, bottom } = document
+        .querySelector("[data-proposal-card=dark-receipts]")
+        .getBoundingClientRect();
+      return top >= 0 && bottom <= innerHeight;
+    },
+    null,
+    { timeout: 5000 },
+  );
+});
+
 test("New work item saves a card with its image, keeps an unsent draft, and starts a card", async (t) => {
   const h = await hub(t);
   const own = await h.session();

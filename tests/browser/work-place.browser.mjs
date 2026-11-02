@@ -191,3 +191,34 @@ test("the end of the page does not pull the card up when the card under it gets 
     .waitFor({ timeout: 8000 });
   await assertHeld(page, "the card under it lost its buttons");
 });
+
+test("Start keeps the reviewer on the tab with the started card where it was", async (t) => {
+  const { session, page } = await workPage(t, {
+    viewport: { width: 1280, height: 700 },
+  });
+  if (!page) return;
+  await page.locator("#work-tab-proposed[aria-selected=true]").waitFor();
+  await placeAt(page, "charlie", 40);
+  await watchCard(page, "charlie");
+  await page.locator(`${cardAt("charlie")} .proposal-start`).click();
+  await page.locator("#start-message").fill("Keep it small.");
+  await page.locator("#start-send").click();
+  await page.locator("#start-dialog").waitFor({ state: "hidden" });
+  await page
+    .locator(`${cardAt("charlie")} .card-state`, { hasText: "Working here" })
+    .waitFor();
+  assert.equal(
+    (await session.status()).body.proposals.find(({ id }) => id === "charlie")
+      .started.where,
+    "here",
+  );
+  await page.locator("#work-tab-proposed[aria-selected=true]").waitFor();
+  await assertHeld(page, "the reviewer pressed Start");
+  await count(page, "proposed", 5);
+  await count(page, "running", 1);
+  await page.locator("#work-row[aria-label='Work, 5 proposed']").waitFor();
+  await page.locator("#work-tab-running").click();
+  assert.deepEqual(await listed(page), ["charlie"]);
+  await page.locator("#work-tab-proposed").click();
+  assert.equal((await listed(page)).includes("charlie"), false);
+});
