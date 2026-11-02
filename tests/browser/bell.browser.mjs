@@ -165,6 +165,17 @@ test("a line on a card opens Work on the card's tab at the reply or the card it 
   await count(page, "1");
   await openLine(page);
   await landed(page, "proposed", reply);
+  // The card the line opened at stays on the tab when it finishes.
+  const finished = await session.action("propose", {
+    id: "export",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(finished.code, 200, finished.body.error);
+  await page
+    .locator("[data-proposal-card=export] .card-state", { hasText: "Done" })
+    .waitFor();
+  await page.locator('#work-tab-proposed[aria-selected="true"]').waitFor();
   await page.locator("#work-tab-running").click();
   const added = await session.action("propose", {
     id: "chart",

@@ -3,6 +3,7 @@ import { resumedWorkTab } from "#frame/app/places.mjs";
 import { base, editable, embedded, online, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { images, placeThreads } from "#frame/notes/threads.mjs";
+import { readPlace } from "#frame/pages/card-place.mjs";
 import {
   fromPage,
   pageLink,
@@ -145,7 +146,11 @@ function joinedList(joined) {
   return box;
 }
 let failure = "";
+// actedOn is the card the reader last pressed a button on, which holds its place
+// when it changes height.
+let actedOn = null;
 async function act(card, action) {
+  actedOn = card.id;
   try {
     const response = await fetch(
       `${base}/api/proposals/${encodeURIComponent(card.id)}/${action}`,
@@ -166,7 +171,7 @@ async function act(card, action) {
 function changed(result, follow = null) {
   if (remote && result?.proposals) remote.proposals = result.proposals;
   failure = "";
-  followed = null;
+  openedAt = null;
   const moved = follow && cards().find((card) => card.id === follow);
   if (moved && !$("work-view").hidden) selected = cardTab(moved);
   refreshWork(true);
@@ -196,7 +201,12 @@ function actions(card) {
     );
   return [left, right];
 }
-export function cardElement(card, shown = context(), fresh = false) {
+export function cardElement(
+  card,
+  shown = context(),
+  fresh = false,
+  stays = false,
+) {
   const root = element("article", "proposal-card");
   root.dataset.proposalCard = card.id;
   // The comment control uses data-kind to name a chosen card.
@@ -207,7 +217,8 @@ export function cardElement(card, shown = context(), fresh = false) {
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
   body.append(head, metaLine(state, tone, cardWhere(card)));
-  if (card.started && !finished(card)) body.append(statusBox(card));
+  // A finished card that stays on screen keeps its status box, and so its height.
+  if (card.started && (!finished(card) || stays)) body.append(statusBox(card));
   body.append(element("p", "proposal-delivers", card.delivers));
   if (card.attachments?.length) body.append(images(card));
   // cardElement() quotes the reviewer's words that started the card, or the
@@ -277,11 +288,17 @@ export const workTab = () => selected;
 // opening stays true from openWork() until the hub has listed the cards, and
 // then refreshWork() selects the tab that Work opens on.
 let opening = false;
-// followed is the target that Work was opened at, such as a bell line's.
-// While it names a card, the frame shows that card's tab and follows the
-// card when it changes tab, until the reader picks a tab or acts on a card.
-let followed = null;
+// openedAt is the target that Work was opened at, such as a bell line's. Once
+// the hub lists the card it names, refreshWork() selects that card's tab.
+let openedAt = null;
 let drawnKey = "";
+// drawnTab is the tab whose cards the list shows. It is null while Work opens,
+// when the list still shows what it showed when the reader last left Work.
+let drawnTab = null;
+// staying contains the cards that left the selected tab while they were on
+// screen. The list keeps them until the reader changes tab, so the card being
+// read does not vanish, and the tab's count can be short of the list until then.
+const staying = new Set();
 function cardAt(target) {
   if (!target) return null;
   const thread = (remote?.threads || []).find(
@@ -301,14 +318,15 @@ export function openWork(target, stayed) {
     opening = true;
     failure = "";
     marked = new Set();
+    drawnTab = null;
   }
-  if (target || !stayed) followed = target;
+  if (target || !stayed) openedAt = target;
   // A poll also calls show("work"), such as when the next round's Agreed
   // arrives, so only opening Work or a target forces a redraw.
   refreshWork(!stayed || Boolean(target));
 }
 function selectTab(id) {
-  followed = null;
+  openedAt = null;
   selected = id;
   refreshWork(true);
   $(`work-tab-${id}`)?.focus();
@@ -350,15 +368,20 @@ function renderWork(groups, shown, seen) {
   $("work-error").hidden = !failure;
   const list = $("work-cards");
   list.setAttribute("aria-labelledby", `work-tab-${selected}`);
-  const chosen = groups[selected];
-  for (const card of chosen) if (unseen(card, seen)) marked.add(card.id);
+  list.style.paddingBottom = "";
+  drawnTab = selected;
+  const listed = cards().filter(
+    (card) => cardTab(card) === selected || staying.has(card.id),
+  );
+  for (const card of listed) if (unseen(card, seen)) marked.add(card.id);
   list.replaceChildren(
-    ...(chosen.length
-      ? chosen.map((card) => {
+    ...(listed.length
+      ? listed.map((card) => {
           const node = cardElement(
             card,
             shown,
             marked.has(card.id) && labelled(card),
+            staying.has(card.id),
           );
           // A bell line links to the card by this ID.
           node.id = `proposal-${card.id}`;
@@ -412,9 +435,10 @@ export function refreshWork(force = false) {
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards());
-  const named = cardAt(followed);
+  const named = cardAt(openedAt);
   if (named) {
     selected = cardTab(named);
+    openedAt = null;
     opening = false;
   } else if (opening && remote) {
     const kept = resumedWorkTab();
@@ -435,9 +459,14 @@ export function refreshWork(force = false) {
   // frame's shortcuts. The first poll after the reviewer leaves the box draws
   // the change.
   const typing = document.activeElement?.matches("#work-cards textarea");
+  const place = selected === drawnTab ? readPlace(actedOn) : null;
   if (force || (key !== drawnKey && !typing)) {
     drawnKey = key;
+    if (!place) staying.clear();
+    for (const id of place?.cards ?? []) staying.add(id);
+    for (const card of groups[selected]) staying.delete(card.id);
     renderWork(groups, shown, seen);
   }
   placeThreads();
+  place?.restore();
 }

@@ -379,7 +379,7 @@ test("the comment control comments on a chosen card, the proposal component, Wor
   );
 });
 
-test("Decline takes a card out of Proposed, and Restore puts it back", async (t) => {
+test("Decline moves a card to Done, where it stays on screen until the reviewer changes tab, and Restore puts it back", async (t) => {
   const { page, tab, cards } = await work(t);
   if (!page) return;
   const proposed = page.locator("#work-cards [data-proposal-card]");
@@ -388,18 +388,23 @@ test("Decline takes a card out of Proposed, and Restore puts it back", async (t)
     .locator("[data-proposal-card=export] .link-btn", { hasText: "Decline" })
     .click();
   await tab("proposed").locator(".work-count", { hasText: "1" }).waitFor();
-  assert.deepEqual(
-    await proposed.evaluateAll((nodes) =>
-      nodes.map((node) => node.dataset.proposalCard),
-    ),
-    ["deck"],
-  );
+  await page
+    .locator("[data-proposal-card=export] .card-state", { hasText: "Declined" })
+    .waitFor();
   assert.deepEqual(
     (await cards()).map(({ id, declined }) => [id, declined]),
     [
       ["deck", false],
       ["export", true],
     ],
+  );
+  await tab("done").click();
+  await tab("proposed").click();
+  assert.deepEqual(
+    await proposed.evaluateAll((nodes) =>
+      nodes.map((node) => node.dataset.proposalCard),
+    ),
+    ["deck"],
   );
   await tab("done").click();
   await page
