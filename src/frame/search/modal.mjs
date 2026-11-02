@@ -14,6 +14,11 @@ import {
 } from "#frame/search/rows.mjs";
 
 const PHONE = 720;
+// A phone's keyboard takes more height than this. The bar a phone shows over a
+// hardware keyboard and a collapsing address bar take less.
+const KEYBOARD_PX = 120;
+// Longer than a keyboard takes to drop.
+const DROP_REST_MS = 1000;
 // A fast reply replaces the list before this, so most searches never show it.
 const SEARCHING_AFTER_MS = 150;
 // How far a key moves the selection. Ctrl+K is one of them on every system, so
@@ -120,6 +125,7 @@ export function installSearch() {
       words.hidden = true;
     },
     onKey,
+    onFocus: fit,
   });
   const input = part(".search-input");
   const list = part(".search-list");
@@ -128,6 +134,9 @@ export function installSearch() {
   let request = null;
   let searching = 0;
   let pressedOutside = false;
+  let revealOnDrop = false;
+  let tallest = 0;
+  let tallestWidth = 0;
 
   const focusField = () => innerWidth > PHONE && input.focus();
   const closeMenu = () => {
@@ -265,21 +274,31 @@ export function installSearch() {
     dialog.close();
     openResult(row, state.query);
   }
-  // A click shows a row, and a click on the row that's showing opens it.
+  // A click shows a row, and a click on the row that's showing opens it. With the
+  // keyboard up, the preview has the selected row but no row is showing yet.
   function chooseRow(index) {
-    const sheet = dialog.classList.contains("is-sheet");
-    if (index === state.selected && (innerWidth > PHONE || sheet))
-      return openSelected();
-    if (innerWidth <= PHONE) {
+    const phone = innerWidth <= PHONE;
+    const typing = phone && dialog.classList.contains("is-typing");
+    const previewed =
+      index === state.selected &&
+      (!phone || dialog.classList.contains("is-sheet"));
+    if (previewed && !typing) return openSelected();
+    if (phone) {
       // The list shrinks to the top half, so the row scrolls into it afterward.
+      // A keyboard that's up shrinks it later, when it drops.
       dialog.classList.add("is-sheet");
+      revealOnDrop = typing;
       input.blur();
     }
-    moveSelection(index);
+    if (!previewed) moveSelection(index);
   }
 
   function open() {
-    if (!dialog.open) dialog.showModal();
+    if (!dialog.open) {
+      dialog.showModal();
+      tallestWidth = 0;
+      fit();
+    }
     input.value = state.query;
     input.focus();
     input.select();
@@ -340,7 +359,7 @@ export function installSearch() {
     if (getSelection().isCollapsed) focusField();
   });
 
-  // Scrolling the results on a phone drops the keyboard, so more rows show.
+  // Scrolling the results on a phone drops the keyboard, so the preview shows.
   list.addEventListener("touchmove", () => input.blur(), { passive: true });
 
   input.addEventListener("input", () => {
@@ -428,11 +447,54 @@ export function installSearch() {
   });
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual
-  // viewport to stop the last results sitting under the keyboard.
-  const fit = () => {
-    if (window.visualViewport)
-      dialog.style.setProperty("--search-height", `${visualViewport.height}px`);
-  };
+  // viewport to stop the last results sitting under the keyboard. A keyboard
+  // shortens the visual viewport or the whole window, and a focused field may have
+  // a hardware keyboard or one that has dropped, so a keyboard is up when the height
+  // is well below the tallest since the modal opened. A pinch shrinks the height by
+  // its scale. A rotation changes the width and a keyboard doesn't.
+  //
+  // The results fill the window for the search field's keyboard, and until that
+  // keyboard has dropped, because a tap on a row blurs the field first. The preview
+  // fills the window while a field in it has focus, so a note has room before the
+  // keyboard rises, and the modal follows the pan iOS makes to reach that field.
+  function fit() {
+    if (!window.visualViewport) return;
+    const { height, offsetTop, scale } = visualViewport;
+    const visible = height * scale;
+    if (innerWidth !== tallestWidth) {
+      tallest = innerHeight;
+      tallestWidth = innerWidth;
+    }
+    tallest = Math.max(tallest, visible);
+    dialog.style.setProperty("--search-height", `${height}px`);
+    dialog.style.setProperty("--search-top", `${offsetTop}px`);
+    const writing = innerWidth <= PHONE && preview.writing();
+    const typing =
+      tallest - visible > KEYBOARD_PX &&
+      !writing &&
+      (dialog.classList.contains("is-typing") ||
+        document.activeElement === input);
+    dialog.classList.toggle("is-writing", writing);
+    dialog.classList.toggle("is-typing", typing);
+    if (typing) return;
+    if (revealOnDrop)
+      list
+        .querySelector('[aria-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    revealOnDrop = false;
+  }
   visualViewport?.addEventListener("resize", fit);
+  visualViewport?.addEventListener("scroll", fit);
+  // Moving between fields leaves the keyboard up, so the viewport doesn't resize.
+  input.addEventListener("focus", fit);
+  // A window that a person shrank has no keyboard to drop, so its height after the
+  // field has lost focus is the height with no keyboard.
+  input.addEventListener("blur", () =>
+    setTimeout(() => {
+      if (!window.visualViewport || document.activeElement === input) return;
+      tallest = visualViewport.height * visualViewport.scale;
+      fit();
+    }, DROP_REST_MS),
+  );
   fit();
 }

@@ -9,6 +9,9 @@ const KEPT = 3;
 const REST_MS = 60;
 // A frame not loaded yet costs a download, so it waits out a reader's typing.
 const LOAD_REST_MS = 300;
+// Longer than a press on a button lasts, and about as long as a keyboard takes to
+// drop.
+const LEAVE_REST_MS = 300;
 const LOAD_LIMIT_MS = 60000;
 const POLL_MS = 20;
 
@@ -16,8 +19,19 @@ const keyOf = (row) =>
   row.closed && row.round ? `${row.session}|${row.round}` : row.session;
 const addressOf = (row) =>
   `/s/${row.session}/embed/${row.closed && row.round ? encodeURIComponent(row.round) : "latest"}`;
+// The field with focus that takes typing, which leaves out a checkbox or a
+// button. A closed dialog's field can hold focus for a moment after it closes.
+const fieldIn = ({ activeElement: active }) =>
+  active?.matches(":read-write") && active.checkVisibility() ? active : null;
 
-export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
+export function createPreview({
+  host,
+  onShown,
+  onFailed,
+  onLoading,
+  onKey,
+  onFocus,
+}) {
   const frames = new Map();
   let shown = null;
   let restTimer = 0;
@@ -40,6 +54,33 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
       // A closed dialog's field can hold focus for a moment after it closes.
       if (!writing?.checkVisibility() && !open) onKey(event);
     });
+    win.addEventListener("focusin", () => {
+      if (fieldIn(win.document)) onFocus();
+    });
+    // A press on a button takes the focus before its click, and the click misses
+    // the button if the frame moves first.
+    win.addEventListener("focusout", () => setTimeout(onFocus, LEAVE_REST_MS));
+    // The close event doesn't bubble, and a dialog closes with no focus change
+    // when the control that opened it has gone.
+    win.addEventListener("close", onFocus, true);
+    // A shorter frame can leave the field below its fold, or the fold of the
+    // note's scrolling body.
+    win.addEventListener("resize", () => {
+      if (host.closest(".is-writing"))
+        fieldIn(win.document)?.scrollIntoView({
+          block: "nearest",
+          behavior: "instant",
+        });
+    });
+  }
+
+  // The frame keeps its active element after the focus leaves it for the modal.
+  function writing() {
+    const frame = shown?.frame;
+    return (
+      frame === document.activeElement &&
+      Boolean(fieldIn(frame.contentDocument))
+    );
   }
 
   function load(row) {
@@ -158,5 +199,5 @@ export function createPreview({ host, onShown, onFailed, onLoading, onKey }) {
       frame.contentWindow?.pairEmbed?.theme(detail);
   });
 
-  return { show, pause };
+  return { show, pause, writing };
 }
