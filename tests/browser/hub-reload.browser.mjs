@@ -80,6 +80,9 @@ const reloads = (page) =>
       ),
     RELOAD_MS,
   );
+const places = `[document.querySelector("main"), document.querySelector(".app-body")].find((element) => /auto|scroll/.test(getComputedStyle(element).overflowY))`;
+const scrollTo = (page, top) => page.evaluate(`(${places}).scrollTop = ${top}`);
+const scrollTop = (page) => page.evaluate(`(${places}).scrollTop`);
 const replyBox = (page, thread) =>
   page
     .locator(`pair-thread[data-thread="${thread}"]`)
@@ -115,11 +118,18 @@ async function restartOnNewCode(t, h) {
   };
 }
 
-test("a tab stays while its hub is down, then reloads once on the new code", async (t) => {
+test("a tab stays while its hub is down, then reloads once on the new code, at its page and place", async (t) => {
   const { h, a, origin } = await session(t);
   const page = await open(t, `${origin}${a.base}/#newer`);
   if (!page) return;
   await page.locator("#new-20").waitFor();
+  await page.locator("#new-20").evaluate((block) => block.scrollIntoView());
+  await sleep(400);
+  const above = () =>
+    page
+      .locator("#new-20")
+      .evaluate((block) => block.getBoundingClientRect().top);
+  const before = await above();
   await markLoad(page);
   let loads = 0;
   page.on("load", () => loads++);
@@ -131,6 +141,10 @@ test("a tab stays while its hub is down, then reloads once on the new code", asy
   await startNewHub();
   assert.equal(await reloads(page), true, "did not reload on the new hub");
 
+  await page.locator("#new-20").waitFor();
+  await waitUntil(async () => Math.abs((await above()) - before) < 2);
+  assert.ok(Math.abs((await above()) - before) < 2, "lost the place");
+  assert.equal(new URL(page.url()).hash, "#newer");
   await sleep(TWO_POLLS_MS);
   assert.equal(loads, 1, "reloaded more than once");
 });
@@ -283,6 +297,112 @@ test("the search window's frame keeps its load, and the tab reloads after the wi
   await page.keyboard.press("Escape");
   assert.equal(await reloads(page), true);
   assert.equal(await page.locator(".search-input").isVisible(), false);
+});
+
+test("a reload keeps the place on an older round, a read-only page, Work's tab, Review, a sent round and past an address's target", async (t) => {
+  const { a, origin } = await session(t);
+  const propose = async (fields) =>
+    assert.equal((await a.action("propose", fields)).code, 200);
+  for (const id of ["one", "two", "three", "four", "five", "six"])
+    await propose({
+      id,
+      title: `Card ${id}`,
+      delivers: "What this work delivers, so that the card has some height.",
+      recommend: "here",
+    });
+  // A running card makes Running the tab that Work opens on.
+  await propose({ id: "one", start: "here", quote: "Build it." });
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  const context = await page
+    .context()
+    .browser()
+    .newContext({ viewport: { width: 900, height: 420 } });
+  const picks = await context.newPage();
+  await picks.goto(`${origin}${a.base}/#newer`);
+  for (let index = 0; index < 25; index++)
+    await picks
+      .locator(`[data-choice="pick-${index}"] [data-value="a"]`)
+      .click();
+  await picks.close();
+
+  const check = async ({ what, address, ready, at, before = () => {} }) => {
+    const tab = await context.newPage();
+    const report = await reportVersion(tab);
+    await tab.goto(`${origin}${a.base}${address}`);
+    await before(tab);
+    await ready(tab);
+    await sleep(400);
+    await scrollTo(tab, at);
+    await sleep(400);
+    const top = await scrollTop(tab);
+    assert.ok(top > 0, `${what} has no scroll to keep`);
+    const url = new URL(tab.url());
+    url.searchParams.delete("target");
+    await markLoad(tab);
+    report("another-version");
+    assert.equal(await reloads(tab), true, `${what} did not reload`);
+    await ready(tab);
+    const kept = await waitUntil(
+      async () => Math.abs((await scrollTop(tab)) - top) < 3,
+      RELOAD_MS,
+    );
+    assert.equal(
+      kept,
+      true,
+      `${what} went to ${await scrollTop(tab)}, not ${top}`,
+    );
+    assert.equal(tab.url(), url.href, `${what} changed its address`);
+    await tab.close();
+  };
+  const shows = (selector) => (tab) => tab.locator(selector).waitFor();
+  await check({
+    what: "an older round",
+    address: "/?round=1#older",
+    ready: shows("#old-15"),
+    at: 1500,
+  });
+  await check({
+    what: "a read-only page",
+    address: "/r/1#older",
+    ready: shows("#old-15"),
+    at: 1500,
+  });
+  await check({
+    what: "an address's target",
+    address: "/?target=new-4#newer",
+    ready: shows("#new-4"),
+    at: 2500,
+  });
+  await check({
+    what: "Work",
+    address: "/#work",
+    before: async (tab) => {
+      await tab.locator("#work-tab-running[aria-selected=true]").waitFor();
+      await tab.locator("#work-tab-proposed").click();
+    },
+    ready: shows("#work-tab-proposed[aria-selected=true]"),
+    at: 200,
+  });
+  await check({
+    what: "Review",
+    address: "/#feedback",
+    ready: shows("#review-view:not([hidden])"),
+    at: 200,
+  });
+  const sent = await a.feedback(a.event("feedback-only", "2"));
+  assert.equal(sent.code, 200, sent.body.error);
+  await check({
+    what: "a sent round while Current waits",
+    address: "/#agreed",
+    before: async (tab) => {
+      await tab.locator("#past-tab:not([disabled])").waitFor();
+      await tab.locator("#past-tab").click();
+      await tab.locator('#page-list [data-page="newer"]').click();
+    },
+    ready: shows("#new-15"),
+    at: 1500,
+  });
 });
 
 test("a session with nothing published reloads on a new version too", async (t) => {

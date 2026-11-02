@@ -1,6 +1,8 @@
+import { keepPlaceOverReload } from "#frame/app/places.mjs";
 import { state } from "#frame/app/store.mjs";
-import { embedded, session } from "#frame/app/view.mjs";
+import { embedded, mode, session } from "#frame/app/view.mjs";
 import { fieldHasFocus, inUse } from "#frame/pages/pages.mjs";
+import { workTab } from "#frame/pages/work.mjs";
 import { selectedTab } from "#frame/sync/rounds.mjs";
 
 /* A tab keeps the frame code it loaded, and that code can show a broken page
@@ -66,6 +68,7 @@ export function noticeHub(version) {
   try {
     if (sessionStorage.getItem(TRIED) === version) return;
     sessionStorage.setItem(TRIED, version);
+    if (mode !== "home") keepPlaceOverReload(workTab());
   } catch {
     return;
   }

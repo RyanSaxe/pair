@@ -33,6 +33,11 @@ session to your browser and wakes the agent when you respond.
 
 - Every pair tab asks the hub for the session list every 5 seconds, with
   each session's latest events for the bell.
+- A tab keeps the frame code it loaded. When the hub restarts on a new version,
+  the tab reloads itself once, at the same round, page and place. It waits while
+  you type, while a dialog or menu is open, or while text is selected or a video
+  has started. A hub that is down, or too old to send its version, causes no
+  reload.
 - The hub records which bell lines you cleared, which pages you opened and
   which proposal cards you saw on Work, and sends those records with the
   session list. A phone on the `PAIR_HUB_HOST` address and a computer then
