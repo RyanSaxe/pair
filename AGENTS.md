@@ -297,4 +297,5 @@ The pull requests merge only after the reviewer approves the set in that
 session. A fix for a bug the reviewer finds there goes on the branch of the
 pull request it belongs to. That branch then merges into the review worktree
 again, the review hub restarts on the new code, and the agent publishes the
-next round.
+next round. The restarted hub draws every round of the session with the new
+frame, so a change to the frame needs no new session.

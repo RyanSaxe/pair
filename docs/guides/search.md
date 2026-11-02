@@ -88,10 +88,6 @@ results adds nothing to them.
 - Words that come only from a script over 32 KB, such as a bundled library in a
   prototype.
 
-A round keeps the frame it was published with, so a round published before
-search has no search icon when you open its address directly. The preview shows
-it on today's frame.
-
 A custom component works with search without any code. See
 [Writing a component](../../src/components/README.md).
 

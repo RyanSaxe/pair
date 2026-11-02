@@ -76,18 +76,23 @@ test("a sub-session's bell line names its parent, and a closed parent adds no li
   assert.equal(sessionWords(parent, [parent, child]), "Q3 pricing deck");
 });
 
-test("the Threads tab has a group per live session, this session first, with each group's waiting threads before its answered ones", () => {
+test("the Threads tab lists waiting threads across live sessions newest first, then answered threads by session with this session first", () => {
   const waiting = (thread, waitingSince) => ({ thread, waitingSince });
   const answered = (thread, answeredAt) => ({ thread, answeredAt });
   const sessions = [
     {
-      id: "other",
+      id: "older-reply",
+      threads: [answered("older", "2026-09-28T09:10:00Z")],
+    },
+    {
+      id: "newer-reply",
       threads: [
-        answered("other-answered", "2026-09-28T09:45:00Z"),
-        waiting("other-waiting", "2026-09-28T10:00:00Z"),
+        answered("newer", "2026-09-28T09:45:00Z"),
+        waiting("elsewhere", "2026-09-28T10:15:00Z"),
       ],
     },
     { id: "quiet", threads: [] },
+    { id: "only-waiting", threads: [waiting("alone", "2026-09-28T09:00:00Z")] },
     {
       id: "here",
       threads: [
@@ -100,17 +105,34 @@ test("the Threads tab has a group per live session, this session first, with eac
     {
       id: "closed",
       closed: true,
-      threads: [waiting("gone", "2026-09-28T08:00:00Z")],
+      threads: [
+        waiting("gone", "2026-09-28T11:00:00Z"),
+        answered("gone-answered", "2026-09-28T11:00:00Z"),
+      ],
     },
   ];
+  const { waiting: unanswered, answered: groups } = threadGroups(
+    sessions,
+    "here",
+  );
   assert.deepEqual(
-    threadGroups(sessions, "here").map(({ entry, lines }) => [
+    unanswered.map(({ line, entry }) => [line.thread, entry.id]),
+    [
+      ["new", "here"],
+      ["elsewhere", "newer-reply"],
+      ["old", "here"],
+      ["alone", "only-waiting"],
+    ],
+  );
+  assert.deepEqual(
+    groups.map(({ entry, lines }) => [
       entry.id,
       lines.map(({ thread }) => thread),
     ]),
     [
-      ["here", ["old", "new", "answered-new", "answered-old"]],
-      ["other", ["other-waiting", "other-answered"]],
+      ["here", ["answered-new", "answered-old"]],
+      ["newer-reply", ["newer"]],
+      ["older-reply", ["older"]],
     ],
   );
 });

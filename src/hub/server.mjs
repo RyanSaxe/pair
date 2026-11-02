@@ -139,11 +139,8 @@ export async function startHub(config = settings()) {
   // blocking="render" keeps the previous page on screen until the browser runs
   // it, and the browser runs module scripts in document order after it parses
   // the page. framePage puts the script last in the head, after the frame's
-  // and the page's modules, so the first paint comes after they have run. A
-  // round built before those modules moved into the head has them at the end
-  // of the body, after this script, and Chrome can paint its bare frame first.
-  // The browser never runs a script with no text, so the script contains a
-  // comment.
+  // and the page's modules, so the first paint comes after they have run. The
+  // browser never runs a script with no text, so the script contains a comment.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
   const framePage = (session, html, flags, head) =>
     embedConfig(
@@ -151,16 +148,19 @@ export async function startHub(config = settings()) {
       {
         sessionId: session.id,
         base: session.base,
+        hubVersion: version,
         ...(session.state.parent ? { parent: session.parentView() } : {}),
         ...flags,
       },
     );
+  const isClosed = (session) =>
+    session.state.stage === "complete" || Boolean(session.state.dismissedAt);
   const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
-    const unfinished =
-      (flags.readonly || flags.closed) &&
-      (await session.renderPublished(entry.round));
-    const html = unfinished || (await fs.readFile(entry.path, "utf8"));
+    const readOnly = Boolean(flags.readonly || flags.closed);
+    const html =
+      (await session.renderRound(entry.round, { readOnly })) ??
+      (await fs.readFile(entry.path, "utf8"));
     return framePage(session, html, flags, head);
   };
   /* The search window loads a session's frame when a result needs it, on a
@@ -170,9 +170,7 @@ export async function startHub(config = settings()) {
   const COMPRESS_OVER_BYTES = 64 * 1024;
   const embeds = new Map();
   async function embedPage(session, round) {
-    const closed =
-      session.state.stage === "complete" || session.state.dismissedAt;
-    const flags = closed
+    const flags = isClosed(session)
       ? { closed: true }
       : round === session.state.current?.round
         ? {}
@@ -187,7 +185,7 @@ export async function startHub(config = settings()) {
     if (!embeds.has(key)) {
       const page = framePage(
         session,
-        await session.renderToday(round),
+        await session.renderForPreview(round),
         { embedded: true, ...flags },
         "",
       );
@@ -249,7 +247,7 @@ export async function startHub(config = settings()) {
         );
       }
       if (method === "GET" && url.pathname === "/api/search/sessions")
-        return reply(200, { sessions: search.sessionChoices() });
+        return reply(200, { sessions: await search.sessionChoices() });
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
           app: "pair",
@@ -369,7 +367,7 @@ export async function startHub(config = settings()) {
           // The hub serves a session the reviewer closed as read-only, so a
           // tab left open on it cannot submit and wake an agent that has
           // finished.
-          const closed = Boolean(session.state.dismissedAt);
+          const closed = isClosed(session);
           const flags = closed ? { closed: true } : {};
           const head = closed
             ? ""
@@ -385,18 +383,10 @@ export async function startHub(config = settings()) {
                 head,
               ),
             );
-          // A round keeps the frame it was published with, and a frame from before
-          // search cannot open an older round in place, so a result in that round
-          // opens its read-only page instead.
+          // A closed session's frame shows one round, so an older round opens at
+          // its own address.
           const wanted = url.searchParams.get("round");
-          const entry = session.roundEntry(session.state.current.round);
-          if (
-            wanted &&
-            wanted !== session.state.current.round &&
-            !(await fs.readFile(entry.path, "utf8")).includes(
-              'id="search-button"',
-            )
-          ) {
+          if (closed && wanted && wanted !== session.state.current.round) {
             const params = new URLSearchParams(url.searchParams);
             params.delete("round");
             const query = params.size ? `?${params}` : "";
@@ -404,6 +394,7 @@ export async function startHub(config = settings()) {
               Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
             });
           }
+          const entry = session.roundEntry(session.state.current.round);
           return html(await roundPage(session, entry, flags, head), {
             "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
           });
@@ -412,10 +403,7 @@ export async function startHub(config = settings()) {
           return html(
             await roundPage(session, session.roundEntry(round()), {
               readonly: true,
-              ...(session.state.stage === "complete" ||
-              session.state.dismissedAt
-                ? { closed: true }
-                : {}),
+              ...(isClosed(session) ? { closed: true } : {}),
             }),
           );
         if (method === "GET" && rest[0] === "embed" && rest.length === 2) {
@@ -450,7 +438,7 @@ export async function startHub(config = settings()) {
           });
         }
         if (method === "GET" && rest[0] === "api" && rest[1] === "status")
-          return reply(200, session.browserView());
+          return reply(200, { ...session.browserView(), hubVersion: version });
         // The browser sends no Origin header with a same-origin GET, so only
         // the Host check protects this read, as it protects the other reads.
         if (rest[0] === "api" && rest[1] === "draft" && rest.length === 2) {

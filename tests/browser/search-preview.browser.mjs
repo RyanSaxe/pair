@@ -108,6 +108,17 @@ const previewShows = (page, word) =>
       })
     );
   }, word);
+// The same, on the page that Open went to.
+const pageShows = (page, word) =>
+  page.waitForFunction(
+    (word) =>
+      [...(CSS.highlights?.get("plan-search") ?? [])].some(
+        (range) =>
+          range.toString().toLowerCase() === word &&
+          range.getBoundingClientRect().width > 0,
+      ),
+    word,
+  );
 const visibleBlocks = (page) =>
   page.evaluate(() => {
     const doc = document.querySelector(
@@ -171,6 +182,39 @@ test("a block with its own id shows in the preview, and Open lands on it", async
     );
   });
   assert.equal(new URL(page.url()).searchParams.get("target"), "own-table");
+});
+
+test("a typo marks the words its row marks, in the preview, after Open and from the address", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  for (const [query, words] of [
+    ["walrsu", ["walrus"]],
+    // The row marks only these letters of the word.
+    ["mnte", ["manatee"]],
+    ["lemur sentense", ["lemur", "sentence"]],
+  ]) {
+    await type(page, query);
+    for (const word of words) await previewShows(page, word);
+  }
+  await page.keyboard.press("Enter");
+  await pageShows(page, "lemur");
+  await pageShows(page, "sentence");
+  await page.reload();
+  await pageShows(page, "lemur");
+  await pageShows(page, "sentence");
+});
+
+test("an exact search of several words marks them as one phrase, and the address keeps them", async (t) => {
+  const { page } = await setUp(t);
+  if (!page) return;
+  await type(page, "walrus sentence");
+  await previewShows(page, "walrus sentence");
+  await page.keyboard.press("Enter");
+  await pageShows(page, "walrus sentence");
+  assert.equal(
+    new URL(page.url()).searchParams.get("match"),
+    "walrus sentence",
+  );
 });
 
 test("a block shows the part with the most of the reader's words, and a tie stays put", async (t) => {
@@ -588,7 +632,55 @@ test("a sent note or answer shows its block under the reader's words, and Open g
   await type(page, "iguana");
   await previewShows(page, "iguana");
   await page.keyboard.press("Enter");
+  await page.locator("#sent-n1").waitFor();
+  assert.equal(new URL(page.url()).hash, "#feedback");
+  assert.equal(new URL(page.url()).searchParams.get("target"), "sent-n1");
+});
+
+test("a result opened before the page hears its round was sent stays open, at its card", async (t) => {
+  const { a, page, origin } = await setUp(t);
+  if (!page) return;
+  // The round is sent from another browser, and this page's polls hear of it
+  // only once the result has opened. The frame's own polls go through.
+  let hear;
+  const heard = new Promise((done) => (hear = done));
+  await page.route(/\/api\/status$/, async (route) => {
+    if (route.request().frame() === page.mainFrame()) await heard;
+    await route.continue();
+  });
+  const event = a.event("feedback-only", "1", {
+    groups: {
+      notes: [
+        {
+          id: "n1",
+          round: "1",
+          topic: "overview",
+          target: "block-overview-1",
+          anchor: "Overview",
+          text: "An iguana would suit this better.",
+        },
+      ],
+    },
+  });
+  assert.equal((await a.feedback(event)).code, 200);
+  await waitUntil(
+    async () =>
+      !(await (await fetch(`${origin}/api/search?q=x`)).json()).loading,
+  );
+  await type(page, "iguana");
+  await previewShows(page, "iguana");
+  await page.keyboard.press("Enter");
   await page.waitForFunction(() => location.hash === "#feedback");
+  const status = page.waitForResponse(
+    async (response) =>
+      new URL(response.url()).pathname.endsWith("/api/status") &&
+      response.frame() === page.mainFrame() &&
+      (await response.json()).latestSubmissionRound === "1",
+  );
+  hear();
+  await status;
+  await page.locator("#sent-n1").waitFor();
+  assert.equal(new URL(page.url()).hash, "#feedback");
   assert.equal(new URL(page.url()).searchParams.get("target"), "sent-n1");
 });
 
@@ -678,8 +770,13 @@ test("the result on screen stays until the next is ready", async (t) => {
     sample();
   });
   await type(page, "pangolin");
+  // The search's reply can reach this process before the page has read it, so a
+  // wait for the line to end needs the line to have started. The words mark
+  // before the line ends, so previewShows can't stand in for this.
   await page.waitForFunction(
-    () => !document.querySelector(".is-loading.search-preview-main"),
+    () =>
+      window.frames_.some(({ loading }) => loading) &&
+      !window.frames_.at(-1).loading,
   );
   await previewShows(page, "pangolin");
   const frames = await page.evaluate(() => window.frames_);
@@ -687,7 +784,6 @@ test("the result on screen stays until the next is ready", async (t) => {
   assert.ok(
     frames.some(({ loading, opacity }) => loading && opacity === "0.35"),
   );
-  assert.equal(frames.at(-1).loading, false);
   assert.equal(
     await page.evaluate(
       () =>

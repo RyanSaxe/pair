@@ -61,7 +61,7 @@ export async function loadSession(
   // before pair wrote startedAt gets its directory's creation time, because
   // no later write changes that time.
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
-  for (const child of ["rounds", "feedback", "uploads", "scenes", "threads"])
+  for (const child of ["feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
       mode: 0o700,
@@ -361,6 +361,7 @@ export async function loadSession(
     linkSession: session.linkSession,
     joinedInto: session.joinedInto,
     closedSession: session.closedSession,
+    reopenedSession: session.reopenedSession,
     built: session.built,
     proposalItems: session.proposalItems,
     writeStatus: session.writeStatus,
@@ -377,8 +378,8 @@ export async function loadSession(
     hold: session.hold,
     wakeIfQuiet: session.wakeIfQuiet,
     roundEntry: session.roundEntry,
-    renderToday: session.renderToday,
-    renderPublished: session.renderPublished,
+    renderForPreview: session.renderForPreview,
+    renderRound: session.renderRound,
     pageSet: session.pageSet,
     pageRecord: session.pageRecord,
     prototype: session.prototype,

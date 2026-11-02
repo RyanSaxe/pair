@@ -346,10 +346,7 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   );
   const cited = await a.publish({ ...planData("2"), agreements: [entry(id)] });
   assert.equal(cited.code, 200, cited.body.error);
-  const snapshot = await fs.readFile(
-    path.join(a.directory, "rounds/example.2.html"),
-    "utf8",
-  );
+  const snapshot = await a.servedRound("2");
   const [record] = readPlanData(snapshot).agreements[0].sourceRecords;
   assert.equal(record.kind, "thread");
   assert.equal(record.text, "What happens to a failed item?");
@@ -374,16 +371,24 @@ test("the session list has a line for each thread in the current round and each 
   const asked = (await lines()).find((line) => line.thread === answered);
   assert.equal(asked.text.length, 160);
   assert.ok(asked.waitingSince);
+  assert.equal(asked.readAt, null);
   assert.equal(asked.answeredAt, undefined);
+
+  // pair read --thread shows on the line that the agent opened the thread.
+  assert.equal((await a.action("reply", { note: answered })).code, 200);
+  const opened = (await lines()).find((item) => item.thread === answered);
+  assert.ok(opened.readAt);
+  assert.ok(opened.waitingSince);
 
   const replied = await a.action("reply", { note: answered, text: "Here." });
   assert.equal(replied.code, 200);
   const line = (await lines()).find((item) => item.thread === answered);
   assert.equal(line.waitingSince, undefined);
   assert.ok(line.answeredAt);
+  assert.equal(line.text, asked.text);
 
-  // A later message waits from when the reviewer wrote it, and the line keeps
-  // the thread's first message.
+  // A later message waits from when the reviewer wrote it, the line shows that
+  // message, and the agent has not opened it yet.
   const later = await send(answered, {
     replyId: crypto.randomUUID(),
     text: "And on refunds?",
@@ -391,9 +396,23 @@ test("the session list has a line for each thread in the current round and each 
   assert.equal(later.code, 201, later.body.error);
   const again = (await lines()).find((item) => item.thread === answered);
   assert.ok(again.waitingSince > asked.waitingSince);
-  assert.equal(again.text, asked.text);
+  assert.equal(again.text, "And on refunds?");
+  assert.equal(again.readAt, null);
+
+  // A second unanswered message leaves the line on the one waitingSince dates.
+  const second = await send(answered, {
+    replyId: crypto.randomUUID(),
+    text: "And on returns?",
+  });
+  assert.equal(second.code, 201, second.body.error);
+  const both = (await lines()).find((item) => item.thread === answered);
+  assert.equal(both.text, again.text);
+  assert.equal(both.waitingSince, again.waitingSince);
+
   const closed = await a.action("reply", { note: answered, text: "Yes." });
   assert.equal(closed.code, 200);
+  const settled = (await lines()).find((item) => item.thread === answered);
+  assert.equal(settled.text, asked.text);
 
   // The next round's list drops the answered thread and keeps the waiting one.
   assert.equal((await a.feedback(a.event())).code, 200);

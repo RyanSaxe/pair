@@ -84,28 +84,37 @@ export function bellLines(sessions, cleared, thisId) {
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 
-// threadGroups gives the Threads tab one group per live session that has a
-// thread to show, this session first. Each group lists its waiting threads
-// first, longest wait first, because that is where the reviewer checks on an
-// agent, then its answered threads, newest first.
+// threadGroups gives the Threads tab every thread waiting on an agent, across
+// the live sessions and newest first, so the reviewer finds an unanswered
+// thread without knowing its session. Answered threads stay in one group per
+// session, newest first, with this session first and then the session with the
+// latest reply.
 export function threadGroups(sessions, thisId) {
-  const order = (entry) => (entry.id === thisId ? 0 : 1);
-  return sessions
-    .filter((entry) => !entry.closed && entry.threads?.length)
-    .toSorted((a, b) => order(a) - order(b))
-    .map((entry) => ({
-      entry,
-      lines: [
-        ...entry.threads
+  const live = sessions.filter((entry) => !entry.closed && entry.threads);
+  const byAnswer = (a, b) =>
+    (b.answeredAt || "").localeCompare(a.answeredAt || "");
+  return {
+    waiting: live
+      .flatMap((entry) =>
+        entry.threads
           .filter((line) => line.waitingSince)
-          .sort((a, b) => a.waitingSince.localeCompare(b.waitingSince)),
-        ...entry.threads
+          .map((line) => ({ line, entry })),
+      )
+      .sort((a, b) => b.line.waitingSince.localeCompare(a.line.waitingSince)),
+    answered: live
+      .map((entry) => ({
+        entry,
+        lines: entry.threads
           .filter((line) => !line.waitingSince)
-          .sort((a, b) =>
-            (b.answeredAt || "").localeCompare(a.answeredAt || ""),
-          ),
-      ],
-    }));
+          .sort(byAnswer),
+      }))
+      .filter(({ lines }) => lines.length)
+      .sort(
+        (a, b) =>
+          (b.entry.id === thisId) - (a.entry.id === thisId) ||
+          byAnswer(a.lines[0], b.lines[0]),
+      ),
+  };
 }
 // latest contains every session from the last session list, closed ones
 // included.
@@ -193,14 +202,16 @@ export function renderCenter(sessions, fromHub, hub) {
 
 let tab = "notifications";
 function threadRow(line, entry) {
+  const opened = line.readAt ? "Read, no reply" : "Not opened";
+  const place = entry.id === session.sessionId ? line.name : entry.title;
   return sessionLine({
     key: `thread:${line.thread}`,
     title: line.text,
-    state: line.waitingSince ? `Waiting ${since(line.waitingSince)}` : "",
+    state: line.waitingSince ? `${opened} · ${since(line.waitingSince)}` : "",
     words: line.waitingSince
-      ? ` · ${line.name}`
+      ? ` · ${place}`
       : `${line.name} · replied ${ago(line.answeredAt)}`,
-    tint: "",
+    tint: line.waitingSince ? (line.readAt ? "" : "unopened") : "answered",
     open: () => {
       clearThread(line.thread);
       openLine({ ...line, entry });
@@ -208,13 +219,25 @@ function threadRow(line, entry) {
     icons: [],
   });
 }
+function groupHead(words, tint = "") {
+  const head = document.createElement("div");
+  head.className = `center-group ${tint}`.trim();
+  head.textContent = words;
+  return head;
+}
 function threadRows() {
-  return threadGroups(latest, session.sessionId).flatMap(({ entry, lines }) => {
-    const head = document.createElement("div");
-    head.className = "center-group";
-    head.textContent = sessionWords(entry, latest);
-    return [head, ...lines.map((line) => threadRow(line, entry))];
-  });
+  const { waiting, answered } = threadGroups(latest, session.sessionId);
+  const after = answered.flatMap(({ entry, lines }) => [
+    groupHead(entry.title),
+    ...lines.map((line) => threadRow(line, entry)),
+  ]);
+  if (!waiting.length) return after;
+  return [
+    groupHead(`Waiting on the agent · ${waiting.length}`, "waiting"),
+    ...waiting.map(({ line, entry }) => threadRow(line, entry)),
+    ...(after.length ? [document.createElement("hr")] : []),
+    ...after,
+  ];
 }
 function drawCenter() {
   if (!isOpen()) return;

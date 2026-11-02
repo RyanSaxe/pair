@@ -24,7 +24,7 @@ export const commands = {
     about:
       "Create a session, or take over the one --session-dir names, so the hub wakes this agent when the reviewer sends feedback, and print the session's directory and URL. With --from and --proposal, create a session that builds one proposal of another session, linked to that session.",
     usage:
-      "pair start (--title TEXT | --session-dir DIR | --from DIR --proposal ID)",
+      "pair start (--title TEXT | --session-dir DIR [--reopen] | --from DIR --proposal ID)",
     flags: {
       title: {
         value: "TEXT",
@@ -33,6 +33,9 @@ export const commands = {
       "session-dir": {
         value: "DIR",
         text: "Resume that session, or take it over from another agent. It takes no --title.",
+      },
+      reopen: {
+        text: "With --session-dir, make a session the reviewer closed live again. Use it only when the reviewer gives you this command. On a session that is not closed, pair start runs as it does without this flag.",
       },
       from: {
         value: "DIR",

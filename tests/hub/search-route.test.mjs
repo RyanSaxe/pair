@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import test from "node:test";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
 
@@ -241,26 +239,6 @@ test("a response holds no token and no session directory", async (t) => {
   assert.equal((await find(a.connection.token)).body.total, 0);
 });
 
-test("a result in an older round of a session on an older frame opens read-only", async (t) => {
-  const { a } = await twoSessions(t);
-  const address = (extra = "") =>
-    a.request(`${a.base}/?round=1&target=block-overview-0${extra}`);
-  // Today's frame opens the older round itself, in the left tab.
-  assert.equal((await address()).code, 200);
-  const rounds = path.join(a.directory, "rounds");
-  for (const name of await fs.readdir(rounds)) {
-    const file = path.join(rounds, name);
-    const html = await fs.readFile(file, "utf8");
-    await fs.writeFile(file, html.replaceAll('id="search-button"', ""));
-  }
-  const moved = await address("&match=kestrel");
-  assert.equal(moved.code, 302);
-  assert.equal(
-    moved.headers.get("location"),
-    `${a.base}/r/1?target=block-overview-0&match=kestrel`,
-  );
-});
-
 test("a closed session stays out until a search asks for it or names it", async (t) => {
   const { find, b, h } = await twoSessions(t);
   assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
@@ -276,6 +254,42 @@ test("a closed session stays out until a search asks for it or names it", async 
   assert.equal(sessions.find(({ id }) => id === b.id).closed, true);
   const other = sessions.find(({ id }) => id !== b.id);
   assert.deepEqual(other.rounds, ["2", "1"]);
+});
+
+test("the sessions list is right when no search has run since a session changed", async (t) => {
+  const { h, settled } = await searcher(t);
+  const a = await h.session();
+  await settled();
+  const listed = async () => {
+    const { sessions } = await (
+      await fetch(`${h.server.origin}/api/search/sessions`)
+    ).json();
+    return sessions.find(({ id }) => id === a.id);
+  };
+  const published = await a.publish(planData());
+  assert.equal(published.code, 200, published.body.error);
+  assert.deepEqual(await listed(), {
+    id: a.id,
+    title: "Example work",
+    rounds: ["1"],
+    closed: false,
+  });
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  assert.equal((await listed()).closed, true);
+});
+
+test("a reopened session counts as live in search again", async (t) => {
+  const { find, b, h } = await twoSessions(t);
+  assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
+  assert.equal((await find("elsewhere")).body.total, 0);
+  const started = await h.register(b.directory, b.inbox.target, {
+    start: true,
+    reopen: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const live = await find("elsewhere");
+  assert.equal(live.body.total, 1);
+  assert.ok(!live.body.results[0].closed);
 });
 
 test("a closed round that never finished shows the pages it published", async (t) => {

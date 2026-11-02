@@ -302,6 +302,13 @@ export function searchStore({ log = () => {} } = {}) {
     if (entry) entry.changed = true;
   }
 
+  const refreshChanged = () =>
+    Promise.all(
+      [...sessions.values()]
+        .filter((entry) => entry.loaded && (entry.changed || entry.reading))
+        .map(refresh),
+    );
+
   const inRound = (doc, rounds, entry) =>
     !rounds ||
     rounds.some((round) => {
@@ -420,11 +427,7 @@ export function searchStore({ log = () => {} } = {}) {
     limit = DEFAULT_LIMIT,
   }) {
     const started = performance.now();
-    await Promise.all(
-      [...sessions.values()]
-        .filter((entry) => entry.loaded && (entry.changed || entry.reading))
-        .map(refresh),
-    );
+    await refreshChanged();
     const options = {
       query,
       session: session ? new Set(session.split(",")) : null,
@@ -445,12 +448,16 @@ export function searchStore({ log = () => {} } = {}) {
     };
   }
 
-  // What a search can be narrowed to, the session worked on last first.
-  const sessionChoices = () =>
-    [...sessions.values()]
+  // What a search can be narrowed to, the session worked on last first. The
+  // search window asks for this while it runs its first search, so the two
+  // share one read of whatever changed.
+  async function sessionChoices() {
+    await refreshChanged();
+    return [...sessions.values()]
       .filter((entry) => entry.loaded)
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .map(({ id, title, rounds, closed }) => ({ id, title, rounds, closed }));
+  }
 
   async function close() {
     closed = true;

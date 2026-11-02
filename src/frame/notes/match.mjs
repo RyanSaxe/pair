@@ -9,7 +9,8 @@ import { renders } from "#frame/pages/renderers.mjs";
 const MOST_PER_WORD = 200;
 // A short word is only a word when it stands alone, or "the" marks "other".
 const SHORT_WORD = 3;
-const isLetter = (char) => char !== undefined && /[\p{L}\p{N}_]/u.test(char);
+export const isLetter = (char) =>
+  char !== undefined && /[\p{L}\p{N}_]/u.test(char);
 
 // The same length as text, so a position in one is a position in the other.
 function lowered(text) {

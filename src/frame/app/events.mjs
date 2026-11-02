@@ -60,7 +60,24 @@ function outside(dialog, event) {
   );
 }
 
+/* Focus can drop off a text field on the page while the reviewer types, and
+   the next keys are still their words, so the shortcuts wait for a pause in
+   the keys. A field in a dialog leaves with the dialog, once they finish. */
+const TYPING_PAUSE_MS = 1500;
+let typedAt = -Infinity;
+
 export function installEvents() {
+  document.addEventListener(
+    "input",
+    (event) => {
+      if (
+        event.target.matches(":read-write") &&
+        !event.target.closest("dialog")
+      )
+        typedAt = event.timeStamp;
+    },
+    true,
+  );
   for (const head of document.querySelectorAll(
     "dialog :is(.dialog-head, .drawing-head)",
   )) {
@@ -164,6 +181,7 @@ export function installEvents() {
         ?.querySelector("[data-answer]");
       if (answer && !answer.disabled) {
         event.preventDefault();
+        typedAt = -Infinity;
         answer.click();
         return;
       }
@@ -202,6 +220,10 @@ export function installEvents() {
        selector matches the text fields. */
     if (event.target.closest(":read-write, select")) return;
     if (document.querySelector("dialog[open]")) return;
+    if (event.timeStamp - typedAt < TYPING_PAUSE_MS) {
+      typedAt = event.timeStamp;
+      return;
+    }
     const key = event.key;
     if (key === "?") $("keys-dialog").showModal();
     else if (key === "/" && online) openSearch();

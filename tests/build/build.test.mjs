@@ -118,41 +118,6 @@ test("a page's script is the last module in the document", async () => {
   assert.ok(modules.slice(0, -1).every((script) => !script.includes(jsText)));
 });
 
-// The hub builds every page of a round from the frame bundle stored with the
-// round's Agreed. A round published before the frame had modules must still
-// build with its one script.
-test("a bundle stored before the frame's modules builds its one script", async () => {
-  const parts = [
-    "offers",
-    "finish",
-    "notifications",
-    "choices",
-    "draft",
-    "activity",
-    "script",
-    "componentJs",
-  ];
-  const bundle = {
-    shell:
-      "<!doctype html><title>t</title><!-- FRAME_STYLE --><!-- DRAWING_EDITOR -->" +
-      '<script type="application/json" id="plan-data">{}</script>' +
-      "<!-- FRAME_SCRIPT --><!-- CUSTOM_SCRIPT -->",
-    style: "",
-    drawingEditor: "",
-    componentCss: "",
-    ...Object.fromEntries(parts.map((part) => [part, `/* ${part} */`])),
-  };
-  const html = await assemble(data, { bundle });
-  assert.ok(!html.includes('<script type="importmap">'));
-  const modules = html.split('<script type="module">').slice(1);
-  assert.equal(modules.length, 2, "the frame's module and the plan's");
-  assert.ok(
-    modules[0].startsWith(
-      `\n${parts.map((part) => `/* ${part} */`).join("\n")}\n</script>`,
-    ),
-  );
-});
-
 test("a closing style tag in page CSS is refused", async () => {
   await assert.rejects(
     pageSource({ cssText: "</style><script>1</script>" }),
