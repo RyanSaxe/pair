@@ -448,19 +448,15 @@ export function installSearch() {
 
   // iOS keeps 100dvh when the keyboard opens, so the modal follows the visual
   // viewport to stop the last results sitting under the keyboard. A keyboard
-  // shortens the visual viewport on one phone and the whole window on another, so
-  // it counts as up when the height is well below the tallest since the modal
-  // opened, and a focused field can't say, because it may have a hardware keyboard
-  // or one that has dropped. A pinch shrinks the height by its scale. A rotation
-  // changes the width and a keyboard doesn't. The orientation media query can't
-  // tell them apart, because a keyboard can leave the window wider than it's tall.
+  // shortens the visual viewport or the whole window, and a focused field may have
+  // a hardware keyboard or one that has dropped, so a keyboard is up when the height
+  // is well below the tallest since the modal opened. A pinch shrinks the height by
+  // its scale. A rotation changes the width and a keyboard doesn't.
   //
   // The results fill the window for the search field's keyboard, and until that
-  // keyboard has dropped, because a tap on a row blurs the field first.
-  //
-  // The preview fills the window while a field in it has focus, whatever the
-  // height, so a note has room before the keyboard has risen. iOS can pan the page
-  // to reach that field, so the modal follows the pan.
+  // keyboard has dropped, because a tap on a row blurs the field first. The preview
+  // fills the window while a field in it has focus, so a note has room before the
+  // keyboard rises, and the modal follows the pan iOS makes to reach that field.
   function fit() {
     if (!window.visualViewport) return;
     const { height, offsetTop, scale } = visualViewport;
