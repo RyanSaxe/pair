@@ -131,17 +131,16 @@ export function savePlaces() {
 export const placeOnScreen = () => (held ? held.anchor() : readingAt());
 // A result's words scroll themselves into view once the page has landed.
 export const stopLanding = () => held?.stop();
-export function savedPlace() {
-  if (resumed?.round !== displayedRound || resumed.page !== shownPage())
-    return places[displayedRound]?.at?.[shownPage()];
-  const { spot } = resumed;
-  resumed = null;
-  return spot;
-}
+export const savedPlace = () =>
+  resumed?.round === displayedRound && resumed.page === shownPage()
+    ? resumed.spot
+    : places[displayedRound]?.at?.[shownPage()];
 /* The tab's reload on a new hub returns to the block on screen, which the saved
    places can't do: a read-only page saves none, and a round opened from the
    address starts at the top of its page. The kept anchor stands in for the
-   address's target and match, which would land somewhere else. */
+   address's target and match, which would land somewhere else. A load can show
+   the page more than once before the first status settles which tab it is on,
+   so the anchor lasts until the reader's first input. */
 const RELOAD_PLACE = "pair:reload-place";
 let resumed = null;
 let resumedTab = null;
@@ -324,4 +323,10 @@ export function land(anchor, { focusHeading = true } = {}) {
 export function installPlaces() {
   document.addEventListener("scroll", rememberPlace, true);
   addEventListener("pagehide", flushPlace);
+  for (const type of readerInputs)
+    addEventListener(type, () => (resumed = null), {
+      capture: true,
+      passive: true,
+      once: true,
+    });
 }
