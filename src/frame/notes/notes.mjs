@@ -426,11 +426,21 @@ export function openNote({
    the control the reviewer pressed, such as Edit on Review or the comment
    button. */
 function noteSpot(note) {
-  const range =
+  // A new note opens by the words still selected, which can cross blocks
+  // where findQuote finds nothing. A note opened from its mark finds its words.
+  const selection = getSelection();
+  const selected =
     note.quote &&
-    note.topic === page.id &&
-    !$("reading").hidden &&
-    findQuote(note.quote, note.target, note.occurrence);
+    selection.rangeCount &&
+    !selection.isCollapsed &&
+    $("page-content").contains(selection.anchorNode) &&
+    selection.getRangeAt(0).cloneRange();
+  const range =
+    selected ||
+    (note.quote &&
+      note.topic === page.id &&
+      !$("reading").hidden &&
+      findQuote(note.quote, note.target, note.occurrence));
   if (range && range.getClientRects().length) return besideText(range);
   const block =
     (note.target && document.getElementById(note.target)) ||
