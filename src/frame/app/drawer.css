@@ -5,7 +5,8 @@
   :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer] {
     --dialog-padding: 16px;
     position: absolute;
-    inset: auto auto var(--dialog-margin) var(--dialog-margin);
+    inset: auto auto calc(var(--dialog-margin) + var(--keyboard-inset, 0px))
+      var(--dialog-margin);
     z-index: var(--z-drawer);
     box-sizing: border-box;
     /* Text starts 56px past the sidebar, and the drawer reaches 60px over it. */
@@ -14,7 +15,10 @@
       calc(var(--sidebar-width) + 56px + 60px - var(--dialog-margin))
     );
     height: fit-content;
-    max-height: calc(100% - 2 * var(--dialog-margin));
+    max-height: min(
+      calc(100% - 2 * var(--dialog-margin) - var(--keyboard-inset, 0px)),
+      calc(var(--vv-height, 100dvh) - 2 * var(--dialog-margin))
+    );
     margin: 0;
     padding: 14px var(--dialog-padding);
     border-color: light-dark(var(--line), var(--line-strong));
@@ -80,7 +84,7 @@
   :root:not([data-embed], [data-mode="preview"]) #note-dialog {
     --dialog-padding: 16px;
     position: fixed;
-    inset: auto 0 var(--sheet-bottom, 0px) 0;
+    inset: auto 0 var(--keyboard-inset, 0px) 0;
     z-index: calc(var(--z-sidebar-over-page) + 1);
     width: 100%;
     max-width: none;

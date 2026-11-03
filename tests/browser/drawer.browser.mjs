@@ -416,3 +416,67 @@ test("the page stays in use behind one drawer at a time, and a note with words i
     "For card one.",
   );
 });
+
+// A tablet is wider than 720px, so the note opens in the drawer, and its touch
+// keyboard shrinks only the visual viewport. The test fakes the keyboard as
+// drawer-phone.browser.mjs does.
+for (const engine of ["chrome", "webkit"]) {
+  test(`in ${engine} on a tablet, the drawer stays above a touch keyboard with its buttons in view, and the page stays`, async (t) => {
+    const { url } = await session(t);
+    for (const [width, height] of [
+      [1024, 768],
+      [1366, 1024],
+    ]) {
+      const page = await openPage(t, url, {
+        engine,
+        viewport: { width, height },
+        hasTouch: true,
+      });
+      if (!page) return;
+      await page.evaluate(() => {
+        window.setKeyboard = (height) => {
+          Object.defineProperty(visualViewport, "height", {
+            value: height ?? innerHeight,
+            configurable: true,
+          });
+          visualViewport.dispatchEvent(new Event("resize"));
+        };
+      });
+      const drawer = () =>
+        page.evaluate(() => {
+          const box = document
+            .getElementById("note-dialog")
+            .getBoundingClientRect();
+          const save = document.getElementById("note-save");
+          return {
+            gap: Math.round(visualViewport.height - box.bottom),
+            top: Math.round(
+              box.top -
+                document.querySelector(".frame-header").getBoundingClientRect()
+                  .bottom,
+            ),
+            saveShown: save.getBoundingClientRect().bottom <= box.bottom,
+          };
+        });
+      await page.keyboard.press("c");
+      await page.locator("#note-text").fill("A long note line.\n".repeat(40));
+      await settled(page, "note-dialog");
+      const before = await layout(page);
+      const keyboard = Math.round(height * 0.45);
+      await page.evaluate((top) => window.setKeyboard(top), height - keyboard);
+      assert.deepEqual(
+        await drawer(),
+        { gap: 10, top: 10, saveShown: true },
+        `${width}px`,
+      );
+      assert.deepEqual(await layout(page), before, `${width}px`);
+      await page.evaluate(() => window.setKeyboard(null));
+      assert.deepEqual(
+        await drawer(),
+        { gap: 10, top: 10, saveShown: true },
+        `${width}px, no keyboard`,
+      );
+      await page.context().browser().close();
+    }
+  });
+}

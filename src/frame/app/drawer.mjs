@@ -35,6 +35,7 @@ export function openDrawer(dialog) {
   // WebKit's show() leaves focus where it was.
   if (!dialog.contains(document.activeElement))
     dialog.querySelector("[autofocus]")?.focus();
+  follow();
   if (dialog.id === "note-dialog") openSheet(dialog);
   if (others.length)
     requestAnimationFrame(() =>
@@ -66,16 +67,19 @@ function openSheet(sheet) {
 }
 const sheetOpen = () =>
   $("note-dialog").open && narrow() && !$("note-dialog").matches(":modal");
-// The sheet's bottom sits on the top of the keyboard.
+/* A touch keyboard shrinks only the visual viewport, on a tablet as on a phone,
+   so the sheet and the drawer keep their bottom above it. */
 function follow() {
-  if (!sheetOpen() || !window.visualViewport) return;
+  const open = document.querySelector("dialog[data-drawer][open]");
+  if (!open || open.matches(":modal") || !window.visualViewport) return;
   const { height, offsetTop } = visualViewport;
   const root = document.documentElement.style;
   root.setProperty(
-    "--sheet-bottom",
+    "--keyboard-inset",
     `${Math.max(0, innerHeight - offsetTop - height)}px`,
   );
   root.setProperty("--vv-height", `${height}px`);
+  if (!sheetOpen()) return;
   if (!keyboardSeen && tallest - height > KEYBOARD_PX) {
     keyboardSeen = true;
     settle();
