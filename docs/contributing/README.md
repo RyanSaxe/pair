@@ -7,7 +7,10 @@ or newer. It has no runtime dependencies and no build step, so you can run a
 checkout as it is. In a clone of this repository, `npm link` puts the `pair`
 command on your path, and that command then runs the clone's code. An edit
 in the clone takes effect at the next `pair` command, in every agent session
-on your machine.
+on your machine. The hub runs the code it started with until a session
+command replaces it. Once the clone's changes under `src/` and `adapters/` are
+committed, the next session command from the clone, such as `pair status`,
+replaces the hub with one on the new code, even while sessions are live.
 
 ```sh
 npm link

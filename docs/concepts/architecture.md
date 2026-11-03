@@ -24,10 +24,22 @@ session to your browser and wakes the agent when you respond.
   a round from those files and the round's records in `pages/<round>/` each
   time a browser asks for the round, so a new hub shows every round of every
   session with the frame from its own code.
-- When `pair start` finds a hub that runs a different version of pair while
-  a session is live, it uses that hub and prints a warning. The next
-  `pair start` that finds no live session stops the old hub and starts one
-  that runs its own version.
+- Every answer from the hub has its code version in the `X-Pair-Version`
+  header. When a session command finds a hub that runs a different version of
+  pair, it stops the old hub and starts one that runs its own version.
+  `pair start` does this before its request, and every other session command
+  after its request finishes, so the next command reaches the new hub.
+- While a session is live on the old hub, a command replaces the hub only when
+  it runs pair from the hub's folder and git status shows no uncommitted
+  change under `src/` or `adapters/` there. A folder that is not a git clone,
+  such as an npm install, counts as committed. Otherwise the command keeps the
+  old hub and prints why the hub stays on its version.
+- When several commands find at once that the hub needs replacing, or that no
+  hub runs, the command that creates `hub/start.lock` stops or starts the hub,
+  and the others wait for that hub and use it.
+- The old hub stops accepting connections and lets the requests in progress
+  finish, for up to 3 seconds, before it exits. The new hub loads the live
+  sessions from disk, and they stay live.
 
 ### The hub and your browser
 
@@ -206,6 +218,7 @@ pair stores everything under `$XDG_STATE_HOME/pair/`, or
 hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
+  start.lock         the pid of the command that is starting or replacing the hub
   seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
 sessions/<dir>/      the directory name is not the session ID
   status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it

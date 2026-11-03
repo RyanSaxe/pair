@@ -4,7 +4,12 @@ import http from "node:http";
 import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
-import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
+import {
+  agentRequestBytes,
+  packageRoot,
+  settings,
+  version,
+} from "../shared/settings.mjs";
 import {
   atomic,
   embedConfig,
@@ -57,6 +62,10 @@ export async function startHub(config = settings()) {
   const registry = new Map();
   const byDirectory = new Map();
   const register = serializer();
+  // inFlight counts the requests the hub has not finished answering, and
+  // shutDown() replaces drained to learn when the count reaches 0.
+  let inFlight = 0;
+  let drained = () => {};
   let origin = null,
     hostOrigin = null,
     allowedHosts = new Set(),
@@ -204,6 +213,10 @@ export async function startHub(config = settings()) {
     return embeds.get(key);
   }
   async function handle(req, res) {
+    inFlight++;
+    res.once("close", () => {
+      if (--inFlight === 0) drained();
+    });
     const reply = (code, value, type = "application/json", headers = {}) => {
       const text =
         typeof value === "string" || Buffer.isBuffer(value)
@@ -220,10 +233,13 @@ export async function startHub(config = settings()) {
         !localHosts.has(req.headers.host) &&
         Buffer.byteLength(text) > COMPRESS_OVER_BYTES &&
         /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
+      // A command compares X-Pair-Version with its own code version after its
+      // requests, and replaces a hub that runs other code.
       res.writeHead(code, {
         "Content-Type": type,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        "X-Pair-Version": version,
         ...(large ? { "Content-Encoding": "gzip" } : {}),
         ...headers,
       });
@@ -284,6 +300,7 @@ export async function startHub(config = settings()) {
           port: origin && Number(new URL(origin).port),
           startedAt,
           stateDir,
+          root: packageRoot,
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
@@ -709,12 +726,27 @@ export async function startHub(config = settings()) {
   let settle;
   const closed = new Promise((resolve) => (settle = resolve));
   const close = () => (closing ||= shutDown().then(settle));
+  // The hub stops accepting connections and lets the requests in progress
+  // finish, for up to 3 seconds, so a command or a Send in progress when a
+  // command replaces the hub gets its answer. Then it closes every connection
+  // that remains. A browser keeps connections open that have sent no request,
+  // and Node 24's closeIdleConnections() leaves those open, so the hub waits
+  // for its requests instead of for its connections.
   async function shutDown() {
     clearInterval(timer);
-    for (const server of servers) {
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
-    }
+    const stopped = servers.map(
+      (server) => new Promise((resolve) => server.close(resolve)),
+    );
+    if (inFlight > 0)
+      await new Promise((resolve) => {
+        const cutOff = setTimeout(resolve, 3000);
+        drained = () => {
+          clearTimeout(cutOff);
+          resolve();
+        };
+      });
+    for (const server of servers) server.closeAllConnections();
+    await Promise.all(stopped);
     await search.close();
     try {
       if ((await read(config.hubFile)).pid === process.pid)
