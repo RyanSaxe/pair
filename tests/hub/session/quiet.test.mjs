@@ -210,14 +210,16 @@ test("every next step names quiet pages and cards until each gets an update", as
 });
 
 test("the hub wakes the holder once for quiet work when no command runs, and again only for an update or new work", async (t) => {
-  const quietMs = 300;
+  // A busy CI runner has paused more than 200ms between two commands, so the
+  // gap between commands is kept far below quietMs.
+  const quietMs = 1000;
   const { a, run, wakeLines } = await openRound(t, quietMs);
   await run("progress", { start: ["ci-flakes"] });
   // The hub sends no quiet wake while commands keep running, even after the
   // page has had no update for quietMs.
-  for (let elapsed = 0; elapsed < 2 * quietMs; elapsed += quietMs / 3) {
+  for (let elapsed = 0; elapsed < 2 * quietMs; elapsed += 100) {
     await run("status");
-    await sleep(quietMs / 3);
+    await sleep(100);
   }
   assert.deepEqual(wakeLines(), []);
 
