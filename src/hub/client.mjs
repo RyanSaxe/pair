@@ -155,32 +155,33 @@ function keptLine(info) {
       : `pair: The hub runs code version ${info.version} from ${packageRoot}, and the code there is now version ${version}, with uncommitted changes under src/ or adapters/. ${rule("committed code")} The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live.`;
   return `pair: The hub runs code version ${info.version}${info.root ? ` from ${info.root}` : ""}, and this command runs code version ${version} from ${packageRoot}. ${rule("code from the hub's own folder")} The next pair command that reaches the hub while no session is live replaces the hub with one on its own code.`;
 }
-// Several commands can find the same hub to replace at once. The command that
-// creates the restart lock replaces the hub, and every other command waits
-// until the lock is gone and then finds the new hub. The next command removes
-// a lock whose command has exited, or one older than a minute.
+// Several commands can find at once that the hub needs replacing, or that no
+// hub runs. Only the command that creates the start lock stops or starts a
+// hub, and every other command waits until the lock is gone and then finds
+// that hub. The next command removes a lock whose command has exited, or one
+// older than a minute.
 async function lockReleased(config) {
   for (;;) {
     let stale;
     try {
       const [pid, { mtimeMs }] = await Promise.all([
-        fs.readFile(config.restartLock, "utf8").then(Number),
-        fs.stat(config.restartLock),
+        fs.readFile(config.startLock, "utf8").then(Number),
+        fs.stat(config.startLock),
       ]);
       stale = (pid && !processAlive(pid)) || Date.now() - mtimeMs > 60_000;
     } catch (error) {
       if (error.code === "ENOENT") return;
       throw error;
     }
-    if (stale) return fs.rm(config.restartLock, { force: true });
+    if (stale) return fs.rm(config.startLock, { force: true });
     await sleep(150);
   }
 }
-async function withRestartLock(config, run) {
+async function withStartLock(config, run) {
   await fs.mkdir(config.hubDir, { recursive: true, mode: 0o700 });
   for (;;) {
     try {
-      await fs.writeFile(config.restartLock, String(process.pid), {
+      await fs.writeFile(config.startLock, String(process.pid), {
         flag: "wx",
         mode: 0o600,
       });
@@ -193,23 +194,17 @@ async function withRestartLock(config, run) {
   try {
     return await run();
   } finally {
-    await fs.rm(config.restartLock, { force: true });
+    await fs.rm(config.startLock, { force: true });
   }
 }
-// checked is true once ensureHub has run in this command, so that the command
-// checks the hub's code once and prints keptLine() at most once.
-let checked = false;
-export const hubChecked = () => checked;
-export async function ensureHub(config = settings(), locked = false) {
-  checked = true;
-  // While another command replaces the hub, the hub's record and port change,
-  // so ensureHub waits until that command finishes.
-  if (!locked) await lockReleased(config);
+// findHub returns this state directory's hub record and the hub's /api/hub
+// reply, or a null reply when no hub of this state directory answers.
+async function findHub(config) {
   const record = await readRecord(config);
   const port = record?.port || config.port;
   const stateDir = await ownStateDir(config);
   // A hub of another state directory cannot serve this one's sessions, so
-  // ensureHub treats it as no hub. A hub too old to send stateDir counts as
+  // findHub treats it as no hub. A hub too old to send stateDir counts as
   // this directory's hub.
   const ownHub = async (port) => {
     const info = await hubInfo(port, record);
@@ -219,44 +214,72 @@ export async function ensureHub(config = settings(), locked = false) {
   if (!info && record && processAlive(record.pid))
     info = await waitFor(() => ownHub(record.port), 5000);
   // A hub of this state directory that answers before the record exists can
-  // still be loading its sessions, so ensureHub waits for the record.
+  // still be loading its sessions, so findHub waits for the record.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
-  if (info && info.version !== version) {
-    const line = keptLine(info);
-    if (line) console.error(line);
-    else if (!locked)
-      return withRestartLock(config, () => ensureHub(config, true));
-    else {
-      // The old hub exits once its requests in progress finish, within 3
-      // seconds.
-      process.kill(info.pid, "SIGTERM");
-      await waitFor(async () => !processAlive(info.pid), 10_000);
-      info = null;
-    }
+  return { record, info };
+}
+// keep() is true when the command uses the hub as it is: the hub runs the
+// command's code, or keptLine() gives the line that says why the hub stays.
+function keep(info) {
+  if (info.version === version) return true;
+  const line = keptLine(info);
+  if (line) console.error(line);
+  return Boolean(line);
+}
+// replaceHub stops the hub that runs other code, if there is one, and starts
+// a hub on this command's code.
+async function replaceHub(config, { record, info }) {
+  if (info) {
+    // The old hub exits once its requests in progress finish, within 3
+    // seconds.
+    process.kill(info.pid, "SIGTERM");
+    await waitFor(async () => !processAlive(info.pid), 10_000);
   }
-  if (!info) {
-    // A running hub may not answer this command, as when the command runs in
-    // a sandbox with no sockets. ensureHub then leaves the hub record in place
-    // for the commands that can reach the hub.
-    requireValue(
-      !(record && hubRunning(record.pid)),
-      process.env.CODEX_SANDBOX
-        ? `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port} inside the sandbox. ${sandboxAdvice}`
-        : `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
+  // A running hub may not answer this command, as when the command runs in
+  // a sandbox with no sockets. replaceHub then leaves the hub record in place
+  // for the commands that can reach the hub.
+  requireValue(
+    !(record && hubRunning(record.pid)),
+    process.env.CODEX_SANDBOX
+      ? `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port} inside the sandbox. ${sandboxAdvice}`
+      : `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
+  );
+  if (record) await fs.rm(config.hubFile, { force: true });
+  if (config.port && (await portOpen(config.port))) {
+    const other = await hubInfo(config.port);
+    const occupant = other
+      ? `A pair hub that this state directory has no record of (pid ${other.pid})`
+      : "Another program";
+    throw new Error(
+      `${occupant} is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
     );
-    if (record) await fs.rm(config.hubFile, { force: true });
-    if (config.port && (await portOpen(config.port))) {
-      const other = await hubInfo(config.port);
-      const occupant = other
-        ? `A pair hub that this state directory has no record of (pid ${other.pid})`
-        : "Another program";
-      throw new Error(
-        `${occupant} is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
-      );
-    }
-    info = await spawnHub(config);
   }
-  return { ...info, origin: `http://127.0.0.1:${info.port}` };
+  return spawnHub(config);
+}
+// checked is true once ensureHub has run in this command, so that the command
+// checks the hub's code once and prints keptLine() at most once.
+let checked = false;
+export const hubChecked = () => checked;
+export async function ensureHub(config = settings()) {
+  checked = true;
+  const withOrigin = (info) => ({
+    ...info,
+    origin: `http://127.0.0.1:${info.port}`,
+  });
+  // While another command starts or replaces the hub, the hub's record and
+  // port change, so ensureHub waits until that command finishes.
+  await lockReleased(config);
+  const found = await findHub(config);
+  if (found.info && keep(found.info)) return withOrigin(found.info);
+  return withStartLock(config, async () => {
+    // Another command can start a hub between this command's check and its
+    // lock, and then the hub record names that hub.
+    const latest = await readRecord(config);
+    const now =
+      latest?.pid === found.record?.pid ? found : await findHub(config);
+    if (now.info && keep(now.info)) return withOrigin(now.info);
+    return withOrigin(await replaceHub(config, now));
+  });
 }
 export async function attach(directory, config, wake, extra = {}) {
   const hub = await ensureHub(config);

@@ -142,7 +142,7 @@ export function settings(env = process.env) {
     sessions: path.join(root, "sessions"),
     hubDir: path.join(root, "hub"),
     hubFile: path.join(root, "hub", "hub.json"),
-    restartLock: path.join(root, "hub", "restart.lock"),
+    startLock: path.join(root, "hub", "start.lock"),
     hubLog: path.join(root, "hub", "hub.log"),
     seenFile: path.join(root, "hub", "seen.json"),
     port,
