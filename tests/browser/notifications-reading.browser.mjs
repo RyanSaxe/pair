@@ -65,50 +65,40 @@ test("a read on one browser reaches another within one poll, and both counts sta
   assert.equal((await heads(phone))[0], "Unread");
 });
 
-test("a reply is read once it stays whole on screen for 1.5 seconds in a tab with focus, not in the window of a tab without focus, and not while the window covers it", async (t) => {
+test("a reply on its page and a card on Work stay unread however long they show, and the window reads nothing in a tab without focus", async (t) => {
   const h = await hub(t);
   const { here } = await sessions(t, h);
   const id = await replied(here, "The answer on the page");
+  await propose(here, "deck", "Build the deck");
   await here.request("/api/seen", { cleared: [] });
   const away = await openOn(t, h, here, {}, false);
   if (!away) return;
-  await badge(away, 2);
-  await away.goto(
-    `${h.server.origin}${here.base}/?target=thread-${id}-1#overview`,
-  );
-  const line = away.locator(`[id="thread-${id}-1"] .thread-name`);
-  await line.waitFor();
-  // With no focus, the reply stays unread, on the page and in the window's pane.
-  await away.waitForTimeout(2200);
-  await badge(away, 2);
+  await badge(away, 3);
   await openAll(away);
-  assert.match(await selected(away).textContent(), /The answer on the page/);
-  await shownFrame(away).locator(`pair-thread[data-thread="${id}"]`).waitFor();
+  assert.match(await selected(away).textContent(), /Build the deck/);
+  await shownFrame(away).locator('[data-proposal-card="deck"]').waitFor();
   await away.waitForTimeout(3500);
-  await agree(away, 2);
+  await agree(away, 3);
   await away.close();
 
+  // With focus, a reply and a card on screen stay unread.
   const page = await open(t, "about:blank");
   if (!page) return;
   await stubPele(page);
-  await page.goto(`${h.server.origin}${here.base}/#second`);
-  await page.locator("#bell").waitFor();
-  await badge(page, 2);
-  // The window opens over the page, and the reply behind it stays unread.
-  await openAll(page);
-  await agree(page, 2);
-  await page.keyboard.press("Escape");
-  await page.locator(`[data-page="overview"]`).first().click();
-  await page
-    .locator(`[id="thread-${id}-1"] .thread-name`)
-    .scrollIntoViewIfNeeded();
-  await page.waitForTimeout(500);
-  const count = await page.locator("#bell-count").textContent();
-  assert.equal(count, "2");
-  await badge(page, 1);
+  await page.goto(
+    `${h.server.origin}${here.base}/?target=thread-${id}-1#overview`,
+  );
+  await page.locator(`[id="thread-${id}-1"] .thread-name`).waitFor();
+  await badge(page, 3);
+  await page.waitForTimeout(2500);
+  assert.equal(await page.locator("#bell-count").textContent(), "3");
+  await page.locator('[data-page="work"]').first().click();
+  await page.locator('[data-proposal-card="deck"] .proposal-title').waitFor();
+  await page.waitForTimeout(2500);
+  assert.equal(await page.locator("#bell-count").textContent(), "3");
 });
 
-test("a card's Agent replied and its row in the bell leave together, once the reply stays on screen", async (t) => {
+test("a card's Agent replied and its row in the bell leave together when the row is cleared", async (t) => {
   const h = await hub(t);
   const { here } = await sessions(t, h);
   await propose(here, "deck", "Build the deck");
@@ -116,8 +106,8 @@ test("a card's Agent replied and its row in the bell leave together, once the re
   if (!page) return;
   await page.locator('[data-page="work"]').first().click();
   await page.locator("#work-tab-proposed").click();
-  await badge(page, 1);
-  const id = await replied(here, "An answer on the card", {
+  await badge(page, 2);
+  await replied(here, "An answer on the card", {
     proposal: "deck",
     round: undefined,
     topic: undefined,
@@ -126,23 +116,15 @@ test("a card's Agent replied and its row in the bell leave together, once the re
   });
   const state = page.locator("#proposal-deck .card-state");
   await state.filter({ hasText: "Agent replied" }).waitFor(poll);
-  await badge(page, 2);
-  await page.locator(`[id="thread-${id}-1"] .thread-name`).waitFor();
+  await badge(page, 3);
+  await page.locator("#bell").click();
+  const line = page.locator("#center-list .session-line", {
+    hasText: "An answer on the card",
+  });
+  await line.hover();
+  await line.locator(".icon-btn").click();
   await state.filter({ hasText: "Proposed" }).waitFor();
-  await badge(page, 1);
-});
-
-test("a proposal is read once its card's title stays on screen on Work", async (t) => {
-  const h = await hub(t);
-  const { here } = await sessions(t, h);
-  await propose(here, "deck", "Build the deck");
-  const page = await openOn(t, h, here);
-  if (!page) return;
   await badge(page, 2);
-  await page.locator('[data-page="work"]').first().click();
-  await page.locator('[data-proposal-card="deck"] .proposal-title').waitFor();
-  assert.equal(await page.locator("#bell-count").textContent(), "2");
-  await badge(page, 1);
 });
 
 test("a thread on the overall comment shows in the pane without waiting", async (t) => {

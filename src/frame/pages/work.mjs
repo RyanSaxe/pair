@@ -14,7 +14,6 @@ import {
 import { statusBox } from "#frame/pages/card-status.mjs";
 import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
 import { listedSession, unreadCards } from "#frame/sync/center.mjs";
-import { watchUnreadCards } from "#frame/sync/reading.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
@@ -450,7 +449,6 @@ export function refreshWork(force = false) {
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
-  watchUnreadCards();
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards());

@@ -698,11 +698,6 @@ test("a card reads New until Work shows it", async (t) => {
 test("a card's reply box keeps focus and every key while the cards change, and Work draws the changes after the reviewer leaves the box", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
-  // A reply on screen in a tab with focus is read after 1.5 s, and its Agent
-  // replied goes with it, so this tab reports no focus.
-  await page.evaluate(() => {
-    document.hasFocus = () => false;
-  });
   await tab("proposed").click();
   const id = crypto.randomUUID();
   const started = await session.request(`${session.base}/api/threads`, {

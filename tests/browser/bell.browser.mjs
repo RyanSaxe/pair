@@ -46,17 +46,6 @@ const count = (page, text) =>
 // The frame marks every event it finds at the bell's first load as seen, so
 // each test waits for the bell to show before it adds an event.
 const bellReady = (page) => page.locator("#bell").waitFor();
-// A reply on screen in a tab with focus is read after 1.5 s, so a test that counts
-// the replies on the page it shows opens it with no focus.
-async function openUnfocused(t, url) {
-  const page = await open(t, "about:blank");
-  if (!page) return null;
-  await page.addInitScript(() => {
-    document.hasFocus = () => false;
-  });
-  await page.goto(url);
-  return page;
-}
 async function lines(page) {
   await page.locator("#bell").click();
   await page.locator("#center-list .session-row").first().waitFor();
@@ -71,10 +60,7 @@ test("a reply in a thread clears that thread's row from the bell and keeps the o
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
-  const page = await openUnfocused(
-    t,
-    `${h.server.origin}${session.base}/#overview`,
-  );
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
   await bellReady(page);
   const answered = await thread(session, "page");
@@ -101,10 +87,7 @@ test("a thumbs up on a reply fills and takes its line out of the bell, and press
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
-  const page = await openUnfocused(
-    t,
-    `${h.server.origin}${session.base}/#overview`,
-  );
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
   await bellReady(page);
   const id = await thread(session, "page");
