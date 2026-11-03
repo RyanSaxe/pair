@@ -1,4 +1,4 @@
-import { openDrawer, underHeader } from "#frame/app/drawer.mjs";
+import { openDrawer } from "#frame/app/drawer.mjs";
 import { save, state } from "#frame/app/store.mjs";
 import { land } from "#frame/app/places.mjs";
 import { $, apple, controlKey, shiftEnter } from "#frame/app/util.mjs";
@@ -245,7 +245,7 @@ export function installEvents() {
     const key = event.key;
     if (key === "?") {
       if ($("keys-dialog").open) $("keys-dialog").close();
-      else if (yieldNote()) openDrawer($("keys-dialog"), underHeader());
+      else if (yieldNote()) openDrawer($("keys-dialog"), { home: "header" });
     } else if (key === "/" && online) openSearch();
     else if (key === "n") toggleCenter(true);
     else if (key === "g") toggleSessions(undefined, true);

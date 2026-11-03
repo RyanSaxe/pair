@@ -20,7 +20,7 @@ const shown = (element) => element?.isConnected && element.checkVisibility();
 /* A spot is what a drawer opens beside. rect() returns its box, with the left
    of its first and last lines, or null once it is gone from the screen. A
    spot at the end lines the drawer up with its right edge. */
-export function besideElement(element, { end = false, gap = 8 } = {}) {
+function besideElement(element, { end = false, gap = 8 } = {}) {
   return {
     end,
     gap,
@@ -33,9 +33,9 @@ export function besideElement(element, { end = false, gap = 8 } = {}) {
     },
   };
 }
-export const besideControl = (element) =>
+const besideControl = (element) =>
   besideElement(element, { end: true, gap: 6 });
-export function besideText(range) {
+function besideText(range) {
   return {
     end: false,
     gap: 8,
@@ -54,8 +54,7 @@ export function besideText(range) {
     },
   };
 }
-// Keys has no button, so it opens under the header at the right.
-export const underHeader = () => ({
+const underHeader = () => ({
   end: true,
   gap: 6,
   header: true,
@@ -67,12 +66,32 @@ export const underHeader = () => ({
     return { top: header.top, bottom: header.bottom - 10, right };
   },
 });
-// The control the reviewer pressed last, for a note that has no words or block
-// on screen to open beside. A key opens nothing beside a control, so a key
-// press forgets it.
+/* The control that opened the drawer: the last one pressed with the pointer,
+   or with Enter or Space. Any other key forgets it, because a key such as c
+   opens nothing beside a control. */
 let pressed = null;
-export const pressedControl = () =>
-  pressed && performance.now() - pressed.at < 1000 ? pressed.control : null;
+function pressedControl() {
+  const control =
+    pressed && performance.now() - pressed.at < 1000 ? pressed.control : null;
+  return shown(control) && !control.closest("dialog") ? control : null;
+}
+function press(control) {
+  pressed = control ? { control, at: performance.now() } : null;
+}
+
+/* Every drawer opens beside what it came from, by one rule: beside the words a
+   note is on, else beside the button that opened it, else beside the block or
+   card the note is on, else beside its home. The comment button floats over
+   the page, so a note it opens on a block goes beside the block. Keys has no
+   button, so its home is "header", under the header at the right. */
+function spotFor({ words, block, home }) {
+  if (words) return besideText(words);
+  const control = pressedControl();
+  if (control && !(block && control === $("comment-here")))
+    return besideControl(control);
+  if (shown(block)) return besideElement(block);
+  return home === "header" ? underHeader() : besideControl(home);
+}
 
 /* The drawer goes below its spot, or above it when there is no room below.
    With room on neither side, it goes over the end of words or a block and
@@ -154,9 +173,11 @@ function placeAgain() {
 /* Only one drawer is open at a time, so a drawer that opens replaces the open
    one in place. The swap has no motion, so the two never show together. A
    drawer that is already open moves to its new spot. */
-export function openDrawer(dialog, spot) {
+export function openDrawer(dialog, about = {}) {
+  let spot = spotFor(about);
+  if (!spot.rect()) spot = underHeader();
   if (dialog.open) {
-    if (spot && !dialog.matches(":modal")) place(dialog, spot);
+    if (!dialog.matches(":modal")) place(dialog, spot);
     return;
   }
   const others = [
@@ -170,7 +191,7 @@ export function openDrawer(dialog, spot) {
     dialog.style[name] = "";
   const modal = asModal();
   // The drawer is placed while it is still hidden, so it rises from its spot.
-  if (!modal && spot) place(dialog, spot);
+  if (!modal) place(dialog, spot);
   if (modal) dialog.showModal();
   else dialog.show();
   // WebKit's show() leaves focus where it was.
@@ -224,15 +245,18 @@ export function installDrawer() {
   document.querySelector("main")?.addEventListener("scroll", placeAgain, {
     passive: true,
   });
+  const control = (event) => event.target.closest?.("button, a") ?? null;
   document.addEventListener(
     "pointerdown",
-    (event) => {
-      const control = event.target.closest?.("button, a");
-      pressed = control ? { control, at: performance.now() } : null;
-    },
+    (event) => press(control(event)),
     true,
   );
-  document.addEventListener("keydown", () => (pressed = null), true);
+  document.addEventListener(
+    "keydown",
+    (event) =>
+      press(event.key === "Enter" || event.key === " " ? control(event) : null),
+    true,
+  );
   for (const body of document.querySelectorAll(".dialog .dialog-body"))
     if (body.closest("dialog").querySelector(".actions, .note-actions"))
       watchScroll(body);

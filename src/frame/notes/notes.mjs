@@ -17,13 +17,7 @@ import {
   showingWaiting,
   topicTitle,
 } from "#frame/app/view.mjs";
-import {
-  besideControl,
-  besideElement,
-  besideText,
-  openDrawer,
-  pressedControl,
-} from "#frame/app/drawer.mjs";
+import { openDrawer } from "#frame/app/drawer.mjs";
 import { commentTarget, placeBar } from "#frame/notes/blocks.mjs";
 import { rebuildKnown } from "#frame/notes/known.mjs";
 import {
@@ -414,7 +408,7 @@ export function openNote({
   if (!$("note-dialog").open) opener = document.activeElement;
   // The box takes its height before the drawer is placed.
   fitNoteText();
-  openDrawer($("note-dialog"), noteSpot(noteContext));
+  openDrawer($("note-dialog"), noteAbout(noteContext));
   fitNoteText();
   $("note-text").focus();
   if (!$("reading").hidden && !page.pending && page.id !== "agreed")
@@ -422,12 +416,10 @@ export function openNote({
   commentTarget();
   return true;
 }
-/* A note opens beside its words, or beside its block or card, or else beside
-   the control the reviewer pressed, such as Edit on Review or the comment
-   button. */
-function noteSpot(note) {
-  // A new note opens by the words still selected, which can cross blocks
-  // where findQuote finds nothing. A note opened from its mark finds its words.
+/* What a note is about, for openDrawer: the words still selected or the words
+   it quotes, and its block or card. A note on nothing else, such as one from
+   the c key, opens where the comment button is. */
+function noteAbout(note) {
   const selection = getSelection();
   const selected =
     note.quote &&
@@ -435,21 +427,21 @@ function noteSpot(note) {
     !selection.isCollapsed &&
     $("page-content").contains(selection.anchorNode) &&
     selection.getRangeAt(0).cloneRange();
-  const range =
-    selected ||
-    (note.quote &&
-      note.topic === page.id &&
-      !$("reading").hidden &&
-      findQuote(note.quote, note.target, note.occurrence));
-  if (range && range.getClientRects().length) return besideText(range);
+  const quoted =
+    !selected &&
+    note.quote &&
+    note.topic === page.id &&
+    !$("reading").hidden &&
+    findQuote(note.quote, note.target, note.occurrence);
+  const words =
+    selected || (quoted && quoted.getClientRects().length ? quoted : null);
   const block =
     (note.target && document.getElementById(note.target)) ||
     (note.proposal &&
       document.querySelector(
         `[data-proposal-card="${CSS.escape(note.proposal)}"]`,
       ));
-  if (block?.checkVisibility()) return besideElement(block);
-  return besideControl(pressedControl() || $("comment-here"));
+  return { words, block, home: $("comment-here") };
 }
 export const progressThread = {
   topic: "agreed",
