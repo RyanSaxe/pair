@@ -25,7 +25,8 @@ import { uploads } from "./uploads.mjs";
 
 // tabOpen returns whether a pair tab on this machine polled the hub
 // recently. peer returns another session on the hub by its ID, which a
-// linked session uses to reach its parent.
+// linked session uses to reach its parent. markSeen adds keys to the seen lists
+// that every browser shares.
 export async function loadSession(
   directory,
   config,
@@ -33,6 +34,7 @@ export async function loadSession(
   tabOpen,
   peer = () => null,
   changed = () => {},
+  markSeen = () => {},
 ) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
@@ -148,6 +150,7 @@ export async function loadSession(
     origin,
     tabOpen,
     peer,
+    markSeen,
     base,
     exclusive,
     transition,
@@ -158,6 +161,7 @@ export async function loadSession(
     needsYou,
     view,
     browserView,
+    listing,
     wakeFile,
     threadRecords: await readThreads(directory),
     wake: (await exists(wakeFile)) ? await read(wakeFile) : null,

@@ -46,7 +46,7 @@ import { placeThreads } from "#frame/notes/threads.mjs";
 import { renderAgreements, tag } from "#frame/pages/agreed.mjs";
 import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
-import { openWork, workCounts } from "#frame/pages/work.mjs";
+import { openWork, proposedCount } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -252,7 +252,7 @@ export const pageOrder = () => [
   ...pages.filter((item) => item.id === "agreed"),
   ...pages.filter((item) => item.id !== "agreed"),
   ...(hasFeedbackPage && !showingWaiting()
-    ? [{ id: "feedback", title: "Feedback" }]
+    ? [{ id: "feedback", title: "What you sent" }]
     : []),
 ];
 export function renderFooter(feedback) {
@@ -282,8 +282,8 @@ export function renderFooter(feedback) {
       ? ""
       : next.id === "feedback"
         ? submittedCurrent() || !editable
-          ? "Feedback →"
-          : "Review your feedback →"
+          ? "What you sent →"
+          : "Review your draft →"
         : `Next: ${next.title} →`,
   );
 }
@@ -371,15 +371,10 @@ export function updateNavigation(force = false) {
       work.dataset.page = "work";
       const label = document.createElement("span");
       label.textContent = "Work";
-      const counts = document.createElement("span");
-      counts.className = "work-counts";
-      for (const kind of ["proposed", "needs"]) {
-        const total = document.createElement("b");
-        total.className = `count ${kind}`;
-        total.hidden = true;
-        counts.append(total);
-      }
-      work.append(label, counts);
+      const total = document.createElement("b");
+      total.className = "count";
+      total.hidden = true;
+      work.append(label, total);
       pageList.append(separator(), work);
     }
     if (hasFeedbackPage && !listed.waiting) {
@@ -389,7 +384,7 @@ export function updateNavigation(force = false) {
       review.dataset.page = "feedback";
       const label = document.createElement("span");
       label.textContent =
-        editable && listed.tab === "current" ? "Review" : "Feedback";
+        editable && listed.tab === "current" ? "Review" : "What you sent";
       const total = document.createElement("b");
       total.className = "count";
       total.hidden = true;
@@ -401,25 +396,14 @@ export function updateNavigation(force = false) {
   }
   const workRow = $("work-row");
   if (workRow) {
-    const counts = workCounts();
-    const said = {
-      needs: `${counts.needs} need${counts.needs === 1 ? "s" : ""} you`,
-      proposed: `${counts.proposed} proposed`,
-    };
-    for (const kind of ["needs", "proposed"]) {
-      const mark = workRow.querySelector(`.count.${kind}`);
-      mark.textContent = String(counts[kind]);
-      mark.hidden = !counts[kind];
-      mark.title = said[kind];
-    }
+    const proposed = proposedCount();
+    const mark = workRow.querySelector(".count");
+    mark.textContent = String(proposed);
+    mark.hidden = !proposed;
+    mark.title = `${proposed} proposed`;
     workRow.setAttribute(
       "aria-label",
-      [
-        "Work",
-        ...["needs", "proposed"]
-          .filter((kind) => counts[kind])
-          .map((kind) => said[kind]),
-      ].join(", "),
+      proposed ? `Work, ${mark.title}` : "Work",
     );
   }
   const opened = newMarks(listed);

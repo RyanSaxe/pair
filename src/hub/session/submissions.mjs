@@ -174,7 +174,7 @@ export function submissions(session) {
     );
     requireValue(
       !session.state.openRound,
-      "Finish every listed page before submitting feedback",
+      "Finish every listed page before you send",
       409,
     );
     // A tab can send before its next status poll shows that another tab or
@@ -183,7 +183,7 @@ export function submissions(session) {
     // one.
     requireValue(
       session.state.latestSubmissionRound !== data.round,
-      `Round ${data.round} already has feedback, so the hub did not save what you just sent. Your comments and message stay in your draft for the next round.`,
+      `Round ${data.round} was already sent, so the hub did not save what you just sent. Your draft and message stay for the next round.`,
       409,
       { roundSent: true },
     );

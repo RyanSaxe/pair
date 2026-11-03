@@ -1,5 +1,5 @@
 /* The hub keeps the items of the reviewer's draft that the reviewer has
-   completed: each note added to feedback, each choice, each answer and the
+   completed: each note added to the draft, each choice, each answer and the
    "everything else looks good" switch. A change on one device replaces one
    item on the other devices, not the whole draft. A key is
    "alignUnflagged", or a kind and an ID joined by "/", such as

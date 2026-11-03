@@ -44,7 +44,7 @@ session to your browser and wakes the agent when you respond.
   show the same bell, sessions badge and **New** marks, within one poll of
   each other. Layout preferences, such as the sidebar and the page's width, stay
   in each browser.
-- The hub keeps each session's completed feedback and numbers each change it
+- The hub keeps each session's completed draft items and numbers each change it
   receives. Every pair tab sends what you complete and reads the hub's copy when
   a status poll shows a newer revision. When two devices change the same item,
   the change the hub receives later wins, and a removed note stays removed. Text
@@ -66,7 +66,7 @@ session to your browser and wakes the agent when you respond.
 
 The hub wakes the holder at these moments:
 
-- When you send feedback, unless the session is paused.
+- When you send a round, unless the session is paused.
 - When you send a message in a [thread](threads.md), even while the session
   is paused. The wake message contains your message, or its first 500
   characters cut at a space when it is longer, the number of images you
@@ -184,7 +184,7 @@ When pi or opencode has exited, the wake fails with
 ## The result of a wake
 
 `pair status` shows the holder and the result of the hub's last wake for
-your feedback or a Start.
+what you sent or a Start.
 
 - The result of each wake has `via`, the delivery path the hub used, such as
   `steer` or `queue` for Codex, or `parent` when the hub sent it to the
@@ -217,7 +217,7 @@ sessions/<dir>/      the directory name is not the session ID
   scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
-  activity.json      the last 50 events, for the bell
+  activity.json      the last 50 events since the last reopen, for the bell and notifications
   output/            command output too long to print
 ```
 

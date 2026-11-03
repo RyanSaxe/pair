@@ -195,7 +195,7 @@ export function persist() {
     $("storage-status").textContent = "";
   } catch {
     $("storage-status").textContent =
-      "Local storage unavailable. Export a copy to keep your feedback.";
+      "Local storage unavailable. Export a copy to keep your draft.";
   }
   queuePush();
 }

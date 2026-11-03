@@ -20,7 +20,7 @@ const round = (number, filler = "") => ({
 const kinds = {
   page: { topic: "overview", anchor: "Result line", target: "result" },
   progress: { topic: "agreed", anchor: "Progress", target: "agent-activity" },
-  overall: { topic: "overall", anchor: "Overall feedback" },
+  overall: { topic: "overall", anchor: "Overall" },
 };
 
 async function setup(t) {
@@ -312,7 +312,7 @@ const screenshot = (n) =>
   `<figure><img src="http://images.localhost/${n}.svg" width="370" alt="Screenshot ${n}"><figcaption>Screenshot ${n}.</figcaption></figure>`;
 const shots = [1, 2, 3].map(screenshot).join("");
 const words =
-  "<p>The note dialog at 390px with the image button at the right end of the Feedback label row.</p>";
+  "<p>The note dialog at 390px with the image button at the right end of the Note label row.</p>";
 for (const [where, filler, earlier] of [
   ["an earlier reply", "", shots + words.repeat(6)],
   ["the page above the thread", shots + words, words],
@@ -709,7 +709,7 @@ test("a round tab lists its pages and leaves the page on screen in its own round
   await content.getByText("Round two adds this line.").first().waitFor();
   await page.locator("#past-tab").click();
   await selected(page, "past");
-  await page.locator("#review-row", { hasText: "Feedback" }).waitFor();
+  await page.locator("#review-row", { hasText: "What you sent" }).waitFor();
   assert.equal(await content.getByText("Round two adds this line.").count(), 2);
   assert.equal(await cards(page, id), 0);
   await page.keyboard.press("c");

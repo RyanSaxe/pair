@@ -22,10 +22,10 @@ request or the behavior.
 
 ## Asking
 
-| When you want the answer | Do this                                                                                               |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Now                      | Comment and press **Start a thread**. pair shows the agent's reply under the block.                   |
-| In the next round        | Comment and press **Add to feedback**, then send the round. Also say what you want to go deeper into. |
+| When you want the answer | Do this                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| Now                      | Comment and press **Start a thread**. pair shows the agent's reply under the block.                |
+| In the next round        | Comment and press **Add to draft**, then send the round. Also say what you want to go deeper into. |
 
 ## When you understand enough
 
@@ -34,5 +34,5 @@ chat. You can [plan the change](plan-a-change.md) and then build it in the
 same session.
 
 To stop, tell the agent in chat, and it pauses the session. When you ask it
-to continue, it reads any feedback you sent in the meantime. Close the
+to continue, it reads anything you sent in the meantime. Close the
 session from the session list when you are done with it.

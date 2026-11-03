@@ -120,8 +120,6 @@ export function threadGroups(sessions, thisId) {
 // included.
 let latest = [];
 let lines = [];
-let listedFromHub = false;
-export const sessionsListed = () => listedFromHub;
 export const listedSession = (id) =>
   (id && latest.find((entry) => entry.id === id)) || null;
 // sessionWords puts the parent's title first, so a long sub-session title
@@ -149,7 +147,6 @@ export const unreadCards = () =>
 export function renderCenter(sessions, fromHub, hub) {
   latest = sessions;
   if (fromHub) {
-    listedFromHub = true;
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
@@ -192,7 +189,8 @@ export function renderCenter(sessions, fromHub, hub) {
   document.title = (count ? `(${count}) ` : "") + plan.title;
   if (bell.hidden) toggleCenter(false);
   drawCenter();
-  // Work counts a card with an unread reply as needing the reviewer, so
+  // A card on Work reads Agent replied while the bell lists its reply, and
+  // Waiting for you while its linked session has a round waiting, so
   // renderCenter refreshes Work.
   if (mode !== "home") {
     updateNavigation();

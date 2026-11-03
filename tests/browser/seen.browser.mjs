@@ -149,3 +149,77 @@ test("a waiting session's row counts its unopened pages beside Waiting, and the 
   await row.locator(".pill.news", { hasText: "1 new" }).waitFor(poll);
   await row.locator(".pill.need", { hasText: "Waiting" }).waitFor();
 });
+
+// A browser drops a session from its copy of the lists at the close, so a tab
+// that reloads on the reopen starts with a copy that lacks what the hub added.
+// The test watches every change to the page, because Work keeps a label it drew
+// until Work opens again.
+test("a tab on Work when its session reopens never draws a New mark, and a card proposed after the reopen reads New", async (t) => {
+  const h = await hub(t);
+  const own = await h.session();
+  const data = planData();
+  data.pages[0].html +=
+    '<div class="proposal" data-proposal="tidy" data-kind="proposal"><p><b>Tidy</b></p><p>Tidy work.</p></div>';
+  assert.equal((await own.publish(data)).code, 200);
+  const propose = (id, title) =>
+    own.action("propose", {
+      id,
+      title,
+      delivers: "The list, tidied.",
+      recommend: "here",
+    });
+  assert.equal((await propose("tidy", "Tidy the list")).code, 200);
+  const empty = { cleared: [], opened: [], cards: [] };
+  assert.equal((await own.request("/api/seen", empty)).code, 200);
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  await page.addInitScript(() => {
+    window.drawnNew = new Set();
+    new MutationObserver(() => {
+      for (const mark of document.querySelectorAll(".page-new")) {
+        const owner = mark.closest("[data-page], [data-proposal-card]");
+        window.drawnNew.add(owner?.dataset.page ?? owner?.dataset.proposalCard);
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+  const url = `${h.server.origin}${own.base}/`;
+  await page.goto(`${url}#work`);
+  await page.locator("#work-cards [data-proposal-card=tidy]").waitFor();
+
+  const closed = page.waitForEvent("load");
+  assert.equal((await own.request(`${own.base}/api/dismiss`, {})).code, 200);
+  await closed;
+  await page.locator("#history-strip:not([hidden])").waitFor();
+  await page.waitForFunction(
+    (id) => !localStorage.getItem("pair:cards:seen")?.includes(id),
+    own.id,
+    poll,
+  );
+
+  const reopened = page.waitForEvent("load");
+  const started = await h.register(own.directory, own.inbox.target, {
+    start: true,
+    reopen: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  await reopened;
+  await page.locator("#work-cards [data-proposal-card=tidy]").waitFor();
+  await page.waitForFunction(
+    (id) => localStorage.getItem("pair:cards:seen")?.includes(id),
+    own.id,
+    poll,
+  );
+  assert.deepEqual(await page.evaluate(() => [...window.drawnNew]), []);
+
+  assert.equal((await propose("later", "Later work")).code, 200);
+  await page.reload();
+  await page
+    .locator("#work-cards [data-proposal-card=later] .page-new")
+    .waitFor();
+  assert.equal(
+    await page
+      .locator("#work-cards [data-proposal-card=tidy] .page-new")
+      .count(),
+    0,
+  );
+});

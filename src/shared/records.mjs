@@ -5,7 +5,7 @@ export const roundPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$/;
 // The frame uses these page IDs for its own pages. It opens the page that the
 // address's # part names, and each of these IDs opens a frame page:
 // - agreed is Agreed so far, which only Agreed's source may use.
-// - feedback is Review, called Feedback on a past round.
+// - feedback is Review, called What you sent on a past round.
 // - work is Work, which lists the session's proposals.
 const reservedPageIds = ["agreed", "feedback", "work"];
 const reserved = `${reservedPageIds.slice(0, -1).join(", ")} and ${reservedPageIds.at(-1)} are reserved`;

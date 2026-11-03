@@ -139,7 +139,7 @@ export function installNoteDialog() {
   };
   acceptImages($("note-dialog"), attach);
   /* startThread sends the note to the hub now instead of keeping it for
-     Send feedback, so this handler deletes the note's draft and keeps its
+     Send, so this handler deletes the note's draft and keeps its
      images. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
   $("note-thread").onclick = () => {
@@ -163,7 +163,7 @@ export function installNoteDialog() {
   });
   $("activity-message").onclick = openAgentMessage;
   // Shift+Enter also submits the form, so the handler adds nothing to
-  // feedback while the Add to feedback button is hidden.
+  // the draft while the Add to draft button is hidden.
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
     if (!feedbackEditable() || $("note-save").hidden) return;
