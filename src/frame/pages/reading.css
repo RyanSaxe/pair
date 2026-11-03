@@ -360,8 +360,9 @@ body:has(dialog[open]) .comment-here {
   position: absolute;
   /* Above the header, whose z-index is 6. */
   z-index: 7;
-  /* top: -2px puts the bar over the header's bottom border. */
-  top: -2px;
+  /* .app-body clips what is above it, so the bar sits under the header's
+     bottom border, where a phone shows it too. */
+  top: 0;
   left: 0;
   right: 0;
   height: 2px;

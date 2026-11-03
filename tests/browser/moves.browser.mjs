@@ -210,6 +210,15 @@ test("with reduced motion a slow move shows the bar still and swaps in with no f
   );
 });
 
+// .app-body clips its overflow to keep the closing sidebar inside the frame.
+test("on a wide window a slow move shows the bar", async (t) => {
+  const s = await setup(t, { viewport: { width: 1200, height: 800 } });
+  if (!s) return;
+  await pageLink(s.page, "slow").click();
+  await s.page.waitForTimeout(400);
+  assert.equal(await barOnScreen(s.page), true);
+});
+
 // On a phone the page list is in a dialog, and the column scrolls inside
 // .app-body, which clips anything outside it. The frame returns a move back to
 // a page to where the reader left it, so the page can be scrolled down while it
