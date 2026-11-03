@@ -82,6 +82,15 @@ wide.
 | Review what you will send | Press <kbd>r</kbd>.                                                                                                                     |
 | See every key             | Press <kbd>?</kbd>.                                                                                                                     |
 
+A comment, **Send**, **Start**, **New work item** and the list of keys open
+in a drawer at the bottom left of the page, and the page stays in use behind
+it: you can scroll, select words, press choices and use the keys. One drawer
+is open at a time. When you open another one while a comment has words in
+it, pair first adds the comment to your draft, as **Add to draft** does. The
+× and <kbd>Esc</kbd> close the drawer, and a comment's words stay as a draft.
+On a phone a comment opens in a sheet above the keyboard, and the others open
+in a window over the page.
+
 ## Your draft
 
 pair saves everything you do on the pages as a draft until you send it. The
@@ -94,13 +103,13 @@ your phone and continue it on your computer:
 - the **Everything else looks good** switch
 
 The browser you typed in keeps the rest, which no other device shows: the text
-in an open note dialog, an answer before **Answer**, a drawing you have not
-saved, a thread reply you have not sent and the message in the send popup. Your
+in an open comment, an answer before **Answer**, a drawing you have not
+saved, a thread reply you have not sent and the message under **Send**. Your
 browser also keeps a copy of what you completed, and it sends what you
 completed while the hub was unreachable when the hub answers again.
 
-**Send** in the header opens a popup where you choose what the agent
-does next, and you send the round with the popup's button.
+**Send** in the header opens a drawer where you choose what the agent
+does next, and you send the round with the drawer's button.
 
 In most rounds, the choices are:
 
@@ -117,15 +126,15 @@ In a plan round, the choices are:
 - **Build it**: the agent applies your comments, then builds the plan, in
   this session.
 
-The popup opens with the first choice selected, never Build it. The button's
+The drawer opens with the first choice selected, never Build it. The button's
 label is **Build it** when you choose Build it, and **Send** otherwise. The
 agent can also make a round a plan without your asking, when it judges that
 it knows enough to write one.
 
-pair sends a typed answer only after you press **Answer**. The popup lists
+pair sends a typed answer only after you press **Answer**. The drawer lists
 each typed answer you have not added, with a link to its question.
 
-The popup also has a box for a message to the agent, which stays in your
+The drawer also has a box for a message to the agent, which stays in your
 draft until you send it, and the switch **Everything else looks good**,
 which is on by default. When the switch is on, the agent treats everything
 the pages stated as agreed, except where one of your comments challenges

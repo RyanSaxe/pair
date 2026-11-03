@@ -8,7 +8,7 @@ when you start a [proposal](../concepts/proposals-and-work.md).
 - A proposal you start **Here** runs in the same session and tab. One you
   start in a sub-session or with a new agent runs in its own session, which
   you open from the card. When you check **Plan it first** in the Start
-  popup, the agent in that session plans the work in its rounds and builds
+  drawer, the agent in that session plans the work in its rounds and builds
   nothing until you choose Build it there.
 
 ## Follow the build

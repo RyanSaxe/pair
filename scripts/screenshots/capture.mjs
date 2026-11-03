@@ -279,6 +279,12 @@ export async function writeNote(page, text) {
   await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
   await page.locator("#note-text").fill(text);
+  // The note's drawer rises as it opens.
+  await page
+    .locator("#note-dialog")
+    .evaluate((dialog) =>
+      Promise.all(dialog.getAnimations().map((motion) => motion.finished)),
+    );
 }
 
 async function send(page, session) {

@@ -16,7 +16,7 @@ on it, which pair shows under the proposal's card.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
-  <img alt="The note dialog quoting a selected line of code, with Add to draft and Start a thread" src="../assets/note-dialog-light.png">
+  <img alt="The note drawer quoting a selected line of code, with Add to draft and Start a thread" src="../assets/note-dialog-light.png">
 </picture>
 
 ## The thread's card

@@ -51,8 +51,9 @@ session to your browser and wakes the agent when you respond.
   you typed but did not complete stays in the browser you typed it in.
 - When the hub or another tab changes the draft, the frame updates the choices,
   answers, drawings and note marks on the page at once. It draws the whole page
-  again only while you are not typing on the page, using a dialog or a
-  prototype, or part way through a video, so none of those is replaced.
+  again only while you are not typing, using a modal window or a prototype,
+  or part way through a video, so none of those is replaced. An open drawer
+  does not stop the redraw.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
