@@ -32,6 +32,7 @@ import { show } from "#frame/pages/pages.mjs";
 import { diagramBoxes } from "#frame/pages/diagram.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 import { diffSelectionRange, isDiffNode } from "#frame/pages/renderers.mjs";
+import { clearOwnRound } from "#frame/sync/center.mjs";
 
 export let editing = null;
 export let noteContext = null;
@@ -348,6 +349,7 @@ export function openNote({
   diagramNode = null,
   proposal = null,
 }) {
+  clearOwnRound();
   // After the round's feedback is sent, openNote opens only a new note,
   // which can only start a thread. A note on a card can start a thread
   // wherever the card's Start button works.
