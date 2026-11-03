@@ -233,6 +233,62 @@ test("the reply action marks the thread read, then posts text or a checked fragm
   assert.equal((await thread(id)).state, "replied");
 });
 
+test("the status names a reply's images by address and writes their box, and the thread keeps them", async (t) => {
+  const { h, a, start, thread, settled } = await published(t);
+  const { id } = (await start({ quote: "A failed item" })).body.thread;
+  await settled(id);
+  // A PNG's signature and header give its size: 600 by 300.
+  const shot = Buffer.alloc(24);
+  shot.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  shot.writeUInt32BE(600, 16);
+  shot.writeUInt32BE(300, 20);
+  const image = `data:image/png;base64,${shot.toString("base64")}`;
+  const svg = `data:image/svg+xml;base64,${Buffer.from("<svg/>").toString("base64")}`;
+  const html = [
+    `<img alt="Whole" src="${image}">`,
+    `<img src="${image}" width="200" />`,
+    `<img src="${image}" width="50%">`,
+    `<img src="${svg}" alt="Drawn">`,
+    '<img src="https://example.test/shot.png">',
+  ].join("");
+  const posted = await a.action("reply", { note: id, html });
+  assert.equal(posted.code, 200, posted.body.error);
+
+  const address = (index) => `${a.base}/api/thread-image/${id}/1/${index}`;
+  assert.equal(
+    (await thread(id)).messages[1].html,
+    [
+      `<img alt="Whole" src="${address(0)}" width="600" height="300">`,
+      `<img src="${address(1)}" width="200" height="100"/>`,
+      // A percentage gives the browser no box, so this image stays in its tag.
+      `<img src="${image}" width="50%">`,
+      `<img src="${svg}" alt="Drawn">`,
+      '<img src="https://example.test/shot.png">',
+    ].join(""),
+  );
+
+  const served = await fetch(h.server.origin + address(0));
+  assert.equal(served.status, 200);
+  assert.equal(served.headers.get("content-type"), "image/png");
+  assert.match(served.headers.get("cache-control"), /immutable/);
+  assert.deepEqual(Buffer.from(await served.arrayBuffer()), shot);
+  assert.equal((await fetch(h.server.origin + address(2))).status, 404);
+  // The reviewer's message has text and no images.
+  assert.equal(
+    (await fetch(`${h.server.origin}${a.base}/api/thread-image/${id}/0/0`))
+      .status,
+    404,
+  );
+
+  // The agent reads what it wrote, and the stored thread keeps it.
+  const read = await a.action("reply", { note: id });
+  assert.equal(read.body.thread.messages.at(-1).html, html);
+  const saved = JSON.parse(
+    await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
+  );
+  assert.equal(saved.messages[1].html, html);
+});
+
 // The hub records the reviewer's thumbs up on the agent's reply without a wake
 // or a bell event, and the agent reads it on the thread.
 test("a thumbs up on a reply is recorded without a wake, drops its bell line and comes off again", async (t) => {
