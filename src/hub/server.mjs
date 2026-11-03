@@ -123,7 +123,15 @@ export async function startHub(config = settings()) {
   const sessionList = async (req) => {
     if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
     const sessions = listed();
-    return { sessions, seen: await seen.view(sessions) };
+    const lists = await seen.view(sessions);
+    const cleared = new Set(lists.cleared ?? []);
+    return {
+      sessions: sessions.map((entry) => ({
+        ...entry,
+        events: registry.get(entry.id).withWords(entry.events, cleared),
+      })),
+      seen: lists,
+    };
   };
   /* Browser routes take no token, as docs/reference/commands.md says under
      PAIR_HUB_HOST. sameOrigin is the only check that stops a page in another
@@ -262,6 +270,12 @@ export async function startHub(config = settings()) {
         });
       if (method === "GET" && url.pathname === "/api/sessions")
         return reply(200, await sessionList(req));
+      if (method === "GET" && url.pathname === "/api/notifications")
+        return reply(200, {
+          sessions: Object.fromEntries(
+            open().map((session) => [session.id, session.notificationView()]),
+          ),
+        });
       if (method === "POST" && url.pathname === "/api/seen") {
         sameOrigin(req);
         const data = await readBody(req, 250_000);
@@ -573,6 +587,13 @@ export async function startHub(config = settings()) {
           return reply(
             201,
             await session.exclusive(() => session.startThread(data)),
+          );
+        }
+        if (method === "POST" && rest[0] === "api" && rest[1] === "unread") {
+          const data = await readBody(req, 10_000);
+          return reply(
+            200,
+            await session.exclusive(() => session.markUnread(data)),
           );
         }
         const threadActions = {
