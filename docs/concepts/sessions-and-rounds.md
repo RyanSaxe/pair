@@ -56,12 +56,11 @@ width, from 224px to 400px. Double-click a tab to reset that edge. pair saves
 both widths in that browser, for every session on the hub, and another open tab
 picks them up when it next loads.
 
-Text stays 822px wide, or 1,046px with the sidebar closed, so a drag does not
-rewrap it. It narrows only when a wider sidebar leaves less room. Code, diffs,
-prototypes and other blocks take the extra room. A diff shows **Side by side**
-while its column is at least 900px wide, unless you chose a layout for that
-diff. An image set to fill the page stops at 1200px. Agreed, Work, Review and
-threads stay at text width.
+Everything on the page follows its width: text, the cards on Agreed and Work,
+Review, threads, code, diffs and prototypes. The block in the middle of the
+page stays in place while you drag. A diff shows **Side by side** while its
+column is at least 900px wide, unless you chose a layout for that diff. An image
+set to fill the page stops at 1200px.
 
 The page shrinks with a smaller window and returns to its saved width when the
 window grows. At 1160px and narrower there are no tabs and the sidebar is 224px
