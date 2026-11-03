@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
-import { waitUntil } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 
 const quote = "Five failures open the breaker for thirty seconds";
 
@@ -56,8 +56,13 @@ const placement = (page) =>
       right: box.right,
       top: box.top,
       bottom: box.bottom,
-      text: document.getElementById("page-content").getBoundingClientRect()
-        .right,
+      // The text stops at the column's padding on a page. Work and Review stop
+      // at the text's width, and the page's margin still starts there.
+      text:
+        document.getElementById("content").getBoundingClientRect().right -
+        parseFloat(
+          getComputedStyle(document.getElementById("content")).paddingRight,
+        ),
       edge: document.getElementById("content").getBoundingClientRect().right,
       width: document.documentElement.clientWidth,
       height: document.documentElement.clientHeight,
@@ -151,20 +156,40 @@ test("with nothing selected, the corner icon and the c key comment on the page, 
   });
 });
 
-test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize and the sidebar closing", async (t) => {
+test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize, the sidebar closing and a drag of the page's edge, on a page and on Work", async (t) => {
   // Agreed has no figure, so no element on it changes size with the window.
-  const page = await open(t, "http://pair.localhost/", {
-    html: await fixtureHtml(),
-  });
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/`);
   if (!page) return;
   await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
 
   await settledControl(page, "Comment on this page");
-  const centered = async () => {
-    await waitUntil(async () => inGutter(await placement(page)));
+  const isCentered = async () => {
     const place = await placement(page);
     assert.ok(inGutter(place), JSON.stringify(place));
     assert.ok(place.height - place.bottom < 40, "near the bottom");
+  };
+  const centered = async () => {
+    await waitUntil(async () => inGutter(await placement(page)));
+    await isCentered();
+  };
+  // A status poll also places the icon, so this checks before the next one is
+  // due.
+  const centeredThroughDrag = async (to) => {
+    const { x, width } = await page.locator("#app").boundingBox();
+    await page.mouse.move(x + width, 400);
+    await page.mouse.down();
+    await page.mouse.move(to, 400, { steps: 5 });
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await isCentered();
+    await page.mouse.up();
   };
   await centered();
   // At 1600px the window is wider than the frame, so the gutter widens and the
@@ -173,6 +198,12 @@ test("on a wide window the corner icon is centered in the page's margin right of
   await centered();
   await page.locator("#sidebar-toggle").click();
   await centered();
+  await page.locator("#sidebar-toggle").click();
+  await centeredThroughDrag(1500);
+  await page.locator("#work-row").click();
+  await settledControl(page, "Comment on Work");
+  await centered();
+  await centeredThroughDrag(1400);
 });
 
 test("on a phone the corner icon sits at the bottom right over the page, and the page's last line scrolls clear of it", async (t) => {

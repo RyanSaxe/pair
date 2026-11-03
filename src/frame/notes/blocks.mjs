@@ -267,8 +267,11 @@ function placeButton() {
   const shown = [$("reading"), $("review-view"), $("work-view")].find(
     (view) => !view.hidden,
   );
-  const text = shown.getBoundingClientRect().right;
   const edge = $("content").getBoundingClientRect().right;
+  // Work and Review stop at the text's width, and the 56px is the column's
+  // padding, so on a wide page the control stays in the page's right margin
+  // instead of at the middle of the empty room.
+  const text = Math.max(shown.getBoundingClientRect().right, edge - 56);
   const fits = edge - text >= size;
   const width = document.documentElement.clientWidth;
   button.dataset.place = fits ? "gutter" : "corner";
@@ -393,8 +396,11 @@ export function installBlocks() {
   $("comment-here").onclick = () => commentOnTarget();
   /* Once the frame is at its widest, a wider window moves the page's edge
      without changing the page's size, so placeMarks does not run and the
-     button needs its own resize listener. */
+     button needs its own resize listener. A drag of the page's edge changes
+     the column's size without a window resize, and on Work nothing else places
+     the button, so the button also follows the column. */
   addEventListener("resize", placeButton);
+  new ResizeObserver(placeButton).observe($("content"));
   $("note-text").oninput = () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
     persist();
