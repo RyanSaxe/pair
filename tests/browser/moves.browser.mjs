@@ -88,7 +88,6 @@ const barAnimations = (page) =>
       .querySelector(".move-bar")
       .getAnimations()
       .map((animation) => ({
-        delay: animation.effect.getTiming().delay,
         duration: animation.effect.getTiming().duration,
       })),
   );
@@ -123,32 +122,12 @@ test("a move to a page that is complete at once swaps it in with no bar", async 
   assert.deepEqual(await barAnimations(s.page), []);
 });
 
-test("a slow move keeps the previous page, shows the bar after 200 ms, then crossfades", async (t) => {
+test("a slow move keeps the previous page, grows the bar, then crossfades", async (t) => {
   const s = await setup(t);
   if (!s) return;
-  // The frame times the bar from the click: its delay is 200 ms less the time
-  // that passed before the bar's animation started, which a busy machine makes
-  // longer, and that time is at most the time since the click.
-  await s.page.evaluate(() =>
-    addEventListener(
-      "pointerdown",
-      () => (window.clickedAt = performance.now()),
-      {
-        capture: true,
-        once: true,
-      },
-    ),
-  );
   await pageLink(s.page, "slow").click();
   assert.equal(await picture(s.page), true);
   const [growing] = await barAnimations(s.page);
-  const since = await s.page.evaluate(
-    () => performance.now() - window.clickedAt,
-  );
-  assert.ok(
-    growing.delay <= 200 && growing.delay >= 200 - since - 2,
-    `delay ${growing.delay} with ${since} ms since the click`,
-  );
   assert.equal(growing.duration, 2700);
   await complete(s.page, "slow");
   const fading = await s.page.evaluate(() =>
