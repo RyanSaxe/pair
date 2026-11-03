@@ -29,7 +29,6 @@ import {
 } from "#frame/pages/renderers.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
-import { watchReplies } from "#frame/sync/reading.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
@@ -600,7 +599,6 @@ export function placeThreads() {
       for (const clamp of card.querySelectorAll(".thread-clamp"))
         fits.get(clamp)();
   unfitted.clear();
-  watchReplies();
 }
 function tick() {
   for (const { card } of cards.values()) {

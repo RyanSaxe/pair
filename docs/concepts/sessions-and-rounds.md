@@ -260,15 +260,16 @@ top result's page shows there. You read a row by clicking it, or by keeping its
 page on the right for 3 seconds after the page has loaded, in the tab you are
 using. That counts for the row the window shows first and for a row you move to
 with the arrow keys, so moving down the list or typing a search reads nothing on
-the way. Keeping a reply or card on screen on its page for 1.5 seconds in the
-tab you are using reads it too. A row you just read loses its dot and stays in
-place until you reopen the window or change a menu.
+the way. A reply or card on its own page stays unread however long it shows. A
+row you just read loses its dot and stays in place until you reopen the window
+or change a menu.
 
 A round or proposal you have read still says it is waiting until you send
-feedback or decide it. pair counts a session as open while its tab's window has
-focus, and opening a session reads its waiting round. A session on screen in a
-window you are not using stays unread in your other tabs until you click that
-window.
+feedback or decide it. A round waiting for you stays unread in every tab until
+you start on it: open one of its pages yourself, with a click or a key, or start
+a note in it. A tab that only shows the round, has focus or moves to the round
+as it arrives reads nothing. A tab never lists its own session's waiting round,
+because the page in front of you already shows it.
 
 Select a row to read it, and reply there, without leaving your page. **Open**
 goes to the page itself.

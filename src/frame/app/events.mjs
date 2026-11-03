@@ -33,7 +33,7 @@ import {
   selectedTab,
   switchTab,
 } from "#frame/sync/rounds.mjs";
-import { toggleCenter } from "#frame/sync/center.mjs";
+import { clearOwnRound, toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
   numbered,
@@ -146,6 +146,7 @@ export function installEvents() {
       if (listedTab !== selectedTab && $("page-list").contains(navigation))
         switchTab(listedTab, null, { showPage: false });
       show(navigation.dataset.page);
+      clearOwnRound();
     }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");
@@ -262,7 +263,10 @@ export function installEvents() {
       const order = pageOrder().map((item) => item.id);
       const index = order.indexOf(shownPage());
       const next = order[index + (key === "]" ? 1 : -1)];
-      if (next) show(next);
+      if (next) {
+        show(next);
+        clearOwnRound();
+      }
     } else if (key === "j" || key === "k") {
       const blocks = choosable();
       if (!blocks.length) return;
@@ -281,12 +285,16 @@ export function installEvents() {
       next.focus({ preventScroll: true });
       next.scrollIntoView({ block: "center" });
     } else if (key === "c") commentOnTarget();
-    else if (key === "r" && editable) show("feedback");
-    else if (key === "s" && editable) {
+    else if (key === "r" && editable) {
+      show("feedback");
+      clearOwnRound();
+    } else if (key === "s" && editable) {
       if ($("submit").disabled) return;
       $("submit").focus();
-    } else if (key === "a") show("agreed");
-    else return;
+    } else if (key === "a") {
+      show("agreed");
+      clearOwnRound();
+    } else return;
     event.preventDefault();
   });
 }

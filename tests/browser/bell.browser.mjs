@@ -46,17 +46,6 @@ const count = (page, text) =>
 // The frame marks every event it finds at the bell's first load as seen, so
 // each test waits for the bell to show before it adds an event.
 const bellReady = (page) => page.locator("#bell").waitFor();
-// A reply on screen in a tab with focus is read after 1.5 s, so a test that counts
-// the replies on the page it shows opens it with no focus.
-async function openUnfocused(t, url) {
-  const page = await open(t, "about:blank");
-  if (!page) return null;
-  await page.addInitScript(() => {
-    document.hasFocus = () => false;
-  });
-  await page.goto(url);
-  return page;
-}
 async function lines(page) {
   await page.locator("#bell").click();
   await page.locator("#center-list .session-row").first().waitFor();
@@ -71,10 +60,7 @@ test("a reply in a thread clears that thread's row from the bell and keeps the o
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
-  const page = await openUnfocused(
-    t,
-    `${h.server.origin}${session.base}/#overview`,
-  );
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
   await bellReady(page);
   const answered = await thread(session, "page");
@@ -101,10 +87,7 @@ test("a thumbs up on a reply fills and takes its line out of the bell, and press
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
-  const page = await openUnfocused(
-    t,
-    `${h.server.origin}${session.base}/#overview`,
-  );
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
   await bellReady(page);
   const id = await thread(session, "page");
@@ -236,7 +219,7 @@ test("another session's finished round adds a waiting line, and sending that rou
   await count(page, "");
 });
 
-test("a session's waiting round leaves the bell once a tab has shown that session", async (t) => {
+test("a session's waiting round stays in the bell while a tab only shows that session, and leaves once the reviewer opens one of its pages", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const page = await open(t, `${h.server.origin}${a.base}/`);
@@ -257,14 +240,17 @@ test("a session's waiting round leaves the bell once a tab has shown that sessio
     await bellReady(page);
     return page.locator("#bell").getAttribute("aria-label");
   };
-  assert.equal(await switchTo(b), "Notifications");
+  // Each tab leaves out its own session's round and still lists the other's,
+  // because showing a round reads nothing.
+  assert.equal(await switchTo(b), "Notifications: 1");
+  assert.equal(await switchTo(a), "Notifications: 1");
+  await switchTo(b);
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
   assert.equal(await switchTo(a), "Notifications");
 });
 
-// A window beside the one the reviewer uses is on screen without focus. Headless
-// Chrome reports every page as visible and focused, so the test makes the tab
-// report no focus until it sets it.
-test("a session on screen in a window without focus keeps its waiting round in the other tabs' bells until that window has focus", async (t) => {
+test("a tab that only shows a session, even with focus, keeps its waiting round in the other tabs' bells until the reviewer opens one of its pages there", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const b = await h.session();
@@ -277,23 +263,17 @@ test("a session on screen in a window without focus keeps its waiting round in t
   await page.goto(`${h.server.origin}${a.base}/`);
   await bellReady(page);
   const beside = await context.newPage();
-  await beside.addInitScript(() => {
-    let focused = false;
-    document.hasFocus = () => focused;
-    window.setFocused = (next) => (focused = next);
-  });
   await beside.goto(`${h.server.origin}${b.base}/`);
   await bellReady(beside);
 
   assert.equal((await b.publish(round("Session B"))).code, 200);
-  const { sessions, seen } = (await b.request("/api/sessions")).body;
-  const line = sessions
+  const line = (await b.request("/api/sessions")).body.sessions
     .find(({ id }) => id === b.id)
     .events.find(({ kind }) => kind === "waiting");
-  assert.equal(seen.cleared?.includes(line.id) ?? false, false);
   await count(page, "1");
-  // Each session list that this tab reads after the publish would clear the
-  // line if the tab counted as seen, and the frame reads one every 5 s.
+  // The tab moves to the new round by itself and reads two session lists, and
+  // each would have cleared the line under the old rule.
+  await beside.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
   const listed = () => beside.waitForResponse(/\/api\/sessions$/, poll);
   await listed();
   await listed();
@@ -301,7 +281,7 @@ test("a session on screen in a window without focus keeps its waiting round in t
   const after = (await b.request("/api/sessions")).body.seen.cleared;
   assert.equal(after?.includes(line.id) ?? false, false);
 
-  await beside.evaluate(() => window.setFocused(true));
+  await beside.keyboard.press("]");
   await count(page, "");
 });
 

@@ -345,8 +345,8 @@ export async function stage(t, scratch) {
     await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
     "demo",
   );
-  // A reply on screen in a tab with focus is read after 1.5 s, and these pictures
-  // show the agent's reply in the bell.
+  // With focus, the Notifications window reads the row it shows after 3 s, and
+  // these pictures show the agent's reply unread.
   await page.addInitScript(() => {
     document.hasFocus = () => false;
   });

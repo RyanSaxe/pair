@@ -53,6 +53,21 @@ export function clear(ids) {
   cleared.add(ids);
   renderCenter(latest, false);
 }
+// The reviewer has started on this session's waiting round once they open one of
+// its pages or a note themselves, so its line leaves the bell in every tab. A tab
+// that only has focus, or moves to the round as it arrives, clears nothing.
+export function clearOwnRound() {
+  if (selectedTab !== "current") return;
+  const own = latest.find((entry) => entry.id === session.sessionId);
+  const known = loadCleared() ?? new Set();
+  const waiting = (own?.events || []).filter(
+    (event) =>
+      event.kind === "waiting" &&
+      event.round === own.round &&
+      !known.has(event.id),
+  );
+  if (waiting.length) clear(waiting.map(({ id }) => id));
+}
 export function clearThread(threadId) {
   clear(
     latest.flatMap((entry) =>
@@ -76,7 +91,6 @@ export const settleCleared = (listed, cleared) =>
 
 // The bell lists what needs the reviewer now, so it leaves out every session's
 // start, and a tab already shows its own session's waiting round.
-const shownKinds = ["session", "waiting"];
 export function bellLines(sessions, cleared, thisId) {
   return sessions
     .filter((entry) => !entry.closed)
@@ -117,12 +131,6 @@ export const unreadCards = () =>
       )
       .map((event) => event.proposal),
   );
-// This session's unread replies and proposals, which the frame reads off the page
-// once the reviewer has looked at them.
-export const unreadHere = (kind) =>
-  lines.filter(
-    (event) => event.kind === kind && event.entry.id === session.sessionId,
-  );
 // fromHub is true when the sessions came from the hub, and an event missing
 // from them is then gone for good. hub is the hub's list of cleared IDs.
 export function renderCenter(sessions, fromHub, hub) {
@@ -131,26 +139,12 @@ export function renderCenter(sessions, fromHub, hub) {
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
-    // A tab with focus has shown its own session's start and waiting round,
-    // so renderCenter clears them, and the bell does not list them after the
-    // reviewer moves to another session. A tab can be visible in a window
-    // beside the one the reviewer is using, and clearing the lines from there
-    // would take them out of every tab's bell before the reviewer saw them.
-    const own = sessions.find((entry) => entry.id === session.sessionId);
-    const shown =
-      own && document.hasFocus()
-        ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
-        : [];
     // When neither this browser nor the hub has a list, the last argument
     // counts every listed event as cleared, so the first run after the
     // upgrade shows an empty bell.
     cleared.sync(
       hub,
-      (ids) => {
-        const after = settleCleared(listed, ids);
-        for (const event of shown) after.add(event.id);
-        return after;
-      },
+      (ids) => settleCleared(listed, ids),
       () => new Set(listed),
     );
   }
