@@ -106,7 +106,17 @@ async function press(page, x, y = Y) {
   await page.mouse.move(x, y);
   await page.mouse.down();
 }
-const moveTo = (page, x, y = Y) => page.mouse.move(x, y, { steps: 8 });
+// Chrome delivers a pointer move with the next animation frame, so moveTo waits
+// for the frame after that.
+async function moveTo(page, x, y = Y) {
+  await page.mouse.move(x, y, { steps: 8 });
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+}
 async function drag(page, from, to) {
   await press(page, from);
   await moveTo(page, to);
@@ -308,6 +318,42 @@ for (const [browser, engine] of Object.entries(engines)) {
 
     await page.locator("#sidebar-toggle").click();
     assert.equal(await page.locator(".grip.side").isVisible(), false);
+  });
+
+  test(`in ${browser}, a drag that passes over a prototype keeps following the pointer and saves on the release`, async (t) => {
+    const s = await setup(t, engine);
+    if (!s) return;
+    const { page } = s;
+    const frame = await page.locator(".approved-prototype").boundingBox();
+    const y = frame.y + frame.height / 2;
+    const over = frame.x + frame.width / 2;
+    const sidebar = await box(page, "#sidebar");
+
+    await press(page, sidebar.right, y);
+    await moveTo(page, sidebar.left + 300, y);
+    await moveTo(page, over, y);
+    assert.equal((await box(page, "#sidebar")).width, 400);
+    await moveTo(page, sidebar.left + 300, y);
+    assert.equal((await box(page, "#sidebar")).width, 300);
+    await moveTo(page, over, y);
+    await page.mouse.up();
+    assert.equal(await saved(page, SIDEBAR_KEY), "400");
+    assert.equal(
+      await page.evaluate(() => "edgeDrag" in document.documentElement.dataset),
+      false,
+    );
+
+    // The page's edge stops at 1160px, so a pointer past it is over the column.
+    const { right } = await box(page, "#app");
+    await press(page, right, y);
+    await moveTo(page, 1800, y);
+    near((await box(page, "#app")).right, 1800, "the grabbed edge");
+    await moveTo(page, over, y);
+    assert.equal((await box(page, "#app")).width, 1160);
+    await moveTo(page, 1700, y);
+    near((await box(page, "#app")).right, 1700, "the grabbed edge");
+    await page.mouse.up();
+    assert.equal(await saved(page, PAGE_KEY), "1400");
   });
 
   test(`in ${browser}, with the sidebar closed, text is 1046px before and after a drag`, async (t) => {

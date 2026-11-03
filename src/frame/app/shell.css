@@ -4,9 +4,8 @@ html {
   overflow: hidden;
 }
 /* The script in shell.html's head and edges.mjs set --page-width and
-   --sidebar-saved inline on the root to the widths the reviewer dragged to. The
-   page's left edge rounds down to a whole pixel, because in an odd-width window
-   the two page grips otherwise render differently. */
+   --sidebar-saved inline on the root. --page-left rounds down to a whole pixel,
+   because in an odd-width window the page's two grips otherwise differ. */
 :root {
   --page-width: 1160px;
   --page-left: round(
@@ -143,10 +142,9 @@ main {
   background: var(--panel);
 }
 /* A grip is a 13px strip centered on the 1px line it moves, which makes the
-   page's two grips exact mirrors. The tab it draws sits flush against the line,
-   on the outside of what the grip resizes. The side grip's strip starts above
-   .app-body, which clips that part, so that its 50% is the window's middle, as
-   the page's two are. */
+   page's two grips exact mirrors. Its tab sits flush against the line, outside
+   what the grip resizes. The side grip's strip starts above .app-body, which
+   clips that part, so that its 50% is the window's middle, as the page's are. */
 .grip {
   display: none;
   position: absolute;
@@ -220,8 +218,7 @@ main {
   top: var(--header-height);
 }
 /* A page as wide as the window has no room outside its lines, so each strip
-   moves inside the window, with the line at the strip's outer end, and its tab
-   flips inward. */
+   moves inside the window, with the line at its outer end, and its tab flips. */
 :root[data-page-full] .grip.left {
   left: -1px;
 }
@@ -247,6 +244,11 @@ main {
 }
 :root[data-edge-drag] * {
   user-select: none;
+}
+/* Chrome sends a pointer over a sandboxed iframe to the iframe, past the grip's
+   capture, and the drag then stops and never sees its release. */
+:root[data-edge-drag] iframe {
+  pointer-events: none;
 }
 /* Without this, the column's margin waits out the sidebar's slide on every
    move of a drag. */
