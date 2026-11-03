@@ -53,11 +53,14 @@ test("a word in a card's quote marks the row, and shows the card on Work with th
     await page.locator(".search-snippet mark").textContent(),
     "marmot",
   );
-  const preview = await (
-    await page.locator(".search-frame").elementHandle()
-  ).contentFrame();
-  await preview.waitForFunction(quoteMarks, "marmot", { timeout: 5000 });
+  // The search window shows a result once its words have landed, or after its
+  // wait for them runs out, so the word is marked the moment the frame shows.
+  const shown = page.locator(
+    ".search-preview-main:not(.is-loading) > .search-frame.is-shown:not(.is-stale)",
+  );
+  const preview = await (await shown.elementHandle()).contentFrame();
+  assert.equal(await preview.evaluate(quoteMarks, "marmot"), true);
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => location.hash === "#work");
-  await page.waitForFunction(quoteMarks, "marmot", { timeout: 5000 });
+  await page.waitForFunction(quoteMarks, "marmot");
 });
