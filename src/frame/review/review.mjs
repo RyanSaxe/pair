@@ -362,7 +362,7 @@ export function renderSentFeedback() {
     if (loaded) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "No feedback was sent on this round.";
+      empty.textContent = "Nothing was sent on this round.";
       list.append(empty);
     }
     return;
@@ -430,11 +430,12 @@ export function review() {
         : unsentItems(currentDraft()).count,
   );
   const reviewLabel = $("review-row")?.querySelector("span");
-  if (reviewLabel) reviewLabel.textContent = listedSent ? "Feedback" : "Review";
+  if (reviewLabel)
+    reviewLabel.textContent = listedSent ? "What you sent" : "Review";
   $("feedback-title").textContent = sent
-    ? "Feedback"
+    ? "What you sent"
     : submissionInFlight
-      ? "Sending feedback"
+      ? "Sending"
       : "Review";
   $("feedback-review").hidden = locked;
   renderActivity();
@@ -467,7 +468,7 @@ export function review() {
   }
   // The header button always applies to Current. On a past round the frame
   // sends Current's draft, and after Current's round is sent the frame opens
-  // that round's Feedback.
+  // that round's What you sent.
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;

@@ -19,7 +19,7 @@ const choices = {
     {
       next: "iterate",
       label: "Keep iterating",
-      hint: "This session's agent takes your comments into the next pages.",
+      hint: "This session's agent takes what you send into the next pages.",
     },
     {
       next: "plan",
@@ -36,7 +36,7 @@ const choices = {
     {
       next: "plan",
       label: "Update the plan",
-      hint: "This session's agent revises the plan with your comments.",
+      hint: "This session's agent revises the plan with what you send.",
     },
     {
       next: "iterate",

@@ -105,7 +105,7 @@ export function threads(session) {
   // for the Work page.
   const ownTitles = {
     agreed: "Agreed so far",
-    overall: "Overall feedback",
+    overall: "Overall",
     work: "Work",
   };
   function pageTitle(round, topic) {

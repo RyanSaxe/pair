@@ -448,12 +448,12 @@ export function openNote({
   drawNoteImages();
   imageError("");
   $("note-title").textContent = id ? "Edit note" : "Add note";
-  $("note-save-label").textContent = id ? "Save changes" : "Add to feedback";
+  $("note-save-label").textContent = id ? "Save changes" : "Add to draft";
   $("note-thread").hidden = Boolean(id) || !online || !threads;
   $("note-save").hidden = !feedback;
   // openAgentMessage changes these parts of the dialog, so openNote resets
   // them on every open.
-  $("note-label").textContent = "Feedback";
+  $("note-label").textContent = "Note";
   $("note-anchor").hidden = false;
   $("note-thread").classList.remove("primary");
   opener = document.activeElement;

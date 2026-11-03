@@ -297,7 +297,7 @@ test(`a note's highlight is cleared while its page or the note dialog changes, a
   await page.keyboard.press("c");
   await page.locator("#note-quote", { hasText: quote }).waitFor();
   await page.locator("#note-text").fill("Keep the thirty second cooldown.");
-  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.getByRole("button", { name: "Add to draft" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await highlighted(page, [quote]);
 

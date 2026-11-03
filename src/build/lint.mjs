@@ -203,7 +203,7 @@ function controlProblems(all, at) {
   }
   return list;
 }
-/** A "#" link must point to a page of the round, Agreed, Feedback, or an
+/** A "#" link must point to a page of the round, Agreed, Review, or an
  * element on its own page. */
 export function linkProblems(html, at, targets) {
   const tags = startTags(html);
@@ -262,7 +262,7 @@ export function problems(
       // The tab strip shares its width between the option labels, so a long
       // label leaves no room for the rest. The limit applies only to the label
       // a tab shows. The option's own header shows its full wording, and the
-      // frame shows a group's label on Agreed and on Feedback, never in a
+      // frame shows a group's label on Agreed and on Review, never in a
       // strip.
       const label = attribute(tag, "data-label");
       if (

@@ -277,7 +277,7 @@ function drawHistoryLabel(label, old, past, parent) {
     if (past || shownSubmission()) {
       const meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = " · Feedback sent";
+      meta.textContent = " · Sent";
       label.append(meta);
     }
     return;

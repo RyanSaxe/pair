@@ -252,7 +252,7 @@ export const pageOrder = () => [
   ...pages.filter((item) => item.id === "agreed"),
   ...pages.filter((item) => item.id !== "agreed"),
   ...(hasFeedbackPage && !showingWaiting()
-    ? [{ id: "feedback", title: "Feedback" }]
+    ? [{ id: "feedback", title: "What you sent" }]
     : []),
 ];
 export function renderFooter(feedback) {
@@ -282,8 +282,8 @@ export function renderFooter(feedback) {
       ? ""
       : next.id === "feedback"
         ? submittedCurrent() || !editable
-          ? "Feedback →"
-          : "Review your feedback →"
+          ? "What you sent →"
+          : "Review your draft →"
         : `Next: ${next.title} →`,
   );
 }
@@ -389,7 +389,7 @@ export function updateNavigation(force = false) {
       review.dataset.page = "feedback";
       const label = document.createElement("span");
       label.textContent =
-        editable && listed.tab === "current" ? "Review" : "Feedback";
+        editable && listed.tab === "current" ? "Review" : "What you sent";
       const total = document.createElement("b");
       total.className = "count";
       total.hidden = true;

@@ -35,7 +35,7 @@ test("feedback waits without inventing page names", () => {
   assert.equal(waiting.title, "Waiting for the agent");
   assert.deepEqual(waiting.slots, []);
   assert.equal(waiting.track, "moving");
-  assert.equal(waiting.summary, "Feedback saved");
+  assert.equal(waiting.summary, "Saved for the agent");
   const unwoken = run({
     current: { round: "1" },
     latestSubmissionId: "s2",
@@ -44,7 +44,7 @@ test("feedback waits without inventing page names", () => {
   });
   assert.equal(unwoken.track, "still");
   const sending = run({ current: { round: "1" } }, { inFlight: true });
-  assert.equal(sending.title, "Sending feedback");
+  assert.equal(sending.title, "Sending");
   assert.equal(sending.track, "moving");
   const acknowledged = run({
     current: { round: "1" },
@@ -54,7 +54,7 @@ test("feedback waits without inventing page names", () => {
   assert.equal(acknowledged.title, "Preparing the next round");
   assert.deepEqual(acknowledged.slots, []);
   assert.equal(acknowledged.track, "moving");
-  assert.equal(acknowledged.summary, "Agent read your feedback");
+  assert.equal(acknowledged.summary, "Agent read what you sent");
 });
 
 test("published page names keep their order while readiness changes", () => {
@@ -128,7 +128,7 @@ test("a note without --page shows under the card's title before and after Agreed
   });
   assert.equal(received.title, "Preparing the next round");
   assert.equal(received.track, "moving");
-  assert.equal(received.summary, "Agent received your feedback");
+  assert.equal(received.summary, "Agent received what you sent");
   assert.equal(received.note, null);
   const noted = (noteAt, extra = {}) =>
     run({
@@ -362,11 +362,11 @@ test("the card names the agent that took the session over, and when", () => {
   });
   assert.equal(
     model.summary,
-    `Agent read your feedback · Codex took over at ${clock}`,
+    `Agent read what you sent · Codex took over at ${clock}`,
   );
   assert.equal(
     run({ current: { round: "1" }, ...read }).summary,
-    "Agent read your feedback",
+    "Agent read what you sent",
   );
 });
 

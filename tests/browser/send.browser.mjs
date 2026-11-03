@@ -27,7 +27,7 @@ async function sent(session) {
   return (await session.action("read")).body.event.payload;
 }
 
-test("Send feedback opens a popup that starts on Keep iterating and sends the choice and the message", async (t) => {
+test("Send opens a popup that starts on Keep iterating and sends the choice and the message", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(planData())).code, 200);
