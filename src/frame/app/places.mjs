@@ -155,7 +155,7 @@ export function keepPlaceOverReload(workTab) {
   history.replaceState(null, "", url);
 }
 // A reload on Work opens the tab the reader was on, and any other load opens the
-// first tab with a card in it.
+// tab that openingTab() picks.
 export function resumedWorkTab() {
   const tab = resumedTab;
   resumedTab = null;

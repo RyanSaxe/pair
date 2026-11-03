@@ -512,7 +512,9 @@ export async function poll() {
       );
     }
     void loadSubmission().catch(() => {});
-    placeThreads();
+    // On Work, refreshWork() places the threads, and it keeps the reader's place
+    // while it does.
+    if (shownPage() !== "work") placeThreads();
     if (
       state.pending?.event?.id === remote.latestSubmissionId &&
       remote.latestSubmissionRound === plan.round &&
