@@ -1,3 +1,4 @@
+import { installDrawer } from "#frame/app/drawer.mjs";
 import { installEdges } from "#frame/app/edges.mjs";
 import { installEvents } from "#frame/app/events.mjs";
 import { installPlaces, loadPlaces, placeIn } from "#frame/app/places.mjs";
@@ -70,6 +71,7 @@ function bootHome() {
   installSessions();
   installProgress();
   installEvents();
+  installDrawer();
   window.planUI = createPlanUI();
   document.title = plan.title;
   theme();
@@ -117,6 +119,7 @@ function bootRound() {
   installSend();
   installSendPopup();
   installEvents();
+  installDrawer();
   installControls();
   installBlocks();
   installRegistry();

@@ -113,7 +113,6 @@ test("removing a note's image takes effect only when the edit is saved, and the 
   const backOuts = [
     () => dialog(page).locator("[data-close]").click(),
     () => page.keyboard.press("Escape"),
-    () => page.mouse.click(4, 4),
   ];
   for (const backOut of backOuts) {
     await button(page, "Edit").click();

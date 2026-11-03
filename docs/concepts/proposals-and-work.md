@@ -110,7 +110,7 @@ an agent's attempt to revise, withdraw or join a card you wrote.
 
 ## Where the work runs
 
-When you press Start, a popup shows what the proposal delivers, the titles
+When you press Start, a drawer shows what the proposal delivers, the titles
 of any proposals joined into it, and the three places the work can run, with
 the agent's recommendation marked. It also has a box for a message to the
 agent.
@@ -219,7 +219,7 @@ hub accepts the join only when both of these are true:
 The hub also refuses to join a proposal into one that is declined,
 withdrawn, done or joined into another.
 
-B's card, and its Start popup, list the joined proposals under Joined into
+B's card, and its Start drawer, list the joined proposals under Joined into
 this proposal. pair moves each joined card to Done, and its status line shows
 Done and Joined with B's title, such as Done · Joined Retry a charge on a
 timeout. When the agent joins a card that other cards were joined into, the

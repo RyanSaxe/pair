@@ -1,3 +1,4 @@
+import { openDrawer } from "#frame/app/drawer.mjs";
 import { save, state } from "#frame/app/store.mjs";
 import { land } from "#frame/app/places.mjs";
 import { $, apple, controlKey, shiftEnter } from "#frame/app/util.mjs";
@@ -20,8 +21,9 @@ import {
   commentOnTarget,
 } from "#frame/notes/blocks.mjs";
 import { restoreChoices } from "#frame/notes/controls.mjs";
-import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
+import { settleNoteImages, yieldNote } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
+import { sendKeyLabel } from "#frame/notes/threads.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
 import { openSearch } from "#frame/search/modal.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
@@ -39,9 +41,9 @@ import {
   toggleSessions,
 } from "#frame/sync/sessions.mjs";
 
-/* The ×, Escape and a click outside each call backOut(). Backing out of the
-   note dialog keeps its text as a draft, and settleNoteImages() drops the
-   images uploaded from it. */
+/* The ×, Escape and a click outside a modal each call backOut(). Backing out
+   of the note dialog keeps its text as a draft, and settleNoteImages() drops
+   the images uploaded from it. */
 function backOut(dialog) {
   if (dialog.id === "note-dialog") settleNoteImages();
 }
@@ -60,9 +62,10 @@ function outside(dialog, event) {
   );
 }
 
-/* Focus can drop off a text field on the page while the reviewer types, and
-   the next keys are still their words, so the shortcuts wait for a pause in
-   the keys. A field in a dialog leaves with the dialog, once they finish. */
+/* Focus can drop off a text field on the page or in a drawer while the reviewer
+   types, and the next keys are still their words, so the shortcuts wait for a
+   pause in the keys. A field in a modal leaves with the modal, and a drawer that
+   closes has finished its words. */
 const TYPING_PAUSE_MS = 1500;
 let typedAt = -Infinity;
 
@@ -72,7 +75,7 @@ export function installEvents() {
     (event) => {
       if (
         event.target.matches(":read-write") &&
-        !event.target.closest("dialog")
+        !event.target.closest("dialog:modal")
       )
         typedAt = event.timeStamp;
     },
@@ -101,7 +104,12 @@ export function installEvents() {
     });
     // The browser closes the dialog on Escape once this event returns.
     dialog.addEventListener("cancel", () => backOut(dialog));
+    dialog.addEventListener("close", () => (typedAt = -Infinity));
   }
+  // The keys dialog names this system's keys, and the home view has no threads
+  // to set them.
+  for (const key of $("keys-dialog").querySelectorAll("[data-send-key]"))
+    key.textContent = sendKeyLabel();
   // A click inside an embedded frame never reaches this document, but it
   // moves focus, so the frame closes menus on blur as well as on outside
   // clicks.
@@ -210,8 +218,18 @@ export function installEvents() {
     if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
       return;
     if (embedded && event.key !== "Escape") return;
+    /* The browser closes a modal on Escape, and a drawer gets no cancel event,
+       so this handler closes the top thing that is left: a menu, then a drawer.
+       closeMenus() hides the menus, so the test for one comes first. */
     if (event.key === "Escape") {
+      if (document.querySelector("dialog:modal")) return;
+      const menu = document.querySelector(":popover-open");
       closeMenus();
+      const drawer = document.querySelector("dialog[data-drawer][open]");
+      if (!menu && drawer) {
+        backOut(drawer);
+        drawer.close();
+      }
       return;
     }
     /* A key typed into a text field or a select belongs to that control, so
@@ -219,14 +237,16 @@ export function installEvents() {
        keys, so the shortcuts still work while one has focus. The :read-write
        selector matches the text fields. */
     if (event.target.closest(":read-write, select")) return;
-    if (document.querySelector("dialog[open]")) return;
+    if (document.querySelector("dialog:modal")) return;
     if (event.timeStamp - typedAt < TYPING_PAUSE_MS) {
       typedAt = event.timeStamp;
       return;
     }
     const key = event.key;
-    if (key === "?") $("keys-dialog").showModal();
-    else if (key === "/" && online) openSearch();
+    if (key === "?") {
+      if ($("keys-dialog").open) $("keys-dialog").close();
+      else if (yieldNote()) openDrawer($("keys-dialog"), { home: "header" });
+    } else if (key === "/" && online) openSearch();
     else if (key === "n") toggleCenter(true);
     else if (key === "g") toggleSessions(undefined, true);
     else if (key === "w") {

@@ -7,6 +7,7 @@ import {
   noteEditable,
   page,
 } from "#frame/app/view.mjs";
+import { threadNoteHasWords } from "#frame/notes/note-dialog.mjs";
 import {
   noteDraftKey,
   openNote,
@@ -221,6 +222,7 @@ function target() {
 }
 function usable(on) {
   if (!editable || (!$("reading").hidden && page.pending)) return false;
+  if (threadNoteHasWords()) return false;
   return on === "block" ? opens(chosen) : noteEditable();
 }
 const names = {
@@ -245,8 +247,8 @@ export function commentTarget() {
   }
   const button = $("comment-here");
   const on = target();
-  /* CSS hides the control while a dialog is open, so no code that opens a
-     dialog has to hide it. */
+  /* CSS hides the control while a modal or the phone's note sheet is open, so
+     no code that opens one has to hide it. */
   button.hidden = !usable(on);
   const grows = on === "selection" || on === "block";
   button.dataset.on = button.hidden ? "none" : grows ? on : "page";
@@ -400,5 +402,6 @@ export function installBlocks() {
   $("note-text").oninput = () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
     persist();
+    commentTarget();
   };
 }

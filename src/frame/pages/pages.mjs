@@ -208,7 +208,7 @@ export function show(
    control, so a component updates what it derives from the draft, such as an
    answered question. Drawing the page again covers a page's own scripts, but
    it replaces every field, video and thread card on the page, so redrawPage
-   waits while the reviewer uses one of them or has a dialog open. The frame
+   waits while the reviewer uses one of them or has a modal open. The frame
    calls redrawPage again after each status poll. */
 let redrawHeld = false;
 export function showChanges(pages = null) {
@@ -233,7 +233,7 @@ const started = (media) =>
 export const fieldHasFocus = () =>
   Boolean(document.activeElement?.matches(fields));
 export const inUse = () =>
-  Boolean(document.querySelector("dialog[open], #reading :active")) ||
+  Boolean(document.querySelector("dialog:modal, #reading :active")) ||
   (document.hasFocus() && fieldHasFocus()) ||
   [...document.querySelectorAll("video, audio")].some(started);
 export function redrawPage() {

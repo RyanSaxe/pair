@@ -206,3 +206,50 @@ test(`the frame's keys open sessions, pages and dialogs, and send answers, notes
   await page.getByText("Thanks, I will keep it.").waitFor();
   assert.equal(session.inbox.wakes.length, 2);
 });
+
+test("the page's keys act behind the open Keys list, which stays open, and no row of its first view wraps at 330px", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal(
+    (await session.publish({ ...planData("1", "keys"), pages: [controls] }))
+      .code,
+    200,
+  );
+  const page = await open(t, `${h.server.origin}${session.base}/`, {
+    viewport: { width: 1280, height: 800 },
+  });
+  if (!page) return;
+  await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
+  const keysOpen = () =>
+    page.locator("#keys-dialog").evaluate((dialog) => dialog.open);
+
+  await page.keyboard.press("?");
+  await page.locator("#keys-dialog[open]").waitFor();
+  const rows = await page.locator("#keys-dialog").evaluate((dialog) =>
+    [...dialog.querySelectorAll(".key-list")]
+      .filter((list) => !list.closest("details"))
+      .flatMap((list) => [...list.querySelectorAll("dt")])
+      .map((key) => {
+        const text = key.nextElementSibling;
+        const line = parseFloat(getComputedStyle(text).lineHeight);
+        return {
+          text: text.textContent,
+          wraps: text.getBoundingClientRect().height > line * 1.5,
+          overflows: key.scrollWidth > key.clientWidth,
+        };
+      }),
+  );
+  assert.equal(rows.length, 11);
+  for (const row of rows)
+    assert.deepEqual(row, { ...row, wraps: false, overflows: false });
+
+  await page.keyboard.press("]");
+  await page.getByRole("heading", { name: "Page with controls" }).waitFor();
+  await page.keyboard.press("j");
+  await page.locator("#chosen-bar").waitFor();
+  await page.keyboard.press("r");
+  await page.locator("#review-view").waitFor();
+  assert.equal(await keysOpen(), true);
+  await page.keyboard.press("?");
+  await page.locator("#keys-dialog").waitFor({ state: "hidden" });
+});

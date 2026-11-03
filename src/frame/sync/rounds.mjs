@@ -32,7 +32,7 @@ import {
   embedded,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
-import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
+import { indexPage, rebuildKnown } from "#frame/notes/known.mjs";
 import { onCurrentAgreed, placeThreads } from "#frame/notes/threads.mjs";
 import {
   displayedRound,

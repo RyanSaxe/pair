@@ -54,6 +54,7 @@ const stylesheets = [
   "pages/work.css",
   "pages/diagram.css",
   "app/dialogs.css",
+  "app/drawer.css",
   "app/modes.css",
   "search/search.css",
   "search/notifications.css",

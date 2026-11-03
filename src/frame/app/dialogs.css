@@ -148,8 +148,8 @@ dialog::backdrop {
 .dialog .dialog-head h2 {
   margin: 0;
 }
-/* The ×, Escape and a click outside back out of a dialog, so no button row
-   has a Cancel button. */
+/* The × and Escape back out of a dialog, and so does a click outside a modal,
+   so no button row has a Cancel button. */
 .dialog .actions {
   display: flex;
   justify-content: space-between;
@@ -194,10 +194,14 @@ dialog::backdrop {
   color: var(--muted);
   font-size: var(--text-small);
 }
+.keys .dialog-head {
+  margin-bottom: 0;
+}
 .key-list {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px 16px;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: baseline;
   margin: 0;
 }
 .key-list dt {
@@ -207,14 +211,31 @@ dialog::backdrop {
   margin: 0;
   color: var(--muted);
 }
+.key-more {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.key-more > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+.key-more[open] > summary {
+  margin-bottom: 8px;
+}
 .note-actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-top: 10px;
 }
+.note-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
 .note-actions .btn.primary {
-  margin-left: auto;
+  margin-left: 0;
 }
 /* The text scrolls only inside the text area, so the line being typed never
    runs under the image button. fitNoteText() sets the text area's height to

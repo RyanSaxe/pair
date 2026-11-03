@@ -422,6 +422,13 @@ test("keys belong to the search field until the reader writes in the frame", asy
     "search-input",
   );
   await shown(page).locator("#comment-here").click();
+  // A note in the preview opens as a modal, not in a drawer.
+  assert.equal(
+    await shown(page)
+      .locator("#note-dialog")
+      .evaluate((dialog) => dialog.matches(":modal")),
+    true,
+  );
   await shown(page).locator("#note-text").pressSequentially("hello");
   assert.equal(await page.inputValue(".search-input"), "sentence");
   await page.keyboard.press("Escape");

@@ -94,6 +94,12 @@
   /* The ink is fixed, so a word on a primary button stays readable. */
   color: var(--ink);
 }
+/* A modal dims the page, so its marks can wait. WebKit also paints them on the
+   modal's first words instead of the page's. */
+:root:has(dialog:modal) ::highlight(plan-note) {
+  background-color: transparent;
+  color: inherit;
+}
 mark.note-mark {
   background: var(--mark);
   color: inherit;
@@ -340,9 +346,9 @@ mark.note-mark {
 .context-link {
   font-size: var(--text-small);
 }
-/* An open dialog covers the page, so this rule hides the page's comment
-   control. */
-body:has(dialog[open]) .comment-here {
+/* A modal covers the page, so this rule hides the page's comment control. A
+   drawer leaves the page in use, so the control stays. */
+body:has(dialog:modal) .comment-here {
   display: none;
 }
 @media (max-width: 720px) {
