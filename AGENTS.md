@@ -95,6 +95,14 @@ through `imports` in `package.json`. Only `src/frame/app/boot.mjs` touches
 `document` when it loads, because a test imports every other frame module in
 Node.
 
+On a computer, the frame opens a panel or form, such as the note, Send or
+Start, beside the button the reviewer pressed or beside the words or block it
+is about, with no backdrop. On a phone or a tablet the frame opens it as a
+centred modal. Open a new one with `openDrawer()` in
+`src/frame/app/drawer.mjs`, which places every drawer by one rule, so the new
+one needs no placement code of its own. The frame opens Search, Notifications,
+the full-size diagram, the sketch and Close session as modals.
+
 `src/build/assemble.mjs` lists the frame's stylesheets in cascade order, so a
 new stylesheet goes into that list.
 
