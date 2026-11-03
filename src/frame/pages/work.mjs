@@ -26,10 +26,16 @@ import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 /* The hub stores four fields on each card: started, declined, withdrawn and
    done. cardTab() derives a card's tab from them. A card that the agent joined
    into another is done, and its done.joined field contains the other card's
-   ID. */
+   ID. Work started in a sub-session or with a new agent has its own session's
+   rounds, so its card goes to Done as it starts. The card stays there as the
+   link to that session and the words that started it. */
 
 export const workTabs = [
-  { id: "running", label: "Running", empty: "No work is running." },
+  {
+    id: "running",
+    label: "Running",
+    empty: "No work is running in this session.",
+  },
   { id: "proposed", label: "Proposed", empty: "No proposed work." },
   { id: "done", label: "Done", empty: "No work is done yet." },
 ];
@@ -44,7 +50,8 @@ const finished = (card) =>
   Boolean(card.declined || card.withdrawn || card.done);
 export function cardTab(card) {
   if (finished(card)) return "done";
-  return card.started ? "running" : "proposed";
+  if (!card.started) return "proposed";
+  return card.started.where === "here" ? "running" : "done";
 }
 export function workGroups(cards) {
   const groups = Object.fromEntries(workTabs.map(({ id }) => [id, []]));
@@ -80,6 +87,7 @@ const element = (tag, className, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
+const ownSession = "In its own session";
 export function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.withdrawn) return ["Withdrawn", "muted"];
@@ -98,7 +106,7 @@ export function cardState(card, shown) {
     return card.started.where === "new-agent"
       ? ["Planning with a new agent", "accent"]
       : ["Planning in a sub-session", "accent"];
-  return ["Working", "accent"];
+  return [ownSession, "accent"];
 }
 export function metaLine(state, tone, rest) {
   const line = element("div", "card-meta");
@@ -116,7 +124,7 @@ export function metaLine(state, tone, rest) {
 }
 // Running work started here has no line, because its state says where it
 // runs.
-function cardWhere(card) {
+function cardWhere(card, state) {
   if (card.started?.where === "here" && !card.done) return null;
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
@@ -129,9 +137,10 @@ function cardWhere(card) {
     box.title = `Done ${card.done.where}`;
   } else if (card.started && card.started.where !== "here") {
     if (card.done) box.append(sessionLink("Done in its own session", linked));
-    else if (linked)
-      box.append("In its own session · ", sessionLink("Open", linked));
-    else box.textContent = "Waiting for its session to start";
+    else if (linked) {
+      if (state !== ownSession) box.append(`${ownSession} · `);
+      box.append(sessionLink("Open", linked));
+    } else box.textContent = "Waiting for its session to start";
   } else {
     const { page, thread, reviewer } = card.source;
     if (page) box.append(pageLink(fromPage(page), page.round, page.id));
@@ -230,7 +239,7 @@ export function cardElement(
   if (fresh) head.append(element("span", "page-new", "New"));
   const [state, tone] = cardState(card, shown);
   const body = element("div", "proposal-body");
-  body.append(head, metaLine(state, tone, cardWhere(card)));
+  body.append(head, metaLine(state, tone, cardWhere(card, state)));
   // A finished card that stays on screen keeps its status box, and so its height.
   if (card.started && (!finished(card) || stays)) body.append(statusBox(card));
   body.append(element("p", "proposal-delivers", card.delivers));
@@ -272,7 +281,7 @@ export function cardElement(
    the card on a page does not count. The frame keeps the label on a card
    on screen until Work opens again, so the label does not vanish while the
    reviewer reads the card. */
-const labelled = (card) => cardsEditable() && !finished(card);
+const labelled = (card) => cardsEditable() && cardTab(card) !== "done";
 const unseen = (card, seen) =>
   labelled(card) &&
   Boolean(seen) &&

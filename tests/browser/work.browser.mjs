@@ -678,57 +678,6 @@ test("a card reads New until Work shows it", async (t) => {
   assert.equal(await label("#work-cards").count(), 0);
 });
 
-test("a card whose sub-session has a round waiting stays in Running and reads Waiting for you, and the sidebar counts only the proposal", async (t) => {
-  const h = await hub(t);
-  const parent = await h.session({ start: true });
-  assert.equal((await parent.publish(planData())).code, 200);
-  const added = await parent.action("propose", {
-    ...card("deck", "Build the deck"),
-    recommend: "sub-session",
-  });
-  assert.equal(added.code, 200, added.body.error);
-  const proposed = await parent.action(
-    "propose",
-    card("export", "Refresh the export"),
-  );
-  assert.equal(proposed.code, 200, proposed.body.error);
-  const started = await parent.request(
-    `${parent.base}/api/proposals/deck/start`,
-    { where: "sub-session" },
-  );
-  assert.equal(started.code, 200, started.body.error);
-  const child = await h.session({
-    start: true,
-    from: parent.directory,
-    proposal: "deck",
-  });
-  assert.equal((await child.publish(planData())).code, 200);
-  const page = await open(t, `${h.server.origin}${parent.base}/#work`);
-  if (!page) return;
-  await page.locator('#work-tab-proposed[aria-selected="true"]').waitFor();
-  assert.deepEqual(await workRow(page), {
-    label: "Work, 1 proposed",
-    number: "1",
-  });
-  const edges = await page.locator("#work-row").evaluate((row) => ({
-    rowEnd:
-      row.getBoundingClientRect().right -
-      parseFloat(getComputedStyle(row).paddingRight),
-    number: row.querySelector(".count").getBoundingClientRect().right,
-  }));
-  assert.equal(Math.round(edges.number), Math.round(edges.rowEnd));
-  await page.locator("#work-tab-running").click();
-  await page
-    .locator("[data-proposal-card=deck] .card-state", {
-      hasText: "Waiting for you",
-    })
-    .waitFor({ timeout: 5000 });
-  assert.equal(
-    await page.locator("#work-tab-running .work-count").textContent(),
-    "1",
-  );
-});
-
 test("a card's reply box keeps focus and every key while the cards change, and Work draws the changes after the reviewer leaves the box", async (t) => {
   const { session, page, tab } = await work(t);
   if (!page) return;
