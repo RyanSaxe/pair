@@ -124,3 +124,7 @@
 .search[data-source="Notifications"] .search-menu-item[data-empty="true"] {
   opacity: 0.55;
 }
+/* The window itself has the focus until a key or a tap moves it. */
+.search[data-source="Notifications"]:focus {
+  outline: 0;
+}

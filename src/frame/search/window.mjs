@@ -136,9 +136,14 @@ export function createWindow() {
     )
       dialog.classList.add("is-sheet");
     if (innerWidth > PHONE || dialog.classList.contains("is-sheet")) {
-      const asked = JSON.stringify([source.rowKey(row), state.query]);
+      const shown = row && source.preview(row);
+      const asked = JSON.stringify([
+        source.rowKey(row),
+        state.query,
+        shown?.item,
+      ]);
       if (source.selectFirst || asked !== shownAs)
-        preview.show(row && source.preview(row), state.query);
+        preview.show(shown, state.query);
       shownAs = asked;
     }
     state.row = source.rowKey(row);
@@ -297,12 +302,16 @@ export function createWindow() {
     opening = select;
     shownAs = null;
     if (!dialog.open) {
-      // With no focus on the field, a phone's keyboard stays down. A dialog with
-      // autofocus takes the focus itself on showModal.
-      dialog.toggleAttribute("autofocus", !next.focusField);
-      if (next.focusField) dialog.removeAttribute("tabindex");
-      else dialog.tabIndex = -1;
+      // showModal focuses the first control it finds. With the field inert for
+      // that moment, a phone's keyboard stays down.
+      input.inert = !next.focusField;
       dialog.showModal();
+      input.inert = false;
+      if (next.focusField) dialog.removeAttribute("tabindex");
+      else {
+        dialog.tabIndex = -1;
+        dialog.focus({ preventScroll: true });
+      }
       phoneFit.opened();
     }
     input.value = state.query;

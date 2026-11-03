@@ -182,8 +182,11 @@ export function whereText(row) {
 
 // Where the page in the right pane goes for a row. It has the fields of a search
 // result, because the frame goes to both the same way, and matchOf needs the empty
-// arrays.
+// arrays. With words typed, it goes to the search result itself, so the page marks
+// them. A thread on the overall comment shows on the Feedback page.
+const placeOf = (page) => (page === "overall" ? "feedback" : page);
 export function previewRow(row) {
+  if (row.hit) return { ...row.hit, page: placeOf(row.hit.page) };
   const base = {
     session: row.session,
     sessionTitle: row.sessionTitle,
@@ -199,7 +202,7 @@ export function previewRow(row) {
       kind: "threads",
       item: `${row.thread}/${row.message}`,
       round: row.round,
-      page: row.page,
+      page: placeOf(row.page),
     };
   if (row.kind === "proposal")
     return { ...base, kind: "proposals", item: row.proposal, page: "work" };

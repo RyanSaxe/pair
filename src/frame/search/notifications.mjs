@@ -48,8 +48,17 @@ let answered = false;
 let kept = new Map();
 // hits maps a row's key to the search result that found it.
 let hits = new Map();
-let failed = false;
+let searching = false;
+let searchFailed = false;
+let linesFailed = false;
 let stay = 0;
+// A failed poll lists no sessions, and the page in the pane can still be in use, so
+// the window keeps showing the last sessions it had.
+let sessions = [];
+const liveSessions = () => {
+  if (listedSessions().length) sessions = listedSessions();
+  return sessions;
+};
 // replied maps a thread to the message the reader just sent from the pane, until
 // the hub's lines have it.
 const replied = new Map();
@@ -84,7 +93,7 @@ function linesWithReplies() {
 }
 function liveRows() {
   const rows = notificationRows(
-    listedSessions(),
+    liveSessions(),
     linesWithReplies(),
     loadCleared(),
     session.sessionId,
@@ -98,6 +107,8 @@ const liveRow = (key) => liveRows().find((row) => row.key === key);
 function matches(row) {
   const words = terms();
   if (!words.length || hits.has(row.key)) return true;
+  // The hub may still find the selected row, so it stays selected until it answers.
+  if (searching && row.key === state.row) return true;
   const text = [row.words, row.sessionTitle, row.pageTitle ?? ""]
     .join(" ")
     .toLowerCase();
@@ -160,9 +171,10 @@ async function readLines(signal) {
     const reply = await fetch("/api/notifications", { signal });
     if (!reply.ok) throw Error("The hub refused the notifications.");
     threadLines = (await reply.json()).sessions;
+    linesFailed = false;
   } catch (error) {
     if (error.name === "AbortError") throw error;
-    failed = true;
+    linesFailed = true;
   }
   answered = true;
 }
@@ -199,7 +211,7 @@ let landing = false;
 function openRow(row) {
   landing = true;
   markRead(row);
-  const shown = row.hit ?? previewRow(row);
+  const shown = previewRow(row);
   const page = pageOf(shown);
   const target = targetOf(shown);
   const match = matchOf(shown, state.query);
@@ -231,6 +243,7 @@ const emptyPane = () => {
     <p><kbd>↑</kbd> <kbd>↓</kbd> move, <kbd>↵</kbd> opens the page.</p>
   </div>`;
 };
+const failed = () => searchFailed || linesFailed;
 function blank() {
   const typed = state.query.trim();
   const words = typed
@@ -242,7 +255,7 @@ function blank() {
     typed
       ? `<button class="btn" type="button" data-search-all>Search all of pair for “${escapeHtml(typed)}”</button>`
       : ""
-  }${failed ? `<span>${FAILED}</span>` : ""}</div>`;
+  }${failed() ? `<span>${FAILED}</span>` : ""}</div>`;
 }
 
 let source = null;
@@ -257,7 +270,7 @@ function notificationsSource(win) {
         ["", "All sessions"],
         [HERE, "This session"],
         null,
-        ...listedSessions()
+        ...liveSessions()
           .filter(({ id, closed }) => !closed && id !== session.sessionId)
           .map(({ id, title }) => [id, title]),
       ],
@@ -268,7 +281,7 @@ function notificationsSource(win) {
       sessions: ([only]) =>
         only === HERE
           ? "This session"
-          : (listedSessions().find(({ id }) => id === only)?.title ??
+          : (liveSessions().find(({ id }) => id === only)?.title ??
             "1 session"),
       kinds: ([only]) => KINDS.find(([id]) => id === only)?.[1],
       states: ([only]) => GROUPS.find(([id]) => id === only)?.[1],
@@ -289,27 +302,29 @@ function notificationsSource(win) {
     // join when it answers.
     async load(signal, early) {
       hits = new Map();
-      failed = false;
+      searchFailed = false;
+      searching = Boolean(state.query.trim());
       early(snapshot());
       if (!answered) {
         await readLines(signal);
         early(snapshot());
       }
-      if (state.query.trim())
+      if (searching)
         try {
           hits = await readHits(signal);
         } catch (error) {
           if (error.name === "AbortError") throw error;
-          failed = true;
+          searchFailed = true;
         }
+      searching = false;
       return snapshot();
     },
     rowKey: (row) => row?.key,
     rowHtml,
     blank,
-    end: () => (failed ? `<div class="search-end">${FAILED}</div>` : ""),
+    end: () => (failed() ? `<div class="search-end">${FAILED}</div>` : ""),
     count: () => (unreadCount() ? `${unreadCount()} unread` : ""),
-    preview: (row) => row.hit ?? previewRow(row),
+    preview: previewRow,
     open: openRow,
     onShow(row, how) {
       clearTimeout(stay);
@@ -393,7 +408,9 @@ export function openNotifications(key = null) {
   answered = false;
   kept = new Map();
   hits = new Map();
-  failed = false;
+  searching = false;
+  searchFailed = false;
+  linesFailed = false;
   replied.clear();
   win.open(source, { select: key });
 }
