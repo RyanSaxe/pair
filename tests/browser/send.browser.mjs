@@ -374,6 +374,38 @@ test("the sent list names the place of a note on the whole round once", async (t
   assert.equal(await card.locator("small").textContent(), "Overall");
 });
 
+// Until the next round is out, the frame shows a waiting view that lists none of
+// the sent round's pages, and it loads the submission during that view.
+test("the sent list names a page by its title before the next round is out", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const notes = [
+    {
+      id: "note-1",
+      round: "1",
+      topic: "overview",
+      anchor: "The result",
+      text: "Keep one.",
+    },
+  ];
+  const event = session.event("feedback-only", "1", { groups: { notes } });
+  assert.equal((await session.feedback(event)).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/`);
+  if (!page) return;
+  const card = page.locator("#sent-feedback-list .sent-card", {
+    hasText: "Keep one.",
+  });
+  await card.waitFor({ state: "attached" });
+  await page.locator("#past-tab:not([disabled])").click();
+  await page.locator("#review-row").click();
+  await card.waitFor();
+  assert.equal(
+    await card.locator("small").textContent(),
+    "Overview · The result",
+  );
+});
+
 // With Plan it first, the agent plans in the card's own session before it
 // builds, so the frame disables Plan it first when Here is selected. The card
 // shows Planning until the reviewer chooses Build it in that session.

@@ -355,7 +355,9 @@ export function renderSentFeedback() {
   // A past round's submission may still be loading, so renderSentFeedback
   // says that no feedback was sent only after the submission has loaded.
   const loaded = mode === "readonly" || sentByRound.has(plan.round);
-  const key = `${plan.round}:${sent?.id || (loaded ? "none" : "")}`;
+  // sentCard names each place from the view's pages, and the waiting view has
+  // the sent round's number but none of its pages, so the key names the view.
+  const key = `${viewKey()}:${sent?.id || (loaded ? "none" : "")}`;
   if (renderedSentKey === key) return;
   renderedSentKey = key;
   const list = $("sent-feedback-list");
