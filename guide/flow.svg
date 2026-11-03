@@ -32,14 +32,14 @@
 <path class="flow-line" d="M206.66666666666666 216 H232.66666666666666"/>
 <rect class="flow-box" x="236.66666666666666" y="184" width="166.66666666666666" height="64" rx="8"/><text class="flow-label" x="320.0" y="212.0">You review</text><text class="flow-sub" x="320.0" y="232.0">comment, choose, ask</text>
 <path class="flow-line" d="M403.3333333333333 216 H429.3333333333333"/>
-<rect class="flow-box" x="433.3333333333333" y="184" width="166.66666666666666" height="64" rx="8"/><text class="flow-label" x="516.6666666666666" y="222.0">Send feedback</text>
+<rect class="flow-box" x="433.3333333333333" y="184" width="166.66666666666666" height="64" rx="8"/><text class="flow-label" x="516.6666666666666" y="222.0">Send</text>
 <path class="flow-line" d="M516.6666666666666 248 V270 H123.33333333333333 V252"/>
 <path class="flow-link" d="M620 209 H656"/>
 <text class="flow-sub" x="638" y="200">Start</text>
 <rect class="flow-group" x="660" y="134" width="230" height="150" rx="12"/>
 <text class="flow-label" x="775" y="160">A sub-session</text>
 <rect class="flow-box" x="678" y="184" width="88" height="50" rx="8"/><text class="flow-label" x="722.0" y="215.0">Pages</text>
-<rect class="flow-box" x="792" y="184" width="88" height="50" rx="8"/><text class="flow-label" x="836.0" y="215.0">Feedback</text>
+<rect class="flow-box" x="792" y="184" width="88" height="50" rx="8"/><text class="flow-label" x="836.0" y="215.0">Send</text>
 <path class="flow-line" d="M766 202 H788"/>
 <path class="flow-line" d="M792 218 H770"/>
 <text class="flow-sub" x="775" y="262">the same loop, beside it</text>

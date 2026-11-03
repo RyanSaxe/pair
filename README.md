@@ -14,7 +14,7 @@ approve each piece of work before the agent edits your project for it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/illustration-dark.png">
-  <img alt="The agent's terminal beside pair in a browser, with arrows between them: pages go to the browser, feedback comes back to the agent, and a thread goes both ways. The terminal shows the pair commands the agent ran and the feedback it read. The browser shows a page that asks where to retry a charge, and a thread on a selected line of code with the agent's answer." src="assets/illustration-light.png">
+  <img alt="The agent's terminal beside pair in a browser, with arrows between them: pages go to the browser, what you send comes back to the agent, and a thread goes both ways. The terminal shows the pair commands the agent ran and what it read. The browser shows a page that asks where to retry a charge, and a thread on a selected line of code with the agent's answer." src="assets/illustration-light.png">
 </picture>
 
 ## Get started
@@ -41,13 +41,13 @@ explains what happens next.
 
 ## How it works
 
-<img alt="Working in pair: Explain, Decide, Plan and Build, in any order, each over the loop of every round, in which the agent publishes pages, you review them, and you send feedback. Start leads from that loop to a sub-session beside it, with the same loop of pages and feedback." src="guide/flow.svg">
+<img alt="Working in pair: Explain, Decide, Plan and Build, in any order, each over the loop of every round, in which the agent publishes pages, you review them, and you send your draft. Start leads from that loop to a sub-session beside it, with the same loop of pages and drafts." src="guide/flow.svg">
 
 A session is one task you work on with your agent. In a session, the agent
 explains code, lays out decisions, plans the work and builds it, in whatever
 order the task needs. You and the agent work in rounds. In each round, the
-agent publishes a few pages, you read them and send feedback, and the agent
-starts the next round from your feedback.
+agent publishes a few pages, you read them and send your notes and choices,
+and the agent starts the next round from what you sent.
 
 On each page, you can select any word or line and comment on it, or choose
 between the options the agent lays out. When you want an answer before the
@@ -76,7 +76,7 @@ sessions, and closed ones when you ask.
 
 Your agent runs `pair` commands in its own shell. A small server on your
 machine, the hub, serves the pages to your browser and wakes the agent when
-you send feedback. [Architecture](docs/concepts/architecture.md) shows what
+you send a round. [Architecture](docs/concepts/architecture.md) shows what
 runs where, and [Concepts](docs/concepts/) explains each part.
 
 ## Documentation

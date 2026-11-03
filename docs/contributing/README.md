@@ -18,7 +18,7 @@ pair start --title "Try pair"
 a session under `~/.local/state/pair/sessions/`, and prints the session's
 directory and URL. Run it from an agent's shell. In a plain terminal,
 `pair start` refuses, because it finds no agent CLI for the hub to wake when
-you send feedback.
+you send a round.
 [Commands](../reference/commands.md#environment-variables) lists the
 environment variables, including `PAIR_HUB_PORT`, and
 [Architecture](../concepts/architecture.md#storage) describes what pair
