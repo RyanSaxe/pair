@@ -355,7 +355,7 @@ dialog::backdrop {
   text-overflow: ellipsis;
 }
 /* The bell's list: a glyph, the row's words and its time on one line, and the
-   session's title under them for a row from another session. */
+   row's second line under them. */
 #center-pop {
   padding: 6px 8px 0;
 }

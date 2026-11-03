@@ -223,8 +223,10 @@ the session.
 The bell, or <kbd>n</kbd>, lists what needs you now, from every live session: a
 round waiting for you, a new reply in a thread, and a proposal waiting for
 **Start**. The orange number on the bell, also shown in the browser tab's title,
-is the number of rows. A thread with two new replies is one row. The list shows
-the newest 5 rows, and its link then says how many more there are.
+is the number of rows. A thread with two new replies is one row. Under a reply,
+the row quotes the question that began its thread, with the number of new
+replies and, for a row from another session, that session's name. The list
+shows the newest 5 rows, and its link then says how many more there are.
 
 Click a row to go to its place: pair shows a reply in its thread on its page, a
 proposal's card on Work, and a waiting round's Agreed. For a row from another
