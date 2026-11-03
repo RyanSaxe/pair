@@ -459,6 +459,9 @@ export function refreshWork(force = false) {
     failure,
     cardsEditable(),
     remote?.current?.round,
+    // The first session list brings the seen cards, so Work draws its New
+    // labels then.
+    Boolean(seen),
   ]);
   // A redraw takes the thread cards out of the list, so the reply box the
   // reviewer is typing in would lose focus and the next keys would reach the
