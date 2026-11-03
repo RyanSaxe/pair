@@ -253,10 +253,14 @@ live sessions, in three groups, each newest first.
 The bell's number and the count in the window are both the number of **Unread**
 rows.
 
-You read a row by clicking it, by staying on it for 1.5 seconds with the arrow
-keys, or by keeping its reply or card on screen for 1.5 seconds in the tab you
-are using. Opening the window reads nothing. A row you just read loses its dot
-and stays in place until you reopen the window or change a menu.
+The window opens with its first row's page on the right, and while you type, the
+top result's page shows there. You read a row by clicking it, or by keeping its
+page on the right for 3 seconds after the page has loaded, in the tab you are
+using. That counts for the row the window shows first and for a row you move to
+with the arrow keys, so moving down the list or typing a search reads nothing on
+the way. Keeping a reply or card on screen on its page for 1.5 seconds in the
+tab you are using reads it too. A row you just read loses its dot and stays in
+place until you reopen the window or change a menu.
 
 A round or proposal you have read still says it is waiting until you send
 feedback or decide it. pair counts a session as open while its tab's window has
