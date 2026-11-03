@@ -22,6 +22,11 @@
   position: relative;
   container: page / inline-size;
 }
+/* An image set to fill the page stops at 1200px, so a screenshot is not blown
+   up on a wide page. */
+#page-content img {
+  max-width: min(100%, 1200px);
+}
 /* whenDrawn() in pages.mjs sets data-drawing to keep a page hidden, with its
    layout in place, until its diagrams and formulas have drawn. */
 #page-content[data-drawing] {

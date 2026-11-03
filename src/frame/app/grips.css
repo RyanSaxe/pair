@@ -1,0 +1,156 @@
+/* A grip is a 13px strip centered on the 1px line it moves, which makes the
+   page's two grips exact mirrors. Its tab sits flush against the line, outside
+   what the grip resizes. The side grip's strip starts above .app-body, which
+   clips that part, so that its 50% is the window's middle, as the page's are.
+
+   The strip's part over a pane reaches only as far as the tab, so a press on the
+   pane's scrollbar scrolls. clip-path limits where a press lands as well as what
+   the grip paints. The band is 1px wider on each side than a pointed tab, so a
+   middle that falls between two pixels cannot cut the tab. */
+.grip {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 13px;
+  z-index: var(--z-grip);
+  cursor: ew-resize;
+  touch-action: none;
+  --grip-color: var(--line-strong);
+  --grip-height: 24px;
+  --band-top: calc(50% - 17px);
+  --band-bottom: calc(50% + 17px);
+}
+@media (min-width: 1161px) {
+  .grip {
+    display: block;
+  }
+}
+:root:is([data-embed], [data-mode="preview"]) .grip,
+:root[data-sidebar="closed"] .grip.side {
+  display: none;
+}
+.grip.left {
+  left: -7px;
+  clip-path: polygon(
+    0 0,
+    7px 0,
+    7px var(--band-top),
+    100% var(--band-top),
+    100% var(--band-bottom),
+    7px var(--band-bottom),
+    7px 100%,
+    0 100%
+  );
+}
+.grip.right,
+.grip.side {
+  clip-path: polygon(
+    6px 0,
+    100% 0,
+    100% 100%,
+    6px 100%,
+    6px var(--band-bottom),
+    0 var(--band-bottom),
+    0 var(--band-top),
+    6px var(--band-top)
+  );
+}
+.grip.right {
+  right: -7px;
+}
+.grip.side {
+  left: calc(var(--sidebar-width) - 7px);
+  top: calc(-1 * var(--header-height));
+}
+.grip::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - var(--grip-height) / 2);
+  width: 3px;
+  height: var(--grip-height);
+  background: var(--grip-color);
+  transition:
+    height 0.12s ease,
+    top 0.12s ease,
+    background-color 0.12s ease;
+}
+.grip.left::after {
+  left: 3px;
+  border-radius: 3px 0 0 3px;
+}
+.grip.right::after,
+.grip.side::after {
+  left: 7px;
+  border-radius: 0 3px 3px 0;
+}
+.grip:hover {
+  --grip-color: var(--muted);
+  --grip-height: 32px;
+}
+.grip.active {
+  --grip-color: var(--accent);
+  --grip-height: 32px;
+}
+.grip.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 6px;
+  width: 1px;
+  background: var(--accent);
+}
+.grip.side.active::before {
+  top: var(--header-height);
+}
+/* A page within 5px of the window's width has no room outside its lines for a
+   tab, so each strip moves inside the line, with the line at its outer end, and
+   its tab flips. */
+:root[data-page-full] .grip.left {
+  left: -1px;
+  clip-path: inset(var(--band-top) 0);
+}
+:root[data-page-full] .grip.right {
+  right: -1px;
+  clip-path: inset(var(--band-top) 0);
+}
+:root[data-page-full] .grip.left::after {
+  left: 1px;
+  border-radius: 0 3px 3px 0;
+}
+:root[data-page-full] .grip.right::after {
+  left: 9px;
+  border-radius: 3px 0 0 3px;
+}
+:root[data-page-full] .grip.left.active::before {
+  left: 0;
+}
+:root[data-page-full] .grip.right.active::before {
+  left: 12px;
+}
+/* The line turns blue along its whole height during a drag. */
+:root[data-edge-drag] .grip.active {
+  clip-path: none;
+}
+:root[data-edge-drag] {
+  cursor: ew-resize;
+}
+:root[data-edge-drag] * {
+  user-select: none;
+}
+/* Chrome sends a pointer over a sandboxed iframe to the iframe, past the grip's
+   capture, and the drag then stops and never sees its release. */
+:root[data-edge-drag] iframe {
+  pointer-events: none;
+}
+/* Without this, the column's margin waits out the sidebar's slide on every
+   move of a drag. */
+:root[data-edge-drag="side"] .main-column {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .grip::after {
+    transition: none;
+  }
+}

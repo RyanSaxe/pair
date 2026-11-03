@@ -16,11 +16,15 @@ const missing = {
 // Google Chrome adds keys to the keychain and reads all of them, so thousands
 // of test runs leave secd too busy for any Chrome's certificate check. Chrome
 // for Testing has no entitlement to those keys.
-export async function launch({ args, engine = "chrome" } = {}) {
+export async function launch({
+  args,
+  ignoreDefaultArgs,
+  engine = "chrome",
+} = {}) {
   try {
     return engine === "webkit"
       ? await webkit.launch()
-      : await chromium.launch({ channel: "chromium", args });
+      : await chromium.launch({ channel: "chromium", args, ignoreDefaultArgs });
   } catch (error) {
     const message = error.message || String(error);
     if (
@@ -44,7 +48,7 @@ const tooOld = "Playwright's WebKit does not run on macOS 14 or earlier";
 export async function open(
   t,
   url,
-  { html, args, engine = "chrome", ...pageOptions } = {},
+  { html, args, ignoreDefaultArgs, engine = "chrome", ...pageOptions } = {},
 ) {
   if (engine === "webkit" && oldMac && !process.env.CI) {
     t.skip(tooOld);
@@ -52,7 +56,7 @@ export async function open(
   }
   let browser;
   try {
-    browser = await launch({ args, engine });
+    browser = await launch({ args, ignoreDefaultArgs, engine });
   } catch (error) {
     if (process.env.CI || error.message !== missing[engine]) throw error;
     t.skip(missing[engine]);

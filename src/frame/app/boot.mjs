@@ -1,3 +1,4 @@
+import { installEdges } from "#frame/app/edges.mjs";
 import { installEvents } from "#frame/app/events.mjs";
 import { installPlaces, loadPlaces, placeIn } from "#frame/app/places.mjs";
 import { createPlanUI, installRegistry } from "#frame/app/registry.mjs";
@@ -64,6 +65,7 @@ else bootRound();
 function bootHome() {
   useView({ plan: planData, agreements: [], task: null, pages: [] });
   installSidebar();
+  installEdges();
   installRenderers();
   installSessions();
   installProgress();
@@ -101,6 +103,7 @@ function bootRound() {
   // installNotes() adds to #page-content must run before the one that
   // installBlocks() adds to choose a block.
   installSidebar();
+  installEdges();
   installRenderers();
   installNotes();
   installSessions();

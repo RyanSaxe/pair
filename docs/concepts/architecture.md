@@ -42,7 +42,8 @@ session to your browser and wakes the agent when you respond.
   which proposal cards you saw on Work, and sends those records with the
   session list. A phone on the `PAIR_HUB_HOST` address and a computer then
   show the same bell, sessions badge and **New** marks, within one poll of
-  each other. Layout preferences, such as the sidebar, stay in each browser.
+  each other. Layout preferences, such as the sidebar and the page's width, stay
+  in each browser.
 - The hub keeps each session's completed draft items and numbers each change it
   receives. Every pair tab sends what you complete and reads the hub's copy when
   a status poll shows a newer revision. When two devices change the same item,

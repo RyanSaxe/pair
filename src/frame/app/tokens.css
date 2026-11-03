@@ -5,6 +5,7 @@
   --z-comment: 5;
   --z-header: 6;
   --z-sidebar: 8;
+  --z-grip: 9;
   --z-sidebar-over-page: 41;
   --ground: light-dark(#f6f6f8, #121417);
   --panel: light-dark(#ffffff, #1a1d22);
