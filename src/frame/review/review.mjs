@@ -305,7 +305,9 @@ export function sentCard(entry) {
     entry.topic ||
     "Overall";
   const label = document.createElement("small");
-  label.textContent = entry.heading ?? `${where} · ${entry.label}`;
+  label.textContent =
+    entry.heading ??
+    (entry.label === where ? where : `${where} · ${entry.label}`);
   const body = document.createElement("p");
   body.textContent = entry.text;
   card.append(label);

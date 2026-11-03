@@ -354,6 +354,26 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
   );
 });
 
+test("the sent list names the place of a note on the whole round once", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#feedback`);
+  if (!page) return;
+  await page.locator("#comment-here").click();
+  await page.locator("#note-text").fill("Ship it.");
+  await page.locator("#note-save").click();
+  await page.locator("#overall-group", { hasText: "Ship it." }).waitFor();
+  await openPopup(page);
+  await page.locator("#send-button").click();
+  await sent(session);
+  await page.goto(`${h.server.origin}${session.base}/r/1#feedback`);
+  const card = page.locator("#sent-feedback-list .sent-card", {
+    hasText: "Ship it.",
+  });
+  assert.equal(await card.locator("small").textContent(), "Overall");
+});
+
 // With Plan it first, the agent plans in the card's own session before it
 // builds, so the frame disables Plan it first when Here is selected. The card
 // shows Planning until the reviewer chooses Build it in that session.
