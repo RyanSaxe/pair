@@ -36,7 +36,7 @@ Work opens on Proposed when a proposal is waiting for you to start it, and
 otherwise on the first tab that has a card in it. When you click a bell line or
 a system notification about a card, Work opens on that card's tab instead, with
 the card or the agent's reply in view. The Work row in the sidebar shows one
-orange number, the number of cards in Proposed.
+number, the number of cards in Proposed.
 
 While you read a tab, the cards on screen keep their place when other cards
 change. A card on screen that changes tab, such as one you start or decline,

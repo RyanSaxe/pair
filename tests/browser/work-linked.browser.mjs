@@ -60,6 +60,16 @@ test("a card whose work runs in its own session is in Done from the start, and i
     number: row.querySelector(".count").getBoundingClientRect().right,
   }));
   assert.equal(Math.round(edges.number), Math.round(edges.rowEnd));
+  // The number is plain muted text, like the counts on Work's tabs.
+  const looks = (selector) =>
+    page.locator(selector).evaluate((node) => {
+      const style = getComputedStyle(node);
+      return [style.color, style.backgroundColor, style.fontWeight];
+    });
+  assert.deepEqual(
+    await looks("#work-row .count"),
+    await looks("#work-tab-proposed .work-count"),
+  );
 
   await tab("done").click();
   await reads("Opening a sub-session·Waiting for its session to start");
