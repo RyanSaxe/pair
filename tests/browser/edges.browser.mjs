@@ -87,6 +87,40 @@ for (const [browser, engine] of Object.entries(engines)) {
     assert.equal((await tab(page, "left")).right, back.left);
   });
 
+  test(`in ${browser}, a page within 5px of the window's width flips its tabs, so each stays on screen and flush on its line`, async (t) => {
+    const s = await setup(t, engine);
+    if (!s) return;
+    const { page } = s;
+    for (const width of [1161, 1163, 1165]) {
+      await page.setViewportSize({ width, height: 900 });
+      await fullIs(page, true);
+      const app = await box(page, "#app");
+      assert.deepEqual(
+        await tab(page, "left"),
+        { left: app.left + 1, right: app.left + 4 },
+        `the left tab in a ${width}px window`,
+      );
+      assert.deepEqual(
+        await tab(page, "right"),
+        { left: app.right - 4, right: app.right - 1 },
+        `the right tab in a ${width}px window`,
+      );
+    }
+    await page.setViewportSize({ width: 1166, height: 900 });
+    await fullIs(page, false);
+    const app = await box(page, "#app");
+    assert.deepEqual(await tab(page, "left"), {
+      left: app.left - 3,
+      right: app.left,
+    });
+    assert.ok(app.left - 3 >= 0, "the left tab fits in the window");
+    assert.deepEqual(await tab(page, "right"), {
+      left: app.right,
+      right: app.right + 3,
+    });
+    assert.ok(app.right + 3 <= 1166, "the right tab fits in the window");
+  });
+
   test(`in ${browser}, a release saves the width, a reload restores it, a smaller window shrinks the page and a larger one returns it, and a double-click resets it`, async (t) => {
     const s = await setup(t, engine);
     if (!s) return;

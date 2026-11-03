@@ -104,8 +104,9 @@
 .grip.side.active::before {
   top: var(--header-height);
 }
-/* A page as wide as the window has no room outside its lines, so each strip
-   moves inside the window, with the line at its outer end, and its tab flips. */
+/* A page within 5px of the window's width has no room outside its lines for a
+   tab, so each strip moves inside the line, with the line at its outer end, and
+   its tab flips. */
 :root[data-page-full] .grip.left {
   left: -1px;
   clip-path: inset(var(--band-top) 0);
