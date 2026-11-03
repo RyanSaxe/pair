@@ -443,7 +443,13 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--text-small);
 }
-.search-open {
+.search-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.search-open,
+.search-mark {
   padding-block: 4px;
 }
 .search-blank {
