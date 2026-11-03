@@ -49,7 +49,7 @@ async function setup(t, pageOptions) {
   await page.addInitScript(slowComponent);
   await page.goto(`${h.server.origin}${session.base}/#overview`);
   await page.locator("#bell").waitFor();
-  return { h, page };
+  return { h, session, page };
 }
 const pageLink = (page, id) => page.locator(`#page-list [data-page="${id}"]`);
 const complete = (page, id) =>
@@ -229,6 +229,61 @@ test("a phone's sidebar keeps the previous page's picture, when it closes for a 
   await toggle.tap();
   assert.equal(await picture(s.page), true);
 });
+
+// The picture fills the reading box, which starts below the round strip when the
+// strip shows and below the header when it doesn't.
+const pictureFitsColumn = (page) =>
+  page.evaluate(() => {
+    const picture = [...document.body.children]
+      .find((element) => element.inert && element.style.position === "fixed")
+      .getBoundingClientRect();
+    const header = document.querySelector(".frame-header");
+    const strip = document.getElementById("history-strip");
+    const above = strip.hidden ? header : strip;
+    return {
+      top: picture.top - above.getBoundingClientRect().bottom,
+      bottom: picture.bottom - innerHeight,
+    };
+  });
+const fits = { top: 0, bottom: 0 };
+for (const [where, options] of Object.entries({
+  "a wide window": { viewport: { width: 1200, height: 800 } },
+  "a phone": {
+    viewport: { width: 375, height: 760 },
+    isMobile: true,
+    hasTouch: true,
+  },
+}))
+  test(`on ${where}, a slow move between rounds changes the round strip when the page arrives, with the picture below the strip until it has faded`, async (t) => {
+    const s = await setup(t, options);
+    if (!s) return;
+    const { session } = s;
+    assert.equal((await session.feedback(session.event())).code, 200);
+    assert.equal((await session.action("read")).code, 200);
+    assert.equal(
+      (await session.publish({ ...round("example"), round: "2" })).code,
+      200,
+    );
+    await s.page.reload();
+    await s.page.locator("#bell").waitFor();
+    const strip = s.page.locator("#history-strip");
+    const go = async (tab, id) => {
+      await s.page.locator(tab).dispatchEvent("click");
+      await pageLink(s.page, id).dispatchEvent("click");
+      await s.page.waitForFunction(holdsPicture);
+    };
+    await go("#past-tab", "later");
+    assert.equal(await strip.isVisible(), false);
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+    await strip.waitFor({ state: "visible" });
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+    await s.page.waitForFunction(`!(${holdsPicture})()`);
+    await go("#current-tab", "slow");
+    assert.equal(await strip.isVisible(), true);
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+    await strip.waitFor({ state: "hidden" });
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+  });
 
 test("a second click during a move keeps one bar and never shows the page clicked past", async (t) => {
   const s = await setup(t);
