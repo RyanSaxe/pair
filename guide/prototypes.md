@@ -20,8 +20,9 @@ cannot send real feedback. Scripts, forms and popup links work inside it.
 The iframe has no background, so give the document one, and match the
 reviewer's light or dark theme with a `prefers-color-scheme` rule.
 
-The iframe is about 820px wide. A mock of one component fits at its natural
-width. A layout designed wider than that collapses unless you scale it. Put
+The iframe is about 820px wide by default, and its width changes, so read its
+width instead of assuming 820px. A mock of one component fits at its natural
+width. A layout designed wider than 820px collapses unless you scale it. Put
 it on a stage at its design width, such as 1120px for three columns, with
 `transform: scale(min(1, innerWidth / 1120))`, and add a control that
 switches to 100%.
