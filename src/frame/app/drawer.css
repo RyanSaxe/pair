@@ -43,7 +43,8 @@
     --slide: 0s;
   }
 }
-/* A swap between drawers shows no motion. */
+/* A swap between drawers shows no motion, and drawer.mjs holds a modal still
+   when it opens or jumps above the keyboard. */
 .dialog[data-drawer].drawer-swap {
   transition: none !important;
 }
@@ -81,8 +82,17 @@
   box-shadow: 0 1px 0 var(--line);
 }
 /* On a phone or a tablet these open as modals, centered in the part of the
-   window the keyboard leaves. */
+   window the keyboard leaves, and glide when that part changes. */
 :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer]:modal {
   inset: var(--vv-top, 0px) 0 var(--keyboard-inset, 0px) 0;
   max-height: calc(var(--vv-height, 100dvh) - 2 * var(--dialog-margin));
+  transition:
+    top 0.25s ease,
+    bottom 0.25s ease,
+    max-height 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog[data-drawer]:modal {
+    transition: none;
+  }
 }

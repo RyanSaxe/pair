@@ -89,9 +89,11 @@ export function openNewItem(then) {
     row.querySelector(".start-recommended").hidden = true;
   }
   resetDialog("here");
-  openDrawer($("start-dialog"), { home: $("work-new") });
+  openDrawer($("start-dialog"), {
+    home: $("work-new"),
+    field: $("start-write-title"),
+  });
   fitItem();
-  $("start-write-title").focus();
 }
 function resetDialog(choice) {
   $("start-plan-first").checked = false;

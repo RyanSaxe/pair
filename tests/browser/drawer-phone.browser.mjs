@@ -71,6 +71,21 @@ const stubKeyboard = (page) =>
       visualViewport.dispatchEvent(new Event("resize"));
     };
   });
+// A modal glides to its place above a keyboard once the keyboard has stopped
+// changing, so a test waits until the box has stopped and is centered above it.
+const rest = (page, id) =>
+  page.waitForFunction((id) => {
+    const dialog = document.getElementById(id);
+    const box = dialog.getBoundingClientRect();
+    return (
+      !dialog.getAnimations().length &&
+      Math.abs(box.top - (visualViewport.height - box.bottom)) <= 1
+    );
+  }, id);
+const box = (page, selector) =>
+  page
+    .locator(selector)
+    .evaluate((element) => element.getBoundingClientRect().toJSON());
 // The modal's box, as gaps from the top of the window and from the top of the
 // keyboard, and whether its main button shows.
 const placed = (page, id, button) =>
@@ -116,6 +131,7 @@ for (const engine of ["chrome", "webkit"]) {
       await page.locator("#note-text").fill("A long note line.\n".repeat(30));
       const keyboard = Math.round(height * 0.45);
       await page.evaluate((top) => window.setKeyboard(top), height - keyboard);
+      await rest(page, "note-dialog");
       const note = await placed(page, "note-dialog", "note-save");
       assert.deepEqual(
         note,
@@ -136,6 +152,65 @@ for (const engine of ["chrome", "webkit"]) {
       await page.locator("[data-proposal-card=one] .proposal-start").click();
       await page.locator("#start-dialog[open]").waitFor();
       assert.deepEqual(await openDialogs(page), ["start-dialog modal"], size);
+      await page.context().browser().close();
+    }
+  });
+}
+
+// iOS pans the whole page, dimmed page and modal together, to reach a text box
+// that the rising keyboard would cover, and then the modal moves again to fit
+// above the keyboard. So a modal whose text box takes focus is placed above the
+// keyboard before it rises, at the height of the last keyboard in a window this
+// wide. Send's message box takes focus after Send is open, and its modal goes
+// above the keyboard as it does.
+for (const engine of ["chrome", "webkit"]) {
+  test(`in ${engine} on a phone and a tablet, a text box in a modal takes focus above the keyboard, so the keyboard moves nothing`, async (t) => {
+    const { url } = await session(t);
+    for (const [width, height] of [
+      [375, 667],
+      [1024, 768],
+    ]) {
+      const page = await openPage(t, url, {
+        engine,
+        viewport: { width, height },
+        hasTouch: true,
+        isMobile: engine === "chrome" && width < 720,
+      });
+      if (!page) return;
+      await stubKeyboard(page);
+      const size = `${width}x${height}`;
+      const top = height - Math.round(height * 0.45);
+      const raise = () => page.evaluate((top) => window.setKeyboard(top), top);
+      const drop = () => page.evaluate(() => window.setKeyboard(null));
+      const openNote = async () => {
+        await select(page, quote);
+        await page.locator("#comment-here").click();
+        await page.locator("#note-dialog[open]").waitFor();
+      };
+
+      // The first note shows the frame how tall this window's keyboard is.
+      await openNote();
+      await raise();
+      await rest(page, "note-dialog");
+      await page.keyboard.press("Escape");
+      await drop();
+      await page.locator("#note-dialog").waitFor({ state: "hidden" });
+
+      await openNote();
+      const opened = await box(page, "#note-dialog");
+      assert.ok((await box(page, "#note-text")).bottom <= top, size);
+      await raise();
+      await rest(page, "note-dialog");
+      assert.deepEqual(await box(page, "#note-dialog"), opened, size);
+      await page.keyboard.press("Escape");
+      await drop();
+
+      await page.locator("#submit").click();
+      await page.locator("#send-dialog[open]").waitFor();
+      await page.locator("#send-message").click();
+      const message = await box(page, "#send-message");
+      const dialog = await box(page, "#send-dialog");
+      assert.ok(message.top >= dialog.top && message.bottom <= top, size);
       await page.context().browser().close();
     }
   });
