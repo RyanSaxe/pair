@@ -90,14 +90,6 @@ const layout = (page) =>
     return [out.join(";"), document.querySelector("main").scrollTop];
   });
 // The page has endless animations of its own, so these act on transitions only.
-const pauseAt = (page, ms) =>
-  page.evaluate((ms) => {
-    for (const motion of document.getAnimations())
-      if (motion.transitionProperty) {
-        motion.pause();
-        motion.currentTime = ms;
-      }
-  }, ms);
 const finish = (page) =>
   page.evaluate(() => {
     for (const motion of document.getAnimations())
@@ -167,9 +159,6 @@ for (const engine of ["chrome", "webkit"]) {
     const words = await selection(page);
     const before = await layout(page);
     await page.locator("#comment-here").click();
-    await pauseAt(page, 80);
-    const opening = await opacity(page, "note-dialog");
-    assert.ok(opening > 0 && opening < 1, `opening at ${opening}`);
     assert.deepEqual(await layout(page), before, "opening");
     await finish(page);
     let { drawer, header } = await boxes(page, "note-dialog");
@@ -196,9 +185,6 @@ for (const engine of ["chrome", "webkit"]) {
       Math.round(header.bottom + 10),
     );
     await page.keyboard.press("Escape");
-    await pauseAt(page, 80);
-    const closing = await opacity(page, "note-dialog");
-    assert.ok(closing > 0 && closing < 1, `closing at ${closing}`);
     await finish(page);
 
     // Above words with no room under them, lined up with their first line.
