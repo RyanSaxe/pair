@@ -375,7 +375,6 @@ export async function loadSession(
     acknowledge: session.acknowledge,
     notificationView: session.notificationView,
     withWords: session.withWords,
-    markUnread: session.markUnread,
     act: session.act,
     draftView: session.draftView,
     changeDraft: session.changeDraft,

@@ -53,21 +53,6 @@ test("two new replies in a thread make one row with both IDs, its newest words a
   assert.deepEqual(row.events, ["second", "first"]);
 });
 
-test("an event marked unread counts its row, and a copy of the same reply is not a second reply", () => {
-  const sessions = [
-    session(THIS, "Here", [
-      reply("original", "t", 1, 1),
-      reply("copy", "t", 1, 1, { again: true }),
-    ]),
-  ];
-  const cleared = new Set(["original"]);
-  const rows = rowsFor(sessions, {}, cleared);
-  assert.equal(rowOf(rows, "thread:t").state, "unread");
-  assert.deepEqual(rowOf(rows, "thread:t").events, ["copy"]);
-  const both = rowsFor(sessions);
-  assert.equal(rowOf(both, "thread:t").count, 1);
-});
-
 test("a session start is listed and never unread", () => {
   const start = {
     id: "s",

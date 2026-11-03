@@ -69,17 +69,8 @@ export function acknowledgeReply(threadId, message, acknowledged) {
 export const settleCleared = (listed, cleared) =>
   new Set([...cleared].filter((id) => listed.includes(id)));
 
-// addEvent lists an event the hub just made, so the bell shows it before the next
-// session list from the hub.
-export function addEvent(sessionId, event) {
-  const entry = latest.find(({ id }) => id === sessionId);
-  if (!entry) return;
-  entry.events = [...(entry.events || []), event];
-  renderCenter(latest, false);
-}
 // The bell lists what needs the reviewer now, so it leaves out every session's
-// start, and a tab already shows its own session's waiting round. An event the
-// reviewer marked unread stays until they read it again, whatever its state.
+// start, and a tab already shows its own session's waiting round.
 const shownKinds = ["session", "waiting"];
 export function bellLines(sessions, cleared, thisId) {
   return sessions
@@ -89,9 +80,8 @@ export function bellLines(sessions, cleared, thisId) {
         .filter(
           (event) =>
             event.kind !== "session" &&
-            (event.again ||
-              (announced(entry, event) &&
-                !(entry.id === thisId && event.kind === "waiting"))),
+            announced(entry, event) &&
+            !(entry.id === thisId && event.kind === "waiting"),
         )
         .map((event) => ({ ...event, entry })),
     )
@@ -144,9 +134,7 @@ export function renderCenter(sessions, fromHub, hub) {
     const own = sessions.find((entry) => entry.id === session.sessionId);
     const shown =
       own && document.hasFocus()
-        ? (own.events || []).filter(
-            (event) => shownKinds.includes(event.kind) && !event.again,
-          )
+        ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
         : [];
     // When neither this browser nor the hub has a list, the last argument
     // counts every listed event as cleared, so the first run after the

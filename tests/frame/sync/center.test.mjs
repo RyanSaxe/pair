@@ -41,34 +41,6 @@ test("the bell lists every session's waiting rounds and replies, newest first, w
   assert.deepEqual(lines(sent), ["r2", "r1"]);
 });
 
-test("an event marked unread is listed whatever its state, until it is cleared", () => {
-  const sessions = [
-    {
-      id: "here",
-      round: "2",
-      needsYou: false,
-      events: [
-        // This tab's own round, already sent.
-        {
-          ...event("own", "waiting", "2026-09-28T10:00:00Z"),
-          round: "1",
-          again: true,
-        },
-        // A reply with a thumbs up.
-        {
-          ...event("thumbed", "reply", "2026-09-28T09:00:00Z"),
-          acknowledged: true,
-          again: true,
-        },
-      ],
-    },
-  ];
-  const lines = (cleared) =>
-    bellLines(sessions, cleared, "here").map(({ id }) => id);
-  assert.deepEqual(lines(new Set()), ["own", "thumbed"]);
-  assert.deepEqual(lines(new Set(["own"])), ["thumbed"]);
-});
-
 test("the bell forgets removed IDs the hub dropped", () => {
   assert.deepEqual([...settleCleared(["r2"], new Set(["r1", "r2"]))], ["r2"]);
 });

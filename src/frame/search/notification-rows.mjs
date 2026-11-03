@@ -155,9 +155,7 @@ export function notificationRows(sessions, threadLines, cleared, thisId) {
     for (const event of newest) {
       if (!KEY_OF[event.kind]) continue;
       const key = KEY_OF[event.kind](entry, event);
-      const row = rows.get(key);
-      if (!row) rows.set(key, eventRow(entry, event, "read", thisId));
-      else if (row.state !== "unread") row.events.push(event.id);
+      if (!rows.has(key)) rows.set(key, eventRow(entry, event, "read", thisId));
     }
     for (const card of listed.proposals) {
       const row = rows.get(`proposal:${entry.id}:${card.id}`);
@@ -257,10 +255,8 @@ export function rowHtml(row, index, { selected, query = "" }) {
   const ranges = rangesIn(row.words, [...words, ...hitWords(row.hit)]);
   const action =
     row.state === "unread"
-      ? `<button class="icon-btn nt-act" type="button" data-act="clear" aria-label="Clear" title="Clear">✕</button>`
-      : row.state === "read" && row.kind !== "session"
-        ? `<button class="icon-btn nt-act" type="button" data-act="unread" aria-label="Mark unread" title="Mark unread"><i class="nt-dot"></i></button>`
-        : "";
+      ? `<button class="icon-btn nt-act" type="button" aria-label="Clear" title="Clear">✕</button>`
+      : "";
   const head = row.head
     ? `<div class="search-group"><span>${row.head}</span>${row.clearAll ? '<button class="link-btn nt-clear-all" type="button" data-clear-all>Clear all</button>' : ""}</div>`
     : "";

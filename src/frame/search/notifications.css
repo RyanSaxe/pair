@@ -102,16 +102,6 @@
     visibility: hidden;
   }
 }
-.nt-dot {
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-}
-.nt-act:hover .nt-dot {
-  background: var(--attention);
-}
 .nt-empty {
   color: var(--muted);
   font-size: var(--text-meta);

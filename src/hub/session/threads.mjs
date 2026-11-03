@@ -4,7 +4,6 @@ import path from "node:path";
 import { problems } from "../../build/lint.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
-import { replyEvent } from "./notifications.mjs";
 
 export async function readThreads(directory) {
   const folder = path.join(directory, "threads");
@@ -408,7 +407,16 @@ export function threads(session) {
     });
     thread.state = "replied";
     await saveThread(thread);
-    await session.addActivity(replyEvent(thread, thread.messages.length - 1));
+    await session.addActivity({
+      kind: "reply",
+      name: thread.page,
+      ...(thread.proposal
+        ? { page: "work", proposal: thread.proposal }
+        : { round: thread.round, page: thread.topic }),
+      ...(thread.target ? { target: thread.target } : {}),
+      thread: thread.id,
+      message: thread.messages.length - 1,
+    });
     await session.transition(session.report());
     return {
       status: session.view(),

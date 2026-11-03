@@ -1,4 +1,4 @@
-import { $, apple } from "#frame/app/util.mjs";
+import { $ } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
 import { createMenus } from "#frame/search/menus.mjs";
 import { openSearch, sharedWindow } from "#frame/search/modal.mjs";
@@ -12,7 +12,6 @@ import {
 } from "#frame/search/notification-rows.mjs";
 import { matchOf, pageOf, targetOf } from "#frame/search/open.mjs";
 import {
-  addEvent,
   clear,
   listedSessions,
   loadCleared,
@@ -194,24 +193,6 @@ function markRead(row) {
   clearTimeout(stay);
   clear(row.events);
 }
-async function markUnread(row) {
-  clearTimeout(stay);
-  const body = row.events.length
-    ? { event: row.events[0] }
-    : { thread: row.thread, message: row.message };
-  const reply = await fetch(`/s/${row.session}/api/unread`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (reply.ok) addEvent(row.session, (await reply.json()).event);
-}
-const canMark = (row) => row.state !== "waiting" && row.kind !== "session";
-function switchMark(row) {
-  if (!row || !canMark(row)) return;
-  if (row.state === "unread") markRead(row);
-  else void markUnread(row);
-}
 // The close event comes after Open has started landing on the page, which takes
 // the focus, so the window hands it back to the bell only when nothing was opened.
 let landing = false;
@@ -238,7 +219,6 @@ function openRow(row) {
 
 const emptyPane = () => {
   const glyph = GLYPHS.threads;
-  const alt = apple() ? "Option" : "Alt";
   const mark = (state, words) =>
     `<li class="is-${state}"><span class="nt-glyph">${glyph}<i class="nt-mark"></i></span>${words}</li>`;
   return `<div class="nt-empty">
@@ -248,7 +228,7 @@ const emptyPane = () => {
       ${mark("waiting", "Waiting on the agent.")}
       ${mark("read", "Read, or cleared.")}
     </ul>
-    <p><kbd>↑</kbd> <kbd>↓</kbd> move, <kbd>↵</kbd> opens the page, <kbd>${alt}</kbd> <kbd>U</kbd> marks unread.</p>
+    <p><kbd>↑</kbd> <kbd>↓</kbd> move, <kbd>↵</kbd> opens the page.</p>
   </div>`;
 };
 function blank() {
@@ -331,12 +311,6 @@ function notificationsSource(win) {
     count: () => (unreadCount() ? `${unreadCount()} unread` : ""),
     preview: (row) => row.hit ?? previewRow(row),
     open: openRow,
-    markLabel: (row) =>
-      canMark(row)
-        ? row.state === "unread"
-          ? "Mark read"
-          : "Mark unread"
-        : "",
     onShow(row, how) {
       clearTimeout(stay);
       if (row.state !== "unread") return;
@@ -356,18 +330,12 @@ function notificationsSource(win) {
         openSearch(state.query.trim());
         return true;
       }
-      if (target.closest(".search-mark")) {
-        switchMark(win.selected());
-        return true;
-      }
-      const action = target.closest("[data-act]");
-      if (!action) return false;
-      const row = win.rowAt(Number(action.closest(".nt-row").dataset.i));
-      if (action.dataset.act === "clear") markRead(row);
-      else void markUnread(row);
+      const clearOne = target.closest(".nt-act");
+      if (!clearOne) return false;
+      markRead(win.rowAt(Number(clearOne.closest(".nt-row").dataset.i)));
       return true;
     },
-    keys: { KeyU: () => switchMark(win.selected()) },
+    keys: {},
     commandK: () => openSearch(state.query.trim()),
     onFilter() {
       kept = new Map();

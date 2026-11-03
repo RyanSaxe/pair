@@ -20,10 +20,7 @@ export function createDialog() {
       <div class="search-preview-head" hidden>
         <div class="search-session"></div>
         <div class="search-place"></div>
-        <div class="search-actions">
-          <button class="btn search-mark" type="button" hidden></button>
-          <button class="btn search-open" type="button">Open <kbd>↵</kbd></button>
-        </div>
+        <button class="btn search-open" type="button">Open <kbd>↵</kbd></button>
       </div>
       <div class="search-preview-main"><div class="search-words"></div></div>
     </aside>`;

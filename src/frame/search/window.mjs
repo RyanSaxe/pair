@@ -19,7 +19,7 @@ import { createDialog, showPreview } from "#frame/search/window-dialog.mjs";
      empty                                 the right pane's words with no row selected
      preview(row)                          the row that the page in the pane goes to
      open(row, query)                      what Open does
-     markLabel(row), act(target), onShow(row, how)
+     act(target), onShow(row, how)
      keys                                  what Alt with a key code does
      commandK()                            what ⌘K does, instead of closing
      remember(), onClose(), widen(filter), onFilter(), returnFocus() */
@@ -120,10 +120,6 @@ export function createWindow() {
     )
       .map((crumb) => `<span>${escapeHtml(crumb)}</span>`)
       .join("");
-    const mark = part(".search-mark");
-    const label = source.markLabel?.(row);
-    mark.hidden = !label;
-    if (label) mark.textContent = label;
   }
 
   function drawPreview() {
@@ -469,9 +465,7 @@ export function createWindow() {
     refresh,
     reload: run,
     close: () => dialog.close(),
-    isOpen: () => dialog.open,
     showing: () => (dialog.open ? source : null),
-    selected: selectedRow,
     rowAt: (index) => current.results[index],
     part,
   };

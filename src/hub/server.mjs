@@ -589,13 +589,6 @@ export async function startHub(config = settings()) {
             await session.exclusive(() => session.startThread(data)),
           );
         }
-        if (method === "POST" && rest[0] === "api" && rest[1] === "unread") {
-          const data = await readBody(req, 10_000);
-          return reply(
-            200,
-            await session.exclusive(() => session.markUnread(data)),
-          );
-        }
         const threadActions = {
           messages: [201, session.addThreadMessage],
           acknowledge: [200, session.acknowledge],
