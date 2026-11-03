@@ -356,15 +356,18 @@ function glided(event) {
     revealField("smooth");
 }
 
-/* Where a form scrolls with its buttons fixed below it, a line separates the
-   two while some of the form is below what shows. */
+/* Where a form scrolls between its title and its buttons, a line separates the
+   form from the title while some of it is above what shows, and from the
+   buttons while some of it is below. */
 function watchScroll(body) {
   const dialog = body.closest("dialog");
-  const mark = () =>
+  const mark = () => {
+    dialog.toggleAttribute("data-more-above", body.scrollTop > 1);
     dialog.toggleAttribute(
       "data-more-below",
       body.scrollHeight - body.clientHeight - body.scrollTop > 1,
     );
+  };
   body.addEventListener("scroll", mark, { passive: true });
   const watch = new ResizeObserver(mark);
   watch.observe(body);

@@ -77,9 +77,18 @@
     overflow-x: auto;
   }
 }
-/* drawer.mjs sets data-more-below while part of a form is below what shows. */
+/* drawer.mjs sets data-more-above and data-more-below while part of a form is
+   above or below what shows. */
+.dialog[data-more-above] .dialog-body {
+  box-shadow: 0 -1px 0 var(--line);
+}
 .dialog[data-more-below] .dialog-body {
   box-shadow: 0 1px 0 var(--line);
+}
+.dialog[data-more-above][data-more-below] .dialog-body {
+  box-shadow:
+    0 -1px 0 var(--line),
+    0 1px 0 var(--line);
 }
 /* On a phone or a tablet these open as modals, centered in the part of the
    window the keyboard leaves, and glide when that part changes. */

@@ -349,14 +349,17 @@ test("a long note, a long quote, three images, a long Send list and New work ite
     [6, 10],
   );
   assert.equal(await inView("start-dialog", "start-copy"), true);
-  // A line sits above the buttons while part of the form is below what shows.
+  // A line sits under the title while part of the form is above what shows,
+  // and above the buttons while part of it is below.
   const scrollForm = (to) =>
     drawer
       .locator(".dialog-body")
       .evaluate((body, to) => (body.scrollTop = to * body.scrollHeight), to);
   await scrollForm(0);
   await page.locator("#start-dialog[data-more-below]").waitFor();
+  assert.equal(await page.locator("#start-dialog[data-more-above]").count(), 0);
   await scrollForm(1);
+  await page.locator("#start-dialog[data-more-above]").waitFor();
   await page
     .locator("#start-dialog[data-more-below]")
     .waitFor({ state: "detached" });
