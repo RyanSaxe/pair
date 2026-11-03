@@ -3,6 +3,32 @@
 html {
   overflow: hidden;
 }
+/* The script in shell.html's head and edges.mjs set --page-width and
+   --sidebar-saved inline on the root to the widths the reviewer dragged to. The
+   page's left edge rounds down to a whole pixel, because in an odd-width window
+   the two page grips otherwise render differently. */
+:root {
+  --page-width: 1160px;
+  --page-left: round(
+    down,
+    max(0px, calc((100vw - var(--page-width)) / 2)),
+    1px
+  );
+  --sidebar-saved: 224px;
+  --sidebar-width: var(--sidebar-saved);
+}
+/* In a window this narrow a wide sidebar would leave the page too little room,
+   so the saved width waits until the window grows again. */
+@media (max-width: 1160px) {
+  :root {
+    --sidebar-width: 224px;
+  }
+}
+@media (max-width: 720px) {
+  :root {
+    --sidebar-width: min(272px, calc(100vw - 48px));
+  }
+}
 /* 100dvh is the visible height, so a short page does not scroll by the
    height of a browser toolbar. */
 /* The header has a fixed height so that the sidebar at 720px and below can
@@ -13,10 +39,13 @@ html {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  max-width: 1160px;
+  max-width: var(--page-width);
   margin: 0 auto;
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
+}
+:root:not([data-embed], [data-mode="preview"]) .app {
+  margin-left: var(--page-left);
 }
 .frame-header {
   flex: none;
@@ -43,7 +72,6 @@ html {
    frame's left border, so on a window wider than the frame the sidebar
    never covers the background beside the frame. */
 .app-body {
-  --sidebar-width: 224px;
   --slide: 0.2s;
   position: relative;
   flex: 1;
@@ -113,6 +141,117 @@ main {
   display: flex;
   flex-direction: column;
   background: var(--panel);
+}
+/* A grip is a 13px strip centered on the 1px line it moves, which makes the
+   page's two grips exact mirrors. The tab it draws sits flush against the line,
+   on the outside of what the grip resizes. The side grip's strip starts above
+   .app-body, which clips that part, so that its 50% is the window's middle, as
+   the page's two are. */
+.grip {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 13px;
+  z-index: var(--z-grip);
+  cursor: ew-resize;
+  touch-action: none;
+  --grip-color: var(--line-strong);
+  --grip-height: 24px;
+}
+@media (min-width: 1161px) {
+  .grip {
+    display: block;
+  }
+}
+:root:is([data-embed], [data-mode="preview"]) .grip,
+:root[data-sidebar="closed"] .grip.side {
+  display: none;
+}
+.grip.left {
+  left: -7px;
+}
+.grip.right {
+  right: -7px;
+}
+.grip.side {
+  left: calc(var(--sidebar-width) - 7px);
+  top: calc(-1 * var(--header-height));
+}
+.grip::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - var(--grip-height) / 2);
+  width: 3px;
+  height: var(--grip-height);
+  background: var(--grip-color);
+  transition:
+    height 0.12s ease,
+    top 0.12s ease,
+    background-color 0.12s ease;
+}
+.grip.left::after {
+  left: 3px;
+  border-radius: 3px 0 0 3px;
+}
+.grip.right::after,
+.grip.side::after {
+  left: 7px;
+  border-radius: 0 3px 3px 0;
+}
+.grip:hover {
+  --grip-color: var(--muted);
+  --grip-height: 32px;
+}
+.grip.active {
+  --grip-color: var(--accent);
+  --grip-height: 32px;
+}
+.grip.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 6px;
+  width: 1px;
+  background: var(--accent);
+}
+.grip.side.active::before {
+  top: var(--header-height);
+}
+/* A page as wide as the window has no room outside its lines, so each strip
+   moves inside the window, with the line at the strip's outer end, and its tab
+   flips inward. */
+:root[data-page-full] .grip.left {
+  left: -1px;
+}
+:root[data-page-full] .grip.right {
+  right: -1px;
+}
+:root[data-page-full] .grip.left::after {
+  left: 1px;
+  border-radius: 0 3px 3px 0;
+}
+:root[data-page-full] .grip.right::after {
+  left: 9px;
+  border-radius: 3px 0 0 3px;
+}
+:root[data-page-full] .grip.left.active::before {
+  left: 0;
+}
+:root[data-page-full] .grip.right.active::before {
+  left: 12px;
+}
+:root[data-edge-drag] {
+  cursor: ew-resize;
+}
+:root[data-edge-drag] * {
+  user-select: none;
+}
+/* Without this, the column's margin waits out the sidebar's slide on every
+   move of a drag. */
+:root[data-edge-drag="side"] .main-column {
+  transition: none;
 }
 .bell {
   position: relative;
@@ -195,7 +334,7 @@ main {
   position: fixed;
   z-index: var(--z-header);
   top: 64px;
-  right: max(16px, calc((100vw - 1160px) / 2 + 16px));
+  right: calc(var(--page-left) + 16px);
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -305,10 +444,12 @@ main {
   .main-column {
     --slide: 0s;
   }
+  .grip::after {
+    transition: none;
+  }
 }
 @media (max-width: 720px) {
   .app-body {
-    --sidebar-width: min(272px, calc(100vw - 48px));
     display: block;
     overflow: auto;
   }
