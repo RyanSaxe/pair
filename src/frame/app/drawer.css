@@ -50,11 +50,6 @@
 .dialog[data-drawer]:not([open]) {
   pointer-events: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .dialog[data-drawer] {
-    --slide: 0s;
-  }
-}
 /* A long note or quote scrolls inside the box or quote, and the buttons stay in
    view. New work item also uses .note-field, so this names the note. */
 :root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-body {

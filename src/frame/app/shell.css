@@ -329,7 +329,8 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
   .sidebar-scrim,
-  .main-column {
+  .main-column,
+  .dialog[data-drawer] {
     --slide: 0s;
   }
 }
