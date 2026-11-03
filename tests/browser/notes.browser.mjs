@@ -281,15 +281,25 @@ const noteBox = (page) =>
   page.evaluate(() => {
     const text = document.getElementById("note-text");
     return {
-      height: text.closest(".note-field").getBoundingClientRect().height,
+      height: Math.round(
+        text.closest(".note-field").getBoundingClientRect().height,
+      ),
       scrolls: text.scrollHeight > text.clientHeight,
     };
   });
 
-// The box stops growing when the drawer reaches 10px from the header's line.
-// offsetTop leaves out the drawer's rise as it opens.
+// The note opens over the comment button and grows up, and the box stops
+// growing when the drawer reaches 10px from the header's line.
 const drawerFull = (page) =>
-  page.evaluate(() => document.getElementById("note-dialog").offsetTop);
+  page.evaluate(async () => {
+    const drawer = document.getElementById("note-dialog");
+    await Promise.all(drawer.getAnimations().map((motion) => motion.finished));
+    const header = document.querySelector(".frame-header");
+    return Math.round(
+      drawer.getBoundingClientRect().top -
+        header.getBoundingClientRect().bottom,
+    );
+  });
 
 test("the note's box grows with its text until the drawer is full, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
   const page = await openDecisions(t);

@@ -1,4 +1,4 @@
-import { openDrawer } from "#frame/app/drawer.mjs";
+import { besideControl, openDrawer } from "#frame/app/drawer.mjs";
 import { persist, state, unsentItems } from "#frame/app/store.mjs";
 import { $, plural, shiftEnter } from "#frame/app/util.mjs";
 import {
@@ -125,7 +125,7 @@ export function openSend() {
   $("send-message").value = state.message || "";
   select(startingChoice(planRound));
   showNotAdded();
-  openDrawer($("send-dialog"));
+  openDrawer($("send-dialog"), besideControl($("submit")));
   // The frame loads a page only when the reviewer opens it. After a reload,
   // openSend loads each pending page that has typed text, so showNotAdded
   // can check its answers.

@@ -83,8 +83,10 @@ wide.
 | See every key             | Press <kbd>?</kbd>.                                                                                                                     |
 
 A comment, **Send**, **Start**, **New work item** and the list of keys open
-in a drawer at the bottom left of the page, and the page stays in use behind
-it: you can scroll, select words, press choices and use the keys. One drawer
+in a drawer beside what you clicked: a comment under its words or block,
+**Send** under its button and **Start** beside the card's button. The page
+stays in use behind it: you can scroll, select words, press choices and use
+the keys, and a comment's drawer moves with its words. One drawer
 is open at a time. When you open another one while a comment has words in
 it, pair first adds the comment to your draft, as **Add to draft** does. The
 × and <kbd>Esc</kbd> close the drawer, and a comment's words stay as a draft.

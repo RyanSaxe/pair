@@ -1,24 +1,17 @@
-/* The drawer is inside .app-body, whose overflow: clip stops it and its
-   shadow at the header's line and the frame's left line. A closed drawer stays
-   rendered and hidden, so close() animates with no change to its callers. */
+/* A drawer floats beside what the reviewer clicked, and drawer.mjs sets its top
+   or bottom, its left and its max-height. A closed drawer stays rendered and
+   hidden, so close() animates with no change to its callers. */
 @media (min-width: 721px) and (not (pointer: coarse)) {
   :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer] {
     --dialog-padding: 16px;
-    position: absolute;
-    inset: auto auto calc(var(--dialog-margin) + var(--keyboard-inset, 0px))
-      var(--dialog-margin);
+    --slide: 0.2s;
+    position: fixed;
+    inset: auto;
     z-index: var(--z-drawer);
     box-sizing: border-box;
-    /* Text starts 56px past the sidebar, and the drawer reaches 60px over it. */
-    width: min(
-      440px,
-      calc(var(--sidebar-width) + 56px + 60px - var(--dialog-margin))
-    );
+    width: 330px;
     height: fit-content;
-    max-height: min(
-      calc(100% - 2 * var(--dialog-margin) - var(--keyboard-inset, 0px)),
-      calc(var(--vv-height, 100dvh) - 2 * var(--dialog-margin))
-    );
+    max-height: calc(100dvh - 2 * var(--dialog-margin));
     margin: 0;
     padding: 14px var(--dialog-padding);
     border-color: light-dark(var(--line), var(--line-strong));
@@ -43,6 +36,11 @@
       opacity calc(var(--slide) * 0.6) ease,
       transform var(--slide) ease,
       visibility 0s;
+  }
+}
+@media (min-width: 721px) and (not (pointer: coarse)) and (prefers-reduced-motion: reduce) {
+  :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer] {
+    --slide: 0s;
   }
 }
 /* A swap between drawers shows no motion. */

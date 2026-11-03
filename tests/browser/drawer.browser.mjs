@@ -129,112 +129,163 @@ const draftNotes = (page) =>
     return JSON.parse(localStorage.getItem(key)).notes.map((note) => note.text);
   });
 
+// A drawer's box, its main button's box and the header's bottom.
+const boxes = (page, id, control) =>
+  page.evaluate(
+    ([id, control]) => {
+      const box = (element) => element.getBoundingClientRect().toJSON();
+      return {
+        drawer: box(document.getElementById(id)),
+        control: control && box(document.querySelector(control)),
+        header: box(document.querySelector(".frame-header")),
+      };
+    },
+    [id, control],
+  );
+const selection = (page) =>
+  page.evaluate(() => {
+    const range = getSelection().getRangeAt(0);
+    const lines = [...range.getClientRects()].filter((box) => box.width > 1);
+    return {
+      ...range.getBoundingClientRect().toJSON(),
+      lastLeft: lines.at(-1).left,
+    };
+  });
+
 for (const engine of ["chrome", "webkit"]) {
-  test(`in ${engine}, the drawer opens at the frame's bottom left, 330px wide and 60px over the text, and nothing on the page moves`, async (t) => {
+  test(`in ${engine}, each drawer opens beside what was clicked, moves with its words, and nothing on the page moves`, async (t) => {
     const { url } = await session(t);
     const page = await openPage(t, url, {
       engine,
       viewport: { width: 1280, height: 800 },
     });
     if (!page) return;
-    const place = () =>
-      page.evaluate(() => {
-        const drawer = document.getElementById("note-dialog");
-        const box = drawer.getBoundingClientRect();
-        const body = drawer.parentElement.getBoundingClientRect();
-        const text = document.getElementById("first").getBoundingClientRect();
-        return {
-          parent: drawer.parentElement.className,
-          width: box.width,
-          over: Math.round(box.right - text.left),
-          left: drawer.offsetLeft,
-          bottom: Math.round(body.height - drawer.offsetTop - box.height),
-        };
-      });
-    const sizes = [
-      [760, 60],
-      [1024, 60],
-      [1280, 60],
-      [1920, 60],
-      [3440, 60],
-    ];
-    for (const [width, over] of sizes) {
-      await page.setViewportSize({ width, height: 800 });
-      await page.keyboard.press("c");
-      await page.locator("#note-dialog[open]").waitFor();
-      assert.deepEqual(
-        await place(),
-        { parent: "app-body", width: 330, over, left: 10, bottom: 10 },
-        `${width}px`,
-      );
-      await page.keyboard.press("Escape");
-      await page.locator("#note-dialog").waitFor({ state: "hidden" });
-    }
 
-    // Nothing moves before, during or after the open and the close, with the
-    // sidebar open and closed. A paused frame is part way through each.
-    await page.setViewportSize({ width: 1280, height: 800 });
-    for (const sidebar of ["open", "closed"]) {
-      if (sidebar === "closed") {
-        await page.locator("#sidebar-toggle").click();
-        await page.waitForFunction(
-          () =>
-            !document
-              .querySelector(".sidebar")
-              .getAnimations()
-              .some((motion) => motion.playState === "running"),
-        );
-      }
-      await page.locator("main").evaluate((main) => (main.scrollTop = 200));
-      const before = await layout(page);
-      await page.keyboard.press("?");
-      await pauseAt(page, 80);
-      const open = await opacity(page, "keys-dialog");
-      assert.ok(open > 0 && open < 1, `opening at ${open}`);
-      assert.deepEqual(await layout(page), before, `opening, ${sidebar}`);
-      await finish(page);
-      assert.deepEqual(await layout(page), before, `open, ${sidebar}`);
-      await page.keyboard.press("Escape");
-      await pauseAt(page, 80);
-      const closing = await opacity(page, "keys-dialog");
-      assert.ok(closing > 0 && closing < 1, `closing at ${closing}`);
-      await finish(page);
-      assert.deepEqual(await layout(page), before, `closed, ${sidebar}`);
-    }
-    assert.deepEqual((await place()).over, 284);
+    // Below the words, 8px under them and lined up with their last line.
+    await page.locator("main").evaluate((main) => (main.scrollTop = 0));
+    await select(page, quote);
+    const words = await selection(page);
+    const before = await layout(page);
+    await page.locator("#comment-here").click();
+    await pauseAt(page, 80);
+    const opening = await opacity(page, "note-dialog");
+    assert.ok(opening > 0 && opening < 1, `opening at ${opening}`);
+    assert.deepEqual(await layout(page), before, "opening");
+    await finish(page);
+    let { drawer, header } = await boxes(page, "note-dialog");
+    assert.equal(Math.round(drawer.top), Math.round(words.bottom + 8));
+    assert.equal(Math.round(drawer.left), Math.round(words.lastLeft));
+    assert.equal(drawer.width, 330);
+    assert.deepEqual(await layout(page), before, "open");
+
+    // It moves with its words, and stops 10px under the header's line.
+    await page.locator("main").evaluate((main) => (main.scrollTop = 40));
+    await page.waitForFunction(
+      (top) =>
+        Math.round(
+          document.getElementById("note-dialog").getBoundingClientRect().top,
+        ) === top,
+      Math.round(words.bottom + 8 - 40),
+    );
+    await page.locator("main").evaluate((main) => (main.scrollTop = 2000));
+    await page.waitForFunction(
+      (top) =>
+        Math.round(
+          document.getElementById("note-dialog").getBoundingClientRect().top,
+        ) === top,
+      Math.round(header.bottom + 10),
+    );
+    await page.keyboard.press("Escape");
+    await pauseAt(page, 80);
+    const closing = await opacity(page, "note-dialog");
+    assert.ok(closing > 0 && closing < 1, `closing at ${closing}`);
+    await finish(page);
+
+    // Above words with no room under them, lined up with their first line.
+    await page.locator("#last").scrollIntoViewIfNeeded();
+    await select(page, "The last words", "last");
+    const low = await selection(page);
+    await page.keyboard.press("c");
+    await settled(page, "note-dialog");
+    ({ drawer } = await boxes(page, "note-dialog"));
+    assert.equal(Math.round(drawer.bottom), Math.round(low.top - 8));
+    await page.keyboard.press("Escape");
+    await page.locator("#note-dialog").waitFor({ state: "hidden" });
+
+    // With nothing selected, Comment opens the note over its button, lined up
+    // with its right edge. Send and Keys open under the header at the right.
+    await page.evaluate(() => getSelection().removeAllRanges());
+    await page.getByRole("button", { name: "Comment on this page" }).click();
+    await settled(page, "note-dialog");
+    let control;
+    ({ drawer, control } = await boxes(page, "note-dialog", "#comment-here"));
+    assert.ok(drawer.bottom <= control.top, "over the comment button");
+    assert.ok(Math.abs(drawer.right - control.right) <= 12, "its right edge");
+    await page.keyboard.press("Escape");
+    await page.locator("#note-dialog").waitFor({ state: "hidden" });
+    await page.locator("#submit").click();
+    await settled(page, "send-dialog");
+    ({ drawer, control } = await boxes(page, "send-dialog", "#submit"));
+    assert.equal(Math.round(drawer.top), Math.round(control.bottom + 6));
+    assert.equal(Math.round(drawer.right), Math.round(control.right));
+    await page.keyboard.press("Escape");
+    await page.locator("#send-dialog").waitFor({ state: "hidden" });
+    await page.locator("main").focus();
+    await page.keyboard.press("?");
+    await settled(page, "keys-dialog");
+    ({ drawer, header } = await boxes(page, "keys-dialog"));
+    assert.ok(
+      drawer.top >= header.bottom - 10 && drawer.top <= header.bottom + 10,
+    );
+    assert.equal(Math.round(drawer.right), Math.round(header.right - 16));
+    await page.keyboard.press("Escape");
+
+    // Start opens beside the card's Start button, and New work item under its
+    // button.
+    await page.goto(`${url}#work`);
+    const startButton = "[data-proposal-card=one] .proposal-start";
+    await page.locator(startButton).click();
+    await settled(page, "start-dialog");
+    ({ drawer, control } = await boxes(page, "start-dialog", startButton));
+    // The card drops its New mark once Work has shown it, which can move its
+    // button by a few pixels after the drawer opens.
+    assert.ok(Math.abs(drawer.top - control.bottom - 6) <= 3, "under Start");
+    assert.ok(Math.abs(drawer.right - control.right) <= 1, "Start's right");
+    await page.keyboard.press("Escape");
+    await page.locator("#start-dialog").waitFor({ state: "hidden" });
+    await page.locator("#work-new").click();
+    await settled(page, "start-dialog");
+    ({ drawer, control } = await boxes(page, "start-dialog", "#work-new"));
+    assert.equal(Math.round(drawer.top), Math.round(control.bottom + 6));
+    assert.equal(Math.round(drawer.right), Math.round(control.right));
   });
 }
 
-test("the drawer follows a dragged sidebar up to 440px and keeps 330px on a wide page, and opens at once with reduced motion", async (t) => {
+test("a drawer over a selection with no room above or below leaves its first line in view, and opens at once with reduced motion", async (t) => {
   const { url } = await session(t);
   const page = await openPage(t, url, {
-    viewport: { width: 1920, height: 800 },
+    viewport: { width: 1280, height: 500 },
     reducedMotion: "reduce",
   });
   if (!page) return;
-  const width = () =>
-    page
-      .locator("#note-dialog")
-      .evaluate((drawer) => drawer.getBoundingClientRect().width);
-  for (const [key, value, expected] of [
-    ["pair:sidebar-width", 300, 406],
-    ["pair:sidebar-width", 400, 440],
-    ["pair:page-width", 1600, 330],
-  ]) {
-    await page.evaluate(
-      ([key, value]) => {
-        localStorage.removeItem("pair:sidebar-width");
-        localStorage.setItem(key, value);
-      },
-      [key, value],
-    );
-    await page.reload();
-    await page.locator("#first").waitFor();
-    await page.keyboard.press("c");
-    await page.locator("#note-dialog[open]").waitFor();
-    assert.equal(await opacity(page, "note-dialog"), 1);
-    assert.equal(await width(), expected, `${key} ${value}`);
-  }
+  await page.evaluate(() => {
+    const range = document.createRange();
+    const end = document.querySelectorAll("#page-content > p")[3].firstChild;
+    range.setStart(document.getElementById("first").firstChild, 0);
+    range.setEnd(end, end.length);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+  });
+  await page
+    .getByRole("button", { name: "Comment on selection", exact: true })
+    .waitFor();
+  const words = await selection(page);
+  await page.keyboard.press("c");
+  await page.locator("#note-dialog[open]").waitFor();
+  assert.equal(await opacity(page, "note-dialog"), 1);
+  const { drawer } = await boxes(page, "note-dialog");
+  assert.ok(drawer.top >= words.top + 20, `first line in view: ${drawer.top}`);
+  assert.equal(Math.round(drawer.bottom), 490);
 });
 
 test("a long note, a long quote, three images, a long Send list and New work item keep the buttons in view in a short window", async (t) => {
@@ -279,8 +330,8 @@ test("a long note, a long quote, three images, a long Send list and New work ite
   assert.equal(await inView("send-dialog", "send-button"), true);
   await page.keyboard.press("Escape");
 
-  // New work item is the tallest. It stops 10px from the header's line and the
-  // window's bottom, and its form scrolls.
+  // New work item is the tallest. It opens under its button, stops 10px above
+  // the window's bottom, and its form scrolls.
   await page.setViewportSize({ width: 1280, height: 600 });
   await page.goto(`${url}#work`);
   await page.locator("#work-new").click();
@@ -290,13 +341,12 @@ test("a long note, a long quote, three images, a long Send list and New work ite
   assert.deepEqual(
     await drawer.evaluate((element) => {
       const box = element.getBoundingClientRect();
-      const header = document.querySelector(".frame-header");
-      return [
-        box.top - header.getBoundingClientRect().bottom,
-        innerHeight - box.bottom,
-      ];
+      const button = document
+        .getElementById("work-new")
+        .getBoundingClientRect();
+      return [Math.round(box.top - button.bottom), innerHeight - box.bottom];
     }),
-    [10, 10],
+    [6, 10],
   );
   assert.equal(await inView("start-dialog", "start-copy"), true);
   // A line sits above the buttons while part of the form is below what shows.
@@ -396,23 +446,27 @@ test("the page stays in use behind one drawer at a time, and a note with words i
     "Waits for its image.",
   ]);
 
-  // Each card keeps its own message under Start.
+  // Each card keeps its own message under Start. The drawer under a card's
+  // Start covers the cards below it, so this starts the lower card first and
+  // closes the drawer before going back to it.
   await page.goto(`${url}#work`);
   const start = (id) =>
     page.locator(`[data-proposal-card=${id}] .proposal-start`).click();
-  await start("one");
-  await page.locator("#start-message").fill("For card one.");
   await start("two");
-  await page.locator("#start-title", { hasText: "Card two" }).waitFor();
+  await page.locator("#start-message").fill("For card two.");
+  await start("one");
+  await page.locator("#start-title", { hasText: "Card one" }).waitFor();
   assert.equal(await page.locator("#start-message").inputValue(), "");
   assert.equal(
     await page.evaluate(() => document.activeElement.id),
     "start-title",
   );
-  await start("one");
-  await page.locator("#start-title", { hasText: "Card one" }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.locator("#start-dialog").waitFor({ state: "hidden" });
+  await start("two");
+  await page.locator("#start-title", { hasText: "Card two" }).waitFor();
   assert.equal(
     await page.locator("#start-message").inputValue(),
-    "For card one.",
+    "For card two.",
   );
 });

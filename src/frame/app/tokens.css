@@ -55,7 +55,7 @@
   --space-field: 6px;
   --field-height: 64px;
   /* A modal stops this far from each edge of the window, and a drawer this far
-     from the frame's left line, the window's bottom and the header's line. */
+     from the header's line and the window's bottom. */
   --dialog-margin: 10px;
   font:
     var(--text-body) / var(--leading-body) -apple-system,

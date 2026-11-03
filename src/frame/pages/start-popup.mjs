@@ -1,4 +1,8 @@
-import { openDrawer } from "#frame/app/drawer.mjs";
+import {
+  besideControl,
+  openDrawer,
+  pressedControl,
+} from "#frame/app/drawer.mjs";
 import { persist, state } from "#frame/app/store.mjs";
 import { $, copyText, shiftEnter, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
@@ -89,7 +93,7 @@ export function openNewItem(then) {
     row.querySelector(".start-recommended").hidden = true;
   }
   resetDialog("here");
-  openDrawer($("start-dialog"));
+  openDrawer($("start-dialog"), besideControl($("work-new")));
   fitItem();
   $("start-write-title").focus();
 }
@@ -123,7 +127,10 @@ export function openStart(proposal, joined, then) {
       row.dataset.where !== card.recommend;
   }
   resetDialog(card.recommend || "here");
-  openDrawer($("start-dialog"));
+  const button = document.querySelector(
+    `[data-proposal-card="${CSS.escape(card.id)}"] .proposal-start`,
+  );
+  openDrawer($("start-dialog"), besideControl(button || pressedControl()));
   // The dialog may have been open already for another card or form.
   $("start-title").focus();
 }

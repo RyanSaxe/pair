@@ -17,7 +17,13 @@ import {
   showingWaiting,
   topicTitle,
 } from "#frame/app/view.mjs";
-import { openDrawer } from "#frame/app/drawer.mjs";
+import {
+  besideControl,
+  besideElement,
+  besideText,
+  openDrawer,
+  pressedControl,
+} from "#frame/app/drawer.mjs";
 import { commentTarget, placeBar } from "#frame/notes/blocks.mjs";
 import { rebuildKnown } from "#frame/notes/known.mjs";
 import {
@@ -406,13 +412,34 @@ export function openNote({
   $("note-anchor").hidden = false;
   $("note-thread").classList.remove("primary");
   if (!$("note-dialog").open) opener = document.activeElement;
-  openDrawer($("note-dialog"));
+  // The box takes its height before the drawer is placed.
+  fitNoteText();
+  openDrawer($("note-dialog"), noteSpot(noteContext));
   fitNoteText();
   $("note-text").focus();
   if (!$("reading").hidden && !page.pending && page.id !== "agreed")
     markNotes();
   commentTarget();
   return true;
+}
+/* A note opens beside its words, or beside its block or card, or else beside
+   the control the reviewer pressed, such as Edit on Review or the comment
+   button. */
+function noteSpot(note) {
+  const range =
+    note.quote &&
+    note.topic === page.id &&
+    !$("reading").hidden &&
+    findQuote(note.quote, note.target, note.occurrence);
+  if (range && range.getClientRects().length) return besideText(range);
+  const block =
+    (note.target && document.getElementById(note.target)) ||
+    (note.proposal &&
+      document.querySelector(
+        `[data-proposal-card="${CSS.escape(note.proposal)}"]`,
+      ));
+  if (block?.checkVisibility()) return besideElement(block);
+  return besideControl(pressedControl() || $("comment-here"));
 }
 export const progressThread = {
   topic: "agreed",
