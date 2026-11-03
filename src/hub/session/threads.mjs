@@ -67,42 +67,6 @@ export function threads(session) {
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .map((thread) => images.lighten(shown(thread)));
-  // threadLines gives the bell's Threads tab a line for each thread in the
-  // current round and each older thread still waiting for the agent, so the
-  // list stays short however many rounds a session runs. Every tab reads the
-  // session list every 5 seconds, so a line has only the start of one message:
-  // the first one the agent has not answered, or else the thread's first.
-  // waitingSince is when the reviewer wrote that unanswered message, readAt is
-  // when the agent last ran pair read on the thread, and answeredAt is when the
-  // agent's last reply came. A line has the fields that a reply's event has, so
-  // the frame opens both the same way.
-  const lineLength = 160;
-  const threadLines = () =>
-    [...records.values()].flatMap((thread) => {
-      const { messages } = thread;
-      const reply = messages.findLast((item) => item.from === "agent");
-      const unanswered = messages[messages.indexOf(reply) + 1];
-      if (!unanswered && thread.round !== session.state.current?.round)
-        return [];
-      const line = {
-        thread: thread.id,
-        name: thread.page,
-        text: (
-          unanswered?.text ||
-          messages[0]?.text ||
-          thread.anchor ||
-          ""
-        ).slice(0, lineLength),
-        ...(thread.proposal
-          ? { page: "work", proposal: thread.proposal }
-          : { round: thread.round, page: thread.topic }),
-        ...(thread.target ? { target: thread.target } : {}),
-        ...(unanswered
-          ? { waitingSince: unanswered.at, readAt: thread.readAt }
-          : { answeredAt: reply?.at }),
-      };
-      return [line];
-    });
   // The frame sends the topic overall for Review's overall comment and work
   // for the Work page.
   const ownTitles = {
@@ -346,14 +310,26 @@ export function threads(session) {
     await saveThread(thread);
     return { thread: shown(thread) };
   }
-  // The frame's bell leaves out a reply that the reviewer gave a thumbs up.
-  const withAcknowledgements = (events) =>
-    events.map((event) =>
-      event.thread &&
-      records.get(event.thread)?.messages[event.message]?.acknowledgedAt
+  // The frame's bell leaves out a reply that the reviewer gave a thumbs up, and
+  // a proposal that the reviewer decided or the agent finished.
+  function withAcknowledgements(events) {
+    const decided = new Set(
+      session
+        .proposalItems()
+        .filter(
+          (card) =>
+            card.started || card.declined || card.withdrawn || card.done,
+        )
+        .map(({ id }) => id),
+    );
+    return events.map((event) =>
+      (event.thread &&
+        records.get(event.thread)?.messages[event.message]?.acknowledgedAt) ||
+      (event.kind === "proposal" && decided.has(event.proposal))
         ? { ...event, acknowledged: true }
         : event,
     );
+  }
   // A reply can show only the prototypes that its round's pages contain.
   async function roundPrototypes(round) {
     const found = [];
@@ -493,7 +469,6 @@ export function threads(session) {
   return {
     threadView,
     threadImage: (id, index, image) => images.read(threadFor(id), index, image),
-    threadLines,
     startThread,
     agentThread,
     addThreadMessage,

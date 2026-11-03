@@ -15,6 +15,7 @@ import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
 import { draftStore } from "./draft.mjs";
 import { links } from "./links.mjs";
+import { notifications } from "./notifications.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { proposals } from "./proposals.mjs";
 import { quiet } from "./quiet.mjs";
@@ -182,6 +183,7 @@ export async function loadSession(
     await draftStore(session),
     links(session),
     quiet(session),
+    notifications(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -332,7 +334,6 @@ export async function loadSession(
       url: base + "/",
       handoff: session.handoff,
       events: session.withAcknowledgements(session.activityItems()),
-      threads: session.threadLines(),
     };
   }
   return {
@@ -373,6 +374,8 @@ export async function loadSession(
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,
+    notificationView: session.notificationView,
+    withWords: session.withWords,
     act: session.act,
     draftView: session.draftView,
     changeDraft: session.changeDraft,

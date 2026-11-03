@@ -12,6 +12,7 @@ import {
 import {
   base,
   editable,
+  embedded,
   page,
   plan,
   shownPage,
@@ -28,6 +29,7 @@ import {
 } from "#frame/pages/renderers.mjs";
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
+import { watchReplies } from "#frame/sync/reading.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
@@ -146,6 +148,11 @@ function sendReply(thread, text, attachments) {
   // A reply answers the agent's replies in the thread, so clearThread
   // removes them from the bell before the hub responds.
   clearThread(thread.id);
+  // In the search window's frame, the window's own list shows the reply at once.
+  if (embedded)
+    window.parent.dispatchEvent(
+      new CustomEvent("pair:reply", { detail: { thread: thread.id, text } }),
+    );
   placeThreads();
   void post(
     thread.id,
@@ -593,6 +600,7 @@ export function placeThreads() {
       for (const clamp of card.querySelectorAll(".thread-clamp"))
         fits.get(clamp)();
   unfitted.clear();
+  watchReplies();
 }
 function tick() {
   for (const { card } of cards.values()) {

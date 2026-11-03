@@ -14,6 +14,7 @@ import {
 import { statusBox } from "#frame/pages/card-status.mjs";
 import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
 import { listedSession, unreadCards } from "#frame/sync/center.mjs";
+import { watchUnreadCards } from "#frame/sync/reading.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
@@ -82,7 +83,7 @@ const element = (tag, className, text) => {
   return node;
 };
 const ownSession = "In its own session";
-function cardState(card, shown) {
+export function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.withdrawn) return ["Withdrawn", "muted"];
   if (card.done) return ["Done", "muted"];
@@ -187,6 +188,8 @@ function changed(result, written = null) {
   if (shown) selected = cardTab(card);
   refreshWork(true);
   if (shown) land({ target: `proposal-${card.id}` });
+  // In the search window's frame, the window's own list shows the card's state.
+  if (embedded) window.parent.dispatchEvent(new Event("pair:card"));
   // poll() fetches the rest of what the action changed, such as the thread
   // that Open a new agent session starts.
   void poll();
@@ -447,6 +450,7 @@ export function refreshWork(force = false) {
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
+  watchUnreadCards();
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards());

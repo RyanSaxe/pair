@@ -11,8 +11,7 @@ const themes = ["light", "dark"];
 const desktop = { width: 1160, height: 760 };
 const phone = { width: 390, height: 844 };
 // The frame turns the sessions button orange for this second session, whose
-// round waits for the reviewer, and the bell lists the session's start and its
-// waiting round.
+// round waits for the reviewer, and the bell lists its waiting round.
 const waiting = {
   name: "waiting-session",
   round: "1",
@@ -157,14 +156,14 @@ export async function load(page, url, id) {
 
 // The frame polls the hub for sessions and notifications every 5 s, so
 // counted() waits until the sessions badge counts the second session and the
-// bell lists that session's start, its round and the agent's reply.
+// bell lists that session's round and the agent's reply.
 async function counted(page) {
   await until(
     page,
     "Counting the sessions and the notifications",
     () =>
       document.getElementById("sessions-count").textContent === "1" &&
-      document.getElementById("bell-count").textContent === "3",
+      document.getElementById("bell-count").textContent === "2",
   );
 }
 
@@ -340,6 +339,11 @@ export async function stage(t, scratch) {
     await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
     "demo",
   );
+  // A reply on screen in a tab with focus is read after 1.5 s, and these pictures
+  // show the agent's reply in the bell.
+  await page.addInitScript(() => {
+    document.hasFocus = () => false;
+  });
   await load(page, url, "overview");
   // The frame marks every event from the bell's first poll as seen, so the
   // second session starts after that poll.
@@ -393,7 +397,10 @@ export async function stage(t, scratch) {
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
 
   await page.locator("#bell").click();
-  await page.getByText("Agent replied on Where a reply appears").waitFor();
+  await page
+    .locator("#center-list")
+    .getByText("It answers between its steps")
+    .waitFor();
   save("docs/assets/bell", await inThemes(page));
   await page.keyboard.press("Escape");
   await page.evaluate(() => document.activeElement.blur());
@@ -441,6 +448,21 @@ export async function stage(t, scratch) {
       height: card.height + 2 * margin,
     }),
   );
+
+  // A click reads the row, which takes the reply out of the bell, so this picture
+  // comes after every picture with the bell's number.
+  await page.setViewportSize(desktop);
+  await page.locator("#bell").click();
+  await page.locator("#center-all").click();
+  await page
+    .locator(".nt-row", { hasText: "It answers between its steps" })
+    .click();
+  await page
+    .frameLocator(".search-frame.is-shown")
+    .getByText("goes back to its work")
+    .waitFor();
+  await page.locator(".search-preview-main:not(.is-loading)").waitFor();
+  save("docs/assets/notifications", await inThemes(page));
 
   for (const theme of themes)
     images.set(

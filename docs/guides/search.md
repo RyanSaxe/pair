@@ -14,6 +14,8 @@ Agreed, in live sessions, and in closed ones when you ask.
 Select the magnifying glass in the header, or press <kbd>⌘K</kbd> on macOS,
 <kbd>Ctrl+K</kbd> elsewhere, or <kbd>/</kbd>. Type a few words, and the list
 filters on every keystroke. Typos and partial words still match.
+To search only what the bell has told you, type in the field in
+[Notifications](../concepts/sessions-and-rounds.md#notifications).
 
 | Key                                                            | What it does                                         |
 | -------------------------------------------------------------- | ---------------------------------------------------- |

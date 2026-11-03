@@ -27,6 +27,13 @@ test("an unchanged status or session list answers 304, and a change answers with
     text: "What happens to a failed item?",
   });
   assert.equal(started.code, 201, started.body.error);
+  // The session list carries no thread lines, so the agent's reply is the
+  // change it shows.
+  const replied = await a.action("reply", {
+    note: "kestrel",
+    text: "It goes back on the queue.",
+  });
+  assert.equal(replied.code, 200, replied.body.error);
   for (const [index, url] of polled.entries()) {
     const changed = await fetch(url, {
       headers: { "if-none-match": tags[index] },

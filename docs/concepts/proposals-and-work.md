@@ -29,13 +29,15 @@ as it starts, because the work has its own session's rounds. Its card in Done ha
 the link to that session and the words that started the work.
 
 pair puts a card on a tab by the card's own state alone. A reply from the agent,
-or a round waiting in the work's own session, adds a bell line and leaves the
-card on its tab. The status line of an unfinished card shows either one.
+or a round waiting in the work's own session, adds a row to the bell and leaves
+the card on its tab. The status line of an unfinished card shows either one.
 
 Work opens on Proposed when a proposal is waiting for you to start it, and
-otherwise on the first tab that has a card in it. When you click a bell line or
-a system notification about a card, Work opens on that card's tab instead, with
-the card or the agent's reply in view. The Work row in the sidebar shows one
+otherwise on the first tab that has a card in it. When you click a card's row in
+the [bell](sessions-and-rounds.md#the-bell), open it in
+[Notifications](sessions-and-rounds.md#notifications), or click a system
+notification about a card, Work opens on that card's tab instead, with the card
+or the agent's reply in view. The Work row in the sidebar shows one
 number, the number of cards in Proposed.
 
 While you read a tab, the cards on screen keep their place when other cards
