@@ -408,9 +408,11 @@ export function openNote({
   if (!$("note-dialog").open) opener = document.activeElement;
   // The box takes its height before the drawer is placed.
   fitNoteText();
-  openDrawer($("note-dialog"), noteAbout(noteContext));
+  openDrawer($("note-dialog"), {
+    ...noteAbout(noteContext),
+    field: $("note-text"),
+  });
   fitNoteText();
-  $("note-text").focus();
   if (!$("reading").hidden && !page.pending && page.id !== "agreed")
     markNotes();
   commentTarget();

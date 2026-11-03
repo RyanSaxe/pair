@@ -14,6 +14,8 @@ const MARGIN = 10;
 // A drawer over the end of a tall selection leaves its first line in view, and
 // keeps at least LEAST_PX of height.
 const FIRST_LINE_PX = 28;
+// A text box's first line, with the box's padding.
+const CARET_PX = 40;
 const LEAST_PX = 240;
 
 const shown = (element) => element?.isConnected && element.checkVisibility();
@@ -172,55 +174,186 @@ function placeAgain() {
 
 /* Only one drawer is open at a time, so a drawer that opens replaces the open
    one in place. The swap has no motion, so the two never show together. A
-   drawer that is already open moves to its new spot. */
+   drawer that is already open moves to its new spot. about.field is the text
+   box the drawer focuses, if any. */
 export function openDrawer(dialog, about = {}) {
   let spot = spotFor(about);
   if (!spot.rect()) spot = underHeader();
   if (dialog.open) {
     if (!dialog.matches(":modal")) place(dialog, spot);
+    about.field?.focus();
     return;
   }
   const others = [
     ...document.querySelectorAll("dialog[data-drawer][open]"),
   ].filter((other) => !other.matches(":modal"));
-  const swapped = [dialog, ...others];
-  if (others.length)
-    for (const item of swapped) item.classList.add("drawer-swap");
+  const modal = asModal();
+  // A modal opens where it stays, so it has no motion until it has shown.
+  const swapped = others.length || modal ? [dialog, ...others] : [];
+  holdStill(swapped);
   for (const other of others) other.close();
   for (const name of ["top", "bottom", "left", "maxHeight"])
     dialog.style[name] = "";
-  const modal = asModal();
   // The drawer is placed while it is still hidden, so it rises from its spot.
   if (!modal) place(dialog, spot);
+  // showModal can focus the field itself, so the modal has its place first.
+  if (modal && about.field) expectKeyboard();
+  keepAboveKeyboard();
   if (modal) dialog.showModal();
   else dialog.show();
-  // WebKit's show() leaves focus where it was.
-  if (!dialog.contains(document.activeElement))
-    dialog.querySelector("[autofocus]")?.focus();
   follow();
-  if (others.length)
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        for (const item of swapped) item.classList.remove("drawer-swap");
-      }),
-    );
+  // WebKit's show() leaves focus where it was. The field takes focus after the
+  // modal has its place, because iOS finds where to pan when it does.
+  if (about.field) about.field.focus();
+  else if (!dialog.contains(document.activeElement))
+    dialog.querySelector("[autofocus]")?.focus();
+}
+// The drawers show their next place with no motion.
+function holdStill(drawers) {
+  if (!drawers.length) return;
+  for (const item of drawers) item.classList.add("drawer-swap");
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      for (const item of drawers) item.classList.remove("drawer-swap");
+    }),
+  );
 }
 
 /* A touch keyboard shrinks only the visual viewport, so drawer.css keeps a
    modal's box inside the part the keyboard leaves, and place() keeps a
-   drawer's bottom above it. */
+   drawer's bottom above it.
+
+   The keyboard rises after a text box takes focus, and iOS pans the whole
+   page to reach a box the keyboard would cover. So from the moment a modal's
+   text box is about to take focus, the modal sits above the keyboard it
+   expects: as tall as the last one in a window this wide, or a guess the
+   first time. iOS then has nothing to pan, and once the keyboard has risen
+   the modal moves only if the guess was wrong. */
+const KEYBOARD_KEY = "pair:keyboard";
+// Longer than a keyboard takes to rise, and the quiet after its last resize.
+const RISE_MS = 1000;
+const SETTLE_MS = 150;
+// While a keyboard rises, the height it is expected to reach, else 0.
+let rising = 0;
+let settling = 0;
+// Only a window with a touch screen raises a keyboard for a text box.
+function expectKeyboard() {
+  if (!matchMedia("(any-pointer: coarse)").matches) return false;
+  rising = expected();
+  clearTimeout(settling);
+  settling = setTimeout(settle, RISE_MS);
+  return true;
+}
+const textField = (element) =>
+  element?.matches?.(
+    "textarea, input:is([type=text], [type=search], [type=url], [type=email], :not([type]))",
+  ) || Boolean(element?.isContentEditable);
+const typing = () =>
+  textField(document.activeElement) &&
+  Boolean(document.activeElement.closest("dialog[data-drawer]:modal"));
+function keyboards() {
+  try {
+    return JSON.parse(localStorage.getItem(KEYBOARD_KEY)) || {};
+  } catch {
+    /* When localStorage throws, every keyboard is a guess. */
+    return {};
+  }
+}
+// The first guess is about what an iPhone's or an iPad's keyboard covers of a
+// window that is upright or on its side.
+const expected = () =>
+  keyboards()[innerWidth] ??
+  Math.round(innerHeight * (innerHeight > innerWidth ? 0.4 : 0.6));
+// The height of the keyboard over a modal's text box is the height the next
+// modal expects, even when no keyboard rose.
+function remember() {
+  if (!typing() || !window.visualViewport) return;
+  try {
+    const known = keyboards();
+    known[innerWidth] = Math.round(innerHeight - visualViewport.height);
+    localStorage.setItem(KEYBOARD_KEY, JSON.stringify(known));
+  } catch {
+    /* When localStorage throws, the next keyboard is a guess. */
+  }
+}
+function settle() {
+  clearTimeout(settling);
+  rising = 0;
+  remember();
+  follow();
+}
 function follow() {
   if (!document.querySelector("dialog[data-drawer][open]")) return;
   placeAgain();
+  keepAboveKeyboard();
+}
+function keepAboveKeyboard() {
   if (!window.visualViewport) return;
   const { height, offsetTop } = visualViewport;
+  const risen = Math.max(0, innerHeight - height);
+  const keyboard = Math.max(risen, rising);
   const root = document.documentElement.style;
   root.setProperty(
     "--keyboard-inset",
-    `${Math.max(0, innerHeight - offsetTop - height)}px`,
+    `${Math.max(0, keyboard - offsetTop)}px`,
   );
   root.setProperty("--vv-top", `${offsetTop}px`);
-  root.setProperty("--vv-height", `${height}px`);
+  root.setProperty("--vv-height", `${innerHeight - keyboard}px`);
+}
+function resized() {
+  remember();
+  if (typing()) {
+    clearTimeout(settling);
+    settling = setTimeout(settle, SETTLE_MS);
+  }
+  follow();
+}
+/* A tap on a text box in an open modal raises the keyboard too. iOS pans when
+   the box's first line, where the caret is, would be under the keyboard once
+   the page has laid out. So in that case the modal takes its new place at
+   once, and otherwise it glides there. */
+function focusIn(event) {
+  if (!typing()) return;
+  let covered = false;
+  if (!textField(event.relatedTarget) && expectKeyboard()) {
+    const box = event.target.getBoundingClientRect();
+    covered =
+      Math.min(box.bottom, box.top + CARET_PX) > innerHeight - rising - MARGIN;
+  }
+  if (covered) holdStill([event.target.closest("dialog")]);
+  follow();
+  if (covered) revealField("instant");
+}
+// The keyboard drops when focus leaves the text boxes.
+function focusOut(event) {
+  if (!textField(event.target) || textField(event.relatedTarget)) return;
+  clearTimeout(settling);
+  rising = 0;
+  follow();
+}
+
+/* A modal that shrank above the keyboard can leave its text box below what its
+   form shows, so the form scrolls to the box: at once when the modal jumped,
+   and smoothly once a glide has ended. */
+function revealField(behavior) {
+  if (!typing()) return;
+  const field = document.activeElement;
+  const body = field.closest(".dialog-body");
+  if (!body) return;
+  const box = field.getBoundingClientRect();
+  const view = body.getBoundingClientRect();
+  const by =
+    box.top < view.top
+      ? box.top - view.top
+      : Math.max(0, Math.min(box.bottom - view.bottom, box.top - view.top));
+  if (by) body.scrollBy({ top: by, behavior });
+}
+function glided(event) {
+  if (
+    event.target === event.currentTarget &&
+    event.propertyName === "max-height"
+  )
+    revealField("smooth");
 }
 
 /* Where a form scrolls with its buttons fixed below it, a line separates the
@@ -239,8 +372,10 @@ function watchScroll(body) {
 }
 
 export function installDrawer() {
-  window.visualViewport?.addEventListener("resize", follow);
+  window.visualViewport?.addEventListener("resize", resized);
   window.visualViewport?.addEventListener("scroll", follow);
+  document.addEventListener("focusin", focusIn);
+  document.addEventListener("focusout", focusOut);
   addEventListener("resize", placeAgain);
   document.querySelector("main")?.addEventListener("scroll", placeAgain, {
     passive: true,
@@ -260,4 +395,6 @@ export function installDrawer() {
   for (const body of document.querySelectorAll(".dialog .dialog-body"))
     if (body.closest("dialog").querySelector(".actions, .note-actions"))
       watchScroll(body);
+  for (const dialog of document.querySelectorAll("dialog[data-drawer]"))
+    dialog.addEventListener("transitionend", glided);
 }
