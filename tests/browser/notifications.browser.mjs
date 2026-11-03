@@ -174,39 +174,48 @@ test("a row in the window reads it at once, and the real page shows it with a wo
   ]);
 });
 
-test("opening the window reads nothing, ↓ through the rows reads nothing, and staying on a row for 1.5 seconds reads it", async (t) => {
+test("the window shows its first row and reads it once its page stays 3 seconds, and ↓ through the rows reads nothing", async (t) => {
   const h = await hub(t);
-  const { here, other } = await sessions(t, h);
+  const { here } = await sessions(t, h);
   await replied(here, "The first answer");
-  await replied(here, "The second answer");
+  const second = await replied(here, "The second answer");
   await thread(here, "A question no one answered");
   const page = await openOn(t, h, here);
   if (!page) return;
+  // The first page the pane loads arrives 3.5 seconds late, and the row's 3
+  // seconds start only once its page has drawn.
+  let slow = true;
+  await page.route("**/embed/**", async (route) => {
+    if (slow) {
+      slow = false;
+      await new Promise((done) => setTimeout(done, 3500));
+    }
+    await route.continue();
+  });
   await badge(page, 3);
   await openAll(page);
-  assert.equal(await selected(page).count(), 0);
-  await page
-    .locator(".nt-empty", { hasText: "Choose a row to read it here." })
+  assert.match(await selected(page).textContent(), /The second answer/);
+  await shownFrame(page)
+    .locator(`pair-thread[data-thread="${second}"]`)
     .waitFor();
-  assert.equal(await page.locator(".search-preview-head").isVisible(), false);
   await agree(page, 3);
   assert.notEqual(
     await page.evaluate(() => document.activeElement?.className),
     "search-input",
   );
+  await badge(page, 2);
+  await agree(page, 2);
+  assert.match(await selected(page).getAttribute("class"), /is-read/);
 
-  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   assert.match(await selected(page).textContent(), /The first answer/);
   await page.waitForTimeout(700);
-  await agree(page, 3);
   // Round 1 waits in the other session, and it's the next row.
   await page.keyboard.press("ArrowDown");
   assert.match(await selected(page).textContent(), /Round 1 is waiting/);
-  await page.waitForTimeout(1000);
-  await agree(page, 3);
-  await badge(page, 2);
   await agree(page, 2);
+  await badge(page, 1);
+  await agree(page, 1);
   assert.match(await selected(page).getAttribute("class"), /is-read/);
 
   // Enter opens the selected row's page, in this tab.
@@ -215,10 +224,10 @@ test("opening the window reads nothing, ↓ through the rows reads nothing, and 
   await page.keyboard.press("Enter");
   await page.locator("#search-dialog").waitFor({ state: "hidden" });
   await page.locator("#page-title", { hasText: "Overview" }).waitFor();
-  await badge(page, 1);
+  await badge(page, 0);
 });
 
-test("with nothing selected, Enter selects the first row, and a click on the selected row opens its page", async (t) => {
+test("a click on the row the window shows by itself opens its page", async (t) => {
   const h = await hub(t);
   const { here } = await sessions(t, h);
   await replied(here, "The answer");
@@ -226,8 +235,6 @@ test("with nothing selected, Enter selects the first row, and a click on the sel
   if (!page) return;
   await badge(page, 2);
   await openAll(page);
-  await page.keyboard.press("Enter");
-  await selected(page).waitFor();
   assert.match(await selected(page).textContent(), /The answer/);
   await row(page, "The answer").click();
   await page.locator("#search-dialog").waitFor({ state: "hidden" });
@@ -235,13 +242,39 @@ test("with nothing selected, Enter selects the first row, and a click on the sel
   await badge(page, 1);
 });
 
-test("the menus combine and count, a menu that hides the selected row clears the selection, and Esc closes a menu before the window", async (t) => {
+test("with Unread chosen, a row read by its 3 seconds stays in the list, selected, until a menu changes", async (t) => {
+  const h = await hub(t);
+  const { here } = await sessions(t, h);
+  await replied(here, "The first answer");
+  await replied(here, "The second answer");
+  const page = await openOn(t, h, here);
+  if (!page) return;
+  await badge(page, 3);
+  await openAll(page);
+  await menu(page, "states").click();
+  await choice(page, "states", "unread").click();
+  await page.keyboard.press("Escape");
+  assert.match(await selected(page).textContent(), /The second answer/);
+  await badge(page, 2);
+  const read = row(page, "The second answer");
+  assert.match(await read.getAttribute("class"), /is-read/);
+  assert.equal(await read.getAttribute("aria-selected"), "true");
+  assert.deepEqual(await heads(page), ["Unread"]);
+
+  await menu(page, "states").click();
+  await choice(page, "states", "").click();
+  await choice(page, "states", "unread").click();
+  await read.waitFor({ state: "detached" });
+});
+
+test("the menus combine and count, a menu that hides the selected row selects the first row left, and Esc closes a menu before the window", async (t) => {
   const h = await hub(t);
   const { here, other } = await sessions(t, h);
   await replied(here, "A reply here");
   await thread(other, "A question elsewhere");
   await propose(other, "deck", "Build the deck");
-  const page = await openOn(t, h, here);
+  // With no focus, only a click reads a row, however long the window stays open.
+  const page = await openOn(t, h, here, {}, false);
   if (!page) return;
   await badge(page, 3);
   await openAll(page);
@@ -268,8 +301,7 @@ test("the menus combine and count, a menu that hides the selected row clears the
   assert.equal((await menu(page, "kinds").textContent()).trim(), "Proposals");
   await row(page, "Proposal: Build the deck").waitFor();
   assert.equal(await page.locator(".nt-row").count(), 1);
-  assert.equal(await selected(page).count(), 0);
-  await page.locator(".nt-empty").waitFor();
+  assert.match(await selected(page).textContent(), /Build the deck/);
   await choice(page, "kinds", "round").click();
   assert.equal((await menu(page, "kinds").textContent()).trim(), "2 kinds");
   await agree(page, 2);
@@ -339,7 +371,7 @@ test("✕ in the popup and in the window clears a row, a read row offers nothing
   const { here } = await sessions(t, h);
   await replied(here, "The first answer");
   await replied(here, "The second answer");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, here, {}, false);
   if (!page) return;
   await badge(page, 3);
   await page.locator("#bell").click();
@@ -356,9 +388,9 @@ test("✕ in the popup and in the window clears a row, a read row offers nothing
   await first.hover();
   await first.locator(".nt-act").click();
   await agree(page, 1);
-  // It stays where it was, read, with no selection and no ✕.
+  // It stays where it was, read and still selected, with no ✕.
   assert.match(await first.getAttribute("class"), /is-read/);
-  assert.equal(await selected(page).count(), 0);
+  assert.match(await selected(page).textContent(), /The first answer/);
   await first.hover();
   assert.equal(await first.locator(".nt-act").count(), 0);
   assert.equal((await heads(page))[0], "Unread");
@@ -405,7 +437,7 @@ test("the field searches every message, a typo too, and a row keeps its group an
     .first()
     .waitFor();
 
-  await found.click();
+  // The window shows the top result with no click.
   await shownFrame(page)
     .locator(`pair-thread[data-thread="${deep}"]`)
     .waitFor();
@@ -495,11 +527,12 @@ test("a card's row opens the card on its Work tab, says Waiting for Start until 
   if (!page) return;
   await badge(page, 2);
   await openAll(page);
-  await row(page, "Proposal: Build the deck").click();
-  await agree(page, 1);
+  assert.match(await selected(page).textContent(), /Build the deck/);
   const frame = shownFrame(page);
   await frame.locator('#work-tab-proposed[aria-selected="true"]').waitFor();
   await frame.locator('[data-proposal-card="deck"]').waitFor();
+  await badge(page, 1);
+  await agree(page, 1);
   assert.match(
     await selected(page).locator(".search-where").textContent(),
     /^Waiting for Start · Here/,

@@ -455,14 +455,16 @@ export async function stage(t, scratch) {
     }),
   );
 
-  // A click reads the row, which takes the reply out of the bell, so this picture
-  // comes after every picture with the bell's number.
+  // The window opens on the reply, its first row. The tab has no focus, so the
+  // reply stays unread in both themes.
   await page.setViewportSize(desktop);
   await page.locator("#bell").click();
   await page.locator("#center-all").click();
   await page
-    .locator(".nt-row", { hasText: "It answers between its steps" })
-    .click();
+    .locator('.nt-row[aria-selected="true"]', {
+      hasText: "It answers between its steps",
+    })
+    .waitFor();
   await page
     .frameLocator(".search-frame.is-shown")
     .getByText("goes back to its work")

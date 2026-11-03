@@ -102,25 +102,6 @@
     visibility: hidden;
   }
 }
-.nt-empty {
-  color: var(--muted);
-  font-size: var(--text-meta);
-}
-.nt-empty p {
-  margin: 0 0 12px;
-}
-.nt-empty ul {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 14px;
-  padding: 0;
-  list-style: none;
-}
-.nt-empty li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 .search[data-source="Notifications"] .search-menu-item[data-empty="true"] {
   opacity: 0.55;
 }

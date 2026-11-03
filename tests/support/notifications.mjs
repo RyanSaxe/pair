@@ -101,13 +101,18 @@ export const selected = (page) => page.locator('.nt-row[aria-selected="true"]');
 export const heads = (page) =>
   page.locator(".search-group > span").allTextContents();
 export const shownFrame = (page) => page.frameLocator(".search-frame.is-shown");
+// The window asks the hub for its rows the first time it opens in a tab. Its
+// first row is read 3 seconds after its page draws, so openAll returns as soon as
+// the rows are in.
 export async function openAll(page) {
+  const asked = page
+    .waitForRequest(/\/api\/notifications$/, { timeout: 1000 })
+    .catch(() => null);
   await page.locator("#bell").click();
   await page.locator("#center-all").click();
   await page.locator(".search-list .nt-row").first().waitFor();
   await page.locator("#search-dialog[data-source=Notifications]").waitFor();
-  // The rows the hub's answer adds.
-  await page.waitForResponse(/\/api\/notifications$/).catch(() => {});
+  await (await asked)?.response();
 }
 // The list has the hub's matches a frame after its answer.
 export async function typed(page, words, type) {
