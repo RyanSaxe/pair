@@ -44,6 +44,7 @@ const stylesheets = [
   "app/tokens.css",
   "app/base.css",
   "app/shell.css",
+  "app/grips.css",
   "pages/page-list.css",
   "pages/reading.css",
   "sync/activity.css",

@@ -15,6 +15,9 @@ const sidebarEdge = {
 };
 const SIDEBAR_WIDEST = 400;
 const SNAP_PX = 24;
+// A tab is 3px wide, and the page's left edge rounds down, so a page leaves room
+// for both tabs outside its lines only when the window is 6px wider.
+const TAB_ROOM_PX = 6;
 
 const clamped = (width, min, max) =>
   Math.min(max, Math.max(min, Math.round(width)));
@@ -102,7 +105,10 @@ export function installEdges() {
   const root = document.documentElement;
   let pageWidth = savedPageWidth() ?? pageEdge.rest;
   const syncFull = () =>
-    root.toggleAttribute("data-page-full", pageWidth >= innerWidth);
+    root.toggleAttribute(
+      "data-page-full",
+      innerWidth - pageWidth < TAB_ROOM_PX,
+    );
   const setPageWidth = (width) => {
     pageWidth = width;
     apply(pageEdge, width);
