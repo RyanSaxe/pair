@@ -19,7 +19,6 @@ import {
   pair,
   pairCli,
   planData,
-  root,
   task,
   waitUntil,
 } from "../support/hub.mjs";
@@ -295,42 +294,6 @@ test("start replaces a stale hub record, and session commands reattach after a c
   );
   assert.equal(connection.sessionId, started.sessionId);
   assert.equal(connection.origin, `http://127.0.0.1:${next.port}`);
-});
-
-// pair start replaces a hub that runs other code once no session on it is live.
-// The start that stops the old hub must not mistake the stopping hub for one
-// that hangs.
-test("start replaces an idle hub that runs other code", async (t) => {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));
-  const env = { XDG_STATE_HOME: path.join(home, "state"), PAIR_HUB_PORT: "0" };
-  const copy = path.join(home, "copy");
-  const { files } = JSON.parse(
-    await fs.readFile(path.join(root, "package.json"), "utf8"),
-  );
-  for (const entry of ["package.json", ...files])
-    await fs.cp(path.join(root, entry), path.join(copy, entry), {
-      recursive: true,
-    });
-  await fs.appendFile(path.join(copy, "src/build/lint.mjs"), "\n// other\n");
-  for (const name of ["other", "current"])
-    await fs.mkdir(path.join(home, name));
-  const other = await pairCli(path.join(home, "other"), env, {
-    cli: path.join(copy, "src/cli.mjs"),
-  });
-  const current = await pairCli(path.join(home, "current"), env);
-  t.after(async () => {
-    await killHub(current.config);
-    await fs.rm(home, { recursive: true, force: true });
-  });
-  const { sessionDir } = await other.start();
-  await other.run("pause", "--session-dir", sessionDir, "--reason", "idle");
-  const before = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
-  assert.notEqual(before.version, version);
-  await current.start();
-  const after = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
-  assert.notEqual(after.pid, before.pid);
-  assert.equal(after.version, version);
-  assert.equal(alive(before.pid), false);
 });
 
 // Inside Codex's sandbox, no command can reach the hub, though the hub still

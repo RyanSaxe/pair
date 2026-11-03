@@ -24,12 +24,19 @@ session to your browser and wakes the agent when you respond.
   a round from those files and the round's records in `pages/<round>/` each
   time a browser asks for the round, so a new hub shows every round of every
   session with the frame from its own code.
-- When `pair start` finds a hub that runs a different version of pair while
-  a session is live, it uses that hub and prints a warning. The next
-  `pair start` that finds no live session stops the old hub and starts one
-  that runs its own version.
+- When `pair start` finds a hub that runs a different version of pair, it
+  stops the old hub and starts one that runs its own version. While a session
+  is live on the old hub, `pair start` does this only when it runs pair from
+  the hub's folder and git status shows no uncommitted change under `src/` or
+  `adapters/` there. A folder that is not a git clone, such as an npm install,
+  counts as committed. Otherwise `pair start` uses the old hub and prints why
+  the hub stays on its version.
+- When several commands find a hub to replace at once, the command that
+  creates `hub/restart.lock` replaces it, and the others wait for the new hub
+  and use it.
 - The old hub stops accepting connections and lets the requests in progress
-  finish, for up to 3 seconds, before it exits.
+  finish, for up to 3 seconds, before it exits. The new hub loads the live
+  sessions from disk, and they stay live.
 
 ### The hub and your browser
 
@@ -208,6 +215,7 @@ pair stores everything under `$XDG_STATE_HOME/pair/`, or
 hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
+  restart.lock       the pid of the command that is replacing the hub
   seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
 sessions/<dir>/      the directory name is not the session ID
   status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sandboxAdvice } from "../../adapters/codex/rules.mjs";
-import { settings, version } from "../shared/settings.mjs";
+import { packageRoot, settings, version } from "../shared/settings.mjs";
 import { read, requireValue } from "../shared/util.mjs";
 
 const cli = fileURLToPath(new URL("../cli.mjs", import.meta.url));
@@ -115,7 +115,91 @@ async function spawnHub(config) {
   );
   return started;
 }
-async function ensureHub(config = settings()) {
+// GIT_CEILING_DIRECTORIES stops git from looking above packageRoot, so git
+// status reports only on a clone at packageRoot, never on a repository around
+// it. Git sets GIT_DIR and the other GIT_* variables for its hooks, and they
+// would point git at another repository, so committed() leaves them out of
+// git's environment. A folder that is not a git clone, such as an npm
+// install, counts as committed.
+function committed() {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+  );
+  try {
+    const changes = execFileSync(
+      "git",
+      ["--no-optional-locks", "status", "--porcelain", "--", "src", "adapters"],
+      {
+        cwd: packageRoot,
+        env: { ...env, GIT_CEILING_DIRECTORIES: path.dirname(packageRoot) },
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
+    return changes === "";
+  } catch {
+    return true;
+  }
+}
+// A command replaces a hub that runs other code when no session is live on
+// it, or when the hub runs from the command's own folder and the code under
+// src/ and adapters/ there is committed. Otherwise keptLine() returns the line
+// that tells the agent why the hub stays on its code.
+function keptLine(info) {
+  if (info.live === 0) return null;
+  const rule = (code) =>
+    `While a session is live on the hub, pair replaces the hub only with ${code}, so the hub stays on version ${info.version}.`;
+  if (info.root === packageRoot)
+    return committed()
+      ? null
+      : `pair: The hub runs code version ${info.version} from ${packageRoot}, and the code there is now version ${version}, with uncommitted changes under src/ or adapters/. ${rule("committed code")} The next pair start replaces the hub with one on the new code once those changes are committed or no session is live.`;
+  return `pair: The hub runs code version ${info.version}${info.root ? ` from ${info.root}` : ""}, and this command runs code version ${version} from ${packageRoot}. ${rule("code from the hub's own folder")} The next pair start that finds no live session replaces the hub with one on its own code.`;
+}
+// Several commands can find the same hub to replace at once. The command that
+// creates the restart lock replaces the hub, and every other command waits
+// until the lock is gone and then finds the new hub. The next command removes
+// a lock whose command has exited, or one older than a minute.
+async function lockReleased(config) {
+  for (;;) {
+    let stale;
+    try {
+      const [pid, { mtimeMs }] = await Promise.all([
+        fs.readFile(config.restartLock, "utf8").then(Number),
+        fs.stat(config.restartLock),
+      ]);
+      stale = (pid && !processAlive(pid)) || Date.now() - mtimeMs > 60_000;
+    } catch (error) {
+      if (error.code === "ENOENT") return;
+      throw error;
+    }
+    if (stale) return fs.rm(config.restartLock, { force: true });
+    await sleep(150);
+  }
+}
+async function withRestartLock(config, run) {
+  await fs.mkdir(config.hubDir, { recursive: true, mode: 0o700 });
+  for (;;) {
+    try {
+      await fs.writeFile(config.restartLock, String(process.pid), {
+        flag: "wx",
+        mode: 0o600,
+      });
+      break;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+    await lockReleased(config);
+  }
+  try {
+    return await run();
+  } finally {
+    await fs.rm(config.restartLock, { force: true });
+  }
+}
+async function ensureHub(config = settings(), locked = false) {
+  // While another command replaces the hub, the hub's record and port change,
+  // so ensureHub waits until that command finishes.
+  if (!locked) await lockReleased(config);
   const record = await readRecord(config);
   const port = record?.port || config.port;
   const stateDir = await ownStateDir(config);
@@ -133,14 +217,17 @@ async function ensureHub(config = settings()) {
   // still be loading its sessions, so ensureHub waits for the record.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
   if (info && info.version !== version) {
-    if (info.live === 0) {
+    const line = keptLine(info);
+    if (line) console.error(line);
+    else if (!locked)
+      return withRestartLock(config, () => ensureHub(config, true));
+    else {
+      // The old hub exits once its requests in progress finish, within 3
+      // seconds.
       process.kill(info.pid, "SIGTERM");
-      await waitFor(async () => !processAlive(info.pid), 5000);
+      await waitFor(async () => !processAlive(info.pid), 10_000);
       info = null;
-    } else
-      console.error(
-        `pair: the hub runs code version ${info.version}, and this command is version ${version}. The next pair start that finds no live session replaces the hub with one on its own code.`,
-      );
+    }
   }
   if (!info) {
     // A running hub may not answer this command, as when the command runs in

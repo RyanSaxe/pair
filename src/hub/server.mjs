@@ -4,7 +4,12 @@ import http from "node:http";
 import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
-import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
+import {
+  agentRequestBytes,
+  packageRoot,
+  settings,
+  version,
+} from "../shared/settings.mjs";
 import {
   atomic,
   embedConfig,
@@ -284,6 +289,7 @@ export async function startHub(config = settings()) {
           port: origin && Number(new URL(origin).port),
           startedAt,
           stateDir,
+          root: packageRoot,
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
