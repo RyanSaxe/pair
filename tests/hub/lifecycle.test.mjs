@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -83,6 +84,36 @@ test("a session closed with feedback unread stays closed after the hub restarts"
   } finally {
     await restarted.close();
   }
+});
+
+// A command that replaces the hub stops it while a pair command or a Send can be
+// in progress.
+test("a request in progress when the hub shuts down gets its answer", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  const body = JSON.stringify(a.event());
+  const request = http.request(`${h.server.origin}${a.base}/api/feedback`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+      Origin: h.server.origin,
+      Expect: "100-continue",
+    },
+  });
+  const response = new Promise((resolve, reject) => {
+    request.once("error", reject);
+    request.once("response", (reply) => resolve(reply.statusCode));
+  });
+  // The hub answers 100 Continue once it has the request's headers, so the
+  // request is in progress when the shutdown starts.
+  request.flushHeaders();
+  await new Promise((resolve) => request.once("continue", resolve));
+  const closing = h.server.close();
+  request.end(body);
+  assert.equal(await response, 200);
+  await closing;
 });
 
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {

@@ -28,6 +28,8 @@ session to your browser and wakes the agent when you respond.
   a session is live, it uses that hub and prints a warning. The next
   `pair start` that finds no live session stops the old hub and starts one
   that runs its own version.
+- The old hub stops accepting connections and lets the requests in progress
+  finish, for up to 3 seconds, before it exits.
 
 ### The hub and your browser
 

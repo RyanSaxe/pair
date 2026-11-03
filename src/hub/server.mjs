@@ -709,12 +709,27 @@ export async function startHub(config = settings()) {
   let settle;
   const closed = new Promise((resolve) => (settle = resolve));
   const close = () => (closing ||= shutDown().then(settle));
+  // The hub stops accepting connections and lets the requests in progress
+  // finish, so a command or a Send in progress when a command replaces the hub
+  // gets its answer. server.close() closes the idle connections, the interval
+  // closes each one that becomes idle once its request finishes, and after 3
+  // seconds the hub closes every connection that remains.
   async function shutDown() {
     clearInterval(timer);
-    for (const server of servers) {
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
-    }
+    await Promise.all(
+      servers.map(
+        (server) =>
+          new Promise((resolve) => {
+            const idle = setInterval(() => server.closeIdleConnections(), 100);
+            const cutOff = setTimeout(() => server.closeAllConnections(), 3000);
+            server.close(() => {
+              clearInterval(idle);
+              clearTimeout(cutOff);
+              resolve();
+            });
+          }),
+      ),
+    );
     await search.close();
     try {
       if ((await read(config.hubFile)).pid === process.pid)
