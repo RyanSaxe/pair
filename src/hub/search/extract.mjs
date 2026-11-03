@@ -1,3 +1,4 @@
+import { loadedStatus } from "../session/proposal-status.mjs";
 import { decode, parse, textOf } from "./html.mjs";
 
 /* Each function here turns one record from a session's files into search
@@ -309,15 +310,18 @@ export function feedbackDocs(event) {
         at,
       });
   };
-  add(
-    "notes",
-    "send message",
-    payload.round,
-    "feedback",
-    payload.id,
-    `Round ${payload.round} message`,
-    payload.message,
-  );
+  // A Start's message shows on its card, which proposalDocs() reads, and never
+  // on the round's Review page.
+  if (payload.intent !== "start")
+    add(
+      "notes",
+      "send message",
+      payload.round,
+      "feedback",
+      payload.id,
+      `Round ${payload.round} message`,
+      payload.message,
+    );
   if (payload.intent && payload.intent !== "feedback-only")
     add(
       "notes",
@@ -370,12 +374,28 @@ function chosen(choice) {
   return String(choice?.valueLabel ?? choice?.value ?? "");
 }
 
+/* A card's text is the words the frame's cardElement() draws from this record.
+   It leaves out the links that name a page or another card, because a search on
+   that name finds the page or card under its own title, and every card from a
+   page would otherwise rank above that page's own blocks. */
 export function proposalDocs(proposal) {
-  const parts = (proposal.status?.parts ?? []).map((part) => part.text);
+  const { started, status, withdrawn, done } = proposal;
+  const parts = status
+    ? loadedStatus(status).parts.map(({ text }) => text)
+    : [];
   const text = clean(
-    [proposal.title, proposal.delivers, ...parts, proposal.withdrawn?.reason]
+    [
+      proposal.title,
+      proposal.delivers,
+      ...parts,
+      started?.quote ?? started?.message,
+      withdrawn?.reason,
+      done?.where,
+    ]
       .filter(Boolean)
-      .join(". "),
+      .join(". ")
+      // A field can end in its own mark, and a row shouldn't show "swim.. Can".
+      .replace(/([.!?])\. /g, "$1 "),
   );
   if (!text) return [];
   return [
