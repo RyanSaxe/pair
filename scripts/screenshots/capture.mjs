@@ -157,14 +157,14 @@ export async function load(page, url, id) {
 
 // The frame polls the hub for sessions and notifications every 5 s, so
 // counted() waits until the sessions badge counts the second session and the
-// bell lists that session's start, its round and the agent's reply.
+// bell lists that session's round and the agent's reply.
 async function counted(page) {
   await until(
     page,
     "Counting the sessions and the notifications",
     () =>
       document.getElementById("sessions-count").textContent === "1" &&
-      document.getElementById("bell-count").textContent === "3",
+      document.getElementById("bell-count").textContent === "2",
   );
 }
 

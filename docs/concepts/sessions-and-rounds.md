@@ -191,36 +191,67 @@ the session.
 
 ### The bell
 
-The bell, or <kbd>n</kbd>, opens a list of notifications. The orange number
-on the bell, also shown in the browser tab's title, is the number of lines.
-The list has a line for each agent reply in a thread and each proposal an
-agent records, from every live session. It also has a line for each other
-session that starts or has a round waiting for you.
+The bell, or <kbd>n</kbd>, lists what needs you now, from every live session: a
+round waiting for you, a new reply in a thread, and a proposal waiting for
+**Start**. The orange number on the bell, also shown in the browser tab's title,
+is the number of rows. A thread with two new replies is one row. The list shows
+the newest 5 rows, and its link then says how many more there are.
 
-| When you                          | pair removes                                 |
-| --------------------------------- | -------------------------------------------- |
-| Click a line or its ✕             | That line                                    |
-| Open a session                    | That session's start and waiting-round lines |
-| Send a waiting round              | That round's line                            |
-| Reply in a thread                 | That thread's lines                          |
-| Give an agent's reply a thumbs up | That reply's line                            |
-| Reopen a closed session           | Every line from before the reopen            |
-| Press **Clear all**               | Every line                                   |
-
-pair counts a session as open while its tab's window has focus. A session on
-screen in a window you are not using keeps its lines in the bell of your other
-tabs until you click that window.
+Click a row to read it in [Notifications](#notifications). **Clear all**, or the
+✕ that shows when you point at a row, marks rows read. A phone has no ✕.
+Notifications still lists every row you clear.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
-  <img alt="The bell's list with another session's start and waiting round and an agent's reply, and the session button in orange because that session waits for you" src="../assets/bell-light.png">
+  <img alt="The bell's list with an agent's reply, a proposal and another session's waiting round" src="../assets/bell-light.png">
 </picture>
+
+### Notifications
+
+**All notifications**, at the bottom of the bell's list, opens a window with a
+list on the left and the real page on the right. The list has every thread,
+round, proposal and session start from your live sessions, in three groups,
+each newest first.
+
+| Group                    | Mark on the icon    | A row goes here when                  | A row leaves when                                                                 |
+| ------------------------ | ------------------- | ------------------------------------- | --------------------------------------------------------------------------------- |
+| **Unread**               | Orange dot          | A reply, round or proposal arrives    | You open it, answer it, give it a thumbs up, decide it or clear it, on any device |
+| **Waiting on the agent** | Hollow dot          | You send a message in a thread        | The agent replies, and the row is **Unread**                                      |
+| **Read**                 | None, and grey text | Anything else, and whatever you clear | A new reply arrives                                                               |
+
+The bell's number and the count in the window are both the number of **Unread**
+rows.
+
+You read a row by clicking it, by staying on it for 1.5 seconds with the arrow
+keys, or by keeping its reply or card on screen for 1.5 seconds in the tab you
+are using. Opening the window reads nothing. A row you just read loses its dot
+and stays in place until you reopen the window or change a menu.
+
+A round or proposal you have read still says it is waiting until you send
+feedback or decide it. pair counts a session as open while its tab's window has
+focus, and opening a session reads its waiting round. A session on screen in a
+window you are not using stays unread in your other tabs until you click that
+window.
+
+Select a row to read it, and reply there, without leaving your page. **Open**
+goes to the page itself.
+
+| Key                                                            | What it does                  |
+| -------------------------------------------------------------- | ----------------------------- |
+| <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Ctrl+J</kbd> <kbd>Ctrl+K</kbd> | Moves through the rows        |
+| <kbd>Enter</kbd>                                               | Opens the selected row's page |
+| <kbd>Esc</kbd>                                                 | Closes the window             |
+
+Type in the field to search every message in your live sessions' threads and
+proposals, including rows you read or cleared. Rows keep their groups and marks,
+and a match the row doesn't show appears under it. When nothing matches, a
+button opens [search](../guides/search.md) with your words.
 
 ### System notifications
 
 When you turn notifications on in Settings, your browser also shows a system
-notification for each new line and for each agent the hub cannot wake,
-except for the session in the tab you are using.
+notification for each new row in the bell, each session that starts and each
+agent the hub cannot wake, except for the session in the tab you are using.
 
 ## Closing a session
 
@@ -247,5 +278,6 @@ sub-session, its proposal in the session it came from is no longer done.
 
 pair counts everything from before the reopen as seen, on every device. The bell
 has no line for it, the browser sends no notification for it, and pair marks no
-page or card **New**. A round that still waits for you stays **Waiting** in the
-session list. pair notifies you as usual of anything after the reopen.
+page or card **New**. Notifications lists the session's threads as **Read**. A
+round that still waits for you stays **Waiting** in the session list. pair
+notifies you as usual of anything after the reopen.
