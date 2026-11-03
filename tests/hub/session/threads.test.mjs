@@ -275,7 +275,7 @@ test("a thread starts on Agreed's progress card, on the overall comment and on W
   const { a, start, settled } = await published(t);
   for (const [topic, anchor, target, page] of [
     ["agreed", "Progress", "agent-activity", "Agreed so far"],
-    ["overall", "Overall feedback", undefined, "Overall feedback"],
+    ["overall", "Overall", undefined, "Overall"],
     ["work", "Work", undefined, "Work"],
   ]) {
     const started = await start({ topic, anchor, target });

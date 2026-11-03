@@ -174,7 +174,7 @@ test("a note on diff text marks the words selected in the diff, and the mark sho
     { timeout: 5000 },
   );
   await page.locator("#note-text").fill(note);
-  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.getByRole("button", { name: "Add to draft" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await page.waitForFunction(
     (text) =>

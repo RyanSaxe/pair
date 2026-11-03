@@ -7,30 +7,29 @@ The session lasts until you close it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/session-dark.svg">
-  <img alt="A session: you ask, then work through rounds with feedback. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="../assets/session-light.svg">
+  <img alt="A session: you ask, then work through rounds you send. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="../assets/session-light.svg">
 </picture>
 
 ## A round
 
 The agent shows you its work in rounds. A round is a set of pages that the
-agent publishes together, and you answer the whole round with one piece of
-feedback.
+agent publishes together, and you send one answer to the whole round.
 
 1. The agent publishes **Agreed** and the list of the round's pages first,
    then publishes each page as soon as it is finished. You can start reading
    as soon as the agent publishes Agreed.
 2. You respond on the pages. You choose between options, answer questions
    and comment.
-3. You press **Send feedback**, choose what comes next, and send. The agent
-   reads your feedback and publishes the next round.
+3. You press **Send**, choose what comes next, and send. The agent reads what
+   you sent and publishes the next round.
 
 While the agent works, a progress card at the top of Agreed shows what it is
 doing and how many pages are ready. Once the agent has published every page,
 the round is waiting for you.
 
-Sending feedback is the one thing that ends a round. When you start work from
+Sending is the one thing that ends a round. When you start work from
 a proposal or ask a question in a thread, the round stays as it is, and you
-can still send feedback on it.
+can still send it.
 
 ## The sidebar
 
@@ -62,13 +61,13 @@ lists that round's pages, and its label changes to **Round N**.
 | Review what you will send | Press <kbd>r</kbd>.                                                                                                                     |
 | See every key             | Press <kbd>?</kbd>.                                                                                                                     |
 
-## Feedback
+## Your draft
 
 pair saves everything you do on the pages as a draft until you send it. The
-hub keeps the feedback you completed, so you can start a round on your phone
-and continue it on your computer:
+hub keeps the parts of your draft you completed, so you can start a round on
+your phone and continue it on your computer:
 
-- a note after **Add to feedback**, and its edits and removal
+- a note after **Add to draft**, and its edits and removal
 - a choice in a decision and a checked box
 - an answer after **Answer** and a drawing after **Save drawing**
 - the **Everything else looks good** switch
@@ -76,10 +75,10 @@ and continue it on your computer:
 The browser you typed in keeps the rest, which no other device shows: the text
 in an open note dialog, an answer before **Answer**, a drawing you have not
 saved, a thread reply you have not sent and the message in the send popup. Your
-browser also keeps a copy of the feedback you completed, and it sends what you
+browser also keeps a copy of what you completed, and it sends what you
 completed while the hub was unreachable when the hub answers again.
 
-**Send feedback** in the header opens a popup where you choose what the agent
+**Send** in the header opens a popup where you choose what the agent
 does next, and you send the round with the popup's button.
 
 In most rounds, the choices are:
@@ -112,11 +111,11 @@ the pages stated as agreed, except where one of your comments challenges
 it. Turning the switch on never chooses an option or answers a question for
 you.
 
-After you send, the round's **Feedback** page lists what you sent, with your
-choice and your message.
+After you send, the round's **What you sent** page lists it, with your choice
+and your message.
 
 The hub keeps one submission for each round. When you send from a second tab
-or device after the hub saved the round's feedback, the hub refuses that send,
+or device after the hub saved the round, the hub refuses that send,
 and the frame shows why. Your comments and message stay in that device's draft
 for the next round.
 
@@ -139,7 +138,7 @@ beside the round in the Rounds panel.
 | Tag               | Meaning                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | New, Updated      | The agent added or changed the alignment in this round.                                    |
-| Revisiting        | The agent reopened the decision after your feedback.                                       |
+| Revisiting        | The agent reopened the decision after you sent the round.                                  |
 | No longer applies | The agent retired the alignment and says why. Retired alignments are in a fold at the end. |
 
 ## When the agent edits your project
@@ -147,7 +146,7 @@ beside the round in the Rounds panel.
 The agent edits your project only for work you have approved. You approve
 work by choosing **Build it** when you send a round, by starting one of its
 [proposals](proposals-and-work.md), or by asking the agent for the work in
-your own words, in a comment, a thread, your feedback or the chat. When you
+your own words, in a comment, a thread, what you send or the chat. When you
 ask in words for work beside the session's task, the agent records the
 request as a proposal and starts it, quoting you, so the Work page lists
 every piece of work you approved beside the task.

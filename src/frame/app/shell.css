@@ -294,7 +294,7 @@ main {
 #history-label :is(.crumb, .place, .state) {
   flex: none;
 }
-/* Flex layout drops the leading space of " · Feedback sent" and
+/* Flex layout drops the leading space of " · Sent" and
    " is closed", so padding-left puts the space back. */
 #history-label :is(.meta, .state) {
   padding-left: 0.25em;

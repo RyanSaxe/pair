@@ -160,7 +160,7 @@ const markColor = (page) =>
   });
 async function addNote(page, text) {
   await page.locator("#note-text").fill(text);
-  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.getByRole("button", { name: "Add to draft" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
 }
 

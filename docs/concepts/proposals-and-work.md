@@ -127,7 +127,7 @@ the checkbox turns off and cannot be checked, because a plan round in this
 session would mix with its other work.
 
 Starting work never ends the round you are reading. Your drafts on the
-round stay, and you can start more work before you send feedback.
+round stay, and you can start more work before you send the round.
 
 The agent cannot always open a new agent session. It replies in a thread
 on the card with what it opened, or with the command when it cannot open an
@@ -176,9 +176,9 @@ How work finishes depends on where it runs.
   about it. On that page, the agent explains the work well enough for you to
   review and maintain it. The agent then marks the proposal done with
   `pair propose --done`, and pair moves the card to Done. Until then, the
-  agent keeps building the work in every round after your feedback,
+  agent keeps building the work in every round after you send one,
   whether or not you mention the work in it. When you ask for changes to
-  finished work in your feedback, the agent reopens the proposal with
+  finished work in what you send, the agent reopens the proposal with
   `pair propose --reopen`, and pair moves the card back to Running.
 - Work that runs in a sub-session or a new agent session is finished when
   you close that session. The hub then marks the proposal done, and the status
@@ -250,5 +250,5 @@ the browser, the two kinds work the same way:
 - The session list shows the session indented under this one.
 - The line under its header shows this session's name, a chevron and its
   own name. Click this session's name to go back.
-- You send feedback on its rounds as in any session. When you close it, the
+- You send its rounds as in any session. When you close it, the
   hub marks the proposal done in this session.

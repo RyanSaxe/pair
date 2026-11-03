@@ -41,7 +41,7 @@ export function installSessions() {
 }
 export function status() {
   $("connection-status").textContent = !online
-    ? "Local viewing. Feedback can be exported; live submission requires the session URL."
+    ? "Local viewing. You can export your draft. Sending it requires the session URL."
     : !connected
       ? "The hub is unreachable. Your draft stays here and submits when it is back."
       : "";

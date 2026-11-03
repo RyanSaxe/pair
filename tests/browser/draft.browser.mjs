@@ -136,9 +136,9 @@ test("what the reviewer completes on one device appears on the other, and text t
   await limit.getByRole("button", { name: "Answer" }).click();
   await phone.getByRole("button", { name: "Comment on the result" }).click();
   await phone.locator("#note-text").fill("Keep the logo for a beat.");
-  await phone.getByRole("button", { name: "Add to feedback" }).click();
+  await phone.getByRole("button", { name: "Add to draft" }).click();
   await phone.locator("#note-dialog").waitFor({ state: "hidden" });
-  // None of these is complete: no Answer, no Add to feedback, no Send.
+  // None of these is complete: no Answer, no Add to draft, no Send.
   await phone
     .locator('[data-question="owner"]')
     .getByRole("textbox")
@@ -300,7 +300,7 @@ test("two tabs of a session converge, and typing in one tab is never disturbed b
   assert.equal(await first.locator("#note-text").inputValue(), note);
   assert.equal(await kept(first), true);
   assert.equal(JSON.stringify(await draft()).includes(note), false);
-  await first.getByRole("button", { name: "Add to feedback" }).click();
+  await first.getByRole("button", { name: "Add to draft" }).click();
   await first.locator("#note-dialog").waitFor({ state: "hidden" });
   await pressed(first, "queue");
 

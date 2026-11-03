@@ -27,7 +27,7 @@ async function sent(session) {
   return (await session.action("read")).body.event.payload;
 }
 
-test("Send feedback opens a popup that starts on Keep iterating and sends the choice and the message", async (t) => {
+test("Send opens a popup that starts on Keep iterating and sends the choice and the message", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(planData())).code, 200);
@@ -351,6 +351,58 @@ test("a plan round has the Plan tag and its own choices, and Review lists the ch
       ["What comes next", "Write a plan"],
       ["Message to the agent", "Plan the retry."],
     ],
+  );
+});
+
+test("the sent list names the place of a note on the whole round once", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/#feedback`);
+  if (!page) return;
+  await page.locator("#comment-here").click();
+  await page.locator("#note-text").fill("Ship it.");
+  await page.locator("#note-save").click();
+  await page.locator("#overall-group", { hasText: "Ship it." }).waitFor();
+  await openPopup(page);
+  await page.locator("#send-button").click();
+  await sent(session);
+  await page.goto(`${h.server.origin}${session.base}/r/1#feedback`);
+  const card = page.locator("#sent-feedback-list .sent-card", {
+    hasText: "Ship it.",
+  });
+  assert.equal(await card.locator("small").textContent(), "Overall");
+});
+
+// Until the next round is out, the frame shows a waiting view that lists none of
+// the sent round's pages, and it loads the submission during that view.
+test("the sent list names a page by its title before the next round is out", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const notes = [
+    {
+      id: "note-1",
+      round: "1",
+      topic: "overview",
+      anchor: "The result",
+      text: "Keep one.",
+    },
+  ];
+  const event = session.event("feedback-only", "1", { groups: { notes } });
+  assert.equal((await session.feedback(event)).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/`);
+  if (!page) return;
+  const card = page.locator("#sent-feedback-list .sent-card", {
+    hasText: "Keep one.",
+  });
+  await card.waitFor({ state: "attached" });
+  await page.locator("#past-tab:not([disabled])").click();
+  await page.locator("#review-row").click();
+  await card.waitFor();
+  assert.equal(
+    await card.locator("small").textContent(),
+    "Overview · The result",
   );
 });
 

@@ -23,7 +23,7 @@ export function useSession(config, name, url) {
         ? "readonly"
         : "live";
   editable = mode === "live";
-  // A read-only round has a Feedback page that lists what was sent on it.
+  // A read-only round has a What you sent page that lists what was sent on it.
   hasFeedbackPage = editable || mode === "readonly";
   query = url.searchParams;
   storageKey = `pair:${session.sessionId || "offline"}:${name}`;
@@ -40,7 +40,7 @@ export function useView(view) {
 // Agreed's source marks a plan round with "plan": true, and the hub copies
 // that field into the round's data.
 export const isPlanRound = (data = plan) => data?.plan === true;
-const placeTitles = { overall: "Overall feedback", work: "Work" };
+const placeTitles = { overall: "Overall", work: "Work" };
 export const topicTitle = (topic) =>
   pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
 export let submittedRound = null;

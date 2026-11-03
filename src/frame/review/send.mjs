@@ -67,10 +67,10 @@ export function submitButton({
     text: inFlight
       ? "Sending"
       : opensFeedback
-        ? "Feedback"
+        ? "What you sent"
         : pending
-          ? `Send feedback (${pending})`
-          : "Send feedback",
+          ? `Send (${pending})`
+          : "Send",
     primary: !opensFeedback && !waitingForPages,
   };
 }
@@ -191,7 +191,7 @@ export async function sendFeedback(next) {
         ? ""
         : unreachable(
             error,
-            "Could not reach the hub. Your comments are saved here. Try Send feedback again.",
+            "Could not reach the hub. Your draft is saved here. Try Send again.",
           );
     refusedMessage = error.roundSent ? state.pending.event.message || "" : "";
     switchTab("current", null, { showPage: false });
@@ -220,7 +220,7 @@ export function installSend() {
   $("submit").onclick = () => {
     if (selectedTab === "past") {
       // When Current's round is already sent, the handler opens that
-      // round's Feedback.
+      // round's What you sent.
       if (!currentAvailable()) {
         places[submittedRound] = { page: "feedback", at: {} };
         void openPast(submittedRound);

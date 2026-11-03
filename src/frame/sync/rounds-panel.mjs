@@ -71,7 +71,7 @@ export function renderRounds() {
     const current = entry.round === latest && latest !== submittedRound;
     const status = document.createElement("span");
     status.className = current ? "pill news" : "pill quiet";
-    status.textContent = current ? "Current" : "Feedback sent";
+    status.textContent = current ? "Current" : "Sent";
     const time = document.createElement("small");
     time.textContent = entry.publishedAt ? ago(entry.publishedAt) : "";
     row.append(tick, label, status, time);

@@ -84,7 +84,7 @@ test("an alignment keeps its meta line and its buttons to one row each on a phon
   );
   await control.click();
   await page.locator("#note-text").fill("Keep the order too.");
-  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.getByRole("button", { name: "Add to draft" }).click();
   await card.locator(".card-meta", { hasText: "1 note" }).waitFor();
 });
 

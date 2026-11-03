@@ -43,9 +43,9 @@ when you start a [proposal](../concepts/proposals-and-work.md).
 On the last page about the work, the agent explains it well enough for you
 to review and maintain it. When the work is a proposal that runs here, the
 agent marks it done after it publishes that page, and pair moves the card to
-Done. When you ask for changes to the work in your feedback, the agent reopens
-the proposal, pair moves the card back to Running, and the agent publishes the
-changes in the next round.
+Done. When you send a round that asks for changes to the work, the agent
+reopens the proposal, pair moves the card back to Running, and the agent
+publishes the changes in the next round.
 
 Work in a sub-session or a new agent session is finished when you close
 that session. When all the work is finished, tell the agent anything left

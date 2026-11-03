@@ -35,4 +35,4 @@ thread's card also show the line, with a button that copies it.
 agent takes its session over. The hub refuses the former holder's next
 command of any other kind, `pair start` included, with the time the
 takeover happened. The progress card shows which agent took over, and when,
-until you next send feedback.
+until you next send a round.

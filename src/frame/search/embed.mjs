@@ -54,7 +54,7 @@ async function whenArrived(row, { page: id, target }) {
 }
 /* A note or answer's words are the reader's own, so its block doesn't hold them.
    Its page shows at the block, under the card that holds them. A note on a whole
-   page has no block, and shows its card on the Feedback page. */
+   page has no block, and shows its card on the What you sent page. */
 async function sentPlace(row) {
   const sent = row.kind === "notes" || row.kind === "answers";
   if (!sent || row.draft || !row.round || !row.page) return null;

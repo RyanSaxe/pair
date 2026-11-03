@@ -36,7 +36,7 @@ export const workTabs = [
 // Only work started elsewhere can wait for the reviewer. Work started here
 // stays running until the agent marks it done, whatever the state of this
 // session's round, because the reviewer answers that round with this
-// session's own Send feedback.
+// session's own Send.
 const waits = (card, { linked = () => null } = {}) =>
   card.started.where !== "here" &&
   Boolean(linked(card.started.session?.id)?.needsYou);

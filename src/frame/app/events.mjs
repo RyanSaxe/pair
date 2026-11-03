@@ -171,8 +171,8 @@ export function installEvents() {
   });
   document.addEventListener("keydown", (event) => {
     /* Enter types a newline in a textarea, so Shift+Enter presses a
-       question's Answer and the note dialog's Add to feedback. When the note
-       dialog only starts a thread, the frame hides Add to feedback, and
+       question's Answer and the note dialog's Add to draft. When the note
+       dialog only starts a thread, the frame hides Add to draft, and
        Shift+Enter types a newline. */
     if (shiftEnter(event) && feedbackEditable()) {
       const area = event.target.closest("textarea");
