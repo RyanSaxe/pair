@@ -16,6 +16,7 @@ import {
 } from "#frame/sync/opened.mjs";
 import { connected, remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
+import { fetchPolled } from "#frame/sync/status.mjs";
 
 let sessions = [];
 let grouped = [];
@@ -96,9 +97,7 @@ export async function pollSessions() {
   // cards. An older hub sends none of them.
   let seen = {};
   try {
-    const response = await fetch("/api/sessions");
-    if (!response.ok) throw Error();
-    const body = await response.json();
+    const body = await fetchPolled("/api/sessions");
     listed = body.sessions || [];
     seen = body.seen || {};
     fromHub = true;

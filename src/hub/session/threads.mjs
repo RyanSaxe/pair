@@ -4,6 +4,7 @@ import path from "node:path";
 import { problems } from "../../build/lint.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
+import { replyImages } from "./thread-images.mjs";
 
 export async function readThreads(directory) {
   const folder = path.join(directory, "threads");
@@ -61,10 +62,11 @@ export function threads(session) {
   // shown leaves out the result of the thread's last wake, because its
   // reason can contain the holder's socket path.
   const shown = ({ wake, ...thread }) => thread;
+  const images = replyImages(session.base);
   const threadView = () =>
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map(shown);
+      .map((thread) => images.lighten(shown(thread)));
   // threadLines gives the bell's Threads tab a line for each thread in the
   // current round and each older thread still waiting for the agent, so the
   // list stays short however many rounds a session runs. Every tab reads the
@@ -490,6 +492,7 @@ export function threads(session) {
   }
   return {
     threadView,
+    threadImage: (id, index, image) => images.read(threadFor(id), index, image),
     threadLines,
     startThread,
     agentThread,
