@@ -24,7 +24,8 @@ import {
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
 import { forgetImages } from "#frame/notes/images.mjs";
-import { known, openNote, stale } from "#frame/notes/notes.mjs";
+import { known, stale } from "#frame/notes/known.mjs";
+import { openNote } from "#frame/notes/notes.mjs";
 import { tag } from "#frame/pages/agreed.mjs";
 import {
   badge,
