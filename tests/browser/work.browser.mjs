@@ -198,7 +198,10 @@ test("a proposed card keeps its meta line and its buttons to one row each on a p
   );
 });
 
-test("the Start popup keeps one size and one row of buttons", async (t) => {
+// Three buttons do not fit on one row at 330px or 375px, so the main button has
+// its own row, first in the DOM, and the others share the row under it. The two
+// rows share one grid cell, so the dialog keeps its size when the choice changes.
+test("Start and New work item keep one size, with the main button on its own row and the others equal under it", async (t) => {
   const { session, page } = await work(t);
   if (!page) return;
   const added = await session.action("propose", {
@@ -208,46 +211,64 @@ test("the Start popup keeps one size and one row of buttons", async (t) => {
     recommend: "sub-session",
   });
   assert.equal(added.code, 200, added.body.error);
-  const rows = {
-    here: ["#start-send"],
-    "sub-session": ["#start-send"],
-    "new-agent": ["#start-copy", "#start-open"],
-  };
+  const dialog = page.locator("#start-dialog");
+  const buttonRow = () =>
+    dialog.locator(".actions:not([inert])").evaluate((actions) => {
+      const shown = [...actions.querySelectorAll(".btn")].filter((button) =>
+        button.checkVisibility(),
+      );
+      const box = (element) => element.getBoundingClientRect();
+      return {
+        mainFirst: shown[0].classList.contains("primary"),
+        width: box(actions).width,
+        buttons: shown.map((button) => ({
+          width: box(button).width,
+          top: box(button).top,
+          height: box(button).height,
+        })),
+      };
+    });
+  async function check(form, width) {
+    // The drawer rises 12px as it opens.
+    await dialog.evaluate((element) =>
+      Promise.all(element.getAnimations().map((motion) => motion.finished)),
+    );
+    const boxes = [];
+    for (const where of ["here", "sub-session", "new-agent", "here"]) {
+      await dialog.locator(`[data-where=${where}]`).click();
+      boxes.push(await dialog.boundingBox());
+      const row = await buttonRow();
+      const [main, ...others] = row.buttons;
+      const label = `${form} ${where} at ${width}px`;
+      assert.equal(row.mainFirst, true, label);
+      assert.equal(main.width, row.width, label);
+      for (const other of others) {
+        assert.equal(other.width, others[0].width, label);
+        assert.equal(other.top, others[0].top, label);
+        assert.equal(other.height, main.height, label);
+        assert.ok(other.top >= main.top + main.height, label);
+      }
+    }
+    for (const box of boxes)
+      assert.deepEqual(box, boxes[0], `${form} ${width}px`);
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+  }
   for (const [width, height] of [
     [1280, 800],
     [375, 664],
   ]) {
     await page.setViewportSize({ width, height });
     await page.locator("[data-proposal-card=flow] .proposal-start").click();
-    const dialog = page.locator("#start-dialog");
     await dialog
       .locator("#start-title", { hasText: "Redraw the example flow" })
       .waitFor();
-    const boxes = [];
-    for (const where of ["here", "sub-session", "new-agent", "here"]) {
-      await dialog.locator(`[data-where=${where}]`).click();
-      assert.equal(
-        await dialog
-          .locator(`[data-where=${where}]`)
-          .getAttribute("aria-checked"),
-        "true",
-      );
-      boxes.push(await dialog.boundingBox());
-      const buttons = await Promise.all(
-        rows[where].map((id) => dialog.locator(id).boundingBox()),
-      );
-      const copy = await dialog.locator("#start-copy").boundingBox();
-      for (const button of buttons) {
-        assert.equal(button.y, buttons[0].y, `${where} at ${width}px`);
-        assert.equal(button.height, copy.height, `${where} at ${width}px`);
-      }
-    }
-    for (const box of boxes) assert.deepEqual(box, boxes[0], `at ${width}px`);
-    await dialog.locator("[data-where=new-agent]").click();
-    assert.equal(await dialog.locator("#start-open").isVisible(), true);
-    assert.equal(await dialog.locator("#start-send").isVisible(), false);
-    await page.keyboard.press("Escape");
-    await dialog.waitFor({ state: "hidden" });
+    await check("Start", width);
+    await page.locator("#work-new").click();
+    await dialog
+      .locator("#start-title", { hasText: "New work item" })
+      .waitFor();
+    await check("New work item", width);
   }
 });
 

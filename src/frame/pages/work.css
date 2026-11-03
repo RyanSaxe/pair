@@ -329,8 +329,8 @@
 .start-write {
   margin-bottom: 12px;
 }
-/* The form's new agent row wraps onto two lines, so the shorter row keeps its
-   buttons on the lower line. */
+/* The main button has its own row, so the rows have different heights, and the
+   shorter one keeps its buttons at the bottom of the cell they share. */
 .start-actions .actions {
   flex-wrap: wrap;
   align-self: end;
@@ -400,13 +400,21 @@
 .start-open:is(:hover, :focus-visible) > .line-tip {
   visibility: visible;
 }
-/* In a window narrower than 375px the primary button wraps under Copy
-   command instead of running past the dialog's edge. The rows share a grid
-   cell, so a row keeps its buttons at their own height when the other row
-   wraps. dialogs.css comes later in the cascade, so these rules name
-   .dialog.start to outrank the .dialog .actions rule there. */
+/* Three buttons do not fit on one row in a drawer or on a phone, so the main
+   button has its own row, and the others share the row under it. The rows share
+   a grid cell, so a row keeps its buttons at their own height. dialogs.css comes
+   later in the cascade, so these rules name .dialog.start to outrank the
+   .dialog .actions rule there. */
 .dialog.start .actions {
   flex-wrap: wrap;
   align-items: flex-start;
   margin-top: 10px;
+}
+.dialog.start .actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.dialog.start .actions .btn.primary {
+  flex: 1 0 100%;
+  margin-left: 0;
 }

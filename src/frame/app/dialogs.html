@@ -157,53 +157,71 @@
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
   </div>
   <div class="dialog-body">
+    <div class="side-label">Pages</div>
     <dl class="key-list">
-      <dt><kbd>/</kbd> <kbd data-send-modifier>⌘</kbd>+<kbd>K</kbd></dt>
-      <dd>Open search. On a Mac, ⌘K also closes it</dd>
-      <dt><kbd>↓</kbd> <kbd>↑</kbd></dt>
-      <dd>In search, move down and up the results</dd>
-      <dt><kbd>Ctrl</kbd>+<kbd>J</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></dt>
-      <dd>
-        In search, move down and up the results. Ctrl+N and Ctrl+P do the same
-      </dd>
-      <dt><kbd>Enter</kbd></dt>
-      <dd>In search, open the selected result</dd>
-      <dt><kbd data-alt-modifier>Option</kbd>+<kbd>S</kbd></dt>
-      <dd>In search, switch between this session and all sessions</dd>
-      <dt><kbd data-alt-modifier>Option</kbd>+<kbd>R</kbd></dt>
-      <dd>In search, switch between all rounds and the latest round</dd>
-      <dt><kbd>g</kbd></dt>
-      <dd>Open the session list</dd>
-      <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
-      <dd>Open a session by its number in the session list</dd>
-      <dt><kbd>w</kbd></dt>
-      <dd>Open the next session waiting for you</dd>
-      <dt><kbd>n</kbd></dt>
-      <dd>Open notifications</dd>
       <dt><kbd>]</kbd> <kbd>[</kbd></dt>
       <dd>Next and previous page</dd>
       <dt><kbd>j</kbd> <kbd>k</kbd></dt>
-      <dd>Choose the next and previous block on a page, or card on Work</dd>
-      <dt><kbd>c</kbd></dt>
-      <dd>Comment on the selection, the chosen block or card, or the page</dd>
-      <dt><kbd>r</kbd></dt>
-      <dd>Open Review</dd>
-      <dt><kbd>s</kbd></dt>
-      <dd>Focus Send, then Enter opens it</dd>
-      <dt><kbd>Shift</kbd>+<kbd>Enter</kbd></dt>
-      <dd>
-        Add or save a note, answer a question, start a card from the Start
-        popup, or send from the Send popup
-      </dd>
-      <dt><kbd data-send-modifier>⌘</kbd>+<kbd>Enter</kbd></dt>
-      <dd>
-        Start a thread, send a reply in one, or save a new work item for later
-      </dd>
+      <dd>Next and previous block or card</dd>
       <dt><kbd>a</kbd></dt>
       <dd>Open Agreed</dd>
-      <dt><kbd>Esc</kbd></dt>
-      <dd>Close menus, panels, and dialogs</dd>
+      <dt><kbd>r</kbd></dt>
+      <dd>Open Review</dd>
     </dl>
+    <div class="side-label">Notes and sending</div>
+    <dl class="key-list">
+      <dt><kbd>c</kbd></dt>
+      <dd>Comment on the selection or block</dd>
+      <dt><kbd>⇧ ↵</kbd></dt>
+      <dd>Add, save, answer, start or send</dd>
+      <dt><kbd data-send-key></kbd></dt>
+      <dd>Start a thread, reply or save</dd>
+      <dt><kbd>s</kbd></dt>
+      <dd>Focus Send, then Enter opens it</dd>
+    </dl>
+    <div class="side-label">Anywhere</div>
+    <dl class="key-list">
+      <dt>
+        <kbd>/</kbd> <kbd><span data-send-modifier>⌘</span> K</kbd>
+      </dt>
+      <dd>Open search</dd>
+      <dt><kbd>n</kbd></dt>
+      <dd>Open notifications</dd>
+      <dt><kbd>Esc</kbd></dt>
+      <dd>Close a menu, panel or window</dd>
+    </dl>
+    <details class="key-more">
+      <summary>Sessions</summary>
+      <dl class="key-list">
+        <dt><kbd>g</kbd></dt>
+        <dd>Open the session list</dd>
+        <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+        <dd>Open a session by its number</dd>
+        <dt><kbd>w</kbd></dt>
+        <dd>Open the next waiting session</dd>
+      </dl>
+    </details>
+    <details class="key-more">
+      <summary>In search</summary>
+      <dl class="key-list">
+        <dt><kbd>↓</kbd> <kbd>↑</kbd></dt>
+        <dd>Next and previous result</dd>
+        <dt><kbd>Ctrl J</kbd> <kbd>K</kbd></dt>
+        <dd>The same, and Ctrl+N and Ctrl+P</dd>
+        <dt><kbd>Enter</kbd></dt>
+        <dd>Open the selected result</dd>
+        <dt>
+          <kbd><span data-alt-modifier>Option</span> S</kbd>
+        </dt>
+        <dd>This session or all sessions</dd>
+        <dt>
+          <kbd><span data-alt-modifier>Option</span> R</kbd>
+        </dt>
+        <dd>All rounds or the latest round</dd>
+        <dt><kbd>⌘ K</kbd></dt>
+        <dd>Close search, on a Mac</dd>
+      </dl>
+    </details>
   </div>
 </dialog>
 <dialog class="lightbox" id="diagram-dialog" aria-label="Diagram, full size">
@@ -347,9 +365,6 @@
   <p class="small" id="start-error" role="alert" hidden></p>
   <div class="start-stack start-actions">
     <div class="actions" data-start-for="here sub-session">
-      <button class="btn" type="button" data-start-save hidden>
-        Save for later <kbd data-send-key></kbd>
-      </button>
       <button
         class="btn primary"
         type="button"
@@ -358,12 +373,11 @@
       >
         Start <kbd>⇧ ↵</kbd>
       </button>
-    </div>
-    <div class="actions" data-start-for="new-agent">
       <button class="btn" type="button" data-start-save hidden>
         Save for later <kbd data-send-key></kbd>
       </button>
-      <button class="btn" type="button" id="start-copy">Copy command</button>
+    </div>
+    <div class="actions" data-start-for="new-agent">
       <button
         class="btn primary start-open"
         type="button"
@@ -376,6 +390,10 @@
           >This does not always work.</span
         >
       </button>
+      <button class="btn" type="button" data-start-save hidden>
+        Save for later <kbd data-send-key></kbd>
+      </button>
+      <button class="btn" type="button" id="start-copy">Copy command</button>
     </div>
   </div>
 </dialog>
