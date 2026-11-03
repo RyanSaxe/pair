@@ -191,6 +191,163 @@ test("search reads titles, Agreed, threads, feedback, proposals and the draft", 
   }
 });
 
+// proposer records cards through the routes pair propose and the frame use, so
+// these tests read the fields the hub really writes on a card.
+function proposer(a) {
+  const propose = async (fields) => {
+    const { code, body } = await a.action("propose", {
+      agent: a.agent,
+      ...fields,
+    });
+    assert.equal(code, 200, body.error);
+  };
+  const add = (id, title = "A plain title", delivers = "Plain words.") =>
+    propose({ id, title, delivers, recommend: "here" });
+  const reviewer = async (id, action, body) => {
+    const { code, body: reply } = await a.request(
+      `${a.base}/api/proposals/${id}/${action}`,
+      body,
+    );
+    assert.equal(code, 200, reply.error);
+  };
+  return { propose, add, reviewer };
+}
+
+test("a card is found by each thing a reviewer reads on it, with the word marked", async (t) => {
+  const { a } = await session(t);
+  const { propose, add, reviewer } = proposer(a);
+  const cases = [
+    [
+      "quote",
+      "ibex",
+      () =>
+        propose({ id: "quote", start: "here", quote: "Can the ibex wait?" }),
+    ],
+    [
+      "message",
+      "oryx",
+      () =>
+        reviewer("message", "start", {
+          where: "here",
+          message: "Leave the oryx out.",
+        }),
+    ],
+    [
+      "where",
+      "eland",
+      () => propose({ id: "where", done: true, where: "in the eland branch" }),
+    ],
+    [
+      "reason",
+      "gazelle",
+      () =>
+        propose({
+          id: "reason",
+          withdraw: true,
+          reason: "The gazelle did it.",
+        }),
+    ],
+    [
+      "part",
+      "kudu",
+      async () => {
+        await reviewer("part", "start", { where: "here" });
+        await propose({ id: "part", statusLeft: "Feed the kudu" });
+      },
+    ],
+  ];
+  for (const [id, , write] of cases) {
+    await add(id);
+    await write();
+  }
+  const store = await reader(t, a);
+  for (const [id, word] of cases) {
+    const [row] = (await store.search({ query: word, kinds: ["proposals"] }))
+      .results;
+    assert.equal(row?.item, id, word);
+    assert.equal(row.page, "work", word);
+    assert.deepEqual(
+      row.ranges.map(([from, to]) => row.text.slice(from, to)),
+      [word],
+    );
+  }
+  // A Start's message has one place to open, and that place is its card.
+  assert.deepEqual(
+    (await store.search({ query: "oryx" })).results.map((row) => row.item),
+    ["message"],
+  );
+});
+
+test("a card saved before status parts had states is found by its parts", async (t) => {
+  const { a } = await session(t);
+  const { add, reviewer } = proposer(a);
+  await add("older");
+  await reviewer("older", "start", { where: "here" });
+  const file = path.join(a.directory, "proposals", "older.json");
+  const card = JSON.parse(await fs.readFile(file, "utf8"));
+  await fs.writeFile(
+    file,
+    JSON.stringify({
+      ...card,
+      status: {
+        at: card.updatedAt,
+        done: ["Fed the kudu"],
+        left: ["The dik-dik"],
+      },
+    }),
+  );
+  const store = await reader(t, a);
+  for (const word of ["kudu", "dik-dik"])
+    assert.equal(
+      (await store.search({ query: word })).results[0]?.item,
+      "older",
+    );
+});
+
+test("a card whose title has the words ranks above a newer card that only quotes them", async (t) => {
+  const { a } = await session(t);
+  const { propose, add } = proposer(a);
+  await add("titled", "Saddle the ibex herd");
+  await add("quoted");
+  await propose({
+    id: "quoted",
+    start: "here",
+    quote: "Please saddle the ibex herd today.",
+  });
+  const store = await reader(t, a);
+  for (const query of ["ibex", "ibex herd", "herd ibex"])
+    assert.deepEqual(
+      (await store.search({ query })).results.map((row) => row.item),
+      ["titled", "quoted"],
+      query,
+    );
+});
+
+test("a session indexed before the extractor read a card's words finds them with no change to the card", async (t) => {
+  const { a } = await session(t);
+  const { propose, add } = proposer(a);
+  await add("quoted");
+  await propose({ id: "quoted", start: "here", quote: "Can the ibex wait?" });
+  const first = await reader(t, a);
+  await first.close();
+  const cacheFile = path.join(a.directory, "search.jsonl");
+  const [, ...entries] = (await fs.readFile(cacheFile, "utf8")).split("\n");
+  // The cache as version 2 of the extractor left it. Every file's time and size
+  // still match, so only the version can send the store back to the card's file.
+  await fs.writeFile(
+    cacheFile,
+    [JSON.stringify({ version: 2 }), ...entries]
+      .join("\n")
+      .replaceAll("Can the ibex wait?", ""),
+  );
+  const second = await reader(t, a);
+  const [row] = (await second.search({ query: "ibex" })).results;
+  assert.equal(row?.item, "quoted");
+  await second.close();
+  const [head] = (await fs.readFile(cacheFile, "utf8")).split("\n");
+  assert.notEqual(JSON.parse(head).version, 2);
+});
+
 test("search never reads a session's secrets", async (t) => {
   const { a } = await session(t);
   const store = await reader(t, a);
