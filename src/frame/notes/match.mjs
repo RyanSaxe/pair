@@ -191,12 +191,18 @@ function clearMarked() {
   for (const element of document.querySelectorAll(".search-matched, .matched"))
     element.classList.remove("search-matched", "matched");
 }
-// Most targets have an id, and a proposal or a control has its own attribute.
+// Most targets have an id, and a proposal or a control has its own attribute. A
+// page can draw a copy of a card, and that copy stays in the page while Work
+// shows, so a proposal is the copy on screen.
 export function targetElement(target) {
-  if (target.startsWith("proposal-"))
-    return document.querySelector(
+  if (target.startsWith("proposal-")) {
+    const copies = document.querySelectorAll(
       `[data-proposal-card="${CSS.escape(target.slice("proposal-".length))}"]`,
     );
+    return (
+      [...copies].find((copy) => copy.checkVisibility?.()) ?? copies[0] ?? null
+    );
+  }
   if (target.startsWith("control-")) {
     const id = CSS.escape(target.slice("control-".length));
     return document.querySelector(

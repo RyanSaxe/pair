@@ -370,6 +370,7 @@ export async function loadSession(
     built: session.built,
     proposalItems: session.proposalItems,
     writeStatus: session.writeStatus,
+    threadImage: session.threadImage,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,

@@ -22,6 +22,11 @@
   position: relative;
   container: page / inline-size;
 }
+/* An image set to fill the page stops at 1200px, so a screenshot is not blown
+   up on a wide page. */
+#page-content img {
+  max-width: min(100%, 1200px);
+}
 /* whenDrawn() in pages.mjs sets data-drawing to keep a page hidden, with its
    layout in place, until its diagrams and formulas have drawn. */
 #page-content[data-drawing] {
@@ -360,8 +365,9 @@ body:has(dialog[open]) .comment-here {
   position: absolute;
   /* Above the header, whose z-index is 6. */
   z-index: 7;
-  /* top: -2px puts the bar over the header's bottom border. */
-  top: -2px;
+  /* .app-body clips what is above it, so the bar sits under the header's
+     bottom border, where a phone shows it too. */
+  top: 0;
   left: 0;
   right: 0;
   height: 2px;

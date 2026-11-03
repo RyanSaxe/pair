@@ -232,16 +232,10 @@
   line-height: inherit;
 }
 .pages-slot nav #work-row .count {
+  color: var(--muted);
+  font-size: var(--text-meta);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  line-height: 18px;
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--attention);
-  color: var(--attention-ink);
-  font-size: var(--text-caps);
-  font-weight: 700;
-  text-align: center;
 }
 @media (prefers-reduced-motion: reduce) {
   .page-activity.active::before,

@@ -207,7 +207,7 @@ export function composeIllustration(browser, theme, shot, transcript) {
 <div class="arrows">
   <div class="arrow p1">${arrow("right")}<div class="lab up">pages</div></div>
   <div class="arrow thr p2">${arrow("both")}<div class="lab up">a thread</div><div class="lab down">answered now</div></div>
-  <div class="arrow p3">${arrow("left")}<div class="lab up">feedback</div></div>
+  <div class="arrow p3">${arrow("left")}<div class="lab up">what you send</div></div>
 </div>
 <div class="win browser"><div class="bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">127.0.0.1:4747</div><div></div></div><img src="${uri(shot.browser)}"></div>
 </div></body></html>`;

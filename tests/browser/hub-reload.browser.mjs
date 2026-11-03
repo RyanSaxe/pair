@@ -57,7 +57,10 @@ async function session(t) {
 async function reportVersion(page) {
   const reported = { rewrite: false, version: undefined };
   await page.route("**/api/status", async (route) => {
-    const response = await route.fetch();
+    // The rewrite needs the whole status, not a 304 to the frame's tag.
+    const headers = route.request().headers();
+    delete headers["if-none-match"];
+    const response = await route.fetch({ headers });
     const json = await response.json();
     if (reported.rewrite) json.hubVersion = reported.version;
     await route.fulfill({ response, json });

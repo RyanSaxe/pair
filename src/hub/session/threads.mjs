@@ -4,6 +4,7 @@ import path from "node:path";
 import { problems } from "../../build/lint.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
+import { replyImages } from "./thread-images.mjs";
 
 export async function readThreads(directory) {
   const folder = path.join(directory, "threads");
@@ -61,15 +62,16 @@ export function threads(session) {
   // shown leaves out the result of the thread's last wake, because its
   // reason can contain the holder's socket path.
   const shown = ({ wake, ...thread }) => thread;
+  const images = replyImages(session.base);
   const threadView = () =>
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map(shown);
+      .map((thread) => images.lighten(shown(thread)));
   // The frame sends the topic overall for Review's overall comment and work
   // for the Work page.
   const ownTitles = {
     agreed: "Agreed so far",
-    overall: "Overall feedback",
+    overall: "Overall",
     work: "Work",
   };
   function pageTitle(round, topic) {
@@ -466,6 +468,7 @@ export function threads(session) {
   }
   return {
     threadView,
+    threadImage: (id, index, image) => images.read(threadFor(id), index, image),
     startThread,
     agentThread,
     addThreadMessage,

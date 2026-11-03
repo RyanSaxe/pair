@@ -196,7 +196,7 @@ test("a proposal opens on Work at its card", async (t) => {
   assert.equal(new URL(page.url()).hash, "#work");
 });
 
-// Sending feedback moves the session on, so the older round's cases share one
+// Sending a round moves the session on, so the older round's cases share one
 // session: a sent note opens its card, a block opens in the left tab, and Back
 // and a reload both return there.
 test("an older round opens live in the left tab, and Back and reload work", async (t) => {

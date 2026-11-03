@@ -9,6 +9,7 @@ import {
   online,
   topicTitle,
 } from "#frame/app/view.mjs";
+import { show } from "#frame/pages/pages.mjs";
 import { metaLine } from "#frame/pages/work.mjs";
 import { openPast } from "#frame/sync/rounds.mjs";
 
@@ -22,13 +23,26 @@ function agreementLabel(entry) {
 function describeRecord(record) {
   const where = topicTitle(record.topic) || record.topic;
   if (record.kind === "note") return `your note on ${where}`;
-  if (record.kind === "thread") return `your thread on ${where}`;
+  if (record.kind === "thread") {
+    const on = record.proposal ? record.label : where;
+    return on ? `your thread on ${on}` : "your thread";
+  }
   if (record.kind === "answer") return `your answer to “${record.label}”`;
   return `your choice “${record.text}” for ${record.label}`;
 }
+// A thread on a proposal's card belongs to no round.
+function recordLine(record, separator) {
+  const what = describeRecord(record);
+  return record.round
+    ? `Round ${record.round}${separator}${what}`
+    : what[0].toUpperCase() + what.slice(1);
+}
+// Only a frame on the hub has Work, so a saved round has no link to a card. A
+// source stored with no round and no card has nowhere to open.
+const hasLink = (record) => record.round || (online && record.proposal);
 // In the live reader, openInTab() makes a source's Open link load its round
-// into the left tab at the page and block in the link. A modified click
-// still opens the read-only page in a new tab.
+// into the left tab at the page and block in the link, or show its thread on
+// Work. A modified click still opens the page in a new tab.
 function openInTab(link, record) {
   if (!editable) return;
   link.addEventListener("click", (event) => {
@@ -41,13 +55,17 @@ function openInTab(link, record) {
     )
       return;
     event.preventDefault();
-    void openPast(record.round, {
-      pageId: record.topic,
-      targetId: record.target,
-    });
+    if (record.proposal) show("work", `thread-${record.threadId}`);
+    else
+      void openPast(record.round, {
+        pageId: record.topic,
+        targetId: record.target,
+      });
   });
 }
 function recordUrl(record, route) {
+  if (record.proposal)
+    return `${base}/?target=${encodeURIComponent(`thread-${record.threadId}`)}#work`;
   const params = new URLSearchParams();
   if (record.target) params.set("target", record.target);
   if (record.quote) params.set("quote", record.quote);
@@ -85,7 +103,7 @@ function agreementCard(entry) {
     (note) => note.agreementId === entry.id,
   ).length;
   const source = first
-    ? `Round ${first.round}, ${describeRecord(first)}`
+    ? recordLine(first, ", ")
     : records.length
       ? "From the conversation"
       : entry.source
@@ -116,7 +134,8 @@ function agreementCard(entry) {
   const preview = document.createElement("div");
   preview.className = "agreement-preview";
   preview.append(document.createElement("div"));
-  if (first && online) {
+  // A preview shows one round's page, and a thread on a card is on Work.
+  if (first?.round && online) {
     const toggle = linkButton("Preview", () => {
       const open = preview.classList.toggle("open");
       toggle.textContent = open ? "Hide preview" : "Preview";
@@ -129,7 +148,7 @@ function agreementCard(entry) {
     });
     actions.append(toggle, separator());
   }
-  if (first) {
+  if (first && hasLink(first)) {
     const open = document.createElement("a");
     open.textContent = "Open";
     if (online) {
@@ -159,7 +178,7 @@ function agreementCard(entry) {
     meta.textContent =
       record.kind === "conversation"
         ? "Conversation · agent-provided context"
-        : `Round ${record.round} · ${describeRecord(record)}`;
+        : recordLine(record, " · ");
     box.append(meta);
     if (record.quote) {
       const quote = document.createElement("blockquote");
@@ -169,7 +188,7 @@ function agreementCard(entry) {
     const line = document.createElement("span");
     line.textContent = record.text;
     box.append(line);
-    if (record.kind !== "conversation") {
+    if (record.kind !== "conversation" && hasLink(record)) {
       const open = document.createElement("a");
       open.className = "context-link";
       open.textContent = " Open";

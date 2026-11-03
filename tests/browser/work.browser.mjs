@@ -96,7 +96,7 @@ test("Start sends where the work runs and the message, and the running card quot
   assert.equal(new URL(page.url()).hash, "#work");
 });
 
-// The reviewer answers a round only with Send feedback, so starting a card must
+// The reviewer answers a round only with Send, so starting a card must
 // leave the waiting round and its drafts in place.
 test("Start here leaves the waiting round open with its drafts, so a second card can start", async (t) => {
   const { session, page, tab } = await work(t);
@@ -104,7 +104,7 @@ test("Start here leaves the waiting round open with its drafts, so a second card
   await page.locator('#page-list [data-page="overview"]').click();
   await page.locator("#comment-here").click();
   await page.locator("#note-text").fill("Keep the header height.");
-  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.getByRole("button", { name: "Add to draft" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await page.locator("#work-row").click();
   const dialog = page.locator("#start-dialog");
@@ -295,11 +295,7 @@ test("the comment control comments on a chosen card, the proposal component, Wor
     await page.locator("#note-dialog").waitFor({ state: "hidden" });
   };
   await page.locator("#page-content .proposal-delivers").click();
-  await comment(
-    "Comment on this proposal",
-    "Build it first.",
-    "Add to feedback",
-  );
+  await comment("Comment on this proposal", "Build it first.", "Add to draft");
 
   await page.locator("#work-row").click();
   await comment("Comment on Work", "Which ships first?", "Start a thread");
@@ -337,11 +333,11 @@ test("the comment control comments on a chosen card, the proposal component, Wor
 
   await page.locator("#review-row").click();
   assert.equal(await page.locator("#overall-group").isVisible(), false);
-  await comment("Add overall comment", "Ship it.", "Add to feedback");
+  await comment("Add overall comment", "Ship it.", "Add to draft");
   await page.locator("#overall-group", { hasText: "Ship it." }).waitFor();
   assert.deepEqual(
     await page.locator("#feedback-review h2").allTextContents(),
-    ["Your feedback", "Overview", "Work", "Overall"],
+    ["Your draft", "Overview", "Work", "Overall"],
   );
   await page.locator("#submit").click();
   await page.locator("#send-button").click();
@@ -361,7 +357,7 @@ test("the comment control comments on a chosen card, the proposal component, Wor
     [
       ["overview", "Build the deck", "deck"],
       ["work", "Build the deck", "deck"],
-      ["overall", "Overall feedback", undefined],
+      ["overall", "Overall", undefined],
     ],
   );
 

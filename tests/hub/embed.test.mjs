@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
+import os from "node:os";
 import test from "node:test";
 import { hub, planData } from "../support/hub.mjs";
 
@@ -47,21 +47,37 @@ test("an older round is read-only there, a closed session is closed, and an unkn
   assert.match(await (await embed(h, a, "latest")).text(), /"closed": true/);
 });
 
-test("a large JSON reply is compressed, and a small one isn't", async (t) => {
-  const h = await hub(t);
+test("a large reply is compressed for a browser on another machine, and not for one on this machine", async (t) => {
+  const address = Object.values(os.networkInterfaces())
+    .flat()
+    .find((item) => item.family === "IPv4" && !item.internal)?.address;
+  if (!address && !process.env.CI)
+    return t.skip("This machine has no address besides loopback");
+  const h = await hub(t, { PAIR_HUB_HOST: address });
   const a = await h.session();
-  await a.publish({ ...planData(), pages: [overview("<p>One.</p>")] });
-  const status = () => fetch(`${h.server.origin}${a.base}/api/status`);
-  assert.equal((await status()).headers.get("content-encoding"), null);
-  const started = await a.request(`${a.base}/api/threads`, {
-    id: crypto.randomUUID(),
-    round: "1",
-    topic: "overview",
-    anchor: "Overview",
-    text: "kestrel ".repeat(20000),
-  });
-  assert.equal(started.code, 201);
-  const large = await status();
-  assert.equal(large.headers.get("content-encoding"), "gzip");
-  assert.match((await large.json()).threads[0].messages[0].text, /kestrel/);
+  await a.publish({ ...planData(), pages: [overview("<p>The kestrel.</p>")] });
+  const phone = `http://${address}:${h.record.port}`;
+  const local = h.server.origin;
+  const encoding = async (url, headers) =>
+    (await fetch(url, { headers })).headers.get("content-encoding");
+
+  const page = await fetch(`${phone}${a.base}/`);
+  assert.equal(page.headers.get("content-encoding"), "gzip");
+  assert.match(await page.text(), /The kestrel/);
+  const status = await fetch(`${phone}${a.base}/api/status`);
+  assert.equal(status.headers.get("content-encoding"), "gzip");
+  assert.equal((await status.json()).sessionId, a.connection.sessionId);
+
+  assert.equal(await encoding(`${phone}/api/hub`), null);
+  assert.equal(
+    await encoding(`${phone}${a.base}/`, { "accept-encoding": "identity" }),
+    null,
+  );
+  assert.equal(await encoding(`${local}${a.base}/`), null);
+  assert.equal(await encoding(`${local}${a.base}/api/status`), null);
+
+  // The embed route compresses its own page, and a second gzip would break it.
+  const frame = await fetch(`${phone}${a.base}/embed/latest`);
+  assert.equal(frame.headers.get("content-encoding"), "gzip");
+  assert.match(await frame.text(), /"embedded": true/);
 });

@@ -17,7 +17,7 @@
     {
       "id": "start",
       "title": "Start a thread from the note dialog",
-      "html": "<p>Start a thread sits beside Add to feedback in the note dialog.</p>",
+      "html": "<p>Start a thread sits beside Add to draft in the note dialog.</p>",
       "change": "new",
       "source": { "round": "1", "choice": "start" }
     },

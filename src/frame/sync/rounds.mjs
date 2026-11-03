@@ -56,6 +56,7 @@ import {
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
 import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
+import { fetchStatus, statusLoading } from "#frame/sync/status.mjs";
 
 export let selectedTab = "current";
 // sentByRound contains the submission of each past round that the Previous
@@ -449,10 +450,9 @@ export function switchTab(
   renderRounds();
 }
 export async function poll() {
+  if (statusLoading) return;
   try {
-    const response = await fetch(`${base}/api/status`);
-    if (!response.ok) throw Error();
-    const result = await response.json();
+    const result = await fetchStatus();
     if (result.sessionId !== session.sessionId) throw Error("Wrong session");
     remote = result;
     connected = true;
