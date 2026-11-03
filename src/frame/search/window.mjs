@@ -67,8 +67,6 @@ export function createWindow() {
   // row until a click, where a redraw must not move the page under the reader.
   let drawn = null;
   let shownAs = null;
-  // A row chosen before the window opened, read as a click once the list has it.
-  let opening = null;
 
   const focusField = () => innerWidth > PHONE && input.focus();
   const closeMenu = () => {
@@ -154,20 +152,13 @@ export function createWindow() {
   // the first row goes back to it unless it was told to keep its place.
   function settleSelection(keep) {
     const index = current.results.findIndex(
-      (result) => source.rowKey(result) === (opening ?? state.row),
+      (result) => source.rowKey(result) === state.row,
     );
     state.selected = source.selectFirst
       ? keep
         ? Math.max(index, 0)
         : 0
       : index;
-  }
-  // A row from the bell is read at once, like a row the reader clicks.
-  function readOpening() {
-    const row = selectedRow();
-    if (!opening || !row) return;
-    opening = null;
-    source.onShow?.(row, "click");
   }
 
   async function run({ keep = false } = {}) {
@@ -192,7 +183,6 @@ export function createWindow() {
       drawControls();
       drawList();
       drawPreview();
-      readOpening();
     };
     let reply;
     try {
@@ -216,7 +206,6 @@ export function createWindow() {
     drawControls();
     drawList();
     drawPreview();
-    readOpening();
     if (keep || !source.selectFirst)
       list
         .querySelector('[aria-selected="true"]')
@@ -297,9 +286,8 @@ export function createWindow() {
     list.setAttribute("aria-label", next.listLabel);
     part(".search-filters").innerHTML = menusHtml(menus.names);
   }
-  function open(next, { select = null } = {}) {
+  function open(next) {
     useSource(next);
-    opening = select;
     shownAs = null;
     if (!dialog.open) {
       // showModal focuses the first control it finds. With the field inert for

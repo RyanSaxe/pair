@@ -166,7 +166,6 @@ async function cardReply(session, proposal) {
 async function openLine(page) {
   await page.locator("#bell").click();
   await page.locator("#center-list .session-row").click();
-  await page.locator(".search-open").click();
 }
 const landed = async (page, tab, id) => {
   await page.locator(`#work-tab-${tab}[aria-selected="true"]`).waitFor();

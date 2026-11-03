@@ -139,16 +139,6 @@ for (const engine of ["chrome", "webkit"])
       // The bars hide, and the window takes the height.
       await page.evaluate((shown) => window.setBars(shown), height);
       await fits(height);
-
-      // A row in the popup opens the window split.
-      await page.locator(".search-close").tap();
-      await page.locator("#search-dialog").waitFor({ state: "hidden" });
-      await page.locator("#bell").tap();
-      await page.locator("#center-list .session-row").first().tap();
-      await page.locator(".search-preview-head").waitFor();
-      assert.equal(await page.locator(".search-preview").isVisible(), true);
-      await fits(height);
-      await agree(page, 12);
     });
 
 // The page's comment button floats at the bottom of the pane, where a thread's
@@ -180,9 +170,8 @@ for (const engine of ["chrome", "webkit"])
     if (!page) return;
     await badge(page, 2);
     await page.locator("#bell").tap();
-    await page
-      .locator("#center-list .session-row", { hasText: "walrus" })
-      .tap();
+    await page.locator("#center-all").tap();
+    await row(page, "walrus").tap();
     await shownFrame(page).locator(".thread-reply textarea:visible").waitFor();
     const expected = { before: true, writing: false, after: true };
     assert.deepEqual(await buttonWhileReplying(shownFrame(page)), expected);

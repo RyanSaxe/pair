@@ -144,12 +144,8 @@ test("a thread on the overall comment shows in the pane without waiting", async 
   await reply(here, id, "An answer on the whole round.");
   const page = await openOn(t, h, here);
   if (!page) return;
-  await page.locator("#bell").click();
-  await page
-    .locator("#center-list .session-row", {
-      hasText: "An answer on the whole round.",
-    })
-    .click();
+  await openAll(page);
+  await row(page, "An answer on the whole round.").click();
   const started = Date.now();
   await shownFrame(page)
     .locator(`pair-thread[data-thread="${id}"]`)

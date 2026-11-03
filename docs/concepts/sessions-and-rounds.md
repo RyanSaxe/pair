@@ -197,9 +197,11 @@ round waiting for you, a new reply in a thread, and a proposal waiting for
 is the number of rows. A thread with two new replies is one row. The list shows
 the newest 5 rows, and its link then says how many more there are.
 
-Click a row to read it in [Notifications](#notifications). **Clear all**, or the
-✕ that shows when you point at a row, marks rows read. A phone has no ✕.
-Notifications still lists every row you clear.
+Click a row to go to its place: pair shows a reply in its thread on its page, a
+proposal's card on Work, and a waiting round's Agreed. For a row from another
+session, pair opens that session at that place. A click marks the row read, and
+so do **Clear all** and the ✕ that shows when you point at a row. A phone has no
+✕. [Notifications](#notifications) still lists every row you read or clear.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
@@ -208,10 +210,10 @@ Notifications still lists every row you clear.
 
 ### Notifications
 
-**All notifications**, at the bottom of the bell's list, opens a window with a
-list on the left and the real page on the right. The list has every thread,
-round, proposal and session start from your live sessions, in three groups,
-each newest first.
+The link at the bottom of the bell's list, **All notifications** or
+**See 3 more**, opens a window with a list on the left and the real page on the
+right. The list has every thread, round, proposal and session start from your
+live sessions, in three groups, each newest first.
 
 | Group                    | Mark on the icon    | A row goes here when                  | A row leaves when                                                                 |
 | ------------------------ | ------------------- | ------------------------------------- | --------------------------------------------------------------------------------- |

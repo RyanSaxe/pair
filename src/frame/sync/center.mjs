@@ -16,6 +16,7 @@ import { refreshWork } from "#frame/pages/work.mjs";
 import { bellRows, glyphOf } from "#frame/search/notification-rows.mjs";
 import {
   openNotifications,
+  openPlace,
   refreshNotifications,
 } from "#frame/search/notifications.mjs";
 import {
@@ -193,7 +194,10 @@ function glanceLine(row) {
   glyph.innerHTML = glyphOf(row);
   open.append(glyph, part("title", row.words), part("when", since(row.at)));
   if (!row.own) open.append(part("where", row.sessionTitle));
-  open.onclick = () => openNotifications(row.key);
+  open.onclick = () => {
+    clear(row.events);
+    openPlace(row);
+  };
   const close = lineButton(`clear:${row.key}`, "Clear", "✕", () =>
     clear(row.events),
   );

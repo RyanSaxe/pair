@@ -205,16 +205,12 @@ function markRead(row) {
   clearTimeout(stay);
   clear(row.events);
 }
-// The close event comes after Open has started landing on the page, which takes
-// the focus, so the window hands it back to the bell only when nothing was opened.
-let landing = false;
-function openRow(row) {
-  landing = true;
-  markRead(row);
+// A row in the bell's popup and Open in the window both go to the row's place.
+export function openPlace(row, query = "") {
   const shown = previewRow(row);
   const page = pageOf(shown);
   const target = targetOf(shown);
-  const match = matchOf(shown, state.query);
+  const match = matchOf(shown, query);
   openLine({
     entry: { id: row.session, url: row.url, round: row.sessionRound },
     page,
@@ -227,6 +223,14 @@ function openRow(row) {
         ? row.url
         : resultHref({ ...shown, page }, { target, match }),
   });
+}
+// The close event comes after Open has started landing on the page, which takes
+// the focus, so the window hands it back to the bell only when nothing was opened.
+let landing = false;
+function openRow(row) {
+  landing = true;
+  markRead(row);
+  openPlace(row, state.query);
 }
 
 const emptyPane = () => {
@@ -386,8 +390,8 @@ function cardChanged() {
   refreshNotifications(true);
 }
 
-// The bell opens the window with nothing selected, or at the row it was given.
-export function openNotifications(key = null) {
+// The window opens with nothing selected.
+export function openNotifications() {
   const win = sharedWindow();
   if (!win) return;
   toggleCenter(false);
@@ -412,7 +416,7 @@ export function openNotifications(key = null) {
   searchFailed = false;
   linesFailed = false;
   replied.clear();
-  win.open(source, { select: key });
+  win.open(source);
 }
 
 // renderCenter calls this each time the bell changes, and fromHub is true on each

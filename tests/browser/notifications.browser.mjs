@@ -66,7 +66,41 @@ test("the popup lists the newest 5 rows with one row per thread, a link that say
   );
 });
 
-test("a row in the popup opens the window at that row and reads it at once, and the real page shows it with a working reply box, in another session too", async (t) => {
+test("a row in the popup goes straight to its place and reads it, and a row from another session opens that session there", async (t) => {
+  const h = await hub(t);
+  const { here, other } = await sessions(t, h);
+  const there = await replied(other, "An answer from elsewhere");
+  const id = await replied(here, "An answer from here");
+  // A reply on screen in a tab with no focus stays unread, so only the click reads it.
+  const page = await openOn(t, h, here, {}, false);
+  if (!page) return;
+  await badge(page, 3);
+  await page.locator("#bell").click();
+  await page
+    .locator("#center-list .session-row", { hasText: "An answer from here" })
+    .click();
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
+  await page.locator(`pair-thread[data-thread="${id}"]`).waitFor();
+  await badge(page, 2);
+  assert.equal(
+    await page.locator("#search-dialog").evaluate((box) => box.open),
+    false,
+  );
+
+  await page.locator("#bell").click();
+  await page
+    .locator("#center-list .session-row", {
+      hasText: "An answer from elsewhere",
+    })
+    .click();
+  await page.waitForURL(`**${other.base}/**`);
+  await page.locator(`pair-thread[data-thread="${there}"]`).waitFor();
+  // The one row left is the round waiting in Here, because a tab doesn't list its
+  // own session's waiting round.
+  await badge(page, 1);
+});
+
+test("a row in the window reads it at once, and the real page shows it with a working reply box, in another session too", async (t) => {
   const h = await hub(t);
   const { here, other } = await sessions(t, h);
   const id = await replied(other, "An answer from elsewhere");
@@ -74,13 +108,8 @@ test("a row in the popup opens the window at that row and reads it at once, and 
   const page = await openOn(t, h, here);
   if (!page) return;
   await badge(page, 3);
-  await page.locator("#bell").click();
-  await page
-    .locator("#center-list .session-row", {
-      hasText: "An answer from elsewhere",
-    })
-    .click();
-  await page.locator("#search-dialog[open]").waitFor();
+  await openAll(page);
+  await row(page, "An answer from elsewhere").click();
   await agree(page, 2);
   await page.locator(".search-count", { hasText: "2 unread" }).waitFor();
   assert.match(await selected(page).textContent(), /An answer from elsewhere/);
@@ -465,12 +494,8 @@ test("a card's row opens the card on its Work tab, says Waiting for Start until 
   const page = await openOn(t, h, here);
   if (!page) return;
   await badge(page, 2);
-  await page.locator("#bell").click();
-  await page
-    .locator("#center-list .session-row", {
-      hasText: "Proposal: Build the deck",
-    })
-    .click();
+  await openAll(page);
+  await row(page, "Proposal: Build the deck").click();
   await agree(page, 1);
   const frame = shownFrame(page);
   await frame.locator('#work-tab-proposed[aria-selected="true"]').waitFor();
