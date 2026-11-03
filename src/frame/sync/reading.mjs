@@ -1,3 +1,8 @@
+import { $ } from "#frame/app/util.mjs";
+import { embedded } from "#frame/app/view.mjs";
+import { clear, unreadHere } from "#frame/sync/center.mjs";
+import { eventTarget } from "#frame/sync/notifications.mjs";
+
 /* A reply or a card's title that stays whole on screen for 1.5 seconds has been
    read. It counts only while the reviewer can be reading it: the tab has focus, and
    no dialog covers the page. A subpixel offset can keep a line just under whole. */
@@ -9,7 +14,7 @@ const looking = () =>
 
 // watchReading returns watch(list), which takes the { node, id } pairs to watch
 // from now on, and calls onRead(id) for each one that the reviewer reads.
-export function watchReading(onRead) {
+function watchReading(onRead) {
   const watched = new Map();
   let observer = null;
   let timer = 0;
@@ -50,4 +55,33 @@ export function watchReading(onRead) {
         observer.observe(node);
       }
   };
+}
+
+// The search window reads a row by its own rule, so its frame watches nothing.
+const readReplies = watchReading((id) => clear([id]));
+export function watchReplies() {
+  if (embedded) return;
+  readReplies(
+    unreadHere("reply").flatMap((event) => {
+      const node = document
+        .getElementById(eventTarget(event))
+        ?.querySelector(".thread-name");
+      return node ? [{ node, id: event.id }] : [];
+    }),
+  );
+}
+// An unread proposal is read once its title stays on screen on Work.
+const readCards = watchReading((id) => clear([id]));
+export function watchUnreadCards() {
+  if (embedded) return;
+  readCards(
+    unreadHere("proposal").flatMap((event) => {
+      const node = $("work-view").hidden
+        ? null
+        : $("work-cards").querySelector(
+            `[data-proposal-card="${CSS.escape(event.proposal)}"] .proposal-title`,
+          );
+      return node ? [{ node, id: event.id }] : [];
+    }),
+  );
 }

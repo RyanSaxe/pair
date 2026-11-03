@@ -216,7 +216,7 @@ export function previewRow(row) {
   };
 }
 
-export function rangesIn(text, words) {
+function rangesIn(text, words) {
   const low = text.toLowerCase();
   const found = [];
   for (const word of words) {

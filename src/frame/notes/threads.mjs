@@ -27,10 +27,9 @@ import {
   diffViews,
   setDiffThreads,
 } from "#frame/pages/renderers.mjs";
-import { clear, clearThread, unreadHere } from "#frame/sync/center.mjs";
+import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
-import { eventTarget } from "#frame/sync/notifications.mjs";
-import { watchReading } from "#frame/sync/reading.mjs";
+import { watchReplies } from "#frame/sync/reading.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
@@ -513,19 +512,6 @@ function placeEnds(threads) {
     });
     for (const card of [...box.children].slice(listed.length)) card.remove();
   }
-}
-// The search window reads a row by its own rule, so its frame watches nothing.
-const readReplies = watchReading((id) => clear([id]));
-function watchReplies() {
-  if (embedded) return;
-  readReplies(
-    unreadHere("reply").flatMap((event) => {
-      const node = document
-        .getElementById(eventTarget(event))
-        ?.querySelector(".thread-name");
-      return node ? [{ node, id: event.id }] : [];
-    }),
-  );
 }
 export function placeThreads() {
   const root = $("page-content");

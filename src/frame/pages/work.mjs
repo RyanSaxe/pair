@@ -13,13 +13,8 @@ import {
 } from "#frame/pages/card-links.mjs";
 import { statusBox } from "#frame/pages/card-status.mjs";
 import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
-import {
-  clear,
-  listedSession,
-  unreadCards,
-  unreadHere,
-} from "#frame/sync/center.mjs";
-import { watchReading } from "#frame/sync/reading.mjs";
+import { listedSession, unreadCards } from "#frame/sync/center.mjs";
+import { watchUnreadCards } from "#frame/sync/reading.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
@@ -448,22 +443,6 @@ function paintProposal(root, seen = seenCards()) {
   mounted.set(root, key);
   root.dataset.proposalCard = card.id;
   root.replaceChildren(cardElement(card, shown, fresh));
-}
-// An unread proposal is read once its title stays on screen on Work. The search
-// window reads a row by its own rule, so its frame watches nothing.
-const readCards = watchReading((id) => clear([id]));
-function watchUnreadCards() {
-  if (embedded) return;
-  readCards(
-    unreadHere("proposal").flatMap((event) => {
-      const node = $("work-view").hidden
-        ? null
-        : $("work-cards").querySelector(
-            `[data-proposal-card="${CSS.escape(event.proposal)}"] .proposal-title`,
-          );
-      return node ? [{ node, id: event.id }] : [];
-    }),
-  );
 }
 export function refreshWork(force = false) {
   if (remote && !embedded) adoptCards(session.sessionId, cards());
