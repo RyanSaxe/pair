@@ -2,131 +2,24 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData } from "../support/hub.mjs";
-
-const PAGE_KEY = "pair:page-width";
-const SIDEBAR_KEY = "pair:sidebar-width";
-const wide = { width: 2000, height: 900 };
-
-const prose =
-  "The hub serves every live session from one Node process and stores each session on disk, so a change to the width of this paragraph would break its lines in other places. ".repeat(
-    3,
-  );
-const shiki = `export async function codeToHtml(source) {
-  return "<pre class='shiki'><code>" + source.replace(/</g, "&lt;") + "</code></pre>";
-}`;
-const code = (name) =>
-  `<pre data-language="js" data-file="${name}.js">const retries = 3;\nconst delay = 8;</pre>`;
-// This image is much wider than any column in these tests.
-const image = `data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="300"/>',
-)}`;
-const pages = [
-  {
-    id: "blocks",
-    title: "Blocks",
-    html: `<p id="words">${prose}</p>${code("blocks")}
-<div data-prototype="probe"></div>
-<figure><img src="${image}" alt="A wide image" style="width: 100%"></figure>`,
-    prototypes: [
-      {
-        id: "probe",
-        title: "Probe",
-        height: 120,
-        html: "<!doctype html><title>Probe</title><p>Probe</p>",
-      },
-    ],
-  },
-  {
-    id: "long",
-    title: "Long",
-    html: Array.from(
-      { length: 40 },
-      (_, index) => `<p id="words-${index}">${prose}</p>${code(index)}`,
-    ).join(""),
-  },
-];
-
-async function setup(t, engine, { viewport = wide, at = "blocks" } = {}) {
-  const h = await hub(t);
-  const session = await h.session();
-  const published = await session.publish({ ...planData(), pages });
-  assert.equal(published.code, 200, published.body.error);
-  const url = (rest) => `${h.server.origin}${session.base}/${rest}`;
-  const page = await open(t, "about:blank", { engine, viewport });
-  if (!page) return null;
-  await page.route(/esm\.sh\/shiki/, (route) =>
-    route.fulfill({ body: shiki, contentType: "text/javascript" }),
-  );
-  await page.goto(url(`#${at}`));
-  await page.locator(`#page-content[data-page-id="${at}"]`).waitFor();
-  return { h, session, page, url };
-}
-
-const box = (page, selector) =>
-  page
-    .locator(selector)
-    .first()
-    .evaluate((element) => {
-      const { left, right, width, top } = element.getBoundingClientRect();
-      return { left, right, width, top };
-    });
-const saved = (page, key) =>
-  page.evaluate((key) => localStorage.getItem(key), key);
-// The browser fires resize at its next frame, so this waits for the attribute.
-const fullIs = (page, expected) =>
-  page.waitForFunction(
-    (expected) =>
-      document.documentElement.hasAttribute("data-page-full") === expected,
-    expected,
-    { timeout: 3000 },
-  );
-const save = (page, values) =>
-  page.evaluate((values) => {
-    for (const [key, value] of Object.entries(values))
-      localStorage.setItem(key, value);
-  }, values);
-
-// A tab sits at its strip's left plus the ::after's own left.
-const tab = (page, side) =>
-  page.locator(`.grip.${side}`).evaluate((grip) => {
-    const strip = grip.getBoundingClientRect().left;
-    const { left, width } = getComputedStyle(grip, "::after");
-    const start = strip + parseFloat(left);
-    return { left: start, right: start + parseFloat(width) };
-  });
-const blueLine = (page, side) =>
-  page.locator(`.grip.${side}`).evaluate((grip) => {
-    const strip = grip.getBoundingClientRect().left;
-    return strip + parseFloat(getComputedStyle(grip, "::before").left);
-  });
-
-const Y = 450;
-async function press(page, x, y = Y) {
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-}
-// Chrome delivers a pointer move with the next animation frame, so moveTo waits
-// for the frame after that.
-async function moveTo(page, x, y = Y) {
-  await page.mouse.move(x, y, { steps: 8 });
-  await page.evaluate(
-    () =>
-      new Promise((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(resolve)),
-      ),
-  );
-}
-async function drag(page, from, to) {
-  await press(page, from);
-  await moveTo(page, to);
-  await page.mouse.up();
-}
-const near = (actual, expected, label = "") =>
-  assert.ok(
-    Math.abs(actual - expected) <= 1,
-    `${label} at ${actual}, expected ${expected}`,
-  );
+import {
+  blueLine,
+  box,
+  drag,
+  fullIs,
+  moveTo,
+  near,
+  PAGE_KEY,
+  press,
+  save,
+  saved,
+  setup,
+  SIDEBAR_KEY,
+  tab,
+  wide,
+  Y,
+} from "../support/edges.mjs";
+import { hub } from "../support/hub.mjs";
 
 const engines = { Chrome: "chrome", WebKit: "webkit" };
 for (const [browser, engine] of Object.entries(engines)) {
@@ -354,6 +247,112 @@ for (const [browser, engine] of Object.entries(engines)) {
     near((await box(page, "#app")).right, 1700, "the grabbed edge");
     await page.mouse.up();
     assert.equal(await saved(page, PAGE_KEY), "1400");
+  });
+
+  test(`in ${browser}, a press on a classic scrollbar's thumb scrolls the page and the sidebar, at rest and with the page filling the window`, async (t) => {
+    // Playwright hides scrollbars in headless Chrome unless told otherwise, and
+    // the browser ignores ::-webkit-scrollbar while scrollbar-width is set.
+    const s = await setup(t, engine, {
+      at: "long",
+      ignoreDefaultArgs: ["--hide-scrollbars"],
+    });
+    if (!s) return;
+    const { page } = s;
+    await page.addStyleTag({
+      content: `main, .sidebar { scrollbar-width: auto; scrollbar-color: auto; }
+main::-webkit-scrollbar, .sidebar::-webkit-scrollbar { width: 15px; }
+main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: gray; }`,
+    });
+    // WebKit keeps a pane's scrollbar until the pane stops scrolling.
+    await page.evaluate(() => {
+      for (const pane of document.querySelectorAll("main, .sidebar")) {
+        pane.style.overflow = "hidden";
+        void pane.offsetWidth;
+        pane.style.overflow = "";
+      }
+    });
+    const scrollbar = (selector) =>
+      page
+        .locator(selector)
+        .evaluate((pane) => pane.offsetWidth - pane.clientWidth);
+    const scrollTop = (selector) =>
+      page.locator(selector).evaluate((pane) => pane.scrollTop);
+    // The thumb starts at the pane's top, so this press is above the tab's
+    // height, and inset puts it where the strip would otherwise cover the bar.
+    const dragThumb = async (selector, inset) => {
+      await page
+        .locator(selector)
+        .evaluate((pane) => pane.scrollTo({ top: 0, behavior: "instant" }));
+      const pane = await box(page, selector);
+      const widths = [
+        (await box(page, "#app")).width,
+        (await box(page, "#sidebar")).width,
+      ];
+      await press(page, pane.right - inset, pane.top + 10);
+      await moveTo(page, pane.right - inset, pane.top + 80);
+      await page.mouse.up();
+      assert.ok((await scrollTop(selector)) > 0, `${selector} did not scroll`);
+      assert.deepEqual(
+        [(await box(page, "#app")).width, (await box(page, "#sidebar")).width],
+        widths,
+      );
+    };
+
+    assert.equal(await scrollbar("main"), 15);
+    await dragThumb("main", 3);
+    await drag(page, (await box(page, "#app")).right, 1990);
+    await fullIs(page, true);
+    await dragThumb("main", 3);
+    assert.equal(await saved(page, PAGE_KEY), String(wide.width));
+
+    // A short window gives the sidebar a scrollbar. The sidebar's border is its
+    // last pixel, and the bar is inside it.
+    await page.setViewportSize({ width: wide.width, height: 300 });
+    assert.equal(await scrollbar("#sidebar"), 16);
+    await dragThumb("#sidebar", 4);
+    assert.equal(await saved(page, SIDEBAR_KEY), null);
+  });
+
+  test(`in ${browser}, a strip's part over a pane is only the tab's height, and the rest of the edge can be grabbed from outside the pane`, async (t) => {
+    const s = await setup(t, engine);
+    if (!s) return;
+    const { page } = s;
+    const middle = wide.height / 2;
+    const away = 100;
+    const grabs = (x, y) =>
+      page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest(".grip") !== null,
+        [x, y],
+      );
+    const app = await box(page, "#app");
+    const sidebar = await box(page, "#sidebar");
+    for (const [label, outside, over] of [
+      ["right", app.right + 3, app.right - 4],
+      ["left", app.left - 3, app.left + 4],
+      ["sidebar", sidebar.right + 3, sidebar.right - 4],
+    ]) {
+      assert.equal(await grabs(outside, away), true, `${label} from outside`);
+      assert.equal(await grabs(over, away), false, `${label} over its pane`);
+      assert.equal(await grabs(over, middle), true, `${label} at the tab`);
+    }
+
+    await press(page, app.right + 3, away);
+    await moveTo(page, 1800, away);
+    near((await box(page, "#app")).right, 1800, "the edge grabbed off the tab");
+    await page.mouse.up();
+
+    await press(page, 1798, middle);
+    await moveTo(page, 1990, middle);
+    await fullIs(page, true);
+    // During a drag the whole strip shows, for the line's full height.
+    assert.equal(await grabs(wide.width - 1, away), true, "the blue line");
+    await page.mouse.up();
+    for (const x of [5, wide.width - 5]) {
+      assert.equal(await grabs(x, away), false, `${x} away from the tab`);
+      assert.equal(await grabs(x, middle), true, `${x} at the tab`);
+    }
+    await drag(page, 5, 300);
+    near((await box(page, "#app")).left, 300, "the edge dragged back");
   });
 
   test(`in ${browser}, with the sidebar closed, text is 1046px before and after a drag`, async (t) => {
