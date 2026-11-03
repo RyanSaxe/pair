@@ -93,8 +93,8 @@ export function recently(value) {
 }
 // Over plain http, which is how a phone reaches the hub, the browser has no
 // clipboard API, so copyText() selects the text in a temporary field and
-// copies it. The field goes inside an open dialog, because a modal dialog
-// makes the rest of the page inert.
+// copies it. The field goes inside an open modal, because a modal makes the
+// rest of the page inert, drawers included.
 export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -106,7 +106,7 @@ export async function copyText(text) {
     field.readOnly = true;
     field.style.position = "fixed";
     field.style.opacity = "0";
-    (document.querySelector("dialog[open]") || document.body).append(field);
+    (document.querySelector("dialog:modal") || document.body).append(field);
     field.select();
     try {
       return document.execCommand("copy");

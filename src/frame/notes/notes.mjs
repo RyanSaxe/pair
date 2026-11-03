@@ -21,7 +21,8 @@ import {
   showingWaiting,
   topicTitle,
 } from "#frame/app/view.mjs";
-import { placeBar } from "#frame/notes/blocks.mjs";
+import { openDrawer } from "#frame/app/drawer.mjs";
+import { commentTarget, placeBar } from "#frame/notes/blocks.mjs";
 import { pageTargets } from "#frame/notes/controls.mjs";
 import {
   drawNoteImages,
@@ -29,6 +30,7 @@ import {
   imageError,
   setNoteImages,
   settleNoteImages,
+  yieldNote,
 } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { diagramBoxes } from "#frame/pages/diagram.mjs";
@@ -228,7 +230,15 @@ let noteRanges = [];
 // diagram box with the noted class instead.
 let noteBoxes = [];
 export function markNotes() {
-  const notes = state.notes.filter((note) => note.topic === page.id);
+  // The words a new note is on stay marked while its dialog is open.
+  const writing =
+    $("note-dialog").open && !editing && noteContext?.topic === page.id
+      ? [noteContext]
+      : [];
+  const notes = [
+    ...state.notes.filter((note) => note.topic === page.id),
+    ...writing,
+  ];
   noteRanges = [];
   noteBoxes = [];
   for (const box of $("page-content").querySelectorAll(".pele-node.noted"))
@@ -303,10 +313,12 @@ function notesAt(x, y) {
 }
 let tipNotes = "";
 function showTip(event) {
-  const notes =
+  // The note being written has no text to show yet.
+  const notes = (
     noteRanges.length || noteBoxes.length
       ? notesAt(event.clientX, event.clientY)
-      : [];
+      : []
+  ).filter((note) => note.text);
   const key = notes.map((note) => note.id).join();
   const tip = $("note-tip");
   if (!notes.length) {
@@ -359,8 +371,10 @@ export function installNotes() {
     if (notes.some((note) => note.diagramNode))
       event.stopImmediatePropagation();
   });
-  /* markNotes waits a frame, so it runs after a save has redrawn the page. */
+  /* markNotes waits a frame, so it runs after a save has redrawn the page, and
+     a note the reviewer backed out of loses its mark. */
   $("note-dialog").addEventListener("close", () => {
+    commentTarget();
     requestAnimationFrame(() => {
       if (
         !$("note-dialog").open &&
@@ -374,8 +388,10 @@ export function installNotes() {
      not when the frame has redrawn that control. A save redraws the page,
      which focuses its heading, or redraws Review's list. This handler then
      focuses the redrawn element with the control's nearest ID, which is the
-     block, card or Review item that the note is on. */
+     block, card or Review item that the note is on. When another drawer took
+     the note's place, focus stays in that drawer. */
   $("note-dialog").addEventListener("close", () => {
+    if (document.querySelector("dialog[data-drawer][open]")) return;
     const shown = (element) =>
       element?.isConnected && element.checkVisibility();
     if (shown(opener)) {
@@ -410,9 +426,8 @@ export function openNote({
   // wherever the card's Start button works.
   const feedback = feedbackEditable();
   const threads = proposal ? cardsEditable() : noteEditable();
-  if (!feedback && (id || !threads)) return;
-  clearHighlight("plan-note");
-  noteContext = {
+  if (!feedback && (id || !threads)) return false;
+  const context = {
     topic,
     anchor,
     quote,
@@ -423,10 +438,17 @@ export function openNote({
     ...(diagramNode ? { diagramNode } : {}),
     ...(proposal ? { proposal } : {}),
   };
-  editing = id;
   // The key includes everything that places the note, so two selections of
   // the same words keep separate drafts.
-  noteDraftKey = JSON.stringify([id, noteContext]);
+  const key = JSON.stringify([id, context]);
+  if ($("note-dialog").open && key === noteDraftKey) {
+    $("note-text").focus();
+    return true;
+  }
+  if (!yieldNote()) return false;
+  noteContext = context;
+  editing = id;
+  noteDraftKey = key;
   const pageTitle = topicTitle(topic) || anchor;
   const place =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;
@@ -456,10 +478,14 @@ export function openNote({
   $("note-label").textContent = "Note";
   $("note-anchor").hidden = false;
   $("note-thread").classList.remove("primary");
-  opener = document.activeElement;
-  $("note-dialog").showModal();
+  if (!$("note-dialog").open) opener = document.activeElement;
+  openDrawer($("note-dialog"));
   fitNoteText();
   $("note-text").focus();
+  if (!$("reading").hidden && !page.pending && page.id !== "agreed")
+    markNotes();
+  commentTarget();
+  return true;
 }
 export const progressThread = {
   topic: "agreed",
@@ -471,13 +497,13 @@ export const progressThread = {
    frame sends this message to the agent now and not with the round's
    feedback. */
 export function openAgentMessage() {
-  openNote(progressThread);
-  if (!$("note-dialog").open) return;
+  if (!openNote(progressThread)) return;
   $("note-title").textContent = "Message the agent";
   $("note-label").textContent = "Message";
   $("note-anchor").hidden = true;
   $("note-save").hidden = true;
   $("note-thread").classList.add("primary");
+  commentTarget();
 }
 /* A note that quotes nothing has no highlight, so placeNoteBars marks its
    block with a bar in the same padding as the chosen block's bar. */

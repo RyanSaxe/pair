@@ -50,7 +50,12 @@
   </div>
   <div class="sess-list" id="sessions-list"></div>
 </div>
-<dialog class="dialog note" id="note-dialog" aria-labelledby="note-title">
+<dialog
+  class="dialog note"
+  id="note-dialog"
+  aria-labelledby="note-title"
+  data-drawer
+>
   <form id="note-form">
     <div class="dialog-head" data-close-label="Close note">
       <h2 id="note-title">Add note</h2>
@@ -152,7 +157,12 @@
     </button>
   </div>
 </dialog>
-<dialog class="dialog keys" id="keys-dialog" aria-labelledby="keys-title">
+<dialog
+  class="dialog keys"
+  id="keys-dialog"
+  aria-labelledby="keys-title"
+  data-drawer
+>
   <div class="dialog-head">
     <h2 id="keys-title" tabindex="-1" autofocus>Keys</h2>
   </div>
@@ -235,7 +245,12 @@
 <!-- The hints share one grid cell and the button rows share another, so the
      dialog's size does not change when the reviewer selects another choice.
      The frame fills in the card. -->
-<dialog class="dialog start" id="start-dialog" aria-labelledby="start-title">
+<dialog
+  class="dialog start"
+  id="start-dialog"
+  aria-labelledby="start-title"
+  data-drawer
+>
   <div class="dialog-head">
     <h2 id="start-title" tabindex="-1" autofocus></h2>
   </div>
@@ -398,7 +413,12 @@
   </div>
 </dialog>
 <!-- The frame draws the choices, which differ in a plan round. -->
-<dialog class="dialog start" id="send-dialog" aria-labelledby="send-title">
+<dialog
+  class="dialog start"
+  id="send-dialog"
+  aria-labelledby="send-title"
+  data-drawer
+>
   <div class="dialog-head">
     <h2 id="send-title" tabindex="-1" autofocus>Send to the agent</h2>
   </div>

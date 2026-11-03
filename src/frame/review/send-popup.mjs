@@ -1,3 +1,4 @@
+import { openDrawer } from "#frame/app/drawer.mjs";
 import { persist, state, unsentItems } from "#frame/app/store.mjs";
 import { $, plural, shiftEnter } from "#frame/app/util.mjs";
 import {
@@ -7,6 +8,7 @@ import {
   plan,
 } from "#frame/app/view.mjs";
 import { notAddedAnswers, typedOn } from "#frame/notes/controls.mjs";
+import { yieldNote } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { arrowKeys, checkRow } from "#frame/pages/start-popup.mjs";
 import { sendFeedback } from "#frame/review/send.mjs";
@@ -116,14 +118,14 @@ function showNotAdded() {
   );
 }
 export function openSend() {
-  if (remote?.openRound || !feedbackEditable()) return;
+  if (remote?.openRound || !feedbackEditable() || !yieldNote()) return;
   planRound = isPlanRound();
   $("send-choices").replaceChildren(...choicesFor(planRound).map(choiceRow));
   $("align-unflagged").checked = state.alignUnflagged;
   $("send-message").value = state.message || "";
   select(startingChoice(planRound));
   showNotAdded();
-  $("send-dialog").showModal();
+  openDrawer($("send-dialog"));
   // The frame loads a page only when the reviewer opens it. After a reload,
   // openSend loads each pending page that has typed text, so showNotAdded
   // can check its answers.

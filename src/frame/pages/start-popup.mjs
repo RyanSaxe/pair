@@ -1,5 +1,8 @@
+import { openDrawer } from "#frame/app/drawer.mjs";
+import { persist, state } from "#frame/app/store.mjs";
 import { $, copyText, shiftEnter, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
+import { yieldNote } from "#frame/notes/note-dialog.mjs";
 import { sendKey, sendKeyName } from "#frame/notes/threads.mjs";
 import {
   clearItem,
@@ -73,6 +76,7 @@ function showForm(writing) {
 // chosen first, as it is for a card with no recommendation. then receives the
 // hub's answer and the new card's ID.
 export function openNewItem(then) {
+  if (!yieldNote()) return;
   card = null;
   after = then;
   newId = null;
@@ -85,20 +89,21 @@ export function openNewItem(then) {
     row.querySelector(".start-recommended").hidden = true;
   }
   resetDialog("here");
-  $("start-dialog").showModal();
+  openDrawer($("start-dialog"));
   fitItem();
   $("start-write-title").focus();
 }
 function resetDialog(choice) {
   $("start-plan-first").checked = false;
   select(choice);
-  $("start-message").value = "";
+  $("start-message").value = (card && state.startMessages[card.id]) || "";
   $("start-error").hidden = true;
   for (const id of ["start-send", "start-copy", "start-open"])
     $(id).disabled = false;
   $("start-copy").textContent = "Copy command";
 }
 export function openStart(proposal, joined, then) {
+  if (!yieldNote()) return;
   card = proposal;
   after = then;
   $("start-title").textContent = card.title;
@@ -118,7 +123,9 @@ export function openStart(proposal, joined, then) {
       row.dataset.where !== card.recommend;
   }
   resetDialog(card.recommend || "here");
-  $("start-dialog").showModal();
+  openDrawer($("start-dialog"));
+  // The dialog may have been open already for another card or form.
+  $("start-title").focus();
 }
 const planFields = () =>
   $("start-plan-first").checked ? { planFirst: true } : {};
@@ -148,6 +155,10 @@ async function post(action, button) {
     if (!response.ok) throw Error(result.error || "The hub refused it.");
     button.disabled = false;
     newId = fields.id ?? null;
+    if (card) {
+      delete state.startMessages[card.id];
+      persist();
+    }
     return result;
   } catch (error) {
     $("start-error").textContent = unreachable(error);
@@ -220,6 +231,12 @@ export function installStart() {
     () => rows().find((row) => row.dataset.where === where),
     (row) => select(row.dataset.where),
   );
+  // Start and New work item keep each card's message when another opens here.
+  $("start-message").addEventListener("input", (event) => {
+    if (!card) return;
+    state.startMessages[card.id] = event.target.value;
+    persist();
+  });
   $("start-send").onclick = () => send("start", $("start-send"));
   $("start-copy").onclick = copy;
   $("start-open").onclick = () => send("open-agent", $("start-open"));

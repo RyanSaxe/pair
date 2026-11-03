@@ -30,6 +30,9 @@ export function emptyDraft(round) {
     // Answer, and each drawing question's drawing since it was last saved.
     drafts: {},
     noteDrafts: {},
+    // startMessages contains the message typed for each card under Start, until
+    // the card starts.
+    startMessages: {},
     replyDrafts: {},
     // itemDraft contains the unsent text and images of the New work item form.
     itemDraft: null,

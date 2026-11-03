@@ -286,7 +286,12 @@ const noteBox = (page) =>
     };
   });
 
-test("the note's box grows with its text up to half the window, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
+// The box stops growing when the drawer reaches 10px from the header's line.
+// offsetTop leaves out the drawer's rise as it opens.
+const drawerFull = (page) =>
+  page.evaluate(() => document.getElementById("note-dialog").offsetTop);
+
+test("the note's box grows with its text until the drawer is full, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -304,7 +309,9 @@ test("the note's box grows with its text up to half the window, opens a draft at
   );
 
   await text.fill("A line of the note.\n".repeat(60));
-  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+  const full = await noteBox(page);
+  assert.equal(full.scrolls, true);
+  assert.equal(await drawerFull(page), 10);
 
   await page.reload();
   await page.locator('#page-list [data-page="decisions"]').click();
@@ -312,7 +319,7 @@ test("the note's box grows with its text up to half the window, opens a draft at
   await page.keyboard.press("c");
   await page.locator("#note-dialog[open]").waitFor();
   assert.equal(await text.inputValue(), "A line of the note.\n".repeat(60));
-  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+  assert.deepEqual(await noteBox(page), full);
 
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.press("Backspace");
@@ -320,7 +327,7 @@ test("the note's box grows with its text up to half the window, opens a draft at
   assert.deepEqual(await noteBox(page), { height: 120, scrolls: false });
 });
 
-test(`a note's highlight is cleared while its page or the note dialog changes, and comes back`, async (t) => {
+test(`a note's highlight is cleared while its page changes and comes back, and the open note marks its words until it closes`, async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
 
@@ -339,10 +346,11 @@ test(`a note's highlight is cleared while its page or the note dialog changes, a
   await page.getByRole("heading", { name: "Decisions" }).waitFor();
   await highlighted(page, [quote]);
 
+  // The note being written marks the same words as the saved note.
   await select(page);
   await page.keyboard.press("c");
   await page.locator("#note-dialog[open]").waitFor();
-  await highlighted(page, []);
+  await highlighted(page, [quote, quote]);
   await page.keyboard.press("Escape");
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await highlighted(page, [quote]);

@@ -9,7 +9,8 @@ const clip = (text, length) => text.repeat(4).slice(0, length);
 
 // The test fills each dialog with text taller than a 375 by 667 window, so the
 // body must scroll inside the dialog while its title and buttons stay in view.
-test("every dialog keeps one margin from each edge of a phone's window and its buttons in view", async (t) => {
+// On a phone the note opens in a sheet, which drawer.browser.mjs tests.
+test("every modal keeps one margin from each edge of a phone's window and its buttons in view", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   const plan = planData();
@@ -72,25 +73,6 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
   await page.locator(`[data-key="close:${session.id}"]:visible`).click();
   await check("close-dialog", { buttons: ["#close-confirm"] });
   await close("close-dialog");
-
-  await page.evaluate(() => {
-    const range = document.createRange();
-    range.selectNodeContents(document.getElementById("long"));
-    getSelection().removeAllRanges();
-    getSelection().addRange(range);
-  });
-  // The frame reads the selection on selectionchange, which the browser fires
-  // after this call returns. Until then, the c key comments on the whole page.
-  await page
-    .getByRole("button", { name: "Comment on selection", exact: true })
-    .waitFor();
-  await page.keyboard.press("c");
-  await page.locator("#note-quote").waitFor();
-  await check("note-dialog", {
-    tall: true,
-    buttons: ["#note-thread", "#note-save"],
-  });
-  await close("note-dialog");
 
   await page.goto(`${h.server.origin}${session.base}/#work`);
   await page.locator("[data-proposal-card=queue] .proposal-start").click();
@@ -173,10 +155,11 @@ test("each top bar panel opens under its button inside the window, one at a time
   }
 });
 
-// The frame closes a dialog on a tap outside only when both the press and the
+// The frame closes a modal on a tap outside only when both the press and the
 // release land on the backdrop. A drag that starts inside and ends outside,
-// such as a text selection, must leave the dialog open.
-test("every dialog closes on its ×, on Escape and on a tap outside, and stays open through a drag that ends outside", async (t) => {
+// such as a text selection, must leave the dialog open. The note's sheet leaves
+// the page in use, so a tap outside it leaves it open.
+test("every dialog closes on its × and on Escape, a modal also on a tap outside, and each stays open through a drag that ends outside", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   const plan = planData();
@@ -210,7 +193,7 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
 
   const isOpen = (id) =>
     page.locator(`#${id}`).evaluate((dialog) => dialog.open);
-  async function backOut(id, open, press = `#${id} h2`) {
+  async function backOut(id, open, press = `#${id} h2`, modal = true) {
     const dialog = page.locator(`#${id}`);
     const shut = () => dialog.waitFor({ state: "hidden" });
     await open();
@@ -222,7 +205,12 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
     await page.mouse.up();
     assert.equal(await isOpen(id), true, `${id} after a drag out`);
     await page.touchscreen.tap(5, 5);
-    await shut();
+    if (modal) await shut();
+    else {
+      assert.equal(await isOpen(id), true, `${id} after a tap outside`);
+      await page.keyboard.press("Escape");
+      await shut();
+    }
 
     await open();
     await dialog.waitFor();
@@ -244,6 +232,7 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
     "note-dialog",
     () => page.locator("#comment-here").click(),
     "#note-text",
+    false,
   );
   await backOut("drawing-dialog", () => page.locator("[data-draw]").click());
   await backOut(

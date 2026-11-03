@@ -110,9 +110,8 @@ async function attach(files) {
 /* settleNoteImages deletes the images that a dialog uploaded when the
    reviewer backs out of it, so the session keeps no image that no note
    refers to. The frame calls it when the reviewer closes the dialog with
-   its ×, Escape or a click outside, and again before the next note opens.
-   The dialog's close event cannot call it, because saving a note also
-   fires that event. */
+   its × or Escape, and again before the next note opens. The dialog's close
+   event cannot call it, because saving a note also fires that event. */
 export function settleNoteImages() {
   if (!noteImagesSaved)
     forgetImages(
@@ -125,6 +124,65 @@ export function settleNoteImages() {
   uploads = { running: 0 };
   drawUploading();
 }
+
+/* saveNote adds the note to the draft, or saves the edit, as Add to draft
+   does. It returns false when the dialog cannot add to the draft: the round is
+   sent, the note only starts a thread, the box is empty or an image is still
+   uploading. */
+export function saveNote({ close }) {
+  if (!feedbackEditable() || $("note-save").hidden) return false;
+  // Shift+Enter submits the form even while its button is disabled.
+  if ($("note-save").disabled) return false;
+  const text = $("note-text").value.trim();
+  if (!text) return false;
+  // Another device can delete the note while this dialog edits it. The
+  // edit then becomes a new note, so the reviewer's words are kept. Remove
+  // deleted the images the note had, so the new note has only the images
+  // added in this dialog.
+  const kept = state.notes.some((item) => item.id === editing);
+  const images = kept
+    ? noteImages
+    : noteImages.filter((item) => !noteImagesAtOpen.includes(item.id));
+  const note = {
+    ...noteContext,
+    id: kept ? editing : uuid(),
+    text,
+    round: plan.round,
+    ...(images.length ? { attachments: images } : {}),
+  };
+  if (kept) {
+    state.notes = state.notes.map((item) =>
+      item.id === editing ? note : item,
+    );
+    forgetImages(noteImagesRemoved);
+  } else state.notes.push(note);
+  if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
+  noteImagesSaved = true;
+  save();
+  if (close) $("note-dialog").close();
+  if (note.topic === page.id && !$("reading").hidden)
+    show(page.id, null, { keepScroll: true });
+  return true;
+}
+/* The frame calls yieldNote before anything opens in the note's place. A note
+   with words is added to the draft first, as Add to draft does. A note that
+   only starts a thread keeps its words as a saved draft, as the × does. While
+   an image uploads, the note stays and yieldNote returns false. */
+export function yieldNote() {
+  if (!$("note-dialog").open) return true;
+  if (uploads.running > 0) {
+    $("note-text").focus();
+    return false;
+  }
+  if (!saveNote({ close: false })) settleNoteImages();
+  return true;
+}
+// Such a note has no draft to add to, so the comment control stays hidden
+// while it has words.
+export const threadNoteHasWords = () =>
+  $("note-dialog").open &&
+  $("note-save").hidden &&
+  Boolean($("note-text").value.trim());
 
 export function installNoteDialog() {
   $("note-text").addEventListener("input", fitNoteText);
@@ -162,41 +220,10 @@ export function installNoteDialog() {
     $("note-thread").click();
   });
   $("activity-message").onclick = openAgentMessage;
-  // Shift+Enter also submits the form, so the handler adds nothing to
-  // the draft while the Add to draft button is hidden.
+  // Shift+Enter also submits the form, so saveNote adds nothing to the draft
+  // while the Add to draft button is hidden.
   $("note-form").onsubmit = (event) => {
     event.preventDefault();
-    if (!feedbackEditable() || $("note-save").hidden) return;
-    // Shift+Enter submits the form even while its button is disabled.
-    if ($("note-save").disabled) return;
-    const text = $("note-text").value.trim();
-    if (!text) return;
-    // Another device can delete the note while this dialog edits it. The
-    // edit then becomes a new note, so the reviewer's words are kept. Remove
-    // deleted the images the note had, so the new note has only the images
-    // added in this dialog.
-    const kept = state.notes.some((item) => item.id === editing);
-    const images = kept
-      ? noteImages
-      : noteImages.filter((item) => !noteImagesAtOpen.includes(item.id));
-    const note = {
-      ...noteContext,
-      id: kept ? editing : uuid(),
-      text,
-      round: plan.round,
-      ...(images.length ? { attachments: images } : {}),
-    };
-    if (kept) {
-      state.notes = state.notes.map((item) =>
-        item.id === editing ? note : item,
-      );
-      forgetImages(noteImagesRemoved);
-    } else state.notes.push(note);
-    if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
-    noteImagesSaved = true;
-    save();
-    $("note-dialog").close();
-    if (note.topic === page.id && !$("reading").hidden)
-      show(page.id, null, { keepScroll: true });
+    saveNote({ close: true });
   };
 }

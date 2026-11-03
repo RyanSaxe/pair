@@ -369,9 +369,9 @@ mark.note-mark {
 .context-link {
   font-size: var(--text-small);
 }
-/* An open dialog covers the page, so this rule hides the page's comment
-   control. */
-body:has(dialog[open]) .comment-here {
+/* A modal covers the page, so this rule hides the page's comment control. A
+   drawer leaves the page in use, so the control stays. */
+body:has(dialog:modal) .comment-here {
   display: none;
 }
 @media (max-width: 720px) {

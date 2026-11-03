@@ -1,0 +1,151 @@
+/* The drawer is inside .app-body, whose overflow: clip stops it and its
+   shadow at the header's line and the frame's left line. A closed drawer stays
+   rendered and hidden, so close() animates with no change to its callers. */
+@media (min-width: 721px) {
+  :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer] {
+    --dialog-padding: 16px;
+    position: absolute;
+    inset: auto auto var(--dialog-margin) var(--dialog-margin);
+    z-index: var(--z-drawer);
+    box-sizing: border-box;
+    /* Text starts 56px past the sidebar, and the drawer reaches 60px over it. */
+    width: min(
+      440px,
+      calc(var(--sidebar-width) + 56px + 60px - var(--dialog-margin))
+    );
+    height: fit-content;
+    max-height: calc(100% - 2 * var(--dialog-margin));
+    margin: 0;
+    padding: 14px var(--dialog-padding);
+    border-color: light-dark(var(--line), var(--line-strong));
+    box-shadow:
+      0 10px 30px light-dark(#0002, #0009),
+      0 1px 3px light-dark(#0001, #0006);
+    display: flex;
+    flex-direction: column;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity calc(var(--slide) * 0.6) ease,
+      transform var(--slide) ease,
+      visibility 0s linear var(--slide);
+  }
+  :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer][open] {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity calc(var(--slide) * 0.6) ease,
+      transform var(--slide) ease,
+      visibility 0s;
+  }
+}
+/* A swap between drawers shows no motion. */
+.dialog[data-drawer].drawer-swap {
+  transition: none !important;
+}
+/* A drawer that is closing still shows for its 0.2s, and a second click of a
+   double click must not press its button again. */
+.dialog[data-drawer]:not([open]) {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog[data-drawer] {
+    --slide: 0s;
+  }
+}
+/* A long note or quote scrolls inside the box or quote, and the buttons stay in
+   view. New work item also uses .note-field, so this names the note. */
+:root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-body {
+  display: flex;
+  flex-direction: column;
+}
+:root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-body > * {
+  flex: none;
+}
+:root:not([data-embed], [data-mode="preview"]) #note-dialog #note-quote {
+  max-height: 6.9em;
+  overflow-y: auto;
+}
+:root:not([data-embed], [data-mode="preview"]) #note-dialog .note-field {
+  flex: 0 1 auto;
+  min-height: 120px;
+  max-height: none;
+}
+:root:not([data-embed], [data-mode="preview"]) #note-dialog .note-images {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+/* drawer.mjs sets data-more-below while part of a form is below what shows. */
+.dialog[data-more-below] .dialog-body {
+  box-shadow: 0 1px 0 var(--line);
+}
+@media (max-width: 720px) {
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog {
+    --dialog-padding: 16px;
+    position: fixed;
+    inset: auto 0 var(--sheet-bottom, 0px) 0;
+    z-index: calc(var(--z-sidebar-over-page) + 1);
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: calc(var(--vv-height, 100dvh) * 0.6);
+    margin: 0;
+    padding: 12px var(--dialog-padding);
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 16px light-dark(#0000001f, #00000080);
+    display: flex;
+    flex-direction: column;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity calc(var(--slide) * 0.6) ease,
+      transform var(--slide) ease,
+      visibility 0s linear var(--slide);
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog[open] {
+    visibility: visible;
+    transition:
+      opacity calc(var(--slide) * 0.6) ease,
+      transform var(--slide) ease,
+      visibility 0s;
+  }
+  /* The box has focus before the sheet shows, so the keyboard can rise first. */
+  :root:not([data-embed], [data-mode="preview"])
+    #note-dialog[open][data-settled] {
+    opacity: 1;
+    transform: none;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog form {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-head {
+    margin-bottom: 6px;
+  }
+  :root:not([data-embed], [data-mode="preview"])
+    #note-dialog
+    :is(#note-anchor, #note-quote, #note-label) {
+    display: none;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-body {
+    padding-block: 3px;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .note-field {
+    margin: 0;
+    min-height: 96px;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .note-actions {
+    flex: none;
+    margin-top: 8px;
+  }
+  :root:not([data-embed], [data-mode="preview"])
+    body:has(#note-dialog[open])
+    .comment-here {
+    display: none;
+  }
+}

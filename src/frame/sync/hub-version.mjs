@@ -48,7 +48,7 @@ const readerBusy = () =>
   Date.now() - usedAt < QUIET_MS ||
   inUse() ||
   fieldHasFocus() ||
-  Boolean(document.querySelector(":active, :popover-open")) ||
+  Boolean(document.querySelector("dialog[open], :active, :popover-open")) ||
   getSelection()?.isCollapsed === false ||
   onlyInMemory();
 /* The frame calls noticeHub after each status, so a reload that waited comes
