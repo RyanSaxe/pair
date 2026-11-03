@@ -251,6 +251,31 @@ test("each session start, waiting round and reply in another session alerts once
   assert.equal(a.opened.at(-1), "/s/s3/");
 });
 
+test("an event marked unread alerts nothing, and a session start in another session still alerts", async () => {
+  const a = alertFixture({ permission: "granted" });
+  await a.alerts.update([a.entry("s2", "1", { events: [] })]);
+  const at = later();
+  await a.alerts.update([
+    a.entry("s2", "1", {
+      events: [
+        {
+          id: "copy",
+          kind: "reply",
+          name: "Page",
+          thread: "t",
+          at,
+          again: true,
+        },
+        { id: "start", kind: "session", agent: "Claude Code", at },
+      ],
+    }),
+  ]);
+  assert.deepEqual(
+    a.sent.map(({ title }) => title),
+    ["Claude Code started a session"],
+  );
+});
+
 test("a session whose agent the hub could not wake alerts once per round", async () => {
   const a = alertFixture({ permission: "granted" });
   await a.alerts.update([]);

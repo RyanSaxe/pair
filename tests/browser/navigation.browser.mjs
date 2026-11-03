@@ -105,6 +105,7 @@ const bellReady = (page) => page.locator("#bell").waitFor();
 async function bell(page) {
   await page.locator("#bell").click();
   await page.locator("#center-list .session-row").click();
+  await page.locator(".search-open").click();
 }
 
 test("a loaded session draws its header from the answers in its page", async (t) => {

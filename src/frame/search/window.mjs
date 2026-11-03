@@ -381,7 +381,7 @@ export function createWindow() {
     menus.show(null);
     closeSheet();
     source.onClose?.();
-    source.returnFocus().focus({ preventScroll: true });
+    source.returnFocus()?.focus({ preventScroll: true });
   });
 
   function onKey(event) {

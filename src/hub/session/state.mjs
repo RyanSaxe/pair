@@ -334,7 +334,6 @@ export async function loadSession(
       url: base + "/",
       handoff: session.handoff,
       events: session.withAcknowledgements(session.activityItems()),
-      threads: session.notificationView().threads,
     };
   }
   return {

@@ -1,15 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  bellLines,
-  sessionWords,
-  settleCleared,
-  threadGroups,
-} from "../../../src/frame/sync/center.mjs";
+import { bellLines, settleCleared } from "../../../src/frame/sync/center.mjs";
 
 const event = (id, kind, at) => ({ id, kind, at });
 
-test("the bell lists every session's starts, waiting rounds and replies, newest first, without page events, removed lines or this tab's own start and round", () => {
+test("the bell lists every session's waiting rounds and replies, newest first, without starts, page events, removed lines or this tab's own round", () => {
   const sessions = [
     {
       id: "a",
@@ -38,21 +33,47 @@ test("the bell lists every session's starts, waiting rounds and replies, newest 
   ];
   const lines = (list, cleared = new Set()) =>
     bellLines(list, cleared, "a").map(({ id }) => id);
-  assert.deepEqual(lines(sessions), ["b2", "r2", "r1", "s2"]);
-  assert.deepEqual(lines(sessions, new Set(["r2"])), ["b2", "r1", "s2"]);
+  assert.deepEqual(lines(sessions), ["b2", "r2", "r1"]);
+  assert.deepEqual(lines(sessions, new Set(["r2"])), ["b2", "r1"]);
   // After the reviewer sends round 2, the hub lists needsYou false, and
   // bellLines drops the waiting line.
   const sent = [sessions[0], { ...sessions[1], needsYou: false }];
-  assert.deepEqual(lines(sent), ["r2", "r1", "s2"]);
+  assert.deepEqual(lines(sent), ["r2", "r1"]);
+});
+
+test("an event marked unread is listed whatever its state, until it is cleared", () => {
+  const sessions = [
+    {
+      id: "here",
+      round: "2",
+      needsYou: false,
+      events: [
+        // This tab's own round, already sent.
+        {
+          ...event("own", "waiting", "2026-09-28T10:00:00Z"),
+          round: "1",
+          again: true,
+        },
+        // A reply with a thumbs up.
+        {
+          ...event("thumbed", "reply", "2026-09-28T09:00:00Z"),
+          acknowledged: true,
+          again: true,
+        },
+      ],
+    },
+  ];
+  const lines = (cleared) =>
+    bellLines(sessions, cleared, "here").map(({ id }) => id);
+  assert.deepEqual(lines(new Set()), ["own", "thumbed"]);
+  assert.deepEqual(lines(new Set(["own"])), ["thumbed"]);
 });
 
 test("the bell forgets removed IDs the hub dropped", () => {
   assert.deepEqual([...settleCleared(["r2"], new Set(["r1", "r2"]))], ["r2"]);
 });
 
-// The hub still lists a closed session, so sessionWords can name a closed
-// parent.
-test("a sub-session's bell line names its parent, and a closed parent adds no line", () => {
+test("a closed session adds no line", () => {
   const parent = {
     id: "a",
     title: "Q3 pricing deck",
@@ -68,71 +89,5 @@ test("a sub-session's bell line names its parent, and a closed parent adds no li
   assert.deepEqual(
     bellLines([parent, child], new Set(), "x").map(({ id }) => id),
     ["r2"],
-  );
-  assert.equal(
-    sessionWords(child, [parent, child]),
-    "Sub-session of Q3 pricing deck · Build the deck",
-  );
-  assert.equal(sessionWords(parent, [parent, child]), "Q3 pricing deck");
-});
-
-test("the Threads tab lists waiting threads across live sessions newest first, then answered threads by session with this session first", () => {
-  const waiting = (thread, waitingSince) => ({ thread, waitingSince });
-  const answered = (thread, answeredAt) => ({ thread, answeredAt });
-  const sessions = [
-    {
-      id: "older-reply",
-      threads: [answered("older", "2026-09-28T09:10:00Z")],
-    },
-    {
-      id: "newer-reply",
-      threads: [
-        answered("newer", "2026-09-28T09:45:00Z"),
-        waiting("elsewhere", "2026-09-28T10:15:00Z"),
-      ],
-    },
-    { id: "quiet", threads: [] },
-    { id: "only-waiting", threads: [waiting("alone", "2026-09-28T09:00:00Z")] },
-    {
-      id: "here",
-      threads: [
-        waiting("new", "2026-09-28T10:30:00Z"),
-        answered("answered-old", "2026-09-28T09:00:00Z"),
-        waiting("old", "2026-09-28T10:00:00Z"),
-        answered("answered-new", "2026-09-28T09:30:00Z"),
-      ],
-    },
-    {
-      id: "closed",
-      closed: true,
-      threads: [
-        waiting("gone", "2026-09-28T11:00:00Z"),
-        answered("gone-answered", "2026-09-28T11:00:00Z"),
-      ],
-    },
-  ];
-  const { waiting: unanswered, answered: groups } = threadGroups(
-    sessions,
-    "here",
-  );
-  assert.deepEqual(
-    unanswered.map(({ line, entry }) => [line.thread, entry.id]),
-    [
-      ["new", "here"],
-      ["elsewhere", "newer-reply"],
-      ["old", "here"],
-      ["alone", "only-waiting"],
-    ],
-  );
-  assert.deepEqual(
-    groups.map(({ entry, lines }) => [
-      entry.id,
-      lines.map(({ thread }) => thread),
-    ]),
-    [
-      ["here", ["answered-new", "answered-old"]],
-      ["newer-reply", ["newer"]],
-      ["older-reply", ["older"]],
-    ],
   );
 });

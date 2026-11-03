@@ -37,7 +37,7 @@ async function published(t) {
   return { h, a, start, reply, lines, line, events };
 }
 
-test("the notifications route lists every thread with its newest message", async (t) => {
+test("the notifications route lists every thread with its newest message, and the session list has none", async (t) => {
   const { a, start, reply, lines, line } = await published(t);
   const answered = await start("Why three retries? ".repeat(20));
   const waiting = await start();
@@ -82,6 +82,9 @@ test("the notifications route lists every thread with its newest message", async
     (await lines()).threads.map(({ thread }) => thread).sort(),
     [answered, waiting].sort(),
   );
+
+  const { sessions } = (await a.request("/api/sessions")).body;
+  assert.equal(sessions.find(({ id }) => id === a.id).threads, undefined);
 });
 
 test("an agent's HTML reply reads as plain text on its line and in its event's words", async (t) => {

@@ -219,6 +219,7 @@ for (const [browser, engine] of Object.entries(engines))
       s.holdScreenshot();
       await s.page.locator("#bell").click();
       await s.page.locator("#center-list .session-row").click();
+      await s.page.locator(".search-open").click();
       await focused(s.page, `thread-${id}-1`);
       await grow(s.page, `#thread-${id}-1`);
       inView(await load(s, `#thread-${id}-1`));

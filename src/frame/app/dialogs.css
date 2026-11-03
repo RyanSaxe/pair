@@ -333,45 +333,86 @@ dialog::backdrop {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.session-row .words {
+/* The bell's list: a glyph, the row's words and its time on one line, and the
+   session's title under them for a row from another session. */
+#center-pop {
+  padding: 6px 8px 0;
+}
+#center-list {
+  gap: 0;
+}
+#center-list .session-line {
+  grid-template-columns: minmax(0, 1fr);
+  padding-right: 0;
+}
+#center-list .session-row {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: baseline;
+}
+.glance-glyph {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+}
+.glance-glyph .search-glyph {
+  display: block;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+#center-list .session-row .title {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: normal;
+}
+#center-list .session-row .when {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+#center-list .session-row .where {
+  grid-column: 2 / -1;
+  overflow: hidden;
   font-size: var(--text-meta);
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
-.session-row .words em {
-  font-style: normal;
-  font-weight: var(--weight-strong);
+#center-list .session-line > .icon-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  visibility: hidden;
 }
-/* The Threads tab's rows have no Clear button, so a row's text can use the
-   column that the button would take. */
-#center-list.threads .session-line {
-  grid-template-columns: minmax(0, 1fr);
+@media (hover: hover) {
+  #center-list .session-line:is(:hover, :focus-within) > .icon-btn {
+    visibility: visible;
+  }
+  #center-list .session-line:is(:hover, :focus-within) .when {
+    visibility: hidden;
+  }
 }
-.center-group {
-  padding: 10px 10px 2px;
-  overflow: hidden;
-  font-size: var(--text-small);
-  font-weight: var(--weight-strong);
-  color: var(--muted);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.center-group.waiting {
-  padding-top: 4px;
-  color: var(--attention);
-}
-#center-list hr {
-  margin: 8px 0 2px;
-  border: 0;
+.glance-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 4px -8px 0;
+  padding: 9px 10px 10px;
   border-top: 1px solid var(--line);
+  font-size: var(--text-meta);
 }
-.session-row.unopened .words em {
-  color: var(--attention);
+.glance-foot .quiet {
+  color: var(--muted);
 }
-.session-row.answered .title {
-  font-weight: normal;
+.glance-none {
+  margin: 0;
+  padding: 12px 10px 14px;
+  color: var(--muted);
+  font-size: var(--text-ui);
 }
 .session-line {
   position: relative;

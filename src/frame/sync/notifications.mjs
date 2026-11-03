@@ -65,8 +65,9 @@ export function eventAlert(entry, event) {
 const alertsFor = (entry) =>
   [
     wakeAlert(entry),
+    // A copy made for Mark unread announces nothing new.
     ...(entry?.events || [])
-      .filter((event) => announced(entry, event))
+      .filter((event) => !event.again && announced(entry, event))
       .map((event) => eventAlert(entry, event)),
   ].filter(Boolean);
 

@@ -13,7 +13,13 @@ import {
 } from "#frame/pages/card-links.mjs";
 import { statusBox } from "#frame/pages/card-status.mjs";
 import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
-import { listedSession, unreadCards } from "#frame/sync/center.mjs";
+import {
+  clear,
+  listedSession,
+  unreadCards,
+  unreadHere,
+} from "#frame/sync/center.mjs";
+import { watchReading } from "#frame/sync/reading.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 
@@ -74,7 +80,7 @@ const element = (tag, className, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
-function cardState(card, shown) {
+export function cardState(card, shown) {
   if (card.declined) return ["Declined", "muted"];
   if (card.withdrawn) return ["Withdrawn", "muted"];
   if (card.done) return ["Done", "muted"];
@@ -178,6 +184,8 @@ function changed(result, written = null) {
   if (shown) selected = cardTab(card);
   refreshWork(true);
   if (shown) land({ target: `proposal-${card.id}` });
+  // In the search window's frame, the window's own list shows the card's state.
+  if (embedded) window.parent.dispatchEvent(new Event("pair:card"));
   // poll() fetches the rest of what the action changed, such as the thread
   // that Open a new agent session starts.
   void poll();
@@ -432,12 +440,29 @@ function paintProposal(root, seen = seenCards()) {
   root.dataset.proposalCard = card.id;
   root.replaceChildren(cardElement(card, shown, fresh));
 }
+// An unread proposal is read once its title stays on screen on Work. The search
+// window reads a row by its own rule, so its frame watches nothing.
+const readCards = watchReading((id) => clear([id]));
+function watchUnreadCards() {
+  if (embedded) return;
+  readCards(
+    unreadHere("proposal").flatMap((event) => {
+      const node = $("work-view").hidden
+        ? null
+        : $("work-cards").querySelector(
+            `[data-proposal-card="${CSS.escape(event.proposal)}"] .proposal-title`,
+          );
+      return node ? [{ node, id: event.id }] : [];
+    }),
+  );
+}
 export function refreshWork(force = false) {
   if (remote && !embedded) adoptCards(session.sessionId, cards());
   const seen = seenCards();
   for (const root of mounted.keys())
     if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
+  watchUnreadCards();
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards());
