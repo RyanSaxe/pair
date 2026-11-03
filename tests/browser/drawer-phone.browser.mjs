@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { hub, planData } from "../support/hub.mjs";
 
 const quote = "Each folder has a wake file that finds a running session.";
 const filler = Array.from(
@@ -15,8 +15,7 @@ async function session(t) {
   const s = await h.session();
   const plan = planData();
   plan.pages[0].html = `<p id="first">${quote}</p>
-${filler}
-<p id="last">The last words of the page.</p>`;
+${filler}`;
   assert.equal((await s.publish(plan)).code, 200);
   const added = await s.action("propose", {
     id: "one",
@@ -35,7 +34,7 @@ async function openPage(t, url, options) {
   return page;
 }
 
-async function select(page, words, id = "first") {
+async function select(page, words) {
   await page.evaluate(
     ([words, id]) => {
       const node = document.getElementById(id).firstChild;
@@ -45,19 +44,13 @@ async function select(page, words, id = "first") {
       getSelection().removeAllRanges();
       getSelection().addRange(range);
     },
-    [words, id],
+    [words, "first"],
   );
   await page
     .getByRole("button", { name: "Comment on selection", exact: true })
     .waitFor();
 }
 
-const settled = (page, id) =>
-  page
-    .locator(`#${id}`)
-    .evaluate((element) =>
-      Promise.all(element.getAnimations().map((motion) => motion.finished)),
-    );
 const openDialogs = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("dialog[open]")].map((dialog) =>
@@ -65,124 +58,85 @@ const openDialogs = (page) =>
     ),
   );
 
-for (const engine of ["chrome", "webkit"]) {
-  test(`in ${engine} on a phone, the note's sheet waits for the keyboard, sits on it, and moves the page only to uncover the words`, async (t) => {
-    const { url } = await session(t);
-    const page = await openPage(t, url, {
-      engine,
-      viewport: { width: 375, height: 667 },
-      hasTouch: true,
-      isMobile: engine === "chrome",
-    });
-    if (!page) return;
-    // Playwright can't raise a phone's keyboard, so the test gives the visual
-    // viewport the height a keyboard leaves and fires its resize event, as
-    // search-phone.browser.mjs does. A pan is how far iOS has moved the page.
-    await page.evaluate(() => {
-      window.setKeyboard = (height, pan = 0) => {
-        Object.defineProperty(visualViewport, "height", {
-          value: height ?? innerHeight,
-          configurable: true,
-        });
-        Object.defineProperty(visualViewport, "offsetTop", {
-          value: pan,
-          configurable: true,
-        });
-        visualViewport.dispatchEvent(new Event("resize"));
-      };
-    });
-    const sheet = () =>
-      page.evaluate(() => {
-        const note = document.getElementById("note-dialog");
-        const box = note.getBoundingClientRect();
-        const save = document.getElementById("note-save");
-        return {
-          opacity: Number(getComputedStyle(note).opacity),
-          modal: note.matches(":modal"),
-          bottom: Math.round(box.bottom),
-          keyboardTop: visualViewport.offsetTop + visualViewport.height,
-          saveShown: save.getBoundingClientRect().bottom <= box.bottom,
-        };
+// Playwright can't raise a touch keyboard, so the test gives the visual
+// viewport the height a keyboard leaves and fires its resize event, as
+// search-phone.browser.mjs does.
+const stubKeyboard = (page) =>
+  page.evaluate(() => {
+    window.setKeyboard = (height) => {
+      Object.defineProperty(visualViewport, "height", {
+        value: height ?? innerHeight,
+        configurable: true,
       });
-    const scroll = () =>
-      page.evaluate(() => document.querySelector(".app-body").scrollTop);
-    // A click, because Playwright's tap on Comment leaves the note closed in
-    // WebKit's phone emulation.
-    const comment = async () => {
+      visualViewport.dispatchEvent(new Event("resize"));
+    };
+  });
+// The modal's box, as gaps from the top of the window and from the top of the
+// keyboard, and whether its main button shows.
+const placed = (page, id, button) =>
+  page.evaluate(
+    ([id, button]) => {
+      const box = document.getElementById(id).getBoundingClientRect();
+      const main = document.getElementById(button).getBoundingClientRect();
+      return {
+        modal: document.getElementById(id).matches(":modal"),
+        top: Math.round(box.top),
+        bottom: Math.round(visualViewport.height - box.bottom),
+        buttonShown: main.top >= box.top && main.bottom <= box.bottom,
+      };
+    },
+    [id, button],
+  );
+
+// A tablet is wider than 720px, and its pointer is coarse, so it gets the
+// modals too.
+for (const engine of ["chrome", "webkit"]) {
+  test(`in ${engine} on a phone and a tablet, the note, Send and Start open as modals and stay above the keyboard`, async (t) => {
+    const { url } = await session(t);
+    for (const [width, height] of [
+      [375, 667],
+      [1024, 768],
+      [768, 1024],
+    ]) {
+      const page = await openPage(t, url, {
+        engine,
+        viewport: { width, height },
+        hasTouch: true,
+        isMobile: engine === "chrome" && width < 720,
+      });
+      if (!page) return;
+      await stubKeyboard(page);
+      const size = `${width}x${height}`;
+
+      // A click, because Playwright's tap on Comment leaves the note closed in
+      // WebKit's phone emulation.
+      await select(page, quote);
       await page.locator("#comment-here").click();
       await page.locator("#note-dialog[open]").waitFor();
-    };
-    const close = async () => {
-      await page.locator("#note-dialog [data-close]").click();
+      await page.locator("#note-text").fill("A long note line.\n".repeat(30));
+      const keyboard = Math.round(height * 0.45);
+      await page.evaluate((top) => window.setKeyboard(top), height - keyboard);
+      const note = await placed(page, "note-dialog", "note-save");
+      assert.deepEqual(
+        note,
+        { ...note, modal: true, buttonShown: true },
+        `note, ${size}`,
+      );
+      assert.ok(note.top >= 10 && note.bottom >= 10, `note, ${size}`);
+      assert.ok(Math.abs(note.top - note.bottom) <= 1, `centered, ${size}`);
+      await page.keyboard.press("Escape");
       await page.evaluate(() => window.setKeyboard(null));
       await page.locator("#note-dialog").waitFor({ state: "hidden" });
-    };
 
-    // Words near the top: the box has focus at opacity 0, the keyboard rises,
-    // and the page stays where it was.
-    await select(page, quote);
-    await comment();
-    assert.equal(
-      await page.evaluate(() => document.activeElement.id),
-      "note-text",
-    );
-    assert.equal((await sheet()).opacity, 0);
-    const top = await scroll();
-    await page.evaluate(() => window.setKeyboard(380));
-    await page.locator("#note-dialog[data-settled]").waitFor();
-    await settled(page, "note-dialog");
-    const up = await sheet();
-    assert.equal(up.opacity, 1);
-    assert.equal(up.modal, false);
-    assert.equal(up.bottom, 380);
-    assert.equal(await scroll(), top);
-    await page.locator("#note-text").fill("A long note line.\n".repeat(40));
-    await page.evaluate(() => window.setKeyboard(380, 120));
-    await waitUntil(async () => (await sheet()).bottom === 500);
-    assert.equal((await sheet()).saveShown, true);
-    await close();
-
-    // Words the keyboard and sheet would cover: the page scrolls up until they
-    // are 12px above the sheet, and back when the sheet closes.
-    await page.locator("#last").scrollIntoViewIfNeeded();
-    const before = await scroll();
-    await select(page, "The last words", "last");
-    await comment();
-    await page.evaluate(() => window.setKeyboard(380));
-    await waitUntil(async () => (await scroll()) > before);
-    await page
-      .locator(".main-column")
-      .evaluate((column) =>
-        Promise.all(column.getAnimations().map((motion) => motion.finished)),
-      );
-    const gap = await page.evaluate(() => {
-      const range = document.createRange();
-      range.selectNodeContents(document.getElementById("last"));
-      const words = range.getBoundingClientRect();
-      const note = document.getElementById("note-dialog");
-      return note.getBoundingClientRect().top - words.bottom;
-    });
-    assert.ok(gap >= 12 && gap < 14, `gap ${gap}`);
-    await close();
-    await waitUntil(async () => (await scroll()) === before);
-
-    // With no keyboard, as with a hardware keyboard, the sheet shows after a
-    // wait. Send and Start open as modals.
-    await select(page, quote);
-    await comment();
-    await page.waitForFunction(
-      () =>
-        getComputedStyle(document.getElementById("note-dialog")).opacity ===
-        "1",
-    );
-    await close();
-    await page.locator("#submit").click();
-    await page.locator("#send-dialog[open]").waitFor();
-    assert.deepEqual(await openDialogs(page), ["send-dialog modal"]);
-    await page.keyboard.press("Escape");
-    await page.goto(`${url}#work`);
-    await page.locator("[data-proposal-card=one] .proposal-start").click();
-    await page.locator("#start-dialog[open]").waitFor();
-    assert.deepEqual(await openDialogs(page), ["start-dialog modal"]);
+      await page.locator("#submit").click();
+      await page.locator("#send-dialog[open]").waitFor();
+      assert.deepEqual(await openDialogs(page), ["send-dialog modal"], size);
+      await page.keyboard.press("Escape");
+      await page.goto(`${url}#work`);
+      await page.locator("[data-proposal-card=one] .proposal-start").click();
+      await page.locator("#start-dialog[open]").waitFor();
+      assert.deepEqual(await openDialogs(page), ["start-dialog modal"], size);
+      await page.context().browser().close();
+    }
   });
 }

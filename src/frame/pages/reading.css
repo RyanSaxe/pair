@@ -123,6 +123,12 @@
   /* The ink is fixed, so a word on a primary button stays readable. */
   color: var(--ink);
 }
+/* A modal dims the page, so its marks can wait. WebKit also paints them on the
+   modal's first words instead of the page's. */
+:root:has(dialog:modal) ::highlight(plan-note) {
+  background-color: transparent;
+  color: inherit;
+}
 mark.note-mark {
   background: var(--mark);
   color: inherit;

@@ -88,8 +88,7 @@ it: you can scroll, select words, press choices and use the keys. One drawer
 is open at a time. When you open another one while a comment has words in
 it, pair first adds the comment to your draft, as **Add to draft** does. The
 × and <kbd>Esc</kbd> close the drawer, and a comment's words stay as a draft.
-On a phone a comment opens in a sheet above the keyboard, and the others open
-in a window over the page.
+On a phone or a tablet they open in a window over the page instead.
 
 ## Your draft
 
