@@ -242,6 +242,31 @@ test("a click on the row the window shows by itself opens its page", async (t) =
   await badge(page, 1);
 });
 
+test("with Unread chosen, a row read by its 3 seconds stays in the list, selected, until a menu changes", async (t) => {
+  const h = await hub(t);
+  const { here } = await sessions(t, h);
+  await replied(here, "The first answer");
+  await replied(here, "The second answer");
+  const page = await openOn(t, h, here);
+  if (!page) return;
+  await badge(page, 3);
+  await openAll(page);
+  await menu(page, "states").click();
+  await choice(page, "states", "unread").click();
+  await page.keyboard.press("Escape");
+  assert.match(await selected(page).textContent(), /The second answer/);
+  await badge(page, 2);
+  const read = row(page, "The second answer");
+  assert.match(await read.getAttribute("class"), /is-read/);
+  assert.equal(await read.getAttribute("aria-selected"), "true");
+  assert.deepEqual(await heads(page), ["Unread"]);
+
+  await menu(page, "states").click();
+  await choice(page, "states", "").click();
+  await choice(page, "states", "unread").click();
+  await read.waitFor({ state: "detached" });
+});
+
 test("the menus combine and count, a menu that hides the selected row selects the first row left, and Esc closes a menu before the window", async (t) => {
   const h = await hub(t);
   const { here, other } = await sessions(t, h);
