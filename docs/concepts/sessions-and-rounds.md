@@ -203,7 +203,7 @@ Notifications still lists every row you clear.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
-  <img alt="The bell's list with an agent's reply, a proposal and another session's waiting round" src="../assets/bell-light.png">
+  <img alt="The bell's list with an agent's reply and another session's waiting round" src="../assets/bell-light.png">
 </picture>
 
 ### Notifications
@@ -235,6 +235,11 @@ window.
 
 Select a row to read it, and reply there, without leaving your page. **Open**
 goes to the page itself.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/notifications-dark.png">
+  <img alt="The Notifications window with Unread, Waiting on the agent and Read rows on the left, and the selected thread on its real page on the right" src="../assets/notifications-light.png">
+</picture>
 
 | Key                                                            | What it does                  |
 | -------------------------------------------------------------- | ----------------------------- |

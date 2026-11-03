@@ -8,6 +8,7 @@ import {
   heads,
   openAll,
   openOn,
+  poll,
   propose,
   replied,
   reply,
@@ -92,6 +93,30 @@ test("a reply is read once it stays whole on screen for 1.5 seconds in a tab wit
   await page.waitForTimeout(500);
   const count = await page.locator("#bell-count").textContent();
   assert.equal(count, "2");
+  await badge(page, 1);
+});
+
+test("a card's Agent replied and its row in the bell leave together, once the reply stays on screen", async (t) => {
+  const h = await hub(t);
+  const { here } = await sessions(t, h);
+  await propose(here, "deck", "Build the deck");
+  const page = await openOn(t, h, here);
+  if (!page) return;
+  await page.locator('[data-page="work"]').first().click();
+  await page.locator("#work-tab-proposed").click();
+  await badge(page, 1);
+  const id = await replied(here, "An answer on the card", {
+    proposal: "deck",
+    round: undefined,
+    topic: undefined,
+    anchor: undefined,
+    target: undefined,
+  });
+  const state = page.locator("#proposal-deck .card-state");
+  await state.filter({ hasText: "Agent replied" }).waitFor(poll);
+  await badge(page, 2);
+  await page.locator(`[id="thread-${id}-1"] .thread-name`).waitFor();
+  await state.filter({ hasText: "Proposed" }).waitFor();
   await badge(page, 1);
 });
 
