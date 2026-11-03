@@ -131,7 +131,7 @@ function dataImageSize(source) {
   return imageSize(body);
 }
 
-function imageAttributes(tag) {
+export function imageAttributes(tag) {
   const attributes = {};
   let index = tag.match(/^<img\b/i)[0].length;
   while (index < tag.length) {
@@ -167,7 +167,7 @@ function imageAttributes(tag) {
 
 // A quoted attribute value in an img tag can contain ">", so IMG_TAG skips over
 // quoted values.
-const IMG_TAG = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+export const IMG_TAG = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
 export function sizeImages(html) {
   return html.replace(IMG_TAG, (tag) => {
     const attributes = imageAttributes(tag);

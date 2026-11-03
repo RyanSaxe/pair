@@ -16,6 +16,7 @@ import {
 } from "#frame/sync/opened.mjs";
 import { connected, remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
+import { fetchPolled } from "#frame/sync/status.mjs";
 
 let sessions = [];
 let grouped = [];
@@ -96,9 +97,7 @@ export async function pollSessions() {
   // cards. An older hub sends none of them.
   let seen = {};
   try {
-    const response = await fetch("/api/sessions");
-    if (!response.ok) throw Error();
-    const body = await response.json();
+    const body = await fetchPolled("/api/sessions");
     listed = body.sessions || [];
     seen = body.seen || {};
     fromHub = true;
@@ -190,32 +189,6 @@ export function lineButton(key, label, content, onclick, tip = null) {
   }
   button.onclick = () => onclick(button);
   return button;
-}
-/* Each icon button has a fixed column, and an empty slot keeps a later
-   button in its column. */
-export function sessionLine({ key, title, state, words, tint, open, icons }) {
-  const line = document.createElement("div");
-  line.className = `session-line ${tint}`.trim();
-  const row = document.createElement("button");
-  row.type = "button";
-  row.className = `session-row ${tint}`.trim();
-  row.dataset.key = key;
-  const name = document.createElement("span");
-  name.className = "title";
-  name.textContent = title;
-  const line2 = document.createElement("span");
-  line2.className = "words";
-  if (state) {
-    const em = document.createElement("em");
-    em.textContent = state;
-    line2.append(em);
-  }
-  line2.append(words);
-  row.append(name, line2);
-  row.onclick = open;
-  line.append(row);
-  for (const icon of icons) line.append(icon || document.createElement("span"));
-  return line;
 }
 /* redraw replaces a list only when its HTML changed, and it keeps focus on
    the same row or button, so Tab and Enter work in a list that the poll

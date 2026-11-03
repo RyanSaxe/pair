@@ -12,6 +12,9 @@ const escapeHtml = (text) =>
   );
 export { escapeHtml };
 
+// The sessions menus' choice for the session in this tab.
+export const HERE = "here";
+
 export const KINDS = [
   ["pages", "Pages"],
   ["threads", "Threads"],
@@ -29,7 +32,7 @@ const WIDER = {
 
 const icon = (paths) =>
   `<svg class="search-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-const GLYPHS = {
+export const GLYPHS = {
   pages: icon('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>'),
   threads: icon(
     '<path d="M20.5 11.5a8 8 0 0 1-11.7 7.1L3.5 20l1.4-4.6a8 8 0 1 1 15.6-3.9z"/>',
@@ -45,6 +48,9 @@ const GLYPHS = {
     '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>',
   ),
   code: icon('<path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/>'),
+  sessions: icon(
+    '<rect x="2.5" y="2.5" width="19" height="19" rx="3.5"/><path d="M7 9h10M7 13h10M7 17h6"/>',
+  ),
 };
 
 export function marked(text, ranges) {

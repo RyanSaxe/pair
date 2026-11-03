@@ -24,6 +24,7 @@ const pages = [
     id: "blocks",
     title: "Blocks",
     html: `<p id="words">${prose}</p>${code("blocks")}
+<section class="decision" data-choice="edge" data-label="Edge"><h3>Which edge?</h3><button class="decision-option" type="button" data-value="left" data-label="Left"><b>Left</b></button><button class="decision-option" type="button" data-value="right" data-label="Right"><b>Right</b></button></section>
 <div data-prototype="probe"></div>
 <figure><img src="${image}" alt="A wide image" style="width: 100%"></figure>`,
     prototypes: [

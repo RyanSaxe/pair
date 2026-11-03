@@ -32,7 +32,9 @@ session to your browser and wakes the agent when you respond.
 ### The hub and your browser
 
 - Every pair tab asks the hub for the session list every 5 seconds, with
-  each session's latest events for the bell.
+  each session's latest events for the bell. While Notifications is open, the
+  tab also asks for every thread line of the open sessions on each of those
+  polls.
 - A tab keeps the frame code it loaded. When the hub restarts on a new version,
   the tab reloads itself once, at the same round, page and place. It waits while
   you type, while a dialog or menu is open, or while text is selected or a video
@@ -218,7 +220,7 @@ sessions/<dir>/      the directory name is not the session ID
   scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
-  activity.json      the last 50 events, for the bell
+  activity.json      the last 50 events since the last reopen, for the bell and Notifications
   output/            command output too long to print
 ```
 

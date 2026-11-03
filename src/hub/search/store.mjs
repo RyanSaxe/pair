@@ -19,7 +19,7 @@ import { partialRows } from "./partial.mjs";
    cache entry counts only while its file's modified time and size and the
    extractor's version match, so it cannot go stale. Raise VERSION when
    extract.mjs changes what it reads. */
-const VERSION = 2;
+const VERSION = 3;
 const CACHE = "search.jsonl";
 export const KINDS = [
   "pages",

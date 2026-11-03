@@ -9,68 +9,46 @@ const card = (id, facts = {}) => ({
   done: null,
   ...facts,
 });
-const here = { at: "2026-10-04T00:00:00.000Z", where: "here" };
-const counts = (groups) =>
+const at = "2026-10-04T00:00:00.000Z";
+const here = { at, where: "here" };
+const ids = (groups) =>
   Object.fromEntries(
-    Object.entries(groups).map(([id, list]) => [id, list.length]),
+    Object.entries(groups).map(([id, list]) => [id, list.map((c) => c.id)]),
   );
 
-test("Work counts each tab's cards and opens on the first tab with one", () => {
-  const cards = [
-    card("proposed"),
-    card("running", { started: here }),
-    card("done", { started: here, done: { at: here.at, by: "agent" } }),
-    card("declined", { declined: { at: here.at } }),
-    card("replied"),
-  ];
-  const working = workGroups(cards, { unread: new Set() });
-  assert.deepEqual(counts(working), {
-    needs: 0,
-    running: 1,
-    proposed: 2,
-    done: 2,
-  });
-  assert.equal(openingTab(working), "running");
-
-  // workGroups puts a card with an unread reply under needs, whatever its
-  // state.
-  const replied = workGroups(cards, { unread: new Set(["replied", "done"]) });
+test("a card goes to the tab of its own state", () => {
   assert.deepEqual(
-    Object.fromEntries(
-      Object.entries(replied).map(([id, list]) => [id, list.map((c) => c.id)]),
-    ),
-    {
-      needs: ["done", "replied"],
-      running: ["running"],
-      proposed: ["proposed"],
-      done: ["declined"],
-    },
-  );
-  assert.equal(openingTab(replied), "needs");
-
-  // workGroups puts a card started in a linked session under needs while that
-  // session waits for the reviewer.
-  const linked = (id) => ({ ...here, where: "new-agent", session: { id } });
-  const sessions = { waiting: { needsYou: true }, busy: { needsYou: false } };
-  const elsewhere = workGroups(
-    [
-      card("waits", { started: linked("waiting") }),
-      card("works", { started: linked("busy") }),
-      card("opening", { started: { ...here, where: "sub-session" } }),
-    ],
-    { linked: (id) => sessions[id] },
-  );
-  assert.deepEqual(
-    Object.fromEntries(
-      Object.entries(elsewhere).map(([id, list]) => [
-        id,
-        list.map((c) => c.id),
+    ids(
+      workGroups([
+        card("proposed"),
+        card("running", { started: here }),
+        card("elsewhere", {
+          started: { at, where: "new-agent", session: { id: "linked" } },
+        }),
+        card("opening", { started: { at, where: "sub-session" } }),
+        card("done", { started: here, done: { at, by: "agent" } }),
+        card("declined", { declined: { at } }),
+        card("withdrawn", { withdrawn: { at, reason: "Not needed." } }),
       ]),
     ),
-    { needs: ["waits"], running: ["works", "opening"], proposed: [], done: [] },
+    {
+      running: ["running"],
+      proposed: ["proposed"],
+      done: ["elsewhere", "opening", "done", "declined", "withdrawn"],
+    },
   );
+});
 
-  const proposedOnly = workGroups([card("a")], {});
-  assert.equal(openingTab(proposedOnly), "proposed");
-  assert.equal(openingTab(workGroups([], {})), "needs");
+test("Work opens on Proposed while a proposal waits for Start, and otherwise on the first tab with a card", () => {
+  const running = card("running", { started: here });
+  const done = card("done", { done: { at, by: "agent" } });
+  const opens = (...cards) => openingTab(workGroups(cards));
+  assert.equal(opens(running, card("proposed"), done), "proposed");
+  assert.equal(opens(running, done), "running");
+  assert.equal(opens(done), "done");
+  assert.equal(
+    opens(card("elsewhere", { started: { at, where: "sub-session" } })),
+    "done",
+  );
+  assert.equal(opens(), "running");
 });
