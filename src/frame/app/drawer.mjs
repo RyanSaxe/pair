@@ -356,16 +356,18 @@ function glided(event) {
     revealField("smooth");
 }
 
-/* Where a form scrolls between its title and its buttons, a line separates the
-   form from the title while some of it is above what shows, and from the
-   buttons while some of it is below. */
+/* Where a dialog's body scrolls under its title, a line separates the two while
+   some of the body is above what shows. Where buttons sit below the body, a line
+   separates them while some of it is below. */
 function watchScroll(body) {
   const dialog = body.closest("dialog");
+  const buttons = dialog.querySelector(".actions, .note-actions");
   const mark = () => {
     dialog.toggleAttribute("data-more-above", body.scrollTop > 1);
     dialog.toggleAttribute(
       "data-more-below",
-      body.scrollHeight - body.clientHeight - body.scrollTop > 1,
+      Boolean(buttons) &&
+        body.scrollHeight - body.clientHeight - body.scrollTop > 1,
     );
   };
   body.addEventListener("scroll", mark, { passive: true });
@@ -396,8 +398,7 @@ export function installDrawer() {
     true,
   );
   for (const body of document.querySelectorAll(".dialog .dialog-body"))
-    if (body.closest("dialog").querySelector(".actions, .note-actions"))
-      watchScroll(body);
+    watchScroll(body);
   for (const dialog of document.querySelectorAll("dialog[data-drawer]"))
     dialog.addEventListener("transitionend", glided);
 }
