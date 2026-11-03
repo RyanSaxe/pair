@@ -23,7 +23,7 @@ import { hub } from "../support/hub.mjs";
 
 const engines = { Chrome: "chrome", WebKit: "webkit" };
 for (const [browser, engine] of Object.entries(engines)) {
-  test(`in ${browser}, dragging either page edge moves both, the grabbed edge follows the pointer, text keeps its width and blocks widen`, async (t) => {
+  test(`in ${browser}, dragging either page edge moves both, the grabbed edge follows the pointer, and text and blocks widen with it`, async (t) => {
     const s = await setup(t, engine);
     if (!s) return;
     const { page } = s;
@@ -43,7 +43,7 @@ for (const [browser, engine] of Object.entries(engines)) {
     near(app.right, 1800, "the grabbed right edge");
     near(app.left, 200, "the other edge");
     const after = await blocks();
-    assert.equal(after.words, before.words);
+    assert.ok(after.words > before.words + 400, JSON.stringify(after));
     assert.ok(after.code > before.code + 400, JSON.stringify(after));
     assert.ok(after.prototype > before.prototype + 400, JSON.stringify(after));
     await page.mouse.up();
@@ -389,7 +389,7 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
     near((await box(page, "#app")).left, 300, "the edge dragged back");
   });
 
-  test(`in ${browser}, with the sidebar closed, text is 1046px before and after a drag`, async (t) => {
+  test(`in ${browser}, with the sidebar closed, text fills the column before and after a drag`, async (t) => {
     const s = await setup(t, engine);
     if (!s) return;
     const { page } = s;
@@ -397,30 +397,41 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
     assert.equal((await box(page, "#words")).width, 1046);
     await drag(page, (await box(page, "#app")).right, 1900);
     assert.equal((await box(page, "#app")).width, 1800);
-    assert.equal((await box(page, "#words")).width, 1046);
+    assert.equal((await box(page, "#words")).width, 1800 - 2 - 112);
   });
 
-  test(`in ${browser}, on a wide page Agreed, Work, Review and a thread stay at text width, and a width: 100% image stops at 1200px`, async (t) => {
+  test(`in ${browser}, on a wide page Agreed's cards, Work, Review, a decision and a thread fill the column, and a width: 100% image stops at 1200px`, async (t) => {
     const s = await setup(t, engine);
     if (!s) return;
     const { page, session, url } = s;
     const started = await session.request(`${session.base}/api/threads`, {
       id: crypto.randomUUID(),
       round: "1",
-      text: "Does this stay at text width?",
+      text: "Does this follow the column?",
       topic: "blocks",
       anchor: "Words",
       target: "words",
     });
     assert.equal(started.code, 201, JSON.stringify(started.body));
 
+    // The column is the page's width less its borders, the sidebar and the
+    // column's 56px padding on each side.
+    const column = async () => (await box(page, "#app")).width - 2 - 224 - 112;
+    // A thread starts 22px in from the text and ends where the text ends, at
+    // 1160px and after a drag.
     await page.locator("pair-thread").waitFor();
-    const thread = await box(page, "pair-thread");
-    await drag(page, (await box(page, "#app")).right, 1900);
+    for (const at of [null, 1900]) {
+      if (at) await drag(page, (await box(page, "#app")).right, at);
+      const [thread, words, decision] = await Promise.all(
+        ["pair-thread", "#words", "#page-content .decision"].map((selector) =>
+          box(page, selector),
+        ),
+      );
+      assert.equal(words.width, await column(), `text at ${at}`);
+      assert.equal(decision.width, await column(), `the decision at ${at}`);
+      assert.equal(thread.right, words.right, `the thread at ${at}`);
+    }
     assert.equal((await box(page, "#page-content img")).width, 1200);
-    const widened = await box(page, "pair-thread");
-    assert.equal(widened.width, thread.width, "the thread keeps its width");
-    assert.equal(widened.right, (await box(page, "#words")).right);
 
     for (const [hash, view] of [
       ["agreed", "#page-content .agreement-card"],
@@ -431,7 +442,7 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
       await page.reload();
       await page.locator(view).first().waitFor();
       assert.equal((await box(page, "#app")).width, 1800);
-      assert.equal((await box(page, view)).width, 822, view);
+      assert.equal((await box(page, view)).width, await column(), view);
     }
   });
 
@@ -452,7 +463,7 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
     await page.mouse.up();
   });
 
-  test(`in ${browser}, the search window's frame and a preview have no grips and no text limit, and a read-only round has grips`, async (t) => {
+  test(`in ${browser}, the search window's frame and a preview have no grips, and a read-only round has grips`, async (t) => {
     const s = await setup(t, engine);
     if (!s) return;
     const { page, url } = s;
@@ -461,9 +472,12 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
     for (const address of ["embed/latest#blocks", "preview/1#blocks"]) {
       await page.goto(url(address));
       // The frame sets the mode once it loads, and the search window's frame
-      // once it has the session's status. Text wider than 1046px has no limit.
+      // once it has the session's status.
       await page.waitForFunction(
-        () => document.getElementById("words")?.offsetWidth > 1046,
+        () => {
+          const root = document.documentElement;
+          return "embed" in root.dataset || root.dataset.mode === "preview";
+        },
         undefined,
         { timeout: 5000 },
       );

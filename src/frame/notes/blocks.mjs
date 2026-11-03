@@ -267,11 +267,8 @@ function placeButton() {
   const shown = [$("reading"), $("review-view"), $("work-view")].find(
     (view) => !view.hidden,
   );
+  const text = shown.getBoundingClientRect().right;
   const edge = $("content").getBoundingClientRect().right;
-  // Work and Review stop at the text's width, and the 56px is the column's
-  // padding, so on a wide page the control stays in the page's right margin
-  // instead of at the middle of the empty room.
-  const text = Math.max(shown.getBoundingClientRect().right, edge - 56);
   const fits = edge - text >= size;
   const width = document.documentElement.clientWidth;
   button.dataset.place = fits ? "gutter" : "corner";

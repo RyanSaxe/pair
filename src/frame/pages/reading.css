@@ -22,37 +22,8 @@
   position: relative;
   container: page / inline-size;
 }
-/* Text stays at the width it has in a 1160px page, so a drag of the page's edge
-   never rewraps it, and a block not listed here takes the column's full width.
-   The decision, checklist, question, proposal and progress cards stay with the
-   text, because their text would otherwise stop partway across a wider card. */
-:root {
-  --text-width: 822px;
-}
-:root[data-sidebar="closed"] {
-  --text-width: 1046px;
-}
-:root:is([data-embed], [data-mode="preview"]) {
-  --text-width: none;
-}
-#page-title,
-#page-content
-  :is(p, li, h2, h3, h4, blockquote, dd):not(
-    :is(.visual-option, .comparison) *
-  ),
-#page-content
-  :is(.decision, .scope-list, [data-question], .proposal, .agreement-card),
-#reading > .agent-activity,
-#work-view,
-#review-view {
-  max-width: var(--text-width);
-}
-/* A thread on a page starts 22px in from the text, its margin in threads.css,
-   and it ends where the text ends, as it does in a 1160px page. With no text
-   limit the calc() is invalid, so max-width falls back to none. */
-#reading pair-thread {
-  max-width: calc(var(--text-width) - 22px);
-}
+/* An image set to fill the page stops at 1200px, so a screenshot is not blown
+   up on a wide page. */
 #page-content img {
   max-width: min(100%, 1200px);
 }
