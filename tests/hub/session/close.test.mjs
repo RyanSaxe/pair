@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
+import { bellLines } from "../../../src/frame/sync/center.mjs";
+import {
+  announced,
+  eventTitle,
+  wakeAlert,
+} from "../../../src/frame/sync/notifications.mjs";
+import { countUnopened } from "../../../src/frame/sync/opened.mjs";
+import { startHub } from "../../../src/hub/server.mjs";
 import { exec, hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
 
 const closed = "The reviewer closed this session. Stop working on it.";
@@ -279,4 +288,167 @@ test("a former holder can reopen the session, and takes it back", async (t) => {
   assert.equal(started.code, 200, started.body.error);
   assert.equal(started.body.moment, "start-reopen");
   assert.equal((await a.action("ack")).code, 200);
+});
+
+// What any browser shows for a session, computed by the frame's own rules from
+// the session list alone, so the answer holds for a device with no local copy of
+// the seen lists. A system notification reads the listed events and not the
+// cleared list, so alerts applies the frame's rule for those events.
+async function shown(origin, a) {
+  const { sessions, seen } = await (
+    await fetch(`${origin}/api/sessions`)
+  ).json();
+  const entry = sessions.find(({ id }) => id === a.id);
+  return {
+    entry,
+    bell: bellLines(sessions, new Set(seen.cleared), null).map(eventTitle),
+    alerts: [
+      wakeAlert(entry)?.title,
+      ...entry.events
+        .filter((event) => announced(entry, event))
+        .map(eventTitle),
+    ].filter(Boolean),
+    unopened: countUnopened(entry, new Set(seen.opened)),
+    seenCards: seen.cards,
+  };
+}
+const reopen = (h, a) =>
+  h.register(a.directory, a.inbox.target, { start: true, reopen: true });
+const startedLists = { cleared: [], opened: [], cards: [] };
+const proposal = (id) => ({
+  id,
+  title: `Card ${id}`,
+  delivers: "The work.",
+  recommend: "here",
+});
+async function openThread(a) {
+  const id = crypto.randomUUID();
+  const started = await a.request(`${a.base}/api/threads`, {
+    id,
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Why?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  return id;
+}
+
+test("reopening shows nothing from before the close as new on any device, also after a new hub loads it", async (t) => {
+  const h = await hub(t);
+  const a = await h.session({ start: true });
+  const origin = h.server.origin;
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await a.action("propose", proposal("old"))).code, 200);
+  const replied = await a.action("reply", {
+    note: await openThread(a),
+    text: "Because.",
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+  // A browser started the lists, and the reviewer cleared one line.
+  const { entry: before } = await shown(origin, a);
+  assert.equal(before.events.length, 4);
+  await a.request("/api/seen", {
+    ...startedLists,
+    cleared: [before.events[0].id],
+  });
+
+  assert.equal((await close(a)).code, 200);
+  assert.equal((await reopen(h, a)).code, 200);
+  const quiet = await shown(origin, a);
+  assert.deepEqual(quiet.bell, []);
+  assert.deepEqual(quiet.alerts, []);
+  assert.equal(quiet.unopened, 0);
+  assert.deepEqual(quiet.seenCards, [`${a.id}/old`]);
+  // The round still waits, so the session list can still mark it Waiting.
+  assert.equal(quiet.entry.needsYou, true);
+
+  await h.server.close();
+  const next = await startHub(h.config);
+  t.after(next.close);
+  const afterRestart = await shown(next.origin, a);
+  assert.deepEqual(afterRestart.bell, []);
+  assert.equal(afterRestart.unopened, 0);
+});
+
+test("after a reopen, a reply, a proposal and the next round each notify", async (t) => {
+  const h = await hub(t);
+  const a = await h.session({ start: true });
+  const origin = h.server.origin;
+  assert.equal((await a.publish(planData())).code, 200);
+  const thread = await openThread(a);
+  await a.request("/api/seen", startedLists);
+  assert.equal((await close(a)).code, 200);
+  assert.equal((await reopen(h, a)).code, 200);
+
+  assert.equal(
+    (await a.action("reply", { note: thread, text: "Because." })).code,
+    200,
+  );
+  assert.equal((await a.action("propose", proposal("later"))).code, 200);
+  const lines = ["Agent proposed Card later", "Agent replied on Overview"];
+  const said = await shown(origin, a);
+  assert.deepEqual([...said.bell].sort(), lines);
+  assert.deepEqual([...said.alerts].sort(), lines);
+  assert.deepEqual(said.seenCards, []);
+
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal((await a.action("read")).code, 200);
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  const published = await shown(origin, a);
+  assert.ok(published.bell.includes("Round 2 is waiting for you"));
+  assert.ok(published.alerts.includes("Round 2 is waiting for you"));
+  assert.equal(published.unopened, 2);
+});
+
+test("after a reopen, only a page published after it counts as new, and the finished round notifies", async (t) => {
+  const h = await hub(t);
+  const a = await h.session({ start: true });
+  const origin = h.server.origin;
+  assert.equal((await a.publish(unfinished)).code, 200);
+  await a.request("/api/seen", startedLists);
+  assert.equal((await close(a)).code, 200);
+  assert.equal((await reopen(h, a)).code, 200);
+  assert.equal((await shown(origin, a)).unopened, 0);
+
+  const { step } = beforeClose.find(({ name }) =>
+    name.includes("not published"),
+  );
+  assert.equal((await step(a)).code, 200);
+  const finished = await shown(origin, a);
+  assert.equal(finished.unopened, 1);
+  assert.deepEqual(finished.bell, ["Round 1 is waiting for you"]);
+});
+
+// The first browser to send a list counts everything the hub lists as seen, and
+// it does that only while the hub's list is null.
+test("a reopen before any browser started the lists leaves them for the first browser", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  assert.equal((await close(a)).code, 200);
+  assert.equal((await reopen(h, a)).code, 200);
+  assert.deepEqual((await a.request("/api/sessions")).body.seen, {
+    cleared: null,
+    opened: null,
+    cards: null,
+  });
+});
+
+test("a wake that failed before the close sends no alert after the reopen", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const origin = h.server.origin;
+  assert.equal((await a.publish(planData())).code, 200);
+  await a.inbox.close();
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal(
+    await waitUntil(async () => (await shown(origin, a)).entry.wakeFailed),
+    true,
+  );
+  assert.equal((await close(a)).code, 200);
+  assert.equal((await reopen(h, a)).code, 200);
+  const { entry, alerts } = await shown(origin, a);
+  assert.equal(entry.wakeFailed, false);
+  assert.deepEqual(alerts, []);
 });

@@ -131,6 +131,8 @@ function pause() {
 }
 export function installEmbed() {
   document.documentElement.dataset.embed = "";
+  // The copy keeps the frame's box in pixels, so it is wrong at a new size.
+  window.addEventListener("resize", dropPicture);
   // A link that leaves the block opens in the reader's tab, on the real page.
   document.addEventListener(
     "click",

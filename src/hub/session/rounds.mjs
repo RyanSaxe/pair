@@ -88,6 +88,15 @@ export function rounds(session) {
     }
   }
   function threadRecord(thread) {
+    // A thread on a proposal's card has no round or page. It opens on Work.
+    if (thread.proposal)
+      return {
+        kind: "thread",
+        threadId: thread.id,
+        text: thread.messages[0].text,
+        label: thread.page,
+        proposal: thread.proposal,
+      };
     const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
     return {
       kind: "thread",
@@ -103,10 +112,24 @@ export function rounds(session) {
       ...(thread.occurrence ? { occurrence: thread.occurrence } : {}),
     };
   }
+  // A round published before threadRecord knew about cards stores such a source
+  // with only threadId, text and a broken href, so the hub finds its card here
+  // each time it serves the round.
+  function withCardSources(record) {
+    for (const entry of record.page.agreements ?? []) {
+      if (!entry.sourceRecords) continue;
+      entry.sourceRecords = entry.sourceRecords.map((source) => {
+        const stale = source.kind === "thread" && !source.round;
+        const thread = stale && session.threadRecords.get(source.threadId);
+        return thread?.proposal ? threadRecord(thread) : source;
+      });
+    }
+    return record;
+  }
   const storedPagePath = (set, file) =>
     path.join(directory, "pages", set.round, path.basename(file));
   async function renderPageRound(set, complete, { withPages = true } = {}) {
-    const agreed = await read(storedPagePath(set, set.agreed));
+    const agreed = withCardSources(await read(storedPagePath(set, set.agreed)));
     // The search window's frame fetches each page it shows, so it doesn't carry
     // a round's images.
     const records = !withPages
@@ -504,12 +527,14 @@ export function rounds(session) {
     const slot = manifest.pages.find((item) => item.id === id);
     requireValue(slot && slot.version === version, "Unknown page version", 404);
     const set = session.state.roundPages[round];
-    return read(
-      storedPagePath(
-        set,
-        id === "agreed"
-          ? set.agreed
-          : set.pages.find((item) => item.id === id).recordPath,
+    return withCardSources(
+      await read(
+        storedPagePath(
+          set,
+          id === "agreed"
+            ? set.agreed
+            : set.pages.find((item) => item.id === id).recordPath,
+        ),
       ),
     );
   }

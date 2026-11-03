@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
@@ -83,6 +86,95 @@ test("an alignment keeps its meta line and its buttons to one row each on a phon
   await page.locator("#note-text").fill("Keep the order too.");
   await page.getByRole("button", { name: "Add to draft" }).click();
   await card.locator(".card-meta", { hasText: "1 note" }).waitFor();
+});
+
+// cardSource publishes round 2 with an alignment that cites a thread on a
+// proposal's card.
+async function cardSource(t) {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const proposed = await session.action("propose", {
+    id: "rex",
+    title: "Restart the Rex server",
+    delivers: "The server answers again.",
+    recommend: "here",
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const id = crypto.randomUUID();
+  const started = await session.request(`${session.base}/api/threads`, {
+    id,
+    proposal: "rex",
+    text: "Can this wait until morning?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  assert.equal(
+    (await session.feedback(session.event("feedback-only", "1"))).code,
+    200,
+  );
+  assert.equal((await session.action("read")).code, 200);
+  const published = await session.publish({
+    ...planData("2"),
+    agreements: [
+      {
+        id: "wait",
+        title: "Rex restarts in the morning",
+        html: "<p>It can wait.</p>",
+        sourceRefs: [{ kind: "thread", threadId: id }],
+      },
+    ],
+  });
+  assert.equal(published.code, 200, published.body.error);
+  return { h, session, id };
+}
+
+test("an alignment from a thread on a card names the card with no round, and Open shows the thread on Work", async (t) => {
+  const { h, session, id } = await cardSource(t);
+  const page = await open(t, `${h.server.origin}${session.base}/#agreed`);
+  if (!page) return;
+  const card = page.locator("#agreement-wait");
+  await card.locator(".agreement-source a").waitFor();
+  assert.equal(
+    await card.locator(".card-meta").innerText(),
+    "Your thread on Restart the Rex server",
+  );
+  assert.deepEqual(
+    await card.locator(".agreement-source :not(:has(*))").allInnerTexts(),
+    ["Open"],
+  );
+  await card.locator(".agreement-source a").click();
+  const thread = page.locator(`#work-view #thread-${id}`);
+  await thread.waitFor();
+  assert.ok(await thread.innerText().then((text) => text.includes("morning")));
+  assert.equal(new URL(page.url()).hash, "#work");
+  assert.equal(new URL(page.url()).searchParams.get("target"), `thread-${id}`);
+});
+
+test("a thread source that has no round and no card says your thread, with no link", async (t) => {
+  const { h, session } = await cardSource(t);
+  const pages = path.join(session.directory, "pages", "2");
+  const file = path.join(
+    pages,
+    (await fs.readdir(pages)).find((name) => name.startsWith("agreed")),
+  );
+  const stored = JSON.parse(await fs.readFile(file, "utf8"));
+  stored.page.agreements[0].sourceRecords = [
+    {
+      kind: "thread",
+      threadId: "no-such-thread",
+      text: "Can this wait until morning?",
+      href: "./undefined.undefined.html#undefined",
+    },
+  ];
+  await fs.writeFile(file, JSON.stringify(stored));
+  const page = await open(t, `${h.server.origin}${session.base}/#agreed`);
+  if (!page) return;
+  const card = page.locator("#agreement-wait");
+  await card.locator(".card-meta").waitFor();
+  assert.equal(await card.locator(".card-meta").innerText(), "Your thread");
+  assert.equal(await card.locator(".agreement-source a").count(), 0);
+  assert.equal(await card.locator(".agreement-source").isVisible(), false);
+  assert.doesNotMatch(await card.innerText(), /undefined/);
 });
 
 // The frame saves the reader's place on Agreed relative to its content, which

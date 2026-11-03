@@ -216,7 +216,7 @@ sessions/<dir>/      the directory name is not the session ID
   scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
-  activity.json      the last 50 events, for the bell
+  activity.json      the last 50 events since the last reopen, for the bell and notifications
   output/            command output too long to print
 ```
 

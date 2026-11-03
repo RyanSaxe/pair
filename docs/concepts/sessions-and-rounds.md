@@ -170,9 +170,10 @@ the session.
 
 - The number on the Sessions button shows how many other sessions have a round
   waiting for you, an agent the hub could not wake, or unopened pages in a round
-  you have not sent. pair stops counting a waiting round once you open that session or
-  clear its line from the bell, and the session list still marks that session
-  **Waiting**. The number is orange when pair counts a waiting round or an
+  you have not sent. pair stops counting a waiting round once you open that
+  session, clear its line from the bell or reopen the session, and the session
+  list still marks that session **Waiting**. The number is orange when pair
+  counts a waiting round or an
   agent the hub could not wake, and blue otherwise. When pair counts no
   session, a grey number shows how many other live sessions you have. pair
   never counts the session in this tab.
@@ -202,6 +203,7 @@ session that starts or has a round waiting for you.
 | Send a waiting round              | That round's line                            |
 | Reply in a thread                 | That thread's lines                          |
 | Give an agent's reply a thumbs up | That reply's line                            |
+| Reopen a closed session           | Every line from before the reopen            |
 | Press **Clear all**               | Every line                                   |
 
 pair counts a session as open while its tab's window has focus. A session on
@@ -241,3 +243,8 @@ that command. The session then becomes live, with that agent as its holder, and
 an open tab on the session reloads as a live page. When the round was not
 finished at the close, the agent publishes the missing pages. When you reopen a
 sub-session, its proposal in the session it came from is no longer done.
+
+pair counts everything from before the reopen as seen, on every device. The bell
+has no line for it, the browser sends no notification for it, and pair marks no
+page or card **New**. A round that still waits for you stays **Waiting** in the
+session list. pair notifies you as usual of anything after the reopen.
