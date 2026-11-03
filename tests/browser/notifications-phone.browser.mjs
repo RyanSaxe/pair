@@ -150,3 +150,52 @@ for (const engine of ["chrome", "webkit"])
       await fits(height);
       await agree(page, 12);
     });
+
+// The page's comment button floats at the bottom of the pane, where a thread's
+// reply row can be, so it hides while the reader writes a reply there.
+const buttonWhileReplying = (frame) =>
+  frame
+    .locator(".thread-reply textarea:visible")
+    .first()
+    .evaluate(async (field) => {
+      const button = document.getElementById("comment-here");
+      const shown = () => button.checkVisibility();
+      const before = shown();
+      field.focus();
+      const writing = shown();
+      field.blur();
+      return { before, writing, after: shown() };
+    });
+for (const engine of ["chrome", "webkit"])
+  test(`in ${engine} at 375, the page's comment button hides while a reply box in the pane of Notifications or of Search has focus`, async (t) => {
+    const h = await hub(t);
+    const { here } = await sessions(t, h);
+    await replied(here, "An answer about the walrus");
+    const page = await openOn(t, h, here, {
+      engine,
+      viewport: { width: 375, height: 667 },
+      hasTouch: true,
+      ...(engine === "chrome" ? { isMobile: true } : {}),
+    });
+    if (!page) return;
+    await badge(page, 2);
+    await page.locator("#bell").tap();
+    await page
+      .locator("#center-list .session-row", { hasText: "walrus" })
+      .tap();
+    await shownFrame(page).locator(".thread-reply textarea:visible").waitFor();
+    const expected = { before: true, writing: false, after: true };
+    assert.deepEqual(await buttonWhileReplying(shownFrame(page)), expected);
+
+    await page.locator(".search-close").tap();
+    await page.locator("#search-dialog").waitFor({ state: "hidden" });
+    await page.locator("#search-button").tap();
+    await page.locator(".search-input").fill("walrus");
+    // A phone shows the best result under the list with no tap.
+    await page
+      .locator('.search-row[aria-selected="true"]', { hasText: "walrus" })
+      .waitFor();
+    await page.evaluate(() => document.activeElement.blur());
+    await shownFrame(page).locator(".thread-reply textarea:visible").waitFor();
+    assert.deepEqual(await buttonWhileReplying(shownFrame(page)), expected);
+  });
