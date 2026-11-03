@@ -90,14 +90,29 @@ const layout = (page) =>
     return [out.join(";"), document.querySelector("main").scrollTop];
   });
 // The page has endless animations of its own, so these act on transitions only.
-const pauseAt = (page, ms) =>
-  page.evaluate((ms) => {
-    for (const motion of document.getAnimations())
-      if (motion.transitionProperty) {
-        motion.pause();
-        motion.currentTime = ms;
-      }
-  }, ms);
+// pauseOnStart pauses the dialog's next transitions at ms the moment the browser
+// starts them, so a busy machine can't finish them before the test looks. Call it
+// before the action that starts them, and await the function it returns after.
+async function pauseOnStart(page, id, ms) {
+  await page.evaluate(
+    ([id, ms]) => {
+      window.pausedOn = null;
+      const pause = (event) => {
+        if (event.target.id !== id) return;
+        document.removeEventListener("transitionrun", pause, true);
+        for (const motion of event.target.getAnimations())
+          if (motion.transitionProperty) {
+            motion.pause();
+            motion.currentTime = ms;
+          }
+        window.pausedOn = id;
+      };
+      document.addEventListener("transitionrun", pause, true);
+    },
+    [id, ms],
+  );
+  return () => page.waitForFunction((id) => window.pausedOn === id, id);
+}
 const finish = (page) =>
   page.evaluate(() => {
     for (const motion of document.getAnimations())
@@ -166,8 +181,9 @@ for (const engine of ["chrome", "webkit"]) {
     await select(page, quote);
     const words = await selection(page);
     const before = await layout(page);
+    const opened = await pauseOnStart(page, "note-dialog", 80);
     await page.locator("#comment-here").click();
-    await pauseAt(page, 80);
+    await opened();
     const opening = await opacity(page, "note-dialog");
     assert.ok(opening > 0 && opening < 1, `opening at ${opening}`);
     assert.deepEqual(await layout(page), before, "opening");
@@ -195,8 +211,9 @@ for (const engine of ["chrome", "webkit"]) {
         ) === top,
       Math.round(header.bottom + 10),
     );
+    const closed = await pauseOnStart(page, "note-dialog", 80);
     await page.keyboard.press("Escape");
-    await pauseAt(page, 80);
+    await closed();
     const closing = await opacity(page, "note-dialog");
     assert.ok(closing > 0 && closing < 1, `closing at ${closing}`);
     await finish(page);
