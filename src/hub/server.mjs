@@ -62,6 +62,10 @@ export async function startHub(config = settings()) {
   const registry = new Map();
   const byDirectory = new Map();
   const register = serializer();
+  // inFlight counts the requests the hub has not finished answering, and
+  // shutDown() replaces drained to learn when the count reaches 0.
+  let inFlight = 0;
+  let drained = () => {};
   let origin = null,
     hostOrigin = null,
     allowedHosts = new Set(),
@@ -209,6 +213,10 @@ export async function startHub(config = settings()) {
     return embeds.get(key);
   }
   async function handle(req, res) {
+    inFlight++;
+    res.once("close", () => {
+      if (--inFlight === 0) drained();
+    });
     const reply = (code, value, type = "application/json", headers = {}) => {
       const text =
         typeof value === "string" || Buffer.isBuffer(value)
@@ -719,26 +727,26 @@ export async function startHub(config = settings()) {
   const closed = new Promise((resolve) => (settle = resolve));
   const close = () => (closing ||= shutDown().then(settle));
   // The hub stops accepting connections and lets the requests in progress
-  // finish, so a command or a Send in progress when a command replaces the hub
-  // gets its answer. server.close() closes the idle connections, the interval
-  // closes each one that becomes idle once its request finishes, and after 3
-  // seconds the hub closes every connection that remains.
+  // finish, for up to 3 seconds, so a command or a Send in progress when a
+  // command replaces the hub gets its answer. Then it closes every connection
+  // that remains. A browser keeps connections open that have sent no request,
+  // and Node 24's closeIdleConnections() leaves those open, so the hub waits
+  // for its requests instead of for its connections.
   async function shutDown() {
     clearInterval(timer);
-    await Promise.all(
-      servers.map(
-        (server) =>
-          new Promise((resolve) => {
-            const idle = setInterval(() => server.closeIdleConnections(), 100);
-            const cutOff = setTimeout(() => server.closeAllConnections(), 3000);
-            server.close(() => {
-              clearInterval(idle);
-              clearTimeout(cutOff);
-              resolve();
-            });
-          }),
-      ),
+    const stopped = servers.map(
+      (server) => new Promise((resolve) => server.close(resolve)),
     );
+    if (inFlight > 0)
+      await new Promise((resolve) => {
+        const cutOff = setTimeout(resolve, 3000);
+        drained = () => {
+          clearTimeout(cutOff);
+          resolve();
+        };
+      });
+    for (const server of servers) server.closeAllConnections();
+    await Promise.all(stopped);
     await search.close();
     try {
       if ((await read(config.hubFile)).pid === process.pid)

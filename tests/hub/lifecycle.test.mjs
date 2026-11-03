@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -86,11 +87,16 @@ test("a session closed with feedback unread stays closed after the hub restarts"
 });
 
 // A command that replaces the hub stops it while a pair command or a Send can be
-// in progress.
-test("a request in progress when the hub shuts down gets its answer", async (t) => {
+// in progress. A browser also opens connections before it sends a request on
+// them, and the hub must not wait for those.
+test("a request in progress when the hub shuts down gets its answer, and a connection with no request does not hold the shutdown", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
+  const { port } = new URL(h.server.origin);
+  const unused = net.connect(port, "127.0.0.1");
+  t.after(() => unused.destroy());
+  await new Promise((resolve) => unused.once("connect", resolve));
   const body = JSON.stringify(a.event());
   const request = http.request(`${h.server.origin}${a.base}/api/feedback`, {
     method: "POST",
@@ -112,7 +118,9 @@ test("a request in progress when the hub shuts down gets its answer", async (t) 
   const closing = h.server.close();
   request.end(body);
   assert.equal(await response, 200);
+  const answered = Date.now();
   await closing;
+  assert(Date.now() - answered < 1000, "the shutdown waited for a connection");
 });
 
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
