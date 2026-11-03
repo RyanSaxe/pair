@@ -84,81 +84,68 @@ async function scratch(t) {
 const edit = (folder) =>
   fs.appendFile(path.join(folder, "src/build/lint.mjs"), "\n// new code\n");
 
-test("commands from the hub's folder replace a hub with live sessions once its new code is committed, and only one of them starts the new hub", async (t) => {
-  const { home, agent, record } = await scratch(t);
-  const clone = path.join(home, "clone");
-  const cli = await clonePair(clone);
-  const a = await agent("a", cli);
-  await a.start();
-  const before = await record(a.config);
-  await edit(clone);
-  await git(clone, "commit", "--quiet", "--no-verify", "-am", "New code");
-  const started = await Promise.all(
-    [1, 2, 3].map(() => a.output("start", "--title", "Test", "--json")),
-  );
-  const after = await record(a.config);
-  assert.notEqual(after.version, before.version);
-  assert.equal(alive(before.pid), false);
-  for (const { stdout, stderr } of started) {
-    assert.equal(stderr, "");
-    assert.equal(new URL(JSON.parse(stdout).url).port, String(after.port));
-  }
-  const log = await fs.readFile(a.config.hubLog, "utf8");
-  assert.equal(log.match(/ listening on /g).length, 2);
-  // The new hub loads the first session from disk, and it stays live.
-  const info = await (
-    await fetch(`http://127.0.0.1:${after.port}/api/hub`)
-  ).json();
-  assert.equal(info.live, 4);
-});
-
-// Agents run pair start rarely, so every other command that reaches the hub
-// replaces it too, after the command's own request.
-test("a status command from the hub's folder replaces a hub with live sessions after its new code is committed, and the session stays live", async (t) => {
+// The steps share one git clone, because git on Windows is slow enough that
+// a clone for each step slows the tests running beside this file.
+test("commands from the hub's folder replace a hub with live sessions only on committed code, and one command at a time does it", async (t) => {
   const { home, agent, record } = await scratch(t);
   const clone = path.join(home, "clone");
   const a = await agent("a", await clonePair(clone));
   const { sessionDir } = await a.start();
-  const before = await record(a.config);
-  await edit(clone);
-  await git(clone, "commit", "--quiet", "--no-verify", "-am", "New code");
-  const { stderr } = await a.output("status", "--session-dir", sessionDir);
-  assert.equal(stderr, "");
-  const after = await record(a.config);
-  assert.notEqual(after.version, before.version);
-  assert.equal(alive(before.pid), false);
-  const info = await (
-    await fetch(`http://127.0.0.1:${after.port}/api/hub`)
-  ).json();
-  assert.equal(info.live, 1);
-});
+  const commit = (message) =>
+    git(clone, "commit", "--quiet", "--no-verify", "-am", message);
+  const hubAnswer = async () =>
+    (
+      await fetch(`http://127.0.0.1:${(await record(a.config)).port}/api/hub`)
+    ).json();
 
-test("a command from the hub's folder leaves a hub with live sessions on its code while src/ has uncommitted changes, and replaces it once no session is live", async (t) => {
-  const { home, agent, record } = await scratch(t);
-  const clone = path.join(home, "clone");
-  const a = await agent("a", await clonePair(clone));
-  const first = await a.start();
-  const before = await record(a.config);
+  // Agents run pair start rarely, so a status command replaces the hub too,
+  // after its own request.
+  const first = await record(a.config);
   await edit(clone);
-  const { stdout, stderr } = await a.output(
-    "start",
-    "--title",
-    "Test",
-    "--json",
-  );
-  const [, edited] = stderr.match(
+  await commit("New code");
+  const status = await a.output("status", "--session-dir", sessionDir);
+  assert.equal(status.stderr, "");
+  const second = await record(a.config);
+  assert.notEqual(second.version, first.version);
+  assert.equal(alive(first.pid), false);
+  assert.equal((await hubAnswer()).live, 1);
+
+  await edit(clone);
+  const kept = await a.output("status", "--session-dir", sessionDir);
+  const [, edited] = kept.stderr.match(
     new RegExp(
-      `^pair: The hub runs code version ${before.version} from ${literal(clone)}, and the code there is now version ([0-9a-f]{12}), with uncommitted changes under src/ or adapters/\\. While a session is live on the hub, pair replaces the hub only with committed code, so the hub stays on version ${before.version}\\. The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live\\.\\n$`,
+      `^pair: The hub runs code version ${second.version} from ${literal(clone)}, and the code there is now version ([0-9a-f]{12}), with uncommitted changes under src/ or adapters/\\. While a session is live on the hub, pair replaces the hub only with committed code, so the hub stays on version ${second.version}\\. The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live\\.\\n$`,
     ),
   );
-  assert.notEqual(edited, before.version);
-  assert.equal((await record(a.config)).pid, before.pid);
-  for (const { sessionDir } of [first, JSON.parse(stdout)])
-    await a.run("pause", "--session-dir", sessionDir, "--reason", "idle");
-  await a.start();
-  const after = await record(a.config);
-  assert.equal(after.version, edited);
-  assert.equal(alive(before.pid), false);
+  assert.notEqual(edited, second.version);
+  assert.equal((await record(a.config)).pid, second.pid);
+
+  await commit("Newer code");
+  const started = await Promise.all(
+    [1, 2, 3].map(() => a.output("start", "--title", "Test", "--json")),
+  );
+  const third = await record(a.config);
+  assert.equal(third.version, edited);
+  assert.equal(alive(second.pid), false);
+  for (const { stdout, stderr } of started) {
+    assert.equal(stderr, "");
+    assert.equal(new URL(JSON.parse(stdout).url).port, String(third.port));
+  }
+  const log = await fs.readFile(a.config.hubLog, "utf8");
+  assert.equal(log.match(/ listening on /g).length, 3);
+  assert.equal((await hubAnswer()).live, 4);
+
+  // With no live session, a command replaces the hub on uncommitted code.
+  await edit(clone);
+  const sessions = [
+    sessionDir,
+    ...started.map(({ stdout }) => JSON.parse(stdout).sessionDir),
+  ];
+  for (const directory of sessions)
+    await a.run("pause", "--session-dir", directory, "--reason", "idle");
+  const fourth = await record(a.config);
+  assert.notEqual(fourth.version, third.version);
+  assert.equal(alive(third.pid), false);
 });
 
 // The start that stops the old hub must not mistake the stopping hub for one
