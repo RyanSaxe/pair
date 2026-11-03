@@ -2,7 +2,7 @@ import { $ } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
 import { createMenus } from "#frame/search/menus.mjs";
 import { openSearch, sharedWindow } from "#frame/search/modal.mjs";
-import { escapeHtml, GLYPHS, HERE } from "#frame/search/rows.mjs";
+import { escapeHtml, HERE } from "#frame/search/rows.mjs";
 import {
   GROUPS,
   KINDS,
@@ -23,9 +23,10 @@ import {
 import { resultHref } from "#frame/sync/notifications.mjs";
 
 /* Notifications' source for the shared window, and the read rules. A click reads
-   a row at once. A key reads only the row the reader stays on, so ↓ through the
-   list reads nothing. */
-const STAY_MS = 1500;
+   a row at once. Any other row is read once its page has stayed drawn in the
+   preview for STAY_MS, so a glance at the window, ↓ through the list, a search
+   being typed or a slow preview reads nothing. */
+const STAY_MS = 3000;
 const SEARCH_LIMIT = 500;
 const BELL_GLYPH =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>';
@@ -233,20 +234,6 @@ function openRow(row) {
   openPlace(row, state.query);
 }
 
-const emptyPane = () => {
-  const glyph = GLYPHS.threads;
-  const mark = (state, words) =>
-    `<li class="is-${state}"><span class="nt-glyph">${glyph}<i class="nt-mark"></i></span>${words}</li>`;
-  return `<div class="nt-empty">
-    <p>Choose a row to read it here.</p>
-    <ul>
-      ${mark("unread", "Unread. The bell counts these.")}
-      ${mark("waiting", "Waiting on the agent.")}
-      ${mark("read", "Read, or cleared.")}
-    </ul>
-    <p><kbd>↑</kbd> <kbd>↓</kbd> move, <kbd>↵</kbd> opens the page.</p>
-  </div>`;
-};
 const failed = () => searchFailed || linesFailed;
 function blank() {
   const typed = state.query.trim();
@@ -297,10 +284,8 @@ function notificationsSource(win) {
     placeholder: "Search notifications",
     glyph: BELL_GLYPH,
     focusField: false,
-    selectFirst: false,
     state,
     menus,
-    empty: emptyPane(),
     snapshot,
     // While the request runs, the rows the frame matched show, and the hub's rows
     // join when it answers.
@@ -334,11 +319,14 @@ function notificationsSource(win) {
       clearTimeout(stay);
       if (row.state !== "unread") return;
       if (how === "click") return markRead(row);
-      stay = setTimeout(() => {
+      // Like a reply on the page, the row counts only while the tab has focus.
+      const read = () => {
         if (state.row !== row.key) return;
+        if (!document.hasFocus()) return (stay = setTimeout(read, STAY_MS));
         const live = liveRow(row.key);
         if (live?.state === "unread") markRead(live);
-      }, STAY_MS);
+      };
+      stay = setTimeout(read, STAY_MS);
     },
     act(target) {
       if (target.closest("[data-clear-all]")) {

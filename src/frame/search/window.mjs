@@ -10,19 +10,21 @@ import { createDialog, showPreview } from "#frame/search/window-dialog.mjs";
 
      label, listLabel, placeholder, glyph  what the window calls itself
      focusField                            whether the field takes focus on open
-     selectFirst                           whether a row is selected with no click
      state                                 query, selected, row and the menus' values
      menus                                 createMenus(), drawn into the filter row
      load(signal, early)                   the rows, as { results, counts, total }
      snapshot()                            the rows, from what the source already has
      rowKey(row), rowHtml(row, index, state), blank(reply), end(reply), count(reply)
-     empty                                 the right pane's words with no row selected
      preview(row)                          the row that the page in the pane goes to
      open(row, query)                      what Open does
      act(target), onShow(row, how)
      keys                                  what Alt with a key code does
      commandK()                            what ⌘K does, instead of closing
-     remember(), onClose(), widen(filter), onFilter(), returnFocus() */
+     remember(), onClose(), widen(filter), onFilter(), returnFocus()
+
+   Both select the first row with no click. The window calls onShow with how a
+   row was chosen: "click" at the click, and "key", or "auto" for a row the window
+   selected by itself, once the row's page has drawn in the pane. */
 // A fast reply replaces the list before this, so most searches never show it.
 const SEARCHING_AFTER_MS = 150;
 // How far a key moves the selection. Ctrl+K is one of them on every system, so
@@ -38,14 +40,20 @@ export function createWindow() {
   const dialog = createDialog();
   const part = (selector) => dialog.querySelector(selector);
   const words = part(".search-words");
+  // waiting is the row whose onShow runs when its page has drawn.
+  let waiting = null;
   const preview = createPreview({
     host: part(".search-preview-main"),
-    onShown() {
+    onShown(shown) {
       words.hidden = true;
+      if (!dialog.open || waiting?.shown !== shown) return;
+      const { row, how } = waiting;
+      waiting = null;
+      source.onShow?.(row, how);
     },
     onFailed(row) {
       words.hidden = false;
-      showPreview(words, row, source.empty);
+      showPreview(words, row);
     },
     onLoading() {
       words.hidden = true;
@@ -63,10 +71,8 @@ export function createWindow() {
   let searching = 0;
   let pressedOutside = false;
   // drawn is the list's HTML, so a redraw that changes nothing leaves the rows
-  // alone. shownAs says what the pane last went to, for a source with no selected
-  // row until a click, where a redraw must not move the page under the reader.
+  // alone.
   let drawn = null;
-  let shownAs = null;
 
   const focusField = () => innerWidth > PHONE && input.focus();
   const closeMenu = () => {
@@ -120,45 +126,34 @@ export function createWindow() {
       .join("");
   }
 
-  function drawPreview() {
+  function drawPreview(how) {
     const row = selectedRow();
     drawHead();
     if (!row) closeSheet();
     // On a phone, a search's best result shows under the results with no tap.
-    // With nothing typed, the newest rows wait for a tap. A source that selects
-    // nothing by itself has a row selected only when the reader chose it.
-    if (
-      innerWidth <= PHONE &&
-      row &&
-      (!source.selectFirst || state.query.trim())
-    )
+    // With nothing typed, the newest rows wait for a tap.
+    if (innerWidth <= PHONE && row && state.query.trim())
       dialog.classList.add("is-sheet");
-    if (innerWidth > PHONE || dialog.classList.contains("is-sheet")) {
-      const shown = row && source.preview(row);
-      const asked = JSON.stringify([
-        source.rowKey(row),
-        state.query,
-        shown?.item,
-      ]);
-      if (source.selectFirst || asked !== shownAs)
-        preview.show(shown, state.query);
-      shownAs = asked;
+    const showing = innerWidth > PHONE || dialog.classList.contains("is-sheet");
+    const shown = showing && row ? source.preview(row) : null;
+    if (showing) {
+      waiting = null;
+      preview.show(shown, state.query);
     }
     state.row = source.rowKey(row);
     source.remember?.();
+    if (!shown || !how) return;
+    if (how === "click") source.onShow?.(row, how);
+    else waiting = { row, shown, how };
   }
 
-  // After a list changes, the selection stays on its row. A source that selects
-  // the first row goes back to it unless it was told to keep its place.
+  // After a list changes, the selection goes back to the first row, unless it was
+  // told to keep its place and its row is still there.
   function settleSelection(keep) {
     const index = current.results.findIndex(
       (result) => source.rowKey(result) === state.row,
     );
-    state.selected = source.selectFirst
-      ? keep
-        ? Math.max(index, 0)
-        : 0
-      : index;
+    state.selected = keep ? Math.max(index, 0) : 0;
   }
 
   async function run({ keep = false } = {}) {
@@ -182,7 +177,7 @@ export function createWindow() {
       settleSelection(true);
       drawControls();
       drawList();
-      drawPreview();
+      drawPreview("auto");
     };
     let reply;
     try {
@@ -205,8 +200,8 @@ export function createWindow() {
     settleSelection(keep);
     drawControls();
     drawList();
-    drawPreview();
-    if (keep || !source.selectFirst)
+    drawPreview("auto");
+    if (keep)
       list
         .querySelector('[aria-selected="true"]')
         ?.scrollIntoView({ block: "nearest" });
@@ -214,7 +209,7 @@ export function createWindow() {
   }
 
   // refresh draws the source's rows again and leaves the page in the pane alone,
-  // unless its row has gone.
+  // unless its row has gone, when the first row takes its place.
   function refresh() {
     if (!dialog.open || !source.snapshot) return;
     const key = state.row;
@@ -222,9 +217,11 @@ export function createWindow() {
     state.selected = current.results.findIndex(
       (result) => source.rowKey(result) === key,
     );
+    const moved = state.selected < 0;
+    if (moved) state.selected = current.results.length ? 0 : -1;
     drawControls();
     drawList();
-    if (key && state.selected < 0) drawPreview();
+    if (moved && (key || selectedRow())) drawPreview("auto");
     else drawHead();
   }
 
@@ -241,8 +238,7 @@ export function createWindow() {
     drawn = null;
     state.selected = next;
     input.setAttribute("aria-activedescendant", `search-row-${next}`);
-    drawPreview();
-    source.onShow?.(selectedRow(), how);
+    drawPreview(how);
   }
 
   function openSelected() {
@@ -288,7 +284,6 @@ export function createWindow() {
   }
   function open(next) {
     useSource(next);
-    shownAs = null;
     if (!dialog.open) {
       // showModal focuses the first control it finds. With the field inert for
       // that moment, a phone's keyboard stays down.
