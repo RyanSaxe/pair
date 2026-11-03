@@ -56,14 +56,22 @@ export function notifications(session) {
     proposals: session.proposalItems().map(cardFields),
   });
   // activity.json stores no words, so older events get them too. A cleared event
-  // shows nowhere, so the session list carries words only for the others.
+  // shows nowhere, so the session list carries words only for the others. A
+  // reply's question is the reviewer's message that began its thread.
   const withWords = (events, cleared) =>
     events.map((event) => {
-      const message =
+      const messages =
         event.kind === "reply" &&
         !cleared.has(event.id) &&
-        records.get(event.thread)?.messages[event.message];
-      return message ? { ...event, words: clipped(message) } : event;
+        records.get(event.thread)?.messages;
+      const message = messages?.[event.message];
+      if (!message) return event;
+      const question = messages.find((item) => item.from === "reviewer");
+      return {
+        ...event,
+        words: clipped(message),
+        ...(question ? { question: clipped(question) } : {}),
+      };
     });
   return { notificationView, withWords };
 }

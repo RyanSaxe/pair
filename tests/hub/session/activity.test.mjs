@@ -10,7 +10,8 @@ const listedEvents = async (origin, id) =>
   (await (await fetch(`${origin}/api/sessions`)).json()).sessions.find(
     (item) => item.id === id,
   ).events;
-const described = (events) => events.map(({ id, at, words, ...rest }) => rest);
+const described = (events) =>
+  events.map(({ id, at, words, question, ...rest }) => rest);
 
 test("a session's start, a round that finishes and a reply each add one event, and a new hub keeps them", async (t) => {
   const h = await hub(t);

@@ -67,6 +67,7 @@ function eventRow(entry, event, state, thisId) {
     ...(event.kind === "reply"
       ? {
           thread: event.thread,
+          question: event.question,
           message: event.message,
           proposal: event.proposal,
           round: event.round,
@@ -178,6 +179,18 @@ export function whereText(row) {
   }
   if (row.kind === "proposal") return `${row.status} · ${place}`;
   return place;
+}
+// A bell row's second line. A reply names the question that began its thread,
+// and a row without one, such as a card, has its line from the window.
+export function glanceText(row) {
+  if (!row.question) return whereText(row);
+  return [
+    `“${row.question}”`,
+    row.count > 1 && `${row.count} replies`,
+    !row.own && row.sessionTitle,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 // Where the page in the right pane goes for a row. It has the fields of a search

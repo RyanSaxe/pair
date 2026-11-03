@@ -100,7 +100,7 @@ test("an agent's HTML reply reads as plain text on its line and in its event's w
   );
 });
 
-test("only a reply that isn't cleared carries its words, and activity.json stores none", async (t) => {
+test("only a reply that isn't cleared carries its words and its thread's question, and activity.json stores neither", async (t) => {
   const { a, start, reply, events } = await published(t);
   const id = await start();
   await reply(id, { text: "First." });
@@ -110,6 +110,7 @@ test("only a reply that isn't cleared carries its words, and activity.json store
   );
   assert.equal(first.words, "First.");
   assert.equal(second.words, "Second.");
+  assert.equal(second.question, "What happens to a failed item?");
 
   assert.equal(
     (await a.request("/api/seen", { cleared: [first.id] })).code,
@@ -117,13 +118,14 @@ test("only a reply that isn't cleared carries its words, and activity.json store
   );
   const after = (await events()).filter(({ kind }) => kind === "reply");
   assert.equal(after[0].words, undefined);
+  assert.equal(after[0].question, undefined);
   assert.equal(after[1].words, "Second.");
 
   const stored = JSON.parse(
     await fs.readFile(path.join(a.directory, "activity.json"), "utf8"),
   );
   assert.equal(
-    stored.events.some((event) => "words" in event),
+    stored.events.some((event) => "words" in event || "question" in event),
     false,
   );
 });

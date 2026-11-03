@@ -47,11 +47,15 @@ test("the popup lists the newest 5 rows with one row per thread, a link that say
     "Reply number 5",
     "Reply number 4",
   ]);
-  // A second line names the session only for a row from another session.
-  assert.deepEqual(await rows.nth(0).locator(".where").allTextContents(), [
-    "Elsewhere",
+  // A reply's second line has the question that began its thread, the count of
+  // new replies, and the session's name for a row from another session.
+  assert.deepEqual(await rows.locator(".where").allTextContents(), [
+    "“Where does this land?” · 2 replies · Elsewhere",
+    "“Where does this land?”",
+    "“Where does this land?”",
+    "“Where does this land?”",
+    "“Where does this land?”",
   ]);
-  assert.equal(await rows.nth(1).locator(".where").count(), 0);
   assert.equal(await page.locator("#center-empty").isVisible(), false);
 
   await page.locator("#center-clear-all").click();

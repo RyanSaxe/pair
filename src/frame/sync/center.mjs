@@ -13,7 +13,11 @@ import {
 import { onCurrentAgreed } from "#frame/notes/threads.mjs";
 import { show, updateNavigation } from "#frame/pages/pages.mjs";
 import { refreshWork } from "#frame/pages/work.mjs";
-import { bellRows, glyphOf } from "#frame/search/notification-rows.mjs";
+import {
+  bellRows,
+  glanceText,
+  glyphOf,
+} from "#frame/search/notification-rows.mjs";
 import {
   openNotifications,
   openPlace,
@@ -193,7 +197,7 @@ function glanceLine(row) {
   const glyph = part("glance-glyph");
   glyph.innerHTML = glyphOf(row);
   open.append(glyph, part("title", row.words), part("when", since(row.at)));
-  if (!row.own) open.append(part("where", row.sessionTitle));
+  open.append(part("where", glanceText(row)));
   open.onclick = () => {
     clear(row.events);
     openPlace(row);
