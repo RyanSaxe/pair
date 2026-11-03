@@ -2,11 +2,11 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { rulesExist, rulesFile } from "../../adapters/codex/rules.mjs";
-import { attach } from "../hub/client.mjs";
+import { attach, ensureHub, hubChecked, readRecord } from "../hub/client.mjs";
 import { startHub } from "../hub/server.mjs";
 import { detectWake, identify } from "../hub/wake.mjs";
 import { pageData } from "../shared/records.mjs";
-import { requireNode, settings } from "../shared/settings.mjs";
+import { requireNode, settings, version } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
@@ -121,6 +121,31 @@ async function keepSource(sessionDir, source, html) {
   }
   return target;
 }
+// answered has the code version and the address of the hub that last answered
+// a request of this command. Every answer from the hub sends the version in
+// X-Pair-Version.
+let answered = null;
+const heard = (response, origin) =>
+  (answered = { version: response.headers.get("x-pair-version"), origin });
+// pair start, and a command that registers its session again, run ensureHub
+// before their request. Every other command that reached a hub on other code
+// runs it after the command finishes, so that the next command reaches a hub
+// on the new code. A session's commands go to the hub in its connection.json,
+// which can be a hub other than the one the command's environment names, so
+// followHub runs ensureHub only when the hub that answered is that
+// environment's hub. A hub too old to send its version stays as it is.
+export async function followHub() {
+  if (hubChecked() || !answered?.version || answered.version === version)
+    return;
+  const config = settings();
+  const record = await readRecord(config);
+  if (`http://127.0.0.1:${record?.port}` !== answered.origin) return;
+  try {
+    await ensureHub(config);
+  } catch (error) {
+    console.error(`pair: ${error.message}`);
+  }
+}
 // With anyAgent, as for status and propose, the command may come from an agent
 // that cannot be woken, such as one the holder briefed, unless the session has
 // to register with a new hub. request() still sends the agent's identity when
@@ -196,6 +221,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
           signal: AbortSignal.timeout(15000),
         },
       );
+      heard(response, connection.origin);
     } catch (error) {
       if (!unreached.has(error.cause?.code)) mayHaveActed = true;
       if (retry && error.name === "TypeError") return reattach();
@@ -235,6 +261,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
     let response;
     try {
       response = await fetch(address, { signal: AbortSignal.timeout(15000) });
+      heard(response, connection.origin);
     } catch (error) {
       if (!retry || error.name !== "TypeError") throw error;
       await register();

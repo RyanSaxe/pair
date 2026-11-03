@@ -112,6 +112,27 @@ test("commands from the hub's folder replace a hub with live sessions once its n
   assert.equal(info.live, 4);
 });
 
+// Agents run pair start rarely, so every other command that reaches the hub
+// replaces it too, after the command's own request.
+test("a status command from the hub's folder replaces a hub with live sessions after its new code is committed, and the session stays live", async (t) => {
+  const { home, agent, record } = await scratch(t);
+  const clone = path.join(home, "clone");
+  const a = await agent("a", await clonePair(clone));
+  const { sessionDir } = await a.start();
+  const before = await record(a.config);
+  await edit(clone);
+  await git(clone, "commit", "--quiet", "--no-verify", "-am", "New code");
+  const { stderr } = await a.output("status", "--session-dir", sessionDir);
+  assert.equal(stderr, "");
+  const after = await record(a.config);
+  assert.notEqual(after.version, before.version);
+  assert.equal(alive(before.pid), false);
+  const info = await (
+    await fetch(`http://127.0.0.1:${after.port}/api/hub`)
+  ).json();
+  assert.equal(info.live, 1);
+});
+
 test("a command from the hub's folder leaves a hub with live sessions on its code while src/ has uncommitted changes, and replaces it once no session is live", async (t) => {
   const { home, agent, record } = await scratch(t);
   const clone = path.join(home, "clone");
@@ -127,7 +148,7 @@ test("a command from the hub's folder leaves a hub with live sessions on its cod
   );
   const [, edited] = stderr.match(
     new RegExp(
-      `^pair: The hub runs code version ${before.version} from ${literal(clone)}, and the code there is now version ([0-9a-f]{12}), with uncommitted changes under src/ or adapters/\\. While a session is live on the hub, pair replaces the hub only with committed code, so the hub stays on version ${before.version}\\. The next pair start replaces the hub with one on the new code once those changes are committed or no session is live\\.\\n$`,
+      `^pair: The hub runs code version ${before.version} from ${literal(clone)}, and the code there is now version ([0-9a-f]{12}), with uncommitted changes under src/ or adapters/\\. While a session is live on the hub, pair replaces the hub only with committed code, so the hub stays on version ${before.version}\\. The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live\\.\\n$`,
     ),
   );
   assert.notEqual(edited, before.version);
@@ -159,7 +180,7 @@ test("a command from another folder replaces a hub that runs other code only whe
   );
   assert.equal(
     stderr,
-    `pair: The hub runs code version ${before.version} from ${copy}, and this command runs code version ${version} from ${await fs.realpath(root)}. While a session is live on the hub, pair replaces the hub only with code from the hub's own folder, so the hub stays on version ${before.version}. The next pair start that finds no live session replaces the hub with one on its own code.\n`,
+    `pair: The hub runs code version ${before.version} from ${copy}, and this command runs code version ${version} from ${await fs.realpath(root)}. While a session is live on the hub, pair replaces the hub only with code from the hub's own folder, so the hub stays on version ${before.version}. The next pair command that reaches the hub while no session is live replaces the hub with one on its own code.\n`,
   );
   assert.equal((await record(other.config)).pid, before.pid);
   await other.run("pause", "--session-dir", first.sessionDir, "--reason", "x");

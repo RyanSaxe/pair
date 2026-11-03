@@ -225,10 +225,13 @@ export async function startHub(config = settings()) {
         !localHosts.has(req.headers.host) &&
         Buffer.byteLength(text) > COMPRESS_OVER_BYTES &&
         /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
+      // A command compares X-Pair-Version with its own code version after its
+      // requests, and replaces a hub that runs other code.
       res.writeHead(code, {
         "Content-Type": type,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        "X-Pair-Version": version,
         ...(large ? { "Content-Encoding": "gzip" } : {}),
         ...headers,
       });

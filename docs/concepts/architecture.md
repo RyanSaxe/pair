@@ -24,13 +24,16 @@ session to your browser and wakes the agent when you respond.
   a round from those files and the round's records in `pages/<round>/` each
   time a browser asks for the round, so a new hub shows every round of every
   session with the frame from its own code.
-- When `pair start` finds a hub that runs a different version of pair, it
-  stops the old hub and starts one that runs its own version. While a session
-  is live on the old hub, `pair start` does this only when it runs pair from
-  the hub's folder and git status shows no uncommitted change under `src/` or
-  `adapters/` there. A folder that is not a git clone, such as an npm install,
-  counts as committed. Otherwise `pair start` uses the old hub and prints why
-  the hub stays on its version.
+- Every answer from the hub has its code version in the `X-Pair-Version`
+  header. When a session command finds a hub that runs a different version of
+  pair, it stops the old hub and starts one that runs its own version.
+  `pair start` does this before its request, and every other session command
+  after its request finishes, so the next command reaches the new hub.
+- While a session is live on the old hub, a command replaces the hub only when
+  it runs pair from the hub's folder and git status shows no uncommitted
+  change under `src/` or `adapters/` there. A folder that is not a git clone,
+  such as an npm install, counts as committed. Otherwise the command keeps the
+  old hub and prints why the hub stays on its version.
 - When several commands find a hub to replace at once, the command that
   creates `hub/restart.lock` replaces it, and the others wait for the new hub
   and use it.

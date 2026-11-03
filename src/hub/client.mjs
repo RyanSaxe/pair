@@ -152,8 +152,8 @@ function keptLine(info) {
   if (info.root === packageRoot)
     return committed()
       ? null
-      : `pair: The hub runs code version ${info.version} from ${packageRoot}, and the code there is now version ${version}, with uncommitted changes under src/ or adapters/. ${rule("committed code")} The next pair start replaces the hub with one on the new code once those changes are committed or no session is live.`;
-  return `pair: The hub runs code version ${info.version}${info.root ? ` from ${info.root}` : ""}, and this command runs code version ${version} from ${packageRoot}. ${rule("code from the hub's own folder")} The next pair start that finds no live session replaces the hub with one on its own code.`;
+      : `pair: The hub runs code version ${info.version} from ${packageRoot}, and the code there is now version ${version}, with uncommitted changes under src/ or adapters/. ${rule("committed code")} The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live.`;
+  return `pair: The hub runs code version ${info.version}${info.root ? ` from ${info.root}` : ""}, and this command runs code version ${version} from ${packageRoot}. ${rule("code from the hub's own folder")} The next pair command that reaches the hub while no session is live replaces the hub with one on its own code.`;
 }
 // Several commands can find the same hub to replace at once. The command that
 // creates the restart lock replaces the hub, and every other command waits
@@ -196,7 +196,12 @@ async function withRestartLock(config, run) {
     await fs.rm(config.restartLock, { force: true });
   }
 }
-async function ensureHub(config = settings(), locked = false) {
+// checked is true once ensureHub has run in this command, so that the command
+// checks the hub's code once and prints keptLine() at most once.
+let checked = false;
+export const hubChecked = () => checked;
+export async function ensureHub(config = settings(), locked = false) {
+  checked = true;
   // While another command replaces the hub, the hub's record and port change,
   // so ensureHub waits until that command finishes.
   if (!locked) await lockReleased(config);

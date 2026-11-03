@@ -3,6 +3,7 @@ import { withSandboxHint } from "../adapters/codex/rules.mjs";
 import { findCommand, helpText, overview, parse } from "./cli/arguments.mjs";
 import { commands } from "./cli/commands.mjs";
 import { print } from "./cli/output.mjs";
+import { followHub } from "./cli/session.mjs";
 import { packageVersion } from "./shared/settings.mjs";
 
 async function main(argv) {
@@ -24,6 +25,7 @@ async function main(argv) {
   const options = parse(command);
   const output = await command.entry.run(options);
   if (output) await print(output, { json: options.json, command: name });
+  await followHub();
 }
 
 // One catch handles every command's error, so each message starts with pair:
