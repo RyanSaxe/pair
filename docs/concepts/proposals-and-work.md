@@ -18,11 +18,15 @@ approve therefore has a card.
 **Work**, in the sidebar above Review, lists every proposal of the session,
 from the moment the agent records it, in three tabs:
 
-| Tab      | Lists                                                                                                          |
-| -------- | -------------------------------------------------------------------------------------------------------------- |
-| Running  | Work you approved that is not finished yet.                                                                    |
-| Proposed | Proposals waiting for you to start or decline them.                                                            |
-| Done     | Finished work, proposals the agent joined into another, and proposals that you declined or the agent withdrew. |
+| Tab      | Lists                                                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Running  | Work you approved that runs in this session and is not finished yet.                                                                            |
+| Proposed | Proposals waiting for you to start or decline them.                                                                                             |
+| Done     | Finished work, work running in its own session, proposals the agent joined into another, and proposals that you declined or the agent withdrew. |
+
+A proposal you start in a sub-session or with a new agent goes to Done as soon
+as it starts, because the work has its own session's rounds. Its card in Done has
+the link to that session and the words that started the work.
 
 pair puts a card on a tab by the card's own state alone. A reply from the agent,
 or a round waiting in the work's own session, adds a bell line and leaves the
@@ -86,7 +90,7 @@ an agent's attempt to revise, withdraw or join a card you wrote.
 | Working here                                         | The work runs in this session's rounds.                                                  |
 | Opening a sub-session, Opening a new agent session   | You started the work in its own session, and the agent has not created that session yet. |
 | Planning in a sub-session, Planning with a new agent | You started the work with Plan it first, and have not chosen Build it in its session.    |
-| Working                                              | The work runs in its own session.                                                        |
+| In its own session                                   | The work runs in its own session, and the **Open** link beside it opens that session.    |
 | Waiting for you                                      | The session the work runs in has a round waiting for you.                                |
 | Agent replied                                        | The agent replied on a card that is not finished, and the bell still lists that reply.   |
 | Done                                                 | The work is finished.                                                                    |
@@ -177,9 +181,11 @@ How work finishes depends on where it runs.
   finished work in your feedback, the agent reopens the proposal with
   `pair propose --reopen`, and pair moves the card back to Running.
 - Work that runs in a sub-session or a new agent session is finished when
-  you close that session. The hub then marks the proposal done. This
-  session's agent sees that the proposal is done the next time it runs
-  `pair read`, and builds on the work done in that session.
+  you close that session. The hub then marks the proposal done, and the status
+  line shows Done in its own session. This session's agent sees that the
+  proposal is done the next time it runs `pair read`, and builds on the work
+  done in that session. When someone reopens that session, the hub takes the
+  mark away, and the card stays in Done with the status line In its own session.
 
 ## Done elsewhere, withdrawn or joined
 

@@ -32,9 +32,9 @@ test("a card goes to the tab of its own state", () => {
       ]),
     ),
     {
-      running: ["running", "elsewhere", "opening"],
+      running: ["running"],
       proposed: ["proposed"],
-      done: ["done", "declined", "withdrawn"],
+      done: ["elsewhere", "opening", "done", "declined", "withdrawn"],
     },
   );
 });
@@ -46,5 +46,9 @@ test("Work opens on Proposed while a proposal waits for Start, and otherwise on 
   assert.equal(opens(running, card("proposed"), done), "proposed");
   assert.equal(opens(running, done), "running");
   assert.equal(opens(done), "done");
+  assert.equal(
+    opens(card("elsewhere", { started: { at, where: "sub-session" } })),
+    "done",
+  );
   assert.equal(opens(), "running");
 });
