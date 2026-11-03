@@ -186,6 +186,50 @@ test("a window that changes size drops the result the search preview holds, and 
   await frame.locator("#page-content", { hasText: "walrus" }).waitFor();
 });
 
+test("a wide window's sidebar that closes or opens drops the previous page's picture", async (t) => {
+  const s = await setup(t, { viewport: { width: 1200, height: 800 } });
+  if (!s) return;
+  const toggle = s.page.locator("#sidebar-toggle");
+  await pageLink(s.page, "slow").click();
+  assert.equal(await picture(s.page), true);
+  await toggle.click();
+  assert.equal(await picture(s.page), false);
+  await complete(s.page, "slow");
+  await pageLink(s.page, "later").dispatchEvent("click");
+  assert.equal(await picture(s.page), true);
+  await toggle.click();
+  assert.equal(await picture(s.page), false);
+  await complete(s.page, "later");
+  // A sidebar that closes or opens during the fade moves the column too.
+  await pageLink(s.page, "slow").click();
+  await complete(s.page, "slow");
+  assert.equal(await picture(s.page), true);
+  await toggle.click();
+  assert.equal(await picture(s.page), false);
+});
+
+// At 720px and below the sidebar covers the page and the column stays put. Every
+// page change closes that sidebar, so a move from its page list would lose the
+// picture if closing it dropped one.
+test("a phone's sidebar keeps the previous page's picture, when it closes for a move and when it opens over one", async (t) => {
+  const s = await setup(t, {
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  if (!s) return;
+  const toggle = s.page.locator("#sidebar-toggle");
+  await toggle.tap();
+  await pageLink(s.page, "slow").tap();
+  assert.equal(
+    await s.page.evaluate(() => document.documentElement.dataset.sidebar),
+    "closed",
+  );
+  assert.equal(await picture(s.page), true);
+  await toggle.tap();
+  assert.equal(await picture(s.page), true);
+});
+
 test("a second click during a move keeps one bar and never shows the page clicked past", async (t) => {
   const s = await setup(t);
   if (!s) return;

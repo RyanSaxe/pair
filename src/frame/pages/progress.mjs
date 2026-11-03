@@ -54,15 +54,18 @@ export function installProgress() {
   bar.className = "move-bar";
   bar.setAttribute("aria-hidden", "true");
   document.querySelector(".main-column").prepend(bar);
-  // A copy keeps the pane's box in pixels, so it is wrong at a new window size.
-  window.addEventListener("resize", () => {
-    picture?.remove();
-    fading?.remove();
-    picture = fading = null;
-  });
+  window.addEventListener("resize", dropPictures);
   const at = Number(stored(CLICK_KEY));
   stored(CLICK_KEY, null);
   if (at && Date.now() - at < 5000) beginMove(at);
+}
+// A copy keeps the pane's box in pixels, so it is wrong once the column moves,
+// as it does when the window changes size or a wide window's sidebar closes or
+// opens.
+export function dropPictures() {
+  picture?.remove();
+  fading?.remove();
+  picture = fading = null;
 }
 // copyColumn() keeps every id in the copy, so the styles scoped to
 // #page-content still apply to it. The copy is inside a closed shadow root
