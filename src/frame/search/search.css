@@ -563,6 +563,11 @@
   ) {
   display: none !important;
 }
+/* The page's comment button floats at the bottom of the pane, where a thread's
+   reply row can be, so it hides while the reader writes a reply there. */
+:root[data-embed]:has(.thread-reply:focus-within) .comment-here {
+  display: none;
+}
 /* A sent note's words stay in view above the page they belong to. */
 :root[data-embed] #embed-sent {
   position: sticky;

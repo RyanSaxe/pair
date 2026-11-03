@@ -57,7 +57,10 @@ async function session(t) {
 async function reportVersion(page) {
   const reported = { rewrite: false, version: undefined };
   await page.route("**/api/status", async (route) => {
-    const response = await route.fetch();
+    // The rewrite needs the whole status, not a 304 to the frame's tag.
+    const headers = route.request().headers();
+    delete headers["if-none-match"];
+    const response = await route.fetch({ headers });
     const json = await response.json();
     if (reported.rewrite) json.hubVersion = reported.version;
     await route.fulfill({ response, json });
@@ -310,8 +313,10 @@ test("a reload keeps the place on an older round, a read-only page, Work's tab, 
       delivers: "What this work delivers, so that the card has some height.",
       recommend: "here",
     });
-  // A running card makes Running the tab that Work opens on.
-  await propose({ id: "one", start: "here", quote: "Build it." });
+  // Work opens on Proposed, so the reload has to bring back Running, the long
+  // tab the reader picked.
+  for (const id of ["one", "two", "three", "four", "five"])
+    await propose({ id, start: "here", quote: "Build it." });
   const page = await open(t, "about:blank");
   if (!page) return;
   const context = await page
@@ -378,10 +383,10 @@ test("a reload keeps the place on an older round, a read-only page, Work's tab, 
     what: "Work",
     address: "/#work",
     before: async (tab) => {
-      await tab.locator("#work-tab-running[aria-selected=true]").waitFor();
-      await tab.locator("#work-tab-proposed").click();
+      await tab.locator("#work-tab-proposed[aria-selected=true]").waitFor();
+      await tab.locator("#work-tab-running").click();
     },
-    ready: shows("#work-tab-proposed[aria-selected=true]"),
+    ready: shows("#work-tab-running[aria-selected=true]"),
     at: 200,
   });
   await check({

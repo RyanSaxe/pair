@@ -82,5 +82,16 @@ export async function seenStore(file, log) {
       await keep(pruned(next, sessions));
       return record;
     },
+    // addToStarted adds IDs for the hub itself. A list that is still null stays
+    // null, because a browser counts everything listed as seen only while the
+    // hub's list is null.
+    addToStarted(data, sessions) {
+      return this.add(
+        Object.fromEntries(
+          Object.entries(data).filter(([name]) => record[name]),
+        ),
+        sessions,
+      );
+    },
   };
 }

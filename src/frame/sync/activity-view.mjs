@@ -16,6 +16,7 @@ import {
 import { placeMarks } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { displayedRound, pageIndicator } from "#frame/pages/pages.mjs";
+import { moveFading, pictureHeld } from "#frame/pages/progress.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
 import { renderSentFeedback, shownSubmission } from "#frame/review/review.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
@@ -288,14 +289,19 @@ function drawHistoryLabel(label, old, past, parent) {
 }
 // A tab click leaves the page on screen, so renderHistory shows the strip
 // whenever the page on screen belongs to the earlier round, whichever tab
-// is selected.
+// is selected. A held picture is the page on screen until the move arrives.
 export function renderHistory() {
+  if (pictureHeld()) return;
   const old = mode === "readonly" || session.closed;
   const past = editable && displayedRound === pastRound;
   const parent = parentCrumbs();
   const strip = $("history-strip");
-  strip.hidden = !(old || past || parent.length);
-  if (strip.hidden) return;
+  const hidden = !(old || past || parent.length);
+  if (strip.hidden !== hidden) {
+    strip.hidden = hidden;
+    moveFading();
+  }
+  if (hidden) return;
   const label = $("history-label");
   // renderHistory redraws the line only when it changed, so a pointer on the
   // parent's name keeps its hover state.

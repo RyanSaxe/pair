@@ -61,6 +61,21 @@ function apply({ variable, rest }, width) {
   else style.setProperty(variable, `${width}px`);
 }
 
+/* Text rewraps as the column's width changes, so keepPlace() returns a function
+   that scrolls the page back to where the block at the pane's middle was. */
+function keepPlace() {
+  const pane = document.querySelector("main");
+  const middle = pane.getBoundingClientRect().top + pane.clientHeight / 2;
+  const block = [...document.querySelectorAll("#page-content > *")].find(
+    (child) => child.getBoundingClientRect().bottom > middle,
+  );
+  if (!block) return () => {};
+  const top = block.getBoundingClientRect().top;
+  return () => {
+    pane.scrollTop += block.getBoundingClientRect().top - top;
+  };
+}
+
 function installGrip(grip, kind, edge, widthAt, setWidth) {
   const root = document.documentElement;
   grip.addEventListener("pointerdown", (event) => {
@@ -71,10 +86,12 @@ function installGrip(grip, kind, edge, widthAt, setWidth) {
     root.dataset.edgeDrag = kind;
     // A double-click presses twice, so a press with no movement writes nothing.
     let width = null;
+    const restore = keepPlace();
     const move = ({ clientX }) => {
       if (width === null && clientX === event.clientX) return;
       width = widthAt(clientX);
       setWidth(width);
+      restore();
     };
     grip.addEventListener("pointermove", move);
     // The browser ends the capture on a release and on a cancelled pointer.
@@ -93,9 +110,11 @@ function installGrip(grip, kind, edge, widthAt, setWidth) {
     // A reset moves the column at once too, as a drag does. Reading the layout
     // applies the new width before the root loses data-edge-drag, which turns
     // the delay on the column's margin back on.
+    const restore = keepPlace();
     root.dataset.edgeDrag = kind;
     setWidth(edge.rest);
     root.getBoundingClientRect();
+    restore();
     delete root.dataset.edgeDrag;
     save(edge, edge.rest);
   });

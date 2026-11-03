@@ -50,9 +50,10 @@ same name under `tests/`:
   state every other part reads, `pages/` shows the pages, Agreed, Work and
   the home view of a session with nothing published, `notes/` has the code for the
   reviewer's notes, threads, choices, answers and drawings, `review/` is the
-  Review page and sending, `search/` is the search modal, and `sync/` reads
-  rounds, sessions, activity and notifications from the hub and sends it the
-  reviewer's cleared bell lines, opened pages and seen cards.
+  Review page and sending, `search/` is the window that Search and Notifications
+  share, with each one's list, and `sync/` reads rounds, sessions, activity and
+  notifications from the hub and sends it the reviewer's cleared bell lines,
+  opened pages and seen cards.
 - The components, `src/components/`, have one directory each, with the
   `markup.html` that a page author copies and the component's styles and
   behavior.

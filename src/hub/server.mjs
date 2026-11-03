@@ -94,6 +94,7 @@ export async function startHub(config = settings()) {
         tabOpen,
         (id) => registry.get(id),
         search.markChanged,
+        (keys) => seen.addToStarted(keys, listed()),
       );
       registry.set(session.id, session);
       byDirectory.set(known, session);
@@ -122,7 +123,15 @@ export async function startHub(config = settings()) {
   const sessionList = async (req) => {
     if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
     const sessions = listed();
-    return { sessions, seen: await seen.view(sessions) };
+    const lists = await seen.view(sessions);
+    const cleared = new Set(lists.cleared ?? []);
+    return {
+      sessions: sessions.map((entry) => ({
+        ...entry,
+        events: registry.get(entry.id).withWords(entry.events, cleared),
+      })),
+      seen: lists,
+    };
   };
   /* Browser routes take no token, as docs/reference/commands.md says under
      PAIR_HUB_HOST. sameOrigin is the only check that stops a page in another
@@ -167,7 +176,7 @@ export async function startHub(config = settings()) {
      phone as well, so the frame is compressed, and a compressed one is kept
      until its round changes. */
   const EMBEDS_KEPT = 8;
-  const COMPRESS_OVER_BYTES = 64 * 1024;
+  const COMPRESS_OVER_BYTES = 1024;
   const embeds = new Map();
   async function embedPage(session, round) {
     const flags = isClosed(session)
@@ -200,9 +209,15 @@ export async function startHub(config = settings()) {
         typeof value === "string" || Buffer.isBuffer(value)
           ? value
           : json(value);
-      // A session's status can reach megabytes, on a phone's connection too.
+      // A round's page can reach megabytes, and gzip holds the hub for about
+      // 190 ms on a 12 MB page. A browser on this machine would wait that long
+      // to save nothing, so only one on another machine, such as a phone, gets
+      // a compressed reply. The embed route compresses its own page into a
+      // Buffer.
       const large =
-        type === "application/json" &&
+        typeof text === "string" &&
+        (type === "application/json" || type.startsWith("text/html")) &&
+        !localHosts.has(req.headers.host) &&
         Buffer.byteLength(text) > COMPRESS_OVER_BYTES &&
         /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
       res.writeHead(code, {
@@ -216,6 +231,18 @@ export async function startHub(config = settings()) {
     };
     const html = (value, headers) =>
       reply(200, value, "text/html; charset=utf-8", headers);
+    // The frame polls the status and the session list, and sends back the tag
+    // of its last answer, so a poll that finds no change costs only headers.
+    // The tag is weak because a compressed body differs by the byte.
+    const polled = (value) => {
+      const text = json(value);
+      const hash = crypto.createHash("sha256").update(text).digest("base64url");
+      const tag = `W/"${hash}"`;
+      if (req.headers["if-none-match"] !== tag)
+        return reply(200, text, "application/json", { ETag: tag });
+      res.writeHead(304, { ETag: tag, "Cache-Control": "no-store" });
+      res.end();
+    };
     try {
       requireValue(allowedHosts.has(req.headers.host), "Invalid Host", 403);
       const url = new URL(req.url, `http://${req.headers.host}`);
@@ -260,7 +287,13 @@ export async function startHub(config = settings()) {
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
-        return reply(200, await sessionList(req));
+        return polled(await sessionList(req));
+      if (method === "GET" && url.pathname === "/api/notifications")
+        return reply(200, {
+          sessions: Object.fromEntries(
+            open().map((session) => [session.id, session.notificationView()]),
+          ),
+        });
       if (method === "POST" && url.pathname === "/api/seen") {
         sameOrigin(req);
         const data = await readBody(req, 250_000);
@@ -438,7 +471,24 @@ export async function startHub(config = settings()) {
           });
         }
         if (method === "GET" && rest[0] === "api" && rest[1] === "status")
-          return reply(200, { ...session.browserView(), hubVersion: version });
+          return polled({ ...session.browserView(), hubVersion: version });
+        // The hub only appends a thread's messages, so an address always names
+        // the same image, and the browser keeps it.
+        if (
+          method === "GET" &&
+          rest[0] === "api" &&
+          rest[1] === "thread-image" &&
+          rest.length === 5
+        ) {
+          const image = session.threadImage(
+            decodeURIComponent(rest[2]),
+            Number(rest[3]),
+            Number(rest[4]),
+          );
+          return reply(200, image.bytes, image.type, {
+            "Cache-Control": "private, max-age=31536000, immutable",
+          });
+        }
         // The browser sends no Origin header with a same-origin GET, so only
         // the Host check protects this read, as it protects the other reads.
         if (rest[0] === "api" && rest[1] === "draft" && rest.length === 2) {

@@ -301,3 +301,51 @@ test("a thread on words in a code block names its line before Shiki has drawn it
     .waitFor({ timeout: 10000 });
   assert.equal(await page.locator("#sample .shiki").count(), 0);
 });
+
+test("a reply's image holds its box until it arrives, so the card does not grow", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "shot",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Can I see it?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const picture = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 300;
+    const drawing = canvas.getContext("2d");
+    drawing.fillStyle = "#c33";
+    drawing.fillRect(0, 0, 600, 300);
+    return canvas.toDataURL("image/png");
+  });
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route("**/api/thread-image/**", async (route) => {
+    await held;
+    await route.continue();
+  });
+  const replied = await session.action("reply", {
+    note: "shot",
+    html: `<p>Here it is.</p><img alt="The shot" src="${picture}">`,
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+
+  const card = page.locator('pair-thread[data-thread="shot"]');
+  const image = card.locator(".thread-content img");
+  await image.waitFor();
+  assert.equal(await image.evaluate((node) => node.naturalWidth), 0);
+  const waiting = await card.boundingBox();
+  assert.ok((await image.boundingBox()).height > 100);
+  release();
+  await page.waitForFunction(
+    () => document.querySelector(".thread-content img").naturalWidth === 600,
+  );
+  assert.deepEqual(await card.boundingBox(), waiting);
+});

@@ -28,20 +28,17 @@
   </div>
   <div class="sess-list round-list" id="round-list"></div>
 </div>
-<div class="pop" id="center-pop" popover aria-label="Notifications and threads">
-  <div class="side-label">
-    <div class="segmented" id="center-tabs" role="radiogroup" aria-label="Show">
-      <button type="button" role="radio" data-center="notifications">
-        Notifications
-      </button>
-      <button type="button" role="radio" data-center="threads">Threads</button>
-    </div>
-    <button class="link-btn" id="center-clear-all" type="button" hidden>
+<div class="pop" id="center-pop" popover aria-label="Notifications">
+  <div class="session-list" id="center-list"></div>
+  <p class="glance-none" id="center-empty" hidden>Nothing needs you.</p>
+  <div class="glance-foot">
+    <button class="link-btn" id="center-all" type="button">
+      All notifications
+    </button>
+    <button class="link-btn quiet" id="center-clear-all" type="button" hidden>
       Clear all
     </button>
   </div>
-  <div class="session-list" id="center-list"></div>
-  <p class="pop-empty" id="center-empty">No notifications.</p>
 </div>
 <div class="pop" id="sessions-pop" popover aria-labelledby="sessions-title">
   <div class="side-label">

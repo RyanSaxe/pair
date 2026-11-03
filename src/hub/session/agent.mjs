@@ -151,15 +151,30 @@ export function agent(session) {
   // pair start --reopen is the only command that undoes close. The reviewer
   // gives it to an agent, which can be a former holder, so reopen also removes
   // that agent's takeover notice, and requireHolder lets the agent start.
+  //
+  // Nothing from before the reopen notifies the reviewer on any device, also
+  // for a session whose IDs the seen lists dropped at its close. reopen empties
+  // the events first and clears a failed wake in the transition that lists the
+  // session again, so no poll announces them. The seen lists drop the keys of a
+  // session that is not listed, so markSeen runs right after the transition,
+  // before the hub handles another request.
   async function reopen(agent) {
+    await session.clearActivity();
     await transition({
       ...report(),
       ...restartPages(),
       stage: await stageBeforeClose(),
       dismissedAt: null,
+      wake: { ...session.state.wake, last: null },
       formerHolders: (session.state.formerHolders || []).filter(
         (item) => !sameAgent(item, agent),
       ),
+    });
+    const { sessionId } = session.state;
+    const { round, ids } = session.listing().readyPages;
+    await session.markSeen({
+      opened: ids.map((page) => `${sessionId}/${round}/${page}`),
+      cards: session.proposalItems().map((card) => `${sessionId}/${card.id}`),
     });
     await session.reopenLinked();
   }

@@ -57,6 +57,7 @@ const stylesheets = [
   "app/drawer.css",
   "app/modes.css",
   "search/search.css",
+  "search/notifications.css",
 ];
 // A running hub draws every page with the frame it started with, so updating
 // pair on disk can't pair a new frame with the old hub. Components can change
