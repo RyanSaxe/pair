@@ -71,9 +71,11 @@ export function drawNoteImages() {
 }
 // settleNoteImages deletes an image added here, such as a sketch, when the
 // reviewer backs out of the dialog, as it does for an attached image.
+// addNoteImage returns the image's figure.
 export function addNoteImage(record) {
   noteImages.push(record);
   drawNoteImages();
+  return $("note-images").lastElementChild;
 }
 export function imageError(message) {
   const line = $("note-image-error");

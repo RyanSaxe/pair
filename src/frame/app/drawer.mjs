@@ -332,21 +332,31 @@ function focusOut(event) {
   follow();
 }
 
-/* A modal that shrank above the keyboard can leave its text box below what its
-   form shows, so the form scrolls to the box: at once when the modal jumped,
-   and smoothly once a glide has ended. */
-function revealField(behavior) {
-  if (!typing()) return;
-  const field = document.activeElement;
-  const body = field.closest(".dialog-body");
+/* revealInForm scrolls the form that element is in by as little as shows it,
+   and never past its top. */
+function revealInForm(element, behavior) {
+  const body = element.closest(".dialog-body");
   if (!body) return;
-  const box = field.getBoundingClientRect();
+  const box = element.getBoundingClientRect();
   const view = body.getBoundingClientRect();
   const by =
     box.top < view.top
       ? box.top - view.top
       : Math.max(0, Math.min(box.bottom - view.bottom, box.top - view.top));
   if (by) body.scrollBy({ top: by, behavior });
+}
+/* Something added to an open drawer's form, such as a sketch, makes the form
+   taller. The drawer takes the place a scroll would give it at that height,
+   and its form scrolls by as little as shows what was added. */
+export function revealAdded(element) {
+  placeAgain();
+  revealInForm(element, "instant");
+}
+/* A modal that shrank above the keyboard can leave its text box below what its
+   form shows, so the form scrolls to the box: at once when the modal jumped,
+   and smoothly once a glide has ended. */
+function revealField(behavior) {
+  if (typing()) revealInForm(document.activeElement, behavior);
 }
 function glided(event) {
   if (

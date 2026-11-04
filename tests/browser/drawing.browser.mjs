@@ -185,6 +185,50 @@ test("Sketch on this diagram opens its boxes in the drawing editor in the frame'
   assert.match(image.scene.path, /\/scenes\/[0-9a-f]{16}\.excalidraw$/);
 });
 
+test("a note that a sketch opens over a diagram low in the window shows the sketch and the note's text box", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const plan = planData();
+  const gap = `<div style="height: 1200px"></div>`;
+  plan.pages[0].html = `${gap}<div data-diagram data-caption="Payment flow">flowchart LR\n  gate --> details --> ledger</div>${gap}`;
+  assert.equal((await session.publish(plan)).code, 200);
+  const page = await open(t, "about:blank", {
+    viewport: { width: 1280, height: 720 },
+    args: ["--disable-site-isolation-trials"],
+  });
+  if (!page) return;
+  await stubPele(page);
+  await stubExcalidraw(page);
+  await page.goto(`${h.server.origin}${session.base}/#overview`);
+  const diagram = page.locator("[data-diagram] svg");
+  // With the diagram's top 300px down the window, the note fits neither above
+  // nor below the diagram.
+  await diagram.evaluate((svg) =>
+    document
+      .querySelector("main")
+      .scrollBy(
+        0,
+        svg.closest("[data-diagram]").getBoundingClientRect().top - 300,
+      ),
+  );
+  await diagram.click({ position: { x: 2, y: 2 } });
+  await page.getByRole("button", { name: "Sketch on this diagram" }).click();
+  await page.getByRole("button", { name: "Save sketch" }).click();
+  await page.locator("#note-images img").waitFor();
+
+  const shown = await page.evaluate(() => {
+    const form = document
+      .querySelector("#note-dialog .dialog-body")
+      .getBoundingClientRect();
+    const inForm = (selector) => {
+      const box = document.querySelector(selector).getBoundingClientRect();
+      return box.top >= form.top - 1 && box.bottom <= form.bottom + 1;
+    };
+    return { sketch: inForm("#note-images img"), text: inForm("#note-text") };
+  });
+  assert.deepEqual(shown, { sketch: true, text: true });
+});
+
 test("a redrawn sketch replaces the note's old sketch only when the edit is saved", async (t) => {
   const h = await hub(t);
   const session = await h.session();
