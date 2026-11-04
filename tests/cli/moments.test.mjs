@@ -190,6 +190,13 @@ test("each command prints the moment it is run at", async (t) => {
         return read("--thread", thread.id);
       },
     ],
+    [
+      "start-reopen",
+      async () => {
+        await session.request(`${session.base}/api/dismiss`, {});
+        return cli.run("start", "--reopen", "--session-dir", session.directory);
+      },
+    ],
   ];
   for (const [name, run] of rows) printsMoment(await run(), name, printed);
 });

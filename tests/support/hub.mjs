@@ -235,11 +235,18 @@ export async function hub(t, extra = {}, options = {}) {
         }),
         pages: data.pages.map(({ id, title }) => ({ id, title })),
       });
-      for (const page of data.pages) {
+      // With data.stopAfter, the rest of the round's pages never publish.
+      for (const page of data.pages.slice(0, data.stopAfter)) {
         if (result.code !== 200) break;
         result = await action("publish", { html: await build(page) });
       }
       return result;
+    };
+    // servedRound() returns the page a browser gets for a round.
+    const servedRound = async (round) => {
+      const { code, body } = await request(`/s/${id}/r/${round}`);
+      assert.equal(code, 200, body.error);
+      return body;
     };
     const event = (intent = "feedback-only", round = "1", extra = {}) => ({
       sessionId: id,
@@ -262,6 +269,7 @@ export async function hub(t, extra = {}, options = {}) {
       request,
       action,
       publish,
+      servedRound,
       event,
       feedback: (data, headers) =>
         request(`/s/${id}/api/feedback`, data, headers),

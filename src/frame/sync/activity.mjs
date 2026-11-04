@@ -104,7 +104,7 @@ export function activityModel({
   const quiet = between ? silence(remote?.report, now) : null;
   const home = Boolean(remote) && !remote.current;
   const title = inFlight
-    ? "Sending feedback"
+    ? "Sending"
     : stopped
       ? "Agent needs attention"
       : finished
@@ -140,7 +140,7 @@ export function activityModel({
       ? `Agent paused${remote.paused.reason ? `: ${remote.paused.reason}.` : "."} Send a message in chat.`
       : null;
   const summary = inFlight
-    ? "Saving your comments"
+    ? "Saving what you sent"
     : reason ||
       [
         slots.length
@@ -150,9 +150,9 @@ export function activityModel({
               "The first pages appear here when the agent publishes Agreed."
             : received
               ? read
-                ? "Agent read your feedback"
-                : "Agent received your feedback"
-              : "Feedback saved",
+                ? "Agent read what you sent"
+                : "Agent received what you sent"
+              : "Saved for the agent",
         takeover,
       ]
         .filter(Boolean)

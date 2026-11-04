@@ -1,10 +1,18 @@
 import { enhance } from "#frame/app/registry.mjs";
 import { prefs } from "#frame/app/store.mjs";
 import { ago } from "#frame/app/time.mjs";
-import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
+import {
+  $,
+  apple,
+  normalize,
+  plural,
+  unreachable,
+  uuid,
+} from "#frame/app/util.mjs";
 import {
   base,
   editable,
+  embedded,
   page,
   plan,
   shownPage,
@@ -27,10 +35,6 @@ import { remote, selectedTab } from "#frame/sync/rounds.mjs";
    placeThreads draws the cards from the poll, and from sent for a message
    that this browser sent and the poll does not show yet. */
 
-const apple = () =>
-  /mac|iphone|ipad/i.test(
-    navigator.userAgentData?.platform || navigator.platform || "",
-  );
 const modifier = () => (apple() ? "⌘" : "Ctrl");
 export const sendKeyLabel = () => `${modifier()} ↵`;
 export const sendKeyName = () => (apple() ? "Meta+Enter" : "Control+Enter");
@@ -143,6 +147,11 @@ function sendReply(thread, text, attachments) {
   // A reply answers the agent's replies in the thread, so clearThread
   // removes them from the bell before the hub responds.
   clearThread(thread.id);
+  // In the search window's frame, the window's own list shows the reply at once.
+  if (embedded)
+    window.parent.dispatchEvent(
+      new CustomEvent("pair:reply", { detail: { thread: thread.id, text } }),
+    );
   placeThreads();
   void post(
     thread.id,
@@ -230,7 +239,7 @@ function agentBody(thread, message, index) {
   if (message.html !== undefined) enhance(content);
   return [clamp, more];
 }
-function images(message) {
+export function images(message) {
   const strip = element("div", "thread-images");
   for (const item of message.attachments || []) {
     const link = element("a");
@@ -552,7 +561,13 @@ export function placeThreads() {
       } else {
         while (placed.has(after.nextElementSibling))
           after = after.nextElementSibling;
-        if (after.nextElementSibling !== entry.card) after.after(entry.card);
+        // Moving a card takes focus from its reply box, so a card the reviewer
+        // is typing in moves at the first poll after they leave it.
+        if (
+          after.nextElementSibling !== entry.card &&
+          !entry.form.contains(document.activeElement)
+        )
+          after.after(entry.card);
       }
       placed.add(entry.card);
     });

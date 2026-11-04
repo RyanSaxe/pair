@@ -1,6 +1,6 @@
 import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
-import { mode, online, session } from "#frame/app/view.mjs";
+import { embedded, mode, online, session } from "#frame/app/view.mjs";
 import {
   installCenter,
   isClearedChange,
@@ -16,6 +16,7 @@ import {
 } from "#frame/sync/opened.mjs";
 import { connected, remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
+import { fetchPolled } from "#frame/sync/status.mjs";
 
 let sessions = [];
 let grouped = [];
@@ -41,7 +42,7 @@ export function installSessions() {
 }
 export function status() {
   $("connection-status").textContent = !online
-    ? "Local viewing. Feedback can be exported; live submission requires the session URL."
+    ? "Local viewing. You can export your draft. Sending it requires the session URL."
     : !connected
       ? "The hub is unreachable. Your draft stays here and submits when it is back."
       : "";
@@ -49,6 +50,15 @@ export function status() {
   // page, so it cannot send anything to an agent that the hub will never
   // wake again.
   if (remote?.dismissedAt && mode === "live") location.reload();
+  // When an agent reopens the session, this tab reloads as a live page.
+  if (
+    session.closed &&
+    !embedded &&
+    remote &&
+    remote.stage !== "complete" &&
+    !remote.dismissedAt
+  )
+    location.reload();
 }
 // byStart sorts sessions by start time, so a number key opens the same
 // session from every tab until a session closes.
@@ -87,9 +97,7 @@ export async function pollSessions() {
   // cards. An older hub sends none of them.
   let seen = {};
   try {
-    const response = await fetch("/api/sessions");
-    if (!response.ok) throw Error();
-    const body = await response.json();
+    const body = await fetchPolled("/api/sessions");
     listed = body.sessions || [];
     seen = body.seen || {};
     fromHub = true;
@@ -120,10 +128,11 @@ export function stateWords(entry) {
     return `Working · ${since(entry.updatedAt)}`;
   return "Live";
 }
-export function rowStatus(entry, unopened = 0) {
+// A row shows its unopened pages beside this status, so a session that waits
+// still says which pages are new.
+export function rowStatus(entry) {
   if (entry.needsYou) return { text: "Waiting", tone: "need" };
   if (entry.wakeFailed) return { text: "Can't wake", tone: "need" };
-  if (unopened) return { text: `${unopened} new`, tone: "news" };
   if (entry.paused) return { text: "Paused", tone: "quiet" };
   if (
     !entry.round ||
@@ -134,9 +143,10 @@ export function rowStatus(entry, unopened = 0) {
   return null;
 }
 /* A waiting round counts only while the bell still lists its line, and
-   renderCenter clears that line once a visible tab has shown the session.
-   A round that the reviewer opened therefore stops counting until its
-   agent publishes again. cleared is the bell's set of cleared event IDs. */
+   clearOwnRound clears that line once the reviewer opens one of the round's
+   pages or a note. A round that the reviewer started on therefore stops counting
+   until its agent publishes again. cleared is the bell's set of cleared event
+   IDs. */
 export function sessionsBadge(list, thisId, unopened, cleared) {
   const others = list.filter((entry) => entry.id !== thisId);
   const waits = (entry) =>
@@ -180,32 +190,6 @@ export function lineButton(key, label, content, onclick, tip = null) {
   }
   button.onclick = () => onclick(button);
   return button;
-}
-/* Each icon button has a fixed column, and an empty slot keeps a later
-   button in its column. */
-export function sessionLine({ key, title, state, words, tint, open, icons }) {
-  const line = document.createElement("div");
-  line.className = `session-line ${tint}`.trim();
-  const row = document.createElement("button");
-  row.type = "button";
-  row.className = `session-row ${tint}`.trim();
-  row.dataset.key = key;
-  const name = document.createElement("span");
-  name.className = "title";
-  name.textContent = title;
-  const line2 = document.createElement("span");
-  line2.className = "words";
-  if (state) {
-    const em = document.createElement("em");
-    em.textContent = state;
-    line2.append(em);
-  }
-  line2.append(words);
-  row.append(name, line2);
-  row.onclick = open;
-  line.append(row);
-  for (const icon of icons) line.append(icon || document.createElement("span"));
-  return line;
 }
 /* redraw replaces a list only when its HTML changed, and it keeps focus on
    the same row or button, so Tab and Enter work in a list that the poll
@@ -268,18 +252,24 @@ function sessionRow(entry, unopened, depth) {
     ? { text: closing.get(entry.id), tone: "quiet" }
     : current
       ? null
-      : rowStatus(entry, unopened);
+      : rowStatus(entry);
+  const marks = document.createElement("span");
+  marks.className = "marks";
+  const addPill = (text, tone) => {
+    const pill = document.createElement("span");
+    pill.className = `pill ${tone}`;
+    pill.textContent = text;
+    marks.append(pill);
+  };
+  if (unopened && !current && !closing.has(entry.id))
+    addPill(`${unopened} new`, "news");
   if (shown?.tone === "working") {
     const dot = document.createElement("span");
     dot.className = "working";
     dot.setAttribute("aria-label", "Working");
-    row.append(dot);
-  } else if (shown) {
-    const pill = document.createElement("span");
-    pill.className = `pill ${shown.tone}`;
-    pill.textContent = shown.text;
-    row.append(pill);
-  }
+    marks.append(dot);
+  } else if (shown) addPill(shown.text, shown.tone);
+  row.append(marks);
   row.onclick = () => {
     if (current) toggleSessions(false);
     else location.assign(entry.url);

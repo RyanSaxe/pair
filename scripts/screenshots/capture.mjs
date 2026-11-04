@@ -11,8 +11,7 @@ const themes = ["light", "dark"];
 const desktop = { width: 1160, height: 760 };
 const phone = { width: 390, height: 844 };
 // The frame turns the sessions button orange for this second session, whose
-// round waits for the reviewer, and the bell lists the session's start and its
-// waiting round.
+// round waits for the reviewer, and the bell lists its waiting round.
 const waiting = {
   name: "waiting-session",
   round: "1",
@@ -129,9 +128,9 @@ export async function ready(page) {
     throw new Error(`A figure failed to render: ${errors.join("; ")}`);
 }
 
-// load() opens about:blank first, because the frame reads the page ID from the
+// visit() opens about:blank first, because the frame reads the page ID from the
 // address's hash only when it loads.
-export async function load(page, url, id) {
+async function visit(page, url, id) {
   await page.goto("about:blank");
   await page.goto(`${url}#${id}`);
   await until(
@@ -142,20 +141,44 @@ export async function load(page, url, id) {
   );
   await ready(page);
 }
+// The frame words each time relative to the browser's clock, so a picture would
+// depend on how long its run took. load() fixes the clock at the start of the
+// run, before every event in it, so each time reads the same on every run.
+const runStarted = new Date();
+// A tab that waits for a round opens Agreed when a poll finds the round, so
+// whether Agreed counts as opened would depend on the poll's timing. load()
+// always opens Agreed first, so every picture shows the same New marks.
+export async function load(page, url, id) {
+  await page.clock.setFixedTime(runStarted);
+  await visit(page, url, "agreed");
+  if (id !== "agreed") await visit(page, url, id);
+}
 
 // The frame polls the hub for sessions and notifications every 5 s, so
 // counted() waits until the sessions badge counts the second session and the
-// bell lists that session's start, its round and the agent's reply.
+// bell lists that session's round and the agent's reply.
 async function counted(page) {
   await until(
     page,
     "Counting the sessions and the notifications",
     () =>
       document.getElementById("sessions-count").textContent === "1" &&
-      document.getElementById("bell-count").textContent === "3",
+      document.getElementById("bell-count").textContent === "2",
   );
 }
 
+// settled() retakes a screenshot until two in a row match, so a late layout or
+// a figure still drawing cannot reach the picture. A page that never holds still
+// gets its last shot, because an extra commit costs less than a failed run.
+async function settled(page, options) {
+  let shot = await page.screenshot(options);
+  for (let tries = 0; tries < 10; tries++) {
+    const next = await page.screenshot(options);
+    if (next.equals(shot)) return next;
+    shot = next;
+  }
+  return shot;
+}
 // page.screenshot() with animations: "disabled" stops the frame's animations,
 // so the same state always gives the same pixels.
 export async function inThemes(page, clip) {
@@ -172,27 +195,37 @@ export async function inThemes(page, clip) {
       theme,
     );
     await ready(page);
-    shots[theme] = await page.screenshot({ animations: "disabled", clip });
+    shots[theme] = await settled(page, { animations: "disabled", clip });
   }
   return shots;
 }
 
 // scrollTo() puts the element's top 6px under the header. With bottom, it puts
 // the element's bottom 54px above the window's bottom edge, clear of the
-// floating comment button.
+// floating comment button. A resize or a late figure can still move the element,
+// so scrollTo() keeps correcting until the position holds, and it scrolls by
+// whole pixels so that lines never land between two.
 async function scrollTo(page, selector, { bottom = false } = {}) {
   await page.evaluate(
-    ([selector, bottom]) => {
+    async ([selector, bottom]) => {
       const column = [
         document.querySelector("main"),
         document.querySelector(".app-body"),
       ].find((element) =>
         /auto|scroll/.test(getComputedStyle(element).overflowY),
       );
-      const box = document.querySelector(selector).getBoundingClientRect();
-      column.scrollTop += bottom
-        ? box.bottom - (innerHeight - 54)
-        : box.top - column.getBoundingClientRect().top - 6;
+      for (let still = 0, tries = 0; still < 6 && tries < 100; tries++) {
+        const box = document.querySelector(selector).getBoundingClientRect();
+        const before = column.scrollTop;
+        column.scrollTop = Math.round(
+          before +
+            (bottom
+              ? box.bottom - (innerHeight - 54)
+              : box.top - column.getBoundingClientRect().top - 6),
+        );
+        still = column.scrollTop === before ? still + 1 : 0;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
     },
     [selector, bottom],
   );
@@ -245,6 +278,12 @@ export async function writeNote(page, text) {
   await page.locator("#comment-here").click();
   await page.locator("#note-dialog[open]").waitFor();
   await page.locator("#note-text").fill(text);
+  // The note's drawer rises as it opens.
+  await page
+    .locator("#note-dialog")
+    .evaluate((dialog) =>
+      Promise.all(dialog.getAnimations().map((motion) => motion.finished)),
+    );
 }
 
 async function send(page, session) {
@@ -306,6 +345,11 @@ export async function stage(t, scratch) {
     await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
     "demo",
   );
+  // With focus, the Notifications window reads the row it shows after 3 s, and
+  // these pictures show the agent's reply unread.
+  await page.addInitScript(() => {
+    document.hasFocus = () => false;
+  });
   await load(page, url, "overview");
   // The frame marks every event from the bell's first poll as seen, so the
   // second session starts after that poll.
@@ -359,10 +403,28 @@ export async function stage(t, scratch) {
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
 
   await page.locator("#bell").click();
-  await page.getByText("Agent replied on Where a reply appears").waitFor();
+  await page
+    .locator("#center-list")
+    .getByText("It answers between its steps")
+    .waitFor();
   save("docs/assets/bell", await inThemes(page));
   await page.keyboard.press("Escape");
   await page.evaluate(() => document.activeElement.blur());
+
+  await page.locator("#search-button").click();
+  await page.locator(".search-input").fill("thread.target");
+  await page.locator(".search-frame.is-shown").waitFor();
+  await until(
+    page,
+    "Highlighting the words in the preview",
+    () =>
+      document
+        .querySelector(".search-frame.is-shown")
+        .contentWindow.CSS.highlights.get("plan-search")?.size > 0,
+  );
+  save("docs/assets/search", await inThemes(page));
+  await page.keyboard.press("Escape");
+  await page.locator("#search-dialog").waitFor({ state: "hidden" });
 
   await page.setViewportSize(phone);
   await page.evaluate(() => getSelection().removeAllRanges());
@@ -392,6 +454,23 @@ export async function stage(t, scratch) {
       height: card.height + 2 * margin,
     }),
   );
+
+  // The window opens on the reply, its first row. The tab has no focus, so the
+  // reply stays unread in both themes.
+  await page.setViewportSize(desktop);
+  await page.locator("#bell").click();
+  await page.locator("#center-all").click();
+  await page
+    .locator('.nt-row[aria-selected="true"]', {
+      hasText: "It answers between its steps",
+    })
+    .waitFor();
+  await page
+    .frameLocator(".search-frame.is-shown")
+    .getByText("goes back to its work")
+    .waitFor();
+  await page.locator(".search-preview-main:not(.is-loading)").waitFor();
+  save("docs/assets/notifications", await inThemes(page));
 
   for (const theme of themes)
     images.set(

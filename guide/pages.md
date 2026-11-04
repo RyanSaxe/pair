@@ -123,7 +123,8 @@ alternatives red to express preference.
 
 Type is the system stack: 13px chrome, 13.5px to 15px reading, 22px page
 titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
-6px for rows. The reading column is at most 822px wide.
+6px for rows. The reading column is 822px wide by default and can be much
+wider, so size text, figures, grids and images to the column, not to 822px.
 
 ## Controls
 

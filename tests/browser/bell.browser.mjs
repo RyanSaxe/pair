@@ -56,7 +56,7 @@ async function lines(page) {
   return titles;
 }
 
-test("a reply in a thread clears that thread's lines from the bell and keeps the others", async (t) => {
+test("a reply in a thread clears that thread's row from the bell and keeps the others", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
@@ -68,14 +68,14 @@ test("a reply in a thread clears that thread's lines from the bell and keeps the
   await reply(session, answered);
   await reply(session, answered);
   await reply(session, other);
-  await count(page, "3");
+  await count(page, "2");
   const card = page.locator(`pair-thread[data-thread="${answered}"]`);
   if ((await card.getAttribute("collapsed")) !== null)
     await card.locator(".thread-fold").click();
   await card.locator(".thread-reply textarea").fill("Thanks.");
   await card.locator(".thread-reply button[type=submit]").click();
   await count(page, "1");
-  assert.deepEqual(await lines(page), ["Agent replied on Agreed so far"]);
+  assert.deepEqual(await lines(page), ["Here."]);
   // After a reload, the frame must still count only the reply on the other
   // thread.
   await page.reload();
@@ -163,10 +163,19 @@ test("a line on a card opens Work on the card's tab at the reply or the card it 
   await bellReady(page);
   const reply = await cardReply(session, "export");
   await count(page, "1");
-  // Opening the line clears it, so the frame moves the card from Needs you back
-  // to Proposed.
   await openLine(page);
   await landed(page, "proposed", reply);
+  // The card the line opened at stays on the tab when it finishes.
+  const finished = await session.action("propose", {
+    id: "export",
+    done: true,
+    where: "in #86",
+  });
+  assert.equal(finished.code, 200, finished.body.error);
+  await page
+    .locator("[data-proposal-card=export] .card-state", { hasText: "Done" })
+    .waitFor();
+  await page.locator('#work-tab-proposed[aria-selected="true"]').waitFor();
   await page.locator("#work-tab-running").click();
   const added = await session.action("propose", {
     id: "chart",
@@ -210,13 +219,14 @@ test("another session's finished round adds a waiting line, and sending that rou
   await count(page, "");
 });
 
-test("a session's start and waiting round leave the bell once a tab has shown that session", async (t) => {
+test("a session's waiting round stays in the bell while a tab only shows that session, and leaves once the reviewer opens one of its pages", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const page = await open(t, `${h.server.origin}${a.base}/`);
   if (!page) return;
   await bellReady(page);
   const b = await h.session({ start: true });
+  assert.equal((await b.publish(round("Session B"))).code, 200);
   await count(page, "1");
   assert.equal((await a.publish(round())).code, 200);
   await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
@@ -230,11 +240,52 @@ test("a session's start and waiting round leave the bell once a tab has shown th
     await bellReady(page);
     return page.locator("#bell").getAttribute("aria-label");
   };
-  assert.equal(await switchTo(b), "Notifications");
+  // Each tab leaves out its own session's round and still lists the other's,
+  // because showing a round reads nothing.
+  assert.equal(await switchTo(b), "Notifications: 1");
+  assert.equal(await switchTo(a), "Notifications: 1");
+  await switchTo(b);
+  await page.locator('#page-list [data-page="overview"]').click();
+  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
   assert.equal(await switchTo(a), "Notifications");
 });
 
-test("a new session adds a bell line that opens its home view, which loads the round when Agreed publishes", async (t) => {
+test("a tab that only shows a session, even with focus, keeps its waiting round in the other tabs' bells until the reviewer opens one of its pages there", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const b = await h.session();
+  const blank = await open(t, "about:blank");
+  if (!blank) return;
+  // Two tabs of one browser share storage only in a context made with
+  // newContext().
+  const context = await blank.context().browser().newContext();
+  const page = await context.newPage();
+  await page.goto(`${h.server.origin}${a.base}/`);
+  await bellReady(page);
+  const beside = await context.newPage();
+  await beside.goto(`${h.server.origin}${b.base}/`);
+  await bellReady(beside);
+
+  assert.equal((await b.publish(round("Session B"))).code, 200);
+  const line = (await b.request("/api/sessions")).body.sessions
+    .find(({ id }) => id === b.id)
+    .events.find(({ kind }) => kind === "waiting");
+  await count(page, "1");
+  // The tab moves to the new round by itself and reads two session lists, and
+  // each would have cleared the line under the old rule.
+  await beside.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
+  const listed = () => beside.waitForResponse(/\/api\/sessions$/, poll);
+  await listed();
+  await listed();
+  await count(page, "1");
+  const after = (await b.request("/api/sessions")).body.seen.cleared;
+  assert.equal(after?.includes(line.id) ?? false, false);
+
+  await beside.keyboard.press("]");
+  await count(page, "");
+});
+
+test("a new session adds no bell line, and its row in Notifications opens its home view, which loads the round when Agreed publishes", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(round())).code, 200);
@@ -247,9 +298,15 @@ test("a new session adds a bell line that opens its home view, which loads the r
   });
   await bellReady(page);
   const c = await h.session({ start: true });
-  await count(page, "1");
   await page.locator("#bell").click();
-  await page.locator("#center-list .session-row").click();
+  await page.locator("#center-all").click();
+  const row = page.locator(".nt-row", {
+    hasText: "Claude Code started a session",
+  });
+  await row.first().waitFor(poll);
+  await count(page, "");
+  await row.first().click();
+  await page.locator(".search-open").click();
   await page.waitForURL(`${h.server.origin}${c.base}/`);
   await page.locator("#home-agent", { hasText: "Claude Code" }).waitFor();
   await page.getByRole("button", { name: "Agreed so far, queued" }).waitFor();
@@ -259,47 +316,4 @@ test("a new session adds a bell line that opens its home view, which loads the r
   assert.equal((await c.publish(round("Session C"))).code, 200);
   await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
   assert.deepEqual(errors, []);
-});
-
-test("the Threads tab groups threads by session with no count, and a row opens its thread", async (t) => {
-  const h = await hub(t);
-  const here = await h.session();
-  const other = await h.session();
-  assert.equal((await here.publish(round("Retry policy"))).code, 200);
-  assert.equal((await other.publish(round("Search index"))).code, 200);
-  const waiting = await thread(here, "page");
-  const answered = await thread(here, "page");
-  await reply(here, answered);
-  const elsewhere = await thread(other, "page");
-
-  const page = await open(t, `${h.server.origin}${here.base}/#agreed`);
-  if (!page) return;
-  await bellReady(page);
-  await page.locator("#bell").click();
-  const tab = page.getByRole("radio", { name: "Threads" });
-  assert.equal(await tab.textContent(), "Threads");
-  await tab.click();
-  const rows = page.locator("#center-list .session-row");
-  await rows.nth(2).waitFor(poll);
-  assert.deepEqual(
-    await page.locator("#center-list .center-group").allTextContents(),
-    ["Retry policy", "Search index"],
-  );
-  const words = await rows.locator(".words").allTextContents();
-  assert.equal(words.length, 3);
-  assert.match(words[0], /^Waiting \d+ min · Overview$/);
-  assert.ok(words[1].startsWith("Overview · replied"), words[1]);
-  assert.match(words[2], /^Waiting \d+ min · Overview$/);
-  assert.equal(await page.locator("#center-clear-all").isVisible(), false);
-
-  await page.locator(`#center-list [data-key="thread:${waiting}"]`).click();
-  await page.locator("#center-pop").waitFor({ state: "hidden" });
-  await page.locator(`pair-thread[data-thread="${waiting}"]`).waitFor();
-  assert.equal(new URL(page.url()).hash, "#overview");
-
-  // Another session's row opens that session at the thread.
-  await page.locator("#bell").click();
-  await page.locator(`#center-list [data-key="thread:${elsewhere}"]`).click();
-  await page.waitForURL(`**${other.base}/**`);
-  await page.locator(`pair-thread[data-thread="${elsewhere}"]`).waitFor();
 });

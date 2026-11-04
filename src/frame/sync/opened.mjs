@@ -39,7 +39,10 @@ export function settle(sessions, opened) {
   );
 }
 
-export const openedPages = opened.load;
+// Until the first session list from the hub, openedPages returns null and the
+// frame marks no page New, because this browser's copy can lack what the hub has
+// since added, such as the pages of a session that reopened.
+export const openedPages = () => (opened.listed() ? opened.load() : null);
 // Until the first session list from the hub, this browser has no list.
 // adoptOpened then counts the page on screen as opened with every other
 // page.

@@ -1,23 +1,27 @@
 import crypto from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireValue } from "./util.mjs";
 
-const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
+// packageRoot is the real path of the folder pair runs from. The hub reports
+// its own in /api/hub, and a command compares it with the command's.
+export const packageRoot = realpathSync(
+  fileURLToPath(new URL("../..", import.meta.url)),
+);
 function files(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);
     return entry.isDirectory() ? files(file) : [file];
   });
 }
-// A command restarts a hub whose version differs from its own when no session
-// on the hub is live. The hub runs modules from across src/ and adapters/, and
-// its builds read data files there too, so version hashes the path and contents
-// of every file in src/ and adapters/. A new file needs no entry, and an edit
-// to a frame file also restarts an idle hub.
+// A command replaces a hub whose version differs from its own by the rule in
+// keptLine() in src/hub/client.mjs. The hub runs modules from
+// across src/ and adapters/, and its builds read data files there too, so
+// version hashes the path and contents of every file in src/ and adapters/. A
+// new file needs no entry, and an edit to a frame file also counts.
 export const version = ["src", "adapters"]
   .flatMap((folder) => files(path.join(packageRoot, folder)))
   .map((file) => path.relative(packageRoot, file).split(path.sep).join("/"))
@@ -138,6 +142,7 @@ export function settings(env = process.env) {
     sessions: path.join(root, "sessions"),
     hubDir: path.join(root, "hub"),
     hubFile: path.join(root, "hub", "hub.json"),
+    startLock: path.join(root, "hub", "start.lock"),
     hubLog: path.join(root, "hub", "hub.log"),
     seenFile: path.join(root, "hub", "seen.json"),
     port,

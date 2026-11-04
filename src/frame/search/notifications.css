@@ -1,0 +1,111 @@
+/* A Notifications row: Search's row with its glyph. One mark on the glyph carries
+   the state, and the glyph stays grey in every state. */
+.search-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 12px 8px 3px;
+  font-size: var(--text-small);
+  font-weight: var(--weight-strong);
+  color: var(--muted);
+}
+.search-group:first-child {
+  padding-top: 4px;
+}
+.nt-clear-all {
+  font-size: var(--text-small);
+  font-weight: normal;
+  color: var(--muted);
+}
+.nt-row {
+  position: relative;
+  padding: 7px 8px;
+}
+.nt-row[aria-selected="true"] .search-title {
+  font-weight: normal;
+}
+.nt-glyph {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+.nt-glyph .search-glyph,
+.search-row[aria-selected="true"] .nt-glyph .search-glyph {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+}
+.nt-mark {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  display: none;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--panel);
+}
+.search-row[aria-selected="true"] .nt-mark {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.is-unread .nt-mark {
+  display: block;
+  background: var(--attention);
+}
+.is-waiting .nt-mark {
+  display: block;
+  background: var(--panel);
+  border: 1.5px solid var(--muted);
+}
+.search-row[aria-selected="true"].is-waiting .nt-mark {
+  background: var(--accent-soft);
+}
+.is-read .search-title {
+  color: var(--muted);
+}
+.search-row[aria-selected="true"].is-read .search-title {
+  color: var(--ink);
+}
+.nt-row .search-where {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nt-row .search-where span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nt-when {
+  flex: none;
+}
+.nt-act {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: none;
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+  padding: 0;
+  background: inherit;
+}
+@media (hover: hover) {
+  .nt-row:hover .nt-act {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nt-row:has(.nt-act):hover .nt-when {
+    visibility: hidden;
+  }
+}
+.search[data-source="Notifications"] .search-menu-item[data-empty="true"] {
+  opacity: 0.55;
+}
+/* The window itself has the focus until a key or a tap moves it. */
+.search[data-source="Notifications"]:focus {
+  outline: 0;
+}

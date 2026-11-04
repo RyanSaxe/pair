@@ -50,11 +50,11 @@ export function agent(session) {
         (slot) => !slot.recordPath,
       );
       if (!slots.some((slot) => slot.state === "active"))
-        return `You still have to publish these pages: ${slots.map((slot) => slot.id).join(", ")}. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`;
+        return `You still have to publish these pages: ${slots.map((slot) => slot.id).join(", ")}. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`;
       const left = slots.map((slot) =>
         slot.state === "active" ? `${slot.id} (started)` : slot.id,
       );
-      return `You still have to publish these pages: ${left.join(", ")}. When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
+      return `You still have to publish these pages: ${left.join(", ")}. When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
     }
     if (session.state.stage === "working")
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";
@@ -117,6 +117,66 @@ export function agent(session) {
     await transition({ stage: "complete", dismissedAt: timestamp() });
     await session.closeLinked();
     return { status: view() };
+  }
+  // close replaces the stage, so stageBeforeClose works it out again from the
+  // session's submissions and rounds. Feedback that the agent read answers the
+  // current round until the agent publishes the next round.
+  async function stageBeforeClose() {
+    const { current, openRound, latestSubmissionRound } = session.state;
+    if ((await pending()).some(answersRound)) return "submitted";
+    if (!current) return "ready";
+    return openRound || latestSubmissionRound === current.round
+      ? "working"
+      : "updated";
+  }
+  // No agent has worked on the open round since the session closed, so reopen
+  // marks each started page as not started, and the progress card and the quiet
+  // check do not count the time since the close.
+  function restartPages() {
+    if (!session.state.openRound) return {};
+    const set = structuredClone(session.state.openRound);
+    for (const slot of set.pages) {
+      if (slot.state !== "active") continue;
+      slot.state = "queued";
+      delete slot.startedAt;
+      delete slot.note;
+      set.generation++;
+    }
+    return {
+      openRound: set,
+      roundPages: { ...session.state.roundPages, [set.round]: set },
+      pageSetGeneration: set.generation,
+    };
+  }
+  // pair start --reopen is the only command that undoes close. The reviewer
+  // gives it to an agent, which can be a former holder, so reopen also removes
+  // that agent's takeover notice, and requireHolder lets the agent start.
+  //
+  // Nothing from before the reopen notifies the reviewer on any device, also
+  // for a session whose IDs the seen lists dropped at its close. reopen empties
+  // the events first and clears a failed wake in the transition that lists the
+  // session again, so no poll announces them. The seen lists drop the keys of a
+  // session that is not listed, so markSeen runs right after the transition,
+  // before the hub handles another request.
+  async function reopen(agent) {
+    await session.clearActivity();
+    await transition({
+      ...report(),
+      ...restartPages(),
+      stage: await stageBeforeClose(),
+      dismissedAt: null,
+      wake: { ...session.state.wake, last: null },
+      formerHolders: (session.state.formerHolders || []).filter(
+        (item) => !sameAgent(item, agent),
+      ),
+    });
+    const { sessionId } = session.state;
+    const { round, ids } = session.listing().readyPages;
+    await session.markSeen({
+      opened: ids.map((page) => `${sessionId}/${round}/${page}`),
+      cards: session.proposalItems().map((card) => `${sessionId}/${card.id}`),
+    });
+    await session.reopenLinked();
   }
   // act runs this check for every command except pair status and pair
   // propose, and hold runs it for pair start. The first command from an agent
@@ -360,6 +420,9 @@ export function agent(session) {
     // holder's pair status would make requireHolder use up its takeover
     // notice.
     if (!start && held && !same) return {};
+    const reopening =
+      start && options.reopen === true && session.state.stage === "complete";
+    if (reopening) await reopen(agent);
     await requireHolder(agent, start);
     session.commandRan();
     await atomic(session.wakeFile, target);
@@ -400,7 +463,8 @@ export function agent(session) {
       };
     const next = start && (await nextStep());
     if (!next) return {};
-    if (same) return { next };
+    const moment = reopening ? { moment: "start-reopen" } : {};
+    if (same) return { next, ...moment };
     // An agent that takes the session over may never have run pair guide,
     // and it has not read the feedback that the previous holder read. An open
     // round answers that feedback. With stage "working" and no open round, the
@@ -415,6 +479,7 @@ export function agent(session) {
       : "";
     return {
       next: `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`,
+      ...moment,
     };
   }
   return {

@@ -121,6 +121,38 @@ test("a Start in a sub-session wakes the holder, leaves the round waiting, and p
   assert.equal(status.stage, before.stage);
 });
 
+test("reopening a linked session takes its card out of done, and a later close marks it and reports it again", async (t) => {
+  const { h, a, reviewer, cardOf, link } = await linking(t);
+  assert.equal(
+    (await reviewer("deck", "start", { where: "new-agent" })).code,
+    200,
+  );
+  const deck = await link("deck");
+  const close = () => a.request(`${deck.base}/api/dismiss`, {});
+  assert.equal((await close()).code, 200);
+  assert.equal((await cardOf("deck")).done.by, "close");
+  // The parent's agent reads the close before the session reopens.
+  assert.deepEqual(
+    (await a.action("read")).body.closed.map(({ id }) => id),
+    ["deck"],
+  );
+  const box = await h.inbox();
+  const started = await h.register(deck.sessionDir, box.target, {
+    start: true,
+    reopen: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  const card = await cardOf("deck");
+  assert.equal(card.done, null);
+  assert.equal(card.started.session.id, deck.sessionId);
+  assert.equal((await close()).code, 200);
+  assert.equal((await cardOf("deck")).done.by, "close");
+  assert.deepEqual(
+    (await a.action("read")).body.closed.map(({ id }) => id),
+    ["deck"],
+  );
+});
+
 test("closing a linked session marks its card done once with no wake, and a closed parent stays listed while one is open", async (t) => {
   const { a, reviewer, cardOf, link } = await linking(t);
   for (const id of ["deck", "notes"])

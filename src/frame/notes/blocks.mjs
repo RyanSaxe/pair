@@ -7,6 +7,7 @@ import {
   noteEditable,
   page,
 } from "#frame/app/view.mjs";
+import { threadNoteHasWords } from "#frame/notes/note-dialog.mjs";
 import {
   noteDraftKey,
   openNote,
@@ -99,7 +100,7 @@ const sentence = (kind) =>
 function blockHeading(block) {
   const name = blockName(block);
   /* blockName gives two blocks under one heading, or two blocks of one kind
-     with no heading, the same name. Feedback lists their notes with nothing
+     with no heading, the same name. Review lists their notes with nothing
      else to tell them apart, so blockHeading numbers the blocks whose names
      match. */
   const peers = [...block.parentElement.children].filter(
@@ -125,7 +126,7 @@ function blockName(block) {
     read(block.querySelector(".figure-head b")) ||
     normalize(titled?.dataset.caption) ||
     read(block.querySelector(".figure-caption")) ||
-    /* The reviewer reads this name on Feedback and the agent reads it as
+    /* The reviewer reads this name on Review and the agent reads it as
        text, and neither sees the block there. A block with no name of its
        own falls back to the heading above it, then to its kind. */
     read(headingAbove(block)) ||
@@ -133,7 +134,7 @@ function blockName(block) {
   return name.length > 60 ? name.slice(0, 57) + "…" : name;
 }
 
-/* A note on a block includes the block's ID, so Feedback can open the page
+/* A note on a block includes the block's ID, so Review can open the page
    at the block. A paragraph, heading or list gets an ID too, so a note or
    thread on words selected in it records that block, even when an earlier
    block contains the same words. */
@@ -221,6 +222,7 @@ function target() {
 }
 function usable(on) {
   if (!editable || (!$("reading").hidden && page.pending)) return false;
+  if (threadNoteHasWords()) return false;
   return on === "block" ? opens(chosen) : noteEditable();
 }
 const names = {
@@ -245,8 +247,8 @@ export function commentTarget() {
   }
   const button = $("comment-here");
   const on = target();
-  /* CSS hides the control while a dialog is open, so no code that opens a
-     dialog has to hide it. */
+  /* CSS hides the control while a modal or the phone's note sheet is open, so
+     no code that opens one has to hide it. */
   button.hidden = !usable(on);
   const grows = on === "selection" || on === "block";
   button.dataset.on = button.hidden ? "none" : grows ? on : "page";
@@ -316,8 +318,7 @@ function chosenNote() {
 export function commentOnTarget() {
   const on = target();
   if (!usable(on)) return;
-  if (on === "overall")
-    openNote({ topic: "overall", anchor: "Overall feedback" });
+  if (on === "overall") openNote({ topic: "overall", anchor: "Overall" });
   else if (on === "work") openNote({ topic: "work", anchor: "Work" });
   else if (on === "selection" && selectedBox)
     commentOn(selectedBox.diagram, {
@@ -393,10 +394,14 @@ export function installBlocks() {
   $("comment-here").onclick = () => commentOnTarget();
   /* Once the frame is at its widest, a wider window moves the page's edge
      without changing the page's size, so placeMarks does not run and the
-     button needs its own resize listener. */
+     button needs its own resize listener. A drag of the page's edge changes
+     the column's size without a window resize, and on Work nothing else places
+     the button, so the button also follows the column. */
   addEventListener("resize", placeButton);
+  new ResizeObserver(placeButton).observe($("content"));
   $("note-text").oninput = () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
     persist();
+    commentTarget();
   };
 }

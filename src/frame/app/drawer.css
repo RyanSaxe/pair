@@ -1,0 +1,107 @@
+/* A drawer floats beside what the reviewer clicked, and drawer.mjs sets its top
+   or bottom, its left and its max-height. A closed drawer stays rendered and
+   hidden, so close() animates with no change to its callers. */
+@media (min-width: 721px) and (not (pointer: coarse)) {
+  :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer] {
+    --dialog-padding: 16px;
+    --slide: 0.2s;
+    position: fixed;
+    inset: auto;
+    z-index: var(--z-drawer);
+    box-sizing: border-box;
+    width: 330px;
+    height: fit-content;
+    max-height: calc(100dvh - 2 * var(--dialog-margin));
+    margin: 0;
+    padding: 14px var(--dialog-padding);
+    border-color: light-dark(var(--line), var(--line-strong));
+    box-shadow:
+      0 10px 30px light-dark(#0002, #0009),
+      0 1px 3px light-dark(#0001, #0006);
+    display: flex;
+    flex-direction: column;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity calc(var(--slide) * 0.6) ease,
+      transform var(--slide) ease,
+      visibility 0s linear var(--slide);
+  }
+  :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer][open] {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity calc(var(--slide) * 0.6) ease,
+      transform var(--slide) ease,
+      visibility 0s;
+  }
+}
+@media (min-width: 721px) and (not (pointer: coarse)) and (prefers-reduced-motion: reduce) {
+  :root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer] {
+    --slide: 0s;
+  }
+}
+/* A swap between drawers shows no motion, and drawer.mjs holds a modal still
+   when it opens or jumps above the keyboard. */
+.dialog[data-drawer].drawer-swap {
+  transition: none !important;
+}
+/* A drawer that is closing still shows for its 0.2s, and a second click of a
+   double click must not press its button again. */
+.dialog[data-drawer]:not([open]) {
+  pointer-events: none;
+}
+/* A long note or quote scrolls inside the box or quote, and the buttons stay in
+   view. New work item also uses .note-field, so this names the note. */
+@media (min-width: 721px) and (not (pointer: coarse)) {
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-body {
+    display: flex;
+    flex-direction: column;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .dialog-body > * {
+    flex: none;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog #note-quote {
+    max-height: 6.9em;
+    overflow-y: auto;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .note-field {
+    flex: 0 1 auto;
+    min-height: 120px;
+    max-height: none;
+  }
+  :root:not([data-embed], [data-mode="preview"]) #note-dialog .note-images {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+}
+/* drawer.mjs sets data-more-above and data-more-below while part of a form is
+   above or below what shows. */
+.dialog[data-more-above] .dialog-body {
+  box-shadow: 0 -1px 0 var(--line);
+}
+.dialog[data-more-below] .dialog-body {
+  box-shadow: 0 1px 0 var(--line);
+}
+.dialog[data-more-above][data-more-below] .dialog-body {
+  box-shadow:
+    0 -1px 0 var(--line),
+    0 1px 0 var(--line);
+}
+/* On a phone or a tablet these open as modals, centered in the part of the
+   window the keyboard leaves, and glide when that part changes. */
+:root:not([data-embed], [data-mode="preview"]) .dialog[data-drawer]:modal {
+  inset: var(--vv-top, 0px) 0 var(--keyboard-inset, 0px) 0;
+  max-height: calc(var(--vv-height, 100dvh) - 2 * var(--dialog-margin));
+  transition:
+    top 0.25s ease,
+    bottom 0.25s ease,
+    max-height 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog[data-drawer]:modal {
+    transition: none;
+  }
+}

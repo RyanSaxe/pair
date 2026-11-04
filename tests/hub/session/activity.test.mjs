@@ -10,7 +10,8 @@ const listedEvents = async (origin, id) =>
   (await (await fetch(`${origin}/api/sessions`)).json()).sessions.find(
     (item) => item.id === id,
   ).events;
-const described = (events) => events.map(({ id, at, ...rest }) => rest);
+const described = (events) =>
+  events.map(({ id, at, words, question, ...rest }) => rest);
 
 test("a session's start, a round that finishes and a reply each add one event, and a new hub keeps them", async (t) => {
   const h = await hub(t);
@@ -52,12 +53,10 @@ test("a session's start, a round that finishes and a reply each add one event, a
   ]);
   assert.equal(new Set(events.map((event) => event.id)).size, 3);
   assert.ok(events.every((event) => Date.parse(event.at)));
-  assert.deepEqual(
-    JSON.parse(
-      await fs.readFile(path.join(a.directory, "activity.json"), "utf8"),
-    ),
-    { events },
+  const stored = JSON.parse(
+    await fs.readFile(path.join(a.directory, "activity.json"), "utf8"),
   );
+  assert.deepEqual(described(stored.events), described(events));
   await h.server.close();
   const next = await startHub(h.config);
   t.after(next.close);

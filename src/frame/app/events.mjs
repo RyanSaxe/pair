@@ -1,10 +1,13 @@
+import { openDrawer } from "#frame/app/drawer.mjs";
 import { save, state } from "#frame/app/store.mjs";
 import { land } from "#frame/app/places.mjs";
-import { $, controlKey, shiftEnter } from "#frame/app/util.mjs";
+import { $, apple, controlKey, shiftEnter } from "#frame/app/util.mjs";
 import {
   editable,
+  embedded,
   feedbackEditable,
   mode,
+  online,
   page,
   pages,
   plan,
@@ -18,9 +21,11 @@ import {
   commentOnTarget,
 } from "#frame/notes/blocks.mjs";
 import { restoreChoices } from "#frame/notes/controls.mjs";
-import { settleNoteImages } from "#frame/notes/note-dialog.mjs";
+import { settleNoteImages, yieldNote } from "#frame/notes/note-dialog.mjs";
 import { openNote } from "#frame/notes/notes.mjs";
+import { sendKeyLabel } from "#frame/notes/threads.mjs";
 import { pageOrder, show } from "#frame/pages/pages.mjs";
+import { openSearch } from "#frame/search/modal.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
   listTab,
@@ -28,7 +33,7 @@ import {
   selectedTab,
   switchTab,
 } from "#frame/sync/rounds.mjs";
-import { toggleCenter } from "#frame/sync/center.mjs";
+import { clearOwnRound, toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
   numbered,
@@ -36,9 +41,9 @@ import {
   toggleSessions,
 } from "#frame/sync/sessions.mjs";
 
-/* The ×, Escape and a click outside each call backOut(). Backing out of the
-   note dialog keeps its text as a draft, and settleNoteImages() drops the
-   images uploaded from it. */
+/* The ×, Escape and a click outside a modal each call backOut(). Backing out
+   of the note dialog keeps its text as a draft, and settleNoteImages() drops
+   the images uploaded from it. */
 function backOut(dialog) {
   if (dialog.id === "note-dialog") settleNoteImages();
 }
@@ -57,7 +62,25 @@ function outside(dialog, event) {
   );
 }
 
+/* Focus can drop off a text field on the page or in a drawer while the reviewer
+   types, and the next keys are still their words, so the shortcuts wait for a
+   pause in the keys. A field in a modal leaves with the modal, and a drawer that
+   closes has finished its words. */
+const TYPING_PAUSE_MS = 1500;
+let typedAt = -Infinity;
+
 export function installEvents() {
+  document.addEventListener(
+    "input",
+    (event) => {
+      if (
+        event.target.matches(":read-write") &&
+        !event.target.closest("dialog:modal")
+      )
+        typedAt = event.timeStamp;
+    },
+    true,
+  );
   for (const head of document.querySelectorAll(
     "dialog :is(.dialog-head, .drawing-head)",
   )) {
@@ -81,7 +104,12 @@ export function installEvents() {
     });
     // The browser closes the dialog on Escape once this event returns.
     dialog.addEventListener("cancel", () => backOut(dialog));
+    dialog.addEventListener("close", () => (typedAt = -Infinity));
   }
+  // The keys dialog names this system's keys, and the home view has no threads
+  // to set them.
+  for (const key of $("keys-dialog").querySelectorAll("[data-send-key]"))
+    key.textContent = sendKeyLabel();
   // A click inside an embedded frame never reaches this document, but it
   // moves focus, so the frame closes menus on blur as well as on outside
   // clicks.
@@ -118,6 +146,7 @@ export function installEvents() {
       if (listedTab !== selectedTab && $("page-list").contains(navigation))
         switchTab(listedTab, null, { showPage: false });
       show(navigation.dataset.page);
+      clearOwnRound();
     }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");
@@ -151,8 +180,8 @@ export function installEvents() {
   });
   document.addEventListener("keydown", (event) => {
     /* Enter types a newline in a textarea, so Shift+Enter presses a
-       question's Answer and the note dialog's Add to feedback. When the note
-       dialog only starts a thread, the frame hides Add to feedback, and
+       question's Answer and the note dialog's Add to draft. When the note
+       dialog only starts a thread, the frame hides Add to draft, and
        Shift+Enter types a newline. */
     if (shiftEnter(event) && feedbackEditable()) {
       const area = event.target.closest("textarea");
@@ -161,6 +190,7 @@ export function installEvents() {
         ?.querySelector("[data-answer]");
       if (answer && !answer.disabled) {
         event.preventDefault();
+        typedAt = -Infinity;
         answer.click();
         return;
       }
@@ -174,10 +204,33 @@ export function installEvents() {
         return;
       }
     }
+    if (
+      online &&
+      mode !== "preview" &&
+      (apple() ? event.metaKey : event.ctrlKey) &&
+      !event.shiftKey &&
+      event.key.toLowerCase() === "k" &&
+      !$("drawing-dialog").open
+    ) {
+      event.preventDefault();
+      openSearch();
+      return;
+    }
     if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
       return;
+    if (embedded && event.key !== "Escape") return;
+    /* The browser closes a modal on Escape, and a drawer gets no cancel event,
+       so this handler closes the top thing that is left: a menu, then a drawer.
+       closeMenus() hides the menus, so the test for one comes first. */
     if (event.key === "Escape") {
+      if (document.querySelector("dialog:modal")) return;
+      const menu = document.querySelector(":popover-open");
       closeMenus();
+      const drawer = document.querySelector("dialog[data-drawer][open]");
+      if (!menu && drawer) {
+        backOut(drawer);
+        drawer.close();
+      }
       return;
     }
     /* A key typed into a text field or a select belongs to that control, so
@@ -185,9 +238,16 @@ export function installEvents() {
        keys, so the shortcuts still work while one has focus. The :read-write
        selector matches the text fields. */
     if (event.target.closest(":read-write, select")) return;
-    if (document.querySelector("dialog[open]")) return;
+    if (document.querySelector("dialog:modal")) return;
+    if (event.timeStamp - typedAt < TYPING_PAUSE_MS) {
+      typedAt = event.timeStamp;
+      return;
+    }
     const key = event.key;
-    if (key === "?") $("keys-dialog").showModal();
+    if (key === "?") {
+      if ($("keys-dialog").open) $("keys-dialog").close();
+      else if (yieldNote()) openDrawer($("keys-dialog"), { home: "header" });
+    } else if (key === "/" && online) openSearch();
     else if (key === "n") toggleCenter(true);
     else if (key === "g") toggleSessions(undefined, true);
     else if (key === "w") {
@@ -203,7 +263,10 @@ export function installEvents() {
       const order = pageOrder().map((item) => item.id);
       const index = order.indexOf(shownPage());
       const next = order[index + (key === "]" ? 1 : -1)];
-      if (next) show(next);
+      if (next) {
+        show(next);
+        clearOwnRound();
+      }
     } else if (key === "j" || key === "k") {
       const blocks = choosable();
       if (!blocks.length) return;
@@ -222,12 +285,16 @@ export function installEvents() {
       next.focus({ preventScroll: true });
       next.scrollIntoView({ block: "center" });
     } else if (key === "c") commentOnTarget();
-    else if (key === "r" && editable) show("feedback");
-    else if (key === "s" && editable) {
+    else if (key === "r" && editable) {
+      show("feedback");
+      clearOwnRound();
+    } else if (key === "s" && editable) {
       if ($("submit").disabled) return;
       $("submit").focus();
-    } else if (key === "a") show("agreed");
-    else return;
+    } else if (key === "a") {
+      show("agreed");
+      clearOwnRound();
+    } else return;
     event.preventDefault();
   });
 }

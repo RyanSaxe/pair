@@ -1,4 +1,4 @@
-import { ago, since } from "#frame/app/time.mjs";
+import { since } from "#frame/app/time.mjs";
 import { $, installPanel } from "#frame/app/util.mjs";
 import {
   editable,
@@ -8,15 +8,25 @@ import {
   session,
   showingWaiting,
   waiting,
+  embedded,
 } from "#frame/app/view.mjs";
 import { onCurrentAgreed } from "#frame/notes/threads.mjs";
 import { show, updateNavigation } from "#frame/pages/pages.mjs";
 import { refreshWork } from "#frame/pages/work.mjs";
 import {
+  bellRows,
+  glanceText,
+  glyphOf,
+} from "#frame/search/notification-rows.mjs";
+import {
+  openNotifications,
+  openPlace,
+  refreshNotifications,
+} from "#frame/search/notifications.mjs";
+import {
   announced,
   eventHref,
   eventTarget,
-  eventTitle,
 } from "#frame/sync/notifications.mjs";
 import { hubRecord } from "#frame/sync/record.mjs";
 import {
@@ -24,8 +34,9 @@ import {
   remote,
   selectedTab,
   switchTab,
+  openCurrent,
 } from "#frame/sync/rounds.mjs";
-import { lineButton, redraw, sessionLine } from "#frame/sync/sessions.mjs";
+import { lineButton, redraw } from "#frame/sync/sessions.mjs";
 
 /* The hub stores the IDs of the events that the reviewer cleared from the
    bell, so every browser on the hub, such as a phone's, shows the same
@@ -38,9 +49,24 @@ const cleared = hubRecord("cleared", "pair:bell:cleared", () =>
 );
 export const loadCleared = cleared.load;
 export const isClearedChange = cleared.isChange;
-function clear(ids) {
+export function clear(ids) {
   cleared.add(ids);
   renderCenter(latest, false);
+}
+// The reviewer has started on this session's waiting round once they open one of
+// its pages or a note themselves, so its line leaves the bell in every tab. A tab
+// that only has focus, or moves to the round as it arrives, clears nothing.
+export function clearOwnRound() {
+  if (selectedTab !== "current") return;
+  const own = latest.find((entry) => entry.id === session.sessionId);
+  const known = loadCleared() ?? new Set();
+  const waiting = (own?.events || []).filter(
+    (event) =>
+      event.kind === "waiting" &&
+      event.round === own.round &&
+      !known.has(event.id),
+  );
+  if (waiting.length) clear(waiting.map(({ id }) => id));
 }
 export function clearThread(threadId) {
   clear(
@@ -63,9 +89,8 @@ export function acknowledgeReply(threadId, message, acknowledged) {
 export const settleCleared = (listed, cleared) =>
   new Set([...cleared].filter((id) => listed.includes(id)));
 
-// A tab already shows its own session, so bellLines leaves out that
-// session's start and waiting round.
-const shownKinds = ["session", "waiting"];
+// The bell lists what needs the reviewer now, so it leaves out every session's
+// start, and a tab already shows its own session's waiting round.
 export function bellLines(sessions, cleared, thisId) {
   return sessions
     .filter((entry) => !entry.closed)
@@ -73,8 +98,9 @@ export function bellLines(sessions, cleared, thisId) {
       (entry.events || [])
         .filter(
           (event) =>
+            event.kind !== "session" &&
             announced(entry, event) &&
-            !(entry.id === thisId && shownKinds.includes(event.kind)),
+            !(entry.id === thisId && event.kind === "waiting"),
         )
         .map((event) => ({ ...event, entry })),
     )
@@ -82,46 +108,18 @@ export function bellLines(sessions, cleared, thisId) {
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 
-// threadGroups gives the Threads tab one group per live session that has a
-// thread to show, this session first. Each group lists its waiting threads
-// first, longest wait first, because that is where the reviewer checks on an
-// agent, then its answered threads, newest first.
-export function threadGroups(sessions, thisId) {
-  const order = (entry) => (entry.id === thisId ? 0 : 1);
-  return sessions
-    .filter((entry) => !entry.closed && entry.threads?.length)
-    .toSorted((a, b) => order(a) - order(b))
-    .map((entry) => ({
-      entry,
-      lines: [
-        ...entry.threads
-          .filter((line) => line.waitingSince)
-          .sort((a, b) => a.waitingSince.localeCompare(b.waitingSince)),
-        ...entry.threads
-          .filter((line) => !line.waitingSince)
-          .sort((a, b) =>
-            (b.answeredAt || "").localeCompare(a.answeredAt || ""),
-          ),
-      ],
-    }));
-}
 // latest contains every session from the last session list, closed ones
 // included.
 let latest = [];
 let lines = [];
-let listedFromHub = false;
-export const sessionsListed = () => listedFromHub;
+let rows = [];
+const GLANCE_ROWS = 5;
+export const listedSessions = () => latest;
+export const unreadCount = () => rows.length;
+export const unreadEventIds = () => lines.map(({ id }) => id);
 export const listedSession = (id) =>
   (id && latest.find((entry) => entry.id === id)) || null;
-// sessionWords puts the parent's title first, so a long sub-session title
-// cannot push the parent's title out of the line.
-export function sessionWords(entry, sessions) {
-  const parent =
-    entry.parentId && sessions.find((item) => item.id === entry.parentId);
-  return parent
-    ? `Sub-session of ${parent.title} · ${entry.title}`
-    : entry.title;
-}
+// Work's Agent replied label reads the raw lines, so the label and the bell agree.
 export const unreadCards = () =>
   new Set(
     lines
@@ -138,33 +136,21 @@ export const unreadCards = () =>
 export function renderCenter(sessions, fromHub, hub) {
   latest = sessions;
   if (fromHub) {
-    listedFromHub = true;
     const listed = sessions.flatMap((entry) =>
       (entry.events || []).map(({ id }) => id),
     );
-    // A visible tab has shown its own session's start and waiting round, so
-    // renderCenter clears them, and the bell does not list them after the
-    // reviewer moves to another session.
-    const own = sessions.find((entry) => entry.id === session.sessionId);
-    const shown =
-      own && document.visibilityState === "visible"
-        ? (own.events || []).filter((event) => shownKinds.includes(event.kind))
-        : [];
     // When neither this browser nor the hub has a list, the last argument
     // counts every listed event as cleared, so the first run after the
     // upgrade shows an empty bell.
     cleared.sync(
       hub,
-      (ids) => {
-        const after = settleCleared(listed, ids);
-        for (const event of shown) after.add(event.id);
-        return after;
-      },
+      (ids) => settleCleared(listed, ids),
       () => new Set(listed),
     );
   }
   lines = bellLines(sessions, loadCleared(), session.sessionId);
-  const count = lines.length;
+  rows = bellRows(lines, session.sessionId);
+  const count = rows.length;
   const bell = $("bell");
   // The bell shows while the hub lists any live session, this tab's own
   // included, so the n key works with one session.
@@ -179,7 +165,9 @@ export function renderCenter(sessions, fromHub, hub) {
   document.title = (count ? `(${count}) ` : "") + plan.title;
   if (bell.hidden) toggleCenter(false);
   drawCenter();
-  // Work counts a card with an unread reply as needing the reviewer, so
+  refreshNotifications(fromHub);
+  // A card on Work reads Agent replied while the bell lists its reply, and
+  // Waiting for you while its linked session has a round waiting, so
   // renderCenter refreshes Work.
   if (mode !== "home") {
     updateNavigation();
@@ -187,91 +175,72 @@ export function renderCenter(sessions, fromHub, hub) {
   }
 }
 
-let tab = "notifications";
-function threadRow(line, entry) {
-  return sessionLine({
-    key: `thread:${line.thread}`,
-    title: line.text,
-    state: line.waitingSince ? `Waiting ${since(line.waitingSince)}` : "",
-    words: line.waitingSince
-      ? ` · ${line.name}`
-      : `${line.name} · replied ${ago(line.answeredAt)}`,
-    tint: "",
-    open: () => {
-      clearThread(line.thread);
-      openLine({ ...line, entry });
-    },
-    icons: [],
-  });
-}
-function threadRows() {
-  return threadGroups(latest, session.sessionId).flatMap(({ entry, lines }) => {
-    const head = document.createElement("div");
-    head.className = "center-group";
-    head.textContent = sessionWords(entry, latest);
-    return [head, ...lines.map((line) => threadRow(line, entry))];
-  });
+function glanceLine(row) {
+  const line = document.createElement("div");
+  line.className = "session-line";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "session-row";
+  open.dataset.key = `open:${row.key}`;
+  const part = (className, text) => {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    return span;
+  };
+  const glyph = part("glance-glyph");
+  glyph.innerHTML = glyphOf(row);
+  open.append(glyph, part("title", row.words), part("when", since(row.at)));
+  open.append(part("where", glanceText(row)));
+  open.onclick = () => {
+    clear(row.events);
+    openPlace(row);
+  };
+  const close = lineButton(`clear:${row.key}`, "Clear", "✕", () =>
+    clear(row.events),
+  );
+  close.title = "Clear";
+  line.append(open, close);
+  return line;
 }
 function drawCenter() {
   if (!isOpen()) return;
-  const threads = tab === "threads";
-  for (const button of $("center-tabs").querySelectorAll("[data-center]"))
-    button.setAttribute("aria-checked", String(button.dataset.center === tab));
-  $("center-list").classList.toggle("threads", threads);
-  $("center-clear-all").hidden = threads || !lines.length;
-  if (threads) {
-    const rows = threadRows();
-    $("center-empty").textContent = "No threads in the current rounds.";
-    $("center-empty").hidden = Boolean(rows.length);
-    redraw($("center-list"), rows);
-    return;
-  }
-  $("center-empty").textContent = "No notifications.";
-  $("center-empty").hidden = Boolean(lines.length);
-  redraw(
-    $("center-list"),
-    lines.map((event) =>
-      sessionLine({
-        key: `open:${event.id}`,
-        title: eventTitle(event),
-        words: `${sessionWords(event.entry, latest)} · ${ago(event.at)}`,
-        tint: "",
-        open: () => openEvent(event),
-        icons: [
-          lineButton(`clear:${event.id}`, "Clear", "✕", () =>
-            clear([event.id]),
-          ),
-        ],
-      }),
-    ),
-  );
+  const more = rows.length - GLANCE_ROWS;
+  $("center-all").textContent =
+    more > 0 ? `See ${more} more` : "All notifications";
+  $("center-clear-all").hidden = !rows.length;
+  $("center-empty").hidden = Boolean(rows.length);
+  redraw($("center-list"), rows.slice(0, GLANCE_ROWS).map(glanceLine));
 }
-function openEvent(event) {
-  clear([event.id]);
-  openLine(event);
-}
-function openLine(event) {
+// A bell line and a search result both open a place here. A result also carries
+// the words to highlight, and has its own address for when it needs a page load.
+export function openLine(event) {
   toggleCenter(false);
   const target = eventTarget(event) || null;
   const round = event.round || plan.round;
   const own = event.entry.id === session.sessionId;
-  if (own && event.page === "work" && editable) show("work", target);
+  const match = event.match ?? null;
+  if (own && event.page === "work" && editable) show("work", target, { match });
   else if (own && onCurrentAgreed(target)) {
     if (selectedTab !== "current")
       switchTab("current", null, { showPage: false });
-    show("agreed", target);
+    show("agreed", target, { match });
   } else if (
     own &&
     round === plan.round &&
     !showingWaiting() &&
-    (event.page === "overall" || pages.some((item) => item.id === event.page))
+    (["overall", "feedback"].includes(event.page) ||
+      pages.some((item) => item.id === event.page))
   )
-    show(event.page, target);
+    show(event.page, target, { match });
   // A read-only page has no Previous tab, so openEvent opens another round
   // under Previous only on an editable page.
   else if (own && editable && (round !== remote.current.round || waiting()))
-    void openPast(round, { pageId: event.page, targetId: target });
-  else location.assign(eventHref(event.entry, event));
+    void openPast(round, { pageId: event.page, targetId: target, match });
+  else if (own && editable && selectedTab === "past")
+    openCurrent({ pageId: event.page, targetId: target, match });
+  else if (embedded) show(event.page, target, { match });
+  else location.assign(event.href ?? eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");
 export function toggleCenter(open = !isOpen()) {
@@ -285,13 +254,8 @@ export function toggleCenter(open = !isOpen()) {
 export function installCenter() {
   installPanel($("center-pop"), $("bell"));
   $("center-pop").addEventListener("toggle", drawCenter);
-  $("center-clear-all").onclick = () => clear(lines.map(({ id }) => id));
-  $("center-tabs").addEventListener("click", (event) => {
-    const chosen = event.target.closest("[data-center]")?.dataset.center;
-    if (!chosen) return;
-    tab = chosen;
-    drawCenter();
-  });
+  $("center-clear-all").onclick = () => clear(unreadEventIds());
+  $("center-all").onclick = () => openNotifications();
   // The storage event fires when another tab in this browser clears a line.
   window.addEventListener("storage", (event) => {
     if (cleared.isChange(event)) renderCenter(latest, false);

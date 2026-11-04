@@ -200,6 +200,130 @@ test("pair read prints a Start and feedback in the order the hub received them",
   assert.equal((await a.status()).body.stage, "working");
 });
 
+// The bytes start with PNG's signature, which is what the hub checks.
+const png = Buffer.from(
+  "89504e470d0a1a0a0000000d4948445200000001000000010806000000" +
+    "1f15c4890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082",
+  "hex",
+);
+test("a card the reviewer writes stays theirs: Save tells no agent, and Start tells the agent they wrote it", async (t) => {
+  const { h, a, propose, reviewer, cards, read } = await proposing(t);
+  const write = (fields) =>
+    a.request(`${a.base}/api/proposals`, {
+      id: "dark-receipt",
+      title: "Dark receipts",
+      delivers: "The logo disappears on a dark background.",
+      action: "save",
+      ...fields,
+    });
+  const uploaded = await fetch(`${h.server.origin}${a.base}/api/upload`, {
+    method: "POST",
+    headers: { Origin: h.server.origin },
+    body: png,
+  });
+  assert.equal(uploaded.status, 201);
+  const image = await uploaded.json();
+
+  const saved = await write({ attachments: [image] });
+  assert.equal(saved.code, 200, saved.body.error);
+  const [entry] = await cards();
+  assert.equal(entry.started, null);
+  assert.deepEqual(entry.source, { reviewer: true });
+  assert.equal(entry.attachments[0].id, image.id);
+  await sleep(50);
+  assert.equal(a.inbox.wakes.length, 0);
+  // The bell's "Agent proposed" line would be wrong for a card the reviewer wrote.
+  const listed = await a.request("/api/sessions");
+  assert.deepEqual(
+    listed.body.sessions[0].events.filter(({ kind }) => kind === "proposal"),
+    [],
+  );
+
+  assert.equal((await write()).code, 409);
+  assert.equal((await write({ id: "Not a slug" })).code, 400);
+  assert.equal(
+    (await write({ id: "too-long", delivers: "x".repeat(4001) })).code,
+    400,
+  );
+  assert.equal((await write({ id: "no-action", action: "other" })).code, 400);
+  assert.equal(
+    (await write({ id: "bad-image", attachments: [{ id: "0".repeat(16) }] }))
+      .code,
+    400,
+  );
+  assert.equal((await cards()).length, 1);
+
+  for (const change of [
+    { revise: true, title: "Changed" },
+    { withdraw: true, reason: "No longer applies" },
+    { join: "other-card" },
+  ]) {
+    const refused = await propose({ id: "dark-receipt", ...change });
+    assert.equal(refused.code, 409);
+    assert.match(
+      refused.body.error,
+      /^The reviewer wrote proposal dark-receipt/,
+    );
+  }
+
+  const started = await reviewer("dark-receipt", "start", { where: "here" });
+  assert.equal(started.code, 200, started.body.error);
+  assert.equal(
+    await waitUntil(() => a.inbox.wakes.length === 1),
+    true,
+    "one wake",
+  );
+  assert.match(
+    a.inbox.wakes[0].message.message.content,
+    /^pair: the reviewer wrote proposal dark-receipt, "Dark receipts", to run in session /,
+  );
+  const answer = await read();
+  assert.equal(answer.event.payload.proposal, "dark-receipt");
+  assert.equal(
+    answer.proposal.delivers,
+    "The logo disappears on a dark background.",
+  );
+  assert.equal(answer.proposal.attachments[0].id, image.id);
+});
+
+test("a written card starts in one request, here or with a new agent", async (t) => {
+  const { a, cards } = await proposing(t);
+  const write = (fields) =>
+    a.request(`${a.base}/api/proposals`, {
+      title: "Dark receipts",
+      delivers: "The logo disappears.",
+      ...fields,
+    });
+  const here = await write({ id: "here-item", action: "start", where: "here" });
+  assert.equal(here.code, 200, here.body.error);
+  assert.equal(
+    await waitUntil(() => a.inbox.wakes.length === 1),
+    true,
+    "one wake",
+  );
+  const copied = await write({
+    id: "copied-item",
+    action: "start",
+    where: "new-agent",
+    planFirst: true,
+  });
+  assert.equal(copied.code, 200, copied.body.error);
+  assert.match(copied.body.command, / --proposal copied-item$/);
+  const opened = await write({
+    id: "opened-item",
+    action: "open-agent",
+    where: "new-agent",
+  });
+  assert.equal(opened.code, 200, opened.body.error);
+  assert.equal(opened.body.thread.proposal, "opened-item");
+  const started = Object.fromEntries(
+    (await cards()).map((item) => [item.id, item.started]),
+  );
+  assert.equal(started["here-item"].where, "here");
+  assert.equal(started["copied-item"].planFirst, true);
+  assert.equal(started["opened-item"].where, "new-agent");
+});
+
 test("Decline and Restore move a card, and pair read prints a decline once", async (t) => {
   const { a, add, reviewer, cards, read } = await proposing(t);
   await add();

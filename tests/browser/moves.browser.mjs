@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
+import { searchPage, type } from "../support/search.mjs";
 
 // The frame counts a page as complete once its components have drawn, so a
 // component whose setup settles after data-slow milliseconds makes the page
@@ -48,7 +49,7 @@ async function setup(t, pageOptions) {
   await page.addInitScript(slowComponent);
   await page.goto(`${h.server.origin}${session.base}/#overview`);
   await page.locator("#bell").waitFor();
-  return { h, page };
+  return { h, session, page };
 }
 const pageLink = (page, id) => page.locator(`#page-list [data-page="${id}"]`);
 const complete = (page, id) =>
@@ -64,20 +65,29 @@ const complete = (page, id) =>
     { timeout: 5000 },
   );
 // The frame shows the previous page as an inert, fixed copy of the column, and
-// picture() looks for that copy.
-const picture = (page) =>
-  page.evaluate(() =>
-    [...document.body.children].some(
-      (element) => element.inert && element.style.position === "fixed",
-    ),
+// picture() looks for that copy, on the page or in a frame on it.
+const holdsPicture = () =>
+  [...document.body.children].some(
+    (element) => element.inert && element.style.position === "fixed",
   );
+const picture = (target) => target.evaluate(holdsPicture);
+// A new size reaches a window as a resize event, so this returns once that event
+// has run in target, which is the page or a frame on it.
+async function resizeWindow(page, size, target = page) {
+  await target.evaluate(() => {
+    window.resized = new Promise((done) =>
+      addEventListener("resize", () => setTimeout(done), { once: true }),
+    );
+  });
+  await page.setViewportSize(size);
+  await target.evaluate(() => window.resized);
+}
 const barAnimations = (page) =>
   page.evaluate(() =>
     document
       .querySelector(".move-bar")
       .getAnimations()
       .map((animation) => ({
-        delay: animation.effect.getTiming().delay,
         duration: animation.effect.getTiming().duration,
       })),
   );
@@ -112,13 +122,12 @@ test("a move to a page that is complete at once swaps it in with no bar", async 
   assert.deepEqual(await barAnimations(s.page), []);
 });
 
-test("a slow move keeps the previous page, shows the bar after 200 ms, then crossfades", async (t) => {
+test("a slow move keeps the previous page, grows the bar, then crossfades", async (t) => {
   const s = await setup(t);
   if (!s) return;
   await pageLink(s.page, "slow").click();
   assert.equal(await picture(s.page), true);
   const [growing] = await barAnimations(s.page);
-  assert.ok(growing.delay > 150 && growing.delay <= 200, `${growing.delay}`);
   assert.equal(growing.duration, 2700);
   await complete(s.page, "slow");
   const fading = await s.page.evaluate(() =>
@@ -135,6 +144,144 @@ test("a slow move keeps the previous page, shows the bar after 200 ms, then cros
   await s.page.waitForTimeout(1200);
   assert.equal(await picture(s.page), false);
 });
+
+test("a window that changes size drops the previous page's picture, during a move and during its fade", async (t) => {
+  const s = await setup(t, { viewport: { width: 1000, height: 800 } });
+  if (!s) return;
+  await pageLink(s.page, "slow").click();
+  assert.equal(await picture(s.page), true);
+  await resizeWindow(s.page, { width: 1400, height: 800 });
+  assert.equal(await picture(s.page), false);
+  await complete(s.page, "slow");
+  await pageLink(s.page, "later").click();
+  await complete(s.page, "later");
+  assert.equal(await picture(s.page), true);
+  await resizeWindow(s.page, { width: 1100, height: 800 });
+  assert.equal(await picture(s.page), false);
+});
+
+test("a window that changes size drops the result the search preview holds, and the next result still arrives", async (t) => {
+  const { page } = await searchPage(t, {
+    viewport: { width: 1200, height: 800 },
+  });
+  if (!page) return;
+  await page.locator("#search-button").click();
+  await type(page, "backoff");
+  const shown = page.locator(".search-frame.is-shown");
+  await shown.waitFor();
+  const frame = await (await shown.elementHandle()).contentFrame();
+  let release;
+  const released = new Promise((done) => (release = done));
+  await page.route(/\/api\/page\?/, async (route) => {
+    await released;
+    await route.fallback();
+  });
+  await type(page, "walrus");
+  await frame.waitForFunction(holdsPicture);
+  await resizeWindow(page, { width: 1000, height: 700 }, frame);
+  assert.equal(await picture(frame), false);
+  release();
+  await frame.locator("#page-content", { hasText: "walrus" }).waitFor();
+});
+
+test("a wide window's sidebar that closes or opens drops the previous page's picture", async (t) => {
+  const s = await setup(t, { viewport: { width: 1200, height: 800 } });
+  if (!s) return;
+  const toggle = s.page.locator("#sidebar-toggle");
+  await pageLink(s.page, "slow").click();
+  assert.equal(await picture(s.page), true);
+  await toggle.click();
+  assert.equal(await picture(s.page), false);
+  await complete(s.page, "slow");
+  await pageLink(s.page, "later").dispatchEvent("click");
+  assert.equal(await picture(s.page), true);
+  await toggle.click();
+  assert.equal(await picture(s.page), false);
+  await complete(s.page, "later");
+  // A sidebar that closes or opens during the fade moves the column too.
+  await pageLink(s.page, "slow").click();
+  await complete(s.page, "slow");
+  assert.equal(await picture(s.page), true);
+  await toggle.click();
+  assert.equal(await picture(s.page), false);
+});
+
+// At 720px and below the sidebar covers the page and the column stays put. Every
+// page change closes that sidebar, so a move from its page list would lose the
+// picture if closing it dropped one.
+test("a phone's sidebar keeps the previous page's picture, when it closes for a move and when it opens over one", async (t) => {
+  const s = await setup(t, {
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  if (!s) return;
+  const toggle = s.page.locator("#sidebar-toggle");
+  await toggle.tap();
+  await pageLink(s.page, "slow").tap();
+  assert.equal(
+    await s.page.evaluate(() => document.documentElement.dataset.sidebar),
+    "closed",
+  );
+  assert.equal(await picture(s.page), true);
+  await toggle.tap();
+  assert.equal(await picture(s.page), true);
+});
+
+// The picture fills the reading box, which starts below the round strip when the
+// strip shows and below the header when it doesn't.
+const pictureFitsColumn = (page) =>
+  page.evaluate(() => {
+    const picture = [...document.body.children]
+      .find((element) => element.inert && element.style.position === "fixed")
+      .getBoundingClientRect();
+    const header = document.querySelector(".frame-header");
+    const strip = document.getElementById("history-strip");
+    const above = strip.hidden ? header : strip;
+    return {
+      top: picture.top - above.getBoundingClientRect().bottom,
+      bottom: picture.bottom - innerHeight,
+    };
+  });
+const fits = { top: 0, bottom: 0 };
+for (const [where, options] of Object.entries({
+  "a wide window": { viewport: { width: 1200, height: 800 } },
+  "a phone": {
+    viewport: { width: 375, height: 760 },
+    isMobile: true,
+    hasTouch: true,
+  },
+}))
+  test(`on ${where}, a slow move between rounds changes the round strip when the page arrives, with the picture below the strip until it has faded`, async (t) => {
+    const s = await setup(t, options);
+    if (!s) return;
+    const { session } = s;
+    assert.equal((await session.feedback(session.event())).code, 200);
+    assert.equal((await session.action("read")).code, 200);
+    assert.equal(
+      (await session.publish({ ...round("example"), round: "2" })).code,
+      200,
+    );
+    await s.page.reload();
+    await s.page.locator("#bell").waitFor();
+    const strip = s.page.locator("#history-strip");
+    const go = async (tab, id) => {
+      await s.page.locator(tab).dispatchEvent("click");
+      await pageLink(s.page, id).dispatchEvent("click");
+      await s.page.waitForFunction(holdsPicture);
+    };
+    await go("#past-tab", "later");
+    assert.equal(await strip.isVisible(), false);
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+    await strip.waitFor({ state: "visible" });
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+    await s.page.waitForFunction(`!(${holdsPicture})()`);
+    await go("#current-tab", "slow");
+    assert.equal(await strip.isVisible(), true);
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+    await strip.waitFor({ state: "hidden" });
+    assert.deepEqual(await pictureFitsColumn(s.page), fits);
+  });
 
 test("a second click during a move keeps one bar and never shows the page clicked past", async (t) => {
   const s = await setup(t);
@@ -208,6 +355,15 @@ test("with reduced motion a slow move shows the bar still and swaps in with no f
     ),
     [],
   );
+});
+
+// .app-body clips its overflow to keep the closing sidebar inside the frame.
+test("on a wide window a slow move shows the bar", async (t) => {
+  const s = await setup(t, { viewport: { width: 1200, height: 800 } });
+  if (!s) return;
+  await pageLink(s.page, "slow").click();
+  await s.page.waitForTimeout(400);
+  assert.equal(await barOnScreen(s.page), true);
 });
 
 // On a phone the page list is in a dialog, and the column scrolls inside

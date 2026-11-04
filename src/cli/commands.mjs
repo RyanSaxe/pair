@@ -3,6 +3,7 @@ import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
+import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
@@ -23,7 +24,7 @@ export const commands = {
     about:
       "Create a session, or take over the one --session-dir names, so the hub wakes this agent when the reviewer sends feedback, and print the session's directory and URL. With --from and --proposal, create a session that builds one proposal of another session, linked to that session.",
     usage:
-      "pair start (--title TEXT | --session-dir DIR | --from DIR --proposal ID)",
+      "pair start (--title TEXT | --session-dir DIR [--reopen] | --from DIR --proposal ID)",
     flags: {
       title: {
         value: "TEXT",
@@ -32,6 +33,9 @@ export const commands = {
       "session-dir": {
         value: "DIR",
         text: "Resume that session, or take it over from another agent. It takes no --title.",
+      },
+      reopen: {
+        text: "With --session-dir, make a session the reviewer closed live again. Use it only when the reviewer gives you this command. On a session that is not closed, pair start runs as it does without this flag.",
       },
       from: {
         value: "DIR",
@@ -64,6 +68,30 @@ export const commands = {
       json,
     },
     run: read,
+  },
+  search: {
+    group: "session",
+    purpose: "Search what live sessions said, for what an earlier one settled",
+    about:
+      "Print the results that best match QUERY across live sessions, or closed ones too with --closed, with the session, round and page of each. A result is a record of what was said at the time, so check it against the code before you rely on it. QUERY works best as the two or three most distinctive words.",
+    usage:
+      "pair search --session-dir DIR QUERY [--kind KINDS] [--this-session] [--closed] [--limit N]",
+    args: [{ name: "QUERY" }],
+    flags: {
+      "session-dir": sessionDir,
+      kind: {
+        value: "KINDS",
+        text: "Limit results to these kinds, separated by commas: pages, threads, notes, answers, proposals and agreed.",
+      },
+      "this-session": { text: "Limit results to this session." },
+      closed: { text: "Include closed sessions." },
+      limit: {
+        value: "N",
+        text: "Change how many results print. The default is 10.",
+      },
+      json,
+    },
+    run: search,
   },
   progress: {
     group: "session",
@@ -125,10 +153,13 @@ export const commands = {
         required: true,
         text: "The thread, from the wake message or pair read.",
       },
-      text: { value: "TEXT", text: "Your reply as plain text." },
+      text: {
+        value: "TEXT",
+        text: "Your reply as plain text. It refuses Markdown, which the reviewer would see as typed.",
+      },
       file: {
         value: "HTML",
-        text: "Your reply as an HTML fragment that passes pair build's page checks.",
+        text: "Your reply as an HTML fragment that passes pair build's page checks. Use it for links, bold, code and lists.",
       },
       json,
     },

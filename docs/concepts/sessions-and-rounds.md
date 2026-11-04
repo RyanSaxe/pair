@@ -7,30 +7,29 @@ The session lasts until you close it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/session-dark.svg">
-  <img alt="A session: you ask, then work through rounds with feedback. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="../assets/session-light.svg">
+  <img alt="A session: you ask, then work through rounds you send. The agent proposes work on the Work page, and work you start runs in the session's next rounds or in a sub-session. A session ends when you close it." src="../assets/session-light.svg">
 </picture>
 
 ## A round
 
 The agent shows you its work in rounds. A round is a set of pages that the
-agent publishes together, and you answer the whole round with one piece of
-feedback.
+agent publishes together, and you send one answer to the whole round.
 
 1. The agent publishes **Agreed** and the list of the round's pages first,
    then publishes each page as soon as it is finished. You can start reading
    as soon as the agent publishes Agreed.
 2. You respond on the pages. You choose between options, answer questions
    and comment.
-3. You press **Send feedback**, choose what comes next, and send. The agent
-   reads your feedback and publishes the next round.
+3. You press **Send**, choose what comes next, and send. The agent reads what
+   you sent and publishes the next round.
 
 While the agent works, a progress card at the top of Agreed shows what it is
 doing and how many pages are ready. Once the agent has published every page,
 the round is waiting for you.
 
-Sending feedback is the one thing that ends a round. When you start work from
+Sending is the one thing that ends a round. When you start work from
 a proposal or ask a question in a thread, the round stays as it is, and you
-can still send feedback on it.
+can still send it.
 
 ## The sidebar
 
@@ -45,6 +44,26 @@ before this one, and **Current** lists this round's pages. The page on screen
 stays until you choose a page from the list. To read an older round, open it
 from the Rounds button, the clock in the header. The **Last round** tab then
 lists that round's pages, and its label changes to **Round N**.
+
+## The page's width
+
+In a window wider than 1160px, a small tab sits at the window's middle on each
+outer edge of the page and on the sidebar's edge. Drag either of the page's tabs
+to set the page's width, from 1160px to the whole window. The page stays
+centered, so both of its edges move. Drag the sidebar's tab to set the sidebar's
+width, from 224px to 400px. Double-click a tab to reset that edge. pair saves
+both widths in that browser, for every session on the hub, and another open tab
+picks them up when it next loads.
+
+Everything on the page follows its width: text, the cards on Agreed and Work,
+Review, threads, code, diffs and prototypes. The block in the middle of the
+page stays in place while you drag. A diff shows **Side by side** while its
+column is at least 900px wide, unless you chose a layout for that diff. An image
+set to fill the page stops at 1200px.
+
+The page shrinks with a smaller window and returns to its saved width when the
+window grows. At 1160px and narrower there are no tabs and the sidebar is 224px
+wide.
 
 ## What you can do on a page
 
@@ -62,25 +81,35 @@ lists that round's pages, and its label changes to **Round N**.
 | Review what you will send | Press <kbd>r</kbd>.                                                                                                                     |
 | See every key             | Press <kbd>?</kbd>.                                                                                                                     |
 
-## Feedback
+A comment, **Send**, **Start**, **New work item** and the list of keys open
+in a drawer beside what you clicked: a comment under its words or block,
+**Send** under its button and **Start** beside the card's button. The page
+stays in use behind it: you can scroll, select words, press choices and use
+the keys, and a comment's drawer moves with its words. One drawer
+is open at a time. When you open another one while a comment has words in
+it, pair first adds the comment to your draft, as **Add to draft** does. The
+× and <kbd>Esc</kbd> close the drawer, and a comment's words stay as a draft.
+On a phone or a tablet they open in a window over the page instead.
+
+## Your draft
 
 pair saves everything you do on the pages as a draft until you send it. The
-hub keeps the feedback you completed, so you can start a round on your phone
-and continue it on your computer:
+hub keeps the parts of your draft you completed, so you can start a round on
+your phone and continue it on your computer:
 
-- a note after **Add to feedback**, and its edits and removal
+- a note after **Add to draft**, and its edits and removal
 - a choice in a decision and a checked box
 - an answer after **Answer** and a drawing after **Save drawing**
 - the **Everything else looks good** switch
 
 The browser you typed in keeps the rest, which no other device shows: the text
-in an open note dialog, an answer before **Answer**, a drawing you have not
-saved, a thread reply you have not sent and the message in the send popup. Your
-browser also keeps a copy of the feedback you completed, and it sends what you
+in an open comment, an answer before **Answer**, a drawing you have not
+saved, a thread reply you have not sent and the message under **Send**. Your
+browser also keeps a copy of what you completed, and it sends what you
 completed while the hub was unreachable when the hub answers again.
 
-**Send feedback** in the header opens a popup where you choose what the agent
-does next, and you send the round with the popup's button.
+**Send** in the header opens a drawer where you choose what the agent
+does next, and you send the round with the drawer's button.
 
 In most rounds, the choices are:
 
@@ -97,26 +126,26 @@ In a plan round, the choices are:
 - **Build it**: the agent applies your comments, then builds the plan, in
   this session.
 
-The popup opens with the first choice selected, never Build it. The button's
+The drawer opens with the first choice selected, never Build it. The button's
 label is **Build it** when you choose Build it, and **Send** otherwise. The
 agent can also make a round a plan without your asking, when it judges that
 it knows enough to write one.
 
-pair sends a typed answer only after you press **Answer**. The popup lists
+pair sends a typed answer only after you press **Answer**. The drawer lists
 each typed answer you have not added, with a link to its question.
 
-The popup also has a box for a message to the agent, which stays in your
+The drawer also has a box for a message to the agent, which stays in your
 draft until you send it, and the switch **Everything else looks good**,
 which is on by default. When the switch is on, the agent treats everything
 the pages stated as agreed, except where one of your comments challenges
 it. Turning the switch on never chooses an option or answers a question for
 you.
 
-After you send, the round's **Feedback** page lists what you sent, with your
-choice and your message.
+After you send, the round's **What you sent** page lists it, with your choice
+and your message.
 
 The hub keeps one submission for each round. When you send from a second tab
-or device after the hub saved the round's feedback, the hub refuses that send,
+or device after the hub saved the round, the hub refuses that send,
 and the frame shows why. Your comments and message stay in that device's draft
 for the next round.
 
@@ -139,7 +168,7 @@ beside the round in the Rounds panel.
 | Tag               | Meaning                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------ |
 | New, Updated      | The agent added or changed the alignment in this round.                                    |
-| Revisiting        | The agent reopened the decision after your feedback.                                       |
+| Revisiting        | The agent reopened the decision after you sent the round.                                  |
 | No longer applies | The agent retired the alignment and says why. Retired alignments are in a fold at the end. |
 
 ## When the agent edits your project
@@ -147,7 +176,7 @@ beside the round in the Rounds panel.
 The agent edits your project only for work you have approved. You approve
 work by choosing **Build it** when you send a round, by starting one of its
 [proposals](proposals-and-work.md), or by asking the agent for the work in
-your own words, in a comment, a thread, your feedback or the chat. When you
+your own words, in a comment, a thread, what you send or the chat. When you
 ask in words for work beside the session's task, the agent records the
 request as a proposal and starts it, quoting you, so the Work page lists
 every piece of work you approved beside the task.
@@ -171,12 +200,16 @@ the session.
 
 - The number on the Sessions button shows how many other sessions have a round
   waiting for you, an agent the hub could not wake, or unopened pages in a round
-  you have not sent. pair stops counting a waiting round once you open that session or
-  clear its line from the bell, and the session list still marks that session
-  **Waiting**. The number is orange when pair counts a waiting round or an
+  you have not sent. pair stops counting a waiting round once you open that
+  session, clear its line from the bell or reopen the session, and the session
+  list still marks that session **Waiting**. The number is orange when pair
+  counts a waiting round or an
   agent the hub could not wake, and blue otherwise. When pair counts no
   session, a grey number shows how many other live sessions you have. pair
   never counts the session in this tab.
+- A row shows **N new** when that session has N pages you have not opened in a
+  round you have not sent, beside the session's state, such as **Waiting**. A
+  blue number on the Sessions button counts the other sessions with such a row.
 - <kbd>1</kbd>–<kbd>9</kbd> open a session by its number. Sub-sessions have
   no number. <kbd>w</kbd> opens the next session with a round waiting for
   you, sub-sessions included.
@@ -187,31 +220,81 @@ the session.
 
 ### The bell
 
-The bell, or <kbd>n</kbd>, opens a list of notifications. The orange number
-on the bell, also shown in the browser tab's title, is the number of lines.
-The list has a line for each agent reply in a thread and each proposal an
-agent records, from every live session. It also has a line for each other
-session that starts or has a round waiting for you.
+The bell, or <kbd>n</kbd>, lists what needs you now, from every live session: a
+round waiting for you, a new reply in a thread, and a proposal waiting for
+**Start**. The orange number on the bell, also shown in the browser tab's title,
+is the number of rows. A thread with two new replies is one row. Under a reply,
+the row quotes the question that began its thread, with the number of new
+replies and, for a row from another session, that session's name. The list
+shows the newest 5 rows, and its link then says how many more there are.
 
-| When you                          | pair removes                                 |
-| --------------------------------- | -------------------------------------------- |
-| Click a line or its ✕             | That line                                    |
-| Open a session                    | That session's start and waiting-round lines |
-| Send a waiting round              | That round's line                            |
-| Reply in a thread                 | That thread's lines                          |
-| Give an agent's reply a thumbs up | That reply's line                            |
-| Press **Clear all**               | Every line                                   |
+Click a row to go to its place: pair shows a reply in its thread on its page, a
+proposal's card on Work, and a waiting round's Agreed. For a row from another
+session, pair opens that session at that place. A click marks the row read, and
+so do **Clear all** and the ✕ that shows when you point at a row. A phone has no
+✕. [Notifications](#notifications) still lists every row you read or clear.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/bell-dark.png">
-  <img alt="The bell's list with another session's start and waiting round and an agent's reply, and the session button in orange because that session waits for you" src="../assets/bell-light.png">
+  <img alt="The bell's list with an agent's reply and another session's waiting round" src="../assets/bell-light.png">
 </picture>
+
+### Notifications
+
+The link at the bottom of the bell's list, **All notifications** or
+**See 3 more**, opens a window with a list on the left and the real page on the
+right. The list has every thread, round, proposal and session start from your
+live sessions, in three groups, each newest first.
+
+| Group                    | Mark on the icon    | A row goes here when                  | A row leaves when                                                                 |
+| ------------------------ | ------------------- | ------------------------------------- | --------------------------------------------------------------------------------- |
+| **Unread**               | Orange dot          | A reply, round or proposal arrives    | You open it, answer it, give it a thumbs up, decide it or clear it, on any device |
+| **Waiting on the agent** | Hollow dot          | You send a message in a thread        | The agent replies, and the row is **Unread**                                      |
+| **Read**                 | None, and grey text | Anything else, and whatever you clear | A new reply arrives                                                               |
+
+The bell's number and the count in the window are both the number of **Unread**
+rows.
+
+The window opens with its first row's page on the right, and while you type, the
+top result's page shows there. You read a row by clicking it, or by keeping its
+page on the right for 3 seconds after the page has loaded, in the tab you are
+using. That counts for the row the window shows first and for a row you move to
+with the arrow keys, so moving down the list or typing a search reads nothing on
+the way. A reply or card on its own page stays unread however long it shows. A
+row you just read loses its dot and stays in place until you reopen the window
+or change a menu.
+
+A round or proposal you have read still says it is waiting until you send
+feedback or decide it. A round waiting for you stays unread in every tab until
+you start on it: open one of its pages yourself, with a click or a key, or start
+a note in it. A tab that only shows the round, has focus or moves to the round
+as it arrives reads nothing. A tab never lists its own session's waiting round,
+because the page in front of you already shows it.
+
+Select a row to read it, and reply there, without leaving your page. **Open**
+goes to the page itself.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/notifications-dark.png">
+  <img alt="The Notifications window with Unread, Waiting on the agent and Read rows on the left, and the selected thread on its real page on the right" src="../assets/notifications-light.png">
+</picture>
+
+| Key                                                            | What it does                  |
+| -------------------------------------------------------------- | ----------------------------- |
+| <kbd>↑</kbd> <kbd>↓</kbd>, <kbd>Ctrl+J</kbd> <kbd>Ctrl+K</kbd> | Moves through the rows        |
+| <kbd>Enter</kbd>                                               | Opens the selected row's page |
+| <kbd>Esc</kbd>                                                 | Closes the window             |
+
+Type in the field to search every message in your live sessions' threads and
+proposals, including rows you read or cleared. Rows keep their groups and marks,
+and a match the row doesn't show appears under it. When nothing matches, a
+button opens [search](../guides/search.md) with your words.
 
 ### System notifications
 
 When you turn notifications on in Settings, your browser also shows a system
-notification for each new line and for each agent the hub cannot wake,
-except for the session in the tab you are using.
+notification for each new row in the bell, each session that starts and each
+agent the hub cannot wake, except for the session in the tab you are using.
 
 ## Closing a session
 
@@ -228,3 +311,16 @@ sub-session, the hub marks its proposal done in the session it came from. A
 closed session that still has open sub-sessions stays in the list as a grey
 heading above them, and pair removes it from the list once you close the
 last of them.
+
+To bring a closed session back, press Reopen on the line under its header and
+paste the command it copies into any agent. Nothing changes until an agent runs
+that command. The session then becomes live, with that agent as its holder, and
+an open tab on the session reloads as a live page. When the round was not
+finished at the close, the agent publishes the missing pages. When you reopen a
+sub-session, its proposal in the session it came from is no longer done.
+
+pair counts everything from before the reopen as seen, on every device. The bell
+has no line for it, the browser sends no notification for it, and pair marks no
+page or card **New**. Notifications lists the session's threads as **Read**. A
+round that still waits for you stays **Waiting** in the session list. pair
+notifies you as usual of anything after the reopen.

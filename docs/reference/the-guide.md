@@ -38,10 +38,11 @@ prints a moment's text after its next step, and
 | `start.md`                  | `pair start`                        | Creates a session.                                                                                              |
 | `start-from.md`             | `pair start --from`                 | Creates a session for a proposal, after `start.md`.                                                             |
 | `start-from-plan.md`        | `pair start --from`                 | Creates a session for a proposal you started with Plan it first, after `start.md`, in place of `start-from.md`. |
-| `read-feedback.md`          | `pair read`                         | Prints your feedback.                                                                                           |
-| `read-plan.md`              | `pair read`                         | Prints feedback you sent with Write a plan or Update the plan, after `read-feedback.md`.                        |
-| `read-iterate.md`           | `pair read`                         | Prints feedback you sent with Back to iterating, after `read-feedback.md`.                                      |
-| `read-build.md`             | `pair read`                         | Prints feedback you sent with Build it, after `read-feedback.md`.                                               |
+| `start-reopen.md`           | `pair start --reopen`               | Makes a closed session live again.                                                                              |
+| `read-feedback.md`          | `pair read`                         | Prints what you sent.                                                                                           |
+| `read-plan.md`              | `pair read`                         | Prints what you sent with Write a plan or Update the plan, after `read-feedback.md`.                            |
+| `read-iterate.md`           | `pair read`                         | Prints what you sent with Back to iterating, after `read-feedback.md`.                                          |
+| `read-build.md`             | `pair read`                         | Prints what you sent with Build it, after `read-feedback.md`.                                                   |
 | `read-thread.md`            | `pair read --thread`                | Prints a thread.                                                                                                |
 | `read-start-here.md`        | `pair read`, `pair propose --start` | Prints work you approved to run in this session, with Start or in your own words.                               |
 | `read-start-sub-session.md` | `pair read`, `pair propose --start` | Prints work you approved to run in a sub-session.                                                               |

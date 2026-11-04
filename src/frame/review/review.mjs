@@ -24,7 +24,8 @@ import {
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { restoreAnswers, restoreChoices } from "#frame/notes/controls.mjs";
 import { forgetImages } from "#frame/notes/images.mjs";
-import { known, openNote, stale } from "#frame/notes/notes.mjs";
+import { known, stale } from "#frame/notes/known.mjs";
+import { openNote } from "#frame/notes/notes.mjs";
 import { tag } from "#frame/pages/agreed.mjs";
 import {
   badge,
@@ -253,27 +254,30 @@ function renderFeedback() {
   $("overall-group").hidden = !overall.length;
   $("overall-notes").replaceChildren(...overall.map(itemCard));
 }
-function sentEntries(submission) {
+export function sentEntries(submission) {
   if (!submission) return [];
   const groups = submission.groups || {};
   return [
     ...(groups.notes || []).map((note) => ({
       topic: note.topic,
       ...itemSummary("note", note, { label: "Comment" }),
+      id: note.id,
       quote: note.quote,
       images: (note.attachments || []).map((item) => item.id),
     })),
-    ...Object.values(groups.choices || {}).map((choice) => ({
+    ...Object.entries(groups.choices || {}).map(([id, choice]) => ({
       topic: choice.topic,
       ...itemSummary("choice", choice, { label: "Choice" }),
+      id,
     })),
-    ...Object.values(groups.answers || {}).map((answer) => ({
+    ...Object.entries(groups.answers || {}).map(([id, answer]) => ({
       topic: answer.topic,
       ...itemSummary("answer", answer, {
         label: "Answer",
         drawing: () => "Drawing attached",
       }),
       images: answer.kind === "drawing" ? [answer.previewId] : [],
+      id,
     })),
   ];
 }
@@ -283,11 +287,17 @@ function sentChoice(submission) {
   return [
     ...(label ? [{ heading: "What comes next", text: label }] : []),
     ...(submission.message
-      ? [{ heading: "Message to the agent", text: submission.message }]
+      ? [
+          {
+            id: submission.id,
+            heading: "Message to the agent",
+            text: submission.message,
+          },
+        ]
       : []),
   ];
 }
-function sentCard(entry) {
+export function sentCard(entry) {
   const card = document.createElement("div");
   card.className = "sent-card";
   const where =
@@ -296,7 +306,9 @@ function sentCard(entry) {
     entry.topic ||
     "Overall";
   const label = document.createElement("small");
-  label.textContent = entry.heading ?? `${where} · ${entry.label}`;
+  label.textContent =
+    entry.heading ??
+    (entry.label === where ? where : `${where} · ${entry.label}`);
   const body = document.createElement("p");
   body.textContent = entry.text;
   card.append(label);
@@ -344,7 +356,9 @@ export function renderSentFeedback() {
   // A past round's submission may still be loading, so renderSentFeedback
   // says that no feedback was sent only after the submission has loaded.
   const loaded = mode === "readonly" || sentByRound.has(plan.round);
-  const key = `${plan.round}:${sent?.id || (loaded ? "none" : "")}`;
+  // sentCard names each place from the view's pages, and the waiting view has
+  // the sent round's number but none of its pages, so the key names the view.
+  const key = `${viewKey()}:${sent?.id || (loaded ? "none" : "")}`;
   if (renderedSentKey === key) return;
   renderedSentKey = key;
   const list = $("sent-feedback-list");
@@ -353,14 +367,19 @@ export function renderSentFeedback() {
     if (loaded) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "No feedback was sent on this round.";
+      empty.textContent = "Nothing was sent on this round.";
       list.append(empty);
     }
     return;
   }
   const entries = sentEntries(sent);
-  for (const entry of [...sentChoice(sent), ...entries])
-    list.append(sentCard(entry));
+  for (const entry of [...sentChoice(sent), ...entries]) {
+    const card = sentCard(entry);
+    // A search result in sent feedback opens at this card. The same card on its
+    // page has no ID, so the ID stays unique.
+    if (entry.id) card.id = `sent-${entry.id}`;
+    list.append(card);
+  }
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -416,11 +435,12 @@ export function review() {
         : unsentItems(currentDraft()).count,
   );
   const reviewLabel = $("review-row")?.querySelector("span");
-  if (reviewLabel) reviewLabel.textContent = listedSent ? "Feedback" : "Review";
+  if (reviewLabel)
+    reviewLabel.textContent = listedSent ? "What you sent" : "Review";
   $("feedback-title").textContent = sent
-    ? "Feedback"
+    ? "What you sent"
     : submissionInFlight
-      ? "Sending feedback"
+      ? "Sending"
       : "Review";
   $("feedback-review").hidden = locked;
   renderActivity();
@@ -453,7 +473,7 @@ export function review() {
   }
   // The header button always applies to Current. On a past round the frame
   // sends Current's draft, and after Current's round is sent the frame opens
-  // that round's Feedback.
+  // that round's What you sent.
   const forCurrent = selectedTab === "past" && currentAvailable();
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;

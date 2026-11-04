@@ -61,6 +61,61 @@ test("a reply to a waiting thread keeps its draft through a reload and posts its
   assert.equal(await card.locator(".thread-reply figure").count(), 0);
 });
 
+async function replyBox(t) {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "retry",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "What happens to a failed item?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return {};
+  const field = page
+    .locator('pair-thread[data-thread="retry"]')
+    .getByRole("textbox", { name: "Reply in this thread" });
+  await field.waitFor();
+  return { page, field };
+}
+
+test("letters typed right after a reply box loses focus are not shortcuts", async (t) => {
+  const { page, field } = await replyBox(t);
+  if (!page) return;
+  await field.pressSequentially("and the");
+  await field.evaluate((box) => box.blur());
+  const hash = () => new URL(page.url()).hash;
+
+  for (const key of ["a", "r", "]"]) await page.keyboard.press(key);
+  assert.equal(hash(), "#overview");
+
+  await page.waitForTimeout(1600);
+  await page.keyboard.press("a");
+  assert.equal(hash(), "#agreed");
+});
+
+test("a reply box keeps focus when a page's script adds an element after its card", async (t) => {
+  const { page, field } = await replyBox(t);
+  if (!page) return;
+  await field.focus();
+  await page.evaluate(() =>
+    document
+      .getElementById("page-content")
+      .append(document.createElement("dialog")),
+  );
+  for (let polls = 0; polls < 2; polls++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
+  assert.equal(
+    await field.evaluate((box) => box === document.activeElement),
+    true,
+  );
+});
+
 test("a video in an agent's reply stays inside the thread card, with the reply's text, on a wide window and a phone", async (t) => {
   const h = await hub(t);
   const session = await h.session();
@@ -174,4 +229,123 @@ test("a code block or a wide table inside a wrapper scrolls within the thread ca
       assert.ok(box.scrolls, `${id}: ${JSON.stringify(box)}`);
     }
   }
+});
+
+// Component CSS is scoped, and a thread on a Work card sits outside
+// #page-content, so the scope must also cover a thread's own content.
+test("a code block in a thread on a Work card draws one box", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const proposed = await session.action("propose", {
+    id: "tidy",
+    title: "Tidy the list",
+    delivers: "The list, tidied.",
+    recommend: "here",
+  });
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "on-card",
+    round: "1",
+    topic: "work",
+    anchor: "Tidy the list",
+    proposal: "tidy",
+    text: "Which list?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const replied = await session.action("reply", {
+    note: "on-card",
+    html: '<p>This one.</p><pre data-language="text" data-file="list.txt">one\ntwo</pre>',
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+
+  const page = await open(t, `${h.server.origin}${session.base}/#work`);
+  if (!page) return;
+  const block = page.locator('#work-view pre[data-language="text"]');
+  await block.waitFor();
+  // The frame's generic pre rule draws this border, and the code component's
+  // rule removes it.
+  assert.equal(
+    await block.evaluate((node) => getComputedStyle(node).borderTopWidth),
+    "0px",
+  );
+});
+
+// The frame can draw a thread before Shiki replaces a code block's text, and
+// Shiki can fail to load at all, so the heading cannot depend on Shiki's lines.
+test("a thread on words in a code block names its line before Shiki has drawn it", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const data = planData();
+  data.pages[0].html +=
+    '<pre id="sample" data-language="js">const one = 1;\nconst two = 2;\nconst three = 3;</pre>';
+  assert.equal((await session.publish(data)).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "on-code",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    target: "sample",
+    quote: "const two = 2;",
+    text: "Why two?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+
+  const page = await open(t, "about:blank");
+  if (!page) return;
+  await page.route(/^https:\/\/esm\.sh\//, (route) => route.abort());
+  await page.goto(`${h.server.origin}${session.base}/#overview`);
+  await page
+    .locator('pair-thread[data-thread="on-code"]')
+    .getByText("On line 2")
+    .waitFor({ timeout: 10000 });
+  assert.equal(await page.locator("#sample .shiki").count(), 0);
+});
+
+test("a reply's image holds its box until it arrives, so the card does not grow", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const started = await session.request(`${session.base}/api/threads`, {
+    id: "shot",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Can I see it?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const picture = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 300;
+    const drawing = canvas.getContext("2d");
+    drawing.fillStyle = "#c33";
+    drawing.fillRect(0, 0, 600, 300);
+    return canvas.toDataURL("image/png");
+  });
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route("**/api/thread-image/**", async (route) => {
+    await held;
+    await route.continue();
+  });
+  const replied = await session.action("reply", {
+    note: "shot",
+    html: `<p>Here it is.</p><img alt="The shot" src="${picture}">`,
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+
+  const card = page.locator('pair-thread[data-thread="shot"]');
+  const image = card.locator(".thread-content img");
+  await image.waitFor();
+  assert.equal(await image.evaluate((node) => node.naturalWidth), 0);
+  const waiting = await card.boundingBox();
+  assert.ok((await image.boundingBox()).height > 100);
+  release();
+  await page.waitForFunction(
+    () => document.querySelector(".thread-content img").naturalWidth === 600,
+  );
+  assert.deepEqual(await card.boundingBox(), waiting);
 });

@@ -65,6 +65,7 @@ dialog::backdrop {
 .dialog textarea {
   min-height: var(--field-height);
   margin: var(--space-field) 0;
+  resize: none;
 }
 .dialog :is(a, .link-btn) {
   font-weight: var(--link-weight);
@@ -147,8 +148,8 @@ dialog::backdrop {
 .dialog .dialog-head h2 {
   margin: 0;
 }
-/* The ×, Escape and a click outside back out of a dialog, so no button row
-   has a Cancel button. */
+/* The × and Escape back out of a dialog, and so does a click outside a modal,
+   so no button row has a Cancel button. */
 .dialog .actions {
   display: flex;
   justify-content: space-between;
@@ -193,10 +194,14 @@ dialog::backdrop {
   color: var(--muted);
   font-size: var(--text-small);
 }
+.keys .dialog-head {
+  margin-bottom: 0;
+}
 .key-list {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px 16px;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: baseline;
   margin: 0;
 }
 .key-list dt {
@@ -206,14 +211,31 @@ dialog::backdrop {
   margin: 0;
   color: var(--muted);
 }
+.key-more {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.key-more > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+.key-more[open] > summary {
+  margin-bottom: 8px;
+}
 .note-actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-top: 10px;
 }
+.note-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
 .note-actions .btn.primary {
-  margin-left: auto;
+  margin-left: 0;
 }
 /* The text scrolls only inside the text area, so the line being typed never
    runs under the image button. fitNoteText() sets the text area's height to
@@ -257,7 +279,8 @@ dialog::backdrop {
   border-radius: 7px;
   background: var(--panel);
 }
-.dialog.note.dropping .note-field::after {
+.dialog.note.dropping .note-field::after,
+.start-write.dropping .note-field::after {
   content: "Drop to attach";
   position: absolute;
   inset: 0;
@@ -331,30 +354,86 @@ dialog::backdrop {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.session-row .words {
+/* The bell's list: a glyph, the row's words and its time on one line, and the
+   row's second line under them. */
+#center-pop {
+  padding: 6px 8px 0;
+}
+#center-list {
+  gap: 0;
+}
+#center-list .session-line {
+  grid-template-columns: minmax(0, 1fr);
+  padding-right: 0;
+}
+#center-list .session-row {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: baseline;
+}
+.glance-glyph {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+}
+.glance-glyph .search-glyph {
+  display: block;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+#center-list .session-row .title {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: normal;
+}
+#center-list .session-row .when {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+#center-list .session-row .where {
+  grid-column: 2 / -1;
+  overflow: hidden;
   font-size: var(--text-meta);
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
-.session-row .words em {
-  font-style: normal;
-  font-weight: var(--weight-strong);
+#center-list .session-line > .icon-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  visibility: hidden;
 }
-/* The Threads tab's rows have no Clear button, so a row's text can use the
-   column that the button would take. */
-#center-list.threads .session-line {
-  grid-template-columns: minmax(0, 1fr);
+@media (hover: hover) {
+  #center-list .session-line:is(:hover, :focus-within) > .icon-btn {
+    visibility: visible;
+  }
+  #center-list .session-line:is(:hover, :focus-within) .when {
+    visibility: hidden;
+  }
 }
-.center-group {
-  padding: 10px 10px 2px;
-  overflow: hidden;
-  font-size: var(--text-small);
-  font-weight: var(--weight-strong);
+.glance-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 4px -8px 0;
+  padding: 9px 10px 10px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-meta);
+}
+.glance-foot .quiet {
   color: var(--muted);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+}
+.glance-none {
+  margin: 0;
+  padding: 12px 10px 14px;
+  color: var(--muted);
+  font-size: var(--text-ui);
 }
 .session-line {
   position: relative;
@@ -586,6 +665,11 @@ dialog::backdrop {
 .sess-line .icon-btn svg {
   width: 14px;
   height: 14px;
+}
+.sess-row .marks {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .pill {
   padding: 1px 7px;

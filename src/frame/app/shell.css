@@ -3,6 +3,31 @@
 html {
   overflow: hidden;
 }
+/* The script in shell.html's head and edges.mjs set --page-width and
+   --sidebar-saved inline on the root. --page-left rounds down to a whole pixel,
+   because in an odd-width window the page's two grips otherwise differ. */
+:root {
+  --page-width: 1160px;
+  --page-left: round(
+    down,
+    max(0px, calc((100vw - var(--page-width)) / 2)),
+    1px
+  );
+  --sidebar-saved: 224px;
+  --sidebar-width: var(--sidebar-saved);
+}
+/* In a window this narrow a wide sidebar would leave the page too little room,
+   so the saved width waits until the window grows again. */
+@media (max-width: 1160px) {
+  :root {
+    --sidebar-width: 224px;
+  }
+}
+@media (max-width: 720px) {
+  :root {
+    --sidebar-width: min(272px, calc(100vw - 48px));
+  }
+}
 /* 100dvh is the visible height, so a short page does not scroll by the
    height of a browser toolbar. */
 /* The header has a fixed height so that the sidebar at 720px and below can
@@ -13,10 +38,13 @@ html {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  max-width: 1160px;
+  max-width: var(--page-width);
   margin: 0 auto;
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
+}
+:root:not([data-embed], [data-mode="preview"]) .app {
+  margin-left: var(--page-left);
 }
 .frame-header {
   flex: none;
@@ -43,7 +71,6 @@ html {
    frame's left border, so on a window wider than the frame the sidebar
    never covers the background beside the frame. */
 .app-body {
-  --sidebar-width: 224px;
   --slide: 0.2s;
   position: relative;
   flex: 1;
@@ -195,7 +222,7 @@ main {
   position: fixed;
   z-index: var(--z-header);
   top: 64px;
-  right: max(16px, calc((100vw - 1160px) / 2 + 16px));
+  right: calc(var(--page-left) + 16px);
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -243,6 +270,20 @@ main {
 .history-strip a:not(:hover) {
   text-decoration: none;
 }
+.reopen-command {
+  flex: none;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-small);
+}
+/* A session's directory has no space to break at, and the reviewer selects the
+   command by hand. */
+.reopen-command code {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
 #round.older {
   color: var(--accent);
   background: var(--accent-soft);
@@ -280,7 +321,7 @@ main {
 #history-label :is(.crumb, .place, .state) {
   flex: none;
 }
-/* Flex layout drops the leading space of " · Feedback sent" and
+/* Flex layout drops the leading space of " · Sent" and
    " is closed", so padding-left puts the space back. */
 #history-label :is(.meta, .state) {
   padding-left: 0.25em;
@@ -294,7 +335,6 @@ main {
 }
 @media (max-width: 720px) {
   .app-body {
-    --sidebar-width: min(272px, calc(100vw - 48px));
     display: block;
     overflow: auto;
   }

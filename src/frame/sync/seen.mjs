@@ -8,7 +8,10 @@ const seen = hubRecord("cards", "pair:cards:seen");
 
 export const cardKey = (sessionId, cardId) => `${sessionId}/${cardId}`;
 
-export const seenCards = seen.load;
+// Until the first session list from the hub, seenCards returns null and the
+// frame labels no card New, because this browser's copy can lack what the hub
+// has since added, such as the cards of a session that reopened.
+export const seenCards = () => (seen.listed() ? seen.load() : null);
 // When neither this browser nor the hub has a list, adoptCards counts every
 // card the hub lists as seen, so the first run after the upgrade shows no
 // New cards. seen.adopt() does nothing until the first session list

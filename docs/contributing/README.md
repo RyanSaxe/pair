@@ -7,7 +7,10 @@ or newer. It has no runtime dependencies and no build step, so you can run a
 checkout as it is. In a clone of this repository, `npm link` puts the `pair`
 command on your path, and that command then runs the clone's code. An edit
 in the clone takes effect at the next `pair` command, in every agent session
-on your machine.
+on your machine. The hub runs the code it started with until a session
+command replaces it. Once the clone's changes under `src/` and `adapters/` are
+committed, the next session command from the clone, such as `pair status`,
+replaces the hub with one on the new code, even while sessions are live.
 
 ```sh
 npm link
@@ -18,7 +21,7 @@ pair start --title "Try pair"
 a session under `~/.local/state/pair/sessions/`, and prints the session's
 directory and URL. Run it from an agent's shell. In a plain terminal,
 `pair start` refuses, because it finds no agent CLI for the hub to wake when
-you send feedback.
+you send a round.
 [Commands](../reference/commands.md#environment-variables) lists the
 environment variables, including `PAIR_HUB_PORT`, and
 [Architecture](../concepts/architecture.md#storage) describes what pair
@@ -66,11 +69,12 @@ to check in it.
 
 ## Browser tests
 
-The browser tests open built pages in the installed Google Chrome through
+The browser tests open built pages in Chrome for Testing through
 `playwright-core`, a devDependency. `npm install -g` skips devDependencies,
 so an installed `pair` has no `playwright-core`. Run `npm ci` once in a
-checkout before the first run. Without Google Chrome, a browser test skips.
-When the `CI` environment variable is set, as it is in GitHub Actions, the
+checkout, and then `npx playwright-core install chromium` once, before the first
+run. Without Chrome for Testing, a browser test skips. When the `CI` environment
+variable is set, as it is in GitHub Actions, the
 test fails instead.
 
 `npm run test:figures` checks that every figure in the fixture renders. CI
@@ -80,7 +84,7 @@ from esm.sh or jsDelivr fails the test while that CDN is down.
 ## Screenshots
 
 `npm run screenshots` writes the README's and the docs' PNGs from a demo
-session, in Google Chrome through the same `playwright-core`. It runs only
+session, in Chrome for Testing through the same `playwright-core`. It runs only
 on macOS, because the frame uses the system font, and lines break in other
 places on another system.
 
@@ -96,9 +100,11 @@ pull request into a branch other than `main` that changes any of these:
 - `scripts/demo/`
 
 The workflow pushes the PNGs that the script rewrote to the pull request's
-branch, as a commit by `github-actions[bot]`. The illustration's terminal
-shows IDs that each run creates anew, so the workflow pushes one of these
-commits after every push to such a pull request.
+branch, as a commit by `github-actions[bot]`. The script fixes the browser's
+clock, gives each run's IDs the same stand-ins and waits for the layout to
+settle, so a run with no visual change draws the same pictures. It keeps a PNG
+that differs only in faint edge pixels, so the workflow pushes one of these
+commits only when a picture changes.
 
 Pull that commit before you push again. GitHub runs the checks on that
 commit only after someone with write access selects **Approve workflows to

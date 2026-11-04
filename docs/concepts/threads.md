@@ -6,7 +6,7 @@ before the next round.
 ## Starting a thread
 
 Write a comment, then press **Start a thread** instead of **Add to
-feedback**. The shortcut is <kbd>⌘</kbd> <kbd>Enter</kbd> on a Mac, and
+draft**. The shortcut is <kbd>⌘</kbd> <kbd>Enter</kbd> on a Mac, and
 <kbd>Ctrl</kbd> <kbd>Enter</kbd> elsewhere. The hub sends the comment to the
 agent at once, and pair shows the agent's reply in a card under the block
 you commented on, or under the line when you selected words in a diff.
@@ -16,7 +16,7 @@ on it, which pair shows under the proposal's card.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
-  <img alt="The note dialog quoting a selected line of code, with Add to feedback and Start a thread" src="../assets/note-dialog-light.png">
+  <img alt="The note drawer quoting a selected line of code, with Add to draft and Start a thread" src="../assets/note-dialog-light.png">
 </picture>
 
 ## The thread's card

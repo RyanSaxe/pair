@@ -4,10 +4,14 @@ import { submissionInFlight } from "#frame/review/send.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 export let session, base, online, mode, editable, hasFeedbackPage, query;
+// In the search window, the frame shows one result and leaves the reader's
+// place, history and what they've opened as they were.
+export let embedded = false;
 export let storageKey, placeKey, prefsPrefix;
 export function useSession(config, name, url) {
   session = config;
   base = typeof session.base === "string" ? session.base : "";
+  embedded = Boolean(session.embedded);
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
   /* The frame treats a closed session like an older round, from which
      nothing can be sent. */
@@ -19,7 +23,7 @@ export function useSession(config, name, url) {
         ? "readonly"
         : "live";
   editable = mode === "live";
-  // A read-only round has a Feedback page that lists what was sent on it.
+  // A read-only round has a What you sent page that lists what was sent on it.
   hasFeedbackPage = editable || mode === "readonly";
   query = url.searchParams;
   storageKey = `pair:${session.sessionId || "offline"}:${name}`;
@@ -36,7 +40,7 @@ export function useView(view) {
 // Agreed's source marks a plan round with "plan": true, and the hub copies
 // that field into the round's data.
 export const isPlanRound = (data = plan) => data?.plan === true;
-const placeTitles = { overall: "Overall feedback", work: "Work" };
+const placeTitles = { overall: "Overall", work: "Work" };
 export const topicTitle = (topic) =>
   pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
 export let submittedRound = null;

@@ -31,7 +31,7 @@ change, and anything you already know you want or do not want.
 
 ## Ask for a plan
 
-When you send a round, choose **Write a plan** in the Send feedback popup.
+When you send a round, choose **Write a plan** in the Send drawer.
 The agent settles every decision that is still open by taking the option it
 recommended, records each one on Agreed, and makes the next round a plan.
 The agent can also make a round a plan without your asking, when it judges

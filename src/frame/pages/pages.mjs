@@ -11,6 +11,7 @@ import {
   current,
   currentShown,
   editable,
+  embedded,
   hasFeedbackPage,
   isPlanRound,
   olderPast,
@@ -29,6 +30,7 @@ import {
   viewKey,
 } from "#frame/app/view.mjs";
 import { chooseBlock } from "#frame/notes/blocks.mjs";
+import { markMatch, matchWords, setMatch } from "#frame/notes/match.mjs";
 import {
   pageTargets,
   restoreAnswers,
@@ -44,7 +46,7 @@ import { placeThreads } from "#frame/notes/threads.mjs";
 import { renderAgreements, tag } from "#frame/pages/agreed.mjs";
 import { pendingPage, updatePending } from "#frame/pages/pending.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
-import { openWork, workCounts } from "#frame/pages/work.mjs";
+import { openWork, proposedCount } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
@@ -98,13 +100,15 @@ const hasWork = () => online && hasFeedbackPage;
 export function show(
   id,
   targetId = null,
-  { keepScroll = false, push = true, inPlace = false } = {},
+  { keepScroll = false, push = true, inPlace = false, match = null } = {},
 ) {
   redrawHeld = false;
+  // A re-render keeps an opened result's highlight, and any arrival replaces it.
+  if (!keepScroll) setMatch(matchWords(match), targetId, match);
   // A thread or a card has overall as its note's page, and overall is on
   // Review.
   if (id === "overall") id = "feedback";
-  if (!keepScroll && !inPlace) beginMove();
+  if (!keepScroll && !inPlace && !embedded) beginMove();
   // A re-render keeps the reader's place. Any other show() is an arrival,
   // and flushPlace() first saves the place it leaves.
   const kept = keepScroll ? placeOnScreen() : null;
@@ -174,7 +178,14 @@ export function show(
   url.hash = shownPage();
   url.searchParams.delete("target");
   if (targetId) url.searchParams.set("target", targetId);
-  if (push && url.href !== location.href) history.pushState(null, "", url);
+  if (!keepScroll) url.searchParams.delete("match");
+  if (match) url.searchParams.set("match", match);
+  // Back and a reload return to this round only when the address names it.
+  if (selectedTab === "past" && editable)
+    url.searchParams.set("round", plan.round);
+  else url.searchParams.delete("round");
+  if (push && !embedded && url.href !== location.href)
+    history.pushState(null, "", url);
   else history.replaceState(null, "", url);
   if (!inPlace) closeMenus();
   updateNavigation();
@@ -186,7 +197,9 @@ export function show(
   });
   whenDrawn(drawing, () => {
     if (!loading) arrived();
+    markMatch();
   });
+  Promise.allSettled([...renders]).then(markMatch);
 }
 /* showChanges shows the draft after it changed outside this tab's own
    controls, from the hub or from another tab. pages names the pages whose
@@ -195,7 +208,7 @@ export function show(
    control, so a component updates what it derives from the draft, such as an
    answered question. Drawing the page again covers a page's own scripts, but
    it replaces every field, video and thread card on the page, so redrawPage
-   waits while the reviewer uses one of them or has a dialog open. The frame
+   waits while the reviewer uses one of them or has a modal open. The frame
    calls redrawPage again after each status poll. */
 let redrawHeld = false;
 export function showChanges(pages = null) {
@@ -217,9 +230,11 @@ const fields =
 // A video keeps its place only while the page keeps its element.
 const started = (media) =>
   !media.paused || (media.currentTime > 0 && !media.ended);
-const inUse = () =>
-  Boolean(document.querySelector("dialog[open], #reading :active")) ||
-  (document.hasFocus() && Boolean(document.activeElement?.matches(fields))) ||
+export const fieldHasFocus = () =>
+  Boolean(document.activeElement?.matches(fields));
+export const inUse = () =>
+  Boolean(document.querySelector("dialog:modal, #reading :active")) ||
+  (document.hasFocus() && fieldHasFocus()) ||
   [...document.querySelectorAll("video, audio")].some(started);
 export function redrawPage() {
   if (!redrawHeld || inUse() || $("reading").hidden) return;
@@ -237,7 +252,7 @@ export const pageOrder = () => [
   ...pages.filter((item) => item.id === "agreed"),
   ...pages.filter((item) => item.id !== "agreed"),
   ...(hasFeedbackPage && !showingWaiting()
-    ? [{ id: "feedback", title: "Feedback" }]
+    ? [{ id: "feedback", title: "What you sent" }]
     : []),
 ];
 export function renderFooter(feedback) {
@@ -267,8 +282,8 @@ export function renderFooter(feedback) {
       ? ""
       : next.id === "feedback"
         ? submittedCurrent() || !editable
-          ? "Feedback →"
-          : "Review your feedback →"
+          ? "What you sent →"
+          : "Review your draft →"
         : `Next: ${next.title} →`,
   );
 }
@@ -324,6 +339,7 @@ function newMarks(listed) {
   const onScreen = pages.find((item) => item.id === visiblePageId());
   if (
     document.visibilityState === "visible" &&
+    !embedded &&
     onScreen &&
     pageStatus(onScreen) === "complete" &&
     markOpened(session.sessionId, plan.round, onScreen.id)
@@ -355,15 +371,10 @@ export function updateNavigation(force = false) {
       work.dataset.page = "work";
       const label = document.createElement("span");
       label.textContent = "Work";
-      const counts = document.createElement("span");
-      counts.className = "work-counts";
-      for (const kind of ["proposed", "needs"]) {
-        const total = document.createElement("b");
-        total.className = `count ${kind}`;
-        total.hidden = true;
-        counts.append(total);
-      }
-      work.append(label, counts);
+      const total = document.createElement("b");
+      total.className = "count";
+      total.hidden = true;
+      work.append(label, total);
       pageList.append(separator(), work);
     }
     if (hasFeedbackPage && !listed.waiting) {
@@ -373,7 +384,7 @@ export function updateNavigation(force = false) {
       review.dataset.page = "feedback";
       const label = document.createElement("span");
       label.textContent =
-        editable && listed.tab === "current" ? "Review" : "Feedback";
+        editable && listed.tab === "current" ? "Review" : "What you sent";
       const total = document.createElement("b");
       total.className = "count";
       total.hidden = true;
@@ -385,25 +396,14 @@ export function updateNavigation(force = false) {
   }
   const workRow = $("work-row");
   if (workRow) {
-    const counts = workCounts();
-    const said = {
-      needs: `${counts.needs} need${counts.needs === 1 ? "s" : ""} you`,
-      proposed: `${counts.proposed} proposed`,
-    };
-    for (const kind of ["needs", "proposed"]) {
-      const mark = workRow.querySelector(`.count.${kind}`);
-      mark.textContent = String(counts[kind]);
-      mark.hidden = !counts[kind];
-      mark.title = said[kind];
-    }
+    const proposed = proposedCount();
+    const mark = workRow.querySelector(".count");
+    mark.textContent = String(proposed);
+    mark.hidden = !proposed;
+    mark.title = `${proposed} proposed`;
     workRow.setAttribute(
       "aria-label",
-      [
-        "Work",
-        ...["needs", "proposed"]
-          .filter((kind) => counts[kind])
-          .map((kind) => said[kind]),
-      ].join(", "),
+      proposed ? `Work, ${mark.title}` : "Work",
     );
   }
   const opened = newMarks(listed);

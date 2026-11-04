@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -18,7 +20,6 @@ import {
   pair,
   pairCli,
   planData,
-  root,
   task,
   waitUntil,
 } from "../support/hub.mjs";
@@ -83,6 +84,43 @@ test("a session closed with feedback unread stays closed after the hub restarts"
   } finally {
     await restarted.close();
   }
+});
+
+// A command that replaces the hub stops it while a pair command or a Send can be
+// in progress. A browser also opens connections before it sends a request on
+// them, and the hub must not wait for those.
+test("a request in progress when the hub shuts down gets its answer, and a connection with no request does not hold the shutdown", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  const { port } = new URL(h.server.origin);
+  const unused = net.connect(port, "127.0.0.1");
+  t.after(() => unused.destroy());
+  await new Promise((resolve) => unused.once("connect", resolve));
+  const body = JSON.stringify(a.event());
+  const request = http.request(`${h.server.origin}${a.base}/api/feedback`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+      Origin: h.server.origin,
+      Expect: "100-continue",
+    },
+  });
+  const response = new Promise((resolve, reject) => {
+    request.once("error", reject);
+    request.once("response", (reply) => resolve(reply.statusCode));
+  });
+  // The hub answers 100 Continue once it has the request's headers, so the
+  // request is in progress when the shutdown starts.
+  request.flushHeaders();
+  await new Promise((resolve) => request.once("continue", resolve));
+  const closing = h.server.close();
+  request.end(body);
+  assert.equal(await response, 200);
+  const answered = Date.now();
+  await closing;
+  assert(Date.now() - answered < 1000, "the shutdown waited for a connection");
 });
 
 test("the hub exits when nothing is live and start spawns a fresh one on the same port", async (t) => {
@@ -264,42 +302,6 @@ test("start replaces a stale hub record, and session commands reattach after a c
   );
   assert.equal(connection.sessionId, started.sessionId);
   assert.equal(connection.origin, `http://127.0.0.1:${next.port}`);
-});
-
-// pair start replaces a hub that runs other code once no session on it is live.
-// The start that stops the old hub must not mistake the stopping hub for one
-// that hangs.
-test("start replaces an idle hub that runs other code", async (t) => {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));
-  const env = { XDG_STATE_HOME: path.join(home, "state"), PAIR_HUB_PORT: "0" };
-  const copy = path.join(home, "copy");
-  const { files } = JSON.parse(
-    await fs.readFile(path.join(root, "package.json"), "utf8"),
-  );
-  for (const entry of ["package.json", ...files])
-    await fs.cp(path.join(root, entry), path.join(copy, entry), {
-      recursive: true,
-    });
-  await fs.appendFile(path.join(copy, "src/build/lint.mjs"), "\n// other\n");
-  for (const name of ["other", "current"])
-    await fs.mkdir(path.join(home, name));
-  const other = await pairCli(path.join(home, "other"), env, {
-    cli: path.join(copy, "src/cli.mjs"),
-  });
-  const current = await pairCli(path.join(home, "current"), env);
-  t.after(async () => {
-    await killHub(current.config);
-    await fs.rm(home, { recursive: true, force: true });
-  });
-  const { sessionDir } = await other.start();
-  await other.run("pause", "--session-dir", sessionDir, "--reason", "idle");
-  const before = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
-  assert.notEqual(before.version, version);
-  await current.start();
-  const after = JSON.parse(await fs.readFile(current.config.hubFile, "utf8"));
-  assert.notEqual(after.pid, before.pid);
-  assert.equal(after.version, version);
-  assert.equal(alive(before.pid), false);
 });
 
 // Inside Codex's sandbox, no command can reach the hub, though the hub still

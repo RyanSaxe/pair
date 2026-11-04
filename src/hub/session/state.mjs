@@ -15,6 +15,7 @@ import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
 import { draftStore } from "./draft.mjs";
 import { links } from "./links.mjs";
+import { notifications } from "./notifications.mjs";
 import { pageNotes } from "./page-notes.mjs";
 import { proposals } from "./proposals.mjs";
 import { quiet } from "./quiet.mjs";
@@ -25,13 +26,16 @@ import { uploads } from "./uploads.mjs";
 
 // tabOpen returns whether a pair tab on this machine polled the hub
 // recently. peer returns another session on the hub by its ID, which a
-// linked session uses to reach its parent.
+// linked session uses to reach its parent. markSeen adds keys to the seen lists
+// that every browser shares.
 export async function loadSession(
   directory,
   config,
   origin,
   tabOpen,
   peer = () => null,
+  changed = () => {},
+  markSeen = () => {},
 ) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
@@ -60,7 +64,7 @@ export async function loadSession(
   // before pair wrote startedAt gets its directory's creation time, because
   // no later write changes that time.
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
-  for (const child of ["rounds", "feedback", "uploads", "scenes", "threads"])
+  for (const child of ["feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
       mode: 0o700,
@@ -77,7 +81,17 @@ export async function loadSession(
   }
   token ||= crypto.randomBytes(32).toString("hex");
   const base = `/s/${state.sessionId}`;
-  const exclusive = serializer();
+  const serial = serializer();
+  // Every route that changes a session runs through exclusive, so this one call
+  // tells search that the session's files changed.
+  const exclusive = (task) =>
+    serial(async () => {
+      try {
+        return await task();
+      } finally {
+        changed(state.sessionId);
+      }
+    });
   // The wake target contains a token or a socket path, so the hub stores it
   // in wake.json and never sends it in a browser response.
   const wakeFile = path.join(directory, "wake.json");
@@ -137,6 +151,7 @@ export async function loadSession(
     origin,
     tabOpen,
     peer,
+    markSeen,
     base,
     exclusive,
     transition,
@@ -147,6 +162,7 @@ export async function loadSession(
     needsYou,
     view,
     browserView,
+    listing,
     wakeFile,
     threadRecords: await readThreads(directory),
     wake: (await exists(wakeFile)) ? await read(wakeFile) : null,
@@ -167,6 +183,7 @@ export async function loadSession(
     await draftStore(session),
     links(session),
     quiet(session),
+    notifications(session),
   );
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
@@ -257,9 +274,11 @@ export async function loadSession(
       groups: {
         alignUnflagged: groups.alignUnflagged,
         notes: (groups.notes || []).map(
-          ({ topic, anchor, quote, text, attachments }) => ({
+          ({ id, topic, anchor, target, quote, text, attachments }) => ({
+            id,
             topic,
             anchor,
+            target,
             quote,
             text,
             attachments: (attachments || []).map(({ id }) => ({ id })),
@@ -315,7 +334,6 @@ export async function loadSession(
       url: base + "/",
       handoff: session.handoff,
       events: session.withAcknowledgements(session.activityItems()),
-      threads: session.threadLines(),
     };
   }
   return {
@@ -338,6 +356,7 @@ export async function loadSession(
     removeUpload: session.removeUpload,
     close: session.close,
     startProposal: session.startProposal,
+    writeProposal: session.writeProposal,
     openAgent: session.openAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
@@ -347,12 +366,16 @@ export async function loadSession(
     linkSession: session.linkSession,
     joinedInto: session.joinedInto,
     closedSession: session.closedSession,
+    reopenedSession: session.reopenedSession,
     built: session.built,
     proposalItems: session.proposalItems,
     writeStatus: session.writeStatus,
+    threadImage: session.threadImage,
     startThread: session.startThread,
     addThreadMessage: session.addThreadMessage,
     acknowledge: session.acknowledge,
+    notificationView: session.notificationView,
+    withWords: session.withWords,
     act: session.act,
     draftView: session.draftView,
     changeDraft: session.changeDraft,
@@ -363,6 +386,8 @@ export async function loadSession(
     hold: session.hold,
     wakeIfQuiet: session.wakeIfQuiet,
     roundEntry: session.roundEntry,
+    renderForPreview: session.renderForPreview,
+    renderRound: session.renderRound,
     pageSet: session.pageSet,
     pageRecord: session.pageRecord,
     prototype: session.prototype,

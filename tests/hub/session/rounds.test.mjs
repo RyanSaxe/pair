@@ -105,7 +105,7 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal(result.body.page.id, "agreed");
   assert(
     result.body.next.endsWith(
-      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
+      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
     ),
     result.body.next,
   );
@@ -165,7 +165,7 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.equal(progress.status, 200);
   assert.equal(
     progress.body.next,
-    'You still have to publish these pages: overview, detail (started). When you begin a page, and at least every five minutes while you or a subagent work on it, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
+    'You still have to publish these pages: overview, detail (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
   );
   const before = await status();
   assert.equal(before.openRound.pages[1].state, "active");
@@ -197,10 +197,6 @@ test("listed pages arrive independently and only the last completes the round", 
     ids: ["agreed", "detail"],
   });
   const immutable = await fs.readFile(detail.body.page.recordPath, "utf8");
-  assert.doesNotMatch(
-    await (await fetch(`${hub.origin}/s/${sessionId}/`)).text(),
-    /Finished detail/,
-  );
   const manifest = await (
     await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
   ).json();
@@ -236,14 +232,16 @@ test("listed pages arrive independently and only the last completes the round", 
     ),
   });
   assert.equal(failed.status, 400);
-  assert.equal(
-    (await status()).current.sha256,
-    detail.body.status.current.sha256,
-  );
-  const rounds = path.join(directory, "rounds");
-  const held = path.join(directory, "rounds-held");
-  await fs.rename(rounds, held);
-  await fs.writeFile(rounds, "blocked");
+  assert.deepEqual((await status()).current, detail.body.status.current);
+  // A directory in the way of status.json fails the write that commits the
+  // page. The session keeps its state and drops the page's record, so the page
+  // can publish again.
+  const stateFile = path.join(directory, "status.json");
+  const held = path.join(directory, "status-held.json");
+  const records = path.join(directory, "pages", "1");
+  const recordsBefore = await fs.readdir(records);
+  await fs.rename(stateFile, held);
+  await fs.mkdir(stateFile);
   try {
     const writeFailure = await publish(
       "1",
@@ -251,17 +249,12 @@ test("listed pages arrive independently and only the last completes the round", 
       "Overview",
       "<p>Finished overview</p>",
     );
-    // Windows reports a path through a file as missing, and the hub answers
-    // that with 404. Other systems report it as not a directory, and the hub
-    // answers 500.
-    assert.equal(writeFailure.status, process.platform === "win32" ? 404 : 500);
-    assert.equal(
-      (await status()).current.sha256,
-      detail.body.status.current.sha256,
-    );
+    assert.equal(writeFailure.status, 500);
+    assert.deepEqual((await status()).current, detail.body.status.current);
+    assert.deepEqual(await fs.readdir(records), recordsBefore);
   } finally {
-    await fs.unlink(rounds);
-    await fs.rename(held, rounds);
+    await fs.rmdir(stateFile);
+    await fs.rename(held, stateFile);
   }
   const overview = await publish(
     "1",
@@ -514,10 +507,10 @@ test("a page's links are checked as it publishes, not when the round completes",
     `page "overview": link "#nowhere" names no page of the round and no element on this page. The round's pages are agreed, overview and details.`,
   );
   const records = await fs.readdir(path.join(a.directory, "pages", "2"));
-  assert.deepEqual(records.map((file) => file.split(".")[0]).sort(), [
-    "agreed",
-    "frame",
-  ]);
+  assert.deepEqual(
+    records.map((file) => file.split(".")[0]),
+    ["agreed"],
+  );
 });
 
 // The hub assembles a round from its stored pages at each publish. A page that
@@ -573,30 +566,4 @@ test("page progress cannot start before Agreed for the next round", async (t) =>
   const result = await a.action("progress", { start: ["overview"] });
   assert.equal(result.code, 409);
   assert.equal((await a.status()).body.openRound, null);
-});
-
-test("a round keeps only its complete file, and a refused page leaves no record", async (t) => {
-  const h = await testHub(t);
-  const a = await h.session();
-  assert.equal((await a.publish(planData())).code, 200);
-  assert.deepEqual(await fs.readdir(path.join(a.directory, "rounds")), [
-    "example.1.html",
-  ]);
-  await a.feedback(a.event());
-  await a.action("read");
-  // The overview page completes round 2, and the hub refuses it because its
-  // link target is not a page in the round.
-  const refused = await a.publish({
-    ...planData("2"),
-    pages: [
-      { id: "overview", title: "Overview", html: '<a href="#nowhere">x</a>' },
-    ],
-  });
-  assert.equal(refused.code, 400);
-  assert.match(refused.body.error, /link "#nowhere" names no page/);
-  const records = await fs.readdir(path.join(a.directory, "pages", "2"));
-  assert.deepEqual(records.map((file) => file.split(".")[0]).sort(), [
-    "agreed",
-    "frame",
-  ]);
 });

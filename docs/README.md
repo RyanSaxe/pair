@@ -11,7 +11,7 @@ your browser.
 ## Concepts
 
 - [Sessions and rounds](concepts/sessions-and-rounds.md) explains sessions,
-  rounds, pages, Agreed, feedback and closing a session.
+  rounds, pages, Agreed, drafts and closing a session.
 - [Proposals and Work](concepts/proposals-and-work.md) explains how the
   agent suggests work, how you approve it, where it runs, what a plan
   contains, and how work is finished.
@@ -31,6 +31,8 @@ your browser.
   session to learn a codebase, a module or a pull request.
 - [Build the work](guides/build-the-work.md) explains how to follow the
   work you approved while the agent builds it, and how to review the result.
+- [Search](guides/search.md) explains how to find anything you read or wrote
+  in pair, across every session.
 
 ## Reference
 

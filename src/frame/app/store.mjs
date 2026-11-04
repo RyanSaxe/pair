@@ -30,7 +30,12 @@ export function emptyDraft(round) {
     // Answer, and each drawing question's drawing since it was last saved.
     drafts: {},
     noteDrafts: {},
+    // startMessages contains the message typed for each card under Start, until
+    // the card starts.
+    startMessages: {},
     replyDrafts: {},
+    // itemDraft contains the unsent text and images of the New work item form.
+    itemDraft: null,
     submitted: null,
     pending: null,
     // synced contains the id and revision of the hub's draft at the last
@@ -193,7 +198,7 @@ export function persist() {
     $("storage-status").textContent = "";
   } catch {
     $("storage-status").textContent =
-      "Local storage unavailable. Export a copy to keep your feedback.";
+      "Local storage unavailable. Export a copy to keep your draft.";
   }
   queuePush();
 }

@@ -40,7 +40,9 @@ same name under `tests/`:
   no live session. It wakes the holder, the agent that last ran `pair start`
   on a session. `src/hub/session/` has one session's state and actions: its
   rounds, its holder, the reviewer's submissions and uploads, its threads,
-  its proposals, and its link to the session it came from.
+  its proposals, and its link to the session it came from. `src/hub/search/`
+  keeps every session's text in memory and in a cache file, and matches a
+  search against it.
 - The builder, `src/build/`, turns a page source into a page. `problems()`
   lists every structural problem in a source, and the assembler joins the
   frame, the components and the pages into one HTML file.
@@ -48,7 +50,8 @@ same name under `tests/`:
   state every other part reads, `pages/` shows the pages, Agreed, Work and
   the home view of a session with nothing published, `notes/` has the code for the
   reviewer's notes, threads, choices, answers and drawings, `review/` is the
-  Review page and sending, and `sync/` reads rounds, sessions, activity and
+  Review page and sending, `search/` is the window that Search and Notifications
+  share, with each one's list, and `sync/` reads rounds, sessions, activity and
   notifications from the hub and sends it the reviewer's cleared bell lines,
   opened pages and seen cards.
 - The components, `src/components/`, have one directory each, with the
@@ -93,6 +96,14 @@ through `imports` in `package.json`. Only `src/frame/app/boot.mjs` touches
 `document` when it loads, because a test imports every other frame module in
 Node.
 
+On a computer, the frame opens a panel or form, such as the note, Send or
+Start, beside the button the reviewer pressed or beside the words or block it
+is about, with no backdrop. On a phone or a tablet the frame opens it as a
+centred modal. Open a new one with `openDrawer()` in
+`src/frame/app/drawer.mjs`, which places every drawer by one rule, so the new
+one needs no placement code of its own. The frame opens Search, Notifications,
+the full-size diagram, the sketch and Close session as modals.
+
 `src/build/assemble.mjs` lists the frame's stylesheets in cascade order, so a
 new stylesheet goes into that list.
 
@@ -128,11 +139,18 @@ npx --yes eslint@10.11.0 .
 npm run test:browser
 ```
 
-`npm run test:browser` opens built pages in the installed Google Chrome
-through `playwright-core`. Run `npm ci` once in a checkout to install it.
-Without Google Chrome, a browser test skips with "Google Chrome is not
-installed". When the `CI` environment variable is set, as it is in GitHub
-Actions, the test fails instead of skipping.
+`npm run test:browser` opens built pages in Chrome for Testing through
+`playwright-core`. Run `npm ci` once in a checkout to install `playwright-core`,
+then `npx playwright-core install chromium` once, which installs the Chrome for
+Testing build for that version. Without it, a browser test skips with "Chrome
+for Testing is not installed". When the `CI` environment variable is set, as it
+is in GitHub Actions, the test fails instead of skipping.
+
+Test code and scratch scripts use Chrome for Testing, not Google Chrome. On
+macOS, each new Google Chrome adds keys to the keychain and reads all of them.
+Thousands of launches leave `secd` too busy for the certificate check of any
+Chrome on the machine, which then fails after 30 seconds. Chrome for Testing has
+no entitlement to those keys.
 
 The landing tests, in `tests/browser/landing.browser.mjs`, also run in the
 WebKit that Playwright installs, because every browser on an iPhone uses
@@ -244,18 +262,26 @@ When a pull request into a branch other than `main` changes `src/frame/`,
 `src/components/`, `scripts/screenshots.mjs`, `scripts/screenshots/` or
 `scripts/demo/`, the `screenshots` job in `.github/workflows/screenshots.yml`
 runs `npm run screenshots` on GitHub's macOS 26 runner and pushes the PNGs
-it rewrote to the pull request's branch. The illustration's terminal shows
-IDs that each run creates anew, so the job pushes a commit after every push
-to such a pull request. Pull that commit before you push to the branch again.
-GitHub runs the checks on the job's commit only after someone with write
-access selects Approve workflows to run on the pull request.
+it rewrote to the pull request's branch. `npm run screenshots` keeps a PNG that
+shows the same picture, so the job commits only when a picture changes. Pull
+that commit before you push to the branch again.
+
+GitHub runs the checks on the job's commit only after someone with write access
+approves the run. An agent working on this repository has the owner's standing
+approval to do that without asking, for a pull request from a branch of this
+repository. `gh run list --status action_required` lists the held runs:
+
+```sh
+gh api -X POST repos/RyanSaxe/pair/actions/runs/RUN_ID/approve
+```
+
+Never approve a run from a fork, because that run executes someone else's code.
 
 For a change elsewhere that alters what the README's or the docs'
 screenshots show, and for a pull request from a fork, run
 `npm run screenshots` on macOS and commit the PNGs it rewrites. The script
 starts its own hub on a port the system assigns, with its state in a
-temporary directory, and takes each screenshot in the installed Google
-Chrome. The frame's text is the system font, so the script refuses to run on
+temporary directory, and takes each screenshot in Chrome for Testing. The frame's text is the system font, so the script refuses to run on
 another system, where lines would break in other places.
 
 When `npm run screenshots` fails, it saves a screenshot and the console log
@@ -280,4 +306,5 @@ The pull requests merge only after the reviewer approves the set in that
 session. A fix for a bug the reviewer finds there goes on the branch of the
 pull request it belongs to. That branch then merges into the review worktree
 again, the review hub restarts on the new code, and the agent publishes the
-next round.
+next round. The restarted hub draws every round of the session with the new
+frame, so a change to the frame needs no new session.

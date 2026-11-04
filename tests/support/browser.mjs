@@ -8,19 +8,27 @@ import "./env.mjs";
 // open() skips the test on that message, and fails it when CI is set, so a CI
 // run cannot pass by skipping.
 const missing = {
-  chrome: "Google Chrome is not installed",
+  chrome: "Chrome for Testing is not installed",
   webkit: "Playwright's WebKit is not installed",
 };
 
-export async function launch({ args, engine = "chrome" } = {}) {
+// launch() starts Chrome for Testing, not Google Chrome. On macOS, each new
+// Google Chrome adds keys to the keychain and reads all of them, so thousands
+// of test runs leave secd too busy for any Chrome's certificate check. Chrome
+// for Testing has no entitlement to those keys.
+export async function launch({
+  args,
+  ignoreDefaultArgs,
+  engine = "chrome",
+} = {}) {
   try {
     return engine === "webkit"
       ? await webkit.launch()
-      : await chromium.launch({ channel: "chrome", args });
+      : await chromium.launch({ channel: "chromium", args, ignoreDefaultArgs });
   } catch (error) {
     const message = error.message || String(error);
     if (
-      /Chromium distribution ['"]chrome['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
+      /Chromium distribution ['"]chromium['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
         message,
       )
     )
@@ -40,7 +48,7 @@ const tooOld = "Playwright's WebKit does not run on macOS 14 or earlier";
 export async function open(
   t,
   url,
-  { html, args, engine = "chrome", ...pageOptions } = {},
+  { html, args, ignoreDefaultArgs, engine = "chrome", ...pageOptions } = {},
 ) {
   if (engine === "webkit" && oldMac && !process.env.CI) {
     t.skip(tooOld);
@@ -48,7 +56,7 @@ export async function open(
   }
   let browser;
   try {
-    browser = await launch({ args, engine });
+    browser = await launch({ args, ignoreDefaultArgs, engine });
   } catch (error) {
     if (process.env.CI || error.message !== missing[engine]) throw error;
     t.skip(missing[engine]);
@@ -62,6 +70,16 @@ export async function open(
     );
   await page.goto(url);
   return page;
+}
+
+// While the macOS keychain daemon is slow to answer, Chrome's certificate check
+// can outlast its 30 seconds for a TLS connection, and the page's import from
+// esm.sh fails. fetchEsmInNode has Node fetch the real module and hands it to
+// the page, so Chrome opens no connection.
+export function fetchEsmInNode(page) {
+  return page.route(/^https:\/\/esm\.sh\//, async (route) =>
+    route.fulfill({ response: await route.fetch() }),
+  );
 }
 
 // This stand-in for the Pele library renders one fixed SVG for the navigation
@@ -81,12 +99,18 @@ const peleHash = `sha384-${createHash("sha384").update(pele).digest("base64")}`;
 export async function stubPele(page) {
   await page.route(/^http:\/\/127\.0\.0\.1:\d+\//, async (route) => {
     if (route.request().resourceType() !== "document") return route.fallback();
-    const response = await route.fetch();
-    const body = (await response.text()).replaceAll(
-      moduleIntegrity[libraries.pele],
-      peleHash,
-    );
-    return route.fulfill({ response, body });
+    // A test can end while the search window's frame is still loading, and then
+    // the hub is gone before this answers.
+    try {
+      const response = await route.fetch();
+      const body = (await response.text()).replaceAll(
+        moduleIntegrity[libraries.pele],
+        peleHash,
+      );
+      return await route.fulfill({ response, body });
+    } catch {
+      return route.abort().catch(() => {});
+    }
   });
   await page.route(/pele@[^/]+\/dist\/pele\.js$/, (route) =>
     route.fulfill({ body: pele, contentType: "text/javascript" }),

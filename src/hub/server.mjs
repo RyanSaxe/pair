@@ -1,9 +1,15 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
+import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
-import { agentRequestBytes, settings, version } from "../shared/settings.mjs";
+import {
+  agentRequestBytes,
+  packageRoot,
+  settings,
+  version,
+} from "../shared/settings.mjs";
 import {
   atomic,
   embedConfig,
@@ -17,6 +23,7 @@ import {
 } from "../shared/util.mjs";
 import { firstAnswers, firstAnswersHead } from "./first-answers.mjs";
 import { startFrom, withClosedParents } from "./linking.mjs";
+import { DEFAULT_LIMIT, KINDS, searchStore } from "./search/store.mjs";
 import { seenStore } from "./seen.mjs";
 import { loadSession } from "./session/state.mjs";
 import { readBytes, uploadBytes } from "./session/uploads.mjs";
@@ -55,6 +62,10 @@ export async function startHub(config = settings()) {
   const registry = new Map();
   const byDirectory = new Map();
   const register = serializer();
+  // inFlight counts the requests the hub has not finished answering, and
+  // shutDown() replaces drained to learn when the count reaches 0.
+  let inFlight = 0;
+  let drained = () => {};
   let origin = null,
     hostOrigin = null,
     allowedHosts = new Set(),
@@ -69,6 +80,7 @@ export async function startHub(config = settings()) {
   const tabOpen = () => Date.now() - tabPolledAt < config.tabWindowMs;
   const log = (message) =>
     (config.log || console.log)(`${timestamp()} ${message}`);
+  const search = searchStore({ log });
   // A session directory can be reached by more than one path, such as
   // /tmp/… and /private/tmp/… on macOS. The hub keys a session by the real
   // path of its parent and its own name, because a new session's directory
@@ -84,11 +96,18 @@ export async function startHub(config = settings()) {
     const known = await canonical(directory);
     let session = byDirectory.get(known);
     if (!session) {
-      session = await loadSession(directory, config, origin, tabOpen, (id) =>
-        registry.get(id),
+      session = await loadSession(
+        directory,
+        config,
+        origin,
+        tabOpen,
+        (id) => registry.get(id),
+        search.markChanged,
+        (keys) => seen.addToStarted(keys, listed()),
       );
       registry.set(session.id, session);
       byDirectory.set(known, session);
+      void search.add(session.id, session.directory);
     }
     return session;
   }
@@ -113,7 +132,15 @@ export async function startHub(config = settings()) {
   const sessionList = async (req) => {
     if (localHosts.has(req.headers.host)) tabPolledAt = Date.now();
     const sessions = listed();
-    return { sessions, seen: await seen.view(sessions) };
+    const lists = await seen.view(sessions);
+    const cleared = new Set(lists.cleared ?? []);
+    return {
+      sessions: sessions.map((entry) => ({
+        ...entry,
+        events: registry.get(entry.id).withWords(entry.events, cleared),
+      })),
+      seen: lists,
+    };
   };
   /* Browser routes take no token, as docs/reference/commands.md says under
      PAIR_HUB_HOST. sameOrigin is the only check that stops a page in another
@@ -130,11 +157,8 @@ export async function startHub(config = settings()) {
   // blocking="render" keeps the previous page on screen until the browser runs
   // it, and the browser runs module scripts in document order after it parses
   // the page. framePage puts the script last in the head, after the frame's
-  // and the page's modules, so the first paint comes after they have run. A
-  // round built before those modules moved into the head has them at the end
-  // of the body, after this script, and Chrome can paint its bare frame first.
-  // The browser never runs a script with no text, so the script contains a
-  // comment.
+  // and the page's modules, so the first paint comes after they have run. The
+  // browser never runs a script with no text, so the script contains a comment.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
   const framePage = (session, html, flags, head) =>
     embedConfig(
@@ -142,36 +166,131 @@ export async function startHub(config = settings()) {
       {
         sessionId: session.id,
         base: session.base,
+        hubVersion: version,
         ...(session.state.parent ? { parent: session.parentView() } : {}),
         ...flags,
       },
     );
+  const isClosed = (session) =>
+    session.state.stage === "complete" || Boolean(session.state.dismissedAt);
   const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
-    const html = await fs.readFile(entry.path, "utf8");
+    const readOnly = Boolean(flags.readonly || flags.closed);
+    const html =
+      (await session.renderRound(entry.round, { readOnly })) ??
+      (await fs.readFile(entry.path, "utf8"));
     return framePage(session, html, flags, head);
   };
+  /* The search window loads a session's frame when a result needs it, on a
+     phone as well, so the frame is compressed, and a compressed one is kept
+     until its round changes. */
+  const EMBEDS_KEPT = 8;
+  const COMPRESS_OVER_BYTES = 1024;
+  const embeds = new Map();
+  async function embedPage(session, round) {
+    const flags = isClosed(session)
+      ? { closed: true }
+      : round === session.state.current?.round
+        ? {}
+        : { readonly: true };
+    const key = [
+      session.id,
+      round,
+      session.pageSet(round).generation,
+      Object.keys(flags),
+      session.state.parent?.sessionId,
+    ].join("|");
+    if (!embeds.has(key)) {
+      const page = framePage(
+        session,
+        await session.renderForPreview(round),
+        { embedded: true, ...flags },
+        "",
+      );
+      embeds.set(key, gzipSync(page));
+      if (embeds.size > EMBEDS_KEPT) embeds.delete(embeds.keys().next().value);
+    }
+    return embeds.get(key);
+  }
   async function handle(req, res) {
+    inFlight++;
+    res.once("close", () => {
+      if (--inFlight === 0) drained();
+    });
     const reply = (code, value, type = "application/json", headers = {}) => {
+      const text =
+        typeof value === "string" || Buffer.isBuffer(value)
+          ? value
+          : json(value);
+      // A round's page can reach megabytes, and gzip holds the hub for about
+      // 190 ms on a 12 MB page. A browser on this machine would wait that long
+      // to save nothing, so only one on another machine, such as a phone, gets
+      // a compressed reply. The embed route compresses its own page into a
+      // Buffer.
+      const large =
+        typeof text === "string" &&
+        (type === "application/json" || type.startsWith("text/html")) &&
+        !localHosts.has(req.headers.host) &&
+        Buffer.byteLength(text) > COMPRESS_OVER_BYTES &&
+        /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
+      // A command compares X-Pair-Version with its own code version after its
+      // requests, and replaces a hub that runs other code.
       res.writeHead(code, {
         "Content-Type": type,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        "X-Pair-Version": version,
+        ...(large ? { "Content-Encoding": "gzip" } : {}),
         ...headers,
       });
-      res.end(
-        typeof value === "string" || Buffer.isBuffer(value)
-          ? value
-          : json(value),
-      );
+      res.end(large ? gzipSync(text) : text);
     };
     const html = (value, headers) =>
       reply(200, value, "text/html; charset=utf-8", headers);
+    // The frame polls the status and the session list, and sends back the tag
+    // of its last answer, so a poll that finds no change costs only headers.
+    // The tag is weak because a compressed body differs by the byte.
+    const polled = (value) => {
+      const text = json(value);
+      const hash = crypto.createHash("sha256").update(text).digest("base64url");
+      const tag = `W/"${hash}"`;
+      if (req.headers["if-none-match"] !== tag)
+        return reply(200, text, "application/json", { ETag: tag });
+      res.writeHead(304, { ETag: tag, "Cache-Control": "no-store" });
+      res.end();
+    };
     try {
       requireValue(allowedHosts.has(req.headers.host), "Invalid Host", 403);
       const url = new URL(req.url, `http://${req.headers.host}`);
       const parts = url.pathname.split("/").slice(1);
       const method = req.method;
+      if (method === "GET" && url.pathname === "/api/search") {
+        const params = url.searchParams;
+        const limit = Number(params.get("limit") || DEFAULT_LIMIT);
+        requireValue(
+          Number.isInteger(limit) && limit > 0 && limit <= 500,
+          "Invalid limit",
+        );
+        const kinds = (params.get("kinds") || "").split(",").filter(Boolean);
+        requireValue(
+          kinds.every((kind) => KINDS.includes(kind)),
+          "Invalid kinds",
+        );
+        return reply(
+          200,
+          await search.search({
+            query: params.get("q") || "",
+            session: params.get("session"),
+            round: params.get("round"),
+            closed: params.get("closed") === "1",
+            here: params.get("here"),
+            kinds,
+            limit,
+          }),
+        );
+      }
+      if (method === "GET" && url.pathname === "/api/search/sessions")
+        return reply(200, { sessions: await search.sessionChoices() });
       if (method === "GET" && url.pathname === "/api/hub")
         return reply(200, {
           app: "pair",
@@ -181,10 +300,17 @@ export async function startHub(config = settings()) {
           port: origin && Number(new URL(origin).port),
           startedAt,
           stateDir,
+          root: packageRoot,
           live: active().length,
         });
       if (method === "GET" && url.pathname === "/api/sessions")
-        return reply(200, await sessionList(req));
+        return polled(await sessionList(req));
+      if (method === "GET" && url.pathname === "/api/notifications")
+        return reply(200, {
+          sessions: Object.fromEntries(
+            open().map((session) => [session.id, session.notificationView()]),
+          ),
+        });
       if (method === "POST" && url.pathname === "/api/seen") {
         sameOrigin(req);
         const data = await readBody(req, 250_000);
@@ -291,7 +417,7 @@ export async function startHub(config = settings()) {
           // The hub serves a session the reviewer closed as read-only, so a
           // tab left open on it cannot submit and wake an agent that has
           // finished.
-          const closed = Boolean(session.state.dismissedAt);
+          const closed = isClosed(session);
           const flags = closed ? { closed: true } : {};
           const head = closed
             ? ""
@@ -307,24 +433,39 @@ export async function startHub(config = settings()) {
                 head,
               ),
             );
-          return html(
-            await roundPage(
-              session,
-              session.roundEntry(session.state.current.round),
-              flags,
-              head,
-            ),
-            {
-              "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
-            },
-          );
+          // A closed session's frame shows one round, so an older round opens at
+          // its own address.
+          const wanted = url.searchParams.get("round");
+          if (closed && wanted && wanted !== session.state.current.round) {
+            const params = new URLSearchParams(url.searchParams);
+            params.delete("round");
+            const query = params.size ? `?${params}` : "";
+            return reply(302, "", "text/plain", {
+              Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
+            });
+          }
+          const entry = session.roundEntry(session.state.current.round);
+          return html(await roundPage(session, entry, flags, head), {
+            "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
+          });
         }
         if (method === "GET" && rest[0] === "r" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {
               readonly: true,
+              ...(isClosed(session) ? { closed: true } : {}),
             }),
           );
+        if (method === "GET" && rest[0] === "embed" && rest.length === 2) {
+          const wanted =
+            round() === "latest" ? session.state.current?.round : round();
+          return reply(
+            200,
+            await embedPage(session, wanted),
+            "text/html; charset=utf-8",
+            { "Content-Encoding": "gzip" },
+          );
+        }
         if (method === "GET" && rest[0] === "preview" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {
@@ -347,7 +488,24 @@ export async function startHub(config = settings()) {
           });
         }
         if (method === "GET" && rest[0] === "api" && rest[1] === "status")
-          return reply(200, session.browserView());
+          return polled({ ...session.browserView(), hubVersion: version });
+        // The hub only appends a thread's messages, so an address always names
+        // the same image, and the browser keeps it.
+        if (
+          method === "GET" &&
+          rest[0] === "api" &&
+          rest[1] === "thread-image" &&
+          rest.length === 5
+        ) {
+          const image = session.threadImage(
+            decodeURIComponent(rest[2]),
+            Number(rest[3]),
+            Number(rest[4]),
+          );
+          return reply(200, image.bytes, image.type, {
+            "Cache-Control": "private, max-age=31536000, immutable",
+          });
+        }
         // The browser sends no Origin header with a same-origin GET, so only
         // the Host check protects this read, as it protects the other reads.
         if (rest[0] === "api" && rest[1] === "draft" && rest.length === 2) {
@@ -379,6 +537,18 @@ export async function startHub(config = settings()) {
           });
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close()));
+        }
+        if (
+          method === "POST" &&
+          rest[0] === "api" &&
+          rest[1] === "proposals" &&
+          rest.length === 2
+        ) {
+          const data = await readBody(req, 50_000);
+          return reply(
+            200,
+            await session.exclusive(() => session.writeProposal(data)),
+          );
         }
         // Only start and open-agent have a body. The body of start contains
         // where the work runs, and both bodies can contain the reviewer's
@@ -556,12 +726,28 @@ export async function startHub(config = settings()) {
   let settle;
   const closed = new Promise((resolve) => (settle = resolve));
   const close = () => (closing ||= shutDown().then(settle));
+  // The hub stops accepting connections and lets the requests in progress
+  // finish, for up to 3 seconds, so a command or a Send in progress when a
+  // command replaces the hub gets its answer. Then it closes every connection
+  // that remains. A browser keeps connections open that have sent no request,
+  // and Node 24's closeIdleConnections() leaves those open, so the hub waits
+  // for its requests instead of for its connections.
   async function shutDown() {
     clearInterval(timer);
-    for (const server of servers) {
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
-    }
+    const stopped = servers.map(
+      (server) => new Promise((resolve) => server.close(resolve)),
+    );
+    if (inFlight > 0)
+      await new Promise((resolve) => {
+        const cutOff = setTimeout(resolve, 3000);
+        drained = () => {
+          clearTimeout(cutOff);
+          resolve();
+        };
+      });
+    for (const server of servers) server.closeAllConnections();
+    await Promise.all(stopped);
+    await search.close();
     try {
       if ((await read(config.hubFile)).pid === process.pid)
         await fs.rm(config.hubFile, { force: true });

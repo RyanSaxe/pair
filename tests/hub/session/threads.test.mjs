@@ -54,7 +54,7 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
   const wakes = () => a.inbox.wakes.map((wake) => wake.message.message.content);
-  const line = `pair: the reviewer wrote to you in a thread on "Overview" in session ${a.directory}. Between your current steps, run pair read --session-dir ${a.directory} --thread ${id}, which prints the thread and how to answer it, then go on with your work.`;
+  const line = `pair: the reviewer wrote to you in a thread on "Overview" in session ${a.directory}. Before your next step, run pair read --session-dir ${a.directory} --thread ${id}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.`;
   assert.deepEqual(wakes(), [
     `${line}\n\nThe reviewer's message, which pair read also prints:\nWhat happens to a failed item?\n\nThe reviewer attached an image to the message. pair read prints its path.`,
   ]);
@@ -233,6 +233,62 @@ test("the reply action marks the thread read, then posts text or a checked fragm
   assert.equal((await thread(id)).state, "replied");
 });
 
+test("the status names a reply's images by address and writes their box, and the thread keeps them", async (t) => {
+  const { h, a, start, thread, settled } = await published(t);
+  const { id } = (await start({ quote: "A failed item" })).body.thread;
+  await settled(id);
+  // A PNG's signature and header give its size: 600 by 300.
+  const shot = Buffer.alloc(24);
+  shot.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  shot.writeUInt32BE(600, 16);
+  shot.writeUInt32BE(300, 20);
+  const image = `data:image/png;base64,${shot.toString("base64")}`;
+  const svg = `data:image/svg+xml;base64,${Buffer.from("<svg/>").toString("base64")}`;
+  const html = [
+    `<img alt="Whole" src="${image}">`,
+    `<img src="${image}" width="200" />`,
+    `<img src="${image}" width="50%">`,
+    `<img src="${svg}" alt="Drawn">`,
+    '<img src="https://example.test/shot.png">',
+  ].join("");
+  const posted = await a.action("reply", { note: id, html });
+  assert.equal(posted.code, 200, posted.body.error);
+
+  const address = (index) => `${a.base}/api/thread-image/${id}/1/${index}`;
+  assert.equal(
+    (await thread(id)).messages[1].html,
+    [
+      `<img alt="Whole" src="${address(0)}" width="600" height="300">`,
+      `<img src="${address(1)}" width="200" height="100"/>`,
+      // A percentage gives the browser no box, so this image stays in its tag.
+      `<img src="${image}" width="50%">`,
+      `<img src="${svg}" alt="Drawn">`,
+      '<img src="https://example.test/shot.png">',
+    ].join(""),
+  );
+
+  const served = await fetch(h.server.origin + address(0));
+  assert.equal(served.status, 200);
+  assert.equal(served.headers.get("content-type"), "image/png");
+  assert.match(served.headers.get("cache-control"), /immutable/);
+  assert.deepEqual(Buffer.from(await served.arrayBuffer()), shot);
+  assert.equal((await fetch(h.server.origin + address(2))).status, 404);
+  // The reviewer's message has text and no images.
+  assert.equal(
+    (await fetch(`${h.server.origin}${a.base}/api/thread-image/${id}/0/0`))
+      .status,
+    404,
+  );
+
+  // The agent reads what it wrote, and the stored thread keeps it.
+  const read = await a.action("reply", { note: id });
+  assert.equal(read.body.thread.messages.at(-1).html, html);
+  const saved = JSON.parse(
+    await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
+  );
+  assert.equal(saved.messages[1].html, html);
+});
+
 // The hub records the reviewer's thumbs up on the agent's reply without a wake
 // or a bell event, and the agent reads it on the thread.
 test("a thumbs up on a reply is recorded without a wake, drops its bell line and comes off again", async (t) => {
@@ -275,7 +331,7 @@ test("a thread starts on Agreed's progress card, on the overall comment and on W
   const { a, start, settled } = await published(t);
   for (const [topic, anchor, target, page] of [
     ["agreed", "Progress", "agent-activity", "Agreed so far"],
-    ["overall", "Overall feedback", undefined, "Overall feedback"],
+    ["overall", "Overall", undefined, "Overall"],
     ["work", "Work", undefined, "Work"],
   ]) {
     const started = await start({ topic, anchor, target });
@@ -346,10 +402,7 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   );
   const cited = await a.publish({ ...planData("2"), agreements: [entry(id)] });
   assert.equal(cited.code, 200, cited.body.error);
-  const snapshot = await fs.readFile(
-    path.join(a.directory, "rounds/example.2.html"),
-    "utf8",
-  );
+  const snapshot = await a.servedRound("2");
   const [record] = readPlanData(snapshot).agreements[0].sourceRecords;
   assert.equal(record.kind, "thread");
   assert.equal(record.text, "What happens to a failed item?");
@@ -358,49 +411,72 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   assert.equal(record.href, "./example.1.html?target=failure#overview");
 });
 
-test("the session list has a line for each thread in the current round and each older thread still waiting", async (t) => {
-  const { a, start, h, send } = await published(t);
-  const lines = async () => {
-    const { sessions } = await (
-      await fetch(`${h.server.origin}/api/sessions`)
-    ).json();
-    return sessions.find((entry) => entry.id === a.id).threads;
-  };
-  const answered = crypto.randomUUID();
-  const waiting = crypto.randomUUID();
-  const long = "Why three retries? ".repeat(20);
-  assert.equal((await start({ id: answered, text: long })).code, 201);
-  assert.equal((await start({ id: waiting })).code, 201);
-  const asked = (await lines()).find((line) => line.thread === answered);
-  assert.equal(asked.text.length, 160);
-  assert.ok(asked.waitingSince);
-  assert.equal(asked.answeredAt, undefined);
-
-  const replied = await a.action("reply", { note: answered, text: "Here." });
-  assert.equal(replied.code, 200);
-  const line = (await lines()).find((item) => item.thread === answered);
-  assert.equal(line.waitingSince, undefined);
-  assert.ok(line.answeredAt);
-
-  // A later message waits from when the reviewer wrote it, and the line keeps
-  // the thread's first message.
-  const later = await send(answered, {
-    replyId: crypto.randomUUID(),
-    text: "And on refunds?",
+test("a source on a proposal's card names the card, in a new round and in a round stored with no round or card in its source", async (t) => {
+  const { a, settled } = await published(t);
+  const proposed = await a.action("propose", {
+    id: "rex",
+    title: "Restart the Rex server",
+    delivers: "The server answers again.",
+    recommend: "here",
   });
-  assert.equal(later.code, 201, later.body.error);
-  const again = (await lines()).find((item) => item.thread === answered);
-  assert.ok(again.waitingSince > asked.waitingSince);
-  assert.equal(again.text, asked.text);
-  const closed = await a.action("reply", { note: answered, text: "Yes." });
-  assert.equal(closed.code, 200);
-
-  // The next round's list drops the answered thread and keeps the waiting one.
+  assert.equal(proposed.code, 200, proposed.body.error);
+  const id = crypto.randomUUID();
+  const started = await a.request(`${a.base}/api/threads`, {
+    id,
+    proposal: "rex",
+    text: "Can this wait until morning?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  await settled(id);
   assert.equal((await a.feedback(a.event())).code, 200);
-  assert.equal((await a.action("read")).code, 200);
-  assert.equal((await a.publish(planData("2"))).code, 200);
-  assert.deepEqual(
-    (await lines()).map((item) => item.thread),
-    [waiting],
+  await a.action("read");
+  const cited = await a.publish({
+    ...planData("2"),
+    agreements: [
+      {
+        id: "rex",
+        title: "Rex restarts in the morning",
+        html: "<p>It can wait.</p>",
+        sourceRefs: [{ kind: "thread", threadId: id }],
+      },
+    ],
+  });
+  assert.equal(cited.code, 200, cited.body.error);
+  const onCard = {
+    kind: "thread",
+    threadId: id,
+    text: "Can this wait until morning?",
+    label: "Restart the Rex server",
+    proposal: "rex",
+  };
+  // A browser gets a round's sources in the page, and in Agreed's record when
+  // it changes round with no page load.
+  const served = async () => {
+    const manifest = (await a.request(`${a.base}/api/page-set?round=2`)).body;
+    const { version } = manifest.pages.find((slot) => slot.id === "agreed");
+    const record = await a.request(
+      `${a.base}/api/page?round=2&id=agreed&version=${version}`,
+    );
+    return [
+      readPlanData(await a.servedRound("2")).agreements[0].sourceRecords[0],
+      record.body.page.agreements[0].sourceRecords[0],
+    ];
+  };
+  assert.deepEqual(await served(), [onCard, onCard]);
+  const pages = path.join(a.directory, "pages", "2");
+  const file = path.join(
+    pages,
+    (await fs.readdir(pages)).find((name) => name.startsWith("agreed")),
   );
+  const stored = JSON.parse(await fs.readFile(file, "utf8"));
+  stored.page.agreements[0].sourceRecords = [
+    {
+      kind: "thread",
+      threadId: id,
+      text: "Can this wait until morning?",
+      href: "./undefined.undefined.html#undefined",
+    },
+  ];
+  await fs.writeFile(file, JSON.stringify(stored));
+  assert.deepEqual(await served(), [onCard, onCard]);
 });

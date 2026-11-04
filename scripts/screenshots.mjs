@@ -1,5 +1,6 @@
 // npm run screenshots runs this script. It stages a demo session on a hub of
-// its own and writes the PNGs for the README and the docs from Google Chrome.
+// its own and writes the PNGs for the README and the docs from Chrome for
+// Testing.
 // It then stages a second session by running the pair command as an agent does,
 // and writes the illustration of a session and the picture of starting work on
 // a phone.
@@ -10,6 +11,8 @@ import { fileURLToPath } from "node:url";
 import { stage } from "./screenshots/capture.mjs";
 import { saveFailure } from "./screenshots/failure.mjs";
 import { illustrate } from "./screenshots/illustration.mjs";
+import { samePicture } from "./screenshots/unchanged.mjs";
+import { open } from "../tests/support/browser.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 // The screenshots workflow, .github/workflows/screenshots.yml, uploads this
@@ -41,6 +44,13 @@ async function main() {
     images = await stage(t, scratch);
     const pictures = await illustrate(t, path.join(scratch, "illustration"));
     for (const [file, png] of pictures) images.set(file, png);
+    // A PNG that shows the same picture stays as it is, so the screenshots job
+    // commits only when a picture changes.
+    const page = await open(t, "about:blank");
+    for (const [file, png] of images) {
+      const before = await fs.readFile(path.join(root, file)).catch(() => null);
+      if (before && (await samePicture(page, before, png))) images.delete(file);
+    }
   } catch (error) {
     failure = error;
     // The cleanups close Chrome, so saveFailure() runs before them.
@@ -68,7 +78,7 @@ async function main() {
   if (failure) throw failure;
   for (const [file, png] of images)
     await fs.writeFile(path.join(root, file), png);
-  console.log(`Wrote ${images.size} screenshots.`);
+  console.log(`Rewrote ${images.size} screenshots whose pictures changed.`);
 }
 
 main().catch((error) => {

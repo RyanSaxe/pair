@@ -4,26 +4,35 @@ import { base, plan, session } from "#frame/app/view.mjs";
 import { pageIndicator, separator } from "#frame/pages/pages.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { drawActivity, renderHistory } from "#frame/sync/activity-view.mjs";
+import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
 
 /* Once the agent publishes Agreed, the hub serves the round at the same
    URL, and once the reviewer closes the session, the hub serves the page as
-   closed. pollHome() reloads the page when a status shows either. */
+   closed. pollHome() reloads the page when a status shows either, and a closed
+   page reloads when an agent reopens the session. */
 async function pollHome() {
   try {
     const response = await fetch(`${base}/api/status`);
     if (!response.ok) throw Error();
     const status = await response.json();
-    if (status.current || status.dismissedAt) {
+    if (
+      session.closed
+        ? !status.dismissedAt
+        : status.current || status.dismissedAt
+    ) {
       location.reload();
       return;
     }
     setRemote(status);
+    noticeHub(status.hubVersion);
   } catch {
     // When the request fails, the next poll tries again.
     return;
   }
+  renderHistory();
+  if (session.closed) return;
   $("home-agent").textContent = [
     remote.holder?.name,
     `started ${ago(remote.startedAt)}`,
@@ -31,7 +40,6 @@ async function pollHome() {
     .filter(Boolean)
     .join(" · ");
   $("home-agent").hidden = false;
-  renderHistory();
   $("agent-activity").hidden = false;
   drawActivity(true);
 }
@@ -87,8 +95,8 @@ export function startHome() {
     drawNavigation();
     beginMove();
     void pollHome().finally(arrived);
-    setInterval(pollHome, 1500);
   }
+  setInterval(pollHome, 1500);
   void pollSessions();
   setInterval(pollSessions, 5000);
 }
@@ -100,4 +108,5 @@ function showClosed() {
   $("submit").hidden = true;
   renderHistory();
   arrived();
+  void pollHome();
 }

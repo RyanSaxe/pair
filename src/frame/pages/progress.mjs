@@ -1,9 +1,11 @@
 import { scroller } from "#frame/app/places.mjs";
 import { $ } from "#frame/app/util.mjs";
+import { renderHistory } from "#frame/sync/activity-view.mjs";
 
 /* When the reader moves to another page, the frame updates the header and
-   the sidebar at the click, and updates the reading column once the new
-   page is complete. Until then the column shows the previous page. If the
+   the sidebar at the click, and updates the reading column and the round
+   strip above it once the new page is complete. Until then the column shows
+   the previous page. If the
    new page is not complete 200 ms after the click, a thin bar grows along
    the top of the column at a pace that would fill it in 3 s, and stops at
    90%. When the page is complete, a move that showed the bar crossfades to
@@ -54,23 +56,52 @@ export function installProgress() {
   bar.className = "move-bar";
   bar.setAttribute("aria-hidden", "true");
   document.querySelector(".main-column").prepend(bar);
+  window.addEventListener("resize", dropPictures);
   const at = Number(stored(CLICK_KEY));
   stored(CLICK_KEY, null);
   if (at && Date.now() - at < 5000) beginMove(at);
 }
+// A copy keeps the pane's box in pixels, so it is wrong once the column moves,
+// as it does when the window changes size or a wide window's sidebar closes or
+// opens.
+export function dropPictures() {
+  picture?.remove();
+  fading?.remove();
+  picture = fading = null;
+}
+// The reading box is the pane below the round strip. Above 720px the strip is
+// above the pane, and at 720px and below it sits over the pane's top.
+function readingBox() {
+  const pane = scroller().getBoundingClientRect();
+  const top = Math.max(
+    pane.top,
+    $("history-strip").getBoundingClientRect().bottom,
+  );
+  return { left: pane.left, top, width: pane.width, height: pane.bottom - top };
+}
+// The strip changes as a move arrives, and the page then fades in below it, so
+// the fading copy moves to the same place.
+export function moveFading() {
+  if (!fading) return;
+  const { top, height } = readingBox();
+  fading.style.top = `${top}px`;
+  fading.style.height = `${height}px`;
+}
+export const pictureHeld = () => Boolean(picture);
 // copyColumn() keeps every id in the copy, so the styles scoped to
 // #page-content still apply to it. The copy is inside a closed shadow root
 // with copies of the page's stylesheets, so no lookup in the document finds
 // its duplicate IDs.
-function copyColumn() {
+export function copyColumn(prepare = () => {}) {
   const column = $("content");
-  const pane = scroller().getBoundingClientRect();
+  const pane = readingBox();
   const box = column.getBoundingClientRect();
   const frame = document.createElement("div");
   frame.inert = true;
   frame.style.cssText = `position:fixed;overflow:hidden;pointer-events:none;background:var(--panel);left:${pane.left}px;top:${pane.top}px;width:${pane.width}px;height:${pane.height}px`;
   const copy = column.cloneNode(true);
   copy.style.cssText = `position:absolute;left:${box.left - pane.left}px;top:${box.top - pane.top}px;width:${box.width}px;height:${box.height}px`;
+  prepare(copy);
   const canvases = copy.querySelectorAll("canvas");
   column.querySelectorAll("canvas").forEach((canvas, index) => {
     canvases[index].getContext("2d")?.drawImage(canvas, 0, 0);
@@ -152,6 +183,7 @@ export function arrived() {
   picture = null;
   if (fade) crossfade(leaving);
   else leaving?.remove();
+  renderHistory();
   finishBar(shown);
 }
 function crossfade(leaving) {

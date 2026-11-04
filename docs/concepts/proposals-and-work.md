@@ -16,20 +16,34 @@ approve therefore has a card.
 ## The Work page
 
 **Work**, in the sidebar above Review, lists every proposal of the session,
-from the moment the agent records it, in four tabs:
+from the moment the agent records it, in three tabs:
 
-| Tab       | Lists                                                                                                                                                     |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Needs you | Proposals with an agent reply that you have not cleared from the bell, and work running in its own session when that session has a round waiting for you. |
-| Running   | Work you approved that is not finished yet.                                                                                                               |
-| Proposed  | Proposals waiting for you to start or decline them.                                                                                                       |
-| Done      | Finished work, proposals the agent joined into another, and proposals that you declined or the agent withdrew.                                            |
+| Tab      | Lists                                                                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Running  | Work you approved that runs in this session and is not finished yet.                                                                            |
+| Proposed | Proposals waiting for you to start or decline them.                                                                                             |
+| Done     | Finished work, work running in its own session, proposals the agent joined into another, and proposals that you declined or the agent withdrew. |
 
-Work opens on the first tab that has a card in it. When you click a bell line
-or a system notification about a card, Work opens on that card's tab instead,
-with the card or the agent's reply in view. The Work row in the sidebar shows
-two numbers. The grey number is the number of cards in Proposed, and the
-orange one is the number in Needs you.
+A proposal you start in a sub-session or with a new agent goes to Done as soon
+as it starts, because the work has its own session's rounds. Its card in Done has
+the link to that session and the words that started the work.
+
+pair puts a card on a tab by the card's own state alone. A reply from the agent,
+or a round waiting in the work's own session, adds a row to the bell and leaves
+the card on its tab. The status line of an unfinished card shows either one.
+
+Work opens on Proposed when a proposal is waiting for you to start it, and
+otherwise on the first tab that has a card in it. When you click a card's row in
+the [bell](sessions-and-rounds.md#the-bell), open it in
+[Notifications](sessions-and-rounds.md#notifications), or click a system
+notification about a card, Work opens on that card's tab instead, with the card
+or the agent's reply in view. The Work row in the sidebar shows one
+number, the number of cards in Proposed.
+
+While you read a tab, the cards on screen keep their place when other cards
+change. A card on screen that changes tab, such as one you start or decline,
+stays where it is with its new status until you change tab. Until then, the
+tab's count can be lower than the number of cards it lists.
 
 ### Cards
 
@@ -58,6 +72,18 @@ on screen on Work, and a card you see only on another page stays New. The
 hub stores which cards you have seen, so a phone and a computer on the same
 hub show the same New labels. pair never labels a card in Done as New.
 
+### Writing your own item
+
+**New work item**, at the top of Work, opens a form with a title and a
+description of up to 4,000 characters. You can add images to the description,
+as you do to a note. Choose where the work runs, as you do with Start, and
+press **Start**, or press **Save for later** to put the card in Proposed. Work
+then opens the card's tab with the card in view. pair keeps your text and images
+until the card exists, so closing the form or reloading the page loses nothing.
+
+The hub tells no agent about a saved card until you start it, and it refuses
+an agent's attempt to revise, withdraw or join a card you wrote.
+
 ### Status lines
 
 | Status line                                          | Meaning                                                                                  |
@@ -66,9 +92,9 @@ hub show the same New labels. pair never labels a card in Done as New.
 | Working here                                         | The work runs in this session's rounds.                                                  |
 | Opening a sub-session, Opening a new agent session   | You started the work in its own session, and the agent has not created that session yet. |
 | Planning in a sub-session, Planning with a new agent | You started the work with Plan it first, and have not chosen Build it in its session.    |
-| Working                                              | The work runs in its own session.                                                        |
+| In its own session                                   | The work runs in its own session, and the **Open** link beside it opens that session.    |
 | Waiting for you                                      | The session the work runs in has a round waiting for you.                                |
-| Agent replied                                        | The agent replied in a thread on the card, and you have not cleared it from the bell.    |
+| Agent replied                                        | The agent replied on a card that is not finished, and the bell still lists that reply.   |
 | Done                                                 | The work is finished.                                                                    |
 | Declined                                             | You declined the proposal.                                                               |
 | Withdrawn                                            | The agent withdrew the proposal, and the card shows its reason.                          |
@@ -84,7 +110,7 @@ hub show the same New labels. pair never labels a card in Done as New.
 
 ## Where the work runs
 
-When you press Start, a popup shows what the proposal delivers, the titles
+When you press Start, a drawer shows what the proposal delivers, the titles
 of any proposals joined into it, and the three places the work can run, with
 the agent's recommendation marked. It also has a box for a message to the
 agent.
@@ -103,7 +129,7 @@ the checkbox turns off and cannot be checked, because a plan round in this
 session would mix with its other work.
 
 Starting work never ends the round you are reading. Your drafts on the
-round stay, and you can start more work before you send feedback.
+round stay, and you can start more work before you send the round.
 
 The agent cannot always open a new agent session. It replies in a thread
 on the card with what it opened, or with the command when it cannot open an
@@ -152,14 +178,16 @@ How work finishes depends on where it runs.
   about it. On that page, the agent explains the work well enough for you to
   review and maintain it. The agent then marks the proposal done with
   `pair propose --done`, and pair moves the card to Done. Until then, the
-  agent keeps building the work in every round after your feedback,
+  agent keeps building the work in every round after you send one,
   whether or not you mention the work in it. When you ask for changes to
-  finished work in your feedback, the agent reopens the proposal with
+  finished work in what you send, the agent reopens the proposal with
   `pair propose --reopen`, and pair moves the card back to Running.
 - Work that runs in a sub-session or a new agent session is finished when
-  you close that session. The hub then marks the proposal done. This
-  session's agent sees that the proposal is done the next time it runs
-  `pair read`, and builds on the work done in that session.
+  you close that session. The hub then marks the proposal done, and the status
+  line shows Done in its own session. This session's agent sees that the
+  proposal is done the next time it runs `pair read`, and builds on the work
+  done in that session. When someone reopens that session, the hub takes the
+  mark away, and the card stays in Done with the status line In its own session.
 
 ## Done elsewhere, withdrawn or joined
 
@@ -191,7 +219,7 @@ hub accepts the join only when both of these are true:
 The hub also refuses to join a proposal into one that is declined,
 withdrawn, done or joined into another.
 
-B's card, and its Start popup, list the joined proposals under Joined into
+B's card, and its Start drawer, list the joined proposals under Joined into
 this proposal. pair moves each joined card to Done, and its status line shows
 Done and Joined with B's title, such as Done · Joined Retry a charge on a
 timeout. When the agent joins a card that other cards were joined into, the
@@ -224,5 +252,5 @@ the browser, the two kinds work the same way:
 - The session list shows the session indented under this one.
 - The line under its header shows this session's name, a chevron and its
   own name. Click this session's name to go back.
-- You send feedback on its rounds as in any session. When you close it, the
+- You send its rounds as in any session. When you close it, the
   hub marks the proposal done in this session.

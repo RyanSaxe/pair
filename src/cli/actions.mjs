@@ -75,6 +75,9 @@ async function readThread(session, id) {
   };
 }
 
+// The reviewer sees --text exactly as it was typed: bold, a link, code or a list.
+const MARKDOWN = /\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)|`[^`\n]+`|^\s*[-*] /m;
+
 export async function reply(options) {
   const id = options.thread;
   if (options.text !== undefined && options.file !== undefined)
@@ -84,6 +87,11 @@ export async function reply(options) {
     throw usageError(
       "reply",
       "pair reply requires --text TEXT or --file HTML.",
+    );
+  if (text && MARKDOWN.test(options.text))
+    throw usageError(
+      "reply",
+      "--text posts plain text, so the reviewer would see this Markdown as typed. Write the reply as an HTML fragment and post it with --file.",
     );
   const session = await openSession(options);
   const result = await session.request({

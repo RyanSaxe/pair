@@ -20,29 +20,54 @@ session to your browser and wakes the agent when you respond.
   `PAIR_HUB_IDLE_SECONDS`, and the next `pair start` starts a new hub on the
   same port.
 - A new hub loads every session from disk, so a session's URL stays the same.
-- When `pair start` finds a hub that runs a different version of pair while
-  a session is live, it uses that hub and prints a warning. The next
-  `pair start` that finds no live session stops the old hub and starts one
-  that runs its own version.
+- The hub reads the frame's files once and keeps them until it exits. It draws
+  a round from those files and the round's records in `pages/<round>/` each
+  time a browser asks for the round, so a new hub shows every round of every
+  session with the frame from its own code.
+- Every answer from the hub has its code version in the `X-Pair-Version`
+  header. When a session command finds a hub that runs a different version of
+  pair, it stops the old hub and starts one that runs its own version.
+  `pair start` does this before its request, and every other session command
+  after its request finishes, so the next command reaches the new hub.
+- While a session is live on the old hub, a command replaces the hub only when
+  it runs pair from the hub's folder and git status shows no uncommitted
+  change under `src/` or `adapters/` there. A folder that is not a git clone,
+  such as an npm install, counts as committed. Otherwise the command keeps the
+  old hub and prints why the hub stays on its version.
+- When several commands find at once that the hub needs replacing, or that no
+  hub runs, the command that creates `hub/start.lock` stops or starts the hub,
+  and the others wait for that hub and use it.
+- The old hub stops accepting connections and lets the requests in progress
+  finish, for up to 3 seconds, before it exits. The new hub loads the live
+  sessions from disk, and they stay live.
 
 ### The hub and your browser
 
 - Every pair tab asks the hub for the session list every 5 seconds, with
-  each session's latest events for the bell.
+  each session's latest events for the bell. While Notifications is open, the
+  tab also asks for every thread line of the open sessions on each of those
+  polls.
+- A tab keeps the frame code it loaded. When the hub restarts on a new version,
+  the tab reloads itself once, at the same round, page and place. It waits while
+  you type, while a dialog or menu is open, or while text is selected or a video
+  has started. A hub that is down, or too old to send its version, causes no
+  reload.
 - The hub records which bell lines you cleared, which pages you opened and
   which proposal cards you saw on Work, and sends those records with the
   session list. A phone on the `PAIR_HUB_HOST` address and a computer then
   show the same bell, sessions badge and **New** marks, within one poll of
-  each other. Layout preferences, such as the sidebar, stay in each browser.
-- The hub keeps each session's completed feedback and numbers each change it
+  each other. Layout preferences, such as the sidebar and the page's width, stay
+  in each browser.
+- The hub keeps each session's completed draft items and numbers each change it
   receives. Every pair tab sends what you complete and reads the hub's copy when
   a status poll shows a newer revision. When two devices change the same item,
   the change the hub receives later wins, and a removed note stays removed. Text
   you typed but did not complete stays in the browser you typed it in.
 - When the hub or another tab changes the draft, the frame updates the choices,
   answers, drawings and note marks on the page at once. It draws the whole page
-  again only while you are not typing on the page, using a dialog or a
-  prototype, or part way through a video, so none of those is replaced.
+  again only while you are not typing, using a modal window or a prototype,
+  or part way through a video, so none of those is replaced. An open drawer
+  does not stop the redraw.
 - The hub records when a pair tab on this machine last asked for the session
   list. When the agent publishes the first Agreed of a new session,
   `pair publish` prints an instruction to open the URL in your browser if no
@@ -56,7 +81,7 @@ session to your browser and wakes the agent when you respond.
 
 The hub wakes the holder at these moments:
 
-- When you send feedback, unless the session is paused.
+- When you send a round, unless the session is paused.
 - When you send a message in a [thread](threads.md), even while the session
   is paused. The wake message contains your message, or its first 500
   characters cut at a space when it is longer, the number of images you
@@ -174,7 +199,7 @@ When pi or opencode has exited, the wake fails with
 ## The result of a wake
 
 `pair status` shows the holder and the result of the hub's last wake for
-your feedback or a Start.
+what you sent or a Start.
 
 - The result of each wake has `via`, the delivery path the hub used, such as
   `steer` or `queue` for Codex, or `parent` when the hub sent it to the
@@ -193,6 +218,7 @@ pair stores everything under `$XDG_STATE_HOME/pair/`, or
 hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
+  start.lock         the pid of the command that is starting or replacing the hub
   seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
 sessions/<dir>/      the directory name is not the session ID
   status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it
@@ -200,14 +226,14 @@ sessions/<dir>/      the directory name is not the session ID
   wake.json          how to wake the holder, such as its inbox socket or thread ID
   pages/<round>/     published page records
   src/<round>/<id>/  each page's source
-  rounds/            built rounds
+  rounds/            only from an older pair: built rounds, read for a round with no records in pages/
   draft.json         your completed notes, choices and answers, until you send
   feedback/          your submissions
   uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
   scenes/            editable shapes of drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
-  activity.json      the last 50 events, for the bell
+  activity.json      the last 50 events since the last reopen, for the bell and Notifications
   output/            command output too long to print
 ```
 

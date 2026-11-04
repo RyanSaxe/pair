@@ -29,10 +29,11 @@ import {
   views,
   waiting,
   waitingView,
+  embedded,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
-import { indexPage, rebuildKnown } from "#frame/notes/notes.mjs";
-import { placeThreads } from "#frame/notes/threads.mjs";
+import { indexPage, rebuildKnown } from "#frame/notes/known.mjs";
+import { onCurrentAgreed, placeThreads } from "#frame/notes/threads.mjs";
 import {
   displayedRound,
   redrawPage,
@@ -53,7 +54,9 @@ import {
   submissionInFlight,
 } from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
+import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
+import { fetchStatus, statusLoading } from "#frame/sync/status.mjs";
 
 export let selectedTab = "current";
 // sentByRound contains the submission of each past round that the Previous
@@ -275,6 +278,15 @@ async function loadPageSet(round, viewFor, failure) {
   }
   return manifest;
 }
+// The search window's frame starts with no pages, so it reads their list first.
+export const ensurePageSet = () =>
+  pageSets.has(plan.round)
+    ? Promise.resolve()
+    : loadPageSet(
+        plan.round,
+        () => views.get(plan.round),
+        "Could not load page list.",
+      );
 async function syncPageSet() {
   const round = remote?.current?.round;
   if (!round || !remote.pageSetGeneration) return;
@@ -334,15 +346,31 @@ function loadPastView(round) {
   pastLoads.set(round, task);
   return task;
 }
-export async function openPast(round, { pageId = null, targetId = null } = {}) {
+export async function openPast(
+  round,
+  { pageId = null, targetId = null, match = null, push = true } = {},
+) {
   const loaded = await loadPastView(round).catch(() => false);
   if (!loaded) {
-    location.assign(`${base}/r/${encodeURIComponent(round)}`);
+    const address = new URLSearchParams();
+    if (targetId) address.set("target", targetId);
+    if (match) address.set("match", match);
+    const query = address.size ? `?${address}` : "";
+    const hash = pageId ? `#${encodeURIComponent(pageId)}` : "";
+    const older = `${base}/${embedded ? "embed" : "r"}/${encodeURIComponent(round)}${query}${hash}`;
+    if (embedded) location.replace(older);
+    else location.assign(older);
     return;
   }
   setPastRound(round);
   if (pageId) places[round] = { page: pageId, at: {} };
-  switchTab("past", targetId, { showPage: true });
+  switchTab("past", targetId, { showPage: true, match, push });
+}
+// From an older round's tab, a result in the current round moves back with no
+// page load.
+export function openCurrent({ pageId, targetId, match }) {
+  places[remote.current.round] = { page: pageId, at: {} };
+  switchTab("current", targetId, { showPage: true, match });
 }
 // Current's draft is the one set aside when the reader left Current, or
 // else the saved draft.
@@ -387,7 +415,11 @@ export function listTab(tab) {
   updateNavigation(true);
   review();
 }
-export function switchTab(tab, targetId = null, { showPage = true } = {}) {
+export function switchTab(
+  tab,
+  targetId = null,
+  { showPage = true, match = null, push = true } = {},
+) {
   if (!tabAvailable(tab)) return;
   flushPlace();
   const round = tab === "current" ? remote.current.round : pastRound;
@@ -412,16 +444,15 @@ export function switchTab(tab, targetId = null, { showPage = true } = {}) {
     const place = view.waiting
       ? null
       : placeIn(round, [...pages.map((item) => item.id), "feedback"]);
-    show(place?.page || "agreed", targetId);
+    show(place?.page || "agreed", targetId, { match, push });
   } else savePlaces();
   if (tab === "past") void loadPastSubmission(round).catch(() => {});
   renderRounds();
 }
 export async function poll() {
+  if (statusLoading) return;
   try {
-    const response = await fetch(`${base}/api/status`);
-    if (!response.ok) throw Error();
-    const result = await response.json();
+    const result = await fetchStatus();
     if (result.sessionId !== session.sessionId) throw Error("Wrong session");
     remote = result;
     connected = true;
@@ -436,15 +467,33 @@ export async function poll() {
       await loadPastView(pastRound).catch(() => {});
     }
     // When Current's round was sent, in this browser or another, the
-    // Previous tab shows it, and a reader on Work stays on Work.
+    // Previous tab shows it, and a reader on Work stays on Work. A place the
+    // reader opened from a result or a link stays open too, under Previous, as
+    // it would have opened had this poll come first.
     if (waiting() && !submissionInFlight) {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
         const onWork = shownPage() === "work";
-        switchTab("current", null, { showPage: !onWork });
-        if (onWork)
-          show("work", null, { keepScroll: true, push: false, inPlace: true });
+        const address = new URLSearchParams(location.search);
+        const target = address.get("target");
+        const match = address.get("match");
+        if (!onWork && (target || match) && !onCurrentAgreed(target))
+          await openPast(submittedRound, {
+            pageId: shownPage(),
+            targetId: target,
+            match,
+            push: false,
+          });
+        else {
+          switchTab("current", null, { showPage: !onWork });
+          if (onWork)
+            show("work", null, {
+              keepScroll: true,
+              push: false,
+              inPlace: true,
+            });
+        }
       }
     }
     // When the next round's Agreed arrives while Current waits, the frame
@@ -463,7 +512,9 @@ export async function poll() {
       );
     }
     void loadSubmission().catch(() => {});
-    placeThreads();
+    // On Work, refreshWork() places the threads, and it keeps the reader's place
+    // while it does.
+    if (shownPage() !== "work") placeThreads();
     if (
       state.pending?.event?.id === remote.latestSubmissionId &&
       remote.latestSubmissionRound === plan.round &&
@@ -483,4 +534,5 @@ export async function poll() {
   review();
   refreshWork();
   redrawPage();
+  if (connected) noticeHub(remote.hubVersion);
 }

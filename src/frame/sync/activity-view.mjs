@@ -1,5 +1,5 @@
 import { ago, since } from "#frame/app/time.mjs";
-import { $ } from "#frame/app/util.mjs";
+import { $, copyText } from "#frame/app/util.mjs";
 import {
   base,
   currentShown,
@@ -16,6 +16,7 @@ import {
 import { placeMarks } from "#frame/notes/notes.mjs";
 import { placeThreads } from "#frame/notes/threads.mjs";
 import { displayedRound, pageIndicator } from "#frame/pages/pages.mjs";
+import { moveFading, pictureHeld } from "#frame/pages/progress.mjs";
 import { handoffLine } from "#frame/pages/renderers.mjs";
 import { renderSentFeedback, shownSubmission } from "#frame/review/review.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
@@ -236,7 +237,28 @@ function parentCrumbs() {
   link.textContent = parent.title;
   return [link, remote?.current?.title || plan.title];
 }
+// copyResult is the button's text after a click, and the strip keeps it until
+// the agent runs the command. When the browser refuses the copy, the frame shows
+// the command for the reviewer to select.
+let copyResult = null;
+async function copyReopen() {
+  const command = `pair start --reopen --session-dir ${remote.sessionDir}`;
+  const copied = await copyText(command);
+  copyResult = copied ? "Copied" : "Copy failed";
+  const line = $("reopen-command");
+  line.firstElementChild.textContent = command;
+  line.hidden = copied;
+  renderHistory();
+}
 function drawHistoryLabel(label, old, past, parent) {
+  if (copyResult)
+    return label.replaceChildren(
+      ...crumbTrail([
+        copyResult === "Copied"
+          ? "Paste it into any agent to reopen"
+          : "Paste this into any agent to reopen",
+      ]),
+    );
   if (old && session.closed) {
     const name = document.createElement("b");
     name.textContent = plan.title;
@@ -256,7 +278,7 @@ function drawHistoryLabel(label, old, past, parent) {
     if (past || shownSubmission()) {
       const meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = " · Feedback sent";
+      meta.textContent = " · Sent";
       label.append(meta);
     }
     return;
@@ -267,14 +289,19 @@ function drawHistoryLabel(label, old, past, parent) {
 }
 // A tab click leaves the page on screen, so renderHistory shows the strip
 // whenever the page on screen belongs to the earlier round, whichever tab
-// is selected.
+// is selected. A held picture is the page on screen until the move arrives.
 export function renderHistory() {
+  if (pictureHeld()) return;
   const old = mode === "readonly" || session.closed;
   const past = editable && displayedRound === pastRound;
   const parent = parentCrumbs();
   const strip = $("history-strip");
-  strip.hidden = !(old || past || parent.length);
-  if (strip.hidden) return;
+  const hidden = !(old || past || parent.length);
+  if (strip.hidden !== hidden) {
+    strip.hidden = hidden;
+    moveFading();
+  }
+  if (hidden) return;
   const label = $("history-label");
   // renderHistory redraws the line only when it changed, so a pointer on the
   // parent's name keeps its hover state.
@@ -284,11 +311,16 @@ export function renderHistory() {
     plan.round,
     Boolean(shownSubmission()),
     parent.map((crumb) => crumb.textContent ?? crumb),
+    copyResult,
   ]);
   if (label.dataset.key !== key) {
     label.dataset.key = key;
     drawHistoryLabel(label, old, past, parent);
   }
+  const reopen = $("history-reopen");
+  reopen.hidden = !session.closed || !remote?.sessionDir;
+  reopen.textContent = copyResult || "Reopen";
+  reopen.onclick = copyReopen;
   const button = $("history-return");
   button.hidden = old ? session.closed : !past || !currentShown();
   button.textContent = "Back to current";

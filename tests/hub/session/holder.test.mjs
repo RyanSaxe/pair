@@ -117,7 +117,7 @@ test("a start that takes over an open round names the submission the round answe
   assert.equal(took.code, 200);
   assert.equal(
     took.body.next,
-    `If you have not run pair guide in this conversation, run it first. This round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. You still have to publish these pages: overview. None of them has started. Each time you or a subagent begin work on a page, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`,
+    `If you have not run pair guide in this conversation, run it first. This round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. You still have to publish these pages: overview. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`,
   );
 });
 

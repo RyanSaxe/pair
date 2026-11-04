@@ -4,6 +4,7 @@ import path from "node:path";
 import { problems } from "../../build/lint.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
+import { replyImages } from "./thread-images.mjs";
 
 export async function readThreads(directory) {
   const folder = path.join(directory, "threads");
@@ -61,44 +62,16 @@ export function threads(session) {
   // shown leaves out the result of the thread's last wake, because its
   // reason can contain the holder's socket path.
   const shown = ({ wake, ...thread }) => thread;
+  const images = replyImages(session.base);
   const threadView = () =>
     [...records.values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map(shown);
-  // threadLines gives the bell's Threads tab a line for each thread in the
-  // current round and each older thread still waiting for the agent, so the
-  // list stays short however many rounds a session runs. Every tab reads the
-  // session list every 5 seconds, so a line has only the start of the thread's
-  // first message. waitingSince is when the reviewer first wrote after the
-  // agent's last reply, and answeredAt is when that reply came. A line has the
-  // fields that a reply's event has, so the frame opens both the same way.
-  const lineLength = 160;
-  const threadLines = () =>
-    [...records.values()].flatMap((thread) => {
-      const { messages } = thread;
-      const reply = messages.findLast((item) => item.from === "agent");
-      const unanswered = messages[messages.indexOf(reply) + 1];
-      if (!unanswered && thread.round !== session.state.current?.round)
-        return [];
-      const line = {
-        thread: thread.id,
-        name: thread.page,
-        text: (messages[0]?.text || thread.anchor || "").slice(0, lineLength),
-        ...(thread.proposal
-          ? { page: "work", proposal: thread.proposal }
-          : { round: thread.round, page: thread.topic }),
-        ...(thread.target ? { target: thread.target } : {}),
-        ...(unanswered
-          ? { waitingSince: unanswered.at }
-          : { answeredAt: reply?.at }),
-      };
-      return [line];
-    });
+      .map((thread) => images.lighten(shown(thread)));
   // The frame sends the topic overall for Review's overall comment and work
   // for the Work page.
   const ownTitles = {
     agreed: "Agreed so far",
-    overall: "Overall feedback",
+    overall: "Overall",
     work: "Work",
   };
   function pageTitle(round, topic) {
@@ -144,7 +117,7 @@ export function threads(session) {
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
-    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Between your current steps, run ${readCommand(thread.id)}, which prints the thread and how to answer it, then go on with your work.${wakeNote(message)}`;
+    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Before your next step, run ${readCommand(thread.id)}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.${wakeNote(message)}`;
     const wake = await session.sendWake(line);
     // The agent may have opened the thread while the wake ran.
     const state =
@@ -337,14 +310,26 @@ export function threads(session) {
     await saveThread(thread);
     return { thread: shown(thread) };
   }
-  // The frame's bell leaves out a reply that the reviewer gave a thumbs up.
-  const withAcknowledgements = (events) =>
-    events.map((event) =>
-      event.thread &&
-      records.get(event.thread)?.messages[event.message]?.acknowledgedAt
+  // The frame's bell leaves out a reply that the reviewer gave a thumbs up, and
+  // a proposal that the reviewer decided or the agent finished.
+  function withAcknowledgements(events) {
+    const decided = new Set(
+      session
+        .proposalItems()
+        .filter(
+          (card) =>
+            card.started || card.declined || card.withdrawn || card.done,
+        )
+        .map(({ id }) => id),
+    );
+    return events.map((event) =>
+      (event.thread &&
+        records.get(event.thread)?.messages[event.message]?.acknowledgedAt) ||
+      (event.kind === "proposal" && decided.has(event.proposal))
         ? { ...event, acknowledged: true }
         : event,
     );
+  }
   // A reply can show only the prototypes that its round's pages contain.
   async function roundPrototypes(round) {
     const found = [];
@@ -407,7 +392,7 @@ export function threads(session) {
         thread: shown(thread),
         next: thread.messages.at(-1).acknowledgedAt
           ? "The reviewer agreed with your last message, so do not reply. Go back to what you were doing."
-          : `Post your answer with ${replyCommand(thread.id)} --text "…", or with --file reply.html in place of --text, then go back to what you were doing.`,
+          : `Post your answer with ${replyCommand(thread.id)} --text "…" for plain text, or with --file reply.html in place of --text for links, bold, code or lists, then go back to what you were doing.`,
         moment: "read-thread",
       };
     }
@@ -483,7 +468,7 @@ export function threads(session) {
   }
   return {
     threadView,
-    threadLines,
+    threadImage: (id, index, image) => images.read(threadFor(id), index, image),
     startThread,
     agentThread,
     addThreadMessage,

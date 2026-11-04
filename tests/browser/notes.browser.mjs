@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 import { open } from "../support/browser.mjs";
 import { fixtureHtml } from "../support/fixture.mjs";
-import { waitUntil } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 
 const quote = "Five failures open the breaker for thirty seconds";
 
@@ -56,8 +56,13 @@ const placement = (page) =>
       right: box.right,
       top: box.top,
       bottom: box.bottom,
-      text: document.getElementById("page-content").getBoundingClientRect()
-        .right,
+      // The text stops at the column's padding on a page. Work and Review stop
+      // at the text's width, and the page's margin still starts there.
+      text:
+        document.getElementById("content").getBoundingClientRect().right -
+        parseFloat(
+          getComputedStyle(document.getElementById("content")).paddingRight,
+        ),
       edge: document.getElementById("content").getBoundingClientRect().right,
       width: document.documentElement.clientWidth,
       height: document.documentElement.clientHeight,
@@ -151,20 +156,40 @@ test("with nothing selected, the corner icon and the c key comment on the page, 
   });
 });
 
-test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize and the sidebar closing", async (t) => {
+test("on a wide window the corner icon is centered in the page's margin right of its text, through a resize, the sidebar closing and a drag of the page's edge, on a page and on Work", async (t) => {
   // Agreed has no figure, so no element on it changes size with the window.
-  const page = await open(t, "http://pair.localhost/", {
-    html: await fixtureHtml(),
-  });
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${session.base}/`);
   if (!page) return;
   await page.getByRole("heading", { name: "Agreed so far" }).waitFor();
 
   await settledControl(page, "Comment on this page");
-  const centered = async () => {
-    await waitUntil(async () => inGutter(await placement(page)));
+  const isCentered = async () => {
     const place = await placement(page);
     assert.ok(inGutter(place), JSON.stringify(place));
     assert.ok(place.height - place.bottom < 40, "near the bottom");
+  };
+  const centered = async () => {
+    await waitUntil(async () => inGutter(await placement(page)));
+    await isCentered();
+  };
+  // A status poll also places the icon, so this checks before the next one is
+  // due.
+  const centeredThroughDrag = async (to) => {
+    const { x, width } = await page.locator("#app").boundingBox();
+    await page.mouse.move(x + width, 400);
+    await page.mouse.down();
+    await page.mouse.move(to, 400, { steps: 5 });
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await isCentered();
+    await page.mouse.up();
   };
   await centered();
   // At 1600px the window is wider than the frame, so the gutter widens and the
@@ -173,6 +198,12 @@ test("on a wide window the corner icon is centered in the page's margin right of
   await centered();
   await page.locator("#sidebar-toggle").click();
   await centered();
+  await page.locator("#sidebar-toggle").click();
+  await centeredThroughDrag(1500);
+  await page.locator("#work-row").click();
+  await settledControl(page, "Comment on Work");
+  await centered();
+  await centeredThroughDrag(1400);
 });
 
 test("on a phone the corner icon sits at the bottom right over the page, and the page's last line scrolls clear of it", async (t) => {
@@ -250,12 +281,27 @@ const noteBox = (page) =>
   page.evaluate(() => {
     const text = document.getElementById("note-text");
     return {
-      height: text.closest(".note-field").getBoundingClientRect().height,
+      height: Math.round(
+        text.closest(".note-field").getBoundingClientRect().height,
+      ),
       scrolls: text.scrollHeight > text.clientHeight,
     };
   });
 
-test("the note's box grows with its text up to half the window, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
+// The note opens over the comment button and grows up, and the box stops
+// growing when the drawer reaches 10px from the header's line.
+const drawerFull = (page) =>
+  page.evaluate(async () => {
+    const drawer = document.getElementById("note-dialog");
+    await Promise.all(drawer.getAnimations().map((motion) => motion.finished));
+    const header = document.querySelector(".frame-header");
+    return Math.round(
+      drawer.getBoundingClientRect().top -
+        header.getBoundingClientRect().bottom,
+    );
+  });
+
+test("the note's box grows with its text until the drawer is full, opens a draft at its size, and shrinks when the text is deleted", async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -273,7 +319,9 @@ test("the note's box grows with its text up to half the window, opens a draft at
   );
 
   await text.fill("A line of the note.\n".repeat(60));
-  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+  const full = await noteBox(page);
+  assert.equal(full.scrolls, true);
+  assert.equal(await drawerFull(page), 10);
 
   await page.reload();
   await page.locator('#page-list [data-page="decisions"]').click();
@@ -281,7 +329,7 @@ test("the note's box grows with its text up to half the window, opens a draft at
   await page.keyboard.press("c");
   await page.locator("#note-dialog[open]").waitFor();
   assert.equal(await text.inputValue(), "A line of the note.\n".repeat(60));
-  assert.deepEqual(await noteBox(page), { height: 400, scrolls: true });
+  assert.deepEqual(await noteBox(page), full);
 
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.press("Backspace");
@@ -289,7 +337,7 @@ test("the note's box grows with its text up to half the window, opens a draft at
   assert.deepEqual(await noteBox(page), { height: 120, scrolls: false });
 });
 
-test(`a note's highlight is cleared while its page or the note dialog changes, and comes back`, async (t) => {
+test(`a note's highlight is cleared while its page changes and comes back, and the open note marks its words until it closes`, async (t) => {
   const page = await openDecisions(t);
   if (!page) return;
 
@@ -297,7 +345,7 @@ test(`a note's highlight is cleared while its page or the note dialog changes, a
   await page.keyboard.press("c");
   await page.locator("#note-quote", { hasText: quote }).waitFor();
   await page.locator("#note-text").fill("Keep the thirty second cooldown.");
-  await page.getByRole("button", { name: "Add to feedback" }).click();
+  await page.getByRole("button", { name: "Add to draft" }).click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await highlighted(page, [quote]);
 
@@ -308,10 +356,11 @@ test(`a note's highlight is cleared while its page or the note dialog changes, a
   await page.getByRole("heading", { name: "Decisions" }).waitFor();
   await highlighted(page, [quote]);
 
+  // The note being written marks the same words as the saved note.
   await select(page);
   await page.keyboard.press("c");
   await page.locator("#note-dialog[open]").waitFor();
-  await highlighted(page, []);
+  await highlighted(page, [quote, quote]);
   await page.keyboard.press("Escape");
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
   await highlighted(page, [quote]);

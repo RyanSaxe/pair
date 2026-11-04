@@ -1,3 +1,5 @@
+import { installDrawer } from "#frame/app/drawer.mjs";
+import { installEdges } from "#frame/app/edges.mjs";
 import { installEvents } from "#frame/app/events.mjs";
 import { installPlaces, loadPlaces, placeIn } from "#frame/app/places.mjs";
 import { createPlanUI, installRegistry } from "#frame/app/registry.mjs";
@@ -8,6 +10,7 @@ import {
   agreedTask,
   agreements,
   editable,
+  embedded,
   mode,
   online,
   pages,
@@ -39,10 +42,13 @@ import { installRenderers, theme } from "#frame/pages/renderers.mjs";
 import { review } from "#frame/review/review.mjs";
 import { installSend } from "#frame/review/send.mjs";
 import { installSendPopup } from "#frame/review/send-popup.mjs";
+import { installHubWatch } from "#frame/sync/hub-version.mjs";
 import { installRounds, renderRounds } from "#frame/sync/rounds-panel.mjs";
-import { openPast, poll, selectedTab } from "#frame/sync/rounds.mjs";
+import { openPast, poll, selectedTab, switchTab } from "#frame/sync/rounds.mjs";
 import { installDraftSync, syncDraft } from "#frame/sync/draft.mjs";
 import { installSessions, pollSessions } from "#frame/sync/sessions.mjs";
+import { embedShowing, installEmbed } from "#frame/search/embed.mjs";
+import { installSearch } from "#frame/search/modal.mjs";
 
 const planData = JSON.parse($("plan-data").textContent);
 useSession(
@@ -51,6 +57,7 @@ useSession(
   new URL(location.href),
 );
 document.documentElement.dataset.mode = mode;
+installHubWatch();
 if (mode === "home") bootHome();
 else bootRound();
 
@@ -59,16 +66,20 @@ else bootRound();
 function bootHome() {
   useView({ plan: planData, agreements: [], task: null, pages: [] });
   installSidebar();
+  installEdges();
   installRenderers();
   installSessions();
   installProgress();
   installEvents();
+  installDrawer();
   window.planUI = createPlanUI();
   document.title = plan.title;
   theme();
+  if (online) installSearch();
   startHome();
 }
 
+const EMBED_POLL_MS = 10000;
 function bootRound() {
   useView({
     plan: planData,
@@ -82,7 +93,7 @@ function bootRound() {
   views.set(plan.round, { plan, agreements, task: agreedTask, pages });
   setState(editable ? savedDraft(plan.round) : emptyDraft(plan.round));
   const placeStore = loadPlaces();
-  if (editable) setPastRound(placeStore.past);
+  if (editable && !embedded) setPastRound(placeStore.past);
   if (editable && state.submitted?.round === plan.round) {
     setSubmittedRound(plan.round);
     setPastRound(plan.round);
@@ -94,6 +105,7 @@ function bootRound() {
   // installNotes() adds to #page-content must run before the one that
   // installBlocks() adds to choose a block.
   installSidebar();
+  installEdges();
   installRenderers();
   installNotes();
   installSessions();
@@ -107,6 +119,7 @@ function bootRound() {
   installSend();
   installSendPopup();
   installEvents();
+  installDrawer();
   installControls();
   installBlocks();
   installRegistry();
@@ -114,6 +127,7 @@ function bootRound() {
   installDraftSync();
   window.planUI = createPlanUI();
   document.title = plan.title;
+  if (online && mode !== "preview" && !embedded) installSearch();
   if (editable) initializeChecklists();
   theme();
   renderRounds();
@@ -134,15 +148,30 @@ function bootRound() {
         ]);
     const target = query.get("target");
     const asked = location.hash.slice(1);
+    const match = query.get("match");
+    const askedRound = query.get("round");
     show(asked || place?.page || "", target, {
       keepScroll: false,
       push: false,
+      match,
     });
     window.addEventListener("popstate", () => {
       const url = new URL(location.href);
-      show(url.hash.slice(1) || pages[0].id, url.searchParams.get("target"), {
-        push: false,
-      });
+      const params = url.searchParams;
+      const round = params.get("round");
+      const pageId = url.hash.slice(1) || pages[0].id;
+      const options = { push: false, match: params.get("match") };
+      if (editable && round && round !== plan.round) {
+        void openPast(round, {
+          ...options,
+          pageId,
+          targetId: params.get("target"),
+        });
+        return;
+      }
+      if (editable && !round && selectedTab === "past")
+        switchTab("current", null, { showPage: false });
+      show(pageId, params.get("target"), options);
     });
     if (mode === "preview" && query.get("quote")) {
       const range = findQuote(
@@ -158,12 +187,24 @@ function bootRound() {
     if (online && mode !== "preview") {
       poll().then(() => {
         void syncDraft();
-        // A notification's link puts its target in the address. While Current
-        // waits, the frame shows the sent round's pages only under Previous,
-        // so the target opens there, unless it is on Work, which every round
-        // has, or on Current's progress card. A reload without a target
-        // returns to the past round that was on screen.
-        if (
+        // Only the address opens an older round, so a reload and Back return to
+        // it and any other address opens Current. The waiting view has the sent
+        // round's number, so an address that names that round asks for the left
+        // tab. A notification's link puts its target in the address. While
+        // Current waits, the frame shows the sent round's pages only under
+        // Previous, so the target opens there, unless it is on Work, which every
+        // round has, or on Current's progress card.
+        const olderAsked =
+          askedRound &&
+          (askedRound !== plan.round || (!target && showingWaiting()));
+        if (editable && olderAsked)
+          void openPast(askedRound, {
+            pageId: asked || "agreed",
+            targetId: target,
+            match,
+            push: false,
+          });
+        else if (
           target &&
           showingWaiting() &&
           asked !== "work" &&
@@ -173,20 +214,25 @@ function bootRound() {
             pageId: asked || "agreed",
             targetId: target,
           });
-        else if (
-          editable &&
-          !target &&
-          placeStore.tab === "past" &&
-          selectedTab === "current"
-        )
-          if (placeStore.past) void openPast(placeStore.past);
         // pollSessions() runs after the first status poll has placed the
         // thread cards, so the bell's first count includes a reply that is
         // already on screen.
+        // The search window waits for this, because going to a result needs
+        // the session's status.
+        if (embedded) {
+          installEmbed();
+          return;
+        }
         pollSessions();
         setInterval(pollSessions, 5000);
       });
-      setInterval(() => poll().then(syncDraft), 1500);
+      // A session's status can be large, and a preview needs it only now and
+      // then, so the search window's frame asks less often, and only on screen.
+      if (embedded)
+        setInterval(() => {
+          if (embedShowing()) void poll().then(syncDraft);
+        }, EMBED_POLL_MS);
+      else setInterval(() => poll().then(syncDraft), 1500);
     } else review();
   }
   /* The browser runs a module after it parses the document, so readyState is

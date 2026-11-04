@@ -305,6 +305,36 @@
   font-size: var(--text-tiny);
   vertical-align: 1px;
 }
+.proposal-delivers,
+.start-delivers {
+  white-space: pre-wrap;
+}
+.work-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.start-write input[type="text"] {
+  display: block;
+  width: 100%;
+  margin: var(--space-field) 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 10px 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-ui);
+}
+.start-write {
+  margin-bottom: 12px;
+}
+/* The main button has its own row, so the rows have different heights, and the
+   shorter one keeps its buttons at the bottom of the cell they share. */
+.start-actions .actions {
+  flex-wrap: wrap;
+  align-self: end;
+}
 #start-error {
   margin-top: 6px;
   color: var(--danger);
@@ -370,13 +400,21 @@
 .start-open:is(:hover, :focus-visible) > .line-tip {
   visibility: visible;
 }
-/* In a window narrower than 375px the primary button wraps under Copy
-   command instead of running past the dialog's edge. The rows share a grid
-   cell, so a row keeps its buttons at their own height when the other row
-   wraps. dialogs.css comes later in the cascade, so these rules name
-   .dialog.start to outrank the .dialog .actions rule there. */
+/* Three buttons do not fit on one row in a drawer or on a phone, so the main
+   button has its own row, and the others share the row under it. The rows share
+   a grid cell, so a row keeps its buttons at their own height. dialogs.css comes
+   later in the cascade, so these rules name .dialog.start to outrank the
+   .dialog .actions rule there. */
 .dialog.start .actions {
   flex-wrap: wrap;
   align-items: flex-start;
   margin-top: 10px;
+}
+.dialog.start .actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.dialog.start .actions .btn.primary {
+  flex: 1 0 100%;
+  margin-left: 0;
 }

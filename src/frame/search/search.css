@@ -1,0 +1,600 @@
+.search {
+  --search-pad: 14px;
+  --search-field-row: 48px;
+  --search-filter-row: 38px;
+  position: fixed;
+  inset: 0;
+  margin: 8vh auto auto;
+  width: min(1240px, 100vw - 2 * var(--dialog-margin));
+  max-width: none;
+  height: min(760px, 84dvh);
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+  -webkit-tap-highlight-color: transparent;
+}
+.search[open] {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+.search-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.search-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  height: var(--search-field-row);
+  padding: 0 var(--search-pad);
+}
+.search-top > svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-title);
+}
+.search-input::placeholder {
+  color: var(--muted);
+}
+.search-input::-webkit-search-cancel-button {
+  display: none;
+}
+.search-count {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.search-close {
+  position: absolute;
+  top: calc((var(--search-field-row) - 32px) / 2);
+  right: 8px;
+  z-index: 1;
+}
+
+.search-filters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: var(--search-filter-row);
+  padding: 0 var(--search-pad) 10px;
+  border-bottom: 1px solid var(--line);
+}
+.search-menu-anchor {
+  position: relative;
+  display: flex;
+  flex: none;
+  min-width: 0;
+}
+/* A session's title is the one long label, so only its button shrinks. */
+.search-menu-anchor[data-menu="sessions"] {
+  flex: 0 1 auto;
+}
+.search-filter {
+  padding-block: 4px;
+  padding-inline: 8px;
+  background: none;
+  color: var(--muted);
+}
+@media (hover: hover) {
+  .search-filter:hover {
+    color: var(--ink);
+  }
+}
+.search-menu-button {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+}
+.search-menu-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-menu-button::after {
+  flex: none;
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 1px 2px 6px;
+  border-right: 1.4px solid currentColor;
+  border-bottom: 1.4px solid currentColor;
+  transform: rotate(45deg);
+}
+.search-filter.is-set {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.search-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  width: 200px;
+  max-height: min(340px, 60dvh);
+  padding: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The last row stays in view, so a row the keys reach mustn't sit under it. */
+  scroll-padding-bottom: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.search-menu[hidden] {
+  display: none;
+}
+[data-menu="sessions"] > .search-menu {
+  right: auto;
+  left: 0;
+  width: 280px;
+}
+[data-menu="rounds"] > .search-menu {
+  right: auto;
+  left: 0;
+  width: 180px;
+}
+/* The session list can run long, so this choice stays in reach below it. */
+/* It spans the menu like a footer, so its tint meets the menu's edges and corners. */
+.search-menu-item[data-value="closed"] {
+  position: sticky;
+  z-index: 1;
+  bottom: -5px;
+  height: 36px;
+  margin: 4px -5px -5px;
+  padding-inline: 31px 13px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 9px 9px;
+  background: var(--panel);
+}
+.search-menu-item[data-value="closed"][aria-pressed="true"]::before {
+  left: 15px;
+  top: 12px;
+}
+.search-menu-rule {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+.search-menu-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px 0 26px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .search-menu-item:hover {
+    background: var(--ground);
+  }
+}
+.search-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-menu-item b {
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.search-menu-item[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  width: 8px;
+  height: 5px;
+  border-bottom: 1.6px solid var(--accent);
+  border-left: 1.6px solid var(--accent);
+  transform: rotate(-45deg);
+}
+.search-menu-item[data-empty="true"]:not([aria-pressed="true"]) {
+  color: var(--muted);
+}
+
+.search-list {
+  min-height: 0;
+  padding: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-block: 6px;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.search-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  padding: 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .search-row:hover {
+    background: var(--ground);
+  }
+}
+.search-row[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+.search-glyph {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--muted);
+}
+.search-row[aria-selected="true"] .search-glyph {
+  color: var(--accent);
+}
+.search-title,
+.search-snippet,
+.search-where {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.search-title {
+  color: var(--ink);
+}
+.search-row[aria-selected="true"] .search-title {
+  font-weight: var(--weight-strong);
+}
+/* Darker than --muted, as the plan tag is, so it keeps a contrast of at least
+   4.5:1 on the selected row's background in both themes. */
+.search-row[aria-selected="true"] :is(.search-snippet, .search-where) {
+  color: color-mix(in srgb, var(--muted), var(--ink) 25%);
+}
+.search-snippet {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+.search-where {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: var(--text-tiny);
+}
+.search mark {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: var(--mark);
+  color: var(--ink);
+}
+.search-end {
+  padding: 10px 8px 6px;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.search-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--ground);
+}
+.search-preview-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--panel);
+}
+/* The line a page shows while it draws, along the top of the pane. */
+.search-progress {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  opacity: 0;
+  pointer-events: none;
+}
+.search-preview-main.is-loading .search-progress {
+  animation: search-progress 2.7s linear 250ms forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-preview-main.is-loading .search-progress {
+    animation-duration: 1ms;
+  }
+}
+@keyframes search-progress {
+  from {
+    opacity: 1;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(0.9);
+  }
+}
+.search-words {
+  position: absolute;
+  inset: 0;
+  padding: 16px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.search-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--panel);
+  visibility: hidden;
+}
+.search-frame.is-shown {
+  visibility: visible;
+}
+/* A block under another result's title dims, if it stays there long enough to
+   be read as that result. The line starts at the same moment. */
+.search-frame.is-stale {
+  opacity: 0.35;
+  transition: opacity 0s 250ms;
+}
+/* The head has the two rows of the field and the filters, so one rule runs
+   across the modal: the session beside the field, and the round and page beside
+   the filters. Each line has its own width, so a long session never cuts the
+   page. The filter row's height includes its 10px padding and its rule. */
+.search-preview-head {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: var(--search-field-row) calc(
+      var(--search-filter-row) - 11px
+    );
+  align-items: center;
+  column-gap: 12px;
+  height: calc(var(--search-field-row) + var(--search-filter-row));
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.search-session {
+  grid-column: 1 / -1;
+  padding-right: 24px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-small);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.search-place {
+  display: flex;
+  min-width: 0;
+  font-size: var(--text-label);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.search-place span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-place span:first-child:not(:last-child) {
+  flex: none;
+}
+.search-place span + span::before {
+  content: "›";
+  margin: 0 5px;
+  color: var(--muted);
+}
+.search-preview h3 {
+  margin: 0 0 10px;
+  font-size: var(--text-h2);
+  font-weight: var(--weight-strong);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.search-text {
+  font-size: var(--text-card);
+  line-height: var(--leading-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.search-text.is-code {
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: var(--code);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-small);
+}
+.search-open {
+  padding-block: 4px;
+}
+.search-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 8px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* The frame's sidebar slides over the page at 720px and below, so the modal
+   takes the whole window there too. A tap on a row shows the preview in the
+   bottom half, under the results, so the next result is one tap. */
+@media (max-width: 720px) {
+  .search {
+    --search-filter-row: 42px;
+    margin: 0;
+    width: 100vw;
+    height: var(--search-height, 100dvh);
+    border: 0;
+    border-radius: 0;
+  }
+  .search[open] {
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  }
+  .search.is-sheet[open] {
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .search-top {
+    padding-right: 46px;
+  }
+  .search-input {
+    font-size: 16px;
+  }
+  .search-filter {
+    padding-block: 6px;
+  }
+  .search-preview {
+    display: none;
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
+  .search.is-sheet .search-preview {
+    display: flex;
+  }
+  /* While the keyboard is up, the results fill the window. The preview stays
+     laid out unseen at its size in the split, so its frame moves to the reader's
+     words and shows them as soon as the keyboard drops. When a tall keyboard
+     leaves the window shorter than the preview, the frame's move would scroll a
+     dialog with overflow: hidden and take the field off the screen. */
+  .search.is-typing[open] {
+    grid-template-rows: minmax(0, 1fr);
+    overflow: clip;
+  }
+  .search.is-typing .search-preview {
+    display: flex;
+    position: absolute;
+    inset: 0 0 auto;
+    height: 50dvh;
+    visibility: hidden;
+  }
+  .search.is-typing .search-frame.is-shown {
+    visibility: hidden;
+  }
+  /* A note's dialog opens inside the frame, so a keyboard over the split leaves
+     it no height for its text box. While the reader writes in the preview, the
+     frame takes the whole window. The results stay laid out under it, so they
+     come back as the reader left them. */
+  .search.is-writing[open] {
+    top: var(--search-top, 0);
+  }
+  .search.is-writing .search-preview {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    border-top: 0;
+  }
+  .search.is-writing .search-preview-head {
+    display: none;
+  }
+  .search-preview-head {
+    grid-template-rows: auto;
+    height: 44px;
+    padding: 0 var(--search-pad);
+  }
+  .search-session {
+    display: none;
+  }
+  .search-words {
+    padding: 12px var(--search-pad);
+  }
+  .search-snippet {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .search-row {
+    padding: 10px 8px;
+  }
+}
+
+/* The real frame in the search window: the page's own path and scrolling, with
+   none of the app around it. */
+:root[data-embed]
+  :is(
+    .frame-header,
+    .sidebar,
+    .sidebar-scrim,
+    .history-strip,
+    #agent-activity,
+    #finished-line,
+    .note-count,
+    .page-footer
+  ) {
+  display: none !important;
+}
+/* The page's comment button floats at the bottom of the pane, where a thread's
+   reply row can be, so it hides while the reader writes a reply there. */
+:root[data-embed]:has(.thread-reply:focus-within) .comment-here {
+  display: none;
+}
+/* A sent note's words stay in view above the page they belong to. */
+:root[data-embed] #embed-sent {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  margin-bottom: 14px;
+  background: var(--panel);
+}
+/* The page keeps its own scrolling box, so the reader can scroll it. */
+:root[data-embed] .app {
+  max-width: none;
+  border: 0;
+}
+:root[data-embed] .main-column {
+  margin-left: 0;
+  /* The sidebar's slide would hold the old margin after the page shows. */
+  transition: none;
+}
+:root[data-embed] .content {
+  max-width: none;
+  padding: 14px 18px 28px;
+}
+/* An opened result's words can't always be painted, and then its block shows
+   which part of the page matched. */
+.search-matched,
+svg.matched {
+  outline: 2px solid var(--mark);
+  outline-offset: -2px;
+  border-radius: 4px;
+}

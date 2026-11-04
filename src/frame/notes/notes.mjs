@@ -1,107 +1,39 @@
 import { state } from "#frame/app/store.mjs";
 import {
   $,
-  controlKey,
   normalize,
   occurrenceAt,
   occurrenceIndex,
   plural,
 } from "#frame/app/util.mjs";
 import {
-  agreedTask,
-  agreements,
   editable,
+  embedded,
   feedbackEditable,
   noteEditable,
   online,
   page,
-  pages,
+  plan,
   showingWaiting,
   topicTitle,
 } from "#frame/app/view.mjs";
-import { placeBar } from "#frame/notes/blocks.mjs";
-import { pageTargets } from "#frame/notes/controls.mjs";
+import { openDrawer } from "#frame/app/drawer.mjs";
+import { commentTarget, placeBar } from "#frame/notes/blocks.mjs";
+import { rebuildKnown } from "#frame/notes/known.mjs";
 import {
   drawNoteImages,
   fitNoteText,
   imageError,
   setNoteImages,
   settleNoteImages,
+  yieldNote,
 } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { diagramBoxes } from "#frame/pages/diagram.mjs";
 import { cardsEditable } from "#frame/pages/work.mjs";
 import { diffSelectionRange, isDiffNode } from "#frame/pages/renderers.mjs";
+import { clearOwnRound } from "#frame/sync/center.mjs";
 
-export const known = {
-  choices: new Set(),
-  lists: new Set(),
-  questions: new Set(),
-  text: new Map(),
-};
-export function indexPage(topic) {
-  const template = document.createElement("template");
-  template.innerHTML = topic.html;
-  pageTargets(template.content, topic.id);
-  for (const group of template.content.querySelectorAll("[data-choice]"))
-    known.choices.add(controlKey(topic.id, group.dataset.choice));
-  for (const group of template.content.querySelectorAll("[data-multiselect]"))
-    known.lists.add(controlKey(topic.id, group.dataset.multiselect));
-  for (const group of template.content.querySelectorAll("[data-question]"))
-    known.questions.add(controlKey(topic.id, group.dataset.question));
-  for (const group of template.content.querySelectorAll(
-    "[data-drawing-question]",
-  ))
-    known.questions.add(controlKey(topic.id, group.dataset.drawingQuestion));
-  const text = [template.content.textContent];
-  for (const source of template.content.querySelectorAll(
-    "textarea[data-diff-input]",
-  )) {
-    try {
-      const input = JSON.parse(source.value);
-      if (typeof input.before === "string") text.push(input.before);
-      if (typeof input.after === "string") text.push(input.after);
-    } catch {
-      // The builder reports malformed diff input when it builds the page,
-      // so indexPage skips it here.
-    }
-  }
-  known.text.set(topic.id, normalize(text.join("\n")));
-}
-export function rebuildKnown() {
-  known.choices.clear();
-  known.lists.clear();
-  known.questions.clear();
-  known.text.clear();
-  for (const topic of pages.filter(
-    (item) => item.id !== "agreed" && !item.pending,
-  ))
-    indexPage(topic);
-}
-export function stale(kind, key, item) {
-  if (kind === "note") {
-    // Every round has Review's overall comment and Work, so a note on either
-    // is never stale.
-    if (item.topic === "overall" || item.topic === "work") return false;
-    if (item.topic === "agreed")
-      return Boolean(
-        item.agreementId &&
-        !(item.agreementId === "task" && agreedTask) &&
-        !agreements.some((entry) => entry.id === item.agreementId),
-      );
-    if (!known.text.has(item.topic))
-      return !pages.some((entry) => entry.id === item.topic && entry.pending);
-    return (
-      Boolean(item.quote) &&
-      !known.text.get(item.topic).includes(normalize(item.quote))
-    );
-  }
-  if (pages.some((entry) => entry.id === item.topic && entry.pending))
-    return false;
-  if (kind === "answer") return !known.questions.has(key);
-  if (kind === "list") return !known.lists.has(key);
-  return !known.choices.has(key);
-}
 export let editing = null;
 export let noteContext = null;
 export let noteDraftKey = "";
@@ -111,7 +43,7 @@ let opener = null;
    quote and a quote must match the page's own text. The returned text has
    each run of whitespace collapsed to one space, and map contains the node
    and offset of every other character. */
-function pageText(root) {
+export function pageText(root) {
   const map = [];
   let text = "",
     pendingSpace = false;
@@ -140,7 +72,9 @@ function pageText(root) {
       return;
     if (
       node.nodeType === Node.ELEMENT_NODE &&
-      node.matches("script, style, pair-thread, textarea[data-diff-input]")
+      node.matches(
+        "script, style, pair-thread, textarea[data-diff-input], .katex-mathml",
+      )
     )
       return;
     if (node.shadowRoot) walk(node.shadowRoot);
@@ -224,7 +158,15 @@ let noteRanges = [];
 // diagram box with the noted class instead.
 let noteBoxes = [];
 export function markNotes() {
-  const notes = state.notes.filter((note) => note.topic === page.id);
+  // The words a new note is on stay marked while its dialog is open.
+  const writing =
+    $("note-dialog").open && !editing && noteContext?.topic === page.id
+      ? [noteContext]
+      : [];
+  const notes = [
+    ...state.notes.filter((note) => note.topic === page.id),
+    ...writing,
+  ];
   noteRanges = [];
   noteBoxes = [];
   for (const box of $("page-content").querySelectorAll(".pele-node.noted"))
@@ -299,10 +241,12 @@ function notesAt(x, y) {
 }
 let tipNotes = "";
 function showTip(event) {
-  const notes =
+  // The note being written has no text to show yet.
+  const notes = (
     noteRanges.length || noteBoxes.length
       ? notesAt(event.clientX, event.clientY)
-      : [];
+      : []
+  ).filter((note) => note.text);
   const key = notes.map((note) => note.id).join();
   const tip = $("note-tip");
   if (!notes.length) {
@@ -355,8 +299,10 @@ export function installNotes() {
     if (notes.some((note) => note.diagramNode))
       event.stopImmediatePropagation();
   });
-  /* markNotes waits a frame, so it runs after a save has redrawn the page. */
+  /* markNotes waits a frame, so it runs after a save has redrawn the page, and
+     a note the reviewer backed out of loses its mark. */
   $("note-dialog").addEventListener("close", () => {
+    commentTarget();
     requestAnimationFrame(() => {
       if (
         !$("note-dialog").open &&
@@ -370,8 +316,10 @@ export function installNotes() {
      not when the frame has redrawn that control. A save redraws the page,
      which focuses its heading, or redraws Review's list. This handler then
      focuses the redrawn element with the control's nearest ID, which is the
-     block, card or Review item that the note is on. */
+     block, card or Review item that the note is on. When another drawer took
+     the note's place, focus stays in that drawer. */
   $("note-dialog").addEventListener("close", () => {
+    if (document.querySelector("dialog[data-drawer][open]")) return;
     const shown = (element) =>
       element?.isConnected && element.checkVisibility();
     if (shown(opener)) {
@@ -401,14 +349,14 @@ export function openNote({
   diagramNode = null,
   proposal = null,
 }) {
+  clearOwnRound();
   // After the round's feedback is sent, openNote opens only a new note,
   // which can only start a thread. A note on a card can start a thread
   // wherever the card's Start button works.
   const feedback = feedbackEditable();
   const threads = proposal ? cardsEditable() : noteEditable();
-  if (!feedback && (id || !threads)) return;
-  clearHighlight("plan-note");
-  noteContext = {
+  if (!feedback && (id || !threads)) return false;
+  const context = {
     topic,
     anchor,
     quote,
@@ -419,13 +367,24 @@ export function openNote({
     ...(diagramNode ? { diagramNode } : {}),
     ...(proposal ? { proposal } : {}),
   };
-  editing = id;
   // The key includes everything that places the note, so two selections of
   // the same words keep separate drafts.
-  noteDraftKey = JSON.stringify([id, noteContext]);
+  const key = JSON.stringify([id, context]);
+  if ($("note-dialog").open && key === noteDraftKey) {
+    $("note-text").focus();
+    return true;
+  }
+  if (!yieldNote()) return false;
+  noteContext = context;
+  editing = id;
+  noteDraftKey = key;
   const pageTitle = topicTitle(topic) || anchor;
-  $("note-anchor").textContent =
+  const place =
     anchor && anchor !== pageTitle ? `${pageTitle} › ${anchor}` : pageTitle;
+  // In the search window, the comment may go to another session.
+  $("note-anchor").textContent = embedded
+    ? `${plan.title} › Round ${plan.round} › ${place}`
+    : place;
   $("note-quote").textContent = quote;
   $("note-quote").hidden = !quote;
   $("note-text").value =
@@ -440,18 +399,53 @@ export function openNote({
   drawNoteImages();
   imageError("");
   $("note-title").textContent = id ? "Edit note" : "Add note";
-  $("note-save-label").textContent = id ? "Save changes" : "Add to feedback";
+  $("note-save-label").textContent = id ? "Save changes" : "Add to draft";
   $("note-thread").hidden = Boolean(id) || !online || !threads;
   $("note-save").hidden = !feedback;
   // openAgentMessage changes these parts of the dialog, so openNote resets
   // them on every open.
-  $("note-label").textContent = "Feedback";
+  $("note-label").textContent = "Note";
   $("note-anchor").hidden = false;
   $("note-thread").classList.remove("primary");
-  opener = document.activeElement;
-  $("note-dialog").showModal();
+  if (!$("note-dialog").open) opener = document.activeElement;
+  // The box takes its height before the drawer is placed.
   fitNoteText();
-  $("note-text").focus();
+  openDrawer($("note-dialog"), {
+    ...noteAbout(noteContext),
+    field: $("note-text"),
+  });
+  fitNoteText();
+  if (!$("reading").hidden && !page.pending && page.id !== "agreed")
+    markNotes();
+  commentTarget();
+  return true;
+}
+/* What a note is about, for openDrawer: the words still selected or the words
+   it quotes, and its block or card. A note on nothing else, such as one from
+   the c key, opens where the comment button is. */
+function noteAbout(note) {
+  const selection = getSelection();
+  const selected =
+    note.quote &&
+    selection.rangeCount &&
+    !selection.isCollapsed &&
+    $("page-content").contains(selection.anchorNode) &&
+    selection.getRangeAt(0).cloneRange();
+  const quoted =
+    !selected &&
+    note.quote &&
+    note.topic === page.id &&
+    !$("reading").hidden &&
+    findQuote(note.quote, note.target, note.occurrence);
+  const words =
+    selected || (quoted && quoted.getClientRects().length ? quoted : null);
+  const block =
+    (note.target && document.getElementById(note.target)) ||
+    (note.proposal &&
+      document.querySelector(
+        `[data-proposal-card="${CSS.escape(note.proposal)}"]`,
+      ));
+  return { words, block, home: $("comment-here") };
 }
 export const progressThread = {
   topic: "agreed",
@@ -463,13 +457,13 @@ export const progressThread = {
    frame sends this message to the agent now and not with the round's
    feedback. */
 export function openAgentMessage() {
-  openNote(progressThread);
-  if (!$("note-dialog").open) return;
+  if (!openNote(progressThread)) return;
   $("note-title").textContent = "Message the agent";
   $("note-label").textContent = "Message";
   $("note-anchor").hidden = true;
   $("note-save").hidden = true;
   $("note-thread").classList.add("primary");
+  commentTarget();
 }
 /* A note that quotes nothing has no highlight, so placeNoteBars marks its
    block with a bar in the same padding as the chosen block's bar. */

@@ -1,9 +1,6 @@
 .sent-feedback {
   margin-top: 22px;
 }
-.sent-feedback h2 {
-  margin: 0 0 10px;
-}
 .page-load-error {
   padding: 16px;
   border: 1px solid var(--danger-border);
@@ -217,7 +214,7 @@ img.note-image {
   max-width: 160px;
   object-fit: cover;
 }
-/* On Feedback the note-image class is on the img itself, with no figure
+/* On Review the note-image class is on the img itself, with no figure
    and no remove button around it. */
 img.note-image {
   border: 1px solid var(--line);
