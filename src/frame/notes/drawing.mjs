@@ -1,3 +1,4 @@
+import { revealAdded } from "#frame/app/drawer.mjs";
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, controlKey, uuid } from "#frame/app/util.mjs";
 import {
@@ -127,7 +128,9 @@ export function openSketch(diagram) {
     onSaved(saved, preview) {
       persist();
       commentOn(document.getElementById(id) || diagram, {});
-      if ($("note-dialog").open) addNoteImage(sketchImage(saved, preview));
+      // The note took its place before the sketch was in it.
+      if ($("note-dialog").open)
+        revealAdded(addNoteImage(sketchImage(saved, preview)));
     },
   });
 }
