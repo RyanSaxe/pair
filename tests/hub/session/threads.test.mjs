@@ -92,6 +92,7 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
   assert.equal((await thread(id)).readAt, null);
+  assert.equal((await a.action("reply", { note: id })).code, 200);
   assert.equal(
     (await a.action("reply", { note: id, text: "Kept." })).code,
     200,
@@ -231,6 +232,51 @@ test("the reply action marks the thread read, then posts text or a checked fragm
   );
   await a.action("reply", { note: id });
   assert.equal((await thread(id)).state, "replied");
+});
+
+// The card reads the thread's state and Notifications reads its line, so both
+// must keep waiting on a message the agent's reply did not answer.
+test("a reply leaves the reviewer's follow-up waiting when the agent last read the thread before it", async (t) => {
+  const { a, start, send, thread, settled } = await published(t);
+  const { id } = (await start()).body.thread;
+  await settled(id);
+  const line = async () =>
+    (await a.request("/api/notifications")).body.sessions[a.id].threads.find(
+      (item) => item.thread === id,
+    );
+  const read = `pair read --session-dir ${a.directory} --thread ${id}`;
+  const answer = async (text) => {
+    const replied = await a.action("reply", { note: id, text });
+    assert.equal(replied.code, 200, replied.body.error);
+    return replied.body.next;
+  };
+  assert.equal((await a.action("reply", { note: id })).code, 200);
+  const followUp = await send(id, { text: "Or a retry?" });
+  assert.equal(followUp.code, 201, followUp.body.error);
+  await settled(id);
+
+  const next = await answer("It stops.");
+  assert.equal((await thread(id)).state, "sent");
+  assert.ok(next.includes(`Run ${read},`), next);
+  const waiting = await line();
+  assert.equal(waiting.waitingSince, followUp.body.thread.messages[1].at);
+  assert.equal(waiting.readAt, null);
+
+  assert.equal((await a.action("reply", { note: id })).code, 200);
+  assert.equal((await thread(id)).state, "read");
+  assert.ok((await thread(id)).readAt);
+  assert.ok((await line()).readAt);
+  assert.ok(!(await answer("No retry.")).includes(read));
+  assert.equal((await thread(id)).state, "replied");
+  assert.ok((await line()).answeredAt);
+
+  // An agent can answer the message its wake quotes without running pair
+  // read --thread, and that reply answers the thread.
+  assert.equal((await send(id, { text: "And refunds?" })).code, 201);
+  await settled(id);
+  await answer("Refunds stop too.");
+  assert.equal((await thread(id)).state, "replied");
+  assert.ok((await line()).answeredAt);
 });
 
 test("the status names a reply's images by address and writes their box, and the thread keeps them", async (t) => {
