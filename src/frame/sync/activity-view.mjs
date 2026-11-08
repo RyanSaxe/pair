@@ -29,6 +29,7 @@ import {
   rowLabel,
 } from "#frame/sync/activity.mjs";
 import {
+  connected,
   pageSets,
   pageStatus,
   remote,
@@ -250,7 +251,11 @@ async function copyReopen() {
   line.hidden = copied;
   renderHistory();
 }
-function drawHistoryLabel(label, old, past, parent) {
+function drawHistoryLabel(label, old, past, parent, unreachable) {
+  if (unreachable)
+    return label.replaceChildren(
+      "The hub is unreachable. Your draft is saved in this browser.",
+    );
   if (copyResult)
     return label.replaceChildren(
       ...crumbTrail([
@@ -295,12 +300,16 @@ export function renderHistory() {
   const old = mode === "readonly" || session.closed;
   const past = editable && displayedRound === pastRound;
   const parent = parentCrumbs();
+  // After a status poll fails, Send is off, and the strip shows why on every
+  // page.
+  const unreachable = editable && connected === false;
   const strip = $("history-strip");
-  const hidden = !(old || past || parent.length);
+  const hidden = !(old || past || parent.length || unreachable);
   if (strip.hidden !== hidden) {
     strip.hidden = hidden;
     moveFading();
   }
+  strip.classList.toggle("unreachable", unreachable);
   if (hidden) return;
   const label = $("history-label");
   // renderHistory redraws the line only when it changed, so a pointer on the
@@ -312,10 +321,11 @@ export function renderHistory() {
     Boolean(shownSubmission()),
     parent.map((crumb) => crumb.textContent ?? crumb),
     copyResult,
+    unreachable,
   ]);
   if (label.dataset.key !== key) {
     label.dataset.key = key;
-    drawHistoryLabel(label, old, past, parent);
+    drawHistoryLabel(label, old, past, parent, unreachable);
   }
   const reopen = $("history-reopen");
   reopen.hidden = !session.closed || !remote?.sessionDir;

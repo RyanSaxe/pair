@@ -69,7 +69,8 @@ export let remote = null;
 export function setRemote(status) {
   remote = status;
 }
-export let connected = false;
+// connected is null until the first status poll answers or fails.
+export let connected = null;
 export let lastSubmission = null;
 let lastSubmissionLoadedId = null;
 async function fetchSubmission(round = null) {
