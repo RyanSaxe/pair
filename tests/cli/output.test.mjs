@@ -456,6 +456,16 @@ test("pair status prints the latest submission and its round", async (t) => {
   );
 });
 
+// Closing a session leaves its pause in place, so a session that its agent
+// paused before the reviewer closed it is both paused and closed.
+test("pair status names a closed session closed, also when its agent paused it first", async (t) => {
+  const { a, run } = await session(t);
+  await run("pause", "--reason", "Done for today");
+  assert.match(await run("status"), /^Round +1, paused: Done for today$/m);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  assert.match(await run("status"), /^Round +1, closed by the reviewer$/m);
+});
+
 // pair read prints the reviewer's text as data inside its tags, so no text the
 // reviewer writes can close a tag and pass for pair's own instructions.
 test("a reviewer's text cannot close its pair_ tag", async (t) => {

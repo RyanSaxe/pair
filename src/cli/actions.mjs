@@ -172,9 +172,11 @@ export async function pause(options) {
 
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
+// Closing a session leaves its pause in place, so a closed session can also be
+// paused.
 function stageText(status) {
-  if (status.paused) return `paused: ${status.paused.reason}`;
   if (status.stage === "complete") return "closed by the reviewer";
+  if (status.paused) return `paused: ${status.paused.reason}`;
   if (status.openRound) return "the agent publishes its pages";
   if (status.stage === "submitted")
     return "the reviewer sent something that pair read has not printed yet";
