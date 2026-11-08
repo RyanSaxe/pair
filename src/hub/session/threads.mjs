@@ -371,12 +371,11 @@ export function threads(session) {
     );
     if (data.text === undefined && data.html === undefined) {
       // Reading a thread again leaves a thread the agent answered as replied.
-      if (
-        thread.messages.at(-1).from === "reviewer" &&
-        thread.state !== "read"
-      ) {
+      // readCount records how many messages this read printed.
+      if (thread.state !== "replied" && thread.state !== "read") {
         thread.state = "read";
         thread.readAt = timestamp();
+        thread.readCount = thread.messages.length;
         await saveThread(thread);
       }
       await session.transition(session.report());
@@ -400,14 +399,25 @@ export function threads(session) {
       requireValue(text(data.html), "The reply file is empty");
       await checkReply(thread, data.html);
     } else requireValue(text(data.text), "--text needs the reply's text");
+    // A reply answers every message before it. When the agent ran pair read
+    // --thread after its previous reply, the reply answers only the messages
+    // that read printed. The reply then records that number in answers, and
+    // the thread waits for an answer to the reviewer's later messages.
+    const previous = thread.messages.findLastIndex(
+      (message) => message.from === "agent",
+    );
+    const answers =
+      thread.readCount > previous ? thread.readCount : thread.messages.length;
+    const waits = answers < thread.messages.length;
     thread.messages.push({
       from: "agent",
       at: timestamp(),
       ...(data.html !== undefined
         ? { html: data.html.trim() }
         : { text: data.text.trim() }),
+      ...(waits ? { answers } : {}),
     });
-    thread.state = "replied";
+    if (!waits) thread.state = "replied";
     await saveThread(thread);
     await session.addActivity({
       kind: "reply",
@@ -422,7 +432,9 @@ export function threads(session) {
     await session.transition(session.report());
     return {
       status: session.view(),
-      next: `Go back to what you were doing. ${await session.nextStep()}`,
+      next: waits
+        ? `The reviewer wrote in this thread after you last ran pair read --thread. Run ${readCommand(thread.id)}, which prints the thread with how to answer it, and answer what the reviewer wrote. Then go back to what you were doing.`
+        : `Go back to what you were doing. ${await session.nextStep()}`,
     };
   }
   // threadsSince lists threads for pair read's index. acknowledged contains

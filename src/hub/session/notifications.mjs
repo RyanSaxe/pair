@@ -15,12 +15,16 @@ export function notifications(session) {
   // A line has the start of the thread's newest message. waitingSince is when the
   // reviewer wrote the first message the agent has not answered, readAt is when
   // the agent last ran pair read on the thread, and answeredAt is when the agent's
-  // last reply came. message and at name the newest message.
+  // last reply came. message and at name the newest message. A reply answers
+  // every message before it, or, when it has answers, only that many messages.
   const threadLines = () =>
     [...records.values()].map((thread) => {
       const { messages } = thread;
-      const reply = messages.findLast((item) => item.from === "agent");
-      const unanswered = messages[messages.indexOf(reply) + 1];
+      const last = messages.findLastIndex((item) => item.from === "agent");
+      const reply = messages[last];
+      const unanswered = messages
+        .slice(reply?.answers ?? last + 1)
+        .find((item) => item.from === "reviewer");
       const newest = messages.at(-1);
       return {
         thread: thread.id,
