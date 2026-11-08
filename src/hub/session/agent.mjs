@@ -1,4 +1,5 @@
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
@@ -395,7 +396,23 @@ export function agent(session) {
       };
     },
   };
-  async function act(data) {
+  // pi, opencode and Copilot keep their identity when they restart and then
+  // listen on a new socket or port. Each command sends the agent's current
+  // wake target, and the hub wakes the holder at the one its latest command
+  // sent. Like hold, refreshTarget keeps the target in wake.json only.
+  async function refreshTarget(target) {
+    if (
+      !target ||
+      typeof target !== "object" ||
+      !Object.hasOwn(adapters, target.harness) ||
+      !sameAgent(identify(target), session.state.holder) ||
+      isDeepStrictEqual(target, session.wake)
+    )
+      return;
+    await atomic(session.wakeFile, target);
+    session.wake = target;
+  }
+  async function act({ wake, ...data }) {
     requireValue(
       data.sessionId === session.state.sessionId,
       "Wrong session",
@@ -408,6 +425,7 @@ export function agent(session) {
       requireValue(session.state.stage !== "complete", closed, 409);
       if (data.action !== "propose") await requireHolder(data.agent);
     }
+    await refreshTarget(wake);
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     session.commandRan();
     if (sameAgent(session.state.holder, data.agent)) await clearFailedWake();

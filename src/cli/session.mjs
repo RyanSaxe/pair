@@ -215,8 +215,10 @@ export async function openSession(options, { anyAgent = false } = {}) {
             ...data,
             sessionId: connection.sessionId,
             // The hub accepts every command except status only from the
-            // session's holder.
+            // session's holder, and wakes the holder at the target its
+            // latest command sent.
             agent: wake && identify(wake),
+            wake,
           }),
           signal: AbortSignal.timeout(15000),
         },
