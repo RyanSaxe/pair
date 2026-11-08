@@ -75,7 +75,9 @@ session to your browser and wakes the agent when you respond.
   chat.
 - The hub redirects the root URL, `http://127.0.0.1:4747/` by default, to
   the session whose waiting round was published earliest, or else to the
-  session you opened last. You can bookmark it.
+  session you opened last. When you have closed that session and another
+  session is open, the hub redirects to the open one. You can bookmark the
+  root URL.
 
 ## When the hub wakes the agent
 
