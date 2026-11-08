@@ -433,12 +433,14 @@ export async function proposals(session) {
     return save(card, { done: null, status: null });
   }
   // In a linked session, writeStatus writes the status to the card in the
-  // parent. A status that changes no part leaves the card as it was, so
-  // status.at is the time of the last change to the parts.
+  // parent. propose refuses a closed session before it runs writeStatus, so
+  // writeStatus checks no stage, and a linked session records its status
+  // while the parent is closed, as closedSession records its close. A status
+  // that changes no part leaves the card as it was, so status.at is the time
+  // of the last change to the parts.
   async function writeStatus(id, data) {
     const owner = session.cardOwner(id, "pair propose");
     if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
-    open();
     const change = statusChange(data);
     const card = statusable(find(id));
     const parts = changedParts(card, change);

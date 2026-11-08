@@ -208,7 +208,7 @@ test("closing a linked session marks its card done once with no wake, and a clos
 // The agent of a linked session reports status with its own session's
 // directory, and the hub writes the status on the card in the parent. The
 // parent's agent can also update that card with the parent's directory.
-test("a status from a linked session goes to the parent's card", async (t) => {
+test("a status from a linked session goes to the parent's card, also after the parent closes", async (t) => {
   const { h, a, reviewer, cardOf } = await linking(t);
   assert.equal(
     (await reviewer("deck", "start", { where: "sub-session" })).code,
@@ -247,6 +247,18 @@ test("a status from a linked session goes to the parent's card", async (t) => {
     statusLeft: ["Draft"],
   });
   assert.equal(other.code, 404);
+  // The reviewer can close the parent while the linked session runs, and the
+  // hub still writes that session's status on the parent's card.
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  const afterClose = await child.action("propose", {
+    id: "deck",
+    statusLeft: ["Speaker notes"],
+  });
+  assert.equal(afterClose.code, 200, afterClose.body.error);
+  assert.deepEqual((await cardOf("deck")).status.parts.at(-1), {
+    text: "Speaker notes",
+    state: "left",
+  });
 });
 
 // With Plan it first, the agent plans in the card's own session before it
