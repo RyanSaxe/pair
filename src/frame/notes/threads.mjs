@@ -295,7 +295,15 @@ function statusLine(thread) {
       line.append(retry);
     }
     box.append(line);
-  } else if (thread.state === "sending")
+  } else if (thread.state === "closed")
+    box.append(
+      element(
+        "p",
+        "thread-meta",
+        "You closed the session before the agent replied.",
+      ),
+    );
+  else if (thread.state === "sending")
     box.append(element("p", "thread-meta", "Sending"));
   else if (thread.state === "sent") {
     const line = element("p", "thread-sent");
@@ -361,8 +369,14 @@ function buildCard(id) {
   return { card, title, fold, quote, messages, form, shown: [], key: "" };
 }
 // folded is whether the card starts collapsed. The reviewer's own Collapse
-// or Expand, which prefs stores, overrides it.
-function drawCard(entry, thread, part, folded) {
+// or Expand, which prefs stores, overrides it. The hub refuses every reply in
+// a closed session, so drawCard shows a thread the agent did not answer there
+// as closed.
+function drawCard(entry, stored, part, folded) {
+  const thread =
+    remote?.stage === "complete" && stored.state !== "replied"
+      ? { ...stored, state: "closed" }
+      : stored;
   const choice = prefs.get(`thread:${thread.id}:collapsed`);
   const collapsed = choice ? choice === "1" : folded;
   const key = JSON.stringify([
