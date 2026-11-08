@@ -932,6 +932,25 @@ test("--join merges a card into a proposed card or one approved to run here, and
   ]);
 });
 
+// Nobody builds a declined or withdrawn card, so the hub returns each card
+// joined into it to Proposed, where the reviewer can start or decline it.
+test("declining or withdrawing a card returns the cards joined into it to Proposed", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
+  for (const id of ["typo", "docs", "small", "big"])
+    await add({ id, title: `Card ${id}` });
+  assert.equal((await propose({ id: "typo", join: "docs" })).code, 200);
+  assert.equal((await propose({ id: "small", join: "big" })).code, 200);
+  assert.equal((await reviewer("docs", "decline")).code, 200);
+  const withdrawn = await propose({ id: "big", withdraw: true, reason: "x" });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  assert.deepEqual(
+    (await cards()).filter((item) => item.done).map(({ id }) => id),
+    [],
+  );
+  assert.equal((await reviewer("typo", "start", { where: "here" })).code, 200);
+  assert.equal((await reviewer("small", "decline")).code, 200);
+});
+
 test("a thread on a card wakes the holder with the card it is on", async (t) => {
   const { a, add } = await proposing(t);
   await add();
