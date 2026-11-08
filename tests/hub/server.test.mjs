@@ -261,6 +261,26 @@ test("the root URL opens the session that most needs you, then the last viewed, 
   assert.equal(bare.headers.get("location"), `${a.base}/`);
 });
 
+// The closed page sets pair-last too, so a bookmark of the root URL would keep
+// opening the closed session.
+test("the root URL passes over a closed last-viewed session while another is open, and opens it once none is", async (t) => {
+  const h = await hub(t);
+  const root = async (cookie) =>
+    (
+      await fetch(h.server.origin + "/", {
+        redirect: "manual",
+        headers: { cookie },
+      })
+    ).headers.get("location");
+  const a = await h.session(),
+    b = await h.session();
+  await a.publish(planData());
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  assert.equal(await root(`pair-last=${a.id}`), `${b.base}/`);
+  assert.equal((await b.request(`${b.base}/api/dismiss`, {})).code, 200);
+  assert.equal(await root(`pair-last=${a.id}`), `${a.base}/`);
+});
+
 test("round routes inject read-only and preview flags and serve prototypes sandboxed", async (t) => {
   const h = await hub(t);
   const a = await h.session();
