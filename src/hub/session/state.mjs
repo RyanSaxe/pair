@@ -185,6 +185,9 @@ export async function loadSession(
     quiet(session),
     notifications(session),
   );
+  // The wakes run after loadSession returns, once every module has added its
+  // functions to session.
+  session.resendWakes();
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
     return {
