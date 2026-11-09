@@ -179,7 +179,7 @@ test("Sketch on this diagram opens its boxes in the drawing editor in the frame'
   await page.getByRole("button", { name: "Start a thread" }).click();
 
   const sent = async () => (await session.status()).body.threads?.[0];
-  await waitUntil(async () => Boolean(await sent()));
+  assert.equal(await waitUntil(async () => Boolean(await sent())), true);
   const [image] = (await sent()).messages[0].attachments;
   assert.equal(image.type, "image/png");
   assert.match(image.scene.path, /\/scenes\/[0-9a-f]{16}\.excalidraw$/);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 import { threadState } from "../../src/shared/thread-state.mjs";
 
 test("the frame reuses a thread reply ID after its response is lost", async (t) => {
@@ -105,8 +105,11 @@ test("a reply that failed to send stays on its card with Try again when the agen
   const answered = await session.action("reply", { note: id, text: "Here." });
   assert.equal(answered.code, 200, answered.body.error);
   await card.locator(".thread-message", { hasText: "Here." }).waitFor();
-  // The frame polls status every 1.5 s, so the sleep covers two polls.
-  await sleep(3000);
+  // The card keeps the failed reply through two status polls.
+  for (let polled = 0; polled < 2; polled++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
   const texts = () =>
     card.locator(".thread-message .thread-text").allTextContents();
   assert.deepEqual(await texts(), [
@@ -128,7 +131,10 @@ test("a reply that failed to send stays on its card with Try again when the agen
     }),
     true,
   );
-  await sleep(3000);
+  for (let polled = 0; polled < 2; polled++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
   assert.equal(await card.locator(".thread-bad").count(), 0);
   assert.deepEqual(await texts(), [
     "Where does this land?",

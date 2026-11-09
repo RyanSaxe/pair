@@ -70,8 +70,11 @@ async function session(t) {
     text: "Show me the launch video.",
   });
   assert.equal(started.code, 201, started.body.error);
-  await waitUntil(
-    async () => threadState((await s.status()).body.threads[0]) === "sent",
+  assert.equal(
+    await waitUntil(
+      async () => threadState((await s.status()).body.threads[0]) === "sent",
+    ),
+    true,
   );
   const replied = await s.action("reply", {
     note: "video",

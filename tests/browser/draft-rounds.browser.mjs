@@ -32,11 +32,20 @@ const ticked = (page, value, checked = true) =>
     )
     .waitFor(poll);
 
-// The phone ticks the checklist, the computer changes it, and the phone sends.
-// develop starts the next round with no box ticked, and so must both
-// browsers, also after the frame rebuilds the checklist from the new round's
-// page.
-test("a checklist sent from one browser starts unticked in the next round on both", async (t) => {
+// polls waits for the next count status polls of a page. A browser has merged
+// the hub's draft and sent its own changes by the second.
+async function polls(page, count) {
+  for (let polled = 0; polled < count; polled++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
+}
+
+// The phone ticks the checklist and turns Everything else looks good off, the
+// computer changes the checklist, and the phone sends. develop starts the next
+// round with no box ticked and the switch on, and so must both browsers, also
+// after the frame rebuilds the checklist from the new round's page.
+test("a checklist sent from one browser starts unticked in the next round on both, and Everything else looks good is on again", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round("1"))).code, 200);
@@ -47,10 +56,13 @@ test("a checklist sent from one browser starts unticked in the next round on bot
 
   await box(phone, "5xx").check();
   await box(phone, "timeouts").check();
+  await phone.locator("#submit").click();
+  await phone.locator("#align-unflagged").uncheck();
+  // The ticks and the switch reach the hub in one change, so the computer has
+  // merged the switch once it shows the ticks.
   await ticked(computer, "timeouts");
   await box(computer, "timeouts").uncheck();
   await ticked(phone, "timeouts", false);
-  await phone.locator("#submit").click();
   await phone.locator("#send-button").click();
   await nothingToSend(computer);
   await session.action("read");
@@ -59,39 +71,9 @@ test("a checklist sent from one browser starts unticked in the next round on bot
     await page.goto("about:blank");
     await page.goto(url);
     await onRound(page, "2");
-    // Each browser has merged the hub's draft and sent its own changes by
-    // the second status poll.
-    await page.waitForTimeout(3500);
+    await polls(page, 2);
     await nothingToSend(page);
     assert.equal(await box(page, "5xx").isChecked(), false);
-  }
-});
-
-test("Everything else looks good is on again in the next round after a send, on both browsers", async (t) => {
-  const h = await hub(t);
-  const session = await h.session();
-  assert.equal((await session.publish(round("1"))).code, 200);
-  const url = `${h.server.origin}${session.base}/#overview`;
-  const computer = await open(t, url);
-  if (!computer) return;
-  const phone = await open(t, url, { viewport: { width: 375, height: 812 } });
-
-  await box(phone, "5xx").check();
-  await phone.locator("#submit").click();
-  await phone.locator("#align-unflagged").uncheck();
-  // The tick and the switch reach the hub in one change, so the computer has
-  // merged the switch once it shows the tick.
-  await ticked(computer, "5xx");
-  await phone.locator("#send-button").click();
-  await nothingToSend(computer);
-  await session.action("read");
-  assert.equal((await session.publish(round("2"))).code, 200);
-  for (const page of [phone, computer]) {
-    await page.goto("about:blank");
-    await page.goto(url);
-    await onRound(page, "2");
-    // Each browser has merged the hub's draft by the second status poll.
-    await page.waitForTimeout(3500);
     await page.locator("#submit").click();
     await page.locator("#send-dialog[open]").waitFor(poll);
     assert.equal(await page.locator("#align-unflagged").isChecked(), true);

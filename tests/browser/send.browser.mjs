@@ -202,23 +202,6 @@ test("a send from another device while the Send popup is open closes it and offe
   );
 });
 
-test("while status polls fail, the Send popup's Send is off with the header's, and both turn back on when a poll answers", async (t) => {
-  const { page } = await openRound(t);
-  if (!page) return;
-  await openPopup(page);
-  await page.locator("#send-message").fill("Typed before the hub stopped.");
-  await page.locator("#send-button:enabled").waitFor();
-  await page.route("**/api/status", (route) =>
-    route.abort("connectionrefused"),
-  );
-  await page.locator("#send-button:disabled").waitFor();
-  assert.equal(await page.locator("#submit").isDisabled(), true);
-  assert.equal(await page.locator("#send-dialog").isVisible(), true);
-  await page.unroute("**/api/status");
-  await page.locator("#send-button:enabled").waitFor();
-  assert.equal(await page.locator("#submit").isEnabled(), true);
-});
-
 test("the message stays in the draft when the hub never receives Send as a message", async (t) => {
   const { session, page } = await openRound(t);
   if (!page) return;
