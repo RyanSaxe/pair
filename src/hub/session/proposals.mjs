@@ -198,7 +198,8 @@ export async function proposals(session) {
     return changed;
   }
   // wakeLater runs wakeFor after the hub answers the request that started
-  // the card, as submit does for the wake after a submission.
+  // the card, as submit does for the wake after a submission. A hub that
+  // loads a session runs it again for a Start whose wake a stopped hub owed.
   async function wakeFor(id) {
     const card = find(id);
     const { started } = card;
@@ -542,6 +543,7 @@ export async function proposals(session) {
     propose,
     writeStatus,
     startProposal,
+    wakeForStart: wakeFor,
     writeProposal,
     declineProposal,
     restoreProposal,

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  accepts,
   isClosed,
   lifecycle,
   roundStage,
@@ -211,9 +212,23 @@ export async function loadSession(
     quiet(session),
     notifications(session),
   );
-  // The wakes run after loadSession returns, once every module has added its
-  // functions to session.
+  // A hub stops without waiting for the wakes it scheduled, so loadSession
+  // sends each wake that a stopped hub still owed: a thread's, and the newest
+  // send's. The wakes run after loadSession returns, once every module has
+  // added its functions to session.
   session.resendWakes();
+  if (
+    session.wake &&
+    accepts(state, "wake") &&
+    wakeAccepts(wakeFacts(), "send")
+  ) {
+    const { payload } = latestSend();
+    const wake =
+      payload.intent === "start"
+        ? () => session.wakeForStart(payload.proposal)
+        : () => session.wakeAgent(payload.round);
+    setTimeout(() => exclusive(wake), 0);
+  }
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
     return {

@@ -212,6 +212,8 @@ what you sent or a Start.
   Send a message in chat." and the [handoff line](holders-and-handoff.md),
   and the session list shows "Can't wake", until the holder runs a `pair`
   command.
+- When the hub stops before a wake goes out, the next hub that loads the
+  session sends it.
 
 ## Storage
 
