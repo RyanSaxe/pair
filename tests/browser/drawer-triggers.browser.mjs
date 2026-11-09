@@ -107,7 +107,10 @@ function assertNext(drawer, trigger, label) {
   assert.ok(across > 0, `${label}: beside it, ${across}px across`);
 }
 
-test("every drawer on a computer opens next to the button, words, block or card it came from", async (t) => {
+// drawer.browser.mjs places the drawers that Comment on selection, Comment on
+// this page, Send, Keys, Start and New work item open, in Chrome and WebKit.
+// This test checks every other way to open the note and Send.
+test("every other way to open a drawer on a computer opens it next to the button, words, block or card it came from", async (t) => {
   const { url, finish } = await setup(t);
   const page = await open(t, `${url}#agreed`, {
     viewport: { width: 1280, height: 800 },
@@ -127,25 +130,11 @@ test("every drawer on a computer opens next to the button, words, block or card 
   await page.locator("#first").waitFor();
   const comment = page.locator("#comment-here");
   const opens = [
-    // Words, with Comment on selection and with c.
-    [
-      "selection's Comment",
-      () => select(page),
-      () => selectionBox(page),
-      () => comment.click(),
-    ],
     [
       "c on a selection",
       () => select(page),
       () => selectionBox(page),
       () => page.keyboard.press("c"),
-    ],
-    // Nothing selected: beside the comment button, also for c.
-    [
-      "Comment",
-      () => page.evaluate(() => getSelection().removeAllRanges()),
-      () => boxOf(page, "#comment-here"),
-      () => comment.click(),
     ],
     [
       "c with nothing selected",
@@ -171,14 +160,6 @@ test("every drawer on a computer opens next to the button, words, block or card 
       () => page.keyboard.press("j"),
       () => boxOf(page, "#example"),
       () => comment.click(),
-    ],
-    // Send, by its button and by s then Enter.
-    [
-      "Send",
-      () => {},
-      () => boxOf(page, "#submit"),
-      () => page.locator("#submit").click(),
-      "send-dialog",
     ],
     [
       "s then Enter",
@@ -221,35 +202,12 @@ test("every drawer on a computer opens next to the button, words, block or card 
   assertNext(await opened(page, "note-dialog"), editBox, "Edit on Review");
   await close(page, "note-dialog");
 
-  // Work: Start on a card, a chosen card's Comment, and New work item.
+  // A chosen card's Comment, on Work.
   await page.goto(`${url}#work`);
-  const start = page.locator("[data-proposal-card=one] .proposal-start");
-  await start.waitFor();
-  const startBox = await boxOf(
-    page,
-    "[data-proposal-card=one] .proposal-start",
-  );
-  await start.click();
-  assertNext(await opened(page, "start-dialog"), startBox, "Start");
-  await close(page, "start-dialog");
-  await page.locator("[data-proposal-card=one] .proposal-delivers").click();
+  const delivers = page.locator("[data-proposal-card=one] .proposal-delivers");
+  await delivers.click();
   const card = await boxOf(page, "[data-proposal-card=one]");
   await comment.click();
   assertNext(await opened(page, "note-dialog"), card, "a chosen card");
   await close(page, "note-dialog");
-  const newBox = await boxOf(page, "#work-new");
-  await page.locator("#work-new").click();
-  assertNext(await opened(page, "start-dialog"), newBox, "New work item");
-  await close(page, "start-dialog");
-
-  // Keys has no button, so it opens under the header at the right.
-  await page.locator("main").focus();
-  await page.keyboard.press("?");
-  const header = await boxOf(page, ".frame-header");
-  const keys = await opened(page, "keys-dialog");
-  assert.ok(Math.abs(keys.top - header.bottom) <= 10, "Keys under the header");
-  assert.ok(
-    Math.abs(keys.right - (header.right - 16)) <= 1,
-    "Keys at the right",
-  );
 });
