@@ -25,7 +25,6 @@ import {
   setPage,
   showingWaiting,
   shownPage,
-  submittedCurrent,
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
@@ -49,6 +48,7 @@ import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { openWork, proposedCount } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
+import { sendState } from "#frame/review/send-state.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
@@ -281,7 +281,7 @@ export function renderFooter(feedback) {
     !next
       ? ""
       : next.id === "feedback"
-        ? submittedCurrent() || !editable
+        ? !editable || selectedTab === "past" || sendState() === "waiting"
           ? "What you sent →"
           : "Review your draft →"
         : `Next: ${next.title} →`,
