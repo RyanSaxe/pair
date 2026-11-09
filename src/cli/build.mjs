@@ -102,7 +102,10 @@ export async function buildPage(source, input) {
   delete page.js;
   if (page.prototypes)
     page.prototypes = await Promise.all(
-      page.prototypes.map(async ({ file, ...prototype }) => {
+      page.prototypes.map(async (entry) => {
+        // validatePlan refuses an entry that is not an object, with its message.
+        if (!entry || typeof entry !== "object") return entry;
+        const { file, ...prototype } = entry;
         if (file && prototype.html !== undefined)
           throw new Error("Use file or html for a prototype, not both");
         return { ...prototype, ...(file ? { html: await read(file) } : {}) };

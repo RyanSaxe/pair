@@ -685,6 +685,11 @@ test("preserved prototypes retain exact executable source without escaping into 
     build(source),
     /Use file or html for a prototype, not both/,
   );
+  await fs.writeFile(
+    source,
+    JSON.stringify({ ...data, page: { ...data.page, prototypes: [null] } }),
+  );
+  await assert.rejects(build(source), /Prototype IDs must be valid and unique/);
 });
 
 test("the component fixture builds", async (t) => {
