@@ -138,7 +138,7 @@ test("the hub lists when each session started, and a new hub keeps it", async (t
   );
 });
 
-test("closing a session from the session list completes it and drops it from the list", async (t) => {
+test("closing a session from the session list closes it and drops it from the list", async (t) => {
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
@@ -151,10 +151,10 @@ test("closing a session from the session list completes it and drops it from the
   );
   const dismissed = await b.request(`${b.base}/api/dismiss`, {});
   assert.equal(dismissed.code, 200);
-  assert.equal(dismissed.body.status.stage, "complete");
+  assert.equal(typeof dismissed.body.status.closedAt, "string");
   const status = (await b.status()).body;
-  assert.equal(status.stage, "complete");
-  assert.equal(typeof status.dismissedAt, "string");
+  assert.equal(typeof status.closedAt, "string");
+  assert.equal(status.stage, "updated");
   const list = (await a.request("/api/sessions")).body.sessions;
   assert.deepEqual(
     list.map((item) => item.id),
@@ -208,7 +208,7 @@ test("a closed session refuses feedback and wakes no agent", async (t) => {
   const sent = await a.feedback(a.event());
   assert.equal(sent.code, 409);
   assert.equal(sent.body.error, "This session is closed");
-  assert.equal((await a.status()).body.stage, "complete");
+  assert.equal((await a.status()).body.latestSubmissionId, undefined);
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 0);
 });

@@ -1,6 +1,12 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import {
+  isClosed,
+  lifecycle,
+  roundStage,
+  upgrade,
+} from "../../shared/lifecycle.mjs";
 import { idPattern, roundPattern } from "../../shared/records.mjs";
 import {
   atomic,
@@ -40,10 +46,9 @@ export async function loadSession(
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
-    ? await read(stateFile)
+    ? upgrade(await read(stateFile))
     : {
         sessionId: crypto.randomUUID(),
-        stage: "ready",
         current: null,
         acknowledged: [],
         startedAt: timestamp(),
@@ -126,22 +131,24 @@ export async function loadSession(
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  // A closed session stays closed even with unread feedback. A pending Start
-  // leaves the stage as it is, because answersRound excludes it.
-  if ((await pending()).some(answersRound) && state.stage !== "complete")
-    await transition({ stage: "submitted" });
-  else await atomic(stateFile, state);
+  // stage counts only unread feedback, because a Start answers no round.
+  const stage = () =>
+    roundStage(
+      state,
+      events.some(
+        (event) =>
+          !state.acknowledged.includes(event.id) && answersRound(event),
+      ),
+    );
+  await atomic(stateFile, state);
   const sameRound = (event) =>
     state.current &&
     event.name === state.current.name &&
     event.round === state.current.round;
-  const needsYou = () =>
-    Boolean(state.current) &&
-    !state.openRound &&
-    ["ready", "updated"].includes(state.stage);
+  const needsYou = () => !isClosed(state) && stage() === "updated";
   const title = () =>
     state.current ? state.current.title : state.title || "New session";
-  const active = () => state.stage !== "complete" && !state.paused;
+  const active = () => lifecycle(state) === "live";
   // Each session module, such as uploads or rounds, adds its functions to
   // this object and calls the other modules' functions through it, so the
   // order in which loadSession creates the modules does not matter.
@@ -158,6 +165,7 @@ export async function loadSession(
     events,
     saveEvent,
     pending,
+    stage,
     sameRound,
     needsYou,
     view,
@@ -228,6 +236,8 @@ export async function loadSession(
       rounds: state.rounds || [],
       wake: state.wake || null,
       paused: state.paused || null,
+      closedAt: state.closedAt || null,
+      stage: stage(),
       needsYou: needsYou(),
       proposals: session.proposalItems(),
     };
@@ -300,9 +310,9 @@ export async function loadSession(
       title: title(),
       parentId: state.parent?.sessionId ?? null,
       proposal: state.parent?.proposal ?? null,
-      closed: state.stage === "complete",
+      closed: isClosed(state),
       round,
-      stage: state.stage,
+      stage: stage(),
       needsYou: needsYou(),
       ...(state.openRound
         ? {
@@ -330,7 +340,7 @@ export async function loadSession(
             : [],
       },
       wakeFailed: state.wake?.last?.ok === false,
-      paused: Boolean(state.paused),
+      paused: lifecycle(state) === "paused",
       startedAt: state.startedAt,
       publishedAt: state.current?.publishedAt,
       updatedAt: state.updatedAt,

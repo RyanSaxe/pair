@@ -30,6 +30,7 @@ import {
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
    placeThreads draws the cards from the poll, and from sent for a message
@@ -374,7 +375,7 @@ function buildCard(id) {
 // as closed.
 function drawCard(entry, stored, part, folded) {
   const thread =
-    remote?.stage === "complete" && stored.state !== "replied"
+    isClosed(remote) && stored.state !== "replied"
       ? { ...stored, state: "closed" }
       : stored;
   const choice = prefs.get(`thread:${thread.id}:collapsed`);

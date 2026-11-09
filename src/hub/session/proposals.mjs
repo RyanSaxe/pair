@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { accepts } from "../../shared/lifecycle.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import {
   message,
@@ -56,7 +57,7 @@ export async function proposals(session) {
   }
   function open() {
     requireValue(
-      session.state.stage !== "complete",
+      accepts(session.state, "change"),
       "This session is closed",
       409,
     );
@@ -220,7 +221,7 @@ export async function proposals(session) {
       await transition({ wake: { harness: session.wake.harness, last } });
   }
   const wakeLater = (id) => {
-    if (session.wake && !session.state.paused)
+    if (session.wake && accepts(session.state, "wake"))
       setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
   };
   const listed = () => ({ proposals: proposalItems() });
@@ -434,10 +435,10 @@ export async function proposals(session) {
   }
   // In a linked session, writeStatus writes the status to the card in the
   // parent. propose refuses a closed session before it runs writeStatus, so
-  // writeStatus checks no stage, and a linked session records its status
-  // while the parent is closed, as closedSession records its close. A status
-  // that changes no part leaves the card as it was, so status.at is the time
-  // of the last change to the parts.
+  // writeStatus does not check whether the session is closed, and a linked
+  // session records its status while the parent is closed, as closedSession
+  // records its close. A status that changes no part leaves the card as it
+  // was, so status.at is the time of the last change to the parts.
   async function writeStatus(id, data) {
     const owner = session.cardOwner(id, "pair propose");
     if (owner) return owner.exclusive(() => owner.writeStatus(id, data));

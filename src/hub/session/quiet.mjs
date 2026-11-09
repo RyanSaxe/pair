@@ -1,3 +1,5 @@
+import { accepts } from "../../shared/lifecycle.mjs";
+
 // Work is quiet when the agent has given no update on it for config.quietMs.
 // A started page of the open round counts from its last note, or from its
 // start. A proposal started here that is not done, with a part left or no
@@ -85,7 +87,7 @@ export function quiet(session) {
   let woken = new Set();
   const key = (item) => `${item.kind} ${item.id} ${item.at}`;
   const items = (now) =>
-    session.state.stage === "complete" || session.state.paused
+    !accepts(session.state, "wake")
       ? []
       : quietItems(
           {

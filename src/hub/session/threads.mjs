@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { problems } from "../../build/lint.mjs";
+import { accepts, isClosed } from "../../shared/lifecycle.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { replyImages } from "./thread-images.mjs";
@@ -130,7 +131,7 @@ export function threads(session) {
   }
   function open() {
     requireValue(
-      session.state.stage !== "complete",
+      accepts(session.state, "change"),
       "This session is closed",
       409,
     );
@@ -483,7 +484,7 @@ export function threads(session) {
   // addThreadMessage sends no wake for a thread that is sending. loadSession
   // calls resendWakes, which sends each of those wakes again.
   function resendWakes() {
-    if (session.state.stage === "complete") return;
+    if (isClosed(session.state)) return;
     for (const thread of records.values())
       if (thread.state === "sending") wakeLater(thread);
   }

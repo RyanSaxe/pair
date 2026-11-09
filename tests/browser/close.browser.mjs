@@ -70,7 +70,7 @@ for (const { name, options, record, result } of copies)
     // nothing changes until an agent runs the command.
     await sleep(1700);
     assert.equal(await button.textContent(), result);
-    assert.equal((await session.status()).body.stage, "complete");
+    assert.equal(typeof (await session.status()).body.closedAt, "string");
 
     const reload = page.waitForEvent("load");
     const started = await h.register(session.directory, session.inbox.target, {
@@ -129,7 +129,7 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   assert.equal(await dialog.evaluate((element) => element.open), false);
   assert.deepEqual(closes, []);
-  assert.notEqual((await session.status()).body.stage, "complete");
+  assert.equal((await session.status()).body.closedAt, null);
 
   await page.locator("#menu-button").click();
   await close.click();
@@ -137,7 +137,7 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   await page.locator("#close-confirm").click();
   await reload;
   assert.equal(closes.length, 1);
-  assert.equal((await session.status()).body.stage, "complete");
+  assert.equal(typeof (await session.status()).body.closedAt, "string");
   await page.locator("#history-strip:not([hidden])").waitFor();
   assert.equal(
     await page.locator("#history-label").textContent(),

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { accepts, isClosed, lifecycle } from "../../shared/lifecycle.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
@@ -39,10 +40,10 @@ export function agent(session) {
     return quiet ? `${await step()}\n${quiet}` : step();
   }
   async function step() {
-    if (session.state.stage === "complete") return closed;
+    if (isClosed(session.state)) return closed;
     const [event] = await pending();
     if (event) return `Run ${command("read")} to see what the reviewer sent.`;
-    if (session.state.paused)
+    if (lifecycle(session.state) === "paused")
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
     if (!session.state.current)
       return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
@@ -57,7 +58,7 @@ export function agent(session) {
       );
       return `You still have to publish these pages: ${left.join(", ")}. When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
     }
-    if (session.state.stage === "working")
+    if (session.stage() === "working")
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";
     const { round } = session.state.current;
     // Work started here after the agent published this round's page list has
@@ -113,22 +114,11 @@ export function agent(session) {
   }
   // The reviewer closes a session from the browser. The hub sends the agent
   // no wake, and act refuses the agent's next command with closed. close
-  // deletes no file.
+  // deletes no file and leaves the round as it was.
   async function close() {
-    await transition({ stage: "complete", dismissedAt: timestamp() });
+    await transition({ closedAt: timestamp() });
     await session.closeLinked();
     return { status: view() };
-  }
-  // close replaces the stage, so stageBeforeClose works it out again from the
-  // session's submissions and rounds. Feedback that the agent read answers the
-  // current round until the agent publishes the next round.
-  async function stageBeforeClose() {
-    const { current, openRound, latestSubmissionRound } = session.state;
-    if ((await pending()).some(answersRound)) return "submitted";
-    if (!current) return "ready";
-    return openRound || latestSubmissionRound === current.round
-      ? "working"
-      : "updated";
   }
   // No agent has worked on the open round since the session closed, so reopen
   // marks each started page as not started, and the progress card and the quiet
@@ -164,8 +154,7 @@ export function agent(session) {
     await transition({
       ...report(),
       ...restartPages(),
-      stage: await stageBeforeClose(),
-      dismissedAt: null,
+      closedAt: null,
       wake: { ...session.state.wake, last: null },
       formerHolders: (session.state.formerHolders || []).filter(
         (item) => !sameAgent(item, agent),
@@ -295,7 +284,6 @@ export function agent(session) {
     const patch = {
       ...report(),
       ...receive(event),
-      stage: !answersRound(event) ? session.state.stage : "working",
       acknowledged: [...session.state.acknowledged, event.id],
       acknowledgedAt: timestamp(),
       lastAcknowledgedId: event.id,
@@ -422,7 +410,7 @@ export function agent(session) {
     // session. Any agent can record a proposal, such as a subagent that finds
     // work worth doing.
     if (data.action !== "status") {
-      requireValue(session.state.stage !== "complete", closed, 409);
+      requireValue(accepts(session.state, "change"), closed, 409);
       if (data.action !== "propose") await requireHolder(data.agent);
     }
     await refreshTarget(wake);
@@ -447,7 +435,7 @@ export function agent(session) {
     // notice.
     if (!start && held && !same) return {};
     const reopening =
-      start && options.reopen === true && session.state.stage === "complete";
+      start && options.reopen === true && accepts(session.state, "reopen");
     if (reopening) await reopen(agent);
     await requireHolder(agent, start);
     session.commandRan();
@@ -499,7 +487,7 @@ export function agent(session) {
     // published Agreed yet.
     const answers = session.state.openRound
       ? "This round answers"
-      : session.state.stage === "working" && "The next round answers";
+      : session.stage() === "working" && "The next round answers";
     const answered = answers && session.state.latestSubmissionId;
     const feedback = answered
       ? ` ${answers} the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`

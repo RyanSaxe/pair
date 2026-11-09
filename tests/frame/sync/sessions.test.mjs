@@ -97,7 +97,7 @@ test("a row shows the first status that applies", () => {
     // A session with round null has nothing published, so its agent is
     // preparing the first round.
     [{ round: null, stage: "ready" }, "Working"],
-    [{ stage: "complete" }, undefined],
+    [{ stage: "updated" }, undefined],
   ];
   for (const [fields, text] of cases)
     assert.equal(rowStatus(entry("2", fields))?.text, text);

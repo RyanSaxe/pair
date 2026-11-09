@@ -79,8 +79,55 @@ test("a session closed with feedback unread stays closed after the hub restarts"
   const restarted = await startHub(h.config);
   try {
     const get = async (route) => (await fetch(restarted.origin + route)).json();
-    assert.equal((await get(`${a.base}/api/status`)).stage, "complete");
+    const status = await get(`${a.base}/api/status`);
+    assert.equal(typeof status.closedAt, "string");
+    assert.equal(status.stage, "submitted");
     assert.deepEqual((await get("/api/sessions")).sessions, []);
+  } finally {
+    await restarted.close();
+  }
+});
+
+// Before closedAt, the hub stored the round's stage, and Close set it to
+// "complete" with the time in dismissedAt. A reopen set dismissedAt to null and
+// stored the stage again.
+test("a session that an older hub closed or reopened loads with closedAt", async (t) => {
+  const h = await hub(t);
+  const closedBefore = await h.session(),
+    reopenedBefore = await h.session();
+  await closedBefore.publish(planData());
+  await reopenedBefore.publish(planData());
+  await h.server.close();
+  const at = "2026-11-01T12:00:00.000Z";
+  const rewrite = async (session, fields) => {
+    const file = path.join(session.directory, "status.json");
+    const { closedAt, ...state } = JSON.parse(await fs.readFile(file, "utf8"));
+    await fs.writeFile(file, JSON.stringify({ ...state, ...fields }));
+  };
+  await rewrite(closedBefore, { stage: "complete", dismissedAt: at });
+  await rewrite(reopenedBefore, { stage: "updated", dismissedAt: null });
+  const restarted = await startHub(h.config);
+  try {
+    const get = async (route) => (await fetch(restarted.origin + route)).json();
+    const closed = await get(`${closedBefore.base}/api/status`);
+    assert.equal(closed.closedAt, at);
+    assert.equal(closed.stage, "updated");
+    assert.equal(
+      (await get(`${reopenedBefore.base}/api/status`)).closedAt,
+      null,
+    );
+    assert.deepEqual(
+      (await get("/api/sessions")).sessions.map(({ id }) => id),
+      [reopenedBefore.id],
+    );
+    const stored = JSON.parse(
+      await fs.readFile(
+        path.join(closedBefore.directory, "status.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(stored.closedAt, at);
+    assert.equal("stage" in stored || "dismissedAt" in stored, false);
   } finally {
     await restarted.close();
   }

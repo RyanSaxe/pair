@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { adapters } from "../hub/wake.mjs";
+import { lifecycle } from "../shared/lifecycle.mjs";
 import { listing, usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
@@ -172,11 +173,10 @@ export async function pause(options) {
 
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
-// Closing a session leaves its pause in place, so a closed session can also be
-// paused.
 function stageText(status) {
-  if (status.stage === "complete") return "closed by the reviewer";
-  if (status.paused) return `paused: ${status.paused.reason}`;
+  const state = lifecycle(status);
+  if (state === "closed") return "closed by the reviewer";
+  if (state === "paused") return `paused: ${status.paused.reason}`;
   if (status.openRound) return "the agent publishes its pages";
   if (status.stage === "submitted")
     return "the reviewer sent something that pair read has not printed yet";

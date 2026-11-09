@@ -2,6 +2,7 @@ import { state } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { submissionInFlight } from "#frame/review/send.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 export let session, base, online, mode, editable, hasFeedbackPage, query;
 // In the search window, the frame shows one result and leaves the reader's
@@ -81,7 +82,7 @@ export const noteEditable = () =>
   feedbackEditable() ||
   (editable &&
     online &&
-    remote?.stage !== "complete" &&
+    !isClosed(remote) &&
     remote?.current?.name === plan.name &&
     remote?.current?.round === plan.round);
 export const currentAvailable = () =>

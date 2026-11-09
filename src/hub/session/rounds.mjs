@@ -222,7 +222,6 @@ export function rounds(session) {
       openRound: complete ? null : set,
       roundPages: { ...(session.state.roundPages || {}), [set.round]: set },
       pageSetGeneration: set.generation,
-      stage: complete ? "updated" : "working",
       current,
       title: set.title,
       rounds,
@@ -275,7 +274,7 @@ export function rounds(session) {
       409,
     );
     requireValue(
-      ["ready", "working"].includes(session.state.stage),
+      ["ready", "working"].includes(session.stage()),
       "You published every page of this round, and the reviewer has not sent feedback on it yet. Publish the next round after the hub wakes you with their feedback.",
       409,
     );
@@ -442,7 +441,7 @@ export function rounds(session) {
   }
   async function pageProgress(data) {
     requireValue(
-      session.state.openRound && session.state.stage === "working",
+      session.state.openRound && session.stage() === "working",
       "Publish Agreed first",
       409,
     );
