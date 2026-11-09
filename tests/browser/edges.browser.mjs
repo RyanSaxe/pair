@@ -155,24 +155,6 @@ for (const [browser, engine] of Object.entries(engines)) {
     assert.equal(await saved(page, PAGE_KEY), null);
   });
 
-  test(`in ${browser}, a saved width that is not a whole number in range is ignored at load`, async (t) => {
-    const s = await setup(t, engine);
-    if (!s) return;
-    const { page } = s;
-    for (const [pageWidth, sidebarWidth] of [
-      ["wide", "narrow"],
-      ["1160", "224"],
-      ["1500.5", "300.5"],
-      ["-1600", "401"],
-    ]) {
-      await save(page, { [PAGE_KEY]: pageWidth, [SIDEBAR_KEY]: sidebarWidth });
-      await page.reload();
-      await page.locator('#page-content[data-page-id="blocks"]').waitFor();
-      assert.equal((await box(page, "#app")).width, 1160, pageWidth);
-      assert.equal((await box(page, "#sidebar")).width, 224, sidebarWidth);
-    }
-  });
-
   test(`in ${browser}, no grip shows at 1160px or at 375px, and a saved sidebar width applies only above 1160px`, async (t) => {
     const s = await setup(t, engine);
     if (!s) return;
@@ -462,46 +444,66 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
     }
     await page.mouse.up();
   });
-
-  test(`in ${browser}, the search window's frame and a preview have no grips, and a read-only round has grips`, async (t) => {
-    const s = await setup(t, engine);
-    if (!s) return;
-    const { page, url } = s;
-    // The search window is narrower than 1160px, so each frame opens as a whole
-    // window here, where only the frame's mode can hide the grips.
-    for (const address of ["embed/latest#blocks", "preview/1#blocks"]) {
-      await page.goto(url(address));
-      // The frame sets the mode once it loads, and the search window's frame
-      // once it has the session's status.
-      await page.waitForFunction(
-        () => {
-          const root = document.documentElement;
-          return "embed" in root.dataset || root.dataset.mode === "preview";
-        },
-        undefined,
-        { timeout: 5000 },
-      );
-      for (const side of ["left", "right", "side"])
-        assert.equal(
-          await page.locator(`.grip.${side}`).isVisible(),
-          false,
-          `${address} ${side}`,
-        );
-    }
-    await page.goto(url("r/1#blocks"));
-    await page.locator('#page-content[data-page-id="blocks"]').waitFor();
-    assert.equal(await page.locator(".grip.left").isVisible(), true);
-  });
-
-  test(`in ${browser}, a session with nothing published has grips that set the width`, async (t) => {
-    const h = await hub(t);
-    const session = await h.session();
-    const page = await open(t, "about:blank", { engine, viewport: wide });
-    if (!page) return;
-    await page.goto(`${h.server.origin}${session.base}/`);
-    await page.locator(".grip.right").waitFor();
-    await drag(page, (await box(page, "#app")).right, 1800);
-    assert.equal((await box(page, "#app")).width, 1600);
-    assert.equal(await saved(page, PAGE_KEY), "1600");
-  });
 }
+
+// These read a saved width and the frame's mode, which work the same in every
+// engine, so they run in Chrome only.
+test("a saved width that is not a whole number in range is ignored at load", async (t) => {
+  const s = await setup(t, "chrome");
+  if (!s) return;
+  const { page } = s;
+  for (const [pageWidth, sidebarWidth] of [
+    ["wide", "narrow"],
+    ["1160", "224"],
+    ["1500.5", "300.5"],
+    ["-1600", "401"],
+  ]) {
+    await save(page, { [PAGE_KEY]: pageWidth, [SIDEBAR_KEY]: sidebarWidth });
+    await page.reload();
+    await page.locator('#page-content[data-page-id="blocks"]').waitFor();
+    assert.equal((await box(page, "#app")).width, 1160, pageWidth);
+    assert.equal((await box(page, "#sidebar")).width, 224, sidebarWidth);
+  }
+});
+
+test("the search window's frame and a preview have no grips, and a read-only round has grips", async (t) => {
+  const s = await setup(t, "chrome");
+  if (!s) return;
+  const { page, url } = s;
+  // The search window is narrower than 1160px, so each frame opens as a whole
+  // window here, where only the frame's mode can hide the grips.
+  for (const address of ["embed/latest#blocks", "preview/1#blocks"]) {
+    await page.goto(url(address));
+    // The frame sets the mode once it loads, and the search window's frame
+    // once it has the session's status.
+    await page.waitForFunction(
+      () => {
+        const root = document.documentElement;
+        return "embed" in root.dataset || root.dataset.mode === "preview";
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    for (const side of ["left", "right", "side"])
+      assert.equal(
+        await page.locator(`.grip.${side}`).isVisible(),
+        false,
+        `${address} ${side}`,
+      );
+  }
+  await page.goto(url("r/1#blocks"));
+  await page.locator('#page-content[data-page-id="blocks"]').waitFor();
+  assert.equal(await page.locator(".grip.left").isVisible(), true);
+});
+
+test("a session with nothing published has grips that set the width", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  const page = await open(t, "about:blank", { viewport: wide });
+  if (!page) return;
+  await page.goto(`${h.server.origin}${session.base}/`);
+  await page.locator(".grip.right").waitFor();
+  await drag(page, (await box(page, "#app")).right, 1800);
+  assert.equal((await box(page, "#app")).width, 1600);
+  assert.equal(await saved(page, PAGE_KEY), "1600");
+});
