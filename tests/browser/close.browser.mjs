@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
@@ -200,4 +201,57 @@ test("a closed session's line under the header stays one line on a phone", async
   }));
   assert.ok(line.height < line.lineHeight * 1.5, JSON.stringify(line));
   assert.deepEqual(line.cut, [title]);
+});
+
+// The hub refuses every reply in a closed session, so a card the agent did not
+// answer stops saying that it will.
+test("in a closed session, a thread the agent did not answer says the reviewer closed the session first", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const start = async (text) => {
+    const id = crypto.randomUUID();
+    const started = await session.request(`${session.base}/api/threads`, {
+      id,
+      round: "1",
+      topic: "overview",
+      anchor: "Overview",
+      text,
+    });
+    assert.equal(started.code, 201, started.body.error);
+    return id;
+  };
+  const sent = await start("Is one result enough?");
+  const read = await start("What about a failed input?");
+  const replied = await start("Does order matter?");
+  assert.equal(
+    await waitUntil(async () =>
+      (await session.status()).body.threads.every(
+        (thread) => thread.state === "sent",
+      ),
+    ),
+    true,
+  );
+  assert.equal((await session.action("reply", { note: read })).code, 200);
+  const answered = await session.action("reply", {
+    note: replied,
+    text: "It keeps the input order.",
+  });
+  assert.equal(answered.code, 200, answered.body.error);
+  assert.equal(
+    (await session.request(`${session.base}/api/dismiss`, {})).code,
+    200,
+  );
+
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const status = async (id) => {
+    const card = page.locator(`pair-thread[data-thread="${id}"]`);
+    await card.waitFor();
+    return card.locator(".thread-status").textContent();
+  };
+  const closed = "You closed the session before the agent replied.";
+  assert.equal(await status(sent), closed);
+  assert.equal(await status(read), closed);
+  assert.equal(await status(replied), "");
 });
