@@ -420,10 +420,9 @@ test("a publish whose answer is cut off keeps the source the hub recorded", asyn
         "content-type": "application/json",
         "content-length": String(Buffer.byteLength(body)),
       });
-      response.write(body.slice(0, 10));
-      // The 200 ms wait lets the CLI receive the headers, so destroying the
-      // socket cuts off only the body.
-      setTimeout(() => response.socket.destroy(), 200);
+      // The callback runs once the headers and the first bytes of the body
+      // are on the socket, so destroying it cuts off only the body.
+      response.write(body.slice(0, 10), () => response.socket.destroy());
     },
   );
   assert.match(failure.stderr, /The hub may have published this page/);

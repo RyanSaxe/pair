@@ -660,15 +660,16 @@ test("preserved prototypes retain exact executable source without escaping into 
   assert.equal(parsed.page.prototypes[0].html, html);
   assert.equal(parsed.page.prototypes[0].file, undefined);
   assert(!result.includes(html));
-  for (const prototypes of [
-    [],
-    [null],
-    [{ ...parsed.page.prototypes[0], height: 0 }],
-    [{ ...parsed.page.prototypes[0], html: "" }],
-    [parsed.page.prototypes[0], parsed.page.prototypes[0]],
+  const [demo] = parsed.page.prototypes;
+  for (const [prototypes, message] of [
+    [[], /data-prototype="demo" names no prototype/],
+    [[{ ...demo, height: 0 }], /Prototype height must be positive/],
+    [[{ ...demo, html: "" }], /Prototypes require title and HTML/],
+    [[demo, demo], /Prototype IDs must be valid and unique/],
   ])
     await assert.rejects(
       buildPage(source, { ...parsed, page: { ...parsed.page, prototypes } }),
+      message,
     );
   await fs.writeFile(
     source,
@@ -680,7 +681,10 @@ test("preserved prototypes retain exact executable source without escaping into 
       },
     }),
   );
-  await assert.rejects(build(source), /file.*html|html.*file/);
+  await assert.rejects(
+    build(source),
+    /Use file or html for a prototype, not both/,
+  );
 });
 
 test("the component fixture builds", async (t) => {
