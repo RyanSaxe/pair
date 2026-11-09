@@ -27,9 +27,10 @@ const skip =
   process.platform === "win32" &&
   "the stub cannot keep a wake in progress on a Windows named pipe";
 
-// stoppedHub starts a hub as its own process with a session whose round 1 is
-// published. stop waits for the first wake to reach the stub, stops that hub
-// during the wake, and starts the next hub in the test process.
+// stoppedHub starts a hub as its own process with pair start, and publishes
+// round 1 on the agent's route, as pair publish does. stop waits for the first
+// wake to reach the stub, stops that hub during the wake, and starts the next
+// hub in the test process.
 async function stoppedHub(t) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-owed-"));
   const socket = path.join(home, "agent.sock");
@@ -45,7 +46,7 @@ async function stoppedHub(t) {
   });
   await new Promise((resolve) => stub.listen(socket, resolve));
   stub.unref();
-  const { config, run, start } = await pairCli(home, {
+  const { config, agent, start } = await pairCli(home, {
     PAIR_HUB_PORT: "0",
     PAIR_HUB_HOST: "",
     CLAUDE_CODE_MESSAGING_SOCKET: socket,
@@ -57,33 +58,37 @@ async function stoppedHub(t) {
     await fs.rm(home, { recursive: true, force: true });
   });
   const { sessionId, sessionDir } = await start();
-  const source = path.join(home, "source.json");
-  const publish = async (page, ...args) => {
-    const file = path.join(home, `${page.id}.html`);
-    await fs.writeFile(
-      file,
-      await buildPage(source, {
+  const first = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
+  let origin = `http://127.0.0.1:${first.port}`;
+  const { token } = JSON.parse(
+    await fs.readFile(path.join(sessionDir, "connection.json"), "utf8"),
+  );
+  const act = async (action, data) => {
+    const response = await fetch(`${origin}/agent/${sessionId}/action`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action, sessionId, agent, ...data }),
+    });
+    assert.equal(response.status, 200, (await response.json()).error);
+  };
+  const publish = async (page, pages) =>
+    act("publish", {
+      html: await buildPage(path.join(sessionDir, "source.json"), {
         name: "owed",
         round: "1",
         title: "Owed",
         page,
       }),
-    );
-    await run("publish", "--file", file, ...args, "--session-dir", sessionDir);
-  };
-  const pages = path.join(home, "pages.json");
-  await fs.writeFile(
-    pages,
-    JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
-  );
+      pages,
+    });
   await publish(
     { id: "agreed", title: "Agreed so far", agreements: [], task },
-    "--pages",
-    pages,
+    [{ id: "overview", title: "Overview" }],
   );
   await publish({ id: "overview", title: "Overview", html: "<p>One</p>" });
-  const first = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
-  let origin = `http://127.0.0.1:${first.port}`;
   const post = (route, data) =>
     fetch(`${origin}/s/${sessionId}/api/${route}`, {
       method: "POST",
@@ -102,7 +107,7 @@ async function stoppedHub(t) {
     assert.equal(await waitUntil(() => wakes.length === 2), true);
     assert.equal(wakes[1], wakes[0]);
   }
-  return { run, sessionId, sessionDir, wakes, post, status, stop };
+  return { act, sessionId, sessionDir, wakes, post, status, stop };
 }
 
 test(
@@ -153,13 +158,13 @@ for (const [kind, send, line] of [
   ],
   [
     "a Start",
-    async ({ run, post, sessionDir }) => {
-      await run(
-        "propose",
-        ...["--session-dir", sessionDir, "--id", "docs-pass"],
-        ...["--title", "Docs pass", "--delivers", "Docs match the code."],
-        ...["--recommend", "here"],
-      );
+    async ({ act, post }) => {
+      await act("propose", {
+        id: "docs-pass",
+        title: "Docs pass",
+        delivers: "Docs match the code.",
+        recommend: "here",
+      });
       const started = await post("proposals/docs-pass/start", {
         where: "here",
       });
