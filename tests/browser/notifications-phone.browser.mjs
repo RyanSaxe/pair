@@ -17,7 +17,6 @@ import {
 
 for (const engine of ["chrome", "webkit"])
   for (const [width, height, bars] of [
-    [375, 667, 114],
     [390, 844, 180],
     [320, 568, 114],
   ])

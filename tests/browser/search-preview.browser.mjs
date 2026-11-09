@@ -286,11 +286,15 @@ test("a page title's result shows the page from its title down", async (t) => {
   assert.equal(await shown(page).locator(".search-matched").count(), 0);
 });
 
-test("the reader can scroll a long result, and the page fills the pane", async (t) => {
+test("a word in a long fold opens the fold and scrolls to the word, and the reader can scroll the result, which fills the pane", async (t) => {
   const { page } = await setUp(t);
   if (!page) return;
   await type(page, "pangolin");
   await previewShows(page, "pangolin");
+  assert.equal(
+    await shown(page).locator("#page-content details").getAttribute("open"),
+    "",
+  );
   const read = () =>
     page.evaluate(() => {
       const frame = document.querySelector(".search-frame.is-shown");
@@ -306,17 +310,6 @@ test("the reader can scroll a long result, and the page fills the pane", async (
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, -300);
   await waitUntil(async () => (await read()).top < before.top);
-});
-
-test("a word in a long fold opens the fold and scrolls to the word itself", async (t) => {
-  const { page } = await setUp(t);
-  if (!page) return;
-  await type(page, "pangolin");
-  await previewShows(page, "pangolin");
-  assert.equal(
-    await shown(page).locator("#page-content details").getAttribute("open"),
-    "",
-  );
 });
 
 test("a thread on a block shows the block with the thread's real card", async (t) => {
