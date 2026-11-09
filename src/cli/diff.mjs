@@ -55,7 +55,7 @@ async function gitDiff(paths) {
   }
 }
 
-export async function compareFiles(beforePath, afterPath) {
+async function compareFiles(beforePath, afterPath) {
   const paths = [beforePath, afterPath].map((file) => path.resolve(file));
   const [before, after] = await Promise.all(
     paths.map((file) => fs.readFile(file, "utf8")),
