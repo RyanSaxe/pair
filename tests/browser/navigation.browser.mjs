@@ -433,23 +433,35 @@ test("Back to current opens the waiting Agreed, not an empty Review", async (t) 
   await waiting();
 });
 
-test("the left tab reads Last round for the round before Current's, and Round 1 once opened from the Rounds panel", async (t) => {
+test("the left tab reads Last round for the round before Current's, and Round 1 once opened from the Rounds panel, where each round chosen opens its page", async (t) => {
   const s = await setup(t);
   await s.publish("1");
   await s.send("1");
   await s.publish("2");
   await s.send("2");
   await s.publish("3");
-  const page = await open(t, s.url("#agreed"));
+  const page = await open(t, s.url("#overview"));
   if (!page) return;
   // The frame enables the tab once the first status poll has loaded round 2.
   await page
     .locator("#past-tab:not([disabled])", { hasText: "Last round" })
     .waitFor();
-  await page.locator("#round").click();
-  await page.locator("#round-list button", { hasText: "Round 1" }).click();
+  const choose = async (round) => {
+    await page.locator("#round").click();
+    await page.locator("#round-list button", { hasText: round }).click();
+  };
+  // The frame selects a tab and shows its page in one step, so once the tab
+  // is selected the title is the chosen round's page.
+  const titled = async (text) =>
+    assert.equal(await page.locator("#page-title").textContent(), text);
+  await choose("Round 1");
   await selected(page, "past");
   await page.locator("#past-tab", { hasText: "Round 1" }).waitFor();
+  // Round 1 has no saved place, so it opens at its first page.
+  await titled("Agreed so far");
+  await choose("Round 3");
+  await selected(page, "current");
+  await titled("Overview");
 });
 
 test("the sidebar opens and closes at 1280px, where it slides without drawing outside the frame, and at 375px, where it slides over the page", async (t) => {
