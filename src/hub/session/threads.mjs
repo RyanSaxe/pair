@@ -478,6 +478,15 @@ export function threads(session) {
     );
     return thread;
   }
+  // A hub stops without waiting for the wakes it scheduled, so a hub that
+  // stopped during a thread's wake left the thread sending, and
+  // addThreadMessage sends no wake for a thread that is sending. loadSession
+  // calls resendWakes, which sends each of those wakes again.
+  function resendWakes() {
+    if (session.state.stage === "complete") return;
+    for (const thread of records.values())
+      if (thread.state === "sending") wakeLater(thread);
+  }
   return {
     threadView,
     threadImage: (id, index, image) => images.read(threadFor(id), index, image),
@@ -489,5 +498,6 @@ export function threads(session) {
     reply,
     threadsSince,
     threadSource,
+    resendWakes,
   };
 }
