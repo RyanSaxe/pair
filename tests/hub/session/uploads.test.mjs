@@ -5,6 +5,12 @@ import path from "node:path";
 import test from "node:test";
 import { exists, hub, planData } from "../../support/hub.mjs";
 
+// The hub decides an image's type by its first bytes, so each test image is
+// those bytes and padding.
+const pad = (magic, size = 64) =>
+  Buffer.concat([Buffer.from(magic), Buffer.alloc(size)]);
+const png = pad([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 // The hub receives a reviewer's screenshot as bytes with no name and no
 // trustworthy type, so the hub picks both and writes the file itself.
 test("an image upload is decided by its bytes, capped, and named by the hub", async (t) => {
@@ -16,9 +22,6 @@ test("an image upload is decided by its bytes, capped, and named by the hub", as
       headers: { Origin: h.server.origin, ...headers },
       body,
     });
-  const pad = (magic, size = 64) =>
-    Buffer.concat([Buffer.from(magic), Buffer.alloc(size)]);
-  const png = pad([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const jpeg = pad([0xff, 0xd8, 0xff]);
   const gif = pad([0x47, 0x49, 0x46, 0x38]);
   const webp = Buffer.concat([
@@ -79,10 +82,6 @@ test("a note carries its images by path, and removing one deletes the file", asy
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
-  const png = Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    Buffer.alloc(64),
-  ]);
   const stored = await fetch(`${h.server.origin}${a.base}/api/upload`, {
     method: "POST",
     headers: { Origin: h.server.origin },
@@ -188,10 +187,6 @@ test("a drawing answer saves a scene and PNG preview in its own session", async 
     ).then((r) => r.json()),
     scene,
   );
-  const png = Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    Buffer.alloc(64),
-  ]);
   const preview = await (await post("upload", png)).json();
   const answer = {
     kind: "drawing",
