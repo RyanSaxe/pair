@@ -15,6 +15,7 @@ import {
   planData,
   sessionConfig,
   sleep,
+  task,
   waitUntil,
 } from "../support/hub.mjs";
 
@@ -196,6 +197,28 @@ test("a saved link to a closed session's older round opens that round", async (t
     readPlanData((await a.request(`${a.base}/?round=2`)).body).round,
     "2",
   );
+});
+
+// A closed frame fetches no page, so the round's own page carries each page the
+// round published and leaves out the rest.
+test("a closed round that never finished shows the pages it published", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [
+      { id: "sent", title: "Sent", html: "<p>The published otter.</p>" },
+      { id: "unsent", title: "Unsent", html: "<p>Never published.</p>" },
+    ],
+    stopAfter: 1,
+  });
+  assert.equal(published.code, 200, published.body.error);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  for (const address of [`${a.base}/r/1`, `${a.base}/`]) {
+    const { body } = await a.request(address);
+    assert.match(body, /published otter/);
+    assert.doesNotMatch(body, /"unsent"/);
+  }
 });
 
 // A tab opened before the reviewer closed the session with ✕ in the session
@@ -490,19 +513,12 @@ test("the hub refuses to open a session interactive-plan created", async (t) => 
       current: { artifactId: "plan", revision: "3", kind: "plan" },
     }),
   );
-  const response = await fetch(h.server.origin + "/agent/register", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${h.record.secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sessionDir: directory,
-      wake: { harness: "codex", thread: "t" },
-    }),
+  const refused = await h.register(directory, {
+    harness: "codex",
+    thread: "t",
   });
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).error, /is not a pair session/);
+  assert.equal(refused.code, 400);
+  assert.match(refused.body.error, /is not a pair session/);
   assert.deepEqual(await fs.readdir(directory), ["status.json"]);
 });
 
@@ -571,7 +587,7 @@ test("a session reached through a symbolic link is the same session", async (t) 
       id: "agreed",
       title: "Agreed so far",
       agreements: [],
-      task: { title: "The task", html: "<p>What the plan builds.</p>" },
+      task,
     },
   });
   const { sessionId } = first.body;

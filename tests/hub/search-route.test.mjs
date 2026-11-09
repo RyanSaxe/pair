@@ -291,24 +291,3 @@ test("a reopened session counts as live in search again", async (t) => {
   assert.equal(live.body.total, 1);
   assert.ok(!live.body.results[0].closed);
 });
-
-test("a closed round that never finished shows the pages it published", async (t) => {
-  const { h, settled } = await searcher(t);
-  const a = await h.session();
-  const published = await a.publish({
-    ...planData(),
-    pages: [
-      page("sent", "Sent", "<p>The published otter.</p>"),
-      page("unsent", "Unsent", "<p>Never published.</p>"),
-    ],
-    stopAfter: 1,
-  });
-  assert.equal(published.code, 200, published.body.error);
-  await settled();
-  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
-  for (const address of [`${a.base}/r/1`, `${a.base}/`]) {
-    const text = await (await fetch(h.server.origin + address)).text();
-    assert.match(text, /published otter/);
-    assert.doesNotMatch(text, /"unsent"/);
-  }
-});

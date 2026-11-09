@@ -39,27 +39,15 @@ some loose top-level words
 </section>
 <figure><img alt="A drawing of a pangolin" src="data:image/png;base64,${"A".repeat(2000)}" /></figure>`;
 
+const scope = {
+  id: "scope",
+  title: "Scope of the ocelot work",
+  html: "<p>The ocelot stays out.</p>",
+  sourceRefs: [{ kind: "conversation", text: "Said in chat." }],
+};
+
 // A real hub writes each file search reads, so these tests read the format the
 // hub writes rather than a copy of it.
-async function session(t) {
-  const h = await hub(t);
-  const a = await h.session();
-  const published = await a.publish({
-    ...planData(),
-    agreements: [
-      {
-        id: "scope",
-        title: "Scope of the ocelot work",
-        html: "<p>The ocelot stays out.</p>",
-        sourceRefs: [{ kind: "conversation", text: "Said in chat." }],
-      },
-    ],
-    pages: [{ id: "overview", title: "The lemur page", html: pageHtml }],
-  });
-  assert.equal(published.code, 200, published.body.error);
-  return { h, a };
-}
-
 async function pageSession(t, html, { page, ...plan } = {}) {
   const h = await hub(t);
   const a = await h.session();
@@ -71,6 +59,13 @@ async function pageSession(t, html, { page, ...plan } = {}) {
   assert.equal(published.code, 200, published.body.error);
   return a;
 }
+
+// session publishes pageHtml as the lemur page, with Agreed's scope card.
+const session = (t) =>
+  pageSession(t, pageHtml, {
+    page: { title: "The lemur page" },
+    agreements: [scope],
+  });
 
 async function reader(t, a) {
   const store = searchStore();
@@ -91,7 +86,7 @@ const thread = (a, extra = {}) =>
   });
 
 test("search finds each part of a page in its block, as the frame numbers blocks", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const store = await reader(t, a);
   for (const [query, block] of [
     ["exponential backoff", 1],
@@ -117,7 +112,7 @@ test("search finds each part of a page in its block, as the frame numbers blocks
 });
 
 test("search reads titles, Agreed, threads, feedback, proposals and the draft", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   assert.equal((await thread(a)).code, 201);
   const event = a.event("feedback-only", "1", {
     message: "Ship the toucan first.",
@@ -214,7 +209,7 @@ function proposer(a) {
 }
 
 test("a card is found by each thing a reviewer reads on it, with the word marked", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const { propose, add, reviewer } = proposer(a);
   const cases = [
     [
@@ -279,7 +274,7 @@ test("a card is found by each thing a reviewer reads on it, with the word marked
 });
 
 test("a card saved before status parts had states is found by its parts", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const { add, reviewer } = proposer(a);
   await add("older");
   await reviewer("older", "start", { where: "here" });
@@ -305,7 +300,7 @@ test("a card saved before status parts had states is found by its parts", async 
 });
 
 test("a card whose title has the words ranks above a newer card that only quotes them", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const { propose, add } = proposer(a);
   await add("titled", "Saddle the ibex herd");
   await add("quoted");
@@ -324,7 +319,7 @@ test("a card whose title has the words ranks above a newer card that only quotes
 });
 
 test("a session indexed before the extractor read a card's words finds them with no change to the card", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const { propose, add } = proposer(a);
   await add("quoted");
   await propose({ id: "quoted", start: "here", quote: "Can the ibex wait?" });
@@ -349,7 +344,7 @@ test("a session indexed before the extractor read a card's words finds them with
 });
 
 test("search never reads a session's secrets", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const store = await reader(t, a);
   assert.equal((await store.search({ query: a.connection.token })).total, 0);
   await store.close();
@@ -362,7 +357,7 @@ test("search never reads a session's secrets", async (t) => {
 });
 
 test("a copy across rounds is one row at the newest round", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   assert.equal((await a.feedback(a.event())).code, 200);
   assert.equal((await a.action("read")).code, 200);
   const next = await a.publish({
@@ -385,7 +380,7 @@ test("a copy across rounds is one row at the newest round", async (t) => {
 });
 
 test("a result names its page's title even when another page shares that title", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   assert.equal((await a.feedback(a.event())).code, 200);
   assert.equal((await a.action("read")).code, 200);
   const next = await a.publish({
@@ -408,7 +403,7 @@ test("a result names its page's title even when another page shares that title",
 });
 
 test("the cache stands in for a file until the file changes", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const first = await reader(t, a);
   await first.close();
   const cacheFile = path.join(a.directory, "search.jsonl");
@@ -432,7 +427,7 @@ test("the cache stands in for a file until the file changes", async (t) => {
 });
 
 test("a search during another search's read waits for that read", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const store = await reader(t, a);
   assert.equal((await thread(a)).code, 201);
   store.markChanged(a.id);
@@ -442,7 +437,7 @@ test("a search during another search's read waits for that read", async (t) => {
 });
 
 test("few results add rows for missing words and for words across a page", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const store = await reader(t, a);
   const wrongWord = await store.search({
     query: "exponential backoff zebra",
@@ -655,16 +650,7 @@ test("a result names the DOM id of the block that holds it", async (t) => {
     `<h2 id="own-id">The capybara</h2>
      <p>The viscacha.</p>
      loose agouti words`,
-    {
-      agreements: [
-        {
-          id: "scope",
-          title: "Scope",
-          html: "<p>The ocelot stays out.</p>",
-          sourceRefs: [{ kind: "conversation", text: "Said in chat." }],
-        },
-      ],
-    },
+    { agreements: [scope] },
   );
   const store = await reader(t, a);
   for (const [query, blockId] of [
@@ -716,7 +702,7 @@ test("a thread resolves its target to the block that holds it, from a page read 
 });
 
 test("a thread on an Agreed card is headed by its card", async (t) => {
-  const { a } = await session(t);
+  const a = await session(t);
   const onAgreed = { topic: "agreed", target: "agreement-scope" };
   assert.equal(
     (
