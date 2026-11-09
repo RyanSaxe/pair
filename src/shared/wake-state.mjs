@@ -39,19 +39,14 @@ const accepted = {
 export const wakeAccepts = (status, action) =>
   Boolean(accepted[wakeState(status)]?.includes(action));
 
-// How far the reviewer's latest submission got. pair progress records
-// lastReceivedId and pair read records lastAcknowledgedId, each for the first
-// send that pair read has not printed. deliveryState compares those IDs, not
-// times, because the agent's last report can come from an earlier round.
-// Before the agent receives the submission, the wake for the newest send
-// carries it, because pair read prints every send it has not printed, oldest
-// first.
+// Whether the agent has received or read the reviewer's latest submission.
+// pair progress records lastReceivedId and pair read records
+// lastAcknowledgedId, each for the first send that pair read has not printed.
+// deliveryState compares those IDs, not times, because the agent's last report
+// can come from an earlier round.
 export function deliveryState(status) {
   const latest = status?.latestSubmissionId;
   if (!latest) return null;
   if (status.lastAcknowledgedId === latest) return "read";
-  if (status.lastReceivedId === latest) return "received";
-  const wake = wakeState(status);
-  if (wake === "failed") return "failed";
-  return wake === "sent" || wake === "answered" ? "sent" : "saved";
+  return status.lastReceivedId === latest ? "received" : null;
 }
