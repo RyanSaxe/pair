@@ -176,10 +176,13 @@ async function openRound(t, quietMs) {
   return { a, run, wakeLines };
 }
 
+// Each check reads the next step of the command that updated the work, so the
+// check holds however long the machine takes between two commands.
 test("every next step names quiet pages and cards until each gets an update", async (t) => {
   const quietMs = 300;
   const { a, run } = await openRound(t, quietMs);
-  await run("progress", { start: ["ci-flakes"] });
+  const started = await run("progress", { start: ["ci-flakes"] });
+  assert.equal(started.next.includes("\n"), false);
   await run("propose", {
     id: "node20-hang",
     title: "Fix the Node 20 hang",
@@ -187,10 +190,9 @@ test("every next step names quiet pages and cards until each gets an update", as
     recommend: "here",
   });
   await run("propose", { id: "node20-hang", start: "here", quote: "Fix it" });
-  const next = async () => (await run("status")).next;
-  assert.equal((await next()).includes("\n"), false);
   // The card started last, so the line names the page too once it names the
   // card.
+  const next = async () => (await run("status")).next;
   assert.equal(
     await waitUntil(async () =>
       (await next()).includes("proposal node20-hang"),
@@ -204,17 +206,17 @@ test("every next step names quiet pages and cards until each gets an update", as
       `\\nNo update in 0 minutes: page ci-flakes \\(started 0 minutes ago\\), proposal node20-hang \\(started 0 minutes ago\\)\\. Post a note on each page you are still working on with pair progress --session-dir ${dir} --page ID --note "…", and for each proposal with no parts yet, record its parts with pair propose --session-dir ${dir} --id ID --status-left "…", with one flag for each part\\.$`,
     ),
   );
-  await run("ack", { page: "ci-flakes", note: "Reading logs" });
+  const noted = await run("ack", { page: "ci-flakes", note: "Reading logs" });
   assert.match(
-    await next(),
+    noted.next,
     /\nNo update in 0 minutes: proposal node20-hang \(started 0 minutes ago\)\. For each proposal with no parts yet, record its parts/,
   );
   // The hub accepts the command that the line gives for a card with no parts.
-  await run("propose", {
+  const parts = await run("propose", {
     id: "node20-hang",
     statusLeft: ["Reproduced the hang", "Fix it"],
   });
-  assert.equal((await next()).includes("\n"), false);
+  assert.doesNotMatch(parts.next, /proposal node20-hang/);
 });
 
 test("the hub wakes the holder once for quiet work when no command runs, and again only for an update or new work", async (t) => {
