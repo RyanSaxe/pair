@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
-import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { hub, pairCli, planData, sleep, waitUntil } from "../support/hub.mjs";
 
 // The hub records a wake's result in the status once the wake has finished.
 const woken = (a) =>
@@ -94,6 +95,42 @@ test("a failed wake is recorded until the holder runs a command, and the submiss
   });
   assert.equal(started.code, 200, started.body.error);
   assert.equal(await failed(), false);
+});
+
+// pi, opencode and Copilot keep their identity when they restart, and then
+// listen on a new socket or port. pairCli runs the command as Claude Code,
+// whose identity is its socket, so this session starts with another token,
+// the rest of a Claude Code wake target.
+test("the hub wakes the holder at the wake target its latest command sent", async (t) => {
+  const h = await hub(t);
+  const box = await h.inbox();
+  const a = await h.session({
+    box: { ...box, target: { ...box.target, token: "before-restart" } },
+  });
+  assert.equal((await a.publish(planData())).code, 200);
+  const root = path.join(h.home, "cli");
+  await fs.mkdir(root);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+    CLAUDE_CODE_MESSAGING_SOCKET: box.socket,
+    CLAUDE_CODE_MESSAGING_TOKEN: box.token,
+  });
+  await cli.run("status", "--session-dir", a.directory);
+  const saved = JSON.parse(
+    await fs.readFile(path.join(a.directory, "wake.json"), "utf8"),
+  );
+  assert.equal(saved.token, box.token);
+  assert.equal(
+    JSON.stringify((await a.status()).body).includes(box.token),
+    false,
+  );
+  assert.equal((await a.feedback(a.event())).code, 200);
+  assert.equal(await woken(a), true);
+  assert.deepEqual(
+    box.wakes.map((wake) => wake.auth.token),
+    [box.token],
+  );
 });
 
 // A command that finds no hub registers the session with a new hub, and only
