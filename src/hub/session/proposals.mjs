@@ -314,8 +314,10 @@ export async function proposals(session) {
       `Proposal ${id} was ${card.done ? "done" : "started"}, so it cannot be declined`,
       409,
     );
-    if (!card.declined && !card.withdrawn)
+    if (!card.declined && !card.withdrawn) {
       await save(card, { declined: { at: timestamp() } });
+      await unjoin(id);
+    }
     return listed();
   }
   async function restoreProposal(id) {
@@ -345,9 +347,11 @@ export async function proposals(session) {
       data.reason !== undefined,
       "--withdraw takes --reason with why the proposal no longer applies",
     );
-    return save(card, {
+    const withdrawn = await save(card, {
       withdrawn: { at: timestamp(), reason: words(data, "reason") },
     });
+    await unjoin(card.id);
+    return withdrawn;
   }
   // With --where, the agent marks a card done whose work was finished
   // somewhere else. Only closedSession marks a card done whose work runs in a
@@ -387,6 +391,12 @@ export async function proposals(session) {
   }
   const joinedInto = (id) =>
     proposalItems().filter((card) => card.done?.joined === id);
+  // Nobody builds a declined or withdrawn card, so declining or withdrawing
+  // one runs unjoin, which clears done on each card joined into it. The
+  // reviewer can then start or decline each of those cards on its own.
+  async function unjoin(id) {
+    for (const card of joinedInto(id)) await save(card, { done: null });
+  }
   // join marks the card done with done.joined set to OTHER's ID, as
   // proposal-joins.mjs describes. No card joins a joined card, so join moves
   // the cards already joined into this card to OTHER. Every list of a card's
