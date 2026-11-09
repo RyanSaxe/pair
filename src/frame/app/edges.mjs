@@ -31,7 +31,7 @@ export function pageWidthAt(x, windowWidth) {
 }
 export const sidebarWidthAt = (x, bodyLeft) =>
   clamped(x - bodyLeft, sidebarEdge.rest, SIDEBAR_WIDEST);
-export function readWidth(value, min, max) {
+function readWidth(value, min, max) {
   const width = Number(value);
   return Number.isInteger(width) && width >= min && width <= max ? width : null;
 }
