@@ -2,6 +2,7 @@ import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
 import { embedded, mode, online, session } from "#frame/app/view.mjs";
 import {
+  clearRound,
   installCenter,
   isClearedChange,
   loadCleared,
@@ -136,10 +137,10 @@ export function rowStatus(entry) {
   return null;
 }
 /* A waiting round counts only while the bell still lists its line, and
-   clearOwnRound clears that line once the reviewer opens one of the round's
-   pages or a note. A round that the reviewer started on therefore stops counting
-   until its agent publishes again. cleared is the bell's set of cleared event
-   IDs. */
+   clearRound clears that line once the reviewer opens the session, one of the
+   round's pages or a note. A round that the reviewer started on therefore stops
+   counting until its agent publishes again. cleared is the bell's set of cleared
+   event IDs. */
 export function sessionsBadge(list, thisId, unopened, cleared) {
   const others = list.filter((entry) => entry.id !== thisId);
   const waits = (entry) =>
@@ -156,6 +157,12 @@ export function sessionsBadge(list, thisId, unopened, cleared) {
     count: unseen.length,
     tone: unseen.some(waits) ? "need" : "news",
   };
+}
+// Opening another session, from its row or with w or a number key, starts its
+// waiting round.
+export function openSession(entry) {
+  clearRound(entry);
+  location.assign(entry.url);
 }
 export function nextWaiting(order, thisId) {
   const at = order.findIndex((entry) => entry.id === thisId);
@@ -265,7 +272,7 @@ function sessionRow(entry, unopened, depth) {
   row.append(marks);
   row.onclick = () => {
     if (current) toggleSessions(false);
-    else location.assign(entry.url);
+    else openSession(entry);
   };
   const copy = lineButton(
     `copy:${entry.id}`,

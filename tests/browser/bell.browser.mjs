@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 
 // Overview contains a block so that a test can start a page thread on it.
 const round = (title = "Example work") => ({
@@ -219,7 +219,7 @@ test("another session's finished round adds a waiting line, and sending that rou
   await count(page, "");
 });
 
-test("a session's waiting round stays in the bell while a tab only shows that session, and leaves once the reviewer opens one of its pages", async (t) => {
+test("opening a waiting session from the session list or with w clears its waiting round from the hub's bell and the Sessions number", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   const page = await open(t, `${h.server.origin}${a.base}/`);
@@ -230,24 +230,33 @@ test("a session's waiting round stays in the bell while a tab only shows that se
   await count(page, "1");
   assert.equal((await a.publish(round())).code, 200);
   await page.locator("#page-title", { hasText: "Agreed so far" }).waitFor();
-  await bellReady(page);
-  // The test switches sessions from the session list, because opening a bell
-  // line would clear that line.
-  const switchTo = async (session) => {
-    await page.locator("#menu-button").click();
-    await page.locator(`[data-key="open:${session.id}"]`).click();
-    await page.waitForURL(`${h.server.origin}${session.base}/`);
-    await bellReady(page);
-    return page.locator("#bell").getAttribute("aria-label");
-  };
-  // Each tab leaves out its own session's round and still lists the other's,
-  // because showing a round reads nothing.
-  assert.equal(await switchTo(b), "Notifications: 1");
-  assert.equal(await switchTo(a), "Notifications: 1");
-  await switchTo(b);
-  await page.locator('#page-list [data-page="overview"]').click();
-  await page.locator("#page-title", { hasText: "Overview" }).waitFor();
-  assert.equal(await switchTo(a), "Notifications");
+  const listed = (await a.request("/api/sessions")).body.sessions;
+  const line = (session) =>
+    listed
+      .find(({ id }) => id === session.id)
+      .events.find(({ kind }) => kind === "waiting").id;
+  // Every browser on the hub reads the hub's cleared list on its next poll.
+  const cleared = (session) =>
+    waitUntil(
+      async () =>
+        (await a.request("/api/sessions")).body.seen.cleared?.includes(
+          line(session),
+        ),
+      poll.timeout,
+    );
+
+  await page.locator("#menu-button").click();
+  await page.locator(`[data-key="open:${b.id}"]`).click();
+  await page.waitForURL(`${h.server.origin}${b.base}/`);
+  assert.ok(await cleared(b));
+  await count(page, "1");
+  await page.locator("#menu-button.need").waitFor(poll);
+
+  await page.keyboard.press("w");
+  await page.waitForURL(`${h.server.origin}${a.base}/`);
+  assert.ok(await cleared(a));
+  await count(page, "");
+  await page.locator("#menu-button:not(.need)").waitFor(poll);
 });
 
 test("a tab that only shows a session, even with focus, keeps its waiting round in the other tabs' bells until the reviewer opens one of its pages there", async (t) => {

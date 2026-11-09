@@ -269,9 +269,10 @@ or change a menu.
 
 A round or proposal you have read still says it is waiting until you send
 feedback or decide it. A round waiting for you stays unread in every tab until
-you start on it: open one of its pages yourself, with a click or a key, or start
-a note in it. A tab that only shows the round, has focus or moves to the round
-as it arrives reads nothing. A tab never lists its own session's waiting round,
+you start on it: open its session from the session list, with <kbd>w</kbd> or
+with a number key, open one of its pages yourself, with a click or a key, or
+start a note in it. A tab that only shows the round, has focus or moves to the
+round as it arrives reads nothing. A tab never lists its own session's waiting round,
 because the page in front of you already shows it.
 
 Select a row to read it, and reply there, without leaving your page. **Open**
