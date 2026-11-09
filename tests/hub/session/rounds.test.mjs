@@ -464,12 +464,27 @@ test("a page may link to a page of its round that publishes after it", async (t)
   assert.equal(published.body.roundComplete, true);
 });
 
-test("page progress cannot start before Agreed for the next round", async (t) => {
+// Between rounds, page progress refuses for one of two reasons: the last round
+// has every page published, or the next round has no Agreed yet.
+test("page progress between rounds says the round is finished, or that Agreed is next", async (t) => {
   const h = await testHub(t);
   const a = await h.session();
+  const progress = () => a.action("progress", { start: ["overview"] });
   assert.equal((await a.publish(planData())).code, 200);
+  const finished = await progress();
+  assert.equal(finished.code, 409);
+  assert.match(
+    finished.body.error,
+    /^Every page of round 1 is published, so the round has no page to start\. You published round 1\. /,
+  );
   assert.equal((await a.feedback(a.event())).code, 200);
-  const result = await a.action("progress", { start: ["overview"] });
-  assert.equal(result.code, 409);
+  assert.match(
+    (await progress()).body.error,
+    /no page to start\. Run pair read --session-dir /,
+  );
+  assert.equal((await a.action("read")).code, 200);
+  const early = await progress();
+  assert.equal(early.code, 409);
+  assert.equal(early.body.error, "Publish Agreed first");
   assert.equal((await a.status()).body.openRound, null);
 });

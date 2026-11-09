@@ -440,6 +440,15 @@ export function rounds(session) {
     };
   }
   async function pageProgress(data) {
+    // Between rounds, the stage is "working" only after the agent read the
+    // feedback on the last round, and then the next round's Agreed comes next.
+    const { current } = session.state;
+    if (current && !session.state.openRound && session.stage() !== "working")
+      requireValue(
+        false,
+        `Every page of round ${current.round} is published, so the round has no page to start. ${await session.nextStep()}`,
+        409,
+      );
     requireValue(
       session.state.openRound && session.stage() === "working",
       "Publish Agreed first",
