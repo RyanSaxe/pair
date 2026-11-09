@@ -17,27 +17,33 @@ export const waitingMessage = ({ messages }) =>
 
 // A thread waits for the agent until a reply answers every message of the
 // reviewer's. Until then its state follows the reviewer's newest message: the
-// wake for it goes out, then the agent reads it. The hub refuses every reply
-// in a closed session, so a thread that waits there is unanswered.
-export function threadState(thread, closed = false) {
+// wake for it goes out, then the agent reads it. lifecycleState is what
+// lifecycle in lifecycle.mjs returns for the session. The hub refuses every
+// reply in a closed session, so a thread that waits there is unanswered. The
+// hub sends no wake in a paused session, so a thread whose wake has not gone
+// out there is held.
+export function threadState(thread, lifecycleState = "live") {
   if (!waitingMessage(thread)) return "replied";
-  if (closed) return "unanswered";
+  if (lifecycleState === "closed") return "unanswered";
   const { messages, readCount = 0, wake } = thread;
   const asked = messages.findLastIndex(
     (message) => message.from === "reviewer",
   );
   if (readCount > asked) return "read";
-  if ((wake?.through ?? 0) <= asked) return "sending";
+  if ((wake?.through ?? 0) <= asked)
+    return lifecycleState === "paused" ? "held" : "sending";
   return wake.ok ? "sent" : "failed";
 }
 
 // The actions each state accepts. A wake is the hub waking the holder for a
 // message the reviewer adds. A thread that is sending has a wake waiting to
-// go out, and the new message joins it. A read is pair read --thread
+// go out, and the new message joins it. A paused session takes no wake, so
+// neither does a held thread. A read is pair read --thread
 // recording readCount and readAt, which a read after the agent read or
 // answered every message leaves as they were.
 const accepted = {
   sending: ["read"],
+  held: ["read"],
   sent: ["wake", "read"],
   failed: ["wake", "read"],
   read: ["wake"],

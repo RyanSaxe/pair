@@ -30,7 +30,7 @@ import {
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
-import { isClosed } from "#shared/lifecycle.mjs";
+import { lifecycle } from "#shared/lifecycle.mjs";
 import { threadState } from "#shared/thread-state.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
@@ -305,6 +305,10 @@ function statusLine(thread) {
     );
   else if (thread.state === "sending")
     box.append(element("p", "thread-meta", "Sending"));
+  else if (thread.state === "held")
+    box.append(
+      element("p", "thread-meta", "Agent paused. Send a message in chat."),
+    );
   else if (thread.state === "sent") {
     const line = element("p", "thread-sent");
     const info = element("button", "thread-info", "i");
@@ -372,7 +376,7 @@ function buildCard(id) {
 // or Expand, which prefs stores, overrides it. stored can hold a message that
 // the hub has not saved yet, so drawCard works out its state here.
 function drawCard(entry, stored, part, folded) {
-  const thread = { ...stored, state: threadState(stored, isClosed(remote)) };
+  const thread = { ...stored, state: threadState(stored, lifecycle(remote)) };
   const choice = prefs.get(`thread:${thread.id}:collapsed`);
   const collapsed = choice ? choice === "1" : folded;
   const key = JSON.stringify([

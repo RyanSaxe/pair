@@ -84,8 +84,8 @@ session to your browser and wakes the agent when you respond.
 The hub wakes the holder at these moments:
 
 - When you send a round, unless the session is paused.
-- When you send a message in a [thread](threads.md), even while the session
-  is paused. The wake message contains your message, or its first 500
+- When you send a message in a [thread](threads.md), unless the session is
+  paused. The wake message contains your message, or its first 500
   characters cut at a space when it is longer, the number of images you
   attached, and the `pair read --thread` command that prints the whole
   thread with the images' paths.
@@ -98,7 +98,7 @@ The hub wakes the holder at these moments:
   the started work, so the hub sends no wake and `pair read` does not print
   the start again.
 - When you press Open a new agent session, which starts a thread on the
-  card.
+  card, unless the session is paused.
 - When a page or a proposal has had no update for 10 minutes and no `pair`
   command has run on the session for 10 minutes, unless the session is
   paused, as [Quiet work](#quiet-work) describes.

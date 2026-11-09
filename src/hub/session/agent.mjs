@@ -446,6 +446,7 @@ export function agent(session) {
       start && options.reopen === true && accepts(session.state, "reopen");
     if (reopening) await reopen(agent, holder);
     await requireHolder(agent, start);
+    const resuming = start && lifecycle(session.state) === "paused";
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
@@ -467,6 +468,7 @@ export function agent(session) {
         ],
       });
     await transition(patch);
+    if (resuming) await session.heldSent();
     if (start && !held && !session.state.current)
       await session.addActivity({
         kind: "session",
