@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
+import { lifecycle } from "../../src/shared/lifecycle.mjs";
+import { threadState } from "../../src/shared/thread-state.mjs";
 import { wakeState } from "../../src/shared/wake-state.mjs";
 import { hub, pairCli, planData, sleep, waitUntil } from "../support/hub.mjs";
 
@@ -136,11 +139,35 @@ test("the hub wakes the holder at the wake target its latest command sent", asyn
 });
 
 // A command that finds no hub registers the session with a new hub, and only
-// pair start resumes a paused session.
+// pair start resumes a paused session. The hub holds the wake for feedback,
+// for a new thread and for a message in a thread whose wake went out before
+// the pause, and pair start's next step names each thread instead.
 test("a paused session is not woken until its agent runs pair start", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
+  const startThread = async () => {
+    const started = await a.request(`${a.base}/api/threads`, {
+      id: crypto.randomUUID(),
+      round: "1",
+      topic: "overview",
+      anchor: "Failure handling",
+      text: "What happens to a failed item?",
+    });
+    assert.equal(started.code, 201, started.body.error);
+    return started.body.thread.id;
+  };
+  const send = (id, text) =>
+    a.request(`${a.base}/api/threads/${id}/messages`, { text });
+  // The frame works out each thread's state from the thread and the status.
+  const states = async () => {
+    const status = (await a.status()).body;
+    return status.threads.map((thread) =>
+      threadState(thread, lifecycle(status)),
+    );
+  };
+  const before = await startThread();
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
   assert.equal((await a.action("pause")).code, 400);
   assert.equal(
     (await a.action("pause", { reason: "asked to stop" })).code,
@@ -148,16 +175,28 @@ test("a paused session is not woken until its agent runs pair start", async (t) 
   );
   const feedback = a.event();
   assert.equal((await a.feedback(feedback)).code, 200);
+  const during = await startThread();
+  assert.equal((await send(before, "Or a retry?")).code, 201);
   await sleep(100);
-  assert.equal(a.inbox.wakes.length, 0);
+  assert.equal(a.inbox.wakes.length, 1);
+  assert.deepEqual(await states(), ["held", "held"]);
   assert.equal((await h.register(a.directory, a.inbox.target)).code, 200);
   assert.equal((await a.status()).body.paused.reason, "asked to stop");
-  assert.equal(
-    (await h.register(a.directory, a.inbox.target, { start: true })).code,
-    200,
+  const resumed = await h.register(a.directory, a.inbox.target, {
+    start: true,
+  });
+  assert.equal(resumed.code, 200, resumed.body.error);
+  assert.ok(
+    resumed.body.next.includes(
+      `You have not answered the reviewer's threads ${before} on "Overview" and ${during} on "Overview".`,
+    ),
+    resumed.body.next,
   );
+  assert.deepEqual(await states(), ["sent", "sent"]);
   assert.equal((await a.status()).body.paused, null);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
+  assert.equal((await send(during, "And refunds?")).code, 201);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
 });
 
 const tools = (chain, port = 4321, sdk = "/sdk/index.js") => ({

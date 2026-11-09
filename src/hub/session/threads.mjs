@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { problems } from "../../build/lint.mjs";
-import { accepts, isClosed } from "../../shared/lifecycle.mjs";
+import { accepts } from "../../shared/lifecycle.mjs";
 import { proposalState } from "../../shared/proposal-state.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import {
@@ -112,9 +112,11 @@ export function threads(session) {
     };
   }
   // The hub wakes the holder for each of the reviewer's messages, except one
-  // added while an earlier wake waits to be sent. wakeLater sends the wake
-  // after the hub answers the browser's request.
+  // added while an earlier wake waits to be sent, and except in a paused
+  // session, where pair start's next step names the thread instead. wakeLater
+  // sends the wake after the hub answers the browser's request.
   function wakeLater(thread) {
+    if (!accepts(session.state, "wake")) return;
     const message = thread.messages.at(-1);
     setTimeout(
       () => session.exclusive(() => wakeHolder(thread.id, message)),
@@ -492,9 +494,26 @@ export function threads(session) {
   // addThreadMessage sends no wake for a thread that is sending. loadSession
   // calls resendWakes, which sends each of those wakes again.
   function resendWakes() {
-    if (isClosed(session.state)) return;
     for (const thread of records.values())
       if (threadState(thread) === "sending") wakeLater(thread);
+  }
+  // pair start's next step names every thread the agent has not answered.
+  // When pair start resumes a paused session, heldSent records that next step
+  // as the wake of each thread whose wake the hub held, so the thread takes
+  // the wake for the reviewer's next message.
+  async function heldSent() {
+    for (const thread of records.values()) {
+      if (threadState(thread) !== "sending") continue;
+      const wake = {
+        at: timestamp(),
+        ok: true,
+        via: "pair start",
+        through: thread.messages.length,
+      };
+      const settled = { ...thread, wake };
+      await saveThread(settled);
+      Object.assign(thread, settled);
+    }
   }
   return {
     threadView,
@@ -508,6 +527,7 @@ export function threads(session) {
     threadsSince,
     threadSource,
     resendWakes,
+    heldSent,
     unansweredLine,
   };
 }

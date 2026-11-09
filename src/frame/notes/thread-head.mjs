@@ -9,6 +9,7 @@ const stateWords = (thread) =>
     ? "Not sent"
     : {
         sending: "Sending",
+        held: "Agent paused",
         sent: "Sent to the agent",
         read: "Agent replying",
         replied: "Agent replied",
