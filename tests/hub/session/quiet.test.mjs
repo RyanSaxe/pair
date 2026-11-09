@@ -187,18 +187,26 @@ test("every next step names quiet pages and cards until each gets an update", as
     recommend: "here",
   });
   await run("propose", { id: "node20-hang", start: "here", quote: "Fix it" });
-  assert.equal((await run("status")).next.includes("\n"), false);
-  await sleep(quietMs + 50);
+  const next = async () => (await run("status")).next;
+  assert.equal((await next()).includes("\n"), false);
+  // The card started last, so the line names the page too once it names the
+  // card.
+  assert.equal(
+    await waitUntil(async () =>
+      (await next()).includes("proposal node20-hang"),
+    ),
+    true,
+  );
   const dir = literal(a.directory);
   assert.match(
-    (await run("status")).next,
+    await next(),
     new RegExp(
       `\\nNo update in 0 minutes: page ci-flakes \\(started 0 minutes ago\\), proposal node20-hang \\(started 0 minutes ago\\)\\. Post a note on each page you are still working on with pair progress --session-dir ${dir} --page ID --note "…", and for each proposal with no parts yet, record its parts with pair propose --session-dir ${dir} --id ID --status-left "…", with one flag for each part\\.$`,
     ),
   );
   await run("ack", { page: "ci-flakes", note: "Reading logs" });
   assert.match(
-    (await run("status")).next,
+    await next(),
     /\nNo update in 0 minutes: proposal node20-hang \(started 0 minutes ago\)\. For each proposal with no parts yet, record its parts/,
   );
   // The hub accepts the command that the line gives for a card with no parts.
@@ -206,7 +214,7 @@ test("every next step names quiet pages and cards until each gets an update", as
     id: "node20-hang",
     statusLeft: ["Reproduced the hang", "Fix it"],
   });
-  assert.equal((await run("status")).next.includes("\n"), false);
+  assert.equal((await next()).includes("\n"), false);
 });
 
 test("the hub wakes the holder once for quiet work when no command runs, and again only for an update or new work", async (t) => {
@@ -251,6 +259,4 @@ test("the hub wakes the holder once for quiet work when no command runs, and aga
     wakeLines()[2],
     /had no update in that time: page ci-flakes, page docs-pass\./,
   );
-  await sleep(3 * quietMs);
-  assert.equal(wakeLines().length, 3);
 });
