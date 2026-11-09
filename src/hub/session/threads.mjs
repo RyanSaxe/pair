@@ -476,6 +476,19 @@ export function threads(session) {
     );
     return thread;
   }
+  // nextStep names every thread of a live session that the agent has not
+  // answered, so the agent answers each one before it ends its turn.
+  function unansweredLine() {
+    if (!accepts(session.state, "wake")) return null;
+    const waiting = [...records.values()]
+      .filter((thread) => threadState(thread) !== "replied")
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (!waiting.length) return null;
+    const named = waiting.map((thread) => `${thread.id} on "${thread.page}"`);
+    if (named.length === 1)
+      return `You have not answered the reviewer's thread ${named[0]}. Before you end your turn, run ${readCommand(waiting[0].id)}, which prints the thread with how to answer it, and answer it.`;
+    return `You have not answered the reviewer's threads ${named.slice(0, -1).join(", ")} and ${named.at(-1)}. Before you end your turn, run ${readCommand("ID")} for each of them, which prints the thread with how to answer it, and answer it.`;
+  }
   // A hub stops without waiting for the wakes it scheduled, so a hub that
   // stopped during a thread's wake left the thread sending, and
   // addThreadMessage sends no wake for a thread that is sending. loadSession
@@ -497,5 +510,6 @@ export function threads(session) {
     threadsSince,
     threadSource,
     resendWakes,
+    unansweredLine,
   };
 }

@@ -284,6 +284,44 @@ test("a reply leaves the reviewer's follow-up waiting when the agent last read t
   assert.equal((await line()).state, "replied");
 });
 
+// Without the line, the Next line after the agent read a thread told it to
+// end its turn, and nothing named the thread it had not answered.
+test("every Next line names each thread the agent has not answered, until it answers", async (t) => {
+  const { a, start, send, settled } = await published(t);
+  const first = (await start()).body.thread.id;
+  const second = (await start({ text: "Why three retries?" })).body.thread.id;
+  await settled(first);
+  await settled(second);
+  const next = async () => (await a.action("status")).body.next;
+  const read = (id) => `pair read --session-dir ${a.directory} --thread ${id}`;
+  const both = `You have not answered the reviewer's threads ${first} on "Overview" and ${second} on "Overview". Before you end your turn, run ${read("ID")} for each of them`;
+  assert.ok((await next()).includes(both), await next());
+  assert.equal((await a.action("reply", { note: first })).code, 200);
+  assert.ok((await next()).includes(both), await next());
+
+  const answered = await a.action("reply", { note: first, text: "It stops." });
+  assert.equal(answered.code, 200, answered.body.error);
+  assert.ok(
+    answered.body.next.includes(
+      `You have not answered the reviewer's thread ${second} on "Overview". Before you end your turn, run ${read(second)},`,
+    ),
+    answered.body.next,
+  );
+  assert.equal(
+    (await a.action("reply", { note: second, text: "Three." })).code,
+    200,
+  );
+  assert.ok(!(await next()).includes("You have not answered"), await next());
+
+  // A paused session's agent has ended its turn.
+  assert.equal((await send(first, { text: "And a fourth?" })).code, 201);
+  assert.equal(
+    (await a.action("pause", { reason: "Done for today" })).code,
+    200,
+  );
+  assert.ok(!(await next()).includes("You have not answered"), await next());
+});
+
 test("the status names a reply's images by address and writes their box, and the thread keeps them", async (t) => {
   const { h, a, start, thread, settled } = await published(t);
   const { id } = (await start({ quote: "A failed item" })).body.thread;

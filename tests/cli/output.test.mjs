@@ -154,10 +154,9 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   );
   const previewPath = path.join(a.directory, "uploads", `${preview.id}.png`);
   // pair read prints the next step first, and prints it again last when the
-  // output is long.
-  const lines = printed.trimEnd().split("\n");
-  assert.equal(lines[0], `Next: ${next}`);
-  assert.equal(lines.at(-1), `Next: ${next}`);
+  // output is long. The next step can take more than one line.
+  assert.ok(printed.startsWith(`Next: ${next}\n`), printed);
+  assert.ok(printed.trimEnd().endsWith(`\nNext: ${next}`), printed);
   const tag = (name, id) => {
     const found = new RegExp(
       `<pair_${name} id="${id}"[^>]*>([^]*?)</pair_${name}>`,
