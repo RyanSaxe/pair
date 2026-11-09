@@ -11,36 +11,18 @@ const reply = (answers) => ({
   from: "agent",
   ...(answers === undefined ? {} : { answers }),
 });
-const sent = (through) => ({ ok: true, through });
 
-// Each row is a thread's stored facts, the state they give, and the actions
-// that state accepts. The follow-up rows are the bug where a reply posted
-// after the reviewer's follow-up marked the follow-up answered.
-test("threadState works a thread's state out from what the agent read, what each reply answers and the last wake", () => {
+// The hub tests in tests/hub/session/threads.test.mjs reach the sent, read and
+// replied states and their wakes. No hub test adds a message while a wake
+// waits to go out, which joins that wake, or adds one after a failed wake,
+// which wakes the holder again.
+test("a thread whose wake waits to go out takes no other wake, and a thread whose wake failed takes one", () => {
   for (const [thread, expected, actions] of [
     [{ messages: [asks] }, "sending", ["read"]],
-    [{ messages: [asks], wake: sent(1) }, "sent", ["wake", "read"]],
     [
       { messages: [asks], wake: { ok: false, through: 1 } },
       "failed",
       ["wake", "read"],
-    ],
-    [{ messages: [asks], wake: sent(1), readCount: 1 }, "read", ["wake"]],
-    [{ messages: [asks, reply()], readCount: 1 }, "replied", ["wake"]],
-    [
-      { messages: [asks, reply(), asks], wake: sent(2), readCount: 1 },
-      "sending",
-      ["read"],
-    ],
-    [
-      { messages: [asks, asks, reply(1)], wake: sent(2), readCount: 1 },
-      "sent",
-      ["wake", "read"],
-    ],
-    [
-      { messages: [asks, asks, reply(1)], wake: sent(2), readCount: 3 },
-      "read",
-      ["wake"],
     ],
   ]) {
     assert.equal(threadState(thread), expected, JSON.stringify(thread));
@@ -49,13 +31,6 @@ test("threadState works a thread's state out from what the agent read, what each
       actions,
     );
   }
-});
-
-// The hub refuses every reply in a closed session.
-test("in a closed session, a thread that waits for the agent is unanswered", () => {
-  const read = { messages: [asks], wake: sent(1), readCount: 1 };
-  assert.equal(threadState(read, true), "unanswered");
-  assert.equal(threadState({ messages: [asks, reply()] }, true), "replied");
 });
 
 // A session saved before the facts stored each thread's state.
