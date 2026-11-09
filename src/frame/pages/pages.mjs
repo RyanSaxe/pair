@@ -361,8 +361,9 @@ export function updateNavigation(force = false) {
   ) {
     pageList.replaceChildren();
     addPageButton(listed.pages[0]);
-    // The waiting Current lists only Agreed, so it needs no separator.
-    if (!listed.waiting) pageList.append(separator());
+    // This separator divides Agreed from the round's pages. The waiting
+    // Current and a closed round with no published page list only Agreed.
+    if (listed.pages.length > 1) pageList.append(separator());
     for (const item of listed.pages.slice(1)) addPageButton(item);
     if (hasWork()) {
       const work = document.createElement("button");

@@ -172,15 +172,16 @@ export function rounds(session) {
   }
   /* Every round draws fresh on today's frame, so restarting the hub updates every
      session at once. A read-only round that never finished shows the pages it
-     published, because no frame fills in the rest. */
+     published, which can be none, because no frame fills in the rest. */
   function renderRound(round, { readOnly = false } = {}) {
     const set = session.state.roundPages?.[round];
     if (!set) return null;
     const published = set.pages.filter((slot) => slot.recordPath);
     const finished = published.length === set.pages.length;
-    return readOnly
-      ? renderPageRound({ ...set, pages: published }, true)
-      : renderPageRound(set, finished);
+    return renderPageRound(
+      readOnly ? { ...set, pages: published } : set,
+      finished,
+    );
   }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);

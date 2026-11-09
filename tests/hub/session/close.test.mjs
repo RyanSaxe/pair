@@ -13,7 +13,15 @@ import {
 } from "../../../src/frame/sync/notifications.mjs";
 import { countUnopened } from "../../../src/frame/sync/opened.mjs";
 import { startHub } from "../../../src/hub/server.mjs";
-import { exec, hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
+import { readPlanData } from "../../../src/shared/records.mjs";
+import {
+  exec,
+  hub,
+  planData,
+  sessionConfig,
+  sleep,
+  waitUntil,
+} from "../../support/hub.mjs";
 
 const closed = "The reviewer closed this session. Stop working on it.";
 const close = (a) => a.request(`${a.base}/api/dismiss`, {});
@@ -220,6 +228,25 @@ for (const { name, setup, stage, next, step } of beforeClose)
     const taken = await step(a);
     assert.equal(taken.code, 200, taken.body.error);
   });
+
+// Every round has a time between its Agreed and its first page, and the
+// reviewer can close the session then. The closed page carries Reopen.
+test("a round with no published page opens read-only with its Agreed, at its round's address and after a close", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish({ ...planData(), stopAfter: 0 })).code, 200);
+  const agreedOnly = ({ code, body }) => {
+    assert.equal(code, 200, body.error);
+    const data = readPlanData(body);
+    assert.equal(data.round, "1");
+    assert.equal(data.task.title, "The task");
+    assert.deepEqual(data.pages, []);
+    return sessionConfig(body);
+  };
+  assert.equal(agreedOnly(await a.request(`${a.base}/r/1`)).readonly, true);
+  assert.equal((await close(a)).code, 200);
+  assert.equal(agreedOnly(await a.request(`${a.base}/`)).closed, true);
+});
 
 test("pair start without --reopen leaves a closed session closed", async (t) => {
   const h = await hub(t);
