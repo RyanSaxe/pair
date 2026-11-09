@@ -36,9 +36,13 @@ async function setup(t) {
         { id: "overview", title: "Overview" },
         { id: "later", title: "Later" },
       ],
+      start: ["overview"],
     },
   );
-  await publish({ id: "overview", title: "Overview", html: overview });
+  await publish(
+    { id: "overview", title: "Overview", html: overview },
+    { start: ["later"] },
+  );
   const added = await session.action("propose", {
     id: "one",
     title: "Card one",

@@ -66,6 +66,19 @@ export function quietStep(items, now, ms, directory) {
   return `No update in ${count(minutes(ms), "minute")}: ${named.join(", ")}. ${action[0].toUpperCase()}${action.slice(1)}.`;
 }
 
+// A card started here with no part left needs only the page that shows its
+// work and --done, so every next step names it until the agent marks it done.
+export function finishedStep(proposals, directory) {
+  const ids = proposals
+    .filter((card) => proposalState(card) === "running" && !partsLeft(card))
+    .map((card) => card.id);
+  if (ids.length === 1)
+    return `Proposal ${ids[0]} has no part left. After you publish the page that shows its work, run pair propose --session-dir ${directory} --id ${ids[0]} --done.`;
+  if (ids.length)
+    return `Proposals ${ids.slice(0, -1).join(", ")} and ${ids.at(-1)} have no part left. After you publish the page that shows each one's work, run pair propose --session-dir ${directory} --id ID --done for it.`;
+  return null;
+}
+
 export function quietWake(items, ms, directory) {
   const named = items.map((item) => `${item.kind} ${item.id}`).join(", ");
   const cards = items.some((item) => item.kind === "proposal")
@@ -98,6 +111,10 @@ export function quiet(session) {
           now,
           config.quietMs,
         );
+  const finishedLine = () =>
+    accepts(session.state, "wake")
+      ? finishedStep(session.proposalItems(), directory)
+      : null;
   function quietLine(now = Date.now()) {
     const quiet = items(now);
     return quiet.length
@@ -116,5 +133,5 @@ export function quiet(session) {
     for (const item of quiet) woken.add(key(item));
     await session.sendWake(quietWake(quiet, config.quietMs, directory));
   }
-  return { quietLine, wakeIfQuiet };
+  return { finishedLine, quietLine, wakeIfQuiet };
 }

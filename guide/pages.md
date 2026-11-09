@@ -11,12 +11,13 @@ that follow Agreed, in order, as
 `{ "pages": [{ "id": "policy", "title": "Retry policy" }] }`.
 
 Build Agreed and publish it with the page list, then build and publish each
-page as soon as it is ready. In the commands, `SRC` is `WORK/src/N` and `OUT`
-is `WORK/out/N`:
+page as soon as it is ready. Give each publish that leaves pages unpublished
+`--start ID` for the page you work on next. In the commands, `SRC` is
+`WORK/src/N` and `OUT` is `WORK/out/N`:
 
 ```sh
 pair build SRC/agreed/agreed.json OUT/agreed.html
-pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir PATH
+pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --start policy --session-dir PATH
 pair build SRC/policy/policy.json OUT/policy.html
 pair publish --file OUT/policy.html --source SRC/policy --session-dir PATH
 ```

@@ -38,7 +38,7 @@ test("a page the agent has not published shows its latest note and its age, whic
   ];
   const act = async (action, data) =>
     assert.equal((await session.action(action, data)).code, 200);
-  await act("publish", { html: agreed, pages });
+  await act("publish", { html: agreed, pages, start: ["timeout"] });
   await act("ack", { page: "timeout", note: "Measuring p99 latency" });
   await act("progress", { start: ["rollout"] });
   // The reviewer's draft has one note, on Agreed's task card.
@@ -100,6 +100,7 @@ test("the Pages heading has one height in a session with a round in progress and
   const listed = await working.action("publish", {
     html: agreed,
     pages: [{ id: "timeout", title: "Timeout budget" }],
+    start: ["timeout"],
   });
   assert.equal(listed.code, 200);
   const finished = await h.session();

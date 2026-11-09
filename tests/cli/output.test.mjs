@@ -229,6 +229,7 @@ test("pair read prints the round, whether it is a plan, and the latest submissio
   const published = await a.action("publish", {
     html: agreed,
     pages: [{ id: "overview", title: "Overview" }],
+    start: ["overview"],
   });
   assert.equal(published.code, 200, published.body.error);
   const printed = await read();

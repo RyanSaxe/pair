@@ -132,6 +132,12 @@ and the progress card and Work then show you no progress.
 - The hub keeps the time of the last command in memory, so after a restart
   it counts from its own start.
 
+The quiet check counts only started pages, so `pair publish` refuses a
+publish that would leave pages of the open round unpublished and none of
+them started, unless `--start` names the page the agent works on next. A
+proposal started here with every part done or dropped is not quiet, and the
+next step names it until the agent marks it done.
+
 ## How the hub wakes each agent CLI
 
 `pair start` records how to wake the agent that ran it. When it finds no way
