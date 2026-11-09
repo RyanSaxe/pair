@@ -586,9 +586,9 @@ test("--done marks work approved to run here done, --where marks any card done, 
 });
 
 // The hub stores a card's status as one list of parts, in the order the agent
-// added them. --status-left adds a part. --status-done and --status-drop mark a
-// listed part done or dropped, and the hub refuses a part the card does not
-// list instead of adding it. No flag removes a part. A status that changes no
+// added them. --status-left adds a part or sets a listed one back to left.
+// --status-done and --status-drop mark a listed part done or dropped, and the
+// hub refuses a part the card does not list instead of adding it. No flag removes a part. A status that changes no
 // part leaves status.at as it was, and the hub adds no event for any status.
 // The hub refuses a status for work nobody started or that is finished, and
 // --reopen clears the status.
@@ -661,10 +661,16 @@ test("a status adds and marks the parts of approved work and never removes one",
     ["Check the totals", "done"],
     ["Email the team", "left"],
   ]);
-  await changed({ statusLeft: ["Write the export"] });
-  assert.deepEqual((await parts())[2], ["Write the export", "dropped"]);
-  await changed({ statusDone: ["Write the export"] });
-  assert.deepEqual((await parts())[2], ["Write the export", "done"]);
+  await changed({ statusLeft: ["Map the columns", "Write the export"] });
+  assert.deepEqual((await parts()).slice(1, 3), [
+    ["Map the columns", "left"],
+    ["Write the export", "left"],
+  ]);
+  await changed({ statusDone: ["Map the columns", "Write the export"] });
+  assert.deepEqual((await parts()).slice(1, 3), [
+    ["Map the columns", "done"],
+    ["Write the export", "done"],
+  ]);
   assert.equal(await events(), before, "a status adds nothing to the bell");
 
   const kept = await parts();

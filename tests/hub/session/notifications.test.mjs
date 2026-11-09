@@ -45,18 +45,12 @@ test("the notifications route lists every thread with its newest message, and th
   assert.equal(first.text.length, 160);
   assert.equal(first.message, 0);
   assert.ok(first.waitingSince);
-  assert.equal(first.readAt, null);
-
-  // pair read --thread shows on the line that the agent opened the thread.
-  await reply(answered, {});
-  assert.ok((await line(answered)).readAt);
 
   await reply(answered);
   const replied = await line(answered);
   assert.equal(replied.text, "Here.");
   assert.equal(replied.message, 1);
   assert.equal(replied.waitingSince, undefined);
-  assert.ok(replied.answeredAt);
 
   // The line waits from the first message the agent has not answered, and shows
   // the newest.
@@ -71,7 +65,6 @@ test("the notifications route lists every thread with its newest message, and th
   const both = await line(answered);
   assert.equal(both.text, "And on returns?");
   assert.equal(both.waitingSince, later.waitingSince);
-  assert.equal(both.readAt, null);
 
   // A later round keeps the answered thread, which a thread's card can still show.
   await reply(answered);

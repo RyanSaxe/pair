@@ -390,11 +390,14 @@ test("the card shows outside a running round what the reviewer must know", () =>
   );
   assert.equal(first.title, "All pages ready");
   // With a failed wake, agentNotice returns true at stage submitted. It returns
-  // false once the session is complete, and at stage updated, which the hub
-  // sets when the agent publishes a later round's last page.
+  // false once the reviewer closes the session, and at stage updated, which
+  // the hub works out once the agent publishes a later round's last page.
   const failed = { wake: { last: { ok: false } } };
   assert.equal(agentNotice({ ...failed, stage: "submitted" }), true);
-  assert.equal(agentNotice({ ...failed, stage: "complete" }), false);
+  assert.equal(
+    agentNotice({ ...failed, stage: "submitted", closedAt: takeover.at }),
+    false,
+  );
   assert.equal(agentNotice({ ...failed, stage: "updated" }), false);
 });
 

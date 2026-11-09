@@ -30,6 +30,8 @@ import {
 import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
+import { threadState } from "#shared/thread-state.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
    placeThreads draws the cards from the poll, and from sent for a message
@@ -116,7 +118,6 @@ export function startThread(context, text, attachments, saved) {
   sent.set(fields.id, {
     ...fields,
     page: context.proposal ? context.anchor : topicTitle(context.topic),
-    state: "sending",
     createdAt: now,
     messages: [{ from: "reviewer", at: now, text, attachments }],
   });
@@ -138,7 +139,6 @@ function sendReply(thread, text, attachments) {
   const at = new Date().toISOString();
   sent.set(thread.id, {
     ...rest,
-    state: "sending",
     messages: [
       ...thread.messages,
       { from: "reviewer", at, replyId, text, attachments },
@@ -295,7 +295,7 @@ function statusLine(thread) {
       line.append(retry);
     }
     box.append(line);
-  } else if (thread.state === "closed")
+  } else if (thread.state === "unanswered")
     box.append(
       element(
         "p",
@@ -369,14 +369,10 @@ function buildCard(id) {
   return { card, title, fold, quote, messages, form, shown: [], key: "" };
 }
 // folded is whether the card starts collapsed. The reviewer's own Collapse
-// or Expand, which prefs stores, overrides it. The hub refuses every reply in
-// a closed session, so drawCard shows a thread the agent did not answer there
-// as closed.
+// or Expand, which prefs stores, overrides it. stored can hold a message that
+// the hub has not saved yet, so drawCard works out its state here.
 function drawCard(entry, stored, part, folded) {
-  const thread =
-    remote?.stage === "complete" && stored.state !== "replied"
-      ? { ...stored, state: "closed" }
-      : stored;
+  const thread = { ...stored, state: threadState(stored, isClosed(remote)) };
   const choice = prefs.get(`thread:${thread.id}:collapsed`);
   const collapsed = choice ? choice === "1" : folded;
   const key = JSON.stringify([

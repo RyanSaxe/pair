@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { threadState } from "../../src/shared/thread-state.mjs";
 
 // The frame polls the hub's status every 1.5 s and sends a change 400 ms
 // after the last edit, so each wait allows several polls.
@@ -69,8 +70,11 @@ async function session(t) {
     text: "Show me the launch video.",
   });
   assert.equal(started.code, 201, started.body.error);
-  await waitUntil(
-    async () => (await s.status()).body.threads[0].state === "sent",
+  assert.equal(
+    await waitUntil(
+      async () => threadState((await s.status()).body.threads[0]) === "sent",
+    ),
+    true,
   );
   const replied = await s.action("reply", {
     note: "video",

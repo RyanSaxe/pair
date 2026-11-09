@@ -63,7 +63,7 @@ the ID instead.
 | `--done`                     | Marks work that runs here done, after the agent publishes its last page. With `--where TEXT`, such as `--where "in #86"`, it marks a proposal done whose work was finished somewhere else.                                                                       |
 | `--join OTHER`               | Joins a proposal that is still in Proposed into OTHER, whose work covers it. The hub refuses it when OTHER is declined, withdrawn, done or joined itself, or runs in a sub-session or with a new agent.                                                          |
 | `--reopen`                   | Undoes the agent's own `--done` or `--join`. The hub refuses it for a proposal that it marked done because you closed its linked session.                                                                                                                        |
-| `--status-left TEXT`         | Adds a part of approved work that is left, after the proposal's parts. When the proposal already has a part with that text, the hub leaves that part's state as it is.                                                                                           |
+| `--status-left TEXT`         | Adds a part of approved work that is left, after the proposal's parts. When the proposal already has a part with that text, the hub sets that part back to left.                                                                                                 |
 | `--status-done TEXT`         | Marks the part with that text done, and refuses text that matches none of the proposal's parts.                                                                                                                                                                  |
 | `--status-drop TEXT`         | Marks the part with that text dropped. The part stays in the proposal's parts, and no flag removes one.                                                                                                                                                          |
 
@@ -76,7 +76,7 @@ mix them. Each flag changes only the part with its text. The hub accepts
 them only for work that you approved and that is not finished, in a command
 with no other flag from this section. It refuses `--status-done` and
 `--status-drop` for text that matches no part, with an error that lists the
-proposal's parts. The hub adds the `--status-left` parts first, so one
+proposal's parts. The hub applies the `--status-left` parts first, so one
 command can add a part and mark it done. A proposal has at most 20 parts,
 each at most 80 characters, and `--reopen` clears them.
 

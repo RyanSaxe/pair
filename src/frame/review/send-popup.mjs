@@ -1,18 +1,14 @@
 import { openDrawer } from "#frame/app/drawer.mjs";
 import { persist, state, unsentItems } from "#frame/app/store.mjs";
 import { $, plural, shiftEnter } from "#frame/app/util.mjs";
-import {
-  feedbackEditable,
-  isPlanRound,
-  pages,
-  plan,
-} from "#frame/app/view.mjs";
+import { isPlanRound, pages, plan } from "#frame/app/view.mjs";
 import { notAddedAnswers, typedOn } from "#frame/notes/controls.mjs";
 import { yieldNote } from "#frame/notes/note-dialog.mjs";
 import { show } from "#frame/pages/pages.mjs";
 import { arrowKeys, checkRow } from "#frame/pages/start-popup.mjs";
 import { sendFeedback } from "#frame/review/send.mjs";
-import { loadPageRecord, remote } from "#frame/sync/rounds.mjs";
+import { onCurrent, sendAccepts } from "#frame/review/send-state.mjs";
+import { loadPageRecord } from "#frame/sync/rounds.mjs";
 
 /* openSend selects the first choice of each list, and Build it is always
    last, so the popup never opens with Build it selected. */
@@ -90,11 +86,14 @@ function choiceRow({ next: value, label, hint }) {
 function select(value) {
   next = value;
   checkRow(rows(), chosenRow());
-  refresh();
+  refreshSend();
 }
-function refresh() {
+// The drawer's Send is on only while the header's is, so it turns off while
+// the hub is unreachable and back on when a poll answers.
+export function refreshSend() {
   $("send-label").textContent = next === "build" ? "Build it" : "Send";
-  $("send-button").disabled = nothingToSend(state, next, planRound);
+  $("send-button").disabled =
+    !sendAccepts("send") || nothingToSend(state, next, planRound);
 }
 function showNotAdded() {
   const found = notAddedAnswers();
@@ -118,7 +117,7 @@ function showNotAdded() {
   );
 }
 export function openSend() {
-  if (remote?.openRound || !feedbackEditable() || !yieldNote()) return;
+  if (!onCurrent("send") || !yieldNote()) return;
   planRound = isPlanRound();
   $("send-choices").replaceChildren(...choicesFor(planRound).map(choiceRow));
   $("align-unflagged").checked = state.alignUnflagged;
@@ -151,12 +150,12 @@ export function installSendPopup() {
   $("align-unflagged").onchange = (event) => {
     state.alignUnflagged = event.target.checked;
     persist();
-    refresh();
+    refreshSend();
   };
   $("send-message").oninput = (event) => {
     state.message = event.target.value;
     persist();
-    refresh();
+    refreshSend();
   };
   $("send-button").onclick = send;
   $("send-dialog").addEventListener("keydown", (event) => {

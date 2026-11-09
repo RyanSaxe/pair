@@ -1,7 +1,8 @@
 import { state } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { submissionInFlight } from "#frame/review/send.mjs";
+import { onCurrent } from "#frame/review/send-state.mjs";
 import { remote, selectedTab } from "#frame/sync/rounds.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 export let session, base, online, mode, editable, hasFeedbackPage, query;
 // In the search window, the frame shows one result and leaves the reader's
@@ -63,16 +64,7 @@ export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&
   remote?.current?.round === plan.round;
-export const submittedCurrent = () =>
-  editable &&
-  (selectedTab === "past" ||
-    state.submitted?.round === plan.round ||
-    (current() && remote?.latestSubmissionRound === plan.round));
-export const feedbackEditable = () =>
-  editable &&
-  selectedTab === "current" &&
-  !submissionInFlight &&
-  !submittedCurrent();
+export const feedbackEditable = () => onCurrent("edit");
 // A note on a round whose feedback was sent can still start a thread,
 // because the agent answers threads while it prepares the next round or
 // builds. The hub accepts threads only on its current round, until the
@@ -81,7 +73,7 @@ export const noteEditable = () =>
   feedbackEditable() ||
   (editable &&
     online &&
-    remote?.stage !== "complete" &&
+    !isClosed(remote) &&
     remote?.current?.name === plan.name &&
     remote?.current?.round === plan.round);
 export const currentAvailable = () =>

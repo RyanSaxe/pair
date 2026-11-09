@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { readPlanData } from "../../../src/shared/records.mjs";
+import { threadState } from "../../../src/shared/thread-state.mjs";
 import { hub, planData, sleep, waitUntil } from "../../support/hub.mjs";
 
 const png = Buffer.concat([
@@ -37,8 +38,13 @@ async function published(t) {
     });
   const send = (id, data) =>
     a.request(`${a.base}/api/threads/${id}/messages`, data);
-  const thread = async (id) =>
-    (await a.status()).body.threads.find((item) => item.id === id);
+  // The frame works a card's state out from the thread the hub sends.
+  const thread = async (id) => {
+    const found = (await a.status()).body.threads.find(
+      (item) => item.id === id,
+    );
+    return { ...found, state: threadState(found) };
+  };
   // The hub records the wake's result on the thread once it has run.
   const settled = (id) =>
     waitUntil(async () => (await thread(id)).state !== "sending");
@@ -74,7 +80,7 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
   // second message wakes it again with that message.
   const waiting = await send(id, { text: "Or a retry?" });
   assert.equal(waiting.code, 201, waiting.body.error);
-  assert.equal(waiting.body.thread.state, "sending");
+  assert.equal(threadState(waiting.body.thread), "sending");
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
   assert.equal(wakes().length, 2);
@@ -91,7 +97,6 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
   assert.equal((await send(id, { text: `${words}boundary` })).code, 201);
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
-  assert.equal((await thread(id)).readAt, null);
   assert.equal((await a.action("reply", { note: id })).code, 200);
   assert.equal(
     (await a.action("reply", { note: id, text: "Kept." })).code,
@@ -164,7 +169,7 @@ test("a repeated reply ID returns the saved thread without another message or wa
   });
   assert.equal(duplicate.code, 201, duplicate.body.error);
   assert.equal(duplicate.body.thread.messages.length, 2);
-  assert.equal(duplicate.body.thread.state, "sent");
+  assert.equal(threadState(duplicate.body.thread), "sent");
   assert.equal(duplicate.body.thread.messages[1].replyId, "reply-1");
   assert.equal(duplicate.body.thread.messages[1].text, "Keep this.");
   await sleep(100);
@@ -260,15 +265,15 @@ test("a reply leaves the reviewer's follow-up waiting when the agent last read t
   assert.ok(next.includes(`Run ${read},`), next);
   const waiting = await line();
   assert.equal(waiting.waitingSince, followUp.body.thread.messages[1].at);
-  assert.equal(waiting.readAt, null);
+  assert.equal(waiting.state, "sent");
 
   assert.equal((await a.action("reply", { note: id })).code, 200);
   assert.equal((await thread(id)).state, "read");
   assert.ok((await thread(id)).readAt);
-  assert.ok((await line()).readAt);
+  assert.equal((await line()).state, "read");
   assert.ok(!(await answer("No retry.")).includes(read));
   assert.equal((await thread(id)).state, "replied");
-  assert.ok((await line()).answeredAt);
+  assert.equal((await line()).state, "replied");
 
   // An agent can answer the message its wake quotes without running pair
   // read --thread, and that reply answers the thread.
@@ -276,7 +281,45 @@ test("a reply leaves the reviewer's follow-up waiting when the agent last read t
   await settled(id);
   await answer("Refunds stop too.");
   assert.equal((await thread(id)).state, "replied");
-  assert.ok((await line()).answeredAt);
+  assert.equal((await line()).state, "replied");
+});
+
+// Without the line, the Next line after the agent read a thread told it to
+// end its turn, and nothing named the thread it had not answered.
+test("every Next line names each thread the agent has not answered, until it answers", async (t) => {
+  const { a, start, send, settled } = await published(t);
+  const first = (await start()).body.thread.id;
+  const second = (await start({ text: "Why three retries?" })).body.thread.id;
+  await settled(first);
+  await settled(second);
+  const next = async () => (await a.action("status")).body.next;
+  const read = (id) => `pair read --session-dir ${a.directory} --thread ${id}`;
+  const both = `You have not answered the reviewer's threads ${first} on "Overview" and ${second} on "Overview". Before you end your turn, run ${read("ID")} for each of them`;
+  assert.ok((await next()).includes(both), await next());
+  assert.equal((await a.action("reply", { note: first })).code, 200);
+  assert.ok((await next()).includes(both), await next());
+
+  const answered = await a.action("reply", { note: first, text: "It stops." });
+  assert.equal(answered.code, 200, answered.body.error);
+  assert.ok(
+    answered.body.next.includes(
+      `You have not answered the reviewer's thread ${second} on "Overview". Before you end your turn, run ${read(second)},`,
+    ),
+    answered.body.next,
+  );
+  assert.equal(
+    (await a.action("reply", { note: second, text: "Three." })).code,
+    200,
+  );
+  assert.ok(!(await next()).includes("You have not answered"), await next());
+
+  // A paused session's agent has ended its turn.
+  assert.equal((await send(first, { text: "And a fourth?" })).code, 201);
+  assert.equal(
+    (await a.action("pause", { reason: "Done for today" })).code,
+    200,
+  );
+  assert.ok(!(await next()).includes("You have not answered"), await next());
 });
 
 test("the status names a reply's images by address and writes their box, and the thread keeps them", async (t) => {
@@ -404,7 +447,8 @@ test("a thread the hub cannot wake the holder for shows as failed", async (t) =>
   const { id } = (await start()).body.thread;
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "failed");
-  assert.equal((await thread(id)).wake, undefined);
+  // The wake's reason can contain the holder's socket path.
+  assert.equal((await thread(id)).wake.reason, undefined);
 });
 
 test("a thread refuses an image the session does not have, and a closed session", async (t) => {

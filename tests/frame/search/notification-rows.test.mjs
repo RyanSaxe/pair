@@ -113,14 +113,14 @@ test("each row's words read as approved in every state", () => {
   const lines = {
     [THIS]: {
       threads: [
-        line("new", { waitingSince: at(5), readAt: null }),
-        line("seen", { waitingSince: at(5), readAt: at(6) }),
-        line("done", { answeredAt: at(5) }),
+        line("new", { state: "sent", waitingSince: at(5) }),
+        line("seen", { state: "read", waitingSince: at(5) }),
+        line("done", { state: "replied" }),
       ],
       proposals: [],
     },
     other: {
-      threads: [line("oldthread", { answeredAt: at(5) })],
+      threads: [line("oldthread", { state: "replied" })],
       proposals: [
         {
           id: "open",

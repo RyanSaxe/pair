@@ -1,5 +1,7 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { accepts, isClosed, lifecycle } from "../../shared/lifecycle.mjs";
+import { proposalState } from "../../shared/proposal-state.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
@@ -29,20 +31,19 @@ export function agent(session) {
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
   const startedHere = () =>
-    session
-      .proposalItems()
-      .filter((card) => card.started?.where === "here" && !card.done);
+    session.proposalItems().filter((card) => proposalState(card) === "running");
   // Every agent command prints nextStep, so an agent that lost its place
   // learns where the session stands.
   async function nextStep() {
-    const quiet = session.quietLine();
-    return quiet ? `${await step()}\n${quiet}` : step();
+    return [await step(), session.unansweredLine(), session.quietLine()]
+      .filter(Boolean)
+      .join("\n");
   }
   async function step() {
-    if (session.state.stage === "complete") return closed;
+    if (isClosed(session.state)) return closed;
     const [event] = await pending();
     if (event) return `Run ${command("read")} to see what the reviewer sent.`;
-    if (session.state.paused)
+    if (lifecycle(session.state) === "paused")
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
     if (!session.state.current)
       return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
@@ -57,7 +58,7 @@ export function agent(session) {
       );
       return `You still have to publish these pages: ${left.join(", ")}. When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.`;
     }
-    if (session.state.stage === "working")
+    if (session.stage() === "working")
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";
     const { round } = session.state.current;
     // Work started here after the agent published this round's page list has
@@ -103,32 +104,26 @@ export function agent(session) {
       ...(result.via ? { via: result.via } : {}),
     };
   }
-  // submit schedules wakeAgent after it saves the submission, outside the
-  // browser's request, so a slow or failing agent CLI never delays the
-  // reviewer's Sent state.
-  async function wakeAgent(round) {
-    const line = `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`;
+  // The wake for a send, the reviewer's feedback or a Start, records its
+  // result in wake.last, which wakeState reads.
+  async function wakeForSend(line) {
     const last = await sendWake(line);
     await transition({ wake: { harness: session.wake.harness, last } });
   }
+  // submit schedules wakeAgent after it saves the submission, outside the
+  // browser's request, so a slow or failing agent CLI never delays the
+  // reviewer's Sent state.
+  const wakeAgent = (round) =>
+    wakeForSend(
+      `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`,
+    );
   // The reviewer closes a session from the browser. The hub sends the agent
   // no wake, and act refuses the agent's next command with closed. close
-  // deletes no file.
+  // deletes no file and leaves the round as it was.
   async function close() {
-    await transition({ stage: "complete", dismissedAt: timestamp() });
+    await transition({ closedAt: timestamp() });
     await session.closeLinked();
     return { status: view() };
-  }
-  // close replaces the stage, so stageBeforeClose works it out again from the
-  // session's submissions and rounds. Feedback that the agent read answers the
-  // current round until the agent publishes the next round.
-  async function stageBeforeClose() {
-    const { current, openRound, latestSubmissionRound } = session.state;
-    if ((await pending()).some(answersRound)) return "submitted";
-    if (!current) return "ready";
-    return openRound || latestSubmissionRound === current.round
-      ? "working"
-      : "updated";
   }
   // No agent has worked on the open round since the session closed, so reopen
   // marks each started page as not started, and the progress card and the quiet
@@ -155,18 +150,18 @@ export function agent(session) {
   //
   // Nothing from before the reopen notifies the reviewer on any device, also
   // for a session whose IDs the seen lists dropped at its close. reopen empties
-  // the events first and clears a failed wake in the transition that lists the
-  // session again, so no poll announces them. The seen lists drop the keys of a
-  // session that is not listed, so markSeen runs right after the transition,
-  // before the hub handles another request.
-  async function reopen(agent) {
+  // the events first, and the transition that lists the session again records
+  // the command of the agent that becomes the holder, which answers a failed
+  // wake, so no poll announces them. The seen lists drop the keys of a session
+  // that is not listed, so markSeen runs right after the transition, before
+  // the hub handles another request.
+  async function reopen(agent, holder) {
     await session.clearActivity();
     await transition({
       ...report(),
       ...restartPages(),
-      stage: await stageBeforeClose(),
-      dismissedAt: null,
-      wake: { ...session.state.wake, last: null },
+      closedAt: null,
+      holder,
       formerHolders: (session.state.formerHolders || []).filter(
         (item) => !sameAgent(item, agent),
       ),
@@ -214,13 +209,14 @@ export function agent(session) {
         409,
       );
   }
-  // The hub records a failed wake, which the session list, the bell and the
-  // progress card show until a wake succeeds. A command from the holder means
-  // the holder runs again, so act and hold clear the failure.
-  const clearFailedWake = () =>
-    session.state.wake?.last?.ok === false
-      ? transition({ wake: { ...session.state.wake, last: null } })
-      : null;
+  // act and hold record the time of each command from the holder, which
+  // wakeState and the quiet check read. A closed session has no wake to
+  // answer, so a pair status there leaves its status.json as it was.
+  const commandRan = () =>
+    accepts(session.state, "change") &&
+    transition({
+      holder: { ...session.state.holder, commandAt: timestamp() },
+    });
   // pair read lists each thread with a reviewer message since the
   // submission before the one it prints, or since the latest submission
   // when none is pending.
@@ -295,7 +291,6 @@ export function agent(session) {
     const patch = {
       ...report(),
       ...receive(event),
-      stage: !answersRound(event) ? session.state.stage : "working",
       acknowledged: [...session.state.acknowledged, event.id],
       acknowledgedAt: timestamp(),
       lastAcknowledgedId: event.id,
@@ -422,13 +417,12 @@ export function agent(session) {
     // session. Any agent can record a proposal, such as a subagent that finds
     // work worth doing.
     if (data.action !== "status") {
-      requireValue(session.state.stage !== "complete", closed, 409);
+      requireValue(accepts(session.state, "change"), closed, 409);
       if (data.action !== "propose") await requireHolder(data.agent);
     }
     await refreshTarget(wake);
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
-    session.commandRan();
-    if (sameAgent(session.state.holder, data.agent)) await clearFailedWake();
+    if (sameAgent(session.state.holder, data.agent)) await commandRan();
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
@@ -446,35 +440,32 @@ export function agent(session) {
     // holder's pair status would make requireHolder use up its takeover
     // notice.
     if (!start && held && !same) return {};
+    const at = timestamp();
+    const holder = { ...(same ? held : { ...agent, at }), commandAt: at };
     const reopening =
-      start && options.reopen === true && session.state.stage === "complete";
-    if (reopening) await reopen(agent);
+      start && options.reopen === true && accepts(session.state, "reopen");
+    if (reopening) await reopen(agent, holder);
     await requireHolder(agent, start);
-    session.commandRan();
-    await clearFailedWake();
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
       wake: { harness: target.harness, last: session.state.wake?.last || null },
+      holder,
       ...(start ? { paused: null } : {}),
       // title() returns this title until the first Agreed publishes, and
       // then returns Agreed's title.
       ...(created && title ? { title } : {}),
     };
-    if (!same) {
-      patch.holder = { ...agent, at: timestamp() };
-      // The frame shows takeover on the reviewer's progress card until
-      // submit clears it.
-      if (held)
-        Object.assign(patch, report(), {
-          takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
-          wake: { harness: target.harness, last: null },
-          formerHolders: [
-            ...(session.state.formerHolders || []),
-            { harness: held.harness, id: held.id, until: patch.holder.at },
-          ],
-        });
-    }
+    // The frame shows takeover on the reviewer's progress card until submit
+    // clears it.
+    if (!same && held)
+      Object.assign(patch, report(), {
+        takeover: { name: adapters[agent.harness].name, at },
+        formerHolders: [
+          ...(session.state.formerHolders || []),
+          { harness: held.harness, id: held.id, until: at },
+        ],
+      });
     await transition(patch);
     if (start && !held && !session.state.current)
       await session.addActivity({
@@ -499,7 +490,7 @@ export function agent(session) {
     // published Agreed yet.
     const answers = session.state.openRound
       ? "This round answers"
-      : session.state.stage === "working" && "The next round answers";
+      : session.stage() === "working" && "The next round answers";
     const answered = answers && session.state.latestSubmissionId;
     const feedback = answered
       ? ` ${answers} the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
@@ -515,6 +506,7 @@ export function agent(session) {
     nextStep,
     browserLine,
     sendWake,
+    wakeForSend,
     wakeAgent,
     close,
     act,

@@ -36,7 +36,8 @@ these flags:
   another session. When you build OTHER, also build the work of each
   proposal joined into it.
 - `--withdraw --reason "…"`, when a proposal the reviewer has not approved
-  no longer applies, saying why.
+  no longer applies, saying why. The hub then sets each proposal joined into
+  it back to proposed. Withdraw each of those that no longer applies.
 - `--done`, after you publish the last page about work you built in this
   session. When a proposal's work was finished some other way, add
   `--where` to say where, such as `--where "in #86"`. Do not run `--done`

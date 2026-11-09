@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import {
+  accepts,
+  isClosed,
+  lifecycle,
+  roundStage,
+  upgrade,
+} from "../../shared/lifecycle.mjs";
 import { idPattern, roundPattern } from "../../shared/records.mjs";
 import {
   atomic,
@@ -10,6 +17,7 @@ import {
   serializer,
   timestamp,
 } from "../../shared/util.mjs";
+import { wakeAccepts } from "../../shared/wake-state.mjs";
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
@@ -40,10 +48,9 @@ export async function loadSession(
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
   let state = (await exists(stateFile))
-    ? await read(stateFile)
+    ? upgrade(await read(stateFile))
     : {
         sessionId: crypto.randomUUID(),
-        stage: "ready",
         current: null,
         acknowledged: [],
         startedAt: timestamp(),
@@ -64,6 +71,10 @@ export async function loadSession(
   // before pair wrote startedAt gets its directory's creation time, because
   // no later write changes that time.
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
+  // Before the hub recorded holder.commandAt, every report came from a command
+  // of the holder, so the last report's time stands in for the last command's.
+  if (state.holder && !state.holder.commandAt && state.report?.at)
+    state.holder = { ...state.holder, commandAt: state.report.at };
   for (const child of ["feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
@@ -97,7 +108,7 @@ export async function loadSession(
   const wakeFile = path.join(directory, "wake.json");
   const transition = async (patch) => {
     const next = { ...state, ...patch, updatedAt: timestamp() };
-    await atomic(stateFile, next);
+    await save(next);
     state = next;
     return state;
   };
@@ -121,27 +132,54 @@ export async function loadSession(
     events.push(event);
     return event;
   }
+  // wakeState reads when the hub saved the newest send, the reviewer's
+  // feedback or a Start, from latestSend.
+  const latestSend = () =>
+    events.reduce(
+      (newest, event) =>
+        !newest || event.sequence > newest.sequence ? event : newest,
+      null,
+    );
+  const wakeFacts = () => ({
+    sentAt: latestSend()?.receivedAt ?? null,
+    wake: state.wake,
+    holder: state.holder,
+  });
   async function pending() {
     return events
       .filter((event) => !state.acknowledged.includes(event.id))
       .sort((a, b) => a.sequence - b.sequence);
   }
-  // A closed session stays closed even with unread feedback. A pending Start
-  // leaves the stage as it is, because answersRound excludes it.
-  if ((await pending()).some(answersRound) && state.stage !== "complete")
-    await transition({ stage: "submitted" });
-  else await atomic(stateFile, state);
+  // stage counts only unread feedback, because a Start answers no round.
+  const stage = (value = state) =>
+    roundStage(
+      value,
+      events.some(
+        (event) =>
+          !value.acknowledged.includes(event.id) && answersRound(event),
+      ),
+    );
+  // A hub from before closedAt reads the stage from status.json, and reads a
+  // session as closed when the stage is "complete", with the time of the close
+  // in dismissedAt. save writes both for that hub, and nothing else reads them.
+  // They can go in a later release.
+  function save(value) {
+    return atomic(stateFile, {
+      ...value,
+      ...(isClosed(value)
+        ? { stage: "complete", dismissedAt: value.closedAt }
+        : { stage: stage(value) }),
+    });
+  }
+  await save(state);
   const sameRound = (event) =>
     state.current &&
     event.name === state.current.name &&
     event.round === state.current.round;
-  const needsYou = () =>
-    Boolean(state.current) &&
-    !state.openRound &&
-    ["ready", "updated"].includes(state.stage);
+  const needsYou = () => !isClosed(state) && stage() === "updated";
   const title = () =>
     state.current ? state.current.title : state.title || "New session";
-  const active = () => state.stage !== "complete" && !state.paused;
+  const active = () => lifecycle(state) === "live";
   // Each session module, such as uploads or rounds, adds its functions to
   // this object and calls the other modules' functions through it, so the
   // order in which loadSession creates the modules does not matter.
@@ -158,6 +196,7 @@ export async function loadSession(
     events,
     saveEvent,
     pending,
+    stage,
     sameRound,
     needsYou,
     view,
@@ -185,9 +224,23 @@ export async function loadSession(
     quiet(session),
     notifications(session),
   );
-  // The wakes run after loadSession returns, once every module has added its
-  // functions to session.
+  // A hub stops without waiting for the wakes it scheduled, so loadSession
+  // sends each wake that a stopped hub still owed: a thread's, and the newest
+  // send's. The wakes run after loadSession returns, once every module has
+  // added its functions to session.
   session.resendWakes();
+  if (
+    session.wake &&
+    accepts(state, "wake") &&
+    wakeAccepts(wakeFacts(), "send")
+  ) {
+    const { payload } = latestSend();
+    const wake =
+      payload.intent === "start"
+        ? () => session.wakeForStart(payload.proposal)
+        : () => session.wakeAgent(payload.round);
+    setTimeout(() => exclusive(wake), 0);
+  }
   function view() {
     const { roundPages, holder, formerHolders, ...visible } = state;
     return {
@@ -196,13 +249,14 @@ export async function loadSession(
       // leaves it out, like the rest of the wake target. The frame cannot
       // import the adapters, so view adds the CLI's name. sendWake sets
       // steerable from the last wake, and it is true when the agent CLI reads
-      // a message in the middle of a turn.
+      // a message in the middle of a turn. wakeState reads commandAt.
       holder: holder
         ? {
             harness: holder.harness,
             name: adapters[holder.harness].name,
             at: holder.at,
             steerable: holder.steerable,
+            commandAt: holder.commandAt,
           }
         : null,
       handoff: session.handoff,
@@ -227,7 +281,10 @@ export async function loadSession(
         : {}),
       rounds: state.rounds || [],
       wake: state.wake || null,
+      sentAt: wakeFacts().sentAt,
       paused: state.paused || null,
+      closedAt: state.closedAt || null,
+      stage: stage(),
       needsYou: needsYou(),
       proposals: session.proposalItems(),
     };
@@ -300,9 +357,9 @@ export async function loadSession(
       title: title(),
       parentId: state.parent?.sessionId ?? null,
       proposal: state.parent?.proposal ?? null,
-      closed: state.stage === "complete",
+      closed: isClosed(state),
       round,
-      stage: state.stage,
+      stage: stage(),
       needsYou: needsYou(),
       ...(state.openRound
         ? {
@@ -329,8 +386,8 @@ export async function loadSession(
               ]
             : [],
       },
-      wakeFailed: state.wake?.last?.ok === false,
-      paused: Boolean(state.paused),
+      wakeFailed: wakeAccepts(wakeFacts(), "alert"),
+      paused: lifecycle(state) === "paused",
       startedAt: state.startedAt,
       publishedAt: state.current?.publishedAt,
       updatedAt: state.updatedAt,

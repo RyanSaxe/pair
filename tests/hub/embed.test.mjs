@@ -38,12 +38,7 @@ test("an older round is read-only there, a closed session is closed, and an unkn
   const latest = await (await embed(h, a, "latest")).text();
   assert.doesNotMatch(latest, /"readonly": true/);
   assert.equal((await embed(h, a, "9")).status, 404);
-  const closed = await fetch(`${h.server.origin}${a.base}/api/dismiss`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: h.server.origin },
-    body: "{}",
-  });
-  assert.equal(closed.status, 200);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
   assert.match(await (await embed(h, a, "latest")).text(), /"closed": true/);
 });
 

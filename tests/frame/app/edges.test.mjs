@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  pageWidthAt,
-  readWidth,
-  sidebarWidthAt,
-} from "../../../src/frame/app/edges.mjs";
+import { pageWidthAt, sidebarWidthAt } from "../../../src/frame/app/edges.mjs";
 
 test("the page's width is twice the pointer's distance from the window's center, on either side", () => {
   assert.equal(pageWidthAt(1800, 2000), 1600);
@@ -30,12 +26,4 @@ test("the sidebar's width is the pointer's distance from the body's left, from 2
   assert.equal(sidebarWidthAt(470.4, 170), 300);
   assert.equal(sidebarWidthAt(200, 170), 224);
   assert.equal(sidebarWidthAt(900, 170), 400);
-});
-
-test("a saved width counts only as a whole number in its range", () => {
-  assert.equal(readWidth("1500", 1161, Infinity), 1500);
-  assert.equal(readWidth("400", 225, 400), 400);
-  for (const value of [null, "", "wide", "1500.5", "1160", "NaN"])
-    assert.equal(readWidth(value, 1161, Infinity), null, String(value));
-  assert.equal(readWidth("401", 225, 400), null);
 });

@@ -15,6 +15,7 @@ import {
   planData,
   sessionConfig,
   sleep,
+  task,
   waitUntil,
 } from "../support/hub.mjs";
 
@@ -138,7 +139,7 @@ test("the hub lists when each session started, and a new hub keeps it", async (t
   );
 });
 
-test("closing a session from the session list completes it and drops it from the list", async (t) => {
+test("closing a session from the session list closes it and drops it from the list", async (t) => {
   const h = await hub(t);
   const a = await h.session(),
     b = await h.session();
@@ -151,10 +152,10 @@ test("closing a session from the session list completes it and drops it from the
   );
   const dismissed = await b.request(`${b.base}/api/dismiss`, {});
   assert.equal(dismissed.code, 200);
-  assert.equal(dismissed.body.status.stage, "complete");
+  assert.equal(typeof dismissed.body.status.closedAt, "string");
   const status = (await b.status()).body;
-  assert.equal(status.stage, "complete");
-  assert.equal(typeof status.dismissedAt, "string");
+  assert.equal(typeof status.closedAt, "string");
+  assert.equal(status.stage, "updated");
   const list = (await a.request("/api/sessions")).body.sessions;
   assert.deepEqual(
     list.map((item) => item.id),
@@ -198,6 +199,28 @@ test("a saved link to a closed session's older round opens that round", async (t
   );
 });
 
+// A closed frame fetches no page, so the round's own page carries each page the
+// round published and leaves out the rest.
+test("a closed round that never finished shows the pages it published", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  const published = await a.publish({
+    ...planData(),
+    pages: [
+      { id: "sent", title: "Sent", html: "<p>The published otter.</p>" },
+      { id: "unsent", title: "Unsent", html: "<p>Never published.</p>" },
+    ],
+    stopAfter: 1,
+  });
+  assert.equal(published.code, 200, published.body.error);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  for (const address of [`${a.base}/r/1`, `${a.base}/`]) {
+    const { body } = await a.request(address);
+    assert.match(body, /published otter/);
+    assert.doesNotMatch(body, /"unsent"/);
+  }
+});
+
 // A tab opened before the reviewer closed the session with ✕ in the session
 // list can still post feedback.
 test("a closed session refuses feedback and wakes no agent", async (t) => {
@@ -208,7 +231,7 @@ test("a closed session refuses feedback and wakes no agent", async (t) => {
   const sent = await a.feedback(a.event());
   assert.equal(sent.code, 409);
   assert.equal(sent.body.error, "This session is closed");
-  assert.equal((await a.status()).body.stage, "complete");
+  assert.equal((await a.status()).body.latestSubmissionId, undefined);
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 0);
 });
@@ -490,42 +513,17 @@ test("the hub refuses to open a session interactive-plan created", async (t) => 
       current: { artifactId: "plan", revision: "3", kind: "plan" },
     }),
   );
-  const response = await fetch(h.server.origin + "/agent/register", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${h.record.secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      sessionDir: directory,
-      wake: { harness: "codex", thread: "t" },
-    }),
+  const refused = await h.register(directory, {
+    harness: "codex",
+    thread: "t",
   });
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).error, /is not a pair session/);
+  assert.equal(refused.code, 400);
+  assert.match(refused.body.error, /is not a pair session/);
   assert.deepEqual(await fs.readdir(directory), ["status.json"]);
 });
 
-test("the browser can read sent feedback without agent-only paths", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  assert.equal((await a.publish(planData())).code, 200);
-  const feedback = a.event("feedback-only", "1", {
-    groups: { choices: {}, notes: [] },
-  });
-  assert.equal((await a.feedback(feedback)).code, 200);
-  const { submission } = (await a.request(`${a.base}/api/submission?round=1`))
-    .body;
-  assert.equal(submission.id, feedback.id);
-  assert.equal(submission.round, "1");
-  assert.deepEqual(submission.groups.notes, []);
-  assert.deepEqual(submission.groups.choices, {});
-  const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
-  assert.equal(invalid.code, 400);
-});
-
 // A Start saves an event with the round it started on and no feedback in it.
-test("a Start on a round leaves what the browser reads for that round", async (t) => {
+test("the browser reads a round's sent feedback and never a Start, and refuses a round that is a path", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
@@ -549,12 +547,19 @@ test("a Start on a round leaves what the browser reads for that round", async (t
   assert.equal(unsent.code, 200, JSON.stringify(unsent.body));
   assert.equal(unsent.body.submission, null);
 
-  const feedback = a.event();
+  const feedback = a.event("feedback-only", "1", {
+    groups: { choices: {}, notes: [] },
+  });
   assert.equal((await a.feedback(feedback)).code, 200);
   await start("after-send");
   const sent = await submission();
   assert.equal(sent.code, 200, JSON.stringify(sent.body));
   assert.equal(sent.body.submission.id, feedback.id);
+  assert.equal(sent.body.submission.round, "1");
+  assert.deepEqual(sent.body.submission.groups.notes, []);
+  assert.deepEqual(sent.body.submission.groups.choices, {});
+  const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
+  assert.equal(invalid.code, 400);
 });
 
 // On macOS, /tmp is a symbolic link to /private/tmp, so an agent can name one
@@ -582,7 +587,7 @@ test("a session reached through a symbolic link is the same session", async (t) 
       id: "agreed",
       title: "Agreed so far",
       agreements: [],
-      task: { title: "The task", html: "<p>What the plan builds.</p>" },
+      task,
     },
   });
   const { sessionId } = first.body;

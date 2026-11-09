@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import os from "node:os";
 import path from "node:path";
-import { imageSize, sizeImages, svgSize } from "../../src/build/image-size.mjs";
+import { imageSize, sizeImages } from "../../src/build/image-size.mjs";
 import { buildPage } from "../../src/cli/build.mjs";
 import { pageData } from "../../src/shared/records.mjs";
 
@@ -60,22 +60,18 @@ test("imageSize reads PNG, JPEG, WebP and GIF headers", () => {
   assert.equal(imageSize(Buffer.from("not an image")), null);
 });
 
-test("svgSize reads the viewBox dimensions", () => {
-  assert.deepEqual(svgSize('<svg viewBox="10 20 3 2"></svg>'), {
-    width: 3,
-    height: 2,
-  });
-  assert.deepEqual(svgSize("<svg viewBox='0, 0, 3, 2'></svg>"), {
-    width: 3,
-    height: 2,
-  });
-  assert.equal(svgSize("<svg></svg>"), null);
-});
-
 test("sizeImages adds dimensions only to unsized data images", () => {
   const source = `data:image/gif;base64,${gif().toString("base64")}`;
+  // An SVG's size is its viewBox's width and height.
+  const svg = (text) => `data:image/svg+xml,${encodeURIComponent(text)}`;
+  const offset = svg('<svg viewBox="10 20 3 2"></svg>');
+  const commas = svg("<svg viewBox='0, 0, 3, 2'></svg>");
+  const unsized = svg("<svg></svg>");
   const html = [
     `<img alt="One" src="${source}">`,
+    `<img src="${offset}">`,
+    `<img src="${commas}">`,
+    `<img src="${unsized}">`,
     `<img width="8" src="${source}">`,
     `<img height="4" src="${source}">`,
     '<img src="/image.gif">',
@@ -88,6 +84,9 @@ test("sizeImages adds dimensions only to unsized data images", () => {
     sizeImages(html),
     [
       `<img alt="One" src="${source}" width="3" height="2">`,
+      `<img src="${offset}" width="3" height="2">`,
+      `<img src="${commas}" width="3" height="2">`,
+      `<img src="${unsized}">`,
       `<img width="8" src="${source}">`,
       `<img height="4" src="${source}">`,
       '<img src="/image.gif">',

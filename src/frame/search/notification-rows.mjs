@@ -116,7 +116,7 @@ function threadRow(line, entry, thisId) {
   return {
     key: `thread:${line.thread}`,
     kind: "thread",
-    state: line.waitingSince ? "waiting" : "read",
+    state: line.state === "replied" ? "read" : "waiting",
     words: line.text,
     at: line.at,
     count: 1,
@@ -132,14 +132,14 @@ function threadRow(line, entry, thisId) {
     round: line.round,
     page: line.page,
     pageTitle: line.name,
-    opened: Boolean(line.readAt),
+    opened: line.state === "read",
   };
 }
 
-// Every row of the live sessions. The unread rows are bellRows. A thread line with
-// waitingSince is waiting, and every other row is read. threadLines is the answer
-// of /api/notifications, by session. Before it arrives, a thread the reviewer just
-// read still has a row, from its events.
+// Every row of the live sessions. The unread rows are bellRows. A thread line
+// whose state is not replied is waiting, and every other row is read.
+// threadLines is the answer of /api/notifications, by session. Before it
+// arrives, a thread the reviewer just read still has a row, from its events.
 export function notificationRows(sessions, threadLines, cleared, thisId) {
   const unread = bellRows(bellLines(sessions, cleared, thisId), thisId);
   const rows = new Map(unread.map((row) => [row.key, row]));

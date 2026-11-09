@@ -9,7 +9,7 @@ import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
 import { startHub } from "../../src/hub/server.mjs";
-import { settings, version } from "../../src/shared/settings.mjs";
+import { version } from "../../src/shared/settings.mjs";
 import {
   alive,
   exec,
@@ -38,6 +38,8 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   const report = await check({ PAIR_HUB_PORT: "0" });
   assert.equal(report.ready, true);
   assert.equal(report.hub.state, "os-assigned");
+  // check tests the directory the hub writes to, not XDG_STATE_HOME itself.
+  assert.equal(report.storage, path.join(directory, "pair"));
   assert.deepEqual(await fs.readdir(path.join(directory, "pair")), []);
   const h = await hub(t);
   const live = await check({
@@ -56,31 +58,71 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
-test("pair check tests the state directory the hub writes to", async (t) => {
-  const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-check-state-"));
-  t.after(() => fs.rm(state, { recursive: true, force: true }));
-  const report = JSON.parse(
-    (
-      await exec(process.execPath, [pair, "check", "--json"], {
-        env: { ...process.env, XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
-      })
-    ).stdout,
-  );
-  assert.equal(report.storage, path.join(state, "pair"));
-});
-
-test("a session closed with feedback unread stays closed after the hub restarts", async (t) => {
+// Before closedAt, the hub stored the round's stage, and Close set it to
+// "complete" with the time in dismissedAt. A reopen set dismissedAt to null and
+// stored the stage again. That hub still reads both fields, and it keeps a
+// closedAt that a newer hub wrote, as it does every field it does not know.
+test("a closed session stays closed after the hub restarts, and one an older hub closed or reopened loads as that hub left it, keeping the fields that hub reads", async (t) => {
   const h = await hub(t);
-  const a = await h.session();
-  await a.publish(planData());
-  assert.equal((await a.feedback(a.event())).code, 200);
-  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  const closedNow = await h.session(),
+    closedBefore = await h.session(),
+    reopenedBefore = await h.session();
+  await closedNow.publish(planData());
+  await closedBefore.publish(planData());
+  await reopenedBefore.publish(planData());
+  assert.equal((await closedNow.feedback(closedNow.event())).code, 200);
+  assert.equal(
+    (await closedNow.request(`${closedNow.base}/api/dismiss`, {})).code,
+    200,
+  );
   await h.server.close();
+  const at = "2026-11-01T12:00:00.000Z";
+  const rewrite = async (session, fields) => {
+    const file = path.join(session.directory, "status.json");
+    const { closedAt, ...state } = JSON.parse(await fs.readFile(file, "utf8"));
+    await fs.writeFile(file, JSON.stringify({ ...state, ...fields }));
+  };
+  const stored = async (session) => {
+    const file = path.join(session.directory, "status.json");
+    const { stage, closedAt, dismissedAt } = JSON.parse(
+      await fs.readFile(file, "utf8"),
+    );
+    return { stage, closedAt, dismissedAt };
+  };
+  await rewrite(closedBefore, { stage: "complete", dismissedAt: at });
+  // A newer hub closed this session before the older hub reopened it.
+  await rewrite(reopenedBefore, {
+    stage: "updated",
+    dismissedAt: null,
+    closedAt: "2026-10-31T12:00:00.000Z",
+  });
   const restarted = await startHub(h.config);
   try {
     const get = async (route) => (await fetch(restarted.origin + route)).json();
-    assert.equal((await get(`${a.base}/api/status`)).stage, "complete");
-    assert.deepEqual((await get("/api/sessions")).sessions, []);
+    const unread = await get(`${closedNow.base}/api/status`);
+    assert.equal(typeof unread.closedAt, "string");
+    assert.equal(unread.stage, "submitted");
+    const closed = await get(`${closedBefore.base}/api/status`);
+    assert.equal(closed.closedAt, at);
+    assert.equal(closed.stage, "updated");
+    assert.equal(
+      (await get(`${reopenedBefore.base}/api/status`)).closedAt,
+      null,
+    );
+    assert.deepEqual(
+      (await get("/api/sessions")).sessions.map(({ id }) => id),
+      [reopenedBefore.id],
+    );
+    assert.deepEqual(await stored(closedBefore), {
+      stage: "complete",
+      closedAt: at,
+      dismissedAt: at,
+    });
+    assert.deepEqual(await stored(reopenedBefore), {
+      stage: "updated",
+      closedAt: null,
+      dismissedAt: undefined,
+    });
   } finally {
     await restarted.close();
   }
@@ -168,7 +210,7 @@ test("the hub exits when nothing is live and start spawns a fresh one on the sam
 test("start waits for a new hub to load the saved sessions", async (t) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-saved-"));
   const port = await freePort();
-  const { config, start: startSession } = await pairCli(home, {
+  const { config, start } = await pairCli(home, {
     PAIR_HUB_PORT: String(port),
   });
   t.after(async () => {
@@ -194,7 +236,6 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
       );
     }),
   );
-  const start = startSession;
   // The first start spawns the hub, and the second runs while the hub is still
   // loading sessions.
   const first = start();
@@ -256,7 +297,7 @@ test("start replaces a stale hub record, and session commands reattach after a c
         id: "agreed",
         title: "Agreed so far",
         agreements: [],
-        task: { title: "The task", html: "<p>What the plan builds.</p>" },
+        task,
       },
     }),
   );
@@ -351,109 +392,43 @@ test(
 );
 
 test("an unfinished round resumes after the hub restarts", async (t) => {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-restart-"));
-  t.after(() => fs.rm(home, { recursive: true, force: true }));
-  const config = {
-    ...settings({ XDG_STATE_HOME: home, PAIR_HUB_PORT: "0" }),
-    log() {},
+  const h = await hub(t);
+  const a = await h.session();
+  const data = {
+    ...planData(),
+    pages: [
+      { id: "overview", title: "Overview", html: "<p>First page</p>" },
+      { id: "detail", title: "Detail", html: "<p>Second page</p>" },
+    ],
   };
-  // The test publishes and never sends feedback, so the hub never wakes this
-  // placeholder agent.
-  const agent = { harness: "codex", id: "test" };
-  let localHub = await startHub(config);
-  const localDir = path.join(config.sessions, "session");
-  const call = async (action, body) => {
-    const response = await fetch(`${localHub.origin}${action}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${body.auth}`,
-      },
-      body: JSON.stringify(body.payload),
-    });
-    return { status: response.status, body: await response.json() };
-  };
-  try {
-    const joined = await call("/agent/register", {
-      auth: localHub.secret,
-      payload: {
-        sessionDir: localDir,
-        wake: { harness: "codex", thread: "test" },
-      },
-    });
-    const id = joined.body.sessionId;
-    const secret = JSON.parse(
-      await fs.readFile(path.join(localDir, "connection.json"), "utf8"),
-    ).token;
-    const action = (payload) =>
-      call(`/agent/${id}/action`, {
-        auth: secret,
-        payload: { ...payload, sessionId: id, agent },
-      });
-    const build = (page) =>
-      buildPage(path.join(localDir, "source.json"), {
-        name: "restart",
-        round: "1",
-        title: "Restart",
-        page,
-      });
-    assert.equal(
-      (
-        await action({
-          action: "publish",
-          html: await build({
-            id: "agreed",
-            title: "Agreed",
-            task,
-            agreements: [],
-          }),
-          pages: [
-            { id: "overview", title: "Overview" },
-            { id: "detail", title: "Detail" },
-          ],
-        })
-      ).status,
-      200,
-    );
-    assert.equal(
-      (
-        await action({
-          action: "publish",
-          html: await build({
-            id: "overview",
-            title: "Overview",
-            html: "<p>First page</p>",
-          }),
-        })
-      ).status,
-      200,
-    );
-    await localHub.close();
-    localHub = await startHub(config);
-    const statusAfterRestart = await (
-      await fetch(`${localHub.origin}/s/${id}/api/status`)
-    ).json();
-    assert.equal(statusAfterRestart.openRound.pages[0].state, "ready");
-    assert.equal(statusAfterRestart.rounds.length, 0);
-    assert.equal(
-      (
-        await action({
-          action: "publish",
-          html: await build({
-            id: "detail",
-            title: "Detail",
-            html: "<p>Second page</p>",
-          }),
-        })
-      ).status,
-      200,
-    );
-    assert.equal(
-      (await (await fetch(`${localHub.origin}/s/${id}/api/status`)).json())
-        .rounds.length,
-      1,
-    );
-  } finally {
-    await localHub.close();
-  }
+  assert.equal((await a.publish({ ...data, stopAfter: 1 })).code, 200);
+  await h.server.close();
+  const next = await startHub(h.config);
+  t.after(next.close);
+  const status = async () =>
+    (await fetch(`${next.origin}${a.base}/api/status`)).json();
+  const restarted = await status();
+  assert.equal(restarted.openRound.pages[0].state, "ready");
+  assert.equal(restarted.rounds.length, 0);
+  const { name, round, title } = data;
+  const published = await fetch(`${next.origin}/agent/${a.id}/action`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${a.connection.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "publish",
+      sessionId: a.id,
+      agent: a.agent,
+      html: await buildPage(path.join(a.directory, "source.json"), {
+        name,
+        round,
+        title,
+        page: data.pages[1],
+      }),
+    }),
+  });
+  assert.equal(published.status, 200, (await published.json()).error);
+  assert.equal((await status()).rounds.length, 1);
 });

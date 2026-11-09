@@ -1,12 +1,15 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { accepts } from "../../shared/lifecycle.mjs";
+import { allows, proposalState } from "../../shared/proposal-state.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import {
   message,
   place,
   planFirst,
   proposeAction,
+  refuse,
   words,
   written,
   writtenCard,
@@ -21,11 +24,12 @@ import {
 
 // The hub stores each proposal card as a file in proposals/, because a card
 // changes after the round that showed it is published. The fields started,
-// declined, withdrawn and done are each null until that event happens. The
-// frame sorts the cards into Work's tabs from those fields, so the hub
-// stores no tab.
+// declined, withdrawn and done are each null until that event happens, and
+// proposalState in src/shared/proposal-state.mjs names the card's state from
+// them, so the hub stores no state or tab. Each action refuses a card whose
+// state the action does not accept, with a message for that state.
 export async function proposals(session) {
-  const { directory, transition } = session;
+  const { directory } = session;
   const folder = path.join(directory, "proposals");
   const cards = new Map();
   try {
@@ -56,7 +60,7 @@ export async function proposals(session) {
   }
   function open() {
     requireValue(
-      session.state.stage !== "complete",
+      accepts(session.state, "change"),
       "This session is closed",
       409,
     );
@@ -125,21 +129,15 @@ export async function proposals(session) {
     );
   async function revise(card, data) {
     notWritten(card, "revise");
-    requireValue(
-      !card.started,
-      `The reviewer approved proposal ${card.id} as it stands, so you cannot revise it. Record any further work as a new proposal.`,
-      409,
-    );
-    requireValue(
-      !card.declined,
-      `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
-      409,
-    );
-    requireValue(
-      !card.withdrawn && !card.done,
-      `Proposal ${card.id} is ${card.done ? "marked done" : "withdrawn"}, so you cannot revise it. Record further work as a new proposal.`,
-      409,
-    );
+    const approved = `The reviewer approved proposal ${card.id} as it stands, so you cannot revise it. Record any further work as a new proposal.`;
+    const ended = (word) =>
+      `Proposal ${card.id} is ${word}, so you cannot revise it. Record further work as a new proposal.`;
+    refuse(card, "revise", {
+      declined: `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
+      withdrawn: ended("withdrawn"),
+      finished: card.started ? approved : ended("marked done"),
+      started: approved,
+    });
     const patch = Object.fromEntries(
       written
         .filter((name) => data[name] !== undefined)
@@ -162,26 +160,12 @@ export async function proposals(session) {
   // prints the start.
   async function start(card, started, holder = false) {
     open();
-    requireValue(
-      !card.declined,
-      `The reviewer declined proposal ${card.id}`,
-      409,
-    );
-    requireValue(
-      !card.withdrawn,
-      `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
-      409,
-    );
-    requireValue(
-      !card.done,
-      `Proposal ${card.id} is already marked done.`,
-      409,
-    );
-    requireValue(
-      !card.started,
-      `Proposal ${card.id} is already approved.`,
-      409,
-    );
+    refuse(card, "start", {
+      declined: `The reviewer declined proposal ${card.id}`,
+      withdrawn: `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
+      finished: `Proposal ${card.id} is already marked done.`,
+      started: `Proposal ${card.id} is already approved.`,
+    });
     const round = session.state.current?.round ?? null;
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
@@ -197,7 +181,8 @@ export async function proposals(session) {
     return changed;
   }
   // wakeLater runs wakeFor after the hub answers the request that started
-  // the card, as submit does for the wake after a submission.
+  // the card, as submit does for the wake after a submission. A hub that
+  // loads a session runs it again for a Start whose wake a stopped hub owed.
   async function wakeFor(id) {
     const card = find(id);
     const { started } = card;
@@ -214,13 +199,12 @@ export async function proposals(session) {
     const what = fromWords
       ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
       : `the reviewer ${verb} proposal ${id}, "${card.title}", to run ${place}`;
-    const line = `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`;
-    const last = await session.sendWake(line);
-    if (session.wake)
-      await transition({ wake: { harness: session.wake.harness, last } });
+    return session.wakeForSend(
+      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`,
+    );
   }
   const wakeLater = (id) => {
-    if (session.wake && !session.state.paused)
+    if (session.wake && accepts(session.state, "wake"))
       setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
   };
   const listed = () => ({ proposals: proposalItems() });
@@ -263,7 +247,7 @@ export async function proposals(session) {
   // For Open a new agent session on a card, openAgent asks this session's
   // holder, in a thread on the card, to open a separate agent that runs pair
   // start --from. It first starts the card with a new agent when nobody has
-  // started it.
+  // started it, and start refuses a declined, withdrawn or finished card.
   async function openAgent(id, data) {
     open();
     const card = find(id);
@@ -278,7 +262,7 @@ export async function proposals(session) {
       });
     else
       requireValue(
-        card.started.where === "new-agent" && !card.started.session,
+        allows(card, "openAgent") && card.started.where === "new-agent",
         card.started.session
           ? `Proposal ${id} already runs in session ${card.started.session.dir}`
           : `Proposal ${id} was already started`,
@@ -306,43 +290,35 @@ export async function proposals(session) {
     if (data.action === "open-agent") return openAgent(fields.id, data);
     return listed();
   }
+  // Decline on a declined or withdrawn card, and Restore on a card that is
+  // neither, change nothing.
   async function declineProposal(id) {
     open();
     const card = find(id);
-    requireValue(
-      !card.started && !card.done,
-      `Proposal ${id} was ${card.done ? "done" : "started"}, so it cannot be declined`,
-      409,
-    );
-    if (!card.declined && !card.withdrawn) {
-      await save(card, { declined: { at: timestamp() } });
-      await unjoin(id);
-    }
+    if (allows(card, "restore")) return listed();
+    refuse(card, "decline", {
+      finished: `Proposal ${id} was done, so it cannot be declined`,
+      started: `Proposal ${id} was started, so it cannot be declined`,
+    });
+    await save(card, { declined: { at: timestamp() } });
+    await unjoin(id);
     return listed();
   }
   async function restoreProposal(id) {
     open();
     const card = find(id);
-    if (card.declined || card.withdrawn)
+    if (allows(card, "restore"))
       await save(card, { declined: null, withdrawn: null });
     return listed();
   }
   async function withdraw(card, data) {
     notWritten(card, "withdraw");
-    requireValue(
-      !card.declined,
-      `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
-      409,
-    );
-    requireValue(
-      !card.started && !card.done && !card.withdrawn,
-      card.withdrawn
-        ? `Proposal ${card.id} is already withdrawn.`
-        : card.done
-          ? `Proposal ${card.id} is marked done, so you cannot withdraw it.`
-          : `The reviewer approved proposal ${card.id}, so you cannot withdraw it.`,
-      409,
-    );
+    refuse(card, "withdraw", {
+      declined: `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
+      withdrawn: `Proposal ${card.id} is already withdrawn.`,
+      finished: `Proposal ${card.id} is marked done, so you cannot withdraw it.`,
+      started: `The reviewer approved proposal ${card.id}, so you cannot withdraw it.`,
+    });
     requireValue(
       data.reason !== undefined,
       "--withdraw takes --reason with why the proposal no longer applies",
@@ -357,29 +333,16 @@ export async function proposals(session) {
   // somewhere else. Only closedSession marks a card done whose work runs in a
   // linked session, so the card keeps its link to that session.
   async function done(card, data) {
-    requireValue(
-      !card.done,
-      `Proposal ${card.id} is already marked done.`,
-      409,
-    );
-    requireValue(
-      !card.declined && !card.withdrawn,
-      card.declined
-        ? `The reviewer declined proposal ${card.id}, so you cannot mark it done.`
-        : `Proposal ${card.id} is withdrawn, so you cannot mark it done.`,
-      409,
-    );
-    requireValue(
-      !card.started || card.started.where === "here",
-      `Proposal ${card.id} runs in ${card.started?.where === "new-agent" ? "a new agent's session" : "a sub-session"}. The hub marks it done when the reviewer closes that session.`,
-      409,
-    );
+    const elsewhere = `Proposal ${card.id} runs in ${card.started?.where === "new-agent" ? "a new agent's session" : "a sub-session"}. The hub marks it done when the reviewer closes that session.`;
+    refuse(card, data.where === undefined ? "done" : "doneWhere", {
+      finished: `Proposal ${card.id} is already marked done.`,
+      declined: `The reviewer declined proposal ${card.id}, so you cannot mark it done.`,
+      withdrawn: `Proposal ${card.id} is withdrawn, so you cannot mark it done.`,
+      opening: elsewhere,
+      linked: elsewhere,
+      proposed: `The reviewer has not approved proposal ${card.id}. If its work was finished somewhere else, add --where to say where, such as --where "in #86".`,
+    });
     const where = data.where === undefined ? null : words(data, "where");
-    requireValue(
-      where || card.started,
-      `The reviewer has not approved proposal ${card.id}. If its work was finished somewhere else, add --where to say where, such as --where "in #86".`,
-      409,
-    );
     return save(card, {
       done: {
         at: timestamp(),
@@ -420,24 +383,18 @@ export async function proposals(session) {
   // reopen clears the status, because the feedback that reopens work
   // changes its parts.
   async function reopen(card) {
-    requireValue(
-      card.done,
-      `Proposal ${card.id} is not marked done, so there is nothing to reopen.`,
-      409,
-    );
-    requireValue(
-      card.done.by === "agent",
-      `The hub marked proposal ${card.id} done when the reviewer closed the session that built it, so you cannot reopen it.`,
-      409,
-    );
+    refuse(card, "reopen", {
+      closed: `The hub marked proposal ${card.id} done when the reviewer closed the session that built it, so you cannot reopen it.`,
+      other: `Proposal ${card.id} is not marked done, so there is nothing to reopen.`,
+    });
     return save(card, { done: null, status: null });
   }
   // In a linked session, writeStatus writes the status to the card in the
   // parent. propose refuses a closed session before it runs writeStatus, so
-  // writeStatus checks no stage, and a linked session records its status
-  // while the parent is closed, as closedSession records its close. A status
-  // that changes no part leaves the card as it was, so status.at is the time
-  // of the last change to the parts.
+  // writeStatus does not check whether the session is closed, and a linked
+  // session records its status while the parent is closed, as closedSession
+  // records its close. A status that changes no part leaves the card as it
+  // was, so status.at is the time of the last change to the parts.
   async function writeStatus(id, data) {
     const owner = session.cardOwner(id, "pair propose");
     if (owner) return owner.exclusive(() => owner.writeStatus(id, data));
@@ -467,7 +424,7 @@ export async function proposals(session) {
   // card once.
   async function reportDeclined() {
     const unreported = proposalItems().filter(
-      (card) => card.declined && !card.declined.reported,
+      (card) => proposalState(card) === "declined" && !card.declined.reported,
     );
     for (const card of unreported)
       await save(card, {
@@ -480,19 +437,14 @@ export async function proposals(session) {
   function linkable(id) {
     open();
     const card = find(id);
-    requireValue(
-      !card.started?.session,
-      `Proposal ${id} is already linked to session ${card.started?.session?.dir}`,
-      409,
-    );
-    requireValue(!card.done, `Proposal ${id} is already marked done.`, 409);
-    requireValue(
-      card.started && card.started.where !== "here",
-      card.started
-        ? `The reviewer approved proposal ${id} to run in session ${directory} itself, so build it in that session's rounds, not with pair start --from.`
-        : `The reviewer has not approved proposal ${id}. Only run pair start --from for a proposal the reviewer approved to run in a sub-session or with a new agent.`,
-      409,
-    );
+    const linked = `Proposal ${id} is already linked to session ${card.started?.session?.dir}`;
+    refuse(card, "link", {
+      linked,
+      closed: linked,
+      finished: `Proposal ${id} is already marked done.`,
+      running: `The reviewer approved proposal ${id} to run in session ${directory} itself, so build it in that session's rounds, not with pair start --from.`,
+      other: `The reviewer has not approved proposal ${id}. Only run pair start --from for a proposal the reviewer approved to run in a sub-session or with a new agent.`,
+    });
     return card;
   }
   const linkSession = (id, linked) => {
@@ -501,14 +453,23 @@ export async function proposals(session) {
   };
   async function closedSession(id, sessionId) {
     const card = cards.get(id);
-    if (!card || card.done || card.started?.session?.id !== sessionId) return;
+    if (
+      !card ||
+      !allows(card, "close") ||
+      card.started.session.id !== sessionId
+    )
+      return;
     await save(card, { done: { at: timestamp(), by: "close" } });
   }
   // The linked session runs again, so its card is no longer done. A later close
   // marks the card done again, and pair read reports that close.
   async function reopenedSession(id, sessionId) {
     const card = cards.get(id);
-    if (card?.done?.by !== "close" || card.started?.session?.id !== sessionId)
+    if (
+      !card ||
+      !allows(card, "reopenSession") ||
+      card.started.session.id !== sessionId
+    )
       return;
     await save(card, { done: null });
   }
@@ -522,7 +483,7 @@ export async function proposals(session) {
   // each card whose linked session closed once.
   async function reportClosed() {
     const unreported = proposalItems().filter(
-      (card) => card.done?.by === "close" && !card.done.reported,
+      (card) => proposalState(card) === "closed" && !card.done.reported,
     );
     for (const card of unreported)
       await save(card, { done: { ...card.done, reported: timestamp() } });
@@ -542,6 +503,7 @@ export async function proposals(session) {
     propose,
     writeStatus,
     startProposal,
+    wakeForStart: wakeFor,
     writeProposal,
     declineProposal,
     restoreProposal,

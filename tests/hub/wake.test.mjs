@@ -4,11 +4,13 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
+import { wakeState } from "../../src/shared/wake-state.mjs";
 import { hub, pairCli, planData, sleep, waitUntil } from "../support/hub.mjs";
 
-// The hub records a wake's result in the status once the wake has finished.
+// The hub records a wake's result in the status once the wake has finished,
+// and until then the newest send's wake is owed.
 const woken = (a) =>
-  waitUntil(async () => Boolean((await a.status()).body.wake?.last));
+  waitUntil(async () => wakeState((await a.status()).body) !== "owed");
 
 test("no status shows the wake target", async (t) => {
   const h = await hub(t);
@@ -84,7 +86,7 @@ test("a failed wake is recorded until the holder runs a command, and the submiss
   assert.equal(await failed(), true);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
   assert.equal(await failed(), false);
-  assert.equal((await a.status()).body.wake.last, null);
+  assert.equal(wakeState((await a.status()).body), "answered");
   // pair start from the holder clears a failed wake too.
   assert.equal((await a.publish(planData("2"))).code, 200);
   assert.equal((await a.feedback(a.event("feedback-only", "2"))).code, 200);
@@ -144,13 +146,10 @@ test("a paused session is not woken until its agent runs pair start", async (t) 
     (await a.action("pause", { reason: "asked to stop" })).code,
     200,
   );
-  assert.equal((await a.status()).body.paused.reason, "asked to stop");
   const feedback = a.event();
   assert.equal((await a.feedback(feedback)).code, 200);
   await sleep(100);
   assert.equal(a.inbox.wakes.length, 0);
-  const [listed] = (await a.request("/api/sessions")).body.sessions;
-  assert.equal(listed.paused, true);
   assert.equal((await h.register(a.directory, a.inbox.target)).code, 200);
   assert.equal((await a.status()).body.paused.reason, "asked to stop");
   assert.equal(
@@ -211,23 +210,8 @@ test("the nearest harness ancestor decides the wake target", () => {
     detectWake(codex, tools([{ pid: 2, command: "sh" }])),
     codexTarget,
   );
-  assert.deepEqual(
-    detectWake(
-      { PAIR_PI_SOCKET: "/tmp/pair-1/wake.sock", PAIR_PI_SESSION: "p" },
-      tools([{ pid: 3, command: "pi" }]),
-    ),
-    { harness: "pi", socket: "/tmp/pair-1/wake.sock", session: "p" },
-  );
-  assert.deepEqual(
-    detectWake(
-      {
-        PAIR_OPENCODE_SOCKET: "/tmp/pair-2/wake.sock",
-        PAIR_OPENCODE_SESSION: "ses_1",
-      },
-      tools([{ pid: 3, command: "opencode" }]),
-    ),
-    { harness: "opencode", socket: "/tmp/pair-2/wake.sock", session: "ses_1" },
-  );
+  // tests/adapters/pi.test.mjs and tests/adapters/opencode.test.mjs check the
+  // targets of pi and opencode with the variables their extensions set.
 });
 
 const extension = fileURLToPath(

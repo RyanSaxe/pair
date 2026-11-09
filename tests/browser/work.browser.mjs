@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -708,6 +708,18 @@ test("a card's reply box keeps focus and every key while the cards change, and W
   assert.equal(started.code, 201, started.body.error);
   const thread = page.locator(`pair-thread[data-thread="${id}"]`);
   const field = thread.getByRole("textbox", { name: "Reply in this thread" });
+  // The first status poll the frame sends after a change has carried the change
+  // once its answer has arrived and the frame has drawn the next frames. A 304
+  // has no body, and its finished() never resolves.
+  const polled = async () => {
+    const request = await page.waitForEvent("request", (request) =>
+      new URL(request.url()).pathname.endsWith("/api/status"),
+    );
+    const response = await request.response();
+    if (response.status() !== 304) await response.finished();
+    for (const _ of [1, 2])
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+  };
   await field.click();
   // Each of these letters is one of the frame's single-key shortcuts when no
   // text field has focus.
@@ -718,25 +730,24 @@ test("a card's reply box keeps focus and every key while the cards change, and W
     delivers: "The export, revised.",
   });
   assert.equal(revised.code, 200, revised.body.error);
-  // The frame polls status every 1.5 s, so the sleep covers two polls.
-  await sleep(3000);
+  await polled();
   await page.keyboard.type("r c ");
   // The agent's reply reaches the thread card that the reviewer is typing in.
   const replied = await session.action("reply", { note: id, text: "Yes." });
   assert.equal(replied.code, 200, replied.body.error);
   await thread.locator(".thread-message", { hasText: "Yes." }).waitFor();
-  await sleep(3000);
+  await polled();
   await page.keyboard.type("w g ");
   // A poll also calls show("work") when the round's feedback arrives from
   // another browser and when the next round's Agreed arrives.
   const sent = await session.feedback(session.event("feedback-only", "1"));
   assert.equal(sent.code, 200, JSON.stringify(sent.body));
   assert.equal((await session.action("read")).code, 200);
-  await sleep(3000);
+  await polled();
   await page.keyboard.type("[ ");
   const next = await session.publish(planData("2"));
   assert.equal(next.code, 200, next.body.error);
-  await sleep(3000);
+  await polled();
   await page.keyboard.type("] ?");
   const typed = "n s a r c w g [ ] ?";
   assert.equal(await field.inputValue(), typed);
