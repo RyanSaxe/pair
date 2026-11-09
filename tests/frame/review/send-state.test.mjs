@@ -9,7 +9,9 @@ const live = { editable: true, connected: true };
 
 // Each row is a set of the fields the frame keeps, the state they give and
 // the actions that state accepts. A later field in sendState's order counts
-// only when every earlier one is false.
+// only when every earlier one is false. tests/browser/send.browser.mjs edits
+// and sends a round, so the table leaves out the state with every field
+// false.
 test("sendState works out the Current tab's send from the fields the frame keeps", () => {
   for (const [fields, expected, actions] of [
     [{ editable: false, connected: true }, "read-only", []],
@@ -20,7 +22,6 @@ test("sendState works out the Current tab's send from the fields the frame keeps
     [{ ...live, connected: false, openRound: true }, "pages-pending", ["edit"]],
     [{ ...live, connected: false, failed: true }, "unreachable", ["edit"]],
     [{ ...live, failed: true }, "failed", ["edit", "send"]],
-    [live, "editing", ["edit", "send"]],
   ]) {
     const state = sendState(fields);
     assert.equal(state, expected, JSON.stringify(fields));
