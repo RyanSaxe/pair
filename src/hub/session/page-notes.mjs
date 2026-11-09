@@ -7,7 +7,7 @@ export function pageNotes(session) {
   function notePage(id, text) {
     const set = structuredClone(session.state.openRound);
     requireValue(
-      set && session.state.stage === "working",
+      set && session.stage() === "working",
       "Publish Agreed before a page note",
       409,
     );

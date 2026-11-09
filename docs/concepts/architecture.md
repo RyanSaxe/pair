@@ -223,7 +223,7 @@ hub/
   start.lock         the pid of the command that is starting or replacing the hub
   seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
 sessions/<dir>/      the directory name is not the session ID
-  status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it
+  status.json        title, holder, pause, close time, last wake, open round, linked parent; pair status prints it
   connection.json    session ID, hub origin, agent token, the agent CLI's name
   wake.json          how to wake the holder, such as its inbox socket or thread ID
   pages/<round>/     published page records

@@ -79,8 +79,70 @@ test("a session closed with feedback unread stays closed after the hub restarts"
   const restarted = await startHub(h.config);
   try {
     const get = async (route) => (await fetch(restarted.origin + route)).json();
-    assert.equal((await get(`${a.base}/api/status`)).stage, "complete");
+    const status = await get(`${a.base}/api/status`);
+    assert.equal(typeof status.closedAt, "string");
+    assert.equal(status.stage, "submitted");
     assert.deepEqual((await get("/api/sessions")).sessions, []);
+  } finally {
+    await restarted.close();
+  }
+});
+
+// Before closedAt, the hub stored the round's stage, and Close set it to
+// "complete" with the time in dismissedAt. A reopen set dismissedAt to null and
+// stored the stage again. That hub still reads both fields, and it keeps a
+// closedAt that a newer hub wrote, as it does every field it does not know.
+test("a session that an older hub closed or reopened loads as that hub left it, and keeps the fields that hub reads", async (t) => {
+  const h = await hub(t);
+  const closedBefore = await h.session(),
+    reopenedBefore = await h.session();
+  await closedBefore.publish(planData());
+  await reopenedBefore.publish(planData());
+  await h.server.close();
+  const at = "2026-11-01T12:00:00.000Z";
+  const rewrite = async (session, fields) => {
+    const file = path.join(session.directory, "status.json");
+    const { closedAt, ...state } = JSON.parse(await fs.readFile(file, "utf8"));
+    await fs.writeFile(file, JSON.stringify({ ...state, ...fields }));
+  };
+  const stored = async (session) => {
+    const file = path.join(session.directory, "status.json");
+    const { stage, closedAt, dismissedAt } = JSON.parse(
+      await fs.readFile(file, "utf8"),
+    );
+    return { stage, closedAt, dismissedAt };
+  };
+  await rewrite(closedBefore, { stage: "complete", dismissedAt: at });
+  // A newer hub closed this session before the older hub reopened it.
+  await rewrite(reopenedBefore, {
+    stage: "updated",
+    dismissedAt: null,
+    closedAt: "2026-10-31T12:00:00.000Z",
+  });
+  const restarted = await startHub(h.config);
+  try {
+    const get = async (route) => (await fetch(restarted.origin + route)).json();
+    const closed = await get(`${closedBefore.base}/api/status`);
+    assert.equal(closed.closedAt, at);
+    assert.equal(closed.stage, "updated");
+    assert.equal(
+      (await get(`${reopenedBefore.base}/api/status`)).closedAt,
+      null,
+    );
+    assert.deepEqual(
+      (await get("/api/sessions")).sessions.map(({ id }) => id),
+      [reopenedBefore.id],
+    );
+    assert.deepEqual(await stored(closedBefore), {
+      stage: "complete",
+      closedAt: at,
+      dismissedAt: at,
+    });
+    assert.deepEqual(await stored(reopenedBefore), {
+      stage: "updated",
+      closedAt: null,
+      dismissedAt: undefined,
+    });
   } finally {
     await restarted.close();
   }

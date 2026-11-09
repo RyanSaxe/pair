@@ -17,6 +17,7 @@ import {
 import { remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
 import { fetchPolled } from "#frame/sync/status.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 let sessions = [];
 let grouped = [];
@@ -47,15 +48,9 @@ export function status() {
   // When another tab closes the session, this tab reloads as a read-only
   // page, so it cannot send anything to an agent that the hub will never
   // wake again.
-  if (remote?.dismissedAt && mode === "live") location.reload();
+  if (isClosed(remote) && mode === "live") location.reload();
   // When an agent reopens the session, this tab reloads as a live page.
-  if (
-    session.closed &&
-    !embedded &&
-    remote &&
-    remote.stage !== "complete" &&
-    !remote.dismissedAt
-  )
+  if (session.closed && !embedded && remote && !isClosed(remote))
     location.reload();
 }
 // byStart sorts sessions by start time, so a number key opens the same

@@ -136,7 +136,7 @@ test("after a close the agent's next command says the reviewer closed the sessio
   }
   const status = await a.action("status");
   assert.equal(status.body.next, closed);
-  assert.equal(status.body.status.stage, "complete");
+  assert.equal(typeof status.body.status.closedAt, "string");
   await sleep(50);
   assert.equal(a.inbox.wakes.length, 1);
 });
@@ -204,12 +204,25 @@ const beforeClose = [
       }),
   },
 ];
+// A hub from before closedAt reads the stage and dismissedAt in status.json.
+const stored = async (a) => {
+  const { stage, closedAt, dismissedAt } = JSON.parse(
+    await fs.readFile(path.join(a.directory, "status.json"), "utf8"),
+  );
+  return { stage, closedAt, dismissedAt };
+};
 for (const { name, setup, stage, next, step } of beforeClose)
   test(`pair start --reopen makes a session closed with ${name} live again`, async (t) => {
     const h = await hub(t);
     const a = await h.session();
     await setup(a);
     assert.equal((await close(a)).code, 200);
+    const { closedAt } = (await a.status()).body;
+    assert.deepEqual(await stored(a), {
+      stage: "complete",
+      closedAt,
+      dismissedAt: closedAt,
+    });
     const started = await h.register(a.directory, a.inbox.target, {
       start: true,
       reopen: true,
@@ -219,7 +232,12 @@ for (const { name, setup, stage, next, step } of beforeClose)
     assert.equal(started.body.moment, "start-reopen");
     const { body: status } = await a.status();
     assert.equal(status.stage, stage);
-    assert.ok(!status.dismissedAt);
+    assert.equal(status.closedAt, null);
+    assert.deepEqual(await stored(a), {
+      stage,
+      closedAt: null,
+      dismissedAt: undefined,
+    });
     const { sessions } = (await a.request("/api/sessions")).body;
     assert.deepEqual(
       sessions.map(({ id }) => id),
@@ -257,7 +275,7 @@ test("pair start without --reopen leaves a closed session closed", async (t) => 
     start: true,
   });
   assert.equal(started.body.next, closed);
-  assert.equal((await a.status()).body.stage, "complete");
+  assert.equal(typeof (await a.status()).body.closedAt, "string");
   assert.equal((await a.action("read")).code, 409);
 });
 

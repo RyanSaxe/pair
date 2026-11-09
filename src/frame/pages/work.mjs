@@ -16,6 +16,7 @@ import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
 import { listedSession, unreadCards } from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 /* The hub stores four fields on each card: started, declined, withdrawn and
    done. cardTab() derives a card's tab from them. A card that the agent joined
@@ -72,7 +73,7 @@ const linkedWaits = () =>
   );
 // Start, Decline and Restore work only in the live session.
 export const cardsEditable = () =>
-  editable && online && Boolean(remote) && remote.stage !== "complete";
+  editable && online && Boolean(remote) && !isClosed(remote);
 export const proposedCount = () => workGroups(cards()).proposed.length;
 
 const element = (tag, className, text) => {
