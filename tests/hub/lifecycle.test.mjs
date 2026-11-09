@@ -38,6 +38,8 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   const report = await check({ PAIR_HUB_PORT: "0" });
   assert.equal(report.ready, true);
   assert.equal(report.hub.state, "os-assigned");
+  // check tests the directory the hub writes to, not XDG_STATE_HOME itself.
+  assert.equal(report.storage, path.join(directory, "pair"));
   assert.deepEqual(await fs.readdir(path.join(directory, "pair")), []);
   const h = await hub(t);
   const live = await check({
@@ -56,47 +58,22 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
-test("pair check tests the state directory the hub writes to", async (t) => {
-  const state = await fs.mkdtemp(path.join(os.tmpdir(), "pair-check-state-"));
-  t.after(() => fs.rm(state, { recursive: true, force: true }));
-  const report = JSON.parse(
-    (
-      await exec(process.execPath, [pair, "check", "--json"], {
-        env: { ...process.env, XDG_STATE_HOME: state, PAIR_HUB_PORT: "0" },
-      })
-    ).stdout,
-  );
-  assert.equal(report.storage, path.join(state, "pair"));
-});
-
-test("a session closed with feedback unread stays closed after the hub restarts", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  await a.publish(planData());
-  assert.equal((await a.feedback(a.event())).code, 200);
-  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
-  await h.server.close();
-  const restarted = await startHub(h.config);
-  try {
-    const get = async (route) => (await fetch(restarted.origin + route)).json();
-    const status = await get(`${a.base}/api/status`);
-    assert.equal(typeof status.closedAt, "string");
-    assert.equal(status.stage, "submitted");
-    assert.deepEqual((await get("/api/sessions")).sessions, []);
-  } finally {
-    await restarted.close();
-  }
-});
-
 // Before closedAt, the hub stored the round's stage, and Close set it to
 // "complete" with the time in dismissedAt. A reopen set dismissedAt to null and
 // stored the stage again.
-test("a session that an older hub closed or reopened loads with closedAt", async (t) => {
+test("a closed session stays closed after the hub restarts, and one an older hub closed or reopened loads with closedAt", async (t) => {
   const h = await hub(t);
-  const closedBefore = await h.session(),
+  const closedNow = await h.session(),
+    closedBefore = await h.session(),
     reopenedBefore = await h.session();
+  await closedNow.publish(planData());
   await closedBefore.publish(planData());
   await reopenedBefore.publish(planData());
+  assert.equal((await closedNow.feedback(closedNow.event())).code, 200);
+  assert.equal(
+    (await closedNow.request(`${closedNow.base}/api/dismiss`, {})).code,
+    200,
+  );
   await h.server.close();
   const at = "2026-11-01T12:00:00.000Z";
   const rewrite = async (session, fields) => {
@@ -109,6 +86,9 @@ test("a session that an older hub closed or reopened loads with closedAt", async
   const restarted = await startHub(h.config);
   try {
     const get = async (route) => (await fetch(restarted.origin + route)).json();
+    const unread = await get(`${closedNow.base}/api/status`);
+    assert.equal(typeof unread.closedAt, "string");
+    assert.equal(unread.stage, "submitted");
     const closed = await get(`${closedBefore.base}/api/status`);
     assert.equal(closed.closedAt, at);
     assert.equal(closed.stage, "updated");

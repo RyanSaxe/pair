@@ -506,26 +506,8 @@ test("the hub refuses to open a session interactive-plan created", async (t) => 
   assert.deepEqual(await fs.readdir(directory), ["status.json"]);
 });
 
-test("the browser can read sent feedback without agent-only paths", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  assert.equal((await a.publish(planData())).code, 200);
-  const feedback = a.event("feedback-only", "1", {
-    groups: { choices: {}, notes: [] },
-  });
-  assert.equal((await a.feedback(feedback)).code, 200);
-  const { submission } = (await a.request(`${a.base}/api/submission?round=1`))
-    .body;
-  assert.equal(submission.id, feedback.id);
-  assert.equal(submission.round, "1");
-  assert.deepEqual(submission.groups.notes, []);
-  assert.deepEqual(submission.groups.choices, {});
-  const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
-  assert.equal(invalid.code, 400);
-});
-
 // A Start saves an event with the round it started on and no feedback in it.
-test("a Start on a round leaves what the browser reads for that round", async (t) => {
+test("the browser reads a round's sent feedback and never a Start, and refuses a round that is a path", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
@@ -549,12 +531,19 @@ test("a Start on a round leaves what the browser reads for that round", async (t
   assert.equal(unsent.code, 200, JSON.stringify(unsent.body));
   assert.equal(unsent.body.submission, null);
 
-  const feedback = a.event();
+  const feedback = a.event("feedback-only", "1", {
+    groups: { choices: {}, notes: [] },
+  });
   assert.equal((await a.feedback(feedback)).code, 200);
   await start("after-send");
   const sent = await submission();
   assert.equal(sent.code, 200, JSON.stringify(sent.body));
   assert.equal(sent.body.submission.id, feedback.id);
+  assert.equal(sent.body.submission.round, "1");
+  assert.deepEqual(sent.body.submission.groups.notes, []);
+  assert.deepEqual(sent.body.submission.groups.choices, {});
+  const invalid = await a.request(`${a.base}/api/submission?round=..%2Fsecret`);
+  assert.equal(invalid.code, 400);
 });
 
 // On macOS, /tmp is a symbolic link to /private/tmp, so an agent can name one
