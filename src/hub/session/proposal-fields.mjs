@@ -1,3 +1,4 @@
+import { allows, proposalState } from "../../shared/proposal-state.mjs";
 import { requireValue, timestamp } from "../../shared/util.mjs";
 
 const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -145,4 +146,27 @@ export function proposeAction(data) {
       : `--${action} takes no --${extra}. To edit that field, run pair propose with --revise and --${extra}.`,
   );
   return { id, action };
+}
+
+// A card that is done, joined or closed is finished, and one that is running,
+// opening or linked is started.
+const groups = {
+  done: "finished",
+  joined: "finished",
+  closed: "finished",
+  running: "started",
+  opening: "started",
+  linked: "started",
+};
+// refuse refuses the action when the card's state does not accept it, with
+// the message that messages gives for that state, else for its group, else
+// other.
+export function refuse(card, action, messages) {
+  if (allows(card, action)) return;
+  const state = proposalState(card);
+  requireValue(
+    false,
+    messages[state] ?? messages[groups[state]] ?? messages.other,
+    409,
+  );
 }

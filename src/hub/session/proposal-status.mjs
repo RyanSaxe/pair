@@ -1,4 +1,5 @@
 import { requireValue } from "../../shared/util.mjs";
+import { refuse } from "./proposal-fields.mjs";
 
 // The status of approved work is one list of parts, in the order the agent
 // added them, and each part is left, done or dropped. pair propose adds a
@@ -91,25 +92,11 @@ export function loadedStatus(status) {
 
 export function statusable(card) {
   const { id } = card;
-  requireValue(
-    !card.declined,
-    `The reviewer declined proposal ${id}, so you cannot record a status for it.`,
-    409,
-  );
-  requireValue(
-    !card.withdrawn,
-    `Proposal ${id} is withdrawn, so you cannot record a status for it.`,
-    409,
-  );
-  requireValue(
-    !card.done,
-    `Proposal ${id} is marked done, so you cannot record a status for it.`,
-    409,
-  );
-  requireValue(
-    card.started,
-    `The reviewer has not approved proposal ${id}, so you cannot record a status for it yet.`,
-    409,
-  );
+  refuse(card, "status", {
+    declined: `The reviewer declined proposal ${id}, so you cannot record a status for it.`,
+    withdrawn: `Proposal ${id} is withdrawn, so you cannot record a status for it.`,
+    finished: `Proposal ${id} is marked done, so you cannot record a status for it.`,
+    proposed: `The reviewer has not approved proposal ${id}, so you cannot record a status for it yet.`,
+  });
   return card;
 }

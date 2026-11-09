@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { problems } from "../../build/lint.mjs";
 import { accepts, isClosed } from "../../shared/lifecycle.mjs";
+import { proposalState } from "../../shared/proposal-state.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { replyImages } from "./thread-images.mjs";
@@ -317,10 +318,7 @@ export function threads(session) {
     const decided = new Set(
       session
         .proposalItems()
-        .filter(
-          (card) =>
-            card.started || card.declined || card.withdrawn || card.done,
-        )
+        .filter((card) => proposalState(card) !== "proposed")
         .map(({ id }) => id),
     );
     return events.map((event) =>

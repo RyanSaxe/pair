@@ -17,13 +17,13 @@ import { listedSession, unreadCards } from "#frame/sync/center.mjs";
 import { poll, remote } from "#frame/sync/rounds.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
 import { isClosed } from "#shared/lifecycle.mjs";
+import { allows, proposalState } from "#shared/proposal-state.mjs";
 
-/* The hub stores four fields on each card: started, declined, withdrawn and
-   done. cardTab() derives a card's tab from them. A card that the agent joined
-   into another is done, and its done.joined field contains the other card's
-   ID. Work started in a sub-session or with a new agent has its own session's
-   rounds, so its card goes to Done as it starts. The card stays there as the
-   link to that session and the words that started it. */
+/* cardTab() derives a card's tab from proposalState(). A proposed card is in
+   Proposed and a running card is in Running. Work started in a sub-session or
+   with a new agent has its own session's rounds, so its card goes to Done as
+   it starts. The card stays there as the link to that session and the words
+   that started it. Every other card is finished, and is in Done. */
 
 export const workTabs = [
   {
@@ -41,13 +41,8 @@ export const workTabs = [
 const waits = (card, { linked = () => null } = {}) =>
   card.started.where !== "here" &&
   Boolean(linked(card.started.session?.id)?.needsYou);
-const finished = (card) =>
-  Boolean(card.declined || card.withdrawn || card.done);
-export function cardTab(card) {
-  if (finished(card)) return "done";
-  if (!card.started) return "proposed";
-  return card.started.where === "here" ? "running" : "done";
-}
+const tabs = { proposed: "proposed", running: "running" };
+export const cardTab = (card) => tabs[proposalState(card)] ?? "done";
 export function workGroups(cards) {
   const groups = Object.fromEntries(workTabs.map(({ id }) => [id, []]));
   for (const card of cards) groups[cardTab(card)].push(card);
@@ -83,14 +78,20 @@ const element = (tag, className, text) => {
   return node;
 };
 const ownSession = "In its own session";
+const finishedWords = {
+  declined: "Declined",
+  withdrawn: "Withdrawn",
+  done: "Done",
+  joined: "Done",
+  closed: "Done",
+};
 export function cardState(card, shown) {
-  if (card.declined) return ["Declined", "muted"];
-  if (card.withdrawn) return ["Withdrawn", "muted"];
-  if (card.done) return ["Done", "muted"];
+  const state = proposalState(card);
+  if (finishedWords[state]) return [finishedWords[state], "muted"];
   if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
-  if (!card.started) return ["Proposed", "hollow"];
-  if (card.started.where === "here") return ["Working here", "accent"];
-  if (!card.started.session)
+  if (state === "proposed") return ["Proposed", "hollow"];
+  if (state === "running") return ["Working here", "accent"];
+  if (state === "opening")
     return card.started.where === "new-agent"
       ? ["Opening a new agent session", "accent"]
       : ["Opening a sub-session", "accent"];
@@ -118,25 +119,27 @@ export function metaLine(state, tone, rest) {
   return line;
 }
 // Running work started here has no line, because its state says where it
-// runs.
-function cardWhere(card, state) {
-  if (card.started?.where === "here" && !card.done) return null;
+// runs. label is the word cardState() gives the card.
+function cardWhere(card, label) {
+  const state = proposalState(card);
+  if (state === "running") return null;
   const box = element("span", "proposal-where");
   const linked = card.started?.session;
-  if (card.done?.joined) {
+  if (state === "joined") {
     const task = cards().find((item) => item.id === card.done.joined);
     box.textContent = `Joined ${task?.title ?? card.done.joined}`;
     box.title = box.textContent;
   } else if (card.done?.where) {
     box.textContent = card.done.where;
     box.title = `Done ${card.done.where}`;
-  } else if (card.started && card.started.where !== "here") {
-    if (card.done) box.append(sessionLink("Done in its own session", linked));
-    else if (linked) {
-      if (state !== ownSession) box.append(`${ownSession} · `);
-      box.append(sessionLink("Open", linked));
-    } else box.textContent = "Waiting for its session to start";
-  } else {
+  } else if (state === "closed")
+    box.append(sessionLink("Done in its own session", linked));
+  else if (state === "linked") {
+    if (label !== ownSession) box.append(`${ownSession} · `);
+    box.append(sessionLink("Open", linked));
+  } else if (state === "opening")
+    box.textContent = "Waiting for its session to start";
+  else {
     const { page, thread, reviewer } = card.source;
     if (page) box.append(pageLink(fromPage(page), page.round, page.id));
     else if (thread) box.append(threadLink("From a thread", thread));
@@ -201,14 +204,13 @@ function actions(card) {
     node.onclick = run;
     return node;
   };
-  const proposed = !card.started && !finished(card);
   const left = element("span", "proposal-foot-start");
-  if (card.declined || card.withdrawn)
+  if (allows(card, "restore"))
     left.append(button("link-btn", "Restore", () => act(card, "restore")));
-  else if (proposed)
+  else if (allows(card, "decline"))
     left.append(button("link-btn", "Decline", () => act(card, "decline")));
   const right = element("span", "proposal-actions");
-  if (proposed)
+  if (allows(card, "start"))
     right.append(
       button("btn primary proposal-start", "Start", () =>
         openStart(card, joinedInto(card), (result) => {
@@ -236,7 +238,8 @@ export function cardElement(
   const body = element("div", "proposal-body");
   body.append(head, metaLine(state, tone, cardWhere(card, state)));
   // A finished card that stays on screen keeps its status box, and so its height.
-  if (card.started && (!finished(card) || stays)) body.append(statusBox(card));
+  if (allows(card, "status") || (stays && card.started))
+    body.append(statusBox(card));
   body.append(element("p", "proposal-delivers", card.delivers));
   if (card.attachments?.length) body.append(images(card));
   // cardElement() quotes the reviewer's words that started the card, or the

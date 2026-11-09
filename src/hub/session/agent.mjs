@@ -1,6 +1,7 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { accepts, isClosed, lifecycle } from "../../shared/lifecycle.mjs";
+import { proposalState } from "../../shared/proposal-state.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { adapters, identify, wakeRunner } from "../wake.mjs";
@@ -30,9 +31,7 @@ export function agent(session) {
       ? { lastReceivedId: event.id, receivedAt: timestamp() }
       : {};
   const startedHere = () =>
-    session
-      .proposalItems()
-      .filter((card) => card.started?.where === "here" && !card.done);
+    session.proposalItems().filter((card) => proposalState(card) === "running");
   // Every agent command prints nextStep, so an agent that lost its place
   // learns where the session stands.
   async function nextStep() {
