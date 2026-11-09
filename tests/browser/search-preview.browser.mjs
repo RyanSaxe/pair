@@ -936,6 +936,9 @@ test("a closed session shows read-only", async (t) => {
 test("leaving the search window stops what plays in a frame", async (t) => {
   const { page } = await setUp(t);
   if (!page) return;
+  // The search frame loads after the clock is installed, so its 10-second poll
+  // runs on that clock.
+  await page.clock.install();
   await type(page, "walrus");
   await previewShows(page, "walrus");
   await page.evaluate(() => {
@@ -944,22 +947,27 @@ test("leaving the search window stops what plays in a frame", async (t) => {
     const video = win.document.createElement("video");
     video.pause = () => win.pauses++;
     win.document.getElementById("page-content").append(video);
+    // The frame counts its own requests, because the test can hear of a
+    // request only after the clock's jump has returned.
+    win.asked = [];
+    const send = win.fetch;
+    win.fetch = (url, options) => {
+      if (String(url).includes("/api/status")) win.asked.push(String(url));
+      return send(url, options);
+    };
   });
   await page.keyboard.press("Escape");
   await page.waitForFunction(
     () => document.querySelector(".search-frame").contentWindow.pauses === 1,
   );
   // The frame stays loaded, and it asks the hub for nothing while it's closed.
-  const asked = [];
-  page.on("request", (request) => {
-    if (
-      request.frame() !== page.mainFrame() &&
-      request.url().includes("/api/status")
-    )
-      asked.push(request.url());
-  });
-  await page.waitForTimeout(11000);
-  assert.deepEqual(asked, []);
+  await page.clock.fastForward(11000);
+  assert.deepEqual(
+    await page.evaluate(
+      () => document.querySelector(".search-frame").contentWindow.asked,
+    ),
+    [],
+  );
 });
 
 test("a theme change reaches a frame that's already loaded", async (t) => {

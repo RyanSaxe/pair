@@ -74,10 +74,13 @@ test("a reply on its page and a card on Work stay unread however long they show,
   const away = await openOn(t, h, here, {}, false);
   if (!away) return;
   await badge(away, 3);
+  // The window reads its row on a timer set once it opens, so the clock
+  // installed here runs it.
+  await away.clock.install();
   await openAll(away);
   assert.match(await selected(away).textContent(), /Build the deck/);
   await shownFrame(away).locator('[data-proposal-card="deck"]').waitFor();
-  await away.waitForTimeout(3500);
+  await away.clock.runFor(3500);
   await agree(away, 3);
   await away.close();
 
@@ -85,16 +88,17 @@ test("a reply on its page and a card on Work stay unread however long they show,
   const page = await open(t, "about:blank");
   if (!page) return;
   await stubPele(page);
+  await page.clock.install();
   await page.goto(
     `${h.server.origin}${here.base}/?target=thread-${id}-1#overview`,
   );
   await page.locator(`[id="thread-${id}-1"] .thread-name`).waitFor();
   await badge(page, 3);
-  await page.waitForTimeout(2500);
+  await page.clock.runFor(2500);
   assert.equal(await page.locator("#bell-count").textContent(), "3");
   await page.locator('[data-page="work"]').first().click();
   await page.locator('[data-proposal-card="deck"] .proposal-title').waitFor();
-  await page.waitForTimeout(2500);
+  await page.clock.runFor(2500);
   assert.equal(await page.locator("#bell-count").textContent(), "3");
 });
 

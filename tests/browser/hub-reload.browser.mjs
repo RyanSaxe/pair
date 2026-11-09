@@ -7,8 +7,10 @@ import { test } from "node:test";
 import { open, stubPele } from "../support/browser.mjs";
 import { hub, planData, root, sleep, waitUntil } from "../support/hub.mjs";
 
-// The frame polls the status every 1.5 s, so this allows two polls.
-const TWO_POLLS_MS = 3300;
+// The frame polls the status every 1.5 s, and the search window's frame every
+// 10 s.
+const POLL_MS = 1500;
+const EMBED_POLL_MS = 10000;
 const RELOAD_MS = 8000;
 
 const long = (prefix) =>
@@ -70,6 +72,41 @@ async function reportVersion(page) {
     reported.version = version;
   };
 }
+// stays jumps the page's clock from one poll to the next until the frame has
+// read `count` statuses, and returns false as soon as the page or a frame in it
+// reloads. A frame asks again only once the status before has arrived, and
+// when that status gives it nothing new to load, it has acted on it by then, so
+// its next request shows that it read them all. A jump that comes too early
+// only skips a poll, and the next one comes on time.
+async function stays(
+  page,
+  count,
+  { frame = page.mainFrame(), every = POLL_MS } = {},
+) {
+  let reloading;
+  const reloaded = new Promise((resolve) => {
+    reloading = (request) => request.isNavigationRequest() && resolve(false);
+  });
+  page.on("request", reloading);
+  try {
+    for (let index = 0; index <= count; index++) {
+      const asked = page.waitForRequest(
+        (request) =>
+          request.frame() === frame &&
+          new URL(request.url()).pathname.endsWith("/api/status"),
+      );
+      asked.catch(() => {});
+      await page.clock.fastForward(every);
+      const request = await Promise.race([asked, reloaded]);
+      if (!request) return false;
+      const answered = index < count && request.response().then(() => true);
+      if (answered && !(await Promise.race([answered, reloaded]))) return false;
+    }
+    return true;
+  } finally {
+    page.off("request", reloading);
+  }
+}
 // A reload clears what a script left on the window.
 const markLoad = (frame) => frame.evaluate(() => (window.sameLoad = true));
 const sameLoad = (frame) => frame.evaluate(() => window.sameLoad === true);
@@ -123,8 +160,10 @@ async function restartOnNewCode(t, h) {
 
 test("a tab stays while its hub is down, then reloads once on the new code, at its page and place", async (t) => {
   const { h, a, origin } = await session(t);
-  const page = await open(t, `${origin}${a.base}/#newer`);
+  const page = await open(t, "about:blank");
   if (!page) return;
+  await page.clock.install();
+  await page.goto(`${origin}${a.base}/#newer`);
   await page.locator("#new-20").waitFor();
   await page.locator("#new-20").evaluate((block) => block.scrollIntoView());
   await sleep(400);
@@ -139,8 +178,7 @@ test("a tab stays while its hub is down, then reloads once on the new code, at i
 
   const startNewHub = await restartOnNewCode(t, h);
   await h.server.close();
-  await sleep(TWO_POLLS_MS);
-  assert.equal(await sameLoad(page), true, "reloaded with the hub down");
+  assert.equal(await stays(page, 2), true, "reloaded with the hub down");
   await startNewHub();
   assert.equal(await reloads(page), true, "did not reload on the new hub");
 
@@ -148,7 +186,7 @@ test("a tab stays while its hub is down, then reloads once on the new code, at i
   await waitUntil(async () => Math.abs((await above()) - before) < 2);
   assert.ok(Math.abs((await above()) - before) < 2, "lost the place");
   assert.equal(new URL(page.url()).hash, "#newer");
-  await sleep(TWO_POLLS_MS);
+  assert.equal(await stays(page, 2), true, "reloaded more than once");
   assert.equal(loads, 1, "reloaded more than once");
 });
 
@@ -157,6 +195,7 @@ test("a status with no version changes nothing, and each new version gets one re
   const page = await open(t, "about:blank");
   if (!page) return;
   const report = await reportVersion(page);
+  await page.clock.install();
   await page.goto(`${origin}${a.base}/#newer`);
   await page.locator("#new-1").waitFor();
   await markLoad(page);
@@ -164,13 +203,20 @@ test("a status with no version changes nothing, and each new version gets one re
   page.on("load", () => loads++);
 
   report(undefined);
-  await sleep(TWO_POLLS_MS);
-  assert.equal(loads, 0, "reloaded for a hub with no version");
+  assert.equal(
+    await stays(page, 2),
+    true,
+    "reloaded for a hub with no version",
+  );
 
   // The page after this reload still differs, as it would from a cache.
   report("another-version");
   assert.equal(await reloads(page), true);
-  await sleep(TWO_POLLS_MS);
+  assert.equal(
+    await stays(page, 2),
+    true,
+    "reloaded again for the same version",
+  );
   assert.equal(loads, 1, "reloaded again for the same version");
 
   await markLoad(page);
@@ -188,6 +234,7 @@ test("a reload waits while the reader is using the tab, and comes once they fini
     document.hasFocus = () => false;
   });
   const report = await reportVersion(page);
+  await page.clock.install();
   await page.goto(`${origin}${a.base}/#newer`);
   const box = replyBox(page, "here");
   await box.waitFor();
@@ -195,8 +242,7 @@ test("a reload waits while the reader is using the tab, and comes once they fini
   const holdsUntil = async (finish, what) => {
     await markLoad(page);
     report(`version-${++version}`);
-    await sleep(TWO_POLLS_MS);
-    assert.equal(await sameLoad(page), true, `${what} did not hold the reload`);
+    assert.equal(await stays(page, 2), true, `${what} did not hold the reload`);
     await finish();
     assert.equal(await reloads(page), true, `no reload after ${what}`);
   };
@@ -259,6 +305,7 @@ test("a reply typed on an older round, which the frame doesn't save, holds the r
   const page = await open(t, "about:blank");
   if (!page) return;
   const report = await reportVersion(page);
+  await page.clock.install();
   await page.goto(`${origin}${a.base}/?round=1#older`);
   const box = replyBox(page, "past");
   await box.waitFor();
@@ -266,8 +313,7 @@ test("a reply typed on an older round, which the frame doesn't save, holds the r
   await box.blur();
   await markLoad(page);
   report("another-version");
-  await sleep(TWO_POLLS_MS);
-  assert.equal(await sameLoad(page), true);
+  assert.equal(await stays(page, 2), true, "reloaded over the reply");
   assert.equal(await box.inputValue(), "Only in this tab");
   await box.fill("");
   await box.blur();
@@ -280,6 +326,7 @@ test("the search window's frame keeps its load, and the tab reloads after the wi
   if (!page) return;
   await stubPele(page);
   const report = await reportVersion(page);
+  await page.clock.install();
   await page.goto(`${origin}${a.base}/#newer`);
   await page.locator("#search-button").click();
   await waitUntil(
@@ -293,12 +340,22 @@ test("the search window's frame keeps its load, and the tab reloads after the wi
   await markLoad(page);
   await markLoad(frame);
   report("another-version");
-  // The search window's frame polls every 10 s.
-  await sleep(11000);
+  assert.equal(await stays(page, 2), true, "the tab reloaded under the search");
+  assert.equal(
+    await stays(page, 1, { frame, every: EMBED_POLL_MS }),
+    true,
+    "the search frame reloaded itself",
+  );
   assert.equal(await sameLoad(frame), true, "the search frame reloaded itself");
-  assert.equal(await sameLoad(page), true, "the tab reloaded under the search");
   await page.keyboard.press("Escape");
-  assert.equal(await reloads(page), true);
+  // The search frame can act on its first status only after stays returns. A
+  // reload of its own would use up the version's one reload, and the tab would
+  // then stay.
+  assert.equal(
+    await reloads(page),
+    true,
+    "no reload after the search closed, or the search frame took it",
+  );
   assert.equal(await page.locator(".search-input").isVisible(), false);
 });
 
