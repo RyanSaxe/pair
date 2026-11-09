@@ -323,10 +323,14 @@ export async function startHub(config = settings()) {
           .find((item) => item.startsWith("pair-last="))
           ?.slice("pair-last=".length);
         const remembered = cookie && registry.get(cookie);
+        const last = remembered?.state.current ? remembered.base + "/" : null;
+        // A closed session the reviewer viewed last is the target only when no
+        // session is open.
         const target =
           sessions.find((item) => item.needsYou)?.url ||
-          (remembered?.state.current ? remembered.base + "/" : null) ||
-          sessions.find((item) => !item.closed)?.url;
+          (remembered && !isClosed(remembered) ? last : null) ||
+          sessions.find((item) => !item.closed)?.url ||
+          last;
         if (target) return reply(302, "", "text/plain", { Location: target });
         return html(
           '<!doctype html><title>pair</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
