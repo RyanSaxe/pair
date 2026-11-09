@@ -298,7 +298,9 @@ button opens [search](../guides/search.md) with your words.
 
 When you turn notifications on in Settings, your browser also shows a system
 notification for each new row in the bell, each session that starts and each
-agent the hub cannot wake, except for the session in the tab you are using.
+agent the hub cannot wake, except for the session in the tab you are using. It
+shows none for a row you already cleared from the bell or started on, in any
+browser.
 
 ## Closing a session
 
