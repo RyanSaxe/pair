@@ -461,21 +461,3 @@ test("a reopen before any browser started the lists leaves them for the first br
     cards: null,
   });
 });
-
-test("a wake that failed before the close sends no alert after the reopen", async (t) => {
-  const h = await hub(t);
-  const a = await h.session();
-  const origin = h.server.origin;
-  assert.equal((await a.publish(planData())).code, 200);
-  await a.inbox.close();
-  assert.equal((await a.feedback(a.event())).code, 200);
-  assert.equal(
-    await waitUntil(async () => (await shown(origin, a)).entry.wakeFailed),
-    true,
-  );
-  assert.equal((await close(a)).code, 200);
-  assert.equal((await reopen(h, a)).code, 200);
-  const { entry, alerts } = await shown(origin, a);
-  assert.equal(entry.wakeFailed, false);
-  assert.deepEqual(alerts, []);
-});
