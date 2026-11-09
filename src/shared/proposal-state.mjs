@@ -29,15 +29,16 @@ export function proposalState(card) {
 
 // The states each action accepts. done is --done and doneWhere is --done
 // --where. join is the card that --join merges, and joinInto is the card it
-// merges into. openAgent is Open a new agent session, and link is pair start
-// --from. close and reopenSession are the reviewer closing and reopening the
-// linked session.
+// merges into. openAgent is Open a new agent session on a card that is
+// already started, because for a proposed card the hub runs start instead.
+// link is pair start --from. close and reopenSession are the reviewer closing
+// and reopening the linked session.
 const accepted = {
   revise: ["proposed"],
   withdraw: ["proposed"],
   decline: ["proposed"],
   start: ["proposed"],
-  openAgent: ["proposed", "opening"],
+  openAgent: ["opening"],
   join: ["proposed"],
   joinInto: ["proposed", "running"],
   restore: ["declined", "withdrawn"],

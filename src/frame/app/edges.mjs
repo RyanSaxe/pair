@@ -31,18 +31,14 @@ export function pageWidthAt(x, windowWidth) {
 }
 export const sidebarWidthAt = (x, bodyLeft) =>
   clamped(x - bodyLeft, sidebarEdge.rest, SIDEBAR_WIDEST);
-function readWidth(value, min, max) {
+function readWidth(value, min) {
   const width = Number(value);
-  return Number.isInteger(width) && width >= min && width <= max ? width : null;
+  return Number.isInteger(width) && width >= min ? width : null;
 }
 
 function savedPageWidth() {
   try {
-    return readWidth(
-      localStorage.getItem(pageEdge.key),
-      pageEdge.rest + 1,
-      Infinity,
-    );
+    return readWidth(localStorage.getItem(pageEdge.key), pageEdge.rest + 1);
   } catch {
     return null;
   }
