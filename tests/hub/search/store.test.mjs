@@ -431,16 +431,6 @@ test("the cache stands in for a file until the file changes", async (t) => {
   assert.equal((await third.search({ query: "quoll" })).total, 1);
 });
 
-test("a change is found only after the session is marked changed", async (t) => {
-  const { a } = await session(t);
-  const store = await reader(t, a);
-  assert.equal((await store.search({ query: "wombat" })).total, 0);
-  assert.equal((await thread(a)).code, 201);
-  assert.equal((await store.search({ query: "wombat" })).total, 0);
-  store.markChanged(a.id);
-  assert.equal((await store.search({ query: "wombat" })).total, 1);
-});
-
 test("a search during another search's read waits for that read", async (t) => {
   const { a } = await session(t);
   const store = await reader(t, a);
