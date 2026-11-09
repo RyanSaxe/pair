@@ -59,7 +59,7 @@ test("a hub with PAIR_WAKE=off records the wake as sent and sends nothing", asyn
   assert.deepEqual(a.inbox.wakes, []);
 });
 
-test("a failed wake is recorded and the submission stays readable", async (t) => {
+test("a failed wake is recorded until the holder runs a command, and the submission stays readable", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish(planData())).code, 200);
@@ -71,9 +71,29 @@ test("a failed wake is recorded and the submission stays readable", async (t) =>
   const { wake } = (await a.status()).body;
   assert.equal(wake.last.ok, false);
   assert.ok(wake.last.reason.includes(a.inbox.socket), wake.last.reason);
-  const listed = (await a.request("/api/sessions")).body.sessions;
-  assert.equal(listed.find((item) => item.id === a.id).wakeFailed, true);
+  const failed = async () =>
+    (await a.request("/api/sessions")).body.sessions.find(
+      (item) => item.id === a.id,
+    ).wakeFailed;
+  assert.equal(await failed(), true);
+  // Any agent can run pair status, and the failure stays until the holder
+  // runs a command.
+  const other = { harness: "claude-code", id: path.join(h.home, "other.sock") };
+  assert.equal((await a.action("status", { agent: other })).code, 200);
+  assert.equal(await failed(), true);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
+  assert.equal(await failed(), false);
+  assert.equal((await a.status()).body.wake.last, null);
+  // pair start from the holder clears a failed wake too.
+  assert.equal((await a.publish(planData("2"))).code, 200);
+  assert.equal((await a.feedback(a.event("feedback-only", "2"))).code, 200);
+  assert.equal(await woken(a), true);
+  assert.equal(await failed(), true);
+  const started = await h.register(a.directory, a.inbox.target, {
+    start: true,
+  });
+  assert.equal(started.code, 200, started.body.error);
+  assert.equal(await failed(), false);
 });
 
 // A command that finds no hub registers the session with a new hub, and only

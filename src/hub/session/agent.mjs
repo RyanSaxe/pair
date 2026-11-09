@@ -213,6 +213,13 @@ export function agent(session) {
         409,
       );
   }
+  // The hub records a failed wake, which the session list, the bell and the
+  // progress card show until a wake succeeds. A command from the holder means
+  // the holder runs again, so act and hold clear the failure.
+  const clearFailedWake = () =>
+    session.state.wake?.last?.ok === false
+      ? transition({ wake: { ...session.state.wake, last: null } })
+      : null;
   // pair read lists each thread with a reviewer message since the
   // submission before the one it prints, or since the latest submission
   // when none is pending.
@@ -403,6 +410,7 @@ export function agent(session) {
     }
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
     session.commandRan();
+    if (sameAgent(session.state.holder, data.agent)) await clearFailedWake();
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
@@ -425,6 +433,7 @@ export function agent(session) {
     if (reopening) await reopen(agent);
     await requireHolder(agent, start);
     session.commandRan();
+    await clearFailedWake();
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
