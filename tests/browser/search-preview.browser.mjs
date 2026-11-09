@@ -253,14 +253,25 @@ test("a figure that never finishes drawing leaves the search window working", as
   const { page } = await setUp(t);
   if (!page) return;
   await page.route(/pele@[^/]+\/dist\/pele\.js$/, () => {});
+  // The search frame loads after the clock is installed, so its timers run on
+  // that clock. Once the frame has the figure's page, the clock jumps past the
+  // 15 seconds that the marking waits for a figure to draw.
+  await page.clock.install();
   await type(page, "quokka");
-  await page.locator(".search-frame.is-shown").waitFor();
-  await page.waitForTimeout(16000);
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector(".search-frame")
+        ?.contentDocument?.getElementById("page-content")?.dataset.pageId ===
+      "figure",
+  );
+  await page.clock.fastForward(16000);
   const alive = await Promise.race([
     page.evaluate(() => "alive"),
     new Promise((done) => setTimeout(() => done("frozen"), 3000)),
   ]);
   assert.equal(alive, "alive");
+  await page.locator(".search-frame.is-shown").waitFor();
 });
 
 test("a key typed with focus in the frame goes to the search field, whole", async (t) => {

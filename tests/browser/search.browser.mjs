@@ -230,13 +230,25 @@ test("an answer to an older search never replaces a newer one", async (t) => {
   if (!page) return;
   await page.locator("#search-button").click();
   await page.locator(".search-row").first().waitFor();
+  let answer;
+  const held = new Promise((resolve) => (answer = resolve));
   await page.route(/\/api\/search\?q=walrus&/, async (route) => {
-    await new Promise((done) => setTimeout(done, 400));
+    await held;
     await route.continue().catch(() => {});
+  });
+  // The older search ends when the page cancels it or when its answer arrives.
+  const late = new Promise((resolve) => {
+    const ended = (request) => request.url().includes("q=walrus&") && resolve();
+    page.on("requestfinished", ended);
+    page.on("requestfailed", ended);
   });
   await page.fill(".search-input", "walrus");
   await type(page, "lemur");
-  await page.waitForTimeout(600);
+  answer();
+  await late;
+  // An answer that arrived is drawn, if at all, by the next frames.
+  for (const _ of [1, 2])
+    await page.evaluate(() => new Promise(requestAnimationFrame));
   assert.match(
     await page.locator(".search-snippet").first().textContent(),
     /lemur/,
