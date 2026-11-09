@@ -1,4 +1,5 @@
 import { accepts } from "../../shared/lifecycle.mjs";
+import { proposalState } from "../../shared/proposal-state.mjs";
 
 // Work is quiet when the agent has given no update on it for config.quietMs.
 // A started page of the open round counts from its last note, or from its
@@ -26,9 +27,7 @@ export function quietItems({ openRound, proposals }, now, ms) {
       at: slot.note?.at ?? slot.startedAt,
     }));
   const cards = proposals
-    .filter(
-      (card) => card.started?.where === "here" && !card.done && partsLeft(card),
-    )
+    .filter((card) => proposalState(card) === "running" && partsLeft(card))
     .map((card) => ({
       kind: "proposal",
       id: card.id,
