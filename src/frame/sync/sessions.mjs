@@ -30,6 +30,7 @@ export function installSessions() {
     button: $("notifications"),
     sessionId: session.sessionId,
     open: (href) => location.assign(new URL(href, location.href).href),
+    cleared: loadCleared,
   });
   installCenter();
   installPanel($("sessions-pop"), $("menu-button"));

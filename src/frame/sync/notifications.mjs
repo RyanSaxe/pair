@@ -62,11 +62,13 @@ export function eventAlert(entry, event) {
     createdAt: event.at,
   };
 }
-const alertsFor = (entry) =>
+// cleared is the bell's set of cleared event IDs, from every browser on the
+// hub, so a line the reviewer cleared or started on sends no alert.
+const alertsFor = (entry, cleared) =>
   [
     wakeAlert(entry),
     ...(entry?.events || [])
-      .filter((event) => announced(entry, event))
+      .filter((event) => announced(entry, event) && !cleared?.has(event.id))
       .map((event) => eventAlert(entry, event)),
   ].filter(Boolean);
 
@@ -74,7 +76,13 @@ const alertsFor = (entry) =>
 // enabled switch, because both belong to the hub's origin. Each alert's key
 // is its session and round, or its event, so several tabs never announce
 // the same thing. The frame never announces the session in the focused tab.
-export function createReviewAlerts({ window: host, button, sessionId, open }) {
+export function createReviewAlerts({
+  window: host,
+  button,
+  sessionId,
+  open,
+  cleared,
+}) {
   const prefix = "pair:alerts:";
   const memory = new Map();
   let latest = [],
@@ -130,9 +138,10 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
           ? "Notification delivery failed. Check browser and OS settings."
           : "Alerts when a session starts, a round waits for you, an agent cannot be woken, replies or proposes work, in any session.";
   }
+  const alerts = () => latest.flatMap((entry) => alertsFor(entry, cleared()));
   function enable() {
     write("enabledAt", String(Date.now()));
-    for (const alert of latest.flatMap(alertsFor)) write(alert.id, "handled");
+    for (const alert of alerts()) write(alert.id, "handled");
     write("enabled", "yes");
   }
   async function update(entries = latest) {
@@ -146,7 +155,7 @@ export function createReviewAlerts({ window: host, button, sessionId, open }) {
         enable();
       if (permission() !== "granted" || read("enabled") !== "yes" || failed)
         return;
-      for (const alert of latest.flatMap(alertsFor)) {
+      for (const alert of alerts()) {
         if (read(alert.id)) continue;
         if (
           read("focused") === alert.sessionId ||

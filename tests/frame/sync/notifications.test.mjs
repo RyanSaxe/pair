@@ -61,6 +61,7 @@ function alertFixture({
     button,
     sessionId,
     open: (url) => opened.push(url),
+    cleared: () => null,
   });
   // The hub adds a waiting event when the agent publishes a round's last page.
   const entry = (id, round, extra = {}) => {
