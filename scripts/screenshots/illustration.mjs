@@ -112,11 +112,11 @@ export async function illustrate(t, scratch) {
         dir,
       );
     };
-    await publish("agreed", "--pages", `src/${n}/pages.json`);
-    for (const id of pages) {
-      await pair("progress", "--page", id, "--session-dir", dir);
-      await publish(id);
-    }
+    // Each publish starts the next page with --start.
+    const next = (index) => (pages[index] ? ["--start", pages[index]] : []);
+    await publish("agreed", "--pages", `src/${n}/pages.json`, ...next(0));
+    for (const [index, id] of pages.entries())
+      await publish(id, ...next(index + 1));
   };
 
   let doing = "starting the session";
@@ -257,6 +257,8 @@ export async function illustrate(t, scratch) {
       "out/sub/1/agreed.html",
       "--pages",
       "src/sub/1/pages.json",
+      "--start",
+      "keys",
       "--source",
       "src/sub/1/agreed",
       "--session-dir",

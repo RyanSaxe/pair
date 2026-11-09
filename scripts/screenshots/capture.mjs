@@ -91,14 +91,20 @@ async function publish(session, round, sent, count = round.pages.length) {
     task: round.task,
     agreements: round.agreements.map((entry) => agreement(entry, sent)),
   };
+  // Each publish starts the page after it, as pair publish --start does for
+  // the agent.
+  const next = (index) =>
+    round.pages[index] ? { start: [round.pages[index].id] } : {};
   await act(session, "publish", {
     html: await build(round, agreed),
     pages: round.pages.map(({ id, title }) => ({ id, title })),
+    ...next(0),
   });
-  for (const page of round.pages.slice(0, count)) {
-    await act(session, "progress", { start: [page.id] });
-    await act(session, "publish", { html: await build(round, page) });
-  }
+  for (const [index, page] of round.pages.slice(0, count).entries())
+    await act(session, "publish", {
+      html: await build(round, page),
+      ...next(index + 1),
+    });
 }
 
 export async function until(page, step, predicate, arg) {
@@ -434,7 +440,6 @@ export async function stage(t, scratch) {
   sent[2] = await send(page, session);
   const third = await loadRound(3);
   await publish(session, third, sent, 1);
-  await act(session, "progress", { start: [third.pages[1].id] });
   await act(session, "ack", { note: "Reading your thread replies" });
   await load(page, url, "agreed");
   await page.getByText("2 of 4 pages ready").waitFor();

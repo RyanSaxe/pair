@@ -306,7 +306,10 @@ test("start replaces a stale hub record, and session commands reattach after a c
     pagesFile,
     JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
   );
-  await command("publish", "--file", agreedFile, "--pages", pagesFile);
+  await command(
+    "publish",
+    ...["--file", agreedFile, "--pages", pagesFile, "--start", "overview"],
+  );
   const overviewFile = path.join(home, "overview.html");
   await fs.writeFile(
     overviewFile,

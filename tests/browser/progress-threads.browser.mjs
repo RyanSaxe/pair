@@ -29,16 +29,26 @@ async function setup(t) {
       task,
       agreements: [],
     });
-    const result = await session.action("publish", { html: agreed, pages });
+    const result = await session.action("publish", {
+      html: agreed,
+      pages,
+      start: [pages[0].id],
+    });
     assert.equal(result.code, 200, result.body.error);
   };
+  // Each page publishes in the order of pages, starting the page after it.
   const publishPage = async (round, id) => {
+    const index = pages.findIndex((item) => item.id === id);
     const html = await build(round, {
       id,
-      title: pages.find((item) => item.id === id).title,
+      title: pages[index].title,
       html: "<p>The page's text.</p>",
     });
-    const result = await session.action("publish", { html });
+    const next = pages[index + 1];
+    const result = await session.action("publish", {
+      html,
+      ...(next ? { start: [next.id] } : {}),
+    });
     assert.equal(result.code, 200, result.body.error);
   };
   const message = async (round, text) => {

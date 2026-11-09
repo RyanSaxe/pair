@@ -52,7 +52,9 @@ async function holder(t) {
       ...dir,
       "--file",
       file,
-      ...(pages ? ["--pages", list] : []),
+      ...(pages
+        ? ["--pages", list, ...pages.flatMap((id) => ["--start", id])]
+        : []),
     );
   }
   const read = (...args) => cli.run("read", ...dir, ...args);

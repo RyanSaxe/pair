@@ -131,6 +131,15 @@ export const commands = {
         value: "JSON",
         text: "The round's page list. Give it only when you publish Agreed.",
       },
+      start: {
+        value: "ID",
+        repeats: true,
+        text: "A page of the round that you work on next, which pair publish marks as started. While pages are left and none has started, pair publish needs it.",
+      },
+      note: {
+        value: "TEXT",
+        text: "What you are doing on the pages you name with --start, in at most 80 characters.",
+      },
       source: {
         value: "DIR",
         text: "The page's source directory, which pair copies into the session so you can start the next round from it.",

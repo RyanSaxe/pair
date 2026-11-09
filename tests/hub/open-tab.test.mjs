@@ -18,7 +18,12 @@ test("a new session's first Agreed says to open the URL only when no tab polled 
   const publish = async (session, html, pages) => {
     const result = await session.action("publish", {
       html,
-      ...(pages ? { pages: [{ id: "overview", title: "Overview" }] } : {}),
+      ...(pages
+        ? {
+            pages: [{ id: "overview", title: "Overview" }],
+            start: ["overview"],
+          }
+        : {}),
     });
     assert.equal(result.code, 200, result.body.error);
     return result.body.next;

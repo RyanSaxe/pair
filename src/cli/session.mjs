@@ -376,6 +376,8 @@ export async function publish(options) {
   const action = { action: "publish", html };
   if (options.pages)
     action.pages = (await read(path.resolve(options.pages))).pages;
+  if (options.start) action.start = options.start;
+  if (options.note !== undefined) action.note = options.note;
   const [tooBig] = tooBigToPublish(file, action);
   requireValue(!tooBig, tooBig);
   if (options.source)
@@ -413,6 +415,7 @@ export async function publish(options) {
         ...(result.roundComplete
           ? [`Every page of round ${page.round} is published.`]
           : []),
+        ...(options.start ? [`Started: ${options.start.join(", ")}.`] : []),
       ].join("\n"),
       ...(choosing ? [(await components()).data] : []),
     ].join("\n\n"),

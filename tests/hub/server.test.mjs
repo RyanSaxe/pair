@@ -605,6 +605,7 @@ test("a session reached through a symbolic link is the same session", async (t) 
         agent: box.agent,
         html: agreed,
         pages: [{ id: "overview", title: "Overview" }],
+        start: ["overview"],
       }),
     },
   );

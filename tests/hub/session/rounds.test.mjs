@@ -8,7 +8,8 @@ import { frameSource } from "../../support/frame.mjs";
 import { planData, task, hub as testHub } from "../../support/hub.mjs";
 
 // session starts a hub and a session for each test, so no test depends on
-// rounds that another test published. publish sends one page of a round.
+// rounds that another test published. publish sends one page of a round, with
+// the page list and the pages to start in options. firstAgreed starts detail.
 async function session(t) {
   const h = await testHub(t);
   const a = await h.session();
@@ -25,10 +26,10 @@ async function session(t) {
         ...extra,
       },
     });
-  const publish = async (round, id, title, html, extra, pages) =>
+  const publish = async (round, id, title, html, extra, options = {}) =>
     a.action("publish", {
       html: await page(round, id, title, html, extra),
-      ...(pages ? { pages } : {}),
+      ...options,
     });
   const firstAgreed = () =>
     publish(
@@ -37,7 +38,7 @@ async function session(t) {
       "Agreed so far",
       undefined,
       { agreements: firstAgreements },
-      firstPages,
+      { pages: firstPages, start: ["detail"] },
     );
   return { a, status, page, publish, firstAgreed };
 }
@@ -56,30 +57,56 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal((await status()).current, null);
   assert.equal(
     (
-      await publish("1", "agreed", "Agreed so far", undefined, {}, [
-        firstPages[0],
-        firstPages[0],
-      ])
+      await publish(
+        "1",
+        "agreed",
+        "Agreed so far",
+        undefined,
+        {},
+        {
+          pages: [firstPages[0], firstPages[0]],
+          start: ["overview"],
+        },
+      )
     ).code,
     400,
   );
   assert.equal((await status()).current, null);
+  // An Agreed that would leave no page started publishes nothing.
+  const unstarted = await publish(
+    "1",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    { agreements: firstAgreements },
+    { pages: firstPages },
+  );
+  assert.equal(unstarted.code, 409);
+  assert.equal(
+    unstarted.body.error,
+    "None of the pages left in round 1 has started: overview, detail. Run the same pair publish again with --start ID for the page you work on next.",
+  );
+  assert.equal((await status()).current, null);
+  assert.deepEqual(await fs.readdir(path.join(a.directory, "pages", "1")), []);
   const result = await publish(
     "1",
     "agreed",
     "Agreed so far",
     undefined,
     { agreements: firstAgreements },
-    firstPages,
+    { pages: firstPages, start: ["detail"], note: " Measuring " },
   );
   assert.equal(result.code, 200, result.body.error);
   assert.equal(result.body.page.id, "agreed");
   assert(
     result.body.next.endsWith(
-      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
+      'Then: You still have to publish these pages: overview, detail (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it, with --start ID for the page you work on next while other pages are left.',
     ),
     result.body.next,
   );
+  const [, detail] = (await status()).openRound.pages;
+  assert.equal(detail.state, "active");
+  assert.equal(detail.note.text, "Measuring");
   assert.equal((await status()).rounds.length, 0);
   const { body: html } = await a.request(`${a.base}/`);
   assert.match(frameSource(html), /Agreed so far/);
@@ -91,9 +118,21 @@ test("Agreed and all page names become visible in one publication", async (t) =>
     ["agreed", "overview", "detail"],
   );
   assert.equal(manifest.pages[1].state, "queued");
+  assert.equal(manifest.pages[2].state, "active");
   assert.equal(manifest.complete, false);
   assert.equal(
-    (await publish("1", "detail", "Detail", "<p>x</p>", {}, firstPages)).code,
+    (
+      await publish(
+        "1",
+        "detail",
+        "Detail",
+        "<p>x</p>",
+        {},
+        {
+          pages: firstPages,
+        },
+      )
+    ).code,
     400,
   );
   assert.equal((await a.action("progress", { start: ["missing"] })).code, 409);
@@ -111,12 +150,6 @@ test("listed pages arrive independently and only the last completes the round", 
     ).readyPages;
   await firstAgreed();
   assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
-  const progress = await a.action("progress", { start: ["detail"] });
-  assert.equal(progress.code, 200);
-  assert.equal(
-    progress.body.next,
-    'You still have to publish these pages: overview, detail (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
-  );
   const before = await status();
   assert.equal(before.openRound.pages[1].state, "active");
   assert.equal(before.needsYou, false);
@@ -124,13 +157,28 @@ test("listed pages arrive independently and only the last completes the round", 
     a.event("feedback-only", "1", { name: "page-test" }),
   );
   assert.equal(early.code, 409);
-  const detail = await publish(
+  // A page that would leave no page started publishes nothing and starts
+  // nothing, and the same publish with --start does both.
+  const unstarted = await publish(
     "1",
     "detail",
     "Detail",
     "<p>Finished detail</p>",
   );
+  assert.equal(unstarted.code, 409);
+  assert.match(unstarted.body.error, /has started: overview\. Run the same/);
+  assert.deepEqual((await status()).openRound, before.openRound);
+  assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
+  const detail = await publish(
+    "1",
+    "detail",
+    "Detail",
+    "<p>Finished detail</p>",
+    {},
+    { start: ["overview"] },
+  );
   assert.equal(detail.code, 200, detail.body.error);
+  assert.equal(detail.body.status.openRound.pages[0].state, "active");
   assert.equal(detail.body.roundComplete, false);
   assert.deepEqual(await readyPages(), {
     round: "1",
@@ -225,7 +273,16 @@ test("listed pages arrive independently and only the last completes the round", 
 test("the next round may choose unrelated pages without changing history", async (t) => {
   const { a, status, publish, firstAgreed } = await session(t);
   await firstAgreed();
-  await publish("1", "detail", "Detail", "<p>Finished detail</p>");
+  await publish(
+    "1",
+    "detail",
+    "Detail",
+    "<p>Finished detail</p>",
+    {},
+    {
+      start: ["overview"],
+    },
+  );
   await publish("1", "overview", "Overview", "<p>Finished overview</p>");
   const feedback = a.event("feedback-only", "1", {
     name: "page-test",
@@ -268,10 +325,13 @@ test("the next round may choose unrelated pages without changing history", async
         },
       ],
     },
-    [
-      { id: "overview", title: "Overview" },
-      { id: "new-topic", title: "New topic" },
-    ],
+    {
+      pages: [
+        { id: "overview", title: "Overview" },
+        { id: "new-topic", title: "New topic" },
+      ],
+      start: ["overview", "new-topic"],
+    },
   );
   assert.equal(agreed.code, 200, agreed.body.error);
   const source = JSON.parse(
@@ -308,7 +368,7 @@ test("a page note sits on its slot until the page publishes", async (t) => {
     "Agreed so far",
     undefined,
     {},
-    pages,
+    { pages, start: ["steps"] },
   );
   assert.equal(agreed.code, 200, agreed.body.error);
   assert.equal((await a.action("ack", { note: "Reading" })).code, 200);
@@ -342,7 +402,17 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
     await refusal({ note: "Reading", page: "detail" }),
     "Publish Agreed before a page note",
   );
-  await publish("1", "agreed", "Agreed so far", undefined, {}, firstPages);
+  await publish(
+    "1",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    {},
+    {
+      pages: firstPages,
+      start: ["detail"],
+    },
+  );
   assert.equal(
     await refusal({ page: "detail" }),
     "A note on a page takes its text with --note",

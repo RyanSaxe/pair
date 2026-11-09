@@ -82,7 +82,7 @@ async function stoppedHub(t) {
         title: "Owed",
         page,
       }),
-      pages,
+      ...(pages ? { pages, start: [pages[0].id] } : {}),
     });
   await publish(
     { id: "agreed", title: "Agreed so far", agreements: [], task },

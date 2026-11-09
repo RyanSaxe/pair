@@ -163,6 +163,7 @@ async function sessionWithAgreed(t) {
     list,
     JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
   );
+  // publish starts overview with Agreed's page list, as the agent does.
   const publish = (file, source, ...rest) =>
     run(
       "publish",
@@ -173,6 +174,7 @@ async function sessionWithAgreed(t) {
       "--source",
       source,
       ...rest,
+      ...(rest.includes("--pages") ? ["--start", "overview"] : []),
     );
   return { sessionDir, agreed, overview, list, page, publish, run };
 }
@@ -195,6 +197,8 @@ test("a publish keeps its source when --session-dir reaches the session by anoth
     agreed.source,
     "--pages",
     list,
+    "--start",
+    "overview",
   );
   assert.equal(
     await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
@@ -329,7 +333,7 @@ test("a publish the hub refuses keeps no copy of its source, and can be retried"
     assert.equal(error.code, 1);
     assert.equal(
       error.stderr,
-      `pair: Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir ${sessionDir}.\n`,
+      `pair: Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --start ID --session-dir ${sessionDir}.\n`,
     );
     return true;
   });
@@ -639,8 +643,9 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
 });
 
 // agreedFiles builds Agreed for round 1 with the given page list, as the agent
-// does, and returns the pair publish arguments for it.
-async function agreedFiles(directory, pages) {
+// does, and returns the pair publish arguments for it, which start the page
+// named by start.
+async function agreedFiles(directory, pages, start = pages[0].id) {
   const { name, round, title } = planData();
   const file = path.join(directory, "agreed.html");
   const list = path.join(directory, "pages.json");
@@ -654,7 +659,7 @@ async function agreedFiles(directory, pages) {
     }),
   );
   await fs.writeFile(list, JSON.stringify({ pages }));
-  return ["--file", file, "--pages", list];
+  return ["--file", file, "--pages", list, "--start", start];
 }
 
 test("pair start takes --reopen only with --session-dir, and creates no session without it", async (t) => {
@@ -723,19 +728,27 @@ test("pair progress notes the round before Agreed, and each page it names", asyn
     JSON.parse(await cli.run("status", ...dir, "--json"));
   await progress("--note", "Reading");
   assert.equal((await state()).report.note, "Reading");
-  await cli.run(
-    "publish",
-    ...dir,
-    ...(await agreedFiles(root, [
+  const agreed = await agreedFiles(
+    root,
+    [
       { id: "overview", title: "Overview" },
       { id: "detail", title: "Detail" },
       { id: "later", title: "Later" },
-    ])),
+    ],
+    "detail",
   );
+  const published = await cli.run(
+    "publish",
+    ...dir,
+    ...agreed,
+    ...["--note", "Measuring"],
+  );
+  assert.match(published, /^Started: detail\.$/m);
   const pages = async () =>
     Object.fromEntries(
       (await state()).openRound.pages.map((page) => [page.id, page]),
     );
+  assert.equal((await pages()).detail.note.text, "Measuring");
   // pair progress refuses the whole report when one page is unknown, and leaves
   // every page unchanged.
   await assert.rejects(

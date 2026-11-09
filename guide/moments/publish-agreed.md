@@ -1,9 +1,9 @@
 Now write the round's pages.
 
-- Run `pair progress --page ID --note "…"` as soon as you begin any work a
-  page will report, such as the code it describes or what it measures, and
-  not only when you begin writing the page. Run it again at least every five
-  minutes until you publish the page, also while a subagent does the work.
+- When you publish a page and other pages are left, add `--start ID` for the
+  page you work on next. Until you publish a page you started, run
+  `pair progress --page ID --note "…"` for it at least every five minutes,
+  also while a subagent does the work.
 - Hand a page to a subagent when its research or writing would hold up the
   other pages. Give the subagent the session directory, the page's ID and
   the `pair progress` command, so it posts its own notes.
