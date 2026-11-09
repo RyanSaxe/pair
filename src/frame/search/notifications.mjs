@@ -80,13 +80,12 @@ function linesWithReplies() {
           replied.delete(line.thread);
           return line;
         }
-        const { answeredAt, ...rest } = line;
         return {
-          ...rest,
+          ...line,
           text: sent.text,
           at: sent.at,
+          state: "sending",
           waitingSince: sent.at,
-          readAt: null,
         };
       }),
     };

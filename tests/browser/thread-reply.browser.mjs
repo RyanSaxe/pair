@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { threadState } from "../../src/shared/thread-state.mjs";
 
 const png = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -22,7 +23,7 @@ test("a reply to a waiting thread keeps its draft through a reload and posts its
   assert.equal(started.code, 201, started.body.error);
   const thread = async () => (await session.status()).body.threads[0];
   assert.equal(
-    await waitUntil(async () => (await thread()).state === "sent"),
+    await waitUntil(async () => threadState(await thread()) === "sent"),
     true,
   );
 

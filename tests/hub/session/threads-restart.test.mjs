@@ -7,6 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
 import { startHub } from "../../../src/hub/server.mjs";
+import { threadState } from "../../../src/shared/thread-state.mjs";
 import {
   alive,
   killHub,
@@ -103,7 +104,7 @@ test(
     const saved = JSON.parse(
       await fs.readFile(path.join(sessionDir, "threads", `${id}.json`), "utf8"),
     );
-    assert.equal(saved.state, "sending");
+    assert.equal(threadState(saved), "sending");
     process.kill(first.pid, "SIGTERM");
     assert.equal(await waitUntil(() => !alive(first.pid)), true);
     const next = await startHub({ ...config, log() {} });
@@ -111,9 +112,11 @@ test(
     assert.equal(await waitUntil(() => wakes.length === 2), true);
     assert.equal(wakes[1], wakes[0]);
     const state = async () =>
-      (
-        await (await fetch(`${next.origin}/s/${sessionId}/api/status`)).json()
-      ).threads.find((item) => item.id === id).state;
+      threadState(
+        (
+          await (await fetch(`${next.origin}/s/${sessionId}/api/status`)).json()
+        ).threads.find((item) => item.id === id),
+      );
     assert.equal(await waitUntil(async () => (await state()) === "sent"), true);
     const added = await post(next.origin, `/${id}/messages`, {
       text: "Second message",
