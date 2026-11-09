@@ -19,7 +19,7 @@ test("start hands the session to its agent, and only the holder works on it and 
   // holder.
   const first = (await a.status()).body.holder;
   assert.equal((await register(one, true)).code, 200);
-  assert.deepEqual((await a.status()).body.holder, first);
+  assert.equal((await a.status()).body.holder.at, first.at);
   assert.equal(
     (await a.action("ack", { agent: three.agent })).body.error,
     `Another agent has run this session since ${clock(first.at)}, so stop working on it. If the reviewer asks you to take it over, run pair start --session-dir ${a.directory}.`,

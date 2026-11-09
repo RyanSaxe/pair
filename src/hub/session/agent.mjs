@@ -104,14 +104,19 @@ export function agent(session) {
       ...(result.via ? { via: result.via } : {}),
     };
   }
-  // submit schedules wakeAgent after it saves the submission, outside the
-  // browser's request, so a slow or failing agent CLI never delays the
-  // reviewer's Sent state.
-  async function wakeAgent(round) {
-    const line = `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`;
+  // The wake for a send, the reviewer's feedback or a Start, records its
+  // result in wake.last, which wakeState reads.
+  async function wakeForSend(line) {
     const last = await sendWake(line);
     await transition({ wake: { harness: session.wake.harness, last } });
   }
+  // submit schedules wakeAgent after it saves the submission, outside the
+  // browser's request, so a slow or failing agent CLI never delays the
+  // reviewer's Sent state.
+  const wakeAgent = (round) =>
+    wakeForSend(
+      `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`,
+    );
   // The reviewer closes a session from the browser. The hub sends the agent
   // no wake, and act refuses the agent's next command with closed. close
   // deletes no file and leaves the round as it was.
@@ -145,17 +150,18 @@ export function agent(session) {
   //
   // Nothing from before the reopen notifies the reviewer on any device, also
   // for a session whose IDs the seen lists dropped at its close. reopen empties
-  // the events first and clears a failed wake in the transition that lists the
-  // session again, so no poll announces them. The seen lists drop the keys of a
-  // session that is not listed, so markSeen runs right after the transition,
-  // before the hub handles another request.
-  async function reopen(agent) {
+  // the events first, and the transition that lists the session again records
+  // the command of the agent that becomes the holder, which answers a failed
+  // wake, so no poll announces them. The seen lists drop the keys of a session
+  // that is not listed, so markSeen runs right after the transition, before
+  // the hub handles another request.
+  async function reopen(agent, holder) {
     await session.clearActivity();
     await transition({
       ...report(),
       ...restartPages(),
       closedAt: null,
-      wake: { ...session.state.wake, last: null },
+      holder,
       formerHolders: (session.state.formerHolders || []).filter(
         (item) => !sameAgent(item, agent),
       ),
@@ -203,13 +209,14 @@ export function agent(session) {
         409,
       );
   }
-  // The hub records a failed wake, which the session list, the bell and the
-  // progress card show until a wake succeeds. A command from the holder means
-  // the holder runs again, so act and hold clear the failure.
-  const clearFailedWake = () =>
-    session.state.wake?.last?.ok === false
-      ? transition({ wake: { ...session.state.wake, last: null } })
-      : null;
+  // act and hold record the time of each command from the holder, which
+  // wakeState and the quiet check read. A closed session has no wake to
+  // answer, so a pair status there leaves its status.json as it was.
+  const commandRan = () =>
+    accepts(session.state, "change") &&
+    transition({
+      holder: { ...session.state.holder, commandAt: timestamp() },
+    });
   // pair read lists each thread with a reviewer message since the
   // submission before the one it prints, or since the latest submission
   // when none is pending.
@@ -415,8 +422,7 @@ export function agent(session) {
     }
     await refreshTarget(wake);
     requireValue(Object.hasOwn(actions, data.action), "Unknown agent action");
-    session.commandRan();
-    if (sameAgent(session.state.holder, data.agent)) await clearFailedWake();
+    if (sameAgent(session.state.holder, data.agent)) await commandRan();
     return actions[data.action](data);
   }
   // pair start makes its agent the holder, the one agent the hub wakes. Any
@@ -434,35 +440,32 @@ export function agent(session) {
     // holder's pair status would make requireHolder use up its takeover
     // notice.
     if (!start && held && !same) return {};
+    const at = timestamp();
+    const holder = { ...(same ? held : { ...agent, at }), commandAt: at };
     const reopening =
       start && options.reopen === true && accepts(session.state, "reopen");
-    if (reopening) await reopen(agent);
+    if (reopening) await reopen(agent, holder);
     await requireHolder(agent, start);
-    session.commandRan();
-    await clearFailedWake();
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
       wake: { harness: target.harness, last: session.state.wake?.last || null },
+      holder,
       ...(start ? { paused: null } : {}),
       // title() returns this title until the first Agreed publishes, and
       // then returns Agreed's title.
       ...(created && title ? { title } : {}),
     };
-    if (!same) {
-      patch.holder = { ...agent, at: timestamp() };
-      // The frame shows takeover on the reviewer's progress card until
-      // submit clears it.
-      if (held)
-        Object.assign(patch, report(), {
-          takeover: { name: adapters[agent.harness].name, at: patch.holder.at },
-          wake: { harness: target.harness, last: null },
-          formerHolders: [
-            ...(session.state.formerHolders || []),
-            { harness: held.harness, id: held.id, until: patch.holder.at },
-          ],
-        });
-    }
+    // The frame shows takeover on the reviewer's progress card until submit
+    // clears it.
+    if (!same && held)
+      Object.assign(patch, report(), {
+        takeover: { name: adapters[agent.harness].name, at },
+        formerHolders: [
+          ...(session.state.formerHolders || []),
+          { harness: held.harness, id: held.id, until: at },
+        ],
+      });
     await transition(patch);
     if (start && !held && !session.state.current)
       await session.addActivity({
@@ -503,6 +506,7 @@ export function agent(session) {
     nextStep,
     browserLine,
     sendWake,
+    wakeForSend,
     wakeAgent,
     close,
     act,

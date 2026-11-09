@@ -4,11 +4,13 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { detectWake } from "../../src/hub/wake.mjs";
+import { wakeState } from "../../src/shared/wake-state.mjs";
 import { hub, pairCli, planData, sleep, waitUntil } from "../support/hub.mjs";
 
-// The hub records a wake's result in the status once the wake has finished.
+// The hub records a wake's result in the status once the wake has finished,
+// and until then the newest send's wake is owed.
 const woken = (a) =>
-  waitUntil(async () => Boolean((await a.status()).body.wake?.last));
+  waitUntil(async () => wakeState((await a.status()).body) !== "owed");
 
 test("no status shows the wake target", async (t) => {
   const h = await hub(t);
@@ -84,7 +86,7 @@ test("a failed wake is recorded until the holder runs a command, and the submiss
   assert.equal(await failed(), true);
   assert.equal((await a.action("read")).body.event.id, feedback.id);
   assert.equal(await failed(), false);
-  assert.equal((await a.status()).body.wake.last, null);
+  assert.equal(wakeState((await a.status()).body), "answered");
   // pair start from the holder clears a failed wake too.
   assert.equal((await a.publish(planData("2"))).code, 200);
   assert.equal((await a.feedback(a.event("feedback-only", "2"))).code, 200);
