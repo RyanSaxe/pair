@@ -14,7 +14,7 @@ import {
   openedPages,
   syncOpened,
 } from "#frame/sync/opened.mjs";
-import { connected, remote } from "#frame/sync/rounds.mjs";
+import { remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
 import { fetchPolled } from "#frame/sync/status.mjs";
 
@@ -41,11 +41,9 @@ export function installSessions() {
   });
 }
 export function status() {
-  $("connection-status").textContent = !online
-    ? "Local viewing. You can export your draft. Sending it requires the session URL."
-    : !connected
-      ? "The hub is unreachable. Your draft stays here and submits when it is back."
-      : "";
+  $("connection-status").textContent = online
+    ? ""
+    : "Local viewing. You can export your draft. Sending it requires the session URL.";
   // When another tab closes the session, this tab reloads as a read-only
   // page, so it cannot send anything to an agent that the hub will never
   // wake again.
