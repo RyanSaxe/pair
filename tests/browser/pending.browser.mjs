@@ -21,7 +21,7 @@ const reads = (page, label, age) =>
     { timeout: 5000 },
   );
 
-test("a page the agent has not published shows its latest note and its age, which each poll updates over the same grey bars", async (t) => {
+test("a page the agent has not published shows its latest note and its age, which each poll updates over the same grey bars, and the reviewer's note count shows on Agreed but not on that page", async (t) => {
   const h = await hub(t);
   const session = await h.session();
   // Agreed lists three pages, and the test publishes none of them.
@@ -41,6 +41,21 @@ test("a page the agent has not published shows its latest note and its age, whic
   await act("publish", { html: agreed, pages });
   await act("ack", { page: "timeout", note: "Measuring p99 latency" });
   await act("progress", { start: ["rollout"] });
+  // The reviewer's draft has one note, on Agreed's task card.
+  const drafted = await session.request(`${session.base}/api/draft`, {
+    changes: {
+      "note/n1": {
+        id: "n1",
+        round: "1",
+        topic: "agreed",
+        anchor: "The task",
+        agreementId: "task",
+        target: "agreement-task",
+        text: "Name who owns the budget.",
+      },
+    },
+  });
+  assert.equal(drafted.code, 200, drafted.body.error);
   const page = await open(t, `${h.server.origin}${session.base}/#timeout`);
   if (!page) return;
   const go = (id) => page.locator(`#page-list [data-page="${id}"]`).click();
@@ -61,6 +76,16 @@ test("a page the agent has not published shows its latest note and its age, whic
   await reads(page, "Writing the budget table", "Noted just now");
   await act("pause", { reason: "Waiting for the logs" });
   await reads(page, "Agent paused", "");
+  // The frame draws a page's title and its note line in one step.
+  const noteLine = async (title) => {
+    await page.locator("#page-title", { hasText: title }).waitFor();
+    const line = page.locator("#note-count");
+    return (await line.isVisible()) ? line.textContent() : "";
+  };
+  await go("agreed");
+  assert.equal(await noteLine("Agreed so far"), "1 note on this page");
+  await go("timeout");
+  assert.equal(await noteLine("Timeout budget"), "");
 });
 
 test("the Pages heading has one height in a session with a round in progress and a session whose round is finished", async (t) => {
