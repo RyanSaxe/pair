@@ -262,7 +262,7 @@ export const commands = {
       "status-left": {
         value: "TEXT",
         repeats: true,
-        text: "A part of the approved work that is left, in at most 80 characters. The hub adds it after the proposal's parts, and changes nothing when the proposal already lists a part with that text. Give one flag for each part, the next one first. A proposal has at most 20 parts.",
+        text: "A part of the approved work that is left, in at most 80 characters. The hub adds it after the proposal's parts, and when the proposal already lists a part with that text, the hub sets that part back to left. Give one flag for each part, the next one first. A proposal has at most 20 parts.",
       },
       "status-drop": {
         value: "TEXT",
