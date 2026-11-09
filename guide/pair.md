@@ -183,7 +183,8 @@ about it. If the work has a plan, follow it. When the work is a proposal,
 list its parts with `pair propose --session-dir PATH --id ID --status-left
 "…"` when you begin, with one flag for each part. Mark each part with
 `--status-done "…"` when you finish it, add a part you find with
-`--status-left`, and cross off a part the work no longer needs with
+`--status-left`, set a finished part back to left with `--status-left` when
+it needs more work, and cross off a part the work no longer needs with
 `--status-drop "…"`. Publish
 a page whenever part of the work is ready for the reviewer to check. Show
 what changed and what it does, with the evidence that it works, such as a
