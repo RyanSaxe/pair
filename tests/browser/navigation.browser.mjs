@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, sleep } from "../support/hub.mjs";
+import { hub, planData } from "../support/hub.mjs";
 
 // Overview contains a block that a page thread can target, between the filler
 // above and below it.
