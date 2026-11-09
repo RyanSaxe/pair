@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { threadState } from "../../src/shared/thread-state.mjs";
 
 // Each row replaces the browser's copy with a recording of what it would write,
 // so a test run leaves the developer's clipboard as it was. A phone reaches the
@@ -227,7 +228,7 @@ test("in a closed session, a thread the agent did not answer says the reviewer c
   assert.equal(
     await waitUntil(async () =>
       (await session.status()).body.threads.every(
-        (thread) => thread.state === "sent",
+        (thread) => threadState(thread) === "sent",
       ),
     ),
     true,

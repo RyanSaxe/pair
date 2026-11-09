@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { threadState } from "../../src/shared/thread-state.mjs";
 
 test("the frame reuses a thread reply ID after its response is lost", async (t) => {
   const h = await hub(t);
@@ -22,7 +23,7 @@ test("the frame reuses a thread reply ID after its response is lost", async (t) 
   assert.equal(
     await waitUntil(async () =>
       (await session.status()).body.threads.some(
-        (thread) => thread.id === id && thread.state === "sent",
+        (thread) => thread.id === id && threadState(thread) === "sent",
       ),
     ),
     true,

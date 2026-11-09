@@ -35,8 +35,9 @@ export function agent(session) {
   // Every agent command prints nextStep, so an agent that lost its place
   // learns where the session stands.
   async function nextStep() {
-    const quiet = session.quietLine();
-    return quiet ? `${await step()}\n${quiet}` : step();
+    return [await step(), session.unansweredLine(), session.quietLine()]
+      .filter(Boolean)
+      .join("\n");
   }
   async function step() {
     if (isClosed(session.state)) return closed;

@@ -1,3 +1,4 @@
+import { threadState, waitingMessage } from "../../shared/thread-state.mjs";
 import { parse, textOf } from "../search/html.mjs";
 
 /* The frame's Notifications window lists every thread of every open session,
@@ -12,19 +13,13 @@ const clipped = (message) =>
 
 export function notifications(session) {
   const { threadRecords: records } = session;
-  // A line has the start of the thread's newest message. waitingSince is when the
-  // reviewer wrote the first message the agent has not answered, readAt is when
-  // the agent last ran pair read on the thread, and answeredAt is when the agent's
-  // last reply came. message and at name the newest message. A reply answers
-  // every message before it, or, when it has answers, only that many messages.
+  // A line has the start of the thread's newest message and the thread's
+  // state. waitingSince is when the reviewer wrote the first message the
+  // agent has not answered. message and at name the newest message.
   const threadLines = () =>
     [...records.values()].map((thread) => {
       const { messages } = thread;
-      const last = messages.findLastIndex((item) => item.from === "agent");
-      const reply = messages[last];
-      const unanswered = messages
-        .slice(reply?.answers ?? last + 1)
-        .find((item) => item.from === "reviewer");
+      const waiting = waitingMessage(thread);
       const newest = messages.at(-1);
       return {
         thread: thread.id,
@@ -36,9 +31,8 @@ export function notifications(session) {
           ? { page: "work", proposal: thread.proposal }
           : { round: thread.round, page: thread.topic }),
         ...(thread.target ? { target: thread.target } : {}),
-        ...(unanswered
-          ? { waitingSince: unanswered.at, readAt: thread.readAt }
-          : { answeredAt: reply?.at }),
+        state: threadState(thread),
+        ...(waiting ? { waitingSince: waiting.at } : {}),
       };
     });
   // A card's fields hold more than the frame shows on a row, such as a reason, so
