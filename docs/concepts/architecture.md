@@ -209,7 +209,11 @@ what you sent or a Start.
 - Each wake also sets `holder.steerable` in `status.json`, which is `true`
   when the agent CLI reads a message in the middle of a turn.
 - When a wake fails, the progress card shows "Could not wake the agent.
-  Send a message in chat." and the [handoff line](holders-and-handoff.md).
+  Send a message in chat." and the [handoff line](holders-and-handoff.md),
+  and the session list shows "Can't wake", until the holder runs a `pair`
+  command.
+- When the hub stops before a wake goes out, the next hub that loads the
+  session sends it.
 
 ## Storage
 

@@ -29,7 +29,7 @@ import {
 // them, so the hub stores no state or tab. Each action refuses a card whose
 // state the action does not accept, with a message for that state.
 export async function proposals(session) {
-  const { directory, transition } = session;
+  const { directory } = session;
   const folder = path.join(directory, "proposals");
   const cards = new Map();
   try {
@@ -181,7 +181,8 @@ export async function proposals(session) {
     return changed;
   }
   // wakeLater runs wakeFor after the hub answers the request that started
-  // the card, as submit does for the wake after a submission.
+  // the card, as submit does for the wake after a submission. A hub that
+  // loads a session runs it again for a Start whose wake a stopped hub owed.
   async function wakeFor(id) {
     const card = find(id);
     const { started } = card;
@@ -198,10 +199,9 @@ export async function proposals(session) {
     const what = fromWords
       ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
       : `the reviewer ${verb} proposal ${id}, "${card.title}", to run ${place}`;
-    const line = `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`;
-    const last = await session.sendWake(line);
-    if (session.wake)
-      await transition({ wake: { harness: session.wake.harness, last } });
+    return session.wakeForSend(
+      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`,
+    );
   }
   const wakeLater = (id) => {
     if (session.wake && accepts(session.state, "wake"))
@@ -503,6 +503,7 @@ export async function proposals(session) {
     propose,
     writeStatus,
     startProposal,
+    wakeForStart: wakeFor,
     writeProposal,
     declineProposal,
     restoreProposal,

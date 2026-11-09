@@ -198,7 +198,6 @@ export function submissions(session) {
       // The frame in every browser counts the agent's running time from
       // roundStartedAt.
       roundStartedAt: event.receivedAt,
-      wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       takeover: null,
       // With Build it, the reviewer approves the work, and the agent builds
       // it in this session from now on.
