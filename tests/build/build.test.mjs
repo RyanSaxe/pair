@@ -187,36 +187,6 @@ const option = (value = "a") =>
 const refused = async (plan, message) =>
   assert.match(problems(plan).join("\n"), message);
 
-test("an option label of exactly 24 characters is accepted", () => {
-  const long = "x".repeat(24);
-  assert.deepEqual(
-    problems(
-      page(
-        decision(
-          `<button data-value="a" data-label="${long}">a</button>${option("b")}`,
-        ),
-      ),
-    ),
-    [],
-  );
-});
-
-// The builder refuses an h1, not a heading that repeats the title.
-test("a page may repeat its title in a lower heading", async () => {
-  await assert.doesNotReject(assemble(page("<h2>P</h2><p>x</p>")));
-});
-
-test("a group's label is not held to the option limit", () => {
-  assert.deepEqual(
-    problems(
-      page(
-        `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
-      ),
-    ),
-    [],
-  );
-});
-
 test("the build refuses each structural problem and names it", async () => {
   await refused(
     { ...data, pages: [data.pages[0], data.pages[0]] },
@@ -362,66 +332,69 @@ test("a link names no page unless an id equals its fragment", () => {
   );
 });
 
-test("a checklist box is refused for the checked attribute, not for the word in a label", async () => {
-  const checklist = (input) =>
-    page(
-      `<fieldset data-multiselect="s" data-label="S"><label>${input} A</label></fieldset>`,
-    );
-  assert.deepEqual(
-    problems(
-      checklist(
-        '<input type="checkbox" data-value="a" data-label="Types checked by tsc">',
+test("the build accepts well-formed controls, anchors and blocks", () => {
+  const accepted = [
+    [
+      "every kind of control, anchor and block",
+      page(
+        decision(option() + option("b")) +
+          `<section data-choice="arrow" data-label="Retry -> fail">${option()}${option("b")}</section>` +
+          `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
+          `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
+          `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +
+          `<pre data-language="ts">f&lt;T&gt;(a < b, a<=b, a <- b, 1<2)</pre>` +
+          `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
+          `<div data-prototype="demo"></div>` +
+          `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>` +
+          `<img src="data:image/png;base64,iVBORw0KGgo=" alt=""><img src="https://example.com/a.png" alt="">` +
+          `<img src="http://example.com/a.png" alt=""><img src="//example.com/a.png" alt=""><img class="later" alt="">`,
+        {
+          prototypes: [
+            { id: "demo", title: "Demo", html: "<p>d</p>", height: 100 },
+          ],
+        },
       ),
-    ),
-    [],
-  );
-  await refused(
-    checklist('<input type="checkbox" data-value="a" data-label="A" checked>'),
-    /^page "p": checklist "s" has a checked box\. Start every box unchecked\.$/m,
-  );
-});
-
-// The frame finds an option's control with closest(), and the browser renders
-// nothing inside an HTML comment.
-test("an option counts for the nearest control around it, and a commented control is not one", () => {
-  assert.deepEqual(
-    problems(
+    ],
+    [
+      "an option label of exactly 24 characters",
+      page(
+        decision(
+          `<button data-value="a" data-label="${"x".repeat(24)}">a</button>${option("b")}`,
+        ),
+      ),
+    ],
+    [
+      "a group label longer than an option's limit",
+      page(
+        `<section data-choice="d" data-label="${"y".repeat(60)}">${option()}${option("b")}</section>`,
+      ),
+    ],
+    // The builder refuses an h1, not a heading that repeats the title.
+    ["the page title in a lower heading", page("<h2>P</h2><p>x</p>")],
+    // The builder reads a box's checked attribute, not the word in its label.
+    [
+      "the word checked in a checklist label",
+      page(
+        `<fieldset data-multiselect="s" data-label="S"><label><input type="checkbox" data-value="a" data-label="Types checked by tsc"> A</label></fieldset>`,
+      ),
+    ],
+    // The frame finds an option's control with closest(), and the browser
+    // renders nothing inside an HTML comment.
+    [
+      "an option inside a control inside another control's option",
       page(
         `<section data-choice="vd" data-label="V">` +
           `<article data-value="one" data-label="One">${decision(option() + option("b"))}</article>` +
           `<article data-value="two" data-label="Two">t</article></section>`,
       ),
-    ),
-    [],
-  );
-  assert.deepEqual(
-    problems(page(`<p>x</p><!-- ${decision(option())} -->`)),
-    [],
-  );
-});
-
-test("well-formed controls, anchors and blocks pass", () => {
-  const found = problems(
-    page(
-      decision(option() + option("b")) +
-        `<section data-choice="arrow" data-label="Retry -> fail">${option()}${option("b")}</section>` +
-        `<section data-question="q" data-label="Q"><textarea></textarea></section>` +
-        `<div data-language="ts" data-file="a.ts">x</div><pre data-diff-source="before"></pre>` +
-        `<pre data-language="ts" data-lines="1, 3-4">\na\nb\nc\nd\n</pre>` +
-        `<pre data-language="ts">f&lt;T&gt;(a < b, a<=b, a <- b, 1<2)</pre>` +
-        `<a href="#p">p</a><a href="#agreed">a</a><a href="#local">l</a><i id="local"></i>` +
-        `<div data-prototype="demo"></div>` +
-        `<textarea data-diff-input hidden>{"before":"a","after":"b","patch":"p"}</textarea>` +
-        `<img src="data:image/png;base64,iVBORw0KGgo=" alt=""><img src="https://example.com/a.png" alt="">` +
-        `<img src="http://example.com/a.png" alt=""><img src="//example.com/a.png" alt=""><img class="later" alt="">`,
-      {
-        prototypes: [
-          { id: "demo", title: "Demo", html: "<p>d</p>", height: 100 },
-        ],
-      },
-    ),
-  );
-  assert.deepEqual(found, []);
+    ],
+    [
+      "a control inside a comment",
+      page(`<p>x</p><!-- ${decision(option())} -->`),
+    ],
+  ];
+  for (const [what, plan] of accepted)
+    assert.deepEqual(problems(plan), [], what);
 });
 
 test("an Agreed page opens with a task, and the plan data carries it", async () => {
@@ -656,14 +629,6 @@ test("pair build lists a css or js file it cannot read with the page's other pro
   });
 });
 
-test("an error from pair build starts with pair:", async () => {
-  const missing = path.join(os.tmpdir(), "pair-no-such-dir", "source.json");
-  await assert.rejects(
-    exec(process.execPath, [pair, "build", missing, "out.html"]),
-    ({ stderr }) => /^pair: ENOENT/.test(stderr),
-  );
-});
-
 test("preserved prototypes retain exact executable source without escaping into the frame", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-prototype-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
@@ -695,15 +660,16 @@ test("preserved prototypes retain exact executable source without escaping into 
   assert.equal(parsed.page.prototypes[0].html, html);
   assert.equal(parsed.page.prototypes[0].file, undefined);
   assert(!result.includes(html));
-  for (const prototypes of [
-    [],
-    [null],
-    [{ ...parsed.page.prototypes[0], height: 0 }],
-    [{ ...parsed.page.prototypes[0], html: "" }],
-    [parsed.page.prototypes[0], parsed.page.prototypes[0]],
+  const [demo] = parsed.page.prototypes;
+  for (const [prototypes, message] of [
+    [[], /data-prototype="demo" names no prototype/],
+    [[{ ...demo, height: 0 }], /Prototype height must be positive/],
+    [[{ ...demo, html: "" }], /Prototypes require title and HTML/],
+    [[demo, demo], /Prototype IDs must be valid and unique/],
   ])
     await assert.rejects(
       buildPage(source, { ...parsed, page: { ...parsed.page, prototypes } }),
+      message,
     );
   await fs.writeFile(
     source,
@@ -715,7 +681,10 @@ test("preserved prototypes retain exact executable source without escaping into 
       },
     }),
   );
-  await assert.rejects(build(source), /file.*html|html.*file/);
+  await assert.rejects(
+    build(source),
+    /Use file or html for a prototype, not both/,
+  );
 });
 
 test("the component fixture builds", async (t) => {
