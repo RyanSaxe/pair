@@ -102,7 +102,7 @@ export async function loadSession(
   const wakeFile = path.join(directory, "wake.json");
   const transition = async (patch) => {
     const next = { ...state, ...patch, updatedAt: timestamp() };
-    await atomic(stateFile, next);
+    await save(next);
     state = next;
     return state;
   };
@@ -132,15 +132,27 @@ export async function loadSession(
       .sort((a, b) => a.sequence - b.sequence);
   }
   // stage counts only unread feedback, because a Start answers no round.
-  const stage = () =>
+  const stage = (value = state) =>
     roundStage(
-      state,
+      value,
       events.some(
         (event) =>
-          !state.acknowledged.includes(event.id) && answersRound(event),
+          !value.acknowledged.includes(event.id) && answersRound(event),
       ),
     );
-  await atomic(stateFile, state);
+  // A hub from before closedAt reads the stage from status.json, and reads a
+  // session as closed when the stage is "complete", with the time of the close
+  // in dismissedAt. save writes both for that hub, and nothing else reads them.
+  // They can go in a later release.
+  function save(value) {
+    return atomic(stateFile, {
+      ...value,
+      ...(isClosed(value)
+        ? { stage: "complete", dismissedAt: value.closedAt }
+        : { stage: stage(value) }),
+    });
+  }
+  await save(state);
   const sameRound = (event) =>
     state.current &&
     event.name === state.current.name &&

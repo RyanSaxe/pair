@@ -34,12 +34,15 @@ export function roundStage(state, unread = false) {
   return "updated";
 }
 
-// Before closedAt, the hub stored the stage, and Close set it to "complete"
-// with the time in dismissedAt. upgrade converts a status.json of that format,
-// for the hub when it loads a session and for search when it reads one.
+// Before closedAt, the hub read the stage from status.json, and Close set it
+// to "complete" with the time in dismissedAt. The hub still writes both for a
+// hub from before closedAt, which keeps closedAt as it is. So when status.json
+// has a stage, the stage says whether the session is closed, and a session
+// that the older hub closed or reopened loads as that hub left it.
 export function upgrade(state) {
   const { stage, dismissedAt, ...rest } = state;
-  if (stage === "complete" && !rest.closedAt)
-    rest.closedAt = dismissedAt || rest.updatedAt;
+  if (stage === "complete")
+    rest.closedAt = dismissedAt || rest.closedAt || rest.updatedAt;
+  else if (stage) rest.closedAt = null;
   return rest;
 }
