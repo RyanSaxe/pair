@@ -184,6 +184,24 @@ test("a refused send with no typed message does not offer Send as a message", as
   assert.equal(await asMessage(page).count(), 0);
 });
 
+test("a send from another device while the Send popup is open closes it and offers the typed message as a message", async (t) => {
+  const { session, page } = await openRound(t);
+  if (!page) return;
+  await openPopup(page);
+  await page.locator("#send-message").fill("Typed before the phone sent.");
+  assert.equal((await session.feedback(session.event())).code, 200);
+  await page.locator("#send-dialog").waitFor({ state: "hidden" });
+  await asMessage(page).click();
+  assert.equal(
+    await waitUntil(
+      async () =>
+        (await session.status()).body.threads[0]?.messages[0].text ===
+        "Typed before the phone sent.",
+    ),
+    true,
+  );
+});
+
 test("the message stays in the draft when the hub never receives Send as a message", async (t) => {
   const { session, page } = await openRound(t);
   if (!page) return;

@@ -52,6 +52,20 @@ export function clearSubmissionError() {
   submissionError = "";
   refusedMessage = "";
 }
+// When a status poll shows that another tab or device sent this round while
+// the Send popup is open, closeSentSend closes the popup and shows the banner
+// of the hub's refusal, so the typed message can still go as a message.
+export function closeSentSend() {
+  if (
+    !$("send-dialog").open ||
+    submissionInFlight ||
+    remote.latestSubmissionRound !== plan.round
+  )
+    return;
+  $("send-dialog").close();
+  submissionError = `Round ${plan.round} was sent from another tab or device. Your draft and message stay for the next round.`;
+  refusedMessage = state.message?.trim() || "";
+}
 export function submitButton({
   inFlight,
   opensFeedback,

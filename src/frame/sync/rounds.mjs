@@ -51,6 +51,7 @@ import {
 } from "#frame/review/review.mjs";
 import {
   clearSubmissionError,
+  closeSentSend,
   submissionInFlight,
 } from "#frame/review/send.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
@@ -456,6 +457,7 @@ export async function poll() {
     if (result.sessionId !== session.sessionId) throw Error("Wrong session");
     remote = result;
     connected = true;
+    closeSentSend();
     if (editable && !submittedRound)
       setSubmittedRound(state.submitted?.round || remote.latestSubmissionRound);
     if (editable && !pastRound) setPastRound(submittedRound || null);
