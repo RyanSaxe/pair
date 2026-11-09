@@ -179,8 +179,12 @@ test("a click on a box in the full-size dialog opens a note quoting its label, a
     quote: "Payment gateway",
   });
   await addNote(page, "Retry here?");
-  await waitUntil(
-    async () => (await boxFill(page, "gate")) === (await markColor(page)),
+  assert.equal(
+    await waitUntil(
+      async () => (await boxFill(page, "gate")) === (await markColor(page)),
+    ),
+    true,
+    "the noted box takes the note color",
   );
   assert.notEqual(await boxFill(page, "details"), await markColor(page));
   await page.locator("[data-diagram] .pele-node[data-id=gate] text").click();
@@ -219,7 +223,11 @@ test("a drag across a box's label on the page selects it for a note on the box i
     quote: "Payment gateway",
   });
   await addNote(page, "Retry here?");
-  await waitUntil(
-    async () => (await boxFill(page, "gate")) === (await markColor(page)),
+  assert.equal(
+    await waitUntil(
+      async () => (await boxFill(page, "gate")) === (await markColor(page)),
+    ),
+    true,
+    "the noted box takes the note color",
   );
 });

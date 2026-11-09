@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
 import { threadState } from "../../src/shared/thread-state.mjs";
 
 // Each row replaces the browser's copy with a recording of what it would write,
@@ -69,7 +69,10 @@ for (const { name, options, record, result } of copies)
     } else assert.equal(await shown.locator("code").textContent(), command);
     // The strip redraws on every poll and keeps what the click showed, and
     // nothing changes until an agent runs the command.
-    await sleep(1700);
+    for (let polled = 0; polled < 2; polled++)
+      await page.waitForResponse((response) =>
+        response.url().endsWith("/api/status"),
+      );
     assert.equal(await button.textContent(), result);
     assert.equal(typeof (await session.status()).body.closedAt, "string");
 
@@ -172,7 +175,10 @@ test("closing a session before its first round turns its tabs read-only and name
   // the closed page must not reload on that status, or it reloads on every poll.
   let loads = 0;
   own.on("load", () => loads++);
-  await sleep(2000);
+  for (let polled = 0; polled < 2; polled++)
+    await own.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
   assert.equal(loads, 0);
 });
 
