@@ -5,13 +5,6 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
-import { bellLines } from "../../../src/frame/sync/center.mjs";
-import {
-  announced,
-  eventTitle,
-  wakeAlert,
-} from "../../../src/frame/sync/notifications.mjs";
-import { countUnopened } from "../../../src/frame/sync/opened.mjs";
 import { startHub } from "../../../src/hub/server.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
 import {
@@ -317,26 +310,26 @@ test("a former holder can reopen the session, and takes it back", async (t) => {
   assert.equal((await a.action("ack")).code, 200);
 });
 
-// What any browser shows for a session, computed by the frame's own rules from
-// the session list alone, so the answer holds for a device with no local copy of
-// the seen lists. A system notification reads the listed events and not the
-// cleared list, so alerts applies the frame's rule for those events.
-async function shown(origin, a) {
+// listed reads what the hub lists for a session, which every device reads:
+// the session's entry, its events, which the bell and the system
+// notifications show, the shared seen lists, and the round's ready pages that
+// the opened list leaves out, which the frame marks New. unopened is null
+// while no browser has started the lists.
+async function listed(origin, a) {
   const { sessions, seen } = await (
     await fetch(`${origin}/api/sessions`)
   ).json();
   const entry = sessions.find(({ id }) => id === a.id);
+  const { round, ids } = entry.readyPages;
   return {
     entry,
-    bell: bellLines(sessions, new Set(seen.cleared), null).map(eventTitle),
-    alerts: [
-      wakeAlert(entry)?.title,
-      ...entry.events
-        .filter((event) => announced(entry, event))
-        .map(eventTitle),
-    ].filter(Boolean),
-    unopened: countUnopened(entry, new Set(seen.opened)),
-    seenCards: seen.cards,
+    events: entry.events.map((event) =>
+      event.kind === "waiting" ? `waiting ${event.round}` : event.kind,
+    ),
+    unopened:
+      seen.opened &&
+      ids.filter((id) => !seen.opened.includes(`${a.id}/${round}/${id}`)),
+    seen,
   };
 }
 const reopen = (h, a) =>
@@ -373,7 +366,7 @@ test("reopening shows nothing from before the close as new on any device, also a
   });
   assert.equal(replied.code, 200, replied.body.error);
   // A browser started the lists, and the reviewer cleared one line.
-  const { entry: before } = await shown(origin, a);
+  const { entry: before } = await listed(origin, a);
   assert.equal(before.events.length, 4);
   await a.request("/api/seen", {
     ...startedLists,
@@ -382,20 +375,19 @@ test("reopening shows nothing from before the close as new on any device, also a
 
   assert.equal((await close(a)).code, 200);
   assert.equal((await reopen(h, a)).code, 200);
-  const quiet = await shown(origin, a);
-  assert.deepEqual(quiet.bell, []);
-  assert.deepEqual(quiet.alerts, []);
-  assert.equal(quiet.unopened, 0);
-  assert.deepEqual(quiet.seenCards, [`${a.id}/old`]);
+  const quiet = await listed(origin, a);
+  assert.deepEqual(quiet.events, []);
+  assert.deepEqual(quiet.unopened, []);
+  assert.deepEqual(quiet.seen.cards, [`${a.id}/old`]);
   // The round still waits, so the session list can still mark it Waiting.
   assert.equal(quiet.entry.needsYou, true);
 
   await h.server.close();
   const next = await startHub(h.config);
   t.after(next.close);
-  const afterRestart = await shown(next.origin, a);
-  assert.deepEqual(afterRestart.bell, []);
-  assert.equal(afterRestart.unopened, 0);
+  const afterRestart = await listed(next.origin, a);
+  assert.deepEqual(afterRestart.events, []);
+  assert.deepEqual(afterRestart.unopened, []);
 });
 
 test("after a reopen, a reply, a proposal and the next round each notify", async (t) => {
@@ -413,19 +405,21 @@ test("after a reopen, a reply, a proposal and the next round each notify", async
     200,
   );
   assert.equal((await a.action("propose", proposal("later"))).code, 200);
-  const lines = ["Agent proposed Card later", "Agent replied on Overview"];
-  const said = await shown(origin, a);
-  assert.deepEqual([...said.bell].sort(), lines);
-  assert.deepEqual([...said.alerts].sort(), lines);
-  assert.deepEqual(said.seenCards, []);
+  const said = await listed(origin, a);
+  assert.deepEqual(said.events, ["reply", "proposal"]);
+  assert.equal(
+    said.entry.events.some((event) => event.acknowledged),
+    false,
+  );
+  assert.deepEqual(said.seen.cards, []);
 
   assert.equal((await a.feedback(a.event())).code, 200);
   assert.equal((await a.action("read")).code, 200);
   assert.equal((await a.publish(planData("2"))).code, 200);
-  const published = await shown(origin, a);
-  assert.ok(published.bell.includes("Round 2 is waiting for you"));
-  assert.ok(published.alerts.includes("Round 2 is waiting for you"));
-  assert.equal(published.unopened, 2);
+  const published = await listed(origin, a);
+  assert.ok(published.events.includes("waiting 2"), published.events);
+  assert.equal(published.entry.needsYou, true);
+  assert.deepEqual(published.unopened, ["agreed", "overview"]);
 });
 
 test("after a reopen, only a page published after it counts as new, and the finished round notifies", async (t) => {
@@ -436,15 +430,15 @@ test("after a reopen, only a page published after it counts as new, and the fini
   await a.request("/api/seen", startedLists);
   assert.equal((await close(a)).code, 200);
   assert.equal((await reopen(h, a)).code, 200);
-  assert.equal((await shown(origin, a)).unopened, 0);
+  assert.deepEqual((await listed(origin, a)).unopened, []);
 
   const { step } = beforeClose.find(({ name }) =>
     name.includes("not published"),
   );
   assert.equal((await step(a)).code, 200);
-  const finished = await shown(origin, a);
-  assert.equal(finished.unopened, 1);
-  assert.deepEqual(finished.bell, ["Round 1 is waiting for you"]);
+  const finished = await listed(origin, a);
+  assert.deepEqual(finished.unopened, ["notes"]);
+  assert.deepEqual(finished.events, ["waiting 1"]);
 });
 
 // The first browser to send a list counts everything the hub lists as seen, and
