@@ -93,7 +93,7 @@ function validPlan(data) {
             const key = sourceItemKey(ref.kind);
             requireValue(
               typeof ref[key] === "string" && ref[key].length > 0,
-              `A ${ref.kind} source reference needs ${key}.`,
+              `${/^[aeiou]/.test(ref.kind) ? "An" : "A"} ${ref.kind} source reference needs ${key}.`,
             );
           }
         }
