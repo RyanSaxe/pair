@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { adapters } from "../hub/wake.mjs";
 import { lifecycle } from "../shared/lifecycle.mjs";
+import { wakeState } from "../shared/wake-state.mjs";
 import { listing, usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
@@ -192,15 +193,17 @@ const pageStates = {
   ready: "published",
 };
 
-function holderText({ holder, wake }) {
+// A wake that the holder answered with a command, or that has not gone out,
+// gets no line.
+function holderText(status) {
+  const { holder, wake } = status;
   if (!holder) return "none";
   const last = wake?.last;
-  const sent = !last
-    ? ""
-    : last.ok
-      ? ` Last wake ${clock(last.at)}, sent.`
-      : ` Last wake ${clock(last.at)}, failed: ${last.reason}`;
-  return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent}`;
+  const sent = {
+    sent: () => ` Last wake ${clock(last.at)}, sent.`,
+    failed: () => ` Last wake ${clock(last.at)}, failed: ${last.reason}`,
+  }[wakeState(status)];
+  return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent ? sent() : ""}`;
 }
 
 const places = {

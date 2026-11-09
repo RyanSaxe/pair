@@ -77,14 +77,16 @@ export function quietWake(items, ms, directory) {
 
 export function quiet(session) {
   const { directory, config } = session;
-  // The hub does not save the time of the last command, so after a restart
-  // the time since the last command counts from when the hub loaded the
-  // session.
-  let commandAt = Date.now();
   // woken contains a key for each quiet page or card already named in a
   // wake. The key includes the time of the last update, so a page or card
-  // that gets an update can be in a later wake.
+  // that gets an update can be in a later wake. The hub keeps woken in memory
+  // only, so it counts the time since the holder's last command from no
+  // earlier than when it loaded the session, and a restart does not wake the
+  // holder at once about work that an earlier hub named.
   let woken = new Set();
+  const loadedAt = Date.now();
+  const idleSince = () =>
+    Math.max(loadedAt, Date.parse(session.state.holder?.commandAt) || 0);
   const key = (item) => `${item.kind} ${item.id} ${item.at}`;
   const items = (now) =>
     !accepts(session.state, "wake")
@@ -103,12 +105,6 @@ export function quiet(session) {
       ? quietStep(quiet, now, config.quietMs, directory)
       : null;
   }
-  // act and hold call commandRan for every agent command, a subagent's
-  // included, because a subagent runs its commands in its parent's
-  // environment.
-  const commandRan = () => {
-    commandAt = Date.now();
-  };
   // The hub's timer calls wakeIfQuiet. It sends no second wake for a page
   // or card that was in an earlier wake and has had no update since, and a
   // wake for newly quiet work names all the quiet work.
@@ -116,10 +112,10 @@ export function quiet(session) {
     const quiet = items(now);
     woken = new Set(quiet.map(key).filter((item) => woken.has(item)));
     if (!session.wake || !session.state.holder) return;
-    if (now - commandAt <= config.quietMs) return;
+    if (now - idleSince() <= config.quietMs) return;
     if (quiet.every((item) => woken.has(key(item)))) return;
     for (const item of quiet) woken.add(key(item));
     await session.sendWake(quietWake(quiet, config.quietMs, directory));
   }
-  return { quietLine, commandRan, wakeIfQuiet };
+  return { quietLine, wakeIfQuiet };
 }

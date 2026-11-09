@@ -26,7 +26,7 @@ import {
 // frame sorts the cards into Work's tabs from those fields, so the hub
 // stores no tab.
 export async function proposals(session) {
-  const { directory, transition } = session;
+  const { directory } = session;
   const folder = path.join(directory, "proposals");
   const cards = new Map();
   try {
@@ -215,10 +215,9 @@ export async function proposals(session) {
     const what = fromWords
       ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
       : `the reviewer ${verb} proposal ${id}, "${card.title}", to run ${place}`;
-    const line = `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`;
-    const last = await session.sendWake(line);
-    if (session.wake)
-      await transition({ wake: { harness: session.wake.harness, last } });
+    return session.wakeForSend(
+      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`,
+    );
   }
   const wakeLater = (id) => {
     if (session.wake && accepts(session.state, "wake"))

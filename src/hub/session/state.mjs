@@ -16,6 +16,7 @@ import {
   serializer,
   timestamp,
 } from "../../shared/util.mjs";
+import { wakeAccepts } from "../../shared/wake-state.mjs";
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
@@ -69,6 +70,10 @@ export async function loadSession(
   // before pair wrote startedAt gets its directory's creation time, because
   // no later write changes that time.
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
+  // Before the hub recorded holder.commandAt, every report came from a command
+  // of the holder, so the last report's time stands in for the last command's.
+  if (state.holder && !state.holder.commandAt && state.report?.at)
+    state.holder = { ...state.holder, commandAt: state.report.at };
   for (const child of ["feedback", "uploads", "scenes", "threads"])
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
@@ -126,6 +131,19 @@ export async function loadSession(
     events.push(event);
     return event;
   }
+  // wakeState reads when the hub saved the newest send, the reviewer's
+  // feedback or a Start, from latestSend.
+  const latestSend = () =>
+    events.reduce(
+      (newest, event) =>
+        !newest || event.sequence > newest.sequence ? event : newest,
+      null,
+    );
+  const wakeFacts = () => ({
+    sentAt: latestSend()?.receivedAt ?? null,
+    wake: state.wake,
+    holder: state.holder,
+  });
   async function pending() {
     return events
       .filter((event) => !state.acknowledged.includes(event.id))
@@ -204,13 +222,14 @@ export async function loadSession(
       // leaves it out, like the rest of the wake target. The frame cannot
       // import the adapters, so view adds the CLI's name. sendWake sets
       // steerable from the last wake, and it is true when the agent CLI reads
-      // a message in the middle of a turn.
+      // a message in the middle of a turn. wakeState reads commandAt.
       holder: holder
         ? {
             harness: holder.harness,
             name: adapters[holder.harness].name,
             at: holder.at,
             steerable: holder.steerable,
+            commandAt: holder.commandAt,
           }
         : null,
       handoff: session.handoff,
@@ -235,6 +254,7 @@ export async function loadSession(
         : {}),
       rounds: state.rounds || [],
       wake: state.wake || null,
+      sentAt: wakeFacts().sentAt,
       paused: state.paused || null,
       closedAt: state.closedAt || null,
       stage: stage(),
@@ -339,7 +359,7 @@ export async function loadSession(
               ]
             : [],
       },
-      wakeFailed: state.wake?.last?.ok === false,
+      wakeFailed: wakeAccepts(wakeFacts(), "alert"),
       paused: lifecycle(state) === "paused",
       startedAt: state.startedAt,
       publishedAt: state.current?.publishedAt,
