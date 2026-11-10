@@ -425,8 +425,13 @@ export function setDiffThreads(element, threads, cards) {
     const wrapper = [...container.children].find(
       (node) => node.hasAttribute("data-annotation-slot") && node.slot === name,
     );
-    wrapper?.querySelector("[data-pair-thread-line]")?.remove();
-    wrapper?.append(...lineCards);
+    if (!wrapper) continue;
+    // Moving a card takes focus from its reply box, even when append() puts
+    // it back where it was, so only a card out of place moves.
+    lineCards.forEach((card, index) => {
+      const shown = wrapper.children[index] ?? null;
+      if (shown !== card) wrapper.insertBefore(card, shown);
+    });
   }
   return true;
 }

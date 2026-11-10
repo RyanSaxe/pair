@@ -123,6 +123,7 @@ async function startThread(page, session, quote, side, lineThreadCount = 1) {
   assert.ok(placement.height > 0, JSON.stringify(placement));
   assert.equal(placement.annotationSlot, `annotation-${side}-2`);
   assert.equal(placement.lineThreadCount, lineThreadCount);
+  return card;
 }
 
 async function openDiff(t) {
@@ -159,6 +160,22 @@ test("selecting diff text starts a thread in its line annotation", async (t) => 
   await startThread(page, session, 'return "open"', "additions");
   await startThread(page, session, 'return "hold"', "deletions");
   await startThread(page, session, "open", "additions", 2);
+});
+
+test("the reply box of a thread on a diff line keeps focus across status polls", async (t) => {
+  const { session, page } = await openDiff(t);
+  if (!page) return;
+  const card = await startThread(page, session, 'return "open"', "additions");
+  const box = card.getByRole("textbox", { name: "Reply in this thread" });
+  await box.click();
+  for (let polls = 0; polls < 2; polls++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
+  assert.equal(
+    await box.evaluate((field) => field === document.activeElement),
+    true,
+  );
 });
 
 test("a note on diff text marks the words selected in the diff, and the mark shows the note on hover and opens it on a click", async (t) => {
