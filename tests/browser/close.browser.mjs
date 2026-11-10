@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, sleep, waitUntil } from "../support/hub.mjs";
+import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { threadState } from "../../src/shared/thread-state.mjs";
 
 // Each row replaces the browser's copy with a recording of what it would write,
 // so a test run leaves the developer's clipboard as it was. A phone reaches the
@@ -67,9 +69,12 @@ for (const { name, options, record, result } of copies)
     } else assert.equal(await shown.locator("code").textContent(), command);
     // The strip redraws on every poll and keeps what the click showed, and
     // nothing changes until an agent runs the command.
-    await sleep(1700);
+    for (let polled = 0; polled < 2; polled++)
+      await page.waitForResponse((response) =>
+        response.url().endsWith("/api/status"),
+      );
     assert.equal(await button.textContent(), result);
-    assert.equal((await session.status()).body.stage, "complete");
+    assert.equal(typeof (await session.status()).body.closedAt, "string");
 
     const reload = page.waitForEvent("load");
     const started = await h.register(session.directory, session.inbox.target, {
@@ -128,7 +133,7 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   assert.equal(await dialog.evaluate((element) => element.open), false);
   assert.deepEqual(closes, []);
-  assert.notEqual((await session.status()).body.stage, "complete");
+  assert.equal((await session.status()).body.closedAt, null);
 
   await page.locator("#menu-button").click();
   await close.click();
@@ -136,7 +141,7 @@ test("Close on this tab's own row asks first, then the tab turns read-only and n
   await page.locator("#close-confirm").click();
   await reload;
   assert.equal(closes.length, 1);
-  assert.equal((await session.status()).body.stage, "complete");
+  assert.equal(typeof (await session.status()).body.closedAt, "string");
   await page.locator("#history-strip:not([hidden])").waitFor();
   assert.equal(
     await page.locator("#history-label").textContent(),
@@ -170,7 +175,10 @@ test("closing a session before its first round turns its tabs read-only and name
   // the closed page must not reload on that status, or it reloads on every poll.
   let loads = 0;
   own.on("load", () => loads++);
-  await sleep(2000);
+  for (let polled = 0; polled < 2; polled++)
+    await own.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
   assert.equal(loads, 0);
 });
 
@@ -200,4 +208,57 @@ test("a closed session's line under the header stays one line on a phone", async
   }));
   assert.ok(line.height < line.lineHeight * 1.5, JSON.stringify(line));
   assert.deepEqual(line.cut, [title]);
+});
+
+// The hub refuses every reply in a closed session, so a card the agent did not
+// answer stops saying that it will.
+test("in a closed session, a thread the agent did not answer says the reviewer closed the session first", async (t) => {
+  const h = await hub(t);
+  const session = await h.session();
+  assert.equal((await session.publish(planData())).code, 200);
+  const start = async (text) => {
+    const id = crypto.randomUUID();
+    const started = await session.request(`${session.base}/api/threads`, {
+      id,
+      round: "1",
+      topic: "overview",
+      anchor: "Overview",
+      text,
+    });
+    assert.equal(started.code, 201, started.body.error);
+    return id;
+  };
+  const sent = await start("Is one result enough?");
+  const read = await start("What about a failed input?");
+  const replied = await start("Does order matter?");
+  assert.equal(
+    await waitUntil(async () =>
+      (await session.status()).body.threads.every(
+        (thread) => threadState(thread) === "sent",
+      ),
+    ),
+    true,
+  );
+  assert.equal((await session.action("reply", { note: read })).code, 200);
+  const answered = await session.action("reply", {
+    note: replied,
+    text: "It keeps the input order.",
+  });
+  assert.equal(answered.code, 200, answered.body.error);
+  assert.equal(
+    (await session.request(`${session.base}/api/dismiss`, {})).code,
+    200,
+  );
+
+  const page = await open(t, `${h.server.origin}${session.base}/#overview`);
+  if (!page) return;
+  const status = async (id) => {
+    const card = page.locator(`pair-thread[data-thread="${id}"]`);
+    await card.waitFor();
+    return card.locator(".thread-status").textContent();
+  };
+  const closed = "You closed the session before the agent replied.";
+  assert.equal(await status(sent), closed);
+  assert.equal(await status(read), closed);
+  assert.equal(await status(replied), "");
 });

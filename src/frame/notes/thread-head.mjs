@@ -9,10 +9,12 @@ const stateWords = (thread) =>
     ? "Not sent"
     : {
         sending: "Sending",
+        held: "Agent paused",
         sent: "Sent to the agent",
         read: "Agent replying",
         replied: "Agent replied",
         failed: "Could not reach the agent",
+        unanswered: "Closed before a reply",
       }[thread.state];
 const cut = (text, length) =>
   text.length > length ? `${text.slice(0, length - 1).trimEnd()}…` : text;

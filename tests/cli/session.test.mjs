@@ -15,109 +15,11 @@ import {
   task,
 } from "../support/hub.mjs";
 
-test("the CLI builds and publishes each page with its own saved source", async (t) => {
-  const h = await hub(t);
-  const root = path.join(h.home, "cli");
-  await fs.mkdir(root);
-  // pairCli runs the CLI with this test's state directory, so the CLI finds
-  // this test's hub. The CLI runs as the agent that registers the session.
-  const cli = await pairCli(root, {
-    XDG_STATE_HOME: h.home,
-    PAIR_HUB_PORT: "0",
-  });
-  const registered = await h.session({ cli });
-  const session = registered.directory;
-  const unsupported = await registered.action("publish", {
-    html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
-  });
-  assert.equal(unsupported.code, 400);
-  assert.match(
-    unsupported.body.error,
-    /--file is not a page that pair build wrote/,
-  );
-  const command = (args) => cli.run(...args);
-  const agreedSource = path.join(root, "agreed-source");
-  await fs.mkdir(agreedSource);
-  await fs.writeFile(
-    path.join(agreedSource, "agreed.json"),
-    JSON.stringify({
-      name: "cli",
-      round: "1",
-      title: "CLI plan",
-      page: {
-        id: "agreed",
-        title: "Agreed so far",
-        agreements: [],
-        task: { title: "The task", html: "<p>What the plan builds.</p>" },
-      },
-    }),
-  );
-  const agreedHtml = path.join(root, "agreed.html");
-  await command(["build", path.join(agreedSource, "agreed.json"), agreedHtml]);
-  const list = path.join(root, "pages.json");
-  await fs.writeFile(
-    list,
-    JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
-  );
-  await command([
-    "publish",
-    "--session-dir",
-    session,
-    "--file",
-    agreedHtml,
-    "--pages",
-    list,
-    "--source",
-    agreedSource,
-  ]);
-  const noted = JSON.parse(
-    await command([
-      "progress",
-      "--note",
-      "Writing the overview page",
-      "--session-dir",
-      session,
-      "--json",
-    ]),
-  );
-  assert.equal(noted.status.report.note, "Writing the overview page");
-  const overviewSource = path.join(root, "overview-source");
-  await fs.mkdir(overviewSource);
-  const overview = {
-    name: "cli",
-    round: "1",
-    title: "CLI plan",
-    page: { id: "overview", title: "Overview", file: "overview.html" },
-  };
-  const overviewJson = path.join(overviewSource, "overview.json");
-  await fs.writeFile(
-    path.join(overviewSource, "overview.html"),
-    "<p>Ready by CLI</p>",
-  );
-  const overviewHtml = path.join(root, "overview-built.html");
-  await fs.writeFile(overviewJson, JSON.stringify(overview));
-  await command(["build", overviewJson, overviewHtml]);
-  await command([
-    "publish",
-    "--session-dir",
-    session,
-    "--file",
-    overviewHtml,
-    "--source",
-    overviewSource,
-  ]);
-  assert.match(
-    await fs.readFile(
-      path.join(session, "src", "1", "overview", "overview.html"),
-      "utf8",
-    ),
-    /Ready by CLI/,
-  );
-});
-
 // Without this check, a mistyped path would start a session outside sessions/,
-// and no hub would load that session again.
-test("a session command refuses a directory that holds no session", async (t) => {
+// and no hub would load that session again. The hub creates a session in any
+// directory it registers, so pair start --session-dir refuses a directory with
+// no session before it sends a request to the hub.
+test("a session command refuses a directory that holds no session and writes nothing", async (t) => {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-missing-"));
   const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
   t.after(async () => {
@@ -125,37 +27,22 @@ test("a session command refuses a directory that holds no session", async (t) =>
     await fs.rm(scratch, { recursive: true, force: true });
   });
   const missing = path.join(scratch, "no-session");
-  await assert.rejects(run("read", "--session-dir", missing), (error) => {
-    assert.equal(error.code, 1);
-    assert.equal(
-      error.stderr,
-      `pair: No pair session at ${missing}. Check the path, or create a session with pair start.\n`,
-    );
-    return true;
-  });
-  assert.equal(await exists(missing), false);
-});
-
-// The hub creates a session in any directory it registers. pair start
-// --session-dir therefore refuses a directory with no session before it sends a
-// request to the hub.
-test("pair start --session-dir refuses a directory that holds no session and writes nothing", async (t) => {
-  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "pair-no-resume-"));
-  const { config, run } = await pairCli(scratch, { PAIR_HUB_PORT: "0" });
-  t.after(async () => {
-    await killHub(config);
-    await fs.rm(scratch, { recursive: true, force: true });
-  });
   const project = path.join(scratch, "project");
   await fs.mkdir(project);
   await fs.writeFile(path.join(project, "README"), "hi");
-  for (const directory of [path.join(scratch, "no-session"), project]) {
+  const create =
+    'run pair start --title "…" without --session-dir to create a new session';
+  for (const [command, directory, what] of [
+    ["read", missing, "create a session with pair start"],
+    ["start", missing, create],
+    ["start", project, create],
+  ]) {
     const before = await fs.readdir(scratch, { recursive: true });
-    await assert.rejects(run("start", "--session-dir", directory), (error) => {
+    await assert.rejects(run(command, "--session-dir", directory), (error) => {
       assert.equal(error.code, 1);
       assert.equal(
         error.stderr,
-        `pair: No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.\n`,
+        `pair: No pair session at ${directory}. Check the path, or ${what}.\n`,
       );
       return true;
     });
@@ -276,6 +163,7 @@ async function sessionWithAgreed(t) {
     list,
     JSON.stringify({ pages: [{ id: "overview", title: "Overview" }] }),
   );
+  // publish starts overview with Agreed's page list, as the agent does.
   const publish = (file, source, ...rest) =>
     run(
       "publish",
@@ -286,6 +174,7 @@ async function sessionWithAgreed(t) {
       "--source",
       source,
       ...rest,
+      ...(rest.includes("--pages") ? ["--start", "overview"] : []),
     );
   return { sessionDir, agreed, overview, list, page, publish, run };
 }
@@ -308,6 +197,8 @@ test("a publish keeps its source when --session-dir reaches the session by anoth
     agreed.source,
     "--pages",
     list,
+    "--start",
+    "overview",
   );
   assert.equal(
     await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
@@ -315,9 +206,20 @@ test("a publish keeps its source when --session-dir reaches the session by anoth
   );
 });
 
-test("the hub refuses a kept source outside the session directory", async (t) => {
+// A file that holds a whole round, as the fixture build writes, has the frame's
+// session config but no page record, and the hub publishes only a page that
+// pair build wrote.
+test("the hub refuses a file pair build did not write, and a kept source outside the session directory", async (t) => {
   const h = await hub(t);
   const a = await h.session();
+  const assembled = await a.action("publish", {
+    html: '<script type="application/json" id="session-config">{}</script><script type="application/json" id="plan-data">{}</script>',
+  });
+  assert.equal(assembled.code, 400);
+  assert.match(
+    assembled.body.error,
+    /--file is not a page that pair build wrote/,
+  );
   const html = await buildPage(path.join(a.directory, "source.json"), {
     name: "example",
     round: "1",
@@ -431,7 +333,7 @@ test("a publish the hub refuses keeps no copy of its source, and can be retried"
     assert.equal(error.code, 1);
     assert.equal(
       error.stderr,
-      `pair: Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir ${sessionDir}.\n`,
+      `pair: Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --start ID --session-dir ${sessionDir}.\n`,
     );
     return true;
   });
@@ -522,10 +424,9 @@ test("a publish whose answer is cut off keeps the source the hub recorded", asyn
         "content-type": "application/json",
         "content-length": String(Buffer.byteLength(body)),
       });
-      response.write(body.slice(0, 10));
-      // The 200 ms wait lets the CLI receive the headers, so destroying the
-      // socket cuts off only the body.
-      setTimeout(() => response.socket.destroy(), 200);
+      // The callback runs once the headers and the first bytes of the body
+      // are on the socket, so destroying it cuts off only the body.
+      response.write(body.slice(0, 10), () => response.socket.destroy());
     },
   );
   assert.match(failure.stderr, /The hub may have published this page/);
@@ -564,13 +465,28 @@ test("a publish whose copy fails reports the copy's own error, and can be retrie
   await fs.chmod(copy, 0o755);
 });
 
-test("a kept source keeps its relative links", async (t) => {
+// fs.cp points each copied link at an absolute path, which dangles once the
+// source's temp directory is gone. A read-only source directory is copied
+// read-only, and macOS cannot rename a read-only directory.
+test("a kept source keeps each link inside it relative and the target of a link out of it, also from a read-only directory", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
-  await fs.symlink("agreed.json", path.join(agreed.source, "link.json"));
-  await publish(agreed.built, agreed.source, "--pages", list);
+  const shared = path.join(path.dirname(agreed.source), "shared.txt");
+  await fs.writeFile(shared, "shared");
+  await fs.writeFile(path.join(agreed.source, "..notes.txt"), "notes");
+  const links = { "link.json": "agreed.json", "notes-link": "..notes.txt" };
+  for (const [name, target] of Object.entries(links))
+    await fs.symlink(target, path.join(agreed.source, name));
+  await fs.symlink("../shared.txt", path.join(agreed.source, "shared.txt"));
+  await fs.chmod(agreed.source, 0o555);
+  await publish(agreed.built, agreed.source, "--pages", list).finally(() =>
+    fs.chmod(agreed.source, 0o755),
+  );
+  const kept = path.join(sessionDir, "src", "1", "agreed");
+  for (const [name, target] of Object.entries(links))
+    assert.equal(await fs.readlink(path.join(kept, name)), target, name);
   assert.equal(
-    await fs.readlink(path.join(sessionDir, "src", "1", "agreed", "link.json")),
-    "agreed.json",
+    await fs.readFile(path.join(kept, "shared.txt"), "utf8"),
+    "shared",
   );
 });
 
@@ -596,33 +512,6 @@ test("a --source that is a link is kept as the directory it names", async (t) =>
   );
 });
 
-test("a kept source's link out of the source keeps its target", async (t) => {
-  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
-  const shared = path.join(path.dirname(agreed.source), "shared.txt");
-  await fs.writeFile(shared, "shared");
-  await fs.symlink("../shared.txt", path.join(agreed.source, "shared.txt"));
-  await publish(agreed.built, agreed.source, "--pages", list);
-  assert.equal(
-    await fs.readFile(
-      path.join(sessionDir, "src", "1", "agreed", "shared.txt"),
-      "utf8",
-    ),
-    "shared",
-  );
-});
-
-test("a read-only --source is kept like any other", async (t) => {
-  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
-  await fs.chmod(agreed.source, 0o555);
-  await publish(agreed.built, agreed.source, "--pages", list).finally(() =>
-    fs.chmod(agreed.source, 0o755),
-  );
-  assert.equal(
-    await exists(path.join(sessionDir, "src", "1", "agreed", "agreed.json")),
-    true,
-  );
-});
-
 test("an empty kept source says a publish may still be copying or was stopped", async (t) => {
   const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
   await fs.mkdir(path.join(sessionDir, "src", "1", "agreed"), {
@@ -637,19 +526,6 @@ test("an empty kept source says a publish may still be copying or was stopped", 
       );
       return true;
     },
-  );
-});
-
-test("a kept source's link to a name starting with two dots stays inside", async (t) => {
-  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
-  await fs.writeFile(path.join(agreed.source, "..notes.txt"), "notes");
-  await fs.symlink("..notes.txt", path.join(agreed.source, "notes-link"));
-  await publish(agreed.built, agreed.source, "--pages", list);
-  assert.equal(
-    await fs.readlink(
-      path.join(sessionDir, "src", "1", "agreed", "notes-link"),
-    ),
-    "..notes.txt",
   );
 });
 
@@ -673,18 +549,6 @@ test("a --source that is empty or a file is refused and leaves nothing", async (
     },
   );
   assert.equal(await exists(path.join(sessionDir, "src", "1")), false);
-});
-
-test("a read-only directory with a link inside the source is kept", async (t) => {
-  const { sessionDir, agreed, list, publish } = await sessionWithAgreed(t);
-  await fs.writeFile(path.join(agreed.source, "notes.md"), "notes");
-  await fs.symlink("notes.md", path.join(agreed.source, "latest.md"));
-  await fs.chmod(agreed.source, 0o555);
-  await publish(agreed.built, agreed.source, "--pages", list).finally(() =>
-    fs.chmod(agreed.source, 0o755),
-  );
-  const kept = path.join(sessionDir, "src", "1", "agreed");
-  assert.equal(await fs.readlink(path.join(kept, "latest.md")), "notes.md");
 });
 
 test("pair read --thread prints the thread, and pair reply posts to it", async (t) => {
@@ -779,8 +643,9 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
 });
 
 // agreedFiles builds Agreed for round 1 with the given page list, as the agent
-// does, and returns the pair publish arguments for it.
-async function agreedFiles(directory, pages) {
+// does, and returns the pair publish arguments for it, which start the page
+// named by start.
+async function agreedFiles(directory, pages, start = pages[0].id) {
   const { name, round, title } = planData();
   const file = path.join(directory, "agreed.html");
   const list = path.join(directory, "pages.json");
@@ -794,7 +659,7 @@ async function agreedFiles(directory, pages) {
     }),
   );
   await fs.writeFile(list, JSON.stringify({ pages }));
-  return ["--file", file, "--pages", list];
+  return ["--file", file, "--pages", list, "--start", start];
 }
 
 test("pair start takes --reopen only with --session-dir, and creates no session without it", async (t) => {
@@ -863,19 +728,27 @@ test("pair progress notes the round before Agreed, and each page it names", asyn
     JSON.parse(await cli.run("status", ...dir, "--json"));
   await progress("--note", "Reading");
   assert.equal((await state()).report.note, "Reading");
-  await cli.run(
-    "publish",
-    ...dir,
-    ...(await agreedFiles(root, [
+  const agreed = await agreedFiles(
+    root,
+    [
       { id: "overview", title: "Overview" },
       { id: "detail", title: "Detail" },
       { id: "later", title: "Later" },
-    ])),
+    ],
+    "detail",
   );
+  const published = await cli.run(
+    "publish",
+    ...dir,
+    ...agreed,
+    ...["--note", "Measuring"],
+  );
+  assert.match(published, /^Started: detail\.$/m);
   const pages = async () =>
     Object.fromEntries(
       (await state()).openRound.pages.map((page) => [page.id, page]),
     );
+  assert.equal((await pages()).detail.note.text, "Measuring");
   // pair progress refuses the whole report when one page is unknown, and leaves
   // every page unchanged.
   await assert.rejects(

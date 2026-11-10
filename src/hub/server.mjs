@@ -4,6 +4,7 @@ import http from "node:http";
 import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { assembleHome } from "../build/assemble.mjs";
+import { isClosed } from "../shared/lifecycle.mjs";
 import {
   agentRequestBytes,
   packageRoot,
@@ -112,9 +113,7 @@ export async function startHub(config = settings()) {
     return session;
   }
   const open = () =>
-    [...registry.values()].filter(
-      (session) => session.state.stage !== "complete",
-    );
+    [...registry.values()].filter((session) => !isClosed(session.state));
   const active = () => open().filter((session) => session.active());
   const listed = () =>
     withClosedParents(open(), (id) => registry.get(id))
@@ -171,8 +170,6 @@ export async function startHub(config = settings()) {
         ...flags,
       },
     );
-  const isClosed = (session) =>
-    session.state.stage === "complete" || Boolean(session.state.dismissedAt);
   const roundPage = async (session, entry, flags = {}, head = "") => {
     requireValue(entry, "Unknown round", 404);
     const readOnly = Boolean(flags.readonly || flags.closed);
@@ -188,7 +185,7 @@ export async function startHub(config = settings()) {
   const COMPRESS_OVER_BYTES = 1024;
   const embeds = new Map();
   async function embedPage(session, round) {
-    const flags = isClosed(session)
+    const flags = isClosed(session.state)
       ? { closed: true }
       : round === session.state.current?.round
         ? {}
@@ -323,10 +320,14 @@ export async function startHub(config = settings()) {
           .find((item) => item.startsWith("pair-last="))
           ?.slice("pair-last=".length);
         const remembered = cookie && registry.get(cookie);
+        const last = remembered?.state.current ? remembered.base + "/" : null;
+        // A closed session the reviewer viewed last is the target only when no
+        // session is open.
         const target =
           sessions.find((item) => item.needsYou)?.url ||
-          (remembered?.state.current ? remembered.base + "/" : null) ||
-          sessions.find((item) => !item.closed)?.url;
+          (remembered && !isClosed(remembered.state) ? last : null) ||
+          sessions.find((item) => !item.closed)?.url ||
+          last;
         if (target) return reply(302, "", "text/plain", { Location: target });
         return html(
           '<!doctype html><title>pair</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
@@ -417,7 +418,7 @@ export async function startHub(config = settings()) {
           // The hub serves a session the reviewer closed as read-only, so a
           // tab left open on it cannot submit and wake an agent that has
           // finished.
-          const closed = isClosed(session);
+          const closed = isClosed(session.state);
           const flags = closed ? { closed: true } : {};
           const head = closed
             ? ""
@@ -453,7 +454,7 @@ export async function startHub(config = settings()) {
           return html(
             await roundPage(session, session.roundEntry(round()), {
               readonly: true,
-              ...(isClosed(session) ? { closed: true } : {}),
+              ...(isClosed(session.state) ? { closed: true } : {}),
             }),
           );
         if (method === "GET" && rest[0] === "embed" && rest.length === 2) {

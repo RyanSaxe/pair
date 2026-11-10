@@ -2,6 +2,7 @@ import { ago, since } from "#frame/app/time.mjs";
 import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
 import { embedded, mode, online, session } from "#frame/app/view.mjs";
 import {
+  clearRound,
   installCenter,
   isClearedChange,
   loadCleared,
@@ -14,9 +15,10 @@ import {
   openedPages,
   syncOpened,
 } from "#frame/sync/opened.mjs";
-import { connected, remote } from "#frame/sync/rounds.mjs";
+import { remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
 import { fetchPolled } from "#frame/sync/status.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 let sessions = [];
 let grouped = [];
@@ -29,6 +31,7 @@ export function installSessions() {
     button: $("notifications"),
     sessionId: session.sessionId,
     open: (href) => location.assign(new URL(href, location.href).href),
+    cleared: loadCleared,
   });
   installCenter();
   installPanel($("sessions-pop"), $("menu-button"));
@@ -41,23 +44,15 @@ export function installSessions() {
   });
 }
 export function status() {
-  $("connection-status").textContent = !online
-    ? "Local viewing. You can export your draft. Sending it requires the session URL."
-    : !connected
-      ? "The hub is unreachable. Your draft stays here and submits when it is back."
-      : "";
+  $("connection-status").textContent = online
+    ? ""
+    : "Local viewing. You can export your draft. Sending it requires the session URL.";
   // When another tab closes the session, this tab reloads as a read-only
   // page, so it cannot send anything to an agent that the hub will never
   // wake again.
-  if (remote?.dismissedAt && mode === "live") location.reload();
+  if (isClosed(remote) && mode === "live") location.reload();
   // When an agent reopens the session, this tab reloads as a live page.
-  if (
-    session.closed &&
-    !embedded &&
-    remote &&
-    remote.stage !== "complete" &&
-    !remote.dismissedAt
-  )
+  if (session.closed && !embedded && remote && !isClosed(remote))
     location.reload();
 }
 // byStart sorts sessions by start time, so a number key opens the same
@@ -143,10 +138,10 @@ export function rowStatus(entry) {
   return null;
 }
 /* A waiting round counts only while the bell still lists its line, and
-   clearOwnRound clears that line once the reviewer opens one of the round's
-   pages or a note. A round that the reviewer started on therefore stops counting
-   until its agent publishes again. cleared is the bell's set of cleared event
-   IDs. */
+   clearRound clears that line once the reviewer opens the session, one of the
+   round's pages or a note. A round that the reviewer started on therefore stops
+   counting until its agent publishes again. cleared is the bell's set of cleared
+   event IDs. */
 export function sessionsBadge(list, thisId, unopened, cleared) {
   const others = list.filter((entry) => entry.id !== thisId);
   const waits = (entry) =>
@@ -163,6 +158,12 @@ export function sessionsBadge(list, thisId, unopened, cleared) {
     count: unseen.length,
     tone: unseen.some(waits) ? "need" : "news",
   };
+}
+// Opening another session, from its row or with w or a number key, starts its
+// waiting round.
+export function openSession(entry) {
+  clearRound(entry);
+  location.assign(entry.url);
 }
 export function nextWaiting(order, thisId) {
   const at = order.findIndex((entry) => entry.id === thisId);
@@ -272,7 +273,7 @@ function sessionRow(entry, unopened, depth) {
   row.append(marks);
   row.onclick = () => {
     if (current) toggleSessions(false);
-    else location.assign(entry.url);
+    else openSession(entry);
   };
   const copy = lineButton(
     `copy:${entry.id}`,

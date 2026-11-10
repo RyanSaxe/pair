@@ -1,4 +1,6 @@
 import { ago, since } from "#frame/app/time.mjs";
+import { isClosed, lifecycle } from "#shared/lifecycle.mjs";
+import { deliveryState, wakeAccepts } from "#shared/wake-state.mjs";
 
 export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
   const finished = Date.parse(publishedAt);
@@ -19,8 +21,8 @@ function silence(report, now) {
 }
 
 export function agentStopped(remote) {
-  const failed = remote?.wake?.last?.ok === false;
-  return { failed, stopped: failed || Boolean(remote?.paused) };
+  const failed = wakeAccepts(remote, "alert");
+  return { failed, stopped: failed || lifecycle(remote) === "paused" };
 }
 
 function lastReport(slot, now) {
@@ -72,15 +74,12 @@ export function activityModel({
   inFlight = false,
   now = Date.now(),
 }) {
-  // The hub's timestamps can come from an earlier round, so activityModel
-  // compares submission IDs. pair ack records that the agent received the
-  // submission, and pair read records that it received and read it.
   const latest = remote?.latestSubmissionId;
-  const read = Boolean(latest) && remote.lastAcknowledgedId === latest;
-  const received =
-    read || (Boolean(latest) && remote.lastReceivedId === latest);
+  const delivery = deliveryState(remote);
+  const read = delivery === "read";
+  const received = read || delivery === "received";
   const { failed, stopped } = agentStopped(remote);
-  const paused = Boolean(remote?.paused);
+  const paused = lifecycle(remote) === "paused";
   const slots = remote?.openRound
     ? [
         { id: "agreed", title: "Agreed so far", state: "ready" },
@@ -189,10 +188,10 @@ export function activityModel({
 // The frame shows the progress card outside a round that a send started
 // when agentNotice returns true.
 export function agentNotice(remote) {
-  if (!remote || remote.stage === "complete") return false;
+  if (!remote || isClosed(remote)) return false;
   return (
     Boolean(remote.takeover) ||
-    (remote.wake?.last?.ok === false &&
+    (wakeAccepts(remote, "alert") &&
       ["submitted", "working"].includes(remote.stage))
   );
 }
@@ -206,7 +205,8 @@ export function roundModel({ remote, now = Date.now() }) {
   const total = round.pages.length + 1;
   const ready = 1 + round.pages.filter((item) => item.state === "ready").length;
   if (ready === total) return null;
-  if (remote.paused) return { text: "Agent paused", late: true };
+  if (lifecycle(remote) === "paused")
+    return { text: "Agent paused", late: true };
   const quiet = silence(remote.report, now);
   if (quiet) return { text: quiet, late: true };
   return { text: `${ready} of ${total} ready`, late: false };

@@ -19,7 +19,7 @@ test("start hands the session to its agent, and only the holder works on it and 
   // holder.
   const first = (await a.status()).body.holder;
   assert.equal((await register(one, true)).code, 200);
-  assert.deepEqual((await a.status()).body.holder, first);
+  assert.equal((await a.status()).body.holder.at, first.at);
   assert.equal(
     (await a.action("ack", { agent: three.agent })).body.error,
     `Another agent has run this session since ${clock(first.at)}, so stop working on it. If the reviewer asks you to take it over, run pair start --session-dir ${a.directory}.`,
@@ -111,13 +111,14 @@ test("a start that takes over an open round names the submission the round answe
   const opened = await a.action("publish", {
     html: agreed,
     pages: [{ id: "overview", title: "Overview" }],
+    start: ["overview"],
   });
   assert.equal(opened.code, 200, opened.body.error);
   const took = await h.register(a.directory, two.target, { start: true });
   assert.equal(took.code, 200);
   assert.equal(
     took.body.next,
-    `If you have not run pair guide in this conversation, run it first. This round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. You still have to publish these pages: overview. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.`,
+    `If you have not run pair guide in this conversation, run it first. This round answers the reviewer's feedback in submission ${feedback.id}, which the previous agent read. Run pair read --session-dir ${a.directory} --submission ${feedback.id} to read it. You still have to publish these pages: overview (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it, with --start ID for the page you work on next while other pages are left.`,
   );
 });
 

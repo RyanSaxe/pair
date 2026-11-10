@@ -1,5 +1,6 @@
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { accepts } from "../../shared/lifecycle.mjs";
 import { idPattern } from "../../shared/records.mjs";
 import { exists, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { message } from "./proposal-fields.mjs";
@@ -50,7 +51,7 @@ export function submissions(session) {
     // A tab opened before the session closed can still post, and a submission
     // would reopen the session and wake an agent that has finished.
     requireValue(
-      session.state.stage !== "complete",
+      accepts(session.state, "change"),
       "This session is closed",
       409,
     );
@@ -190,7 +191,6 @@ export function submissions(session) {
     const event = await session.saveEvent(data);
     await session.draftSent(sent);
     await transition({
-      stage: "submitted",
       latestSubmissionId: data.id,
       // The agent answers this submission with its next round, and the
       // frame shows the agent's progress until that round is complete.
@@ -198,7 +198,6 @@ export function submissions(session) {
       // The frame in every browser counts the agent's running time from
       // roundStartedAt.
       roundStartedAt: event.receivedAt,
-      wake: session.state.wake ? { ...session.state.wake, last: null } : null,
       takeover: null,
       // With Build it, the reviewer approves the work, and the agent builds
       // it in this session from now on.
@@ -209,7 +208,7 @@ export function submissions(session) {
         : {}),
     });
     if (data.next === "build") await session.buildLinked();
-    if (session.wake && !session.state.paused)
+    if (session.wake && accepts(session.state, "wake"))
       setTimeout(() => exclusive(() => session.wakeAgent(data.round)), 0);
     return { id: data.id, saved: true, status: session.browserView() };
   }

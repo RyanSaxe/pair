@@ -586,9 +586,9 @@ test("--done marks work approved to run here done, --where marks any card done, 
 });
 
 // The hub stores a card's status as one list of parts, in the order the agent
-// added them. --status-left adds a part. --status-done and --status-drop mark a
-// listed part done or dropped, and the hub refuses a part the card does not
-// list instead of adding it. No flag removes a part. A status that changes no
+// added them. --status-left adds a part or sets a listed one back to left.
+// --status-done and --status-drop mark a listed part done or dropped, and the
+// hub refuses a part the card does not list instead of adding it. No flag removes a part. A status that changes no
 // part leaves status.at as it was, and the hub adds no event for any status.
 // The hub refuses a status for work nobody started or that is finished, and
 // --reopen clears the status.
@@ -661,10 +661,16 @@ test("a status adds and marks the parts of approved work and never removes one",
     ["Check the totals", "done"],
     ["Email the team", "left"],
   ]);
-  await changed({ statusLeft: ["Write the export"] });
-  assert.deepEqual((await parts())[2], ["Write the export", "dropped"]);
-  await changed({ statusDone: ["Write the export"] });
-  assert.deepEqual((await parts())[2], ["Write the export", "done"]);
+  await changed({ statusLeft: ["Map the columns", "Write the export"] });
+  assert.deepEqual((await parts()).slice(1, 3), [
+    ["Map the columns", "left"],
+    ["Write the export", "left"],
+  ]);
+  await changed({ statusDone: ["Map the columns", "Write the export"] });
+  assert.deepEqual((await parts()).slice(1, 3), [
+    ["Map the columns", "done"],
+    ["Write the export", "done"],
+  ]);
   assert.equal(await events(), before, "a status adds nothing to the bell");
 
   const kept = await parts();
@@ -930,6 +936,25 @@ test("--join merges a card into a proposed card or one approved to run here, and
     ["outline", "churn-export"],
     ["late", "churn-export"],
   ]);
+});
+
+// Nobody builds a declined or withdrawn card, so the hub returns each card
+// joined into it to Proposed, where the reviewer can start or decline it.
+test("declining or withdrawing a card returns the cards joined into it to Proposed", async (t) => {
+  const { propose, add, reviewer, cards } = await proposing(t);
+  for (const id of ["typo", "docs", "small", "big"])
+    await add({ id, title: `Card ${id}` });
+  assert.equal((await propose({ id: "typo", join: "docs" })).code, 200);
+  assert.equal((await propose({ id: "small", join: "big" })).code, 200);
+  assert.equal((await reviewer("docs", "decline")).code, 200);
+  const withdrawn = await propose({ id: "big", withdraw: true, reason: "x" });
+  assert.equal(withdrawn.code, 200, withdrawn.body.error);
+  assert.deepEqual(
+    (await cards()).filter((item) => item.done).map(({ id }) => id),
+    [],
+  );
+  assert.equal((await reviewer("typo", "start", { where: "here" })).code, 200);
+  assert.equal((await reviewer("small", "decline")).code, 200);
 });
 
 test("a thread on a card wakes the holder with the card it is on", async (t) => {

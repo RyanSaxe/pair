@@ -309,6 +309,10 @@ main {
   overflow: hidden;
   white-space: nowrap;
 }
+/* The unreachable line is a sentence, so it wraps on a phone. */
+.history-strip.unreachable #history-label {
+  white-space: normal;
+}
 #history-label :is(.crumb-name, .meta) {
   min-width: 0;
   overflow: hidden;

@@ -1,6 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { adapters } from "../hub/wake.mjs";
+import { lifecycle } from "../shared/lifecycle.mjs";
+import { proposalState } from "../shared/proposal-state.mjs";
+import { wakeState } from "../shared/wake-state.mjs";
 import { listing, usageError } from "./arguments.mjs";
 import { rows } from "./output.mjs";
 import { openSession } from "./session.mjs";
@@ -173,8 +176,9 @@ export async function pause(options) {
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
 function stageText(status) {
-  if (status.paused) return `paused: ${status.paused.reason}`;
-  if (status.stage === "complete") return "closed by the reviewer";
+  const state = lifecycle(status);
+  if (state === "closed") return "closed by the reviewer";
+  if (state === "paused") return `paused: ${status.paused.reason}`;
   if (status.openRound) return "the agent publishes its pages";
   if (status.stage === "submitted")
     return "the reviewer sent something that pair read has not printed yet";
@@ -190,15 +194,17 @@ const pageStates = {
   ready: "published",
 };
 
-function holderText({ holder, wake }) {
+// A wake that the holder answered with a command, or that has not gone out,
+// gets no line.
+function holderText(status) {
+  const { holder, wake } = status;
   if (!holder) return "none";
   const last = wake?.last;
-  const sent = !last
-    ? ""
-    : last.ok
-      ? ` Last wake ${clock(last.at)}, sent.`
-      : ` Last wake ${clock(last.at)}, failed: ${last.reason}`;
-  return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent}`;
+  const sent = {
+    sent: () => ` Last wake ${clock(last.at)}, sent.`,
+    failed: () => ` Last wake ${clock(last.at)}, failed: ${last.reason}`,
+  }[wakeState(status)];
+  return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent ? sent() : ""}`;
 }
 
 const places = {
@@ -206,7 +212,7 @@ const places = {
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
-function proposalState(card, cards) {
+function cardText(card, cards) {
   const { status } = card;
   const counted = status?.parts.filter((part) => part.state !== "dropped");
   const parts = counted
@@ -214,22 +220,21 @@ function proposalState(card, cards) {
     : "";
   const joined = joinedInto(card, cards).map((item) => item.id);
   const joins = joined.length ? `, joined by ${listing(joined)}` : "";
-  if (card.declined) return `declined${joins}`;
-  if (card.withdrawn) return `withdrawn${joins}`;
-  if (card.done?.joined) return `done, joined into ${card.done.joined}`;
-  if (card.done)
+  const state = proposalState(card);
+  if (state === "joined") return `done, joined into ${card.done.joined}`;
+  if (state === "done" || state === "closed")
     return `done ${card.done.where ?? places[card.started.where]}${joins}`;
-  if (card.started) {
+  if (state === "running" || state === "opening" || state === "linked") {
     const { where, planFirst, built } = card.started;
     const planning = planFirst && !built ? ", planning first" : "";
     return `approved to run ${places[where]}${planning}${parts}${joins}`;
   }
-  return `proposed${joins}`;
+  return `${state}${joins}`;
 }
 
 function proposalsText(cards) {
   if (!cards?.length) return "";
-  const states = cards.map((card) => proposalState(card, cards));
+  const states = cards.map((card) => cardText(card, cards));
   const width = (values) => Math.max(...values.map((value) => value.length));
   const idWidth = width(cards.map((card) => card.id));
   const stateWidth = width(states);
@@ -246,7 +251,7 @@ function proposalsText(cards) {
 }
 
 function linkedText(cards = []) {
-  const linked = cards.filter((card) => card.started?.session && !card.done);
+  const linked = cards.filter((card) => proposalState(card) === "linked");
   return linked
     .map((card) => `${card.id} in ${card.started.session.dir}`)
     .join(", ");
@@ -286,7 +291,7 @@ export async function propose(options) {
   return {
     next: result.next,
     data: [
-      `Proposal ${card.id}${where}: ${proposalState(card)}.`,
+      `Proposal ${card.id}${where}: ${cardText(card)}.`,
       status && leftText(card, session.directory),
     ]
       .filter(Boolean)
@@ -301,7 +306,7 @@ function leftText(card, directory) {
     .map((part) => part.text);
   if (left.length)
     return `Left: ${sentence(left.join("; "))}\nBuild the next part. When you finish a part, run pair propose --session-dir ${directory} --id ${card.id} --status-done "PART". Add a part with --status-left, and drop a part the work no longer needs with --status-drop.`;
-  if (card.started.where === "here")
+  if (proposalState(card) === "running")
     return `Nothing is left. After you publish the work's last page, run pair propose --session-dir ${directory} --id ${card.id} --done.`;
   return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";
 }

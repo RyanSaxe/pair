@@ -20,6 +20,7 @@ import {
   timestamp,
 } from "../../shared/util.mjs";
 import { answersRound } from "./agent.mjs";
+import { requireStarted, startPages } from "./page-notes.mjs";
 import { nextOf } from "./submissions.mjs";
 
 export function rounds(session) {
@@ -172,15 +173,16 @@ export function rounds(session) {
   }
   /* Every round draws fresh on today's frame, so restarting the hub updates every
      session at once. A read-only round that never finished shows the pages it
-     published, because no frame fills in the rest. */
+     published, which can be none, because no frame fills in the rest. */
   function renderRound(round, { readOnly = false } = {}) {
     const set = session.state.roundPages?.[round];
     if (!set) return null;
     const published = set.pages.filter((slot) => slot.recordPath);
     const finished = published.length === set.pages.length;
-    return readOnly
-      ? renderPageRound({ ...set, pages: published }, true)
-      : renderPageRound(set, finished);
+    return renderPageRound(
+      readOnly ? { ...set, pages: published } : set,
+      finished,
+    );
   }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);
@@ -221,7 +223,6 @@ export function rounds(session) {
       openRound: complete ? null : set,
       roundPages: { ...(session.state.roundPages || {}), [set.round]: set },
       pageSetGeneration: set.generation,
-      stage: complete ? "updated" : "working",
       current,
       title: set.title,
       rounds,
@@ -267,14 +268,26 @@ export function rounds(session) {
     (await fs.realpath(source).catch(() => "")).startsWith(
       (await fs.realpath(directory)) + path.sep,
     );
-  async function publishPage(html, source, pages) {
+  async function publishPage({ html, source, pages, start = [], note }) {
+    requireValue(
+      Array.isArray(start) && start.every((id) => typeof id === "string"),
+      "Give --start once for each page you start.",
+    );
+    requireValue(
+      note === undefined ||
+        (typeof note === "string" &&
+          note.trim() &&
+          note.trim().length <= 80 &&
+          start.length),
+      "--note on pair publish is text of at most 80 characters about the pages you name with --start.",
+    );
     requireValue(
       !(await pending()).length,
       `The reviewer sent something you have not read. Run pair read --session-dir ${directory} first, then publish.`,
       409,
     );
     requireValue(
-      ["ready", "working"].includes(session.state.stage),
+      ["ready", "working"].includes(session.stage()),
       "You published every page of this round, and the reviewer has not sent feedback on it yet. Publish the next round after the hub wakes you with their feedback.",
       409,
     );
@@ -341,7 +354,7 @@ export function rounds(session) {
     } else {
       requireValue(
         session.state.openRound,
-        `Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --session-dir ${directory}.`,
+        `Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --start ID --session-dir ${directory}.`,
         409,
       );
       set = structuredClone(session.state.openRound);
@@ -414,6 +427,10 @@ export function rounds(session) {
         slot.version = version;
         set.generation++;
       }
+      // The pages start in the commit that publishes this page, so a refused
+      // publish starts none of them.
+      startPages(set, start, note?.trim());
+      requireStarted(set);
       result = await commitPageRound(set, source);
       if (opening)
         result.next = `${session.browserLine(result.url)} Then: ${result.next}`;
@@ -440,8 +457,17 @@ export function rounds(session) {
     };
   }
   async function pageProgress(data) {
+    // Between rounds, the stage is "working" only after the agent read the
+    // feedback on the last round, and then the next round's Agreed comes next.
+    const { current } = session.state;
+    if (current && !session.state.openRound && session.stage() !== "working")
+      requireValue(
+        false,
+        `Every page of round ${current.round} is published, so the round has no page to start. ${await session.nextStep()}`,
+        409,
+      );
     requireValue(
-      session.state.openRound && session.state.stage === "working",
+      session.state.openRound && session.stage() === "working",
       "Publish Agreed first",
       409,
     );
@@ -450,16 +476,7 @@ export function rounds(session) {
       Array.isArray(data.start) && data.start.length > 0,
       "Name each page you start with --page ID. pair publish marks a page finished, so you never need to.",
     );
-    for (const id of data.start) {
-      const slot = set.pages.find((item) => item.id === id);
-      requireValue(
-        slot && !slot.recordPath,
-        `Page ${id} is not in this round's page list, or you already published it.`,
-        409,
-      );
-      slot.state = "active";
-      slot.startedAt ??= timestamp();
-    }
+    startPages(set, data.start);
     set.generation++;
     return commitPageRound(set);
   }

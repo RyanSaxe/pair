@@ -75,15 +75,17 @@ session to your browser and wakes the agent when you respond.
   chat.
 - The hub redirects the root URL, `http://127.0.0.1:4747/` by default, to
   the session whose waiting round was published earliest, or else to the
-  session you opened last. You can bookmark it.
+  session you opened last. When you have closed that session and another
+  session is open, the hub redirects to the open one. You can bookmark the
+  root URL.
 
 ## When the hub wakes the agent
 
 The hub wakes the holder at these moments:
 
 - When you send a round, unless the session is paused.
-- When you send a message in a [thread](threads.md), even while the session
-  is paused. The wake message contains your message, or its first 500
+- When you send a message in a [thread](threads.md), unless the session is
+  paused. The wake message contains your message, or its first 500
   characters cut at a space when it is longer, the number of images you
   attached, and the `pair read --thread` command that prints the whole
   thread with the images' paths.
@@ -96,7 +98,7 @@ The hub wakes the holder at these moments:
   the started work, so the hub sends no wake and `pair read` does not print
   the start again.
 - When you press Open a new agent session, which starts a thread on the
-  card.
+  card, unless the session is paused.
 - When a page or a proposal has had no update for 10 minutes and no `pair`
   command has run on the session for 10 minutes, unless the session is
   paused, as [Quiet work](#quiet-work) describes.
@@ -129,6 +131,12 @@ and the progress card and Work then show you no progress.
   becomes quiet, the hub sends a new wake that lists all the quiet work.
 - The hub keeps the time of the last command in memory, so after a restart
   it counts from its own start.
+
+The quiet check counts only started pages, so `pair publish` refuses a
+publish that would leave pages of the open round unpublished and none of
+them started, unless `--start` names the page the agent works on next. A
+proposal started here with every part done or dropped is not quiet, and the
+next step names it until the agent marks it done.
 
 ## How the hub wakes each agent CLI
 
@@ -207,7 +215,11 @@ what you sent or a Start.
 - Each wake also sets `holder.steerable` in `status.json`, which is `true`
   when the agent CLI reads a message in the middle of a turn.
 - When a wake fails, the progress card shows "Could not wake the agent.
-  Send a message in chat." and the [handoff line](holders-and-handoff.md).
+  Send a message in chat." and the [handoff line](holders-and-handoff.md),
+  and the session list shows "Can't wake", until the holder runs a `pair`
+  command.
+- When the hub stops before a wake goes out, the next hub that loads the
+  session sends it.
 
 ## Storage
 
@@ -221,7 +233,7 @@ hub/
   start.lock         the pid of the command that is starting or replacing the hub
   seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
 sessions/<dir>/      the directory name is not the session ID
-  status.json        title, stage, holder, last wake, open round, linked parent; pair status prints it
+  status.json        title, holder, pause, close time, last wake, open round, linked parent; pair status prints it
   connection.json    session ID, hub origin, agent token, the agent CLI's name
   wake.json          how to wake the holder, such as its inbox socket or thread ID
   pages/<round>/     published page records

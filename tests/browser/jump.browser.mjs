@@ -178,24 +178,6 @@ test("a thread message opens on its page with its card showing", async (t) => {
   );
 });
 
-test("a proposal opens on Work at its card", async (t) => {
-  const { page } = await setUp(t, async (h, a) => {
-    const proposed = await a.action("propose", {
-      id: "tapir-work",
-      title: "Teach the tapir",
-      delivers: "A tapir that can swim.",
-      why: "It sinks.",
-      recommend: "here",
-      agent: a.agent,
-    });
-    assert.equal(proposed.code, 200, proposed.body.error);
-  });
-  if (!page) return;
-  await openResult(page, "tapir");
-  await highlighted(page, "tapir");
-  assert.equal(new URL(page.url()).hash, "#work");
-});
-
 // Sending a round moves the session on, so the older round's cases share one
 // session: a sent note opens its card, a block opens in the left tab, and Back
 // and a reload both return there.

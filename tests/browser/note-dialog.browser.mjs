@@ -275,7 +275,11 @@ test("an edit saved after another tab removed the note sends as a new note, with
 
   await first.goto(`${url}#feedback`);
   await button(first, "Remove").click();
-  await waitUntil(async () => !(await onHub(original.attachments[0])));
+  assert.equal(
+    await waitUntil(async () => !(await onHub(original.attachments[0]))),
+    true,
+    "the first tab's Remove deleted the image",
+  );
   await second.locator("#note-save").click();
   await closed(second);
 

@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { compareFiles } from "../../src/cli/diff.mjs";
 import { exec, exists, pair } from "../support/hub.mjs";
 
 // Git passes GIT_DIR and the other GIT_* variables to hooks, and they would
@@ -12,7 +11,7 @@ const withoutGit = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
 );
 
-test("file comparison preserves exact sources and produces an applicable Git patch", async (t) => {
+test("pair diff writes the exact sources and a Git patch that applies", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-diff-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const beforePath = path.join(directory, "before", "cli.py");
@@ -26,16 +25,15 @@ test("file comparison preserves exact sources and produces an applicable Git pat
     await fs.mkdir(path.dirname(file));
     await fs.writeFile(file, text);
   }
-  const result = await compareFiles(beforePath, afterPath);
-  assert.equal(result.before, before);
-  assert.equal(result.after, after);
-  assert.match(result.patch, /^diff --git a\/cli\.py b\/cli\.py$/m);
-  assert(!result.patch.includes(directory));
   const output = path.join(directory, "input.json");
   await exec(process.execPath, [pair, "diff", beforePath, afterPath, output], {
     env: withoutGit,
   });
-  assert.deepEqual(JSON.parse(await fs.readFile(output, "utf8")), result);
+  const result = JSON.parse(await fs.readFile(output, "utf8"));
+  assert.equal(result.before, before);
+  assert.equal(result.after, after);
+  assert.match(result.patch, /^diff --git a\/cli\.py b\/cli\.py$/m);
+  assert(!result.patch.includes(directory));
   const patchPath = path.join(directory, "change.patch");
   await fs.writeFile(patchPath, result.patch);
   // Git for Windows turns on core.autocrlf, and git apply would then write CRLF

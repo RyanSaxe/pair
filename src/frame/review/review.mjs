@@ -10,14 +10,13 @@ import {
   base,
   current,
   currentAvailable,
-  feedbackEditable,
+  editable,
   isPlanRound,
   mode,
   page,
   pages,
   plan,
   showingWaiting,
-  submittedCurrent,
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
@@ -36,17 +35,19 @@ import {
 import {
   refusedMessage,
   submissionError,
-  submissionInFlight,
   submitButton,
 } from "#frame/review/send.mjs";
 import { choiceLabel } from "#frame/review/send-popup.mjs";
+import {
+  sendAccepts,
+  sendState,
+  settleSend,
+} from "#frame/review/send-state.mjs";
 import { renderActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import {
-  connected,
   currentDraft,
   lastSubmission,
   listedTab,
-  remote,
   selectedTab,
   sentByRound,
 } from "#frame/sync/rounds.mjs";
@@ -412,14 +413,16 @@ export function sentDraft(round) {
   return draft;
 }
 export function review() {
+  settleSend();
   if (displayedRound !== viewKey()) {
     renderHistory();
     status();
     return;
   }
   const unsent = unsentItems(state);
+  const send = sendState();
   const sent = selectedTab === "past" || mode === "readonly";
-  const locked = sent || submissionInFlight || submittedCurrent();
+  const locked = sent || (editable && !sendAccepts("edit", send));
   $("draft-head").hidden = unsent.count === 0;
   $("draft-count").textContent = `${draftedWords(state)} to send`;
   // The sidebar's last row shows the round that the sidebar lists, and
@@ -439,7 +442,7 @@ export function review() {
     reviewLabel.textContent = listedSent ? "What you sent" : "Review";
   $("feedback-title").textContent = sent
     ? "What you sent"
-    : submissionInFlight
+    : send === "sending"
       ? "Sending"
       : "Review";
   $("feedback-review").hidden = locked;
@@ -478,16 +481,13 @@ export function review() {
   const draft = forCurrent ? currentDraft() : state;
   const pending = forCurrent ? unsentItems(draft) : unsent;
   const button = submitButton({
-    inFlight: submissionInFlight,
+    inFlight: send === "sending",
     opensFeedback: sent && !forCurrent,
     onSentFeedback:
       $("reading").hidden &&
       (mode === "readonly" || plan.round === submittedRound),
-    waitingForPages: Boolean(remote?.openRound),
-    sendable:
-      connected &&
-      !remote?.openRound &&
-      (forCurrent || (current() && feedbackEditable())),
+    waitingForPages: send === "pages-pending",
+    sendable: sendAccepts("send", send) && (forCurrent || current()),
     pending: pending.count,
   });
   $("submit").disabled = button.disabled;

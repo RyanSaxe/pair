@@ -49,10 +49,8 @@ import {
   setRenderedFeedback,
   showSent,
 } from "#frame/review/review.mjs";
-import {
-  clearSubmissionError,
-  submissionInFlight,
-} from "#frame/review/send.mjs";
+import { clearSubmissionError } from "#frame/review/send.mjs";
+import { sendState } from "#frame/review/send-state.mjs";
 import { renderHistory, renderRound } from "#frame/sync/activity-view.mjs";
 import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { renderRounds } from "#frame/sync/rounds-panel.mjs";
@@ -69,7 +67,8 @@ export let remote = null;
 export function setRemote(status) {
   remote = status;
 }
-export let connected = false;
+// connected is null until the first status poll answers or fails.
+export let connected = null;
 export let lastSubmission = null;
 let lastSubmissionLoadedId = null;
 async function fetchSubmission(round = null) {
@@ -385,11 +384,11 @@ export function currentDraft() {
 export let listedTab = "current";
 const tabAvailable = (tab) =>
   tab === "current"
-    ? currentShown() || submissionInFlight
+    ? currentShown() || sendState() === "sending"
     : tab !== "past" || pastAvailable();
 const viewFor = (tab) => {
   const round = tab === "current" ? remote.current.round : pastRound;
-  return tab === "current" && (waiting() || submissionInFlight)
+  return tab === "current" && ["sending", "waiting"].includes(sendState())
     ? waitingView(round)
     : views.get(round);
 };
@@ -470,7 +469,7 @@ export async function poll() {
     // Previous tab shows it, and a reader on Work stays on Work. A place the
     // reader opened from a result or a link stays open too, under Previous, as
     // it would have opened had this poll come first.
-    if (waiting() && !submissionInFlight) {
+    if (sendState() === "waiting") {
       setSubmittedRound(remote.current.round);
       if (selectedTab === "current" && !showingWaiting()) {
         setPastRound(submittedRound);
@@ -499,7 +498,7 @@ export async function poll() {
     // When the next round's Agreed arrives while Current waits, the frame
     // replaces the pending Agreed without moving the reader or the scroll
     // position.
-    if (showingWaiting() && currentAvailable() && !submissionInFlight) {
+    if (showingWaiting() && currentAvailable() && sendState() !== "sending") {
       switchTab("current", null, { showPage: false });
       show(
         ["feedback", "work"].includes(shownPage()) ? shownPage() : "agreed",

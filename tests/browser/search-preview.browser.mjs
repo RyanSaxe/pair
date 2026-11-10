@@ -253,14 +253,25 @@ test("a figure that never finishes drawing leaves the search window working", as
   const { page } = await setUp(t);
   if (!page) return;
   await page.route(/pele@[^/]+\/dist\/pele\.js$/, () => {});
+  // The search frame loads after the clock is installed, so its timers run on
+  // that clock. Once the frame has the figure's page, the clock jumps past the
+  // 15 seconds that the marking waits for a figure to draw.
+  await page.clock.install();
   await type(page, "quokka");
-  await page.locator(".search-frame.is-shown").waitFor();
-  await page.waitForTimeout(16000);
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector(".search-frame")
+        ?.contentDocument?.getElementById("page-content")?.dataset.pageId ===
+      "figure",
+  );
+  await page.clock.fastForward(16000);
   const alive = await Promise.race([
     page.evaluate(() => "alive"),
     new Promise((done) => setTimeout(() => done("frozen"), 3000)),
   ]);
   assert.equal(alive, "alive");
+  await page.locator(".search-frame.is-shown").waitFor();
 });
 
 test("a key typed with focus in the frame goes to the search field, whole", async (t) => {
@@ -286,11 +297,15 @@ test("a page title's result shows the page from its title down", async (t) => {
   assert.equal(await shown(page).locator(".search-matched").count(), 0);
 });
 
-test("the reader can scroll a long result, and the page fills the pane", async (t) => {
+test("a word in a long fold opens the fold and scrolls to the word, and the reader can scroll the result, which fills the pane", async (t) => {
   const { page } = await setUp(t);
   if (!page) return;
   await type(page, "pangolin");
   await previewShows(page, "pangolin");
+  assert.equal(
+    await shown(page).locator("#page-content details").getAttribute("open"),
+    "",
+  );
   const read = () =>
     page.evaluate(() => {
       const frame = document.querySelector(".search-frame.is-shown");
@@ -306,17 +321,6 @@ test("the reader can scroll a long result, and the page fills the pane", async (
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, -300);
   await waitUntil(async () => (await read()).top < before.top);
-});
-
-test("a word in a long fold opens the fold and scrolls to the word itself", async (t) => {
-  const { page } = await setUp(t);
-  if (!page) return;
-  await type(page, "pangolin");
-  await previewShows(page, "pangolin");
-  assert.equal(
-    await shown(page).locator("#page-content details").getAttribute("open"),
-    "",
-  );
 });
 
 test("a thread on a block shows the block with the thread's real card", async (t) => {
@@ -932,6 +936,9 @@ test("a closed session shows read-only", async (t) => {
 test("leaving the search window stops what plays in a frame", async (t) => {
   const { page } = await setUp(t);
   if (!page) return;
+  // The search frame loads after the clock is installed, so its 10-second poll
+  // runs on that clock.
+  await page.clock.install();
   await type(page, "walrus");
   await previewShows(page, "walrus");
   await page.evaluate(() => {
@@ -940,22 +947,27 @@ test("leaving the search window stops what plays in a frame", async (t) => {
     const video = win.document.createElement("video");
     video.pause = () => win.pauses++;
     win.document.getElementById("page-content").append(video);
+    // The frame counts its own requests, because the test can hear of a
+    // request only after the clock's jump has returned.
+    win.asked = [];
+    const send = win.fetch;
+    win.fetch = (url, options) => {
+      if (String(url).includes("/api/status")) win.asked.push(String(url));
+      return send(url, options);
+    };
   });
   await page.keyboard.press("Escape");
   await page.waitForFunction(
     () => document.querySelector(".search-frame").contentWindow.pauses === 1,
   );
   // The frame stays loaded, and it asks the hub for nothing while it's closed.
-  const asked = [];
-  page.on("request", (request) => {
-    if (
-      request.frame() !== page.mainFrame() &&
-      request.url().includes("/api/status")
-    )
-      asked.push(request.url());
-  });
-  await page.waitForTimeout(11000);
-  assert.deepEqual(asked, []);
+  await page.clock.fastForward(11000);
+  assert.deepEqual(
+    await page.evaluate(
+      () => document.querySelector(".search-frame").contentWindow.asked,
+    ),
+    [],
+  );
 });
 
 test("a theme change reaches a frame that's already loaded", async (t) => {

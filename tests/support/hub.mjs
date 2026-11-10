@@ -214,9 +214,9 @@ export async function hub(t, extra = {}, options = {}) {
         headers,
       );
     // publish() sends a round the way the agent does, Agreed with the page list
-    // first and then each page. It returns the first refusal, or the response
-    // to the last page. With data.plan, it marks the round as a plan in
-    // Agreed's source.
+    // first and then each page, each publish starting the page after it. It
+    // returns the first refusal, or the response to the last page. With
+    // data.plan, it marks the round as a plan in Agreed's source.
     const publish = async (data) => {
       const build = (page) =>
         buildPage(path.join(directory, "source.json"), {
@@ -226,6 +226,8 @@ export async function hub(t, extra = {}, options = {}) {
           ...(page.id === "agreed" && data.plan ? { plan: true } : {}),
           page,
         });
+      const next = (index) =>
+        data.pages[index] ? { start: [data.pages[index].id] } : {};
       let result = await action("publish", {
         html: await build({
           id: "agreed",
@@ -234,11 +236,17 @@ export async function hub(t, extra = {}, options = {}) {
           agreements: data.agreements || [],
         }),
         pages: data.pages.map(({ id, title }) => ({ id, title })),
+        ...next(0),
       });
       // With data.stopAfter, the rest of the round's pages never publish.
-      for (const page of data.pages.slice(0, data.stopAfter)) {
+      for (const [index, page] of data.pages
+        .slice(0, data.stopAfter)
+        .entries()) {
         if (result.code !== 200) break;
-        result = await action("publish", { html: await build(page) });
+        result = await action("publish", {
+          html: await build(page),
+          ...next(index + 1),
+        });
       }
       return result;
     };

@@ -50,7 +50,7 @@ for (const engine of ["chrome", "webkit"])
     const bodies = await statuses();
     assert.ok(bodies[0] > 0, String(bodies));
     assert.equal(bodies.at(-1), 0, String(bodies));
-    assert.equal(await page.locator("#connection-status").textContent(), "");
+    assert.equal(await page.locator("#history-strip").isHidden(), true);
 
     const started = await a.request(`${a.base}/api/threads`, {
       id: "kestrel",
@@ -62,3 +62,43 @@ for (const engine of ["chrome", "webkit"])
     assert.equal(started.code, 201, started.body.error);
     await page.locator('pair-thread[data-thread="kestrel"]').waitFor();
   });
+
+test("while status polls fail, every page says that the hub is unreachable and the draft is saved, and Send is off in the header and in the open Send popup, until a poll answers", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  assert.equal((await a.publish(planData())).code, 200);
+  const page = await open(t, `${h.server.origin}${a.base}/#overview`);
+  if (!page) return;
+  const submit = page.locator("#submit");
+  const strip = page.locator("#history-strip");
+  const fail = () =>
+    page.route("**/api/status", (route) => route.abort("connectionrefused"));
+  const answer = () => page.unroute("**/api/status");
+  await page.locator("#submit:enabled").waitFor();
+  await fail();
+  await strip
+    .filter({
+      hasText: "The hub is unreachable. Your draft is saved in this browser.",
+    })
+    .waitFor();
+  assert.equal(await submit.isDisabled(), true);
+  await page.locator("#review-row").click();
+  await page.locator("#review-view").waitFor();
+  assert.equal(await strip.isVisible(), true);
+  await answer();
+  await strip.waitFor({ state: "hidden" });
+  assert.equal(await submit.isEnabled(), true);
+
+  // The Send popup's Send follows the header's while the popup stays open.
+  await submit.click();
+  await page.locator("#send-dialog[open]").waitFor();
+  await page.locator("#send-message").fill("Typed before the hub stopped.");
+  await page.locator("#send-button:enabled").waitFor();
+  await fail();
+  await page.locator("#send-button:disabled").waitFor();
+  assert.equal(await submit.isDisabled(), true);
+  assert.equal(await page.locator("#send-dialog").isVisible(), true);
+  await answer();
+  await page.locator("#send-button:enabled").waitFor();
+  assert.equal(await submit.isEnabled(), true);
+});

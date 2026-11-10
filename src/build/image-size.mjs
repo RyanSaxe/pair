@@ -102,7 +102,7 @@ export function imageSize(bytes) {
   return pngSize(bytes) || jpegSize(bytes) || webpSize(bytes) || gifSize(bytes);
 }
 
-export function svgSize(text) {
+function svgSize(text) {
   const viewBox = text.match(/<svg\b[^>]*\bviewBox\s*=\s*(["'])(.*?)\1/i)?.[2];
   if (!viewBox) return null;
   const [, , width, height] = viewBox

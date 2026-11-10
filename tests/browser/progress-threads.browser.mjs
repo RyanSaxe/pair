@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
 import { open } from "../support/browser.mjs";
-import { hub, sleep, task } from "../support/hub.mjs";
+import { hub, task } from "../support/hub.mjs";
 
 // The agent publishes each page of a round on its own, so a test can act while
 // the round is open.
@@ -29,16 +29,26 @@ async function setup(t) {
       task,
       agreements: [],
     });
-    const result = await session.action("publish", { html: agreed, pages });
+    const result = await session.action("publish", {
+      html: agreed,
+      pages,
+      start: [pages[0].id],
+    });
     assert.equal(result.code, 200, result.body.error);
   };
+  // Each page publishes in the order of pages, starting the page after it.
   const publishPage = async (round, id) => {
+    const index = pages.findIndex((item) => item.id === id);
     const html = await build(round, {
       id,
-      title: pages.find((item) => item.id === id).title,
+      title: pages[index].title,
       html: "<p>The page's text.</p>",
     });
-    const result = await session.action("publish", { html });
+    const next = pages[index + 1];
+    const result = await session.action("publish", {
+      html,
+      ...(next ? { start: [next.id] } : {}),
+    });
     assert.equal(result.code, 200, result.body.error);
   };
   const message = async (round, text) => {
@@ -119,10 +129,13 @@ test("a progress thread's reply box keeps focus and its card stays open when the
   assert.notEqual(await other.getAttribute("collapsed"), null);
   assert.equal(await previous(card), "finished-line");
 
-  // The card stays open after the reviewer leaves the box.
+  // The card stays open through two status polls after the reviewer leaves
+  // the box.
   await page.locator("#page-title").click();
-  // The frame polls status every 1.5 s, so the sleep covers two polls.
-  await sleep(3000);
+  for (let polled = 0; polled < 2; polled++)
+    await page.waitForResponse((response) =>
+      response.url().endsWith("/api/status"),
+    );
   assert.equal(await card.getAttribute("collapsed"), null);
 });
 
@@ -157,8 +170,7 @@ test("a message sent while Current waits shows under the progress card, keeps fo
   await page.locator("#past-tab").click();
   await page.locator('#page-list [data-page="agreed"]').click();
   await page.locator('#past-tab[aria-selected="true"]').waitFor();
-  await sleep(500);
-  assert.equal(await card.count(), 0);
+  await card.waitFor({ state: "detached", timeout: 5000 });
   await page.locator("#current-tab").click();
   await page.locator('#page-list [data-page="agreed"]').click();
   await card.waitFor();

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { sentItems, splitKey } from "../../shared/draft-items.mjs";
+import { accepts } from "../../shared/lifecycle.mjs";
 import { atomic, read, requireValue } from "../../shared/util.mjs";
 
 const record = (value) =>
@@ -89,7 +90,7 @@ export async function draftStore(session) {
     draftView: () => draft,
     async changeDraft(data) {
       requireValue(
-        session.state.stage !== "complete",
+        accepts(session.state, "change"),
         "This session is closed",
         409,
       );

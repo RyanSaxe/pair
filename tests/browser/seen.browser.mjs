@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { propose, replied, sessions } from "../support/notifications.mjs";
 
 // The frame in each tab polls the session list every 5 s, so each wait allows 8
 // s.
@@ -66,6 +67,70 @@ test("two browsers on one hub show the same bell, sessions badge and New marks",
   await computer.locator("#work-row").click();
   await computer.locator("#work-cards [data-proposal-card=tidy]").waitFor();
   await label.waitFor({ ...poll, state: "detached" });
+});
+
+// The stub records each system notification, and its permission is granted,
+// so the frame turns notifications on at its first session list.
+function recordAlerts() {
+  window.alerted = [];
+  window.Notification = class {
+    static permission = "granted";
+    constructor(title) {
+      window.alerted.push(title);
+    }
+    close() {}
+  };
+}
+
+test("a tab opened after the reviewer cleared lines in another browser shows no system notification for them", async (t) => {
+  const h = await hub(t);
+  const { here, other } = await sessions(t, h);
+  const url = `${h.server.origin}${here.base}/`;
+  const blank = await open(t, "about:blank");
+  if (!blank) return;
+  // Two tabs of one browser share storage only in a context made with
+  // newContext(), and a second context has storage of its own.
+  const browser = blank.context().browser();
+  const computer = await browser.newContext();
+  await computer.addInitScript(recordAlerts);
+  const first = await computer.newPage();
+  await first.goto(url);
+  await first.waitForFunction(
+    () => localStorage.getItem("pair:alerts:enabled") === "yes",
+    null,
+    poll,
+  );
+  await first.close();
+
+  await replied(other, "It lands in the retry loop.");
+  await propose(other, "tidy", "Tidy the list");
+  const listed = (await here.request("/api/sessions")).body.sessions
+    .find(({ id }) => id === other.id)
+    .events.filter(({ kind }) => ["reply", "proposal"].includes(kind))
+    .map(({ id }) => id);
+  assert.equal(listed.length, 2);
+  const phone = await (
+    await browser.newContext({ viewport: { width: 375, height: 812 } })
+  ).newPage();
+  await phone.goto(url);
+  await phone.locator("#bell-count").waitFor(poll);
+  await phone.locator("#bell").click();
+  await phone.locator("#center-clear-all").click();
+  assert.ok(
+    await waitUntil(async () => {
+      const { cleared } = (await here.request("/api/sessions")).body.seen;
+      return listed.every((id) => cleared.includes(id));
+    }),
+  );
+
+  const later = await computer.newPage();
+  await later.goto(url);
+  await later.locator("#bell").waitFor(poll);
+  // The frame alerts right after each session list, so by the second list it
+  // has handled the first.
+  await later.waitForResponse(/\/api\/sessions$/, poll);
+  assert.deepEqual(await later.evaluate(() => window.alerted), []);
+  assert.equal(await later.locator("#bell-count").isHidden(), true);
 });
 
 // Headless Chrome reports every tab as visible, so the test makes the page

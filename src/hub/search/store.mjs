@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { isClosed } from "../../shared/lifecycle.mjs";
 import { atomic } from "../../shared/util.mjs";
 import {
   agreedDocs,
@@ -182,7 +183,7 @@ export function searchStore({ log = () => {} } = {}) {
     const removed = [...entry.files.keys()].some((file) => !files.has(file));
     entry.files = files;
     entry.title = status.title || status.current?.title || "New session";
-    entry.closed = status.stage === "complete" || Boolean(status.dismissedAt);
+    entry.closed = isClosed(status);
     entry.rounds = Object.keys(status.roundPages ?? {}).sort(
       (a, b) => roundNumber(b) - roundNumber(a),
     );

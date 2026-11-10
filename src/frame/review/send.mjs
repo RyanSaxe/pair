@@ -11,7 +11,6 @@ import { $, hubUnreachable, unreachable, uuid } from "#frame/app/util.mjs";
 import {
   base,
   currentAvailable,
-  feedbackEditable,
   isPlanRound,
   pages,
   plan,
@@ -32,12 +31,12 @@ import {
   openSend,
   startingChoice,
 } from "#frame/review/send-popup.mjs";
+import { onCurrent } from "#frame/review/send-state.mjs";
 import {
   connected,
   loadPageRecord,
   loadSubmission,
   openPast,
-  remote,
   selectedTab,
   setRemote,
   switchTab,
@@ -51,6 +50,14 @@ export let refusedMessage = "";
 export function clearSubmissionError() {
   submissionError = "";
   refusedMessage = "";
+}
+// When another tab or device sends this round while the Send popup is open,
+// settleSend calls closeSentSend, which closes the popup and shows the banner
+// of the hub's refusal, so the typed message can still go as a message.
+export function closeSentSend() {
+  $("send-dialog").close();
+  submissionError = `Round ${plan.round} was sent from another tab or device. Your draft and message stay for the next round.`;
+  refusedMessage = state.message?.trim() || "";
 }
 export function submitButton({
   inFlight,
@@ -158,7 +165,7 @@ async function send(event) {
   return result;
 }
 export async function sendFeedback(next) {
-  if (remote?.openRound || !feedbackEditable()) return;
+  if (!onCurrent("send")) return;
   if (nothingToSend(state, next, isPlanRound())) return;
   clearSubmissionError();
   const origin = shownPage();

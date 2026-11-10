@@ -37,6 +37,7 @@ import { clearOwnRound, toggleCenter } from "#frame/sync/center.mjs";
 import {
   nextWaiting,
   numbered,
+  openSession,
   sessionOrder,
   toggleSessions,
 } from "#frame/sync/sessions.mjs";
@@ -252,10 +253,10 @@ export function installEvents() {
     else if (key === "g") toggleSessions(undefined, true);
     else if (key === "w") {
       const entry = nextWaiting(sessionOrder, session.sessionId);
-      if (entry) location.assign(entry.url);
+      if (entry) openSession(entry);
     } else if (/^[1-9]$/.test(key)) {
       const entry = numbered[Number(key) - 1];
-      if (entry && entry.id !== session.sessionId) location.assign(entry.url);
+      if (entry && entry.id !== session.sessionId) openSession(entry);
     } else if (mode === "home") {
       // Every key below acts on a page, and the home view has no page.
       return;

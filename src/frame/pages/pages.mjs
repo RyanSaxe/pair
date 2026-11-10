@@ -25,7 +25,6 @@ import {
   setPage,
   showingWaiting,
   shownPage,
-  submittedCurrent,
   submittedRound,
   viewKey,
 } from "#frame/app/view.mjs";
@@ -49,6 +48,7 @@ import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { openWork, proposedCount } from "#frame/pages/work.mjs";
 import { disposeRenderers, renders } from "#frame/pages/renderers.mjs";
 import { renderSentPageComments, review } from "#frame/review/review.mjs";
+import { sendState } from "#frame/review/send-state.mjs";
 import { markOpened, openedPages, pageKey } from "#frame/sync/opened.mjs";
 import { closeMenus } from "#frame/sync/rounds-panel.mjs";
 import {
@@ -281,7 +281,7 @@ export function renderFooter(feedback) {
     !next
       ? ""
       : next.id === "feedback"
-        ? submittedCurrent() || !editable
+        ? !editable || selectedTab === "past" || sendState() === "waiting"
           ? "What you sent →"
           : "Review your draft →"
         : `Next: ${next.title} →`,
@@ -361,8 +361,9 @@ export function updateNavigation(force = false) {
   ) {
     pageList.replaceChildren();
     addPageButton(listed.pages[0]);
-    // The waiting Current lists only Agreed, so it needs no separator.
-    if (!listed.waiting) pageList.append(separator());
+    // This separator divides Agreed from the round's pages. The waiting
+    // Current and a closed round with no published page list only Agreed.
+    if (listed.pages.length > 1) pageList.append(separator());
     for (const item of listed.pages.slice(1)) addPageButton(item);
     if (hasWork()) {
       const work = document.createElement("button");

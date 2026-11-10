@@ -154,10 +154,9 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   );
   const previewPath = path.join(a.directory, "uploads", `${preview.id}.png`);
   // pair read prints the next step first, and prints it again last when the
-  // output is long.
-  const lines = printed.trimEnd().split("\n");
-  assert.equal(lines[0], `Next: ${next}`);
-  assert.equal(lines.at(-1), `Next: ${next}`);
+  // output is long. The next step can take more than one line.
+  assert.ok(printed.startsWith(`Next: ${next}\n`), printed);
+  assert.ok(printed.trimEnd().endsWith(`\nNext: ${next}`), printed);
   const tag = (name, id) => {
     const found = new RegExp(
       `<pair_${name} id="${id}"[^>]*>([^]*?)</pair_${name}>`,
@@ -230,6 +229,7 @@ test("pair read prints the round, whether it is a plan, and the latest submissio
   const published = await a.action("publish", {
     html: agreed,
     pages: [{ id: "overview", title: "Overview" }],
+    start: ["overview"],
   });
   assert.equal(published.code, 200, published.body.error);
   const printed = await read();
@@ -454,6 +454,16 @@ test("pair status prints the latest submission and its round", async (t) => {
     await run("status"),
     new RegExp(`\nLatest submission +${feedback.id}, on round 1\n`),
   );
+});
+
+// Closing a session leaves its pause in place, so a session that its agent
+// paused before the reviewer closed it is both paused and closed.
+test("pair status names a closed session closed, also when its agent paused it first", async (t) => {
+  const { a, run } = await session(t);
+  await run("pause", "--reason", "Done for today");
+  assert.match(await run("status"), /^Round +1, paused: Done for today$/m);
+  assert.equal((await a.request(`${a.base}/api/dismiss`, {})).code, 200);
+  assert.match(await run("status"), /^Round +1, closed by the reviewer$/m);
 });
 
 // pair read prints the reviewer's text as data inside its tags, so no text the

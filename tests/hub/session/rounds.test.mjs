@@ -8,31 +8,14 @@ import { frameSource } from "../../support/frame.mjs";
 import { planData, task, hub as testHub } from "../../support/hub.mjs";
 
 // session starts a hub and a session for each test, so no test depends on
-// rounds that another test published.
+// rounds that another test published. publish sends one page of a round, with
+// the page list and the pages to start in options. firstAgreed starts detail.
 async function session(t) {
   const h = await testHub(t);
-  const registered = await h.session();
-  const { directory, agent } = registered;
-  const sessionId = registered.id;
-  const hub = h.server;
-  const post = async (route, body, headers = {}) => {
-    const response = await fetch(hub.origin + route, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify(body),
-    });
-    return { status: response.status, body: await response.json() };
-  };
-  const act = (body) =>
-    post(
-      `/agent/${sessionId}/action`,
-      { ...body, sessionId, agent },
-      { authorization: `Bearer ${registered.connection.token}` },
-    );
-  const status = async () =>
-    (await fetch(`${hub.origin}/s/${sessionId}/api/status`)).json();
+  const a = await h.session();
+  const status = async () => (await a.status()).body;
   const page = async (round, id, title, html, extra = {}) =>
-    buildPage(path.join(directory, "source.json"), {
+    buildPage(path.join(a.directory, "source.json"), {
       name: "page-test",
       round,
       title: "Page test",
@@ -43,11 +26,10 @@ async function session(t) {
         ...extra,
       },
     });
-  const publish = async (round, id, title, html, extra, pages) =>
-    act({
-      action: "publish",
+  const publish = async (round, id, title, html, extra, options = {}) =>
+    a.action("publish", {
       html: await page(round, id, title, html, extra),
-      ...(pages ? { pages } : {}),
+      ...options,
     });
   const firstAgreed = () =>
     publish(
@@ -56,19 +38,9 @@ async function session(t) {
       "Agreed so far",
       undefined,
       { agreements: firstAgreements },
-      firstPages,
+      { pages: firstPages, start: ["detail"] },
     );
-  return {
-    hub,
-    directory,
-    sessionId,
-    post,
-    act,
-    status,
-    page,
-    publish,
-    firstAgreed,
-  };
+  return { a, status, page, publish, firstAgreed };
 }
 const firstPages = [
   { id: "overview", title: "Overview" },
@@ -80,141 +52,151 @@ const firstAgreements = [
 ];
 
 test("Agreed and all page names become visible in one publication", async (t) => {
-  const { hub, sessionId, act, status, page, publish } = await session(t);
-  assert.equal((await publish("1", "agreed", "Agreed so far")).status, 400);
+  const { a, status, publish } = await session(t);
+  assert.equal((await publish("1", "agreed", "Agreed so far")).code, 400);
   assert.equal((await status()).current, null);
   assert.equal(
     (
-      await publish("1", "agreed", "Agreed so far", undefined, {}, [
-        firstPages[0],
-        firstPages[0],
-      ])
-    ).status,
+      await publish(
+        "1",
+        "agreed",
+        "Agreed so far",
+        undefined,
+        {},
+        {
+          pages: [firstPages[0], firstPages[0]],
+          start: ["overview"],
+        },
+      )
+    ).code,
     400,
   );
   assert.equal((await status()).current, null);
+  // An Agreed that would leave no page started publishes nothing.
+  const unstarted = await publish(
+    "1",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    { agreements: firstAgreements },
+    { pages: firstPages },
+  );
+  assert.equal(unstarted.code, 409);
+  assert.equal(
+    unstarted.body.error,
+    "None of the pages left in round 1 has started: overview, detail. Run the same pair publish again with --start ID for the page you work on next.",
+  );
+  assert.equal((await status()).current, null);
+  assert.deepEqual(await fs.readdir(path.join(a.directory, "pages", "1")), []);
   const result = await publish(
     "1",
     "agreed",
     "Agreed so far",
     undefined,
     { agreements: firstAgreements },
-    firstPages,
+    { pages: firstPages, start: ["detail"], note: " Measuring " },
   );
-  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.code, 200, result.body.error);
   assert.equal(result.body.page.id, "agreed");
   assert(
     result.body.next.endsWith(
-      'Then: You still have to publish these pages: overview, detail. None of them has started. Each time you or a subagent begin any work a page will report, such as the code it describes or what it measures, run pair progress --page ID --note "…" for that page right away, with a note on what is being done, and run it again at least every five minutes until you publish it. Publish each page with pair publish as soon as pair build has built it.',
+      'Then: You still have to publish these pages: overview, detail (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it, with --start ID for the page you work on next while other pages are left.',
     ),
     result.body.next,
   );
+  const [, detail] = (await status()).openRound.pages;
+  assert.equal(detail.state, "active");
+  assert.equal(detail.note.text, "Measuring");
   assert.equal((await status()).rounds.length, 0);
-  const response = await fetch(`${hub.origin}/s/${sessionId}/`);
-  const html = await response.text();
+  const { body: html } = await a.request(`${a.base}/`);
   assert.match(frameSource(html), /Agreed so far/);
   assert.match(html, /"pageMode":"partial"/);
   assert.match(html, /Detail/);
-  const manifest = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
-  ).json();
+  const { body: manifest } = await a.request(`${a.base}/api/page-set?round=1`);
   assert.deepEqual(
     manifest.pages.map((item) => item.id),
     ["agreed", "overview", "detail"],
   );
   assert.equal(manifest.pages[1].state, "queued");
+  assert.equal(manifest.pages[2].state, "active");
   assert.equal(manifest.complete, false);
   assert.equal(
-    (await publish("1", "detail", "Detail", "<p>x</p>", {}, firstPages)).status,
+    (
+      await publish(
+        "1",
+        "detail",
+        "Detail",
+        "<p>x</p>",
+        {},
+        {
+          pages: firstPages,
+        },
+      )
+    ).code,
     400,
   );
+  assert.equal((await a.action("progress", { start: ["missing"] })).code, 409);
   assert.equal(
-    (await act({ action: "progress", start: ["missing"] })).status,
-    409,
-  );
-  assert.equal(
-    (
-      await act({
-        action: "publish",
-        html: await page("1", "unlisted", "Unlisted", "<p>x</p>"),
-      })
-    ).status,
+    (await publish("1", "unlisted", "Unlisted", "<p>x</p>")).code,
     409,
   );
 });
 
 test("listed pages arrive independently and only the last completes the round", async (t) => {
-  const {
-    hub,
-    directory,
-    sessionId,
-    post,
-    act,
-    status,
-    page,
-    publish,
-    firstAgreed,
-  } = await session(t);
+  const { a, status, page, publish, firstAgreed } = await session(t);
   const readyPages = async () =>
-    (await (await fetch(`${hub.origin}/api/sessions`)).json()).sessions.find(
-      (item) => item.id === sessionId,
+    (await a.request("/api/sessions")).body.sessions.find(
+      (item) => item.id === a.id,
     ).readyPages;
   await firstAgreed();
   assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
-  const progress = await act({ action: "progress", start: ["detail"] });
-  assert.equal(progress.status, 200);
-  assert.equal(
-    progress.body.next,
-    'You still have to publish these pages: overview, detail (started). When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it.',
-  );
   const before = await status();
   assert.equal(before.openRound.pages[1].state, "active");
   assert.equal(before.needsYou, false);
-  const early = await post(
-    `/s/${sessionId}/api/feedback`,
-    {
-      sessionId,
-      id: "early",
-      name: "page-test",
-      round: "1",
-      intent: "feedback-only",
-      text: "Too early",
-      groups: {},
-    },
-    { origin: hub.origin },
+  const early = await a.feedback(
+    a.event("feedback-only", "1", { name: "page-test" }),
   );
-  assert.equal(early.status, 409);
-  const detail = await publish(
+  assert.equal(early.code, 409);
+  // A page that would leave no page started publishes nothing and starts
+  // nothing, and the same publish with --start does both.
+  const unstarted = await publish(
     "1",
     "detail",
     "Detail",
     "<p>Finished detail</p>",
   );
-  assert.equal(detail.status, 200, JSON.stringify(detail.body));
+  assert.equal(unstarted.code, 409);
+  assert.match(unstarted.body.error, /has started: overview\. Run the same/);
+  assert.deepEqual((await status()).openRound, before.openRound);
+  assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
+  const detail = await publish(
+    "1",
+    "detail",
+    "Detail",
+    "<p>Finished detail</p>",
+    {},
+    { start: ["overview"] },
+  );
+  assert.equal(detail.code, 200, detail.body.error);
+  assert.equal(detail.body.status.openRound.pages[0].state, "active");
   assert.equal(detail.body.roundComplete, false);
   assert.deepEqual(await readyPages(), {
     round: "1",
     ids: ["agreed", "detail"],
   });
   const immutable = await fs.readFile(detail.body.page.recordPath, "utf8");
-  const manifest = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
-  ).json();
-  const slot = manifest.pages.find((item) => item.id === "detail");
+  const pageSet = async (round) =>
+    a.request(`${a.base}/api/page-set?round=${round}`);
+  const record = (id, version) =>
+    a.request(`${a.base}/api/page?round=1&id=${id}&version=${version}`);
+  const slot = (await pageSet("1")).body.pages.find(
+    (item) => item.id === "detail",
+  );
   assert.equal(slot.state, "ready");
-  const recordResponse = await fetch(
-    `${hub.origin}/s/${sessionId}/api/page?round=1&id=detail&version=${slot.version}`,
-  );
-  assert.equal(recordResponse.status, 200);
-  assert.match((await recordResponse.json()).page.html, /Finished detail/);
-  assert.equal(
-    (
-      await fetch(
-        `${hub.origin}/s/${sessionId}/api/page?round=1&id=detail&version=${"0".repeat(64)}`,
-      )
-    ).status,
-    404,
-  );
+  const recorded = await record("detail", slot.version);
+  assert.equal(recorded.code, 200);
+  assert.match(recorded.body.page.html, /Finished detail/);
+  assert.equal((await record("detail", "0".repeat(64))).code, 404);
   const valid = await page(
     "1",
     "overview",
@@ -223,22 +205,21 @@ test("listed pages arrive independently and only the last completes the round", 
   );
   const tampered = pageData(valid);
   tampered.page.html = "<h1>Duplicate heading</h1>";
-  const failed = await act({
-    action: "publish",
+  const failed = await a.action("publish", {
     html: valid.replace(
       /(<script type="application\/json" id="page-data">)[\s\S]*?(<\/script>)/,
       (_, start, end) =>
         start + JSON.stringify(tampered).replaceAll("<", "\\u003c") + end,
     ),
   });
-  assert.equal(failed.status, 400);
+  assert.equal(failed.code, 400);
   assert.deepEqual((await status()).current, detail.body.status.current);
   // A directory in the way of status.json fails the write that commits the
   // page. The session keeps its state and drops the page's record, so the page
   // can publish again.
-  const stateFile = path.join(directory, "status.json");
-  const held = path.join(directory, "status-held.json");
-  const records = path.join(directory, "pages", "1");
+  const stateFile = path.join(a.directory, "status.json");
+  const held = path.join(a.directory, "status-held.json");
+  const records = path.join(a.directory, "pages", "1");
   const recordsBefore = await fs.readdir(records);
   await fs.rename(stateFile, held);
   await fs.mkdir(stateFile);
@@ -249,7 +230,7 @@ test("listed pages arrive independently and only the last completes the round", 
       "Overview",
       "<p>Finished overview</p>",
     );
-    assert.equal(writeFailure.status, 500);
+    assert.equal(writeFailure.code, 500);
     assert.deepEqual((await status()).current, detail.body.status.current);
     assert.deepEqual(await fs.readdir(records), recordsBefore);
   } finally {
@@ -262,7 +243,7 @@ test("listed pages arrive independently and only the last completes the round", 
     "Overview",
     "<p>Finished overview</p>",
   );
-  assert.equal(overview.status, 200, JSON.stringify(overview.body));
+  assert.equal(overview.code, 200, overview.body.error);
   assert.equal(overview.body.roundComplete, true);
   assert.deepEqual(await readyPages(), {
     round: "1",
@@ -271,22 +252,12 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.equal((await status()).rounds.length, 1);
   assert.equal((await status()).openRound, null);
   assert.equal((await status()).needsYou, true);
-  const completeSet = await (
-    await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)
-  ).json();
+  const { body: completeSet } = await pageSet("1");
   assert.equal(completeSet.complete, true);
   for (const round of ["missing", "constructor"])
-    assert.equal(
-      (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=${round}`))
-        .status,
-      404,
-    );
+    assert.equal((await pageSet(round)).code, 404);
   assert.equal(
-    (
-      await fetch(
-        `${hub.origin}/s/${sessionId}/api/page?round=1&id=missing&version=${completeSet.pages[0].version}`,
-      )
-    ).status,
+    (await record("missing", completeSet.pages[0].version)).code,
     404,
   );
   assert.equal(
@@ -294,41 +265,41 @@ test("listed pages arrive independently and only the last completes the round", 
     immutable,
   );
   assert.equal(
-    (await publish("1", "detail", "Detail", "<p>again</p>")).status,
+    (await publish("1", "detail", "Detail", "<p>again</p>")).code,
     409,
   );
 });
 
 test("the next round may choose unrelated pages without changing history", async (t) => {
-  const { hub, sessionId, post, act, status, publish, firstAgreed } =
-    await session(t);
+  const { a, status, publish, firstAgreed } = await session(t);
   await firstAgreed();
-  await publish("1", "detail", "Detail", "<p>Finished detail</p>");
-  await publish("1", "overview", "Overview", "<p>Finished overview</p>");
-  const response = await post(
-    `/s/${sessionId}/api/feedback`,
+  await publish(
+    "1",
+    "detail",
+    "Detail",
+    "<p>Finished detail</p>",
+    {},
     {
-      sessionId,
-      id: "feedback-1",
-      name: "page-test",
-      round: "1",
-      intent: "feedback-only",
-      text: "Change topics",
-      groups: {
-        notes: [
-          {
-            id: "note-1",
-            topic: "detail",
-            anchor: "Detail",
-            text: "This is agreed.",
-          },
-        ],
-      },
+      start: ["overview"],
     },
-    { origin: hub.origin },
   );
-  assert.equal(response.status, 200, JSON.stringify(response.body));
-  assert.equal((await act({ action: "read" })).status, 200);
+  await publish("1", "overview", "Overview", "<p>Finished overview</p>");
+  const feedback = a.event("feedback-only", "1", {
+    name: "page-test",
+    groups: {
+      notes: [
+        {
+          id: "note-1",
+          topic: "detail",
+          anchor: "Detail",
+          text: "This is agreed.",
+        },
+      ],
+    },
+  });
+  const response = await a.feedback(feedback);
+  assert.equal(response.code, 200, response.body.error);
+  assert.equal((await a.action("read")).code, 200);
   const agreed = await publish(
     "2",
     "agreed",
@@ -349,17 +320,20 @@ test("the next round may choose unrelated pages without changing history", async
           title: "A settled detail",
           html: "<p>The earlier detail is settled.</p>",
           sourceRefs: [
-            { kind: "note", submissionId: "feedback-1", noteId: "note-1" },
+            { kind: "note", submissionId: feedback.id, noteId: "note-1" },
           ],
         },
       ],
     },
-    [
-      { id: "overview", title: "Overview" },
-      { id: "new-topic", title: "New topic" },
-    ],
+    {
+      pages: [
+        { id: "overview", title: "Overview" },
+        { id: "new-topic", title: "New topic" },
+      ],
+      start: ["overview", "new-topic"],
+    },
   );
-  assert.equal(agreed.status, 200, JSON.stringify(agreed.body));
+  assert.equal(agreed.code, 200, agreed.body.error);
   const source = JSON.parse(
     await fs.readFile(agreed.body.page.recordPath, "utf8"),
   ).page.agreements.find((entry) => entry.id === "from-detail")
@@ -374,22 +348,19 @@ test("the next round may choose unrelated pages without changing history", async
     publish("2", "new-topic", "New topic", "<p>Fresh topic</p>"),
     publish("2", "overview", "Overview", "<p>New overview</p>"),
   ]);
-  assert.equal(one.status, 200, JSON.stringify(one.body));
-  assert.equal(two.status, 200, JSON.stringify(two.body));
-  const old = await (await fetch(`${hub.origin}/s/${sessionId}/r/1`)).text();
-  const fresh = await (await fetch(`${hub.origin}/s/${sessionId}/`)).text();
+  assert.equal(one.code, 200, one.body.error);
+  assert.equal(two.code, 200, two.body.error);
+  const { body: old } = await a.request(`${a.base}/r/1`);
+  const { body: fresh } = await a.request(`${a.base}/`);
   assert.match(old, /Finished detail/);
   assert.doesNotMatch(fresh, /Finished detail/);
   assert.match(fresh, /Fresh topic/);
   assert.equal((await status()).rounds.length, 2);
-  assert.equal(
-    (await fetch(`${hub.origin}/s/${sessionId}/api/page-set?round=1`)).status,
-    200,
-  );
+  assert.equal((await a.request(`${a.base}/api/page-set?round=1`)).code, 200);
 });
 
 test("a page note sits on its slot until the page publishes", async (t) => {
-  const { act, publish, status } = await session(t);
+  const { a, publish, status } = await session(t);
   const pages = [...firstPages, { id: "steps", title: "Steps" }];
   const agreed = await publish(
     "1",
@@ -397,17 +368,13 @@ test("a page note sits on its slot until the page publishes", async (t) => {
     "Agreed so far",
     undefined,
     {},
-    pages,
+    { pages, start: ["steps"] },
   );
-  assert.equal(agreed.status, 200, JSON.stringify(agreed.body));
-  assert.equal((await act({ action: "ack", note: "Reading" })).status, 200);
+  assert.equal(agreed.code, 200, agreed.body.error);
+  assert.equal((await a.action("ack", { note: "Reading" })).code, 200);
   const before = (await status()).report;
-  const noted = await act({
-    action: "ack",
-    note: " Drafting ",
-    page: "detail",
-  });
-  assert.equal(noted.status, 200, JSON.stringify(noted.body));
+  const noted = await a.action("ack", { note: " Drafting ", page: "detail" });
+  assert.equal(noted.code, 200, noted.body.error);
   const slot = () =>
     status().then((s) =>
       s.openRound.pages.find((item) => item.id === "detail"),
@@ -429,14 +396,23 @@ test("a page note sits on its slot until the page publishes", async (t) => {
 });
 
 test("a page note is refused before Agreed, on an unknown page and on a published page", async (t) => {
-  const { act, publish } = await session(t);
-  const refusal = async (data) =>
-    (await act({ action: "ack", ...data })).body.error;
+  const { a, publish } = await session(t);
+  const refusal = async (data) => (await a.action("ack", data)).body.error;
   assert.equal(
     await refusal({ note: "Reading", page: "detail" }),
     "Publish Agreed before a page note",
   );
-  await publish("1", "agreed", "Agreed so far", undefined, {}, firstPages);
+  await publish(
+    "1",
+    "agreed",
+    "Agreed so far",
+    undefined,
+    {},
+    {
+      pages: firstPages,
+      start: ["detail"],
+    },
+  );
   assert.equal(
     await refusal({ page: "detail" }),
     "A note on a page takes its text with --note",
@@ -517,7 +493,7 @@ test("a page's links are checked as it publishes, not when the round completes",
 // an older pair build checked can break a rule added since, and the hub must
 // still complete that page's round.
 test("a page built before the bare < check was added still completes its round", async (t) => {
-  const { act, page, publish, firstAgreed } = await session(t);
+  const { a, page, publish, firstAgreed } = await session(t);
   const bare = '<pre data-language="ts">first<T>()</pre>';
   await assert.rejects(
     page("1", "overview", "Overview", bare),
@@ -532,11 +508,11 @@ test("a page built before the bare < check was added still completes its round",
     (_, start, end) =>
       start + JSON.stringify(record).replaceAll("<", "\\u003c") + end,
   );
-  assert.equal((await firstAgreed()).status, 200);
-  const stored = await act({ action: "publish", html: older });
-  assert.equal(stored.status, 200, JSON.stringify(stored.body));
+  assert.equal((await firstAgreed()).code, 200);
+  const stored = await a.action("publish", { html: older });
+  assert.equal(stored.code, 200, stored.body.error);
   const last = await publish("1", "detail", "Detail", "<p>Detail</p>");
-  assert.equal(last.status, 200, JSON.stringify(last.body));
+  assert.equal(last.code, 200, last.body.error);
   assert.equal(last.body.roundComplete, true);
 });
 
@@ -558,12 +534,27 @@ test("a page may link to a page of its round that publishes after it", async (t)
   assert.equal(published.body.roundComplete, true);
 });
 
-test("page progress cannot start before Agreed for the next round", async (t) => {
+// Between rounds, page progress refuses for one of two reasons: the last round
+// has every page published, or the next round has no Agreed yet.
+test("page progress between rounds says the round is finished, or that Agreed is next", async (t) => {
   const h = await testHub(t);
   const a = await h.session();
+  const progress = () => a.action("progress", { start: ["overview"] });
   assert.equal((await a.publish(planData())).code, 200);
+  const finished = await progress();
+  assert.equal(finished.code, 409);
+  assert.match(
+    finished.body.error,
+    /^Every page of round 1 is published, so the round has no page to start\. You published round 1\. /,
+  );
   assert.equal((await a.feedback(a.event())).code, 200);
-  const result = await a.action("progress", { start: ["overview"] });
-  assert.equal(result.code, 409);
+  assert.match(
+    (await progress()).body.error,
+    /no page to start\. Run pair read --session-dir /,
+  );
+  assert.equal((await a.action("read")).code, 200);
+  const early = await progress();
+  assert.equal(early.code, 409);
+  assert.equal(early.body.error, "Publish Agreed first");
   assert.equal((await a.status()).body.openRound, null);
 });

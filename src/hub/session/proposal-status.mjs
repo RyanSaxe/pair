@@ -1,15 +1,17 @@
 import { requireValue } from "../../shared/util.mjs";
+import { refuse } from "./proposal-fields.mjs";
 
 // The status of approved work is one list of parts, in the order the agent
 // added them, and each part is left, done or dropped. pair propose adds a
-// part with --status-left and marks one with --status-done or --status-drop.
-// No flag removes a part, so the list contains every part until the work is
-// finished, and --reopen clears the status.
+// part with --status-left and marks one with --status-left, --status-done or
+// --status-drop. No flag removes a part, so the list contains every part
+// until the work is finished, and --reopen clears the status.
 
 // A part has the same 80-character limit as a card's title.
 const most = { parts: 20, characters: 80 };
 // changedParts applies the flags in this order, so one call can add a part
-// and mark it.
+// and mark it, and a call with --status-left and --status-done on one part
+// ends with the part done.
 const flags = [
   ["statusLeft", "status-left", "left"],
   ["statusDone", "status-done", "done"],
@@ -35,8 +37,8 @@ export function statusChange(data) {
   return change;
 }
 
-// --status-left on a listed part leaves its state as it is. --status-done
-// and --status-drop accept only a listed part, so changedParts refuses a
+// --status-left on a listed part sets it back to left. --status-done and
+// --status-drop accept only a listed part, so changedParts refuses a
 // mistyped part instead of adding it.
 export function changedParts(card, change) {
   const before = card.status?.parts ?? [];
@@ -44,7 +46,7 @@ export function changedParts(card, change) {
   for (const { state, texts } of change)
     for (const text of texts) {
       const part = parts.find((item) => item.text === text);
-      if (part && state !== "left") part.state = state;
+      if (part) part.state = state;
       else if (!part) {
         requireValue(state === "left", unknown(card.id, text, before, state));
         parts.push({ text, state });
@@ -90,25 +92,11 @@ export function loadedStatus(status) {
 
 export function statusable(card) {
   const { id } = card;
-  requireValue(
-    !card.declined,
-    `The reviewer declined proposal ${id}, so you cannot record a status for it.`,
-    409,
-  );
-  requireValue(
-    !card.withdrawn,
-    `Proposal ${id} is withdrawn, so you cannot record a status for it.`,
-    409,
-  );
-  requireValue(
-    !card.done,
-    `Proposal ${id} is marked done, so you cannot record a status for it.`,
-    409,
-  );
-  requireValue(
-    card.started,
-    `The reviewer has not approved proposal ${id}, so you cannot record a status for it yet.`,
-    409,
-  );
+  refuse(card, "status", {
+    declined: `The reviewer declined proposal ${id}, so you cannot record a status for it.`,
+    withdrawn: `Proposal ${id} is withdrawn, so you cannot record a status for it.`,
+    finished: `Proposal ${id} is marked done, so you cannot record a status for it.`,
+    proposed: `The reviewer has not approved proposal ${id}, so you cannot record a status for it yet.`,
+  });
   return card;
 }

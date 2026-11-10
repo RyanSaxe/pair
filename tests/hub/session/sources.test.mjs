@@ -83,15 +83,16 @@ test("publication resolves exact mixed sources from saved feedback", async (t) =
       /^Agreed cites \w+ missing, which .* does not (have|contain)\.$/,
     );
   }
-  for (const sourceRefs of [
-    [],
-    [{ kind: "unknown" }],
-    [{ kind: "conversation", text: "" }],
-    [{ kind: "note", submissionId: feedback.id }],
-    [{ kind: "answer", submissionId: feedback.id }],
+  for (const [sourceRefs, error] of [
+    [[], /needs source text or sourceRefs/],
+    [[{ kind: "unknown" }], /kind is note, choice, answer, conversation/],
+    [[{ kind: "conversation", text: "" }], /Conversation source requires text/],
+    [[{ kind: "note", submissionId: feedback.id }], /needs noteId/],
+    [[{ kind: "answer", submissionId: feedback.id }], /needs answerId/],
   ])
     await assert.rejects(
       assemble({ ...data, agreements: [{ ...entry, sourceRefs }] }),
+      error,
     );
 });
 

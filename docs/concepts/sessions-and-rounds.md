@@ -106,7 +106,10 @@ The browser you typed in keeps the rest, which no other device shows: the text
 in an open comment, an answer before **Answer**, a drawing you have not
 saved, a thread reply you have not sent and the message under **Send**. Your
 browser also keeps a copy of what you completed, and it sends what you
-completed while the hub was unreachable when the hub answers again.
+completed while the hub was unreachable when the hub answers again. While the
+hub is unreachable, the frame shows "The hub is unreachable. Your draft is
+saved in this browser." under the header on every page, and **Send** is off
+until the hub answers.
 
 **Send** in the header opens a drawer where you choose what the agent
 does next, and you send the round with the drawer's button.
@@ -266,9 +269,10 @@ or change a menu.
 
 A round or proposal you have read still says it is waiting until you send
 feedback or decide it. A round waiting for you stays unread in every tab until
-you start on it: open one of its pages yourself, with a click or a key, or start
-a note in it. A tab that only shows the round, has focus or moves to the round
-as it arrives reads nothing. A tab never lists its own session's waiting round,
+you start on it: open its session from the session list, with <kbd>w</kbd> or
+with a number key, open one of its pages yourself, with a click or a key, or
+start a note in it. A tab that only shows the round, has focus or moves to the
+round as it arrives reads nothing. A tab never lists its own session's waiting round,
 because the page in front of you already shows it.
 
 Select a row to read it, and reply there, without leaving your page. **Open**
@@ -294,7 +298,9 @@ button opens [search](../guides/search.md) with your words.
 
 When you turn notifications on in Settings, your browser also shows a system
 notification for each new row in the bell, each session that starts and each
-agent the hub cannot wake, except for the session in the tab you are using.
+agent the hub cannot wake, except for the session in the tab you are using. It
+shows none for a row you already cleared from the bell or started on, in any
+browser.
 
 ## Closing a session
 

@@ -7,6 +7,7 @@ import { drawActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import { noticeHub } from "#frame/sync/hub-version.mjs";
 import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
+import { isClosed } from "#shared/lifecycle.mjs";
 
 /* Once the agent publishes Agreed, the hub serves the round at the same
    URL, and once the reviewer closes the session, the hub serves the page as
@@ -18,9 +19,7 @@ async function pollHome() {
     if (!response.ok) throw Error();
     const status = await response.json();
     if (
-      session.closed
-        ? !status.dismissedAt
-        : status.current || status.dismissedAt
+      session.closed ? !isClosed(status) : status.current || isClosed(status)
     ) {
       location.reload();
       return;

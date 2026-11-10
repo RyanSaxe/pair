@@ -53,20 +53,23 @@ export function clear(ids) {
   cleared.add(ids);
   renderCenter(latest, false);
 }
-// The reviewer has started on this session's waiting round once they open one of
-// its pages or a note themselves, so its line leaves the bell in every tab. A tab
-// that only has focus, or moves to the round as it arrives, clears nothing.
-export function clearOwnRound() {
-  if (selectedTab !== "current") return;
-  const own = latest.find((entry) => entry.id === session.sessionId);
+// The reviewer has started on a session's waiting round once they open the
+// session from the session list or with a key, or open one of its pages or a
+// note themselves, so its line leaves the bell in every tab. A tab that only
+// has focus, or moves to the round as it arrives, clears nothing.
+export function clearRound(entry) {
   const known = loadCleared() ?? new Set();
-  const waiting = (own?.events || []).filter(
+  const waiting = (entry?.events || []).filter(
     (event) =>
       event.kind === "waiting" &&
-      event.round === own.round &&
+      event.round === entry.round &&
       !known.has(event.id),
   );
   if (waiting.length) clear(waiting.map(({ id }) => id));
+}
+export function clearOwnRound() {
+  if (selectedTab !== "current") return;
+  clearRound(latest.find((entry) => entry.id === session.sessionId));
 }
 export function clearThread(threadId) {
   clear(
