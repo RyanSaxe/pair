@@ -4,6 +4,12 @@ its `scene` when it has one.
 Answer every message the reviewer sends in a thread, even one that asks for
 nothing.
 
+Answer the question the reviewer asked in a few sentences, and leave out
+the background, alternatives and tables they did not ask for. Explain in
+plain words each term that the reviewer has not used and that no page or
+earlier reply has explained. Check the reply against
+`pair guide writing.md` before you post it.
+
 Answer in the thread with text, or with an HTML fragment written like a
 page, which can use any component except a decision, a checklist or a
 question. The reviewer's answers to those go back to you only with a round's

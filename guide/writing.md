@@ -1,12 +1,45 @@
 # Writing
 
-Every page helps the reviewer understand something or decide something. Put
-the facts, choices, reasons and consequences on the page, and leave out
-commentary about the page itself.
+Every page and thread reply helps the reviewer understand something or
+decide something. Write the facts, choices, reasons and consequences, and
+leave out commentary about the page or the reply itself.
 
-Most context is short: one line of consequence under an option, a caption, a
-heading or a row in a checklist. Write each of those lines so the reviewer
-understands it on a first reading.
+Before your first page, load each skill for writing prose that your agent
+CLI lists. Follow these with this guide on every page and reply, and where
+one of them disagrees with this guide, follow that one:
+
+- those skills;
+- the rules on writing in the instructions your agent CLI loads;
+- what the reviewer has asked of your writing, such as fewer words.
+
+Name each of them in the brief of every subagent that writes a page,
+because a subagent may not apply them otherwise.
+
+## Write for the reviewer
+
+Write from what the reviewer knows: what they have said in the chat and in
+threads, and what earlier pages explained. Where a term they have not seen
+first appears, explain it in plain words, whether it comes from the project
+or from its field. Write "the nightly job that re-sends failed receipts",
+not "the replayer", until the page has said what the replayer is.
+
+When an everyday word has a narrower meaning in the field, write the
+narrower meaning out. Write "the client chooses a replica in proportion to
+its free capacity", not "the client chooses a random replica", which a
+reader takes to mean that the client chooses every replica equally often.
+
+Make each label over a number say whether the number is a setting or a
+result. "Retries per order" could be a limit someone sets or a count a test
+measured, so write "Retry limit" or "Measured retries per order".
+
+Show with a figure what a figure can show, and write prose only for what it
+cannot. Cut each paragraph, table and block that does not change what the
+reviewer understands or decides.
+
+Before you publish a page or post a reply, read every line of it, captions
+and option lines too, with only what the reviewer knows. Rewrite each
+sentence they would need to read twice, each label they could take for
+something else, and each term they have not seen.
 
 ## Write concrete sentences
 
@@ -14,24 +47,15 @@ Name the actor. Use `is`, `has` or `contains` when one of those words states
 the fact plainly. Otherwise use a specific verb. Do not make an abstract idea
 carry out an action when the system, the agent or the reviewer does it.
 
-| Avoid                                       | Write                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------ |
-| "The answer travels with feedback."         | "Feedback includes the answer under `groups.answers`."             |
-| "A checklist arrives with nothing checked." | "Start each checklist with no checked boxes."                      |
-| "The round closes open points."             | "Move the settled choice to Agreed before removing its page."      |
-| "The hub wakes you with a submission."      | "The hub sends a wake event when a submission arrives."            |
-| "The mock reads as it is."                  | "The component mock renders at its natural width without scaling." |
-
-Use a stronger verb when it names the action: "The frame stores the draft"
-is clearer than "The draft is stored" because it names the actor.
+| Avoid                                  | Write                                                              |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| "The answer travels with feedback."    | "Feedback includes the answer under `groups.answers`."             |
+| "The round closes open points."        | "Move the settled choice to Agreed before removing its page."      |
+| "The hub wakes you with a submission." | "The hub sends a wake event when a submission arrives."            |
+| "The mock reads as it is."             | "The component mock renders at its natural width without scaling." |
 
 Use the real name. Write "`problems()` refuses an option label over 24
 characters", not "the build enforces a limit on labels".
-
-Use the words a person would say. Introduce a term from the project once, in
-plain words, before you rely on it, and never use a name from the project as
-if the reader already knows it. Write "the nightly job that re-sends failed
-receipts", not "the replayer", until the page has said what the replayer is.
 
 Give a reason with every judgment. Write "One Redis cache is simpler because
 four web processes read one copy" instead of "One Redis cache is simpler".
@@ -41,9 +65,6 @@ sentence under the label. Write "Retry policy", not "Retries are the risk here".
 Use "Body contents" as a heading, not "What the body carries". In prose,
 write "The body contains the request payload."
 Use a decision heading for the question the reviewer must answer.
-
-Write so a stranger to the project can repeat any sentence back as a fact
-about the plan or the code on the page.
 
 Say each thing once. Do not open a section by restating its heading.
 
@@ -67,10 +88,9 @@ Write sentences the way you would say them to the reviewer.
 
 Personification, writing a thing as if it did what only a person does:
 "The schema wants a migration before the deploy." Write "the deploy fails
-unless the migration runs first." When you write that a file, a page or a
-field "holds", "carries", "knows" or "wants" something, the reader has to
-work out what actually happens and who does it, so name who acts and what
-they do.
+unless the migration runs first." When a file, a page or a field "holds",
+"carries", "knows" or "wants" something in your draft, name who acts and
+what they do.
 
 A fragment in place of a claim: "One hub, many sessions." Write "one hub
 process serves every live session."
