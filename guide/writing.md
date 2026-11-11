@@ -4,6 +4,17 @@ Every page and thread reply helps the reviewer understand something or
 decide something. Write the facts, choices, reasons and consequences, and
 leave out commentary about the page or the reply itself.
 
+Before your first page, load each skill for writing prose that your agent
+CLI lists. Follow these with this guide on every page and reply, and where
+one of them disagrees with this guide, follow that one:
+
+- those skills;
+- the rules on writing in the instructions your agent CLI loads;
+- what the reviewer has asked of your writing, such as fewer words.
+
+Name each of them in the brief of every subagent that writes a page,
+because a subagent may not apply them otherwise.
+
 ## Write for the reviewer
 
 Write from what the reviewer knows: what they have said in the chat and in
