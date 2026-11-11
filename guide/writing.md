@@ -1,8 +1,8 @@
 # Writing
 
-Every page helps the reviewer understand something or decide something. Put
-the facts, choices, reasons and consequences on the page, and leave out
-commentary about the page itself.
+Every page and thread reply helps the reviewer understand something or
+decide something. Write the facts, choices, reasons and consequences, and
+leave out commentary about the page or the reply itself.
 
 ## Write for the reviewer
 
@@ -25,10 +25,10 @@ Show with a figure what a figure can show, and write prose only for what it
 cannot. Cut each paragraph, table and block that does not change what the
 reviewer understands or decides.
 
-Before you publish a page, read every line of it, captions and option
-lines too, with only what the reviewer knows. Rewrite each sentence they
-would need to read twice, each label they could take for something else,
-and each term they have not seen.
+Before you publish a page or post a reply, read every line of it, captions
+and option lines too, with only what the reviewer knows. Rewrite each
+sentence they would need to read twice, each label they could take for
+something else, and each term they have not seen.
 
 ## Write concrete sentences
 
