@@ -33,7 +33,6 @@ It also exports four functions:
   result, and `steerable` as `holder.steerable` in `status.json`. The frame
   reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
   on Message the agent.
-
 - `launch({ directory, name, sessionId, prompt })` returns the command line,
   as an array of arguments, that starts a new interactive session of the CLI
   in `directory` with `prompt` as its first message. Where the CLI takes them

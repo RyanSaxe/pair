@@ -33,8 +33,6 @@ your browser.
   work you approved while the agent builds it, and how to review the result.
 - [Search](guides/search.md) explains how to find anything you read or wrote
   in pair, across every session.
-- [Start an agent in a new terminal](guides/start-an-agent.md) explains the
-  launch script that lets Start open a new agent for you.
 
 ## Reference
 

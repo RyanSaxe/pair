@@ -86,7 +86,7 @@ runs where, and [Concepts](docs/concepts/) explains each part.
 - [Concepts](docs/concepts/) explains sessions, rounds, pages, Agreed,
   proposals and the hub.
 - [Guides](docs/guides/) covers planning a change, understanding code,
-  building the work, search and starting an agent in a new terminal.
+  building the work and search.
 - [Reference](docs/reference/) lists every command and setting, and the
   files the agent reads.
 - [Troubleshooting](docs/troubleshooting.md) explains how to fix known
