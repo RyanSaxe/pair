@@ -96,7 +96,7 @@ Registered fix-login-3f, claude-code:6f1c2a9e, in ~/src/app-worktrees/fix-login.
 $ pair agents
 NAME          CLI          DIRECTORY                      BRANCH     ID
 fix-login-3f  Claude Code  ~/src/app-worktrees/fix-login  fix-login  claude-code:6f1c2a9e
-api-a0        Codex        ~/src/api                      main       codex:0199c1d4
+api-d3        Codex        ~/src/api                      main       codex:0199c1d4
 ```
 
 A session's ID is the CLI and the session ID that the CLI keeps when the
