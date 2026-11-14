@@ -131,11 +131,11 @@ session would mix with its other work.
 Starting work never ends the round you are reading. Your drafts on the
 round stay, and you can start more work before you send the round.
 
-With a [launch script](../../README.md#start-an-agent-in-a-new-terminal),
-**Start agent** starts a new session of this session's agent CLI in a new
-terminal, in the folder where this session's agent ran `pair start`. The hub
-approves the work only once the script succeeds. When the script fails, the
-drawer shows its error and the hub leaves the proposal as it was.
+With a launch script, **Start agent** opens a new session of this session's
+agent CLI in a new terminal, in the folder where this session's agent ran
+`pair start`, and the hub approves the work once the script succeeds.
+[Start an agent in a new terminal](../guides/start-an-agent.md) shows a
+script for tmux and one for macOS Terminal.
 
 The agent cannot always open a new agent session. It replies in a thread
 on the card with what it opened, or with the command when it cannot open an
