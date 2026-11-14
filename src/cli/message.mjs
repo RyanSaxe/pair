@@ -40,8 +40,8 @@ async function registerSession(options) {
       "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
     );
   const input = options.hook ? await hookInput() : null;
-  const detected = detectWake(process.env, undefined, input);
-  const { entry, running } = await registerAgent(detected, {
+  const target = detectWake(process.env, undefined, input);
+  const { entry, running } = await registerAgent(target, {
     name: options.name,
   });
   const id = shortId(
@@ -162,10 +162,10 @@ async function identifySender(label) {
   if (label !== undefined) return unregistered(label);
   let registered;
   try {
-    const detected = detectAgent();
-    if (!detected) return unregistered("your user");
+    const target = detectAgent();
+    if (!target) return unregistered("your user");
     registered =
-      (await subagentSender(detected)) ?? (await registerAgent(detected));
+      (await subagentSender(target)) ?? (await registerAgent(target));
   } catch (error) {
     throw new Error(
       `pair sent nothing, because it could not register this session, and the receiver can answer only a registered session. ${error.message}`,
@@ -185,7 +185,7 @@ async function identifySender(label) {
 // message from it names the subagent through its parent's entry, as
 // NAME/SUBAGENT reaches it. subagentSender returns null for any other sender,
 // and for a subagent whose parent has no entry, which registerAgent refuses.
-async function subagentSender({ target }) {
+async function subagentSender(target) {
   const server = await adapters[target.harness]
     .serverSession?.(target)
     .catch(() => null);

@@ -6,32 +6,32 @@ import path from "node:path";
 // functions below. A start time is a string that stays the same for as long as
 // the process runs.
 
-const posix = {
-  ancestors(pid) {
-    const chain = [];
-    for (let current = pid; current > 1;) {
-      let line;
-      try {
-        // ps prints its own error when it fails, so ancestors discards its
-        // stderr to keep the error out of the command's output.
-        line = execFileSync(
-          "ps",
-          ["-o", "ppid=,comm=", "-p", String(current)],
-          {
-            encoding: "utf8",
-            stdio: ["ignore", "pipe", "ignore"],
-          },
-        ).trim();
-      } catch {
-        break;
-      }
-      const match = /^(\d+)\s+(.*)$/.exec(line);
-      if (!match) break;
-      chain.push({ pid: current, command: path.basename(match[2].trim()) });
-      current = Number(match[1]);
+// psAncestors walks the parent chain with ps. Git for Windows' ps takes no -o,
+// so on Windows it returns no process.
+export function psAncestors(pid = process.ppid) {
+  const chain = [];
+  for (let current = pid; current > 1;) {
+    let line;
+    try {
+      // ps prints its own error when it fails, so psAncestors discards its
+      // stderr to keep the error out of the command's output.
+      line = execFileSync("ps", ["-o", "ppid=,comm=", "-p", String(current)], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    } catch {
+      break;
     }
-    return chain;
-  },
+    const match = /^(\d+)\s+(.*)$/.exec(line);
+    if (!match) break;
+    chain.push({ pid: current, command: path.basename(match[2].trim()) });
+    current = Number(match[1]);
+  }
+  return chain;
+}
+
+const posix = {
+  ancestors: psAncestors,
   // ps prints lstart in the time zone and locale of its environment, and a
   // CLI's hook and its agent's commands can run with different ones, so
   // processStarts runs ps in UTC and the C locale. macOS's ps prints nothing

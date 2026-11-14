@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { adapters } from "../hub/wake.mjs";
-import { processStarts } from "../shared/processes.mjs";
+import { ancestors, processStarts } from "../shared/processes.mjs";
 import { settings } from "../shared/settings.mjs";
 import { atomic, requireValue, withoutGitVariables } from "../shared/util.mjs";
 import { listing } from "./arguments.mjs";
@@ -123,9 +123,13 @@ function currentBranch(directory) {
   return (status === 0 && stdout.trim()) || null;
 }
 
-// cliStart returns the start time of the agent CLI's process, which the
-// running check compares.
-function cliStart(adapter, pid) {
+// cliProcess returns the nearest ancestor process that runs the adapter's
+// command, and its start time, which the running check compares. Only
+// registering looks it up, because on Windows the walk starts PowerShell.
+function cliProcess(adapter) {
+  const pid = ancestors().find(
+    ({ command }) => command === adapter.command,
+  )?.pid;
   requireValue(
     pid,
     `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
@@ -135,14 +139,14 @@ function cliStart(adapter, pid) {
     processStart,
     `pair could not read the start time of ${adapter.name}'s process ${pid}.`,
   );
-  return processStart;
+  return { pid, processStart };
 }
 
 // registerAgent writes the entry of the session that detectWake found, and
 // returns it with every running entry, itself first. A running session keeps
 // its name unless name gives another. A subagent with a session of its own,
 // as in Codex, gets no entry, because pair reaches it through its parent.
-export async function registerAgent({ target, pid }, { name } = {}) {
+export async function registerAgent(target, { name } = {}) {
   const adapter = adapters[target.harness];
   const sessionId = (adapter.sessionId ?? adapter.identity)(target);
   requireValue(
@@ -153,7 +157,7 @@ export async function registerAgent({ target, pid }, { name } = {}) {
     /^[\w.-]+$/.test(sessionId),
     `${adapter.name}'s session ID ${sessionId} has characters that pair cannot use in a file name.`,
   );
-  const processStart = cliStart(adapter, pid);
+  const { pid, processStart } = cliProcess(adapter);
   const id = `${target.harness}:${sessionId}`;
   const { running } = await readAgents();
   const server = await adapter.serverSession?.(target).catch(() => null);
