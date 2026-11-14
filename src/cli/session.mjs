@@ -158,12 +158,11 @@ export async function openSession(options, { anyAgent = false } = {}) {
   const directory = path.resolve(options["session-dir"]);
   let wake = null;
   try {
-    wake = detectWake().target;
+    wake = detectWake();
   } catch (error) {
     if (!anyAgent) throw error;
   }
-  const register = () =>
-    attach(directory, config, (wake ||= detectWake().target));
+  const register = () => attach(directory, config, (wake ||= detectWake()));
   // Only pair start creates a session, so a mistyped path fails here instead
   // of starting a session outside sessions/ that no hub loads again.
   requireValue(
@@ -322,8 +321,7 @@ export async function start(options) {
       "pair start requires --title TEXT when it creates a session.",
     );
   const config = settings();
-  const detected = detectWake();
-  const wake = detected.target;
+  const wake = detectWake();
   if (wake.harness === "codex" && !(await rulesExist()))
     throw new Error(codexRefusal(rulesFile));
   const directory = resuming
@@ -346,7 +344,7 @@ export async function start(options) {
   });
   // The session works without its agent in pair agents, so pair start prints a
   // registration error and goes on.
-  await registerAgent(detected).catch((error) =>
+  await registerAgent(wake).catch((error) =>
     console.error(
       `pair: This agent is not registered, so pair agents does not list it. ${error.message}`,
     ),
