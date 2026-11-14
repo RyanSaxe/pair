@@ -261,9 +261,11 @@ export async function message(options) {
     entry,
     `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start or pair message, or after a start hook in its CLI runs pair register --hook.`,
   );
+  // A message from the user or from --from has no address to answer, and
+  // without this line Claude Code's agents went looking for one.
   const body = sender.answer
     ? `${text}\n\nTo answer, run: pair message --to ${sender.answer} --text "…"`
-    : text;
+    : `${text}\n\nThis message has no answer command. Answer in your own chat, if at all.`;
   const delivery = subagent
     ? await sendToSubagent(entry, subagent, sender.name, body)
     : await send(entry.target, `pair message from ${sender.name}:\n\n${body}`);
