@@ -86,6 +86,11 @@ export function detect(
 // When Copilot is idle, it starts a turn with the line. When Copilot refuses
 // immediate, wake() sends the line with enqueue, and Copilot reads it when its
 // turn ends.
+//
+// With target.subagent, the child sends the line to that subagent of the
+// session instead, through the SDK's experimental tasks.sendMessage. A
+// running subagent reads it in its current turn, and an idle one starts a turn
+// with it.
 export async function wake(target, line, run) {
   const send = (mode) =>
     run(process.execPath, [
@@ -95,7 +100,12 @@ export async function wake(target, line, run) {
       target.sessionId,
       mode,
       line,
+      ...(target.subagent ? [target.subagent] : []),
     ]);
+  if (target.subagent) {
+    await send("subagent");
+    return { via: "subagent", steerable: true };
+  }
   try {
     await send("immediate");
     return { via: "immediate", steerable: true };
@@ -105,11 +115,40 @@ export async function wake(target, line, run) {
   }
 }
 
+// pair message tries tasks.sendMessage first. When it fails, pair message asks
+// the parent's agent to pass the message on with write_agent, Copilot's tool
+// for a message to a background subagent.
+export const reachesSubagents = true;
+export const subagentTool = () => "write_agent";
+
+// A subagent's task has the name the parent gave it as displayName, and the
+// task it was given as description.
+async function sendToSubagent(session, name, message) {
+  const { tasks } = await session.rpc.tasks.list();
+  const wanted = name.toLowerCase();
+  const named = tasks.filter(
+    (task) =>
+      task.type === "agent" &&
+      [task.displayName, task.description].some(
+        (each) => each?.toLowerCase() === wanted,
+      ),
+  );
+  if (named.length !== 1)
+    throw new Error(
+      `Copilot has ${named.length} subagents named ${name}, and pair sends to one.`,
+    );
+  const { sent, error } = await session.rpc.tasks.sendMessage({
+    id: named[0].id,
+    message,
+  });
+  if (!sent) throw new Error(error || "Copilot did not send the message.");
+}
+
 // This block runs only in the child process. It connects to the TUI's embedded
 // server through the SDK shipped inside the CLI, resumes the session, and sends
-// one prompt in the given mode.
+// one prompt in the given mode, or to the subagent named after the line.
 if (process.argv[1] === here) {
-  const [sdk, port, sessionId, mode, line] = process.argv.slice(2);
+  const [sdk, port, sessionId, mode, line, subagent] = process.argv.slice(2);
   const { CopilotClient, approveAll } = await import(pathToFileURL(sdk).href);
   const client = new CopilotClient({
     connection: { kind: "uri", url: `http://127.0.0.1:${port}` },
@@ -120,7 +159,8 @@ if (process.argv[1] === here) {
     const session = await client.resumeSession(sessionId, {
       onPermissionRequest: approveAll,
     });
-    await session.send({ prompt: line, mode });
+    if (mode === "subagent") await sendToSubagent(session, subagent, line);
+    else await session.send({ prompt: line, mode });
   } finally {
     await client.stop();
   }

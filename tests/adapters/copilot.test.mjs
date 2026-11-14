@@ -18,6 +18,23 @@ export class CopilotClient {
   async resumeSession(id, { onPermissionRequest }) {
     calls.push(["resume", id, onPermissionRequest === approveAll]);
     return {
+      rpc: {
+        tasks: {
+          async list() {
+            calls.push(["list"]);
+            return {
+              tasks: [
+                { type: "shell", id: "shell-1", description: "reviewer" },
+                { type: "agent", id: "task-1", displayName: "reviewer", description: "Review the diff" },
+              ],
+            };
+          },
+          async sendMessage(params) {
+            calls.push(["sendMessage", params]);
+            return { sent: true };
+          },
+        },
+      },
       async send(message) {
         calls.push(["send", message]);
         if ((process.env.PAIR_TEST_REFUSE || "").split(" ").includes(message.mode))
@@ -79,4 +96,30 @@ test("a Copilot wake sends the line into the turn in progress, and enqueues it w
   process.env.PAIR_TEST_REFUSE = "immediate enqueue";
   await assert.rejects(wakeRunner(target, line), /Copilot refused enqueue/);
   assert.deepEqual(await children(), [child("immediate"), child("enqueue")]);
+});
+
+test("a Copilot message to a subagent goes to the agent task with that name", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-copilot-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const log = path.join(directory, "calls.json");
+  const sdk = path.join(directory, "index.mjs");
+  await fs.writeFile(sdk, sdkSource(log));
+  const target = { harness: "copilot", sessionId: "s-1", port: 4321, sdk };
+  const line = "pair message from your user:\n\nLook at line 4.";
+  assert.deepEqual(
+    await wakeRunner({ ...target, subagent: "reviewer" }, line),
+    {
+      via: "subagent",
+      steerable: true,
+    },
+  );
+  const [calls] = (await fs.readFile(log, "utf8"))
+    .trim()
+    .split("\n")
+    .map((text) => JSON.parse(text));
+  assert.deepEqual(calls.slice(3, -1), [
+    ["list"],
+    ["sendMessage", { id: "task-1", message: line }],
+  ]);
+  await assert.rejects(wakeRunner({ ...target, subagent: "planner" }, line));
 });

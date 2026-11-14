@@ -36,9 +36,19 @@ export const detect = (env) => ({
   session: env.PAIR_OPENCODE_SESSION,
 });
 
+// pair message sends a message to a subagent through the plugin, which
+// prompts the subagent's own session.
+export const reachesSubagents = true;
+
 // The plugin sends the line with promptAsync, and opencode adds it to the
-// running request between its steps.
+// running request between its steps. With target.subagent, the plugin sends it
+// to that subagent's session.
 export async function wake(target, line) {
-  await send(target.socket, { session: target.session, text: line });
+  const { session, subagent } = target;
+  await send(target.socket, {
+    session,
+    text: line,
+    ...(subagent && { subagent }),
+  });
   return { via: "prompt", steerable: true };
 }

@@ -186,10 +186,22 @@ async function send(target, line) {
   return { sent: wake, relayed: false, ...result };
 }
 
-// An adapter with subagentTool delivers to the parent, with a first line that
-// asks the parent's agent to pass the message on with that tool.
+// An adapter with reachesSubagents delivers to the subagent that
+// target.subagent names. An adapter with subagentTool delivers to the parent,
+// with a first line that asks the parent's agent to pass the message on with
+// that tool. pair tries the subagent first and asks the parent when that
+// fails.
 async function sendToSubagent(entry, subagent, sender, body) {
   const adapter = adapters[entry.cli];
+  if (adapter.reachesSubagents)
+    try {
+      return await send(
+        { ...entry.target, subagent },
+        `pair message from ${sender}:\n\n${body}`,
+      );
+    } catch (error) {
+      if (!adapter.subagentTool) throw error;
+    }
   requireValue(
     adapter.subagentTool,
     `pair cannot send a message to a subagent of a ${adapter.name} session.`,
@@ -208,7 +220,9 @@ function sentText(entry, subagent, delivery) {
     return `PAIR_WAKE is off, so pair wrote the message to stderr instead of sending it to ${session}.`;
   const when = `at once if it is idle, and otherwise ${delivery.steerable ? "between the steps of its current turn" : "when its current turn ends"}`;
   if (!subagent) return `Sent to ${session}. It reads the message ${when}.`;
-  return `Sent to ${session}, to pass on to its subagent ${subagent}. ${entry.name} reads the message ${when}.`;
+  if (delivery.relayed)
+    return `Sent to ${session}, to pass on to its subagent ${subagent}. ${entry.name} reads the message ${when}.`;
+  return `Sent to ${subagent}, a subagent of ${session}. It reads the message ${when}.`;
 }
 
 export async function message(options) {
