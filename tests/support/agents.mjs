@@ -6,9 +6,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { agentExecutable, pair } from "./hub.mjs";
 
-// The variables by which pair finds an agent CLI and a scratch hub, and git's,
-// which a test inside an agent CLI or a git hook would otherwise pass on.
-const inherited = /^(CLAUDE|CODEX|COPILOT|PAIR|PI)_|^GIT_/;
+// outsideAgents is this process's environment without the variables by which
+// pair finds an agent CLI and a scratch hub, and without git's, which a test
+// inside an agent CLI or a git hook would otherwise pass on.
+export const outsideAgents = Object.fromEntries(
+  Object.entries(process.env).filter(
+    ([key]) => !/^(CLAUDE|CODEX|COPILOT|PAIR|PI)_|^GIT_/.test(key),
+  ),
+);
 
 // The stand-in runs each command it receives as its child and sends back the
 // command's exit status and output. A command given no input reads /dev/null.
@@ -38,9 +43,6 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
   const bin = path.join(home, `bin-${crypto.randomUUID()}`);
   await fs.mkdir(bin);
   const executable = await agentExecutable(bin, name);
-  const base = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !inherited.test(key)),
-  );
   // A Codex stand-in's CODEX_HOME has no daemon unless the test starts one.
   const inbox =
     harness === "codex"
@@ -54,7 +56,7 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
     // The stand-in's home is the test's directory, so pair prints the test's
     // folders under ~ on every platform. Windows keeps its temporary folders
     // under the user's home, and other systems do not.
-    env: { ...base, HOME: home, USERPROFILE: home, ...inbox, ...env },
+    env: { ...outsideAgents, HOME: home, USERPROFILE: home, ...inbox, ...env },
     stdio: ["ignore", "ignore", "inherit", "ipc"],
   });
   await once(child, "spawn");

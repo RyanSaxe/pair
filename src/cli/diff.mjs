@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { withoutGitVariables } from "../shared/util.mjs";
 import { refuseOverwrite } from "./output.mjs";
 
 const run = promisify(execFile);
@@ -17,9 +18,7 @@ async function gitDiff(paths) {
   const directory = await fs.mkdtemp(
     path.join(await fs.realpath(os.tmpdir()), "pair-diff-"),
   );
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-  );
+  const env = withoutGitVariables();
   try {
     const { stdout } = await run(
       "git",

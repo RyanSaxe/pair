@@ -14,7 +14,7 @@ Each folder's `wake.mjs` exports these values:
 | `variables`  | The variables the CLI gives the commands it runs.        |
 | `unwakeable` | The message for a session that lacks any of `variables`. |
 
-It also exports four functions:
+It also exports these functions:
 
 - `detect(env, tools)` returns the wake target for the adapter's agent CLI.
   `src/hub/wake.mjs` calls it only for the adapter it chose, once every one
@@ -25,12 +25,6 @@ It also exports four functions:
 - `identity(target)` returns the part of a wake target that distinguishes
   one session of the CLI from another. Claude Code's adapter returns the inbox
   socket, Codex's the thread ID, and the others the session ID.
-- `sessionId(target)` returns the ID that the CLI keeps when the session
-  resumes. `pair register` puts the adapter's folder name and a colon in
-  front of it to make the ID that `pair agents` prints, such as
-  `claude-code:6f1c2a9e-…`. Claude Code's adapter
-  returns `CLAUDE_CODE_SESSION_ID`, which its target has only when Claude Code
-  sets it, Codex's the thread ID, and the others the session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
   throws with the reason. `run(file, args)` runs a program and rejects with
   its error output. `wake` resolves to `{ via, steerable }`, where `via` is
@@ -42,11 +36,11 @@ It also exports four functions:
 
 An adapter exports these too when its CLI needs them:
 
-| Export                  | Value                                                                                                                                                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pidVariable`           | The variable in which pair's code inside the CLI passes the CLI's process ID, for pi and opencode, whose extension and plugin run in the CLI's own process.                                                                                        |
-| `hookVariables(input)`  | The variables that the JSON on a start hook's stdin gives when the CLI leaves them out of the hook's environment, for Codex's `session_id` and Copilot CLI's `sessionId`.                                                                          |
-| `sessionLoaded(target)` | Whether the server process that runs the session has it loaded, for Codex's app-server daemon, which runs the sessions of every Codex started with no `-c` override and keeps running after they exit. It rejects when the server does not answer. |
+| Export                  | Value                                                                                                                                                                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sessionId(target)`     | The ID that the CLI keeps when the session resumes, when `identity` is something else. `pair register` lists the session under this ID, or under `identity` without it. Claude Code's adapter returns `CLAUDE_CODE_SESSION_ID`, because its identity is the inbox socket.                                  |
+| `hookVariables(input)`  | The variables that the JSON on a start hook's stdin gives when the CLI leaves them out of the hook's environment, for Codex's `session_id` and Copilot CLI's `sessionId`.                                                                                                                                  |
+| `serverSession(target)` | `{ loaded, parent }` from the server process that runs the session, for Codex's app-server daemon, which runs the sessions of every Codex started with no `-c` override and keeps running after they exit. `parent` names the session that started a subagent. It rejects when the server does not answer. |
 
 ## How the hub chooses an adapter
 
@@ -62,13 +56,13 @@ An adapter exports these too when its CLI needs them:
    `unwakeable` message when one of its `variables` is unset.
 
 `detectWake` returns the wake target and the CLI's process ID, which is the
-adapter's `pidVariable` when it is set and otherwise the ancestor process
-from step 1, or `null` when it chose the adapter in step 2. `pair register`
-refuses without a process ID. When the adapter has `sessionLoaded` and it
-resolves `true` at registration, the entry's `runningCheck` is `loaded`, and
-`pair agents` lists the session while that process runs and
-`sessionLoaded` resolves `true`. Otherwise `runningCheck` is `process`, and
-`pair agents` lists the session while that process runs.
+ancestor process from step 1, or `null` when it chose the adapter in step 2.
+`pair register` refuses without a process ID, and refuses a subagent that
+`serverSession` gives a parent. When `serverSession` says the session is
+loaded at registration, the entry's `runningCheck` is `loaded`, and
+`pair agents` lists the session while that process runs and `serverSession`
+says it is loaded. Otherwise `runningCheck` is `process`, and `pair agents`
+lists the session while that process runs.
 
 ## When the CLI reads the line
 

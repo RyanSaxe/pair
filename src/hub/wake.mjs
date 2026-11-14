@@ -29,8 +29,7 @@ export const identify = (target) => ({
 // which fills in a variable the CLI leaves out of the hook's environment.
 //
 // detectWake returns the wake target and the process ID of the agent CLI,
-// which is null when no ancestor process is the CLI and the adapter's
-// pidVariable is not set.
+// which is null when no ancestor process is the CLI.
 export function detectWake(
   env = process.env,
   tools = { ancestors },
@@ -48,13 +47,9 @@ export function detectWake(
       };
       if (!adapter.variables.every((name) => seen[name]))
         throw new Error(adapter.unwakeable);
-      const passed = Number(adapter.pidVariable && seen[adapter.pidVariable]);
       return {
         target: adapter.detect(seen, { ...tools, ancestor }),
-        pid:
-          Number.isInteger(passed) && passed > 0
-            ? passed
-            : (ancestor?.pid ?? null),
+        pid: ancestor?.pid ?? null,
       };
     }
   requireValue(

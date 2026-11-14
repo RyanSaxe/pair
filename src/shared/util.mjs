@@ -9,6 +9,13 @@ export const exists = async (file) =>
   );
 export const read = async (file) => JSON.parse(await fs.readFile(file, "utf8"));
 export const timestamp = () => new Date().toISOString();
+// Git sets GIT_DIR and the other GIT_* variables for its hooks and for the
+// commands git rebase -x runs, and they would point git at that repository,
+// so pair leaves them out of the environment it gives git.
+export const withoutGitVariables = (env = process.env) =>
+  Object.fromEntries(
+    Object.entries(env).filter(([key]) => !key.startsWith("GIT_")),
+  );
 // The hub adds details to the JSON it answers a refused request with.
 export function requireValue(condition, message, code = 400, details) {
   if (!condition)

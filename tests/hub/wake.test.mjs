@@ -267,39 +267,17 @@ test("the nearest harness ancestor decides the wake target and the CLI's process
     target: codexTarget,
     pid: null,
   });
-  // pair's pi extension and opencode plugin pass the process of the CLI they
-  // run inside. tests/adapters/pi.test.mjs and tests/adapters/opencode.test.mjs
-  // check the targets of pi and opencode with the variables their extensions
-  // set.
-  const pi = { PAIR_PI_SOCKET: "/p.sock", PAIR_PI_SESSION: "p" };
-  assert.equal(detectWake({ ...pi, PAIR_PI_PID: "77" }, tools([])).pid, 77);
-  assert.equal(detectWake(pi, tools([])).pid, null);
+  // tests/adapters/pi.test.mjs and tests/adapters/opencode.test.mjs check the
+  // targets of pi and opencode with the variables their extensions set.
 });
 
-// Codex gives its SessionStart hook the thread ID only on stdin, and Copilot
-// gives its sessionStart hook the session ID there. tests/cli/agents.test.mjs
-// runs pair register --hook with that stdin.
-test("a start hook's input gives the session ID that the hook's environment lacks", () => {
-  const codexAncestor = tools([{ pid: 3, command: "codex" }]);
-  assert.equal(
-    detectWake({}, codexAncestor, { session_id: "from-hook" }).target.thread,
-    "from-hook",
-  );
-  assert.equal(
-    detectWake({ CODEX_THREAD_ID: "from-env" }, codexAncestor, {
-      session_id: "from-hook",
-    }).target.thread,
-    "from-env",
-  );
+// tests/cli/agents.test.mjs runs pair register --hook with Codex's stdin.
+test("a Copilot start hook's input gives the session ID", () => {
   assert.equal(
     detectWake({}, tools([{ pid: 3, command: "copilot" }]), {
       sessionId: "copilot-session",
     }).target.sessionId,
     "copilot-session",
-  );
-  assert.throws(
-    () => detectWake({}, codexAncestor, { sessionId: "copilot-field" }),
-    /exports no CODEX_THREAD_ID/,
   );
 });
 

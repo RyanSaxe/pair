@@ -10,32 +10,17 @@ const namePattern = /^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u;
 // field of an entry but the target.
 const shown = ({ target, ...entry }) => entry;
 
-// A CLI writes its start hook's JSON to stdin and closes it. A program that
-// leaves stdin open would make the read wait forever, so hookInput stops
-// waiting after a second and registers without the JSON. It pauses stdin
-// instead of destroying it, because Node aborts when it closes a stdin that
-// is a file, such as /dev/null.
-function hookInput() {
-  const { stdin } = process;
-  if (stdin.isTTY) return null;
-  return new Promise((resolve) => {
-    let text = "";
-    const finish = () => {
-      clearTimeout(timer);
-      stdin.pause();
-      stdin.unref?.();
-      try {
-        resolve(JSON.parse(text));
-      } catch {
-        resolve(null);
-      }
-    };
-    const timer = setTimeout(finish, 1000);
-    stdin.setEncoding("utf8");
-    stdin.on("data", (chunk) => (text += chunk));
-    stdin.on("end", finish);
-    stdin.on("error", finish);
-  });
+// A CLI writes its start hook's JSON to stdin and closes it. hookInput reads
+// stdin to its end, which an empty stdin such as /dev/null reaches at once.
+async function hookInput() {
+  if (process.stdin.isTTY) return null;
+  let text = "";
+  for await (const chunk of process.stdin) text += chunk;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 async function registerSession(options) {

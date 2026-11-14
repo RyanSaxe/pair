@@ -105,9 +105,11 @@ prints whole IDs.
 
 A session's name is its folder's name, lowercased, with each character other
 than a letter, digit or hyphen turned into a hyphen, then a hyphen and two
-random hex characters that no running session's name has. `--name NAME` sets
-another name and refuses one that a running session has. A session that
-registers again keeps its name.
+hex characters from a hash of the session's ID, or the next value when a
+running session has that name. A session therefore gets the same name each
+time it registers, also after its CLI restarts. `--name NAME` sets another
+name and refuses one that a running session has, and a running session that
+registers again keeps the name it has.
 
 pair keeps one file for each session in `$XDG_STATE_HOME/pair/agents/`, which
 only you can read, because the file holds the CLI's wake target, and Claude
@@ -119,13 +121,13 @@ the daemon. pair counts such a session as running while the daemon has its
 thread loaded, which ends about a minute after the session exits.
 `pair register` and `pair agents` delete every entry that is not running.
 
-`pair start` registers the agent that runs it, and each other session command
-registers the agent again when the CLI's process or wake target changed, as
-after a restart, if the agent has an entry. When registering fails, a session
-command prints why on stderr and runs as usual.
+`pair start` registers the agent that runs it. When registering fails, it
+prints why on stderr and starts the session as usual.
 
 `pair register` refuses outside an agent CLI, and when pair finds no process
-of the CLI among the command's parent processes. pair reads processes with
+of the CLI among the command's parent processes. It also refuses a Codex
+subagent, which has a thread of its own, and prints the `NAME/SUBAGENT` that
+reaches it through the session that started it. pair reads processes with
 `ps` on macOS and Linux and with PowerShell on Windows. With `--hook`, which
 an agent CLI's start hook runs, it reads the session ID from the hook's JSON
 on stdin when the environment has none, `session_id` from Codex and

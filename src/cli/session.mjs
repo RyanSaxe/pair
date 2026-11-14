@@ -8,7 +8,7 @@ import { detectWake, identify } from "../hub/wake.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings, version } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
-import { refreshAgent, registerAgent } from "./agents.mjs";
+import { registerAgent } from "./agents.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
 import { rows, tooBigToPublish } from "./output.mjs";
@@ -147,17 +147,6 @@ export async function followHub() {
     console.error(`pair: ${error.message}`);
   }
 }
-// A session works without its agent in pair agents, so a session command
-// prints a registration error and goes on.
-async function keepRegistered(update) {
-  try {
-    await update();
-  } catch (error) {
-    console.error(
-      `pair: This agent is not registered, so pair agents does not list it. ${error.message}`,
-    );
-  }
-}
 // With anyAgent, as for status and propose, the command may come from an agent
 // that cannot be woken, such as one the holder briefed, unless the session has
 // to register with a new hub. request() still sends the agent's identity when
@@ -167,13 +156,12 @@ export async function openSession(options, { anyAgent = false } = {}) {
   requireNode();
   const config = settings();
   const directory = path.resolve(options["session-dir"]);
-  let detected = null;
+  let wake = null;
   try {
-    detected = detectWake();
+    wake = detectWake().target;
   } catch (error) {
     if (!anyAgent) throw error;
   }
-  let wake = detected?.target ?? null;
   const register = () =>
     attach(directory, config, (wake ||= detectWake().target));
   // Only pair start creates a session, so a mistyped path fails here instead
@@ -182,7 +170,6 @@ export async function openSession(options, { anyAgent = false } = {}) {
     await exists(path.join(directory, "status.json")),
     `No pair session at ${directory}. Check the path, or create a session with pair start.`,
   );
-  if (detected) await keepRegistered(() => refreshAgent(detected));
   const connectionFile = path.join(directory, "connection.json");
   if (!(await exists(connectionFile))) await register();
   let connection = await read(connectionFile);
@@ -357,7 +344,13 @@ export async function start(options) {
         ? { reopen: options.reopen }
         : { title: options.title.trim() }),
   });
-  await keepRegistered(() => registerAgent(detected));
+  // The session works without its agent in pair agents, so pair start prints a
+  // registration error and goes on.
+  await registerAgent(detected).catch((error) =>
+    console.error(
+      `pair: This agent is not registered, so pair agents does not list it. ${error.message}`,
+    ),
+  );
   const card = started.proposal;
   return {
     next: started.next,

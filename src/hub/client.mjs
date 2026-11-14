@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sandboxAdvice } from "../../adapters/codex/rules.mjs";
 import { packageRoot, settings, version } from "../shared/settings.mjs";
-import { read, requireValue } from "../shared/util.mjs";
+import { read, requireValue, withoutGitVariables } from "../shared/util.mjs";
 
 const cli = fileURLToPath(new URL("../cli.mjs", import.meta.url));
 
@@ -117,14 +117,10 @@ async function spawnHub(config) {
 }
 // GIT_CEILING_DIRECTORIES stops git from looking above packageRoot, so git
 // status reports only on a clone at packageRoot, never on a repository around
-// it. Git sets GIT_DIR and the other GIT_* variables for its hooks, and they
-// would point git at another repository, so committed() leaves them out of
-// git's environment. A folder that is not a git clone, such as an npm
-// install, counts as committed.
+// it. A folder that is not a git clone, such as an npm install, counts as
+// committed.
 function committed() {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-  );
+  const env = withoutGitVariables();
   try {
     const changes = execFileSync(
       "git",

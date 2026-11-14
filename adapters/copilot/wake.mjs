@@ -10,7 +10,6 @@ export const name = "Copilot CLI";
 
 // The port changes when Copilot restarts, and the session ID does not.
 export const identity = (target) => target.sessionId;
-export const sessionId = (target) => target.sessionId;
 
 // Copilot gives a sessionStart hook the session ID as sessionId on stdin.
 export const hookVariables = (input) => ({

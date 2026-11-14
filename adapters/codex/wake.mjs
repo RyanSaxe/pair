@@ -13,7 +13,6 @@ export const unwakeable =
   "Tell the user that this Codex session exports no CODEX_THREAD_ID, so the hub cannot wake it, and stop.";
 
 export const identity = (target) => target.thread;
-export const sessionId = (target) => target.thread;
 
 // Codex gives a SessionStart hook the thread ID as session_id on stdin, and not
 // in the hook's environment.
@@ -58,14 +57,22 @@ async function openDaemon(socket) {
 // so each command's nearest codex ancestor is the daemon, which serves every
 // such session and keeps running after the session exits. The daemon unloads
 // a thread about a minute after its session exits, and keeps the thread of a
-// running session loaded while the session is idle. sessionLoaded resolves to
-// whether the daemon has the thread loaded, and rejects when the daemon does
-// not answer.
-export async function sessionLoaded({ thread, socket }) {
+// running session loaded while the session is idle. serverSession resolves to
+// whether the daemon has the thread loaded, and for a subagent's thread to the
+// thread and nickname of the parent that spawned it. thread/read gives the
+// subagent's source from disk when the daemon has not loaded it, as when its
+// parent runs in-process. It rejects when the daemon does not answer.
+export async function serverSession({ thread, socket }) {
   const daemon = await openDaemon(socket);
   try {
     const read = await daemon.request("thread/read", { threadId: thread });
-    return read.thread.status.type !== "notLoaded";
+    const spawn = read.thread.source?.subAgent?.thread_spawn;
+    return {
+      loaded: read.thread.status.type !== "notLoaded",
+      parent: spawn
+        ? { sessionId: spawn.parent_thread_id, nickname: spawn.agent_nickname }
+        : null,
+    };
   } finally {
     daemon.close();
   }

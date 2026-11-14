@@ -3,23 +3,8 @@ import path from "node:path";
 
 // pair reads processes with ps on macOS and Linux, and with PowerShell on
 // Windows, whose ps (Git for Windows') takes no -o. Each platform gives the two
-// functions below, and every start time is a UTC string such as
-// 2026-11-14T19:17:14.000Z, so that one read of a process's start time matches
-// another.
-
-const months = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
-// lstart in the C locale prints a time such as "Sat Nov  4 19:17:14 2026".
-function fromLstart(text) {
-  const match = /^\w{3} (\w{3}) +(\d{1,2}) (\d\d):(\d\d):(\d\d) (\d{4})$/.exec(
-    text,
-  );
-  const month = match ? months.indexOf(match[1]) : -1;
-  if (month < 0) return null;
-  const [day, hour, minute, second, year] = match.slice(2).map(Number);
-  return new Date(
-    Date.UTC(year, month, day, hour, minute, second),
-  ).toISOString();
-}
+// functions below. A start time is a string that stays the same for as long as
+// the process runs.
 
 const posix = {
   ancestors(pid) {
@@ -47,11 +32,11 @@ const posix = {
     }
     return chain;
   },
-  // ps prints a start time in the time zone and locale of its environment,
-  // and a CLI's hook and its agent's commands can run with different ones, so
+  // ps prints lstart in the time zone and locale of its environment, and a
+  // CLI's hook and its agent's commands can run with different ones, so
   // processStarts runs ps in UTC and the C locale. macOS's ps prints nothing
-  // for a list that has one process ID it refuses, such as one above its
-  // largest, so processStarts asks for one process at a time.
+  // for a list with one process ID it refuses, such as one above its largest,
+  // so processStarts asks for one process at a time.
   processStarts(pids) {
     const starts = new Map();
     for (const pid of pids) {
@@ -60,7 +45,7 @@ const posix = {
         env: { ...process.env, TZ: "UTC", LC_ALL: "C" },
         stdio: ["ignore", "pipe", "ignore"],
       });
-      const start = fromLstart((stdout || "").trim());
+      const start = (stdout || "").trim();
       if (start) starts.set(pid, start);
     }
     return starts;
@@ -68,9 +53,9 @@ const posix = {
 };
 
 // windowsProcesses lists each process that the WQL filter selects, or every
-// process without one, as { pid, parent, name, start }. PowerShell gets the
-// script base64-encoded, so no character in it needs quoting on the command
-// line. It returns no process when PowerShell fails.
+// process without one, as { pid, parent, name, start }, with start in UTC.
+// PowerShell gets the script base64-encoded, so no character in it needs
+// quoting on the command line. It returns no process when PowerShell fails.
 function windowsProcesses(filter) {
   const script = `
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
