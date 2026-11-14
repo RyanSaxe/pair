@@ -146,7 +146,7 @@ test("Start wakes the holder with the reviewer's message, and the round still wa
   );
   assert.equal(
     a.inbox.wakes[0].message.message.content,
-    `pair: the reviewer approved proposal churn-export, "${card.title}", to run in session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\n${message}`,
+    `pair: your user approved proposal churn-export, "${card.title}", in pair, to run in session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what your user approved and your next step.\n\nYour user's words, which pair read also prints:\n${message}`,
   );
   // The reviewer answers round 1 only by sending feedback, so after a Start the
   // round still waits for the reviewer.
@@ -275,7 +275,7 @@ test("a card the reviewer writes stays theirs: Save tells no agent, and Start te
   );
   assert.match(
     a.inbox.wakes[0].message.message.content,
-    /^pair: the reviewer wrote proposal dark-receipt, "Dark receipts", to run in session /,
+    /^pair: your user wrote proposal dark-receipt, "Dark receipts", in pair, to run in session /,
   );
   const answer = await read();
   assert.equal(answer.event.payload.proposal, "dark-receipt");
@@ -441,7 +441,7 @@ test("pair propose --start starts a card on the reviewer's words, and only anoth
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 3), true);
   assert.equal(
     a.inbox.wakes[2].message.message.content,
-    `pair: the reviewer asked for proposal board-qa, "Board Q&A prep", in their own words, to run in a sub-session of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what the reviewer approved and your next step.\n\nThe reviewer's words, which pair read also prints:\nDo the Q&A prep apart.`,
+    `pair: your user asked for proposal board-qa, "Board Q&A prep", in their own words, in pair, to run in a sub-session of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints what your user approved and your next step.\n\nYour user's words, which pair read also prints:\nDo the Q&A prep apart.`,
   );
   const sub = await read();
   assert.equal(sub.moment, "read-start-sub-session");
@@ -977,7 +977,7 @@ test("a thread on a card wakes the holder with the card it is on", async (t) => 
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
   assert.match(
     a.inbox.wakes[0].message.message.content,
-    /^pair: the reviewer wrote to you in a thread on proposal churn-export, "Refresh the churn data export" in session /,
+    /^pair: your user wrote to you in a thread on proposal churn-export, "Refresh the churn data export" in pair, for session /,
   );
   const missing = await a.request(`${a.base}/api/threads`, {
     id: "lost",

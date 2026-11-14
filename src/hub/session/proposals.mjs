@@ -189,7 +189,7 @@ export async function proposals(session) {
     const fromWords = started.by === "words";
     const text = fromWords ? started.quote : started.message;
     const note = text
-      ? `\n\nThe reviewer's words, which pair read also prints:\n${text}`
+      ? `\n\nYour user's words, which pair read also prints:\n${text}`
       : "";
     const place =
       started.where === "here"
@@ -197,10 +197,10 @@ export async function proposals(session) {
         : `in a sub-session of session ${directory}`;
     const verb = card.source?.reviewer ? "wrote" : "approved";
     const what = fromWords
-      ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
-      : `the reviewer ${verb} proposal ${id}, "${card.title}", to run ${place}`;
+      ? `your user asked for proposal ${id}, "${card.title}", in their own words, in pair, to run ${place}`
+      : `your user ${verb} proposal ${id}, "${card.title}", in pair, to run ${place}`;
     return session.wakeForSend(
-      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`,
+      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what your user approved and your next step.${note}`,
     );
   }
   const wakeLater = (id) => {
