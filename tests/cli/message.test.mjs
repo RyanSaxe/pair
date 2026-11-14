@@ -22,23 +22,34 @@ async function scratch(t) {
   const home = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "pair-message-")),
   );
-  t.after(() => fs.rm(home, { recursive: true, force: true }));
+  const started = [];
+  // Windows refuses to remove the working directory or the executable of a
+  // running process, so the stand-ins stop before the test's directory goes,
+  // and rm retries while Windows releases them.
+  t.after(async () => {
+    for (const agent of started) await agent.kill();
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
+  });
   const env = {
     XDG_STATE_HOME: path.join(home, "state"),
     XDG_CONFIG_HOME: path.join(home, "config"),
     PAIR_HUB_PORT: "0",
   };
-  const agent = async (folder, session, extra = {}) => {
+  const agent = async (folder, extra, harness) => {
     const cwd = path.join(home, folder);
-    await fs.mkdir(cwd);
-    return standIn(t, {
+    await fs.mkdir(cwd, { recursive: true });
+    const cli = await standIn(t, {
       home,
       cwd,
-      env: { ...env, CLAUDE_CODE_SESSION_ID: session, ...extra },
+      harness,
+      env: { ...env, ...extra },
     });
+    started.push(cli);
+    return cli;
   };
   const receiver = await inbox(t, home);
-  const web = await agent("web", "receiver", {
+  const web = await agent("web", {
+    CLAUDE_CODE_SESSION_ID: "receiver",
     CLAUDE_CODE_MESSAGING_SOCKET: receiver.socket,
     CLAUDE_CODE_MESSAGING_TOKEN: receiver.token,
   });
@@ -57,7 +68,7 @@ async function scratch(t) {
 
 test("pair message sends the sender's first line and the command to answer it, and refuses a session that exited", async (t) => {
   const { web, name, agent, received } = await scratch(t);
-  const api = await agent("api", "sender");
+  const api = await agent("api", { CLAUDE_CODE_SESSION_ID: "sender" });
   const sent = await api.run([
     "message",
     "--to",
@@ -116,7 +127,7 @@ test(
       "the stand-in daemon listens on a Unix socket path",
   },
   async (t) => {
-    const { home, env, name, received } = await scratch(t);
+    const { name, agent, received } = await scratch(t);
     const spawned = {
       subAgent: {
         thread_spawn: { parent_thread_id: "parent", agent_nickname: "Goodall" },
@@ -135,15 +146,12 @@ test(
       },
       { inCodexHome: true },
     );
-    const cwd = path.join(home, "api");
-    await fs.mkdir(cwd);
     const codex = (thread) =>
-      standIn(t, {
-        home,
-        cwd,
-        harness: "codex",
-        env: { ...env, CODEX_HOME: daemon.home, CODEX_THREAD_ID: thread },
-      });
+      agent(
+        "api",
+        { CODEX_HOME: daemon.home, CODEX_THREAD_ID: thread },
+        "codex",
+      );
     const parent = await codex("parent");
     const { name: api } = JSON.parse(
       (await parent.run(["register", "--json"])).stdout,
