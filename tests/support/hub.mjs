@@ -327,6 +327,7 @@ export async function pairCli(
       : {
           CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
           CLAUDE_CODE_MESSAGING_TOKEN: "test",
+          CLAUDE_CODE_SESSION_ID: "test-session",
         }),
     ...extra,
   };

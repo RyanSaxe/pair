@@ -21,6 +21,8 @@ it. `pair --version` prints the version.
 | `pair propose --id ID`                                 | Records a proposal, or changes the one with that ID, as [`pair propose`](#pair-propose) describes. Any agent may run it.                                                                                                                                                                                               |
 | `pair status`                                          | Prints the session's status. Any agent may run it.                                                                                                                                                                                                                                                                     |
 | `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. `pair start --session-dir` resumes it. You end a session by closing it in the browser.                                                                                                                                                                             |
+| `pair register`                                        | Adds the agent session it runs in to pair's list of running agent sessions, or updates its entry, and prints the session's name and ID, as [pair register and pair agents](#pair-register-and-pair-agents) describes. `--name NAME` names the session, and `--hook` is for an agent CLI's start hook.                  |
+| `pair agents`                                          | Lists the registered agent sessions whose CLI is still running.                                                                                                                                                                                                                                                        |
 | `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
 | `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
@@ -79,6 +81,54 @@ with no other flag from this section. It refuses `--status-done` and
 proposal's parts. The hub applies the `--status-left` parts first, so one
 command can add a part and mark it done. A proposal has at most 20 parts,
 each at most 80 characters, and `--reopen` clears them.
+
+## pair register and pair agents
+
+`pair register` adds the agent session it runs in to pair's list of running
+agent sessions, and `pair agents` prints the list. Neither takes
+`--session-dir` or needs the hub.
+
+```console
+$ pair register
+Registered fix-login-3f, claude-code:6f1c2a9e, in ~/src/app-worktrees/fix-login.
+
+$ pair agents
+NAME          CLI          DIRECTORY                      BRANCH     ID
+fix-login-3f  Claude Code  ~/src/app-worktrees/fix-login  fix-login  claude-code:6f1c2a9e
+api-a0        Codex        ~/src/api                      main       codex:0199c1d4
+```
+
+A session's ID is the CLI and the session ID that the CLI keeps when the
+session resumes. pair prints the start of the ID, eight characters of the
+session ID or more when two sessions' IDs start the same way, and `--json`
+prints whole IDs.
+
+A session's name is its folder's name, lowercased, with each character other
+than a letter, digit or hyphen turned into a hyphen, then a hyphen and two
+random hex characters that no running session's name has. `--name NAME` sets
+another name and refuses one that a running session has. A session that
+registers again keeps its name.
+
+pair keeps one file for each session in `$XDG_STATE_HOME/pair/agents/`, which
+only you can read, because the file holds the CLI's wake target, and Claude
+Code's includes its inbox token. An entry counts as running while a process
+with the entry's process ID and start time runs, so a process that gets the
+same ID after a restart does not count. That process is the CLI's, except
+for a Codex session on Codex's app-server daemon, whose commands run under
+the daemon. pair counts such a session as running while the daemon has its
+thread loaded, which ends about a minute after the session exits.
+`pair register` and `pair agents` delete every entry that is not running.
+
+`pair start` registers the agent that runs it, and each other session command
+registers the agent again when the CLI's process or wake target changed, as
+after a restart, if the agent has an entry. When registering fails, a session
+command prints why on stderr and runs as usual.
+
+`pair register` refuses outside an agent CLI, and when pair finds no process
+of the CLI among the command's parent processes. With `--hook`, which an agent
+CLI's start hook runs, it reads the session ID from the hook's JSON on stdin
+when the environment has none, `session_id` from Codex and `sessionId` from
+Copilot CLI, prints one line, and exits 0 even when it cannot register.
 
 ## Environment variables
 

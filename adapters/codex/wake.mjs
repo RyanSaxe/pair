@@ -38,6 +38,39 @@ const { version } = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 );
 
+async function openDaemon(socket) {
+  const daemon = await connect(socket, 5000);
+  try {
+    // The thread/queue methods are experimental in Codex 0.160.
+    await daemon.request("initialize", {
+      clientInfo: { name: "pair", version },
+      capabilities: { experimentalApi: true },
+    });
+  } catch (error) {
+    daemon.close();
+    throw error;
+  }
+  daemon.notify("initialized");
+  return daemon;
+}
+
+// Codex started with no -c override runs its session's thread on the daemon,
+// so each command's nearest codex ancestor is the daemon, which serves every
+// such session and keeps running after the session exits. The daemon unloads
+// a thread about a minute after its session exits, and keeps the thread of a
+// running session loaded while the session is idle. sessionLoaded resolves to
+// whether the daemon has the thread loaded, and rejects when the daemon does
+// not answer.
+export async function sessionLoaded({ thread, socket }) {
+  const daemon = await openDaemon(socket);
+  try {
+    const read = await daemon.request("thread/read", { threadId: thread });
+    return read.thread.status.type !== "notLoaded";
+  } finally {
+    daemon.close();
+  }
+}
+
 // When a turn of the thread is in progress on the daemon, deliver() sends the
 // line into the turn with turn/steer. When the daemon runs the thread and no
 // turn is in progress, deliver() adds the line to the thread's queue with
@@ -114,13 +147,7 @@ async function deliver({ thread, socket = controlSocket(process.env) }, line) {
   };
   let daemon;
   try {
-    daemon = await connect(socket, 5000);
-    // The thread/queue methods are experimental in Codex 0.160.
-    await daemon.request("initialize", {
-      clientInfo: { name: "pair", version },
-      capabilities: { experimentalApi: true },
-    });
-    daemon.notify("initialized");
+    daemon = await openDaemon(socket);
     const read = async () =>
       (await daemon.request("thread/read", { threadId: delivery.thread }))
         .thread;
