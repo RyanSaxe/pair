@@ -49,6 +49,46 @@ export async function waitUntil(check, ms = 5000) {
   return false;
 }
 
+// launchConfig creates a config folder for a hub, with a launch script at the
+// path settings() gives it, unless script is false. The script appends the
+// folder it runs in and its arguments to a file as one JSON line, and with
+// error, then writes error to its error output and exits with status 1. On
+// Windows it is a PowerShell script. runs() returns the recorded runs.
+export async function launchConfig(
+  t,
+  { error, script = true, mode = 0o755 } = {},
+) {
+  const config = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "pair-launch-")),
+  );
+  t.after(() => fs.rm(config, { recursive: true, force: true }));
+  const file = settings({ XDG_CONFIG_HOME: config }).launchScript;
+  const record = `${file}.runs`;
+  const powershell = (text) => `'${text.replaceAll("'", "''")}'`;
+  const lines =
+    process.platform === "win32"
+      ? [
+          "$run = [ordered]@{ cwd = (Get-Location).Path; args = [string[]]$args }",
+          `[IO.File]::AppendAllText(${powershell(record)}, ($run | ConvertTo-Json -Compress) + "\`n")`,
+          ...(error
+            ? [`[Console]::Error.WriteLine(${powershell(error)})`, "exit 1"]
+            : []),
+        ]
+      : [
+          "#!/bin/sh",
+          `"${process.execPath}" -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2) }) + "\\n")' "${record}" "$@"`,
+          ...(error ? [`echo '${error}' >&2`, "exit 1"] : []),
+        ];
+  await fs.mkdir(path.dirname(file));
+  if (script) await fs.writeFile(file, `${lines.join("\n")}\n`, { mode });
+  const runs = async () =>
+    (await fs.readFile(record, "utf8").catch(() => ""))
+      .split("\n")
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line));
+  return { config, file, runs };
+}
+
 export async function freePort() {
   const server = net.createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

@@ -131,11 +131,12 @@ session would mix with its other work.
 Starting work never ends the round you are reading. Your drafts on the
 round stay, and you can start more work before you send the round.
 
-With an executable launch script at `~/.config/pair/spawn`, With a new agent
-shows **Start agent** in place of Open a new agent session. The hub runs the
-script as `spawn DIR COMMAND ARG…`, where `DIR` is the folder in which this
-session's agent ran `pair start` and the command starts a new session of the
-same agent CLI. That agent runs `pair start --from` for the proposal. The hub
+With an executable launch script at `~/.config/pair/spawn`, or
+`~/.config/pair/spawn.ps1` on Windows, With a new agent shows **Start agent**
+in place of Open a new agent session. The hub runs the script, with PowerShell
+on Windows, as `spawn DIR COMMAND ARG…`, where `DIR` is the folder in which
+this session's agent ran `pair start` and the command starts a new session of
+the same agent CLI. That agent runs `pair start --from` for the proposal. The hub
 approves the work only once the script succeeds.
 
 The agent cannot always open a new agent session. It replies in a thread

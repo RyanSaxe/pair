@@ -37,6 +37,26 @@ function folderProblem(directory) {
   return `${directory} is not a folder, so pair cannot start an agent in it.`;
 }
 
+// Windows runs a script only through its interpreter, so on Windows the
+// script is spawn.ps1 and runLaunch runs it with Windows PowerShell, which
+// every Windows has. -File hands each argument to the script as it is, and no
+// cmd.exe parses them.
+const invocation = (script, args) =>
+  process.platform === "win32"
+    ? [
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          script,
+          ...args,
+        ],
+      ]
+    : [script, args];
+
 // runLaunch runs `script DIR COMMAND ARG…` with no shell, so no character in
 // the prompt changes the command. It resolves when the script exits with
 // status 0, and rejects with the script's error output otherwise.
@@ -44,9 +64,11 @@ export function runLaunch(script, directory, command) {
   const problem = launchProblem(script) || folderProblem(directory);
   if (problem) return Promise.reject(new Error(problem));
   return new Promise((resolve, reject) => {
-    const child = spawn(script, [directory, ...command], {
+    const [file, args] = invocation(script, [directory, ...command]);
+    const child = spawn(file, args, {
       cwd: directory,
       stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true,
     });
     let output = "";
     child.stderr.setEncoding("utf8");
