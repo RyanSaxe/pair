@@ -55,14 +55,19 @@ An adapter exports these too when its CLI needs them:
 3. It then calls that adapter's `detect`, or refuses with the adapter's
    `unwakeable` message when one of its `variables` is unset.
 
-`detectWake` returns the wake target and the CLI's process ID, which is the
-ancestor process from step 1, or `null` when it chose the adapter in step 2.
-`pair register` refuses without a process ID, and refuses a subagent that
-`serverSession` gives a parent. When `serverSession` says the session is
-loaded at registration, the entry's `runningCheck` is `loaded`, and
-`pair agents` lists the session while that process runs and `serverSession`
-says it is loaded. Otherwise `runningCheck` is `process`, and `pair agents`
-lists the session while that process runs.
+Every session command runs `detectWake`, so it walks the ancestors with `ps`
+alone. Git for Windows' `ps` takes no `-o`, so on Windows `detectWake` chooses
+the adapter in step 2.
+
+`pair register` and `pair start` register the session under the CLI's
+process, the nearest ancestor that runs the adapter's `command`, which
+`src/shared/processes.mjs` reads with `ps` on macOS and Linux and with
+PowerShell on Windows. `pair register` refuses without that process, and
+refuses a subagent that `serverSession` gives a parent. When `serverSession`
+says the session is loaded at registration, the entry's `runningCheck` is
+`loaded`, and `pair agents` lists the session while that process runs and
+`serverSession` says it is loaded. Otherwise `runningCheck` is `process`, and
+`pair agents` lists the session while that process runs.
 
 ## When the CLI reads the line
 

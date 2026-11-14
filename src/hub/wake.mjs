@@ -4,7 +4,7 @@ import * as codex from "../../adapters/codex/wake.mjs";
 import * as copilot from "../../adapters/copilot/wake.mjs";
 import * as opencode from "../../adapters/opencode/wake.mjs";
 import * as pi from "../../adapters/pi/wake.mjs";
-import { ancestors } from "../shared/processes.mjs";
+import { psAncestors } from "../shared/processes.mjs";
 import { requireValue } from "../shared/util.mjs";
 
 // When no agent CLI is among the ancestor processes, detectWake picks the
@@ -22,17 +22,16 @@ export const identify = (target) => ({
 });
 // detectWake uses the nearest ancestor process that an adapter recognizes,
 // because an agent CLI started inside another one inherits the outer CLI's
+// variables. Every session command runs detectWake, so it walks the ancestors
+// with ps alone, which on Windows finds none and leaves the choice to the
 // variables.
 // The hub can wake an agent CLI's session only when every one of the
 // adapter's variables is set, so detectWake throws adapter.unwakeable when
 // one is missing. hookInput is the JSON that a CLI's start hook reads on stdin,
 // which fills in a variable the CLI leaves out of the hook's environment.
-//
-// detectWake returns the wake target and the process ID of the agent CLI,
-// which is null when no ancestor process is the CLI.
 export function detectWake(
   env = process.env,
-  tools = { ancestors },
+  tools = { ancestors: psAncestors },
   hookInput = null,
 ) {
   for (const ancestor of [...tools.ancestors(), null])
@@ -47,10 +46,7 @@ export function detectWake(
       };
       if (!adapter.variables.every((name) => seen[name]))
         throw new Error(adapter.unwakeable);
-      return {
-        target: adapter.detect(seen, { ...tools, ancestor }),
-        pid: ancestor?.pid ?? null,
-      };
+      return adapter.detect(seen, { ...tools, ancestor });
     }
   requireValue(
     false,

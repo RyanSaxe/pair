@@ -210,7 +210,7 @@ const claude = {
   CLAUDE_CODE_MESSAGING_TOKEN: "tok",
 };
 
-test("the nearest harness ancestor decides the wake target and the CLI's process", () => {
+test("the nearest harness ancestor decides the wake target", () => {
   const env = {
     ...claude,
     CLAUDE_CODE_SESSION_ID: "cc-session",
@@ -226,13 +226,10 @@ test("the nearest harness ancestor decides the wake target and the CLI's process
       ]),
     ),
     {
-      target: {
-        harness: "claude-code",
-        socket: claude.CLAUDE_CODE_MESSAGING_SOCKET,
-        token: "tok",
-        session: "cc-session",
-      },
-      pid: 3,
+      harness: "claude-code",
+      socket: claude.CLAUDE_CODE_MESSAGING_SOCKET,
+      token: "tok",
+      session: "cc-session",
     },
   );
   // Codex records its daemon's socket under CODEX_HOME.
@@ -242,31 +239,21 @@ test("the nearest harness ancestor decides the wake target and the CLI's process
     thread: "t",
     socket: path.join("/c", "app-server-control", "app-server-control.sock"),
   };
-  assert.deepEqual(detectWake(codex, tools([{ pid: 3, command: "codex" }])), {
-    target: codexTarget,
-    pid: 3,
-  });
+  assert.deepEqual(
+    detectWake(codex, tools([{ pid: 3, command: "codex" }])),
+    codexTarget,
+  );
   assert.deepEqual(
     detectWake(
       { COPILOT_AGENT_SESSION_ID: "s" },
       tools([{ pid: 3, command: "copilot" }]),
     ),
-    {
-      target: {
-        harness: "copilot",
-        sessionId: "s",
-        port: 4321,
-        sdk: "/sdk/index.js",
-      },
-      pid: 3,
-    },
+    { harness: "copilot", sessionId: "s", port: 4321, sdk: "/sdk/index.js" },
   );
-  // With no agent CLI among the ancestors, detectWake finds the CLI by its
-  // variables and has no process for it.
-  assert.deepEqual(detectWake(codex, tools([{ pid: 2, command: "sh" }])), {
-    target: codexTarget,
-    pid: null,
-  });
+  assert.deepEqual(
+    detectWake(codex, tools([{ pid: 2, command: "sh" }])),
+    codexTarget,
+  );
   // tests/adapters/pi.test.mjs and tests/adapters/opencode.test.mjs check the
   // targets of pi and opencode with the variables their extensions set.
 });
@@ -276,7 +263,7 @@ test("a Copilot start hook's input gives the session ID", () => {
   assert.equal(
     detectWake({}, tools([{ pid: 3, command: "copilot" }]), {
       sessionId: "copilot-session",
-    }).target.sessionId,
+    }).sessionId,
     "copilot-session",
   );
 });

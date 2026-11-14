@@ -43,7 +43,7 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   // detectWake does here what pair start does inside opencode: it finds
   // opencode among the process's ancestors and reads the variables that the
   // plugin set for the shell.
-  const { target } = detectWake(env, {
+  const target = detectWake(env, {
     ancestors: () => [{ pid: 2, command: "opencode" }],
   });
   assert.equal(target.socket, plain.PAIR_OPENCODE_SOCKET);

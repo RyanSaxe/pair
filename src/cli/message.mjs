@@ -31,8 +31,8 @@ async function registerSession(options) {
       "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
     );
   const input = options.hook ? await hookInput() : null;
-  const detected = detectWake(process.env, undefined, input);
-  const { entry, running } = await registerAgent(detected, {
+  const target = detectWake(process.env, undefined, input);
+  const { entry, running } = await registerAgent(target, {
     name: options.name,
   });
   const id = shortId(
