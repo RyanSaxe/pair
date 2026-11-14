@@ -12,8 +12,11 @@ const inherited = /^(CLAUDE|CODEX|COPILOT|PAIR|PI)_|^GIT_/;
 
 // The stand-in runs each command it receives as its child and sends back the
 // command's exit status and output. A command given no input reads /dev/null.
-// The stand-in keeps running while its IPC channel is open.
-const relay = `
+// The stand-in keeps running while its IPC channel is open. Node 24 on Linux
+// names its main thread MainThread, which ps then prints as the process's
+// command, so the stand-in sets its title to its own name.
+const relay = (name) => `
+process.title = ${JSON.stringify(name)};
 const { spawnSync } = require("node:child_process");
 process.on("message", ({ args, input }) => {
   const { status, stdout, stderr } = spawnSync(process.execPath, args, {
@@ -47,7 +50,7 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
           CLAUDE_CODE_MESSAGING_SOCKET: path.join(bin, "none.sock"),
           CLAUDE_CODE_MESSAGING_TOKEN: "test",
         };
-  const child = spawn(executable, ["-e", relay], {
+  const child = spawn(executable, ["-e", relay(name)], {
     cwd,
     env: { ...base, ...inbox, ...env },
     stdio: ["ignore", "ignore", "inherit", "ipc"],

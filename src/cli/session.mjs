@@ -8,7 +8,7 @@ import { detectWake, identify } from "../hub/wake.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings, version } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
-import { refreshAgent, registerAgent } from "./agents.mjs";
+import { listsAgents, refreshAgent, registerAgent } from "./agents.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
 import { rows, tooBigToPublish } from "./output.mjs";
@@ -148,8 +148,9 @@ export async function followHub() {
   }
 }
 // A session works without its agent in pair agents, so a session command
-// prints a registration error and goes on.
+// prints a registration error and goes on. On Windows it registers nothing.
 async function keepRegistered(update) {
+  if (!listsAgents) return;
   try {
     await update();
   } catch (error) {

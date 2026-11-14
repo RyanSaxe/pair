@@ -33,6 +33,7 @@ async function scratch(t) {
   const list = path.join(env.XDG_STATE_HOME, "pair", "agents");
   return {
     home,
+    env,
     list,
     folder: async (name) => {
       const directory = path.join(home, name);
@@ -368,6 +369,32 @@ test(
       "pair: This agent is not registered, so pair agents does not list it. Claude Code set no session ID for this command, so pair has no ID to list the session under.\n",
     );
     assert.deepEqual(await agents(), []);
+  },
+);
+
+test(
+  "pair register refuses on Windows and says why",
+  {
+    skip: process.platform !== "win32" && "pair keeps no list only on Windows",
+  },
+  async (t) => {
+    const { env } = await scratch(t);
+    await assert.rejects(
+      exec(process.execPath, [pair, "register"], {
+        env: {
+          ...withoutGit,
+          ...env,
+          CLAUDE_CODE_MESSAGING_SOCKET: "none.sock",
+          CLAUDE_CODE_MESSAGING_TOKEN: "test",
+          CLAUDE_CODE_SESSION_ID: "windows",
+        },
+      }),
+      {
+        code: 1,
+        stderr:
+          "pair: pair register does not work on Windows, where pair cannot read a process's parent or start time.\n",
+      },
+    );
   },
 );
 

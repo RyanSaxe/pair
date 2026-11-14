@@ -9,6 +9,10 @@ import { settings } from "../shared/settings.mjs";
 import { atomic, requireValue } from "../shared/util.mjs";
 import { listing } from "./arguments.mjs";
 
+// Git for Windows' ps takes no -o, so pair cannot read a process's parent or
+// start time on Windows, and keeps no list of agent sessions there.
+export const listsAgents = process.platform !== "win32";
+
 // pair's list of running agent sessions has one file per session in this
 // directory. Claude Code's wake target contains its inbox token, so only the
 // user can open the directory, and atomic() writes each file with mode 600.
@@ -169,6 +173,10 @@ function cliStart(adapter, pid) {
 // returns it with every running entry, itself first. The session keeps its
 // name unless name gives another or a running session has taken it since.
 export async function registerAgent({ target, pid }, { name } = {}) {
+  requireValue(
+    listsAgents,
+    "pair register does not work on Windows, where pair cannot read a process's parent or start time.",
+  );
   const adapter = adapters[target.harness];
   const sessionId = adapter.sessionId(target);
   requireValue(

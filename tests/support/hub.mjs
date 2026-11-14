@@ -309,11 +309,12 @@ export async function pairCli(
   extra = {},
   { cli = pair, harness = "claude-code", cwd } = {},
 ) {
-  const relay =
-    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
   const codex = harness === "codex";
-  // Windows runs only a file with an executable extension.
   const name = codex ? "codex" : "claude";
+  // Node 24 on Linux names its main thread MainThread, which ps then prints as
+  // the process's command, so the relay sets its title to its own name.
+  const relay = `process.title = "${name}"; const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;`;
+  // Windows runs only a file with an executable extension.
   const agentCli = path.join(
     home,
     process.platform === "win32" ? `${name}.exe` : name,
