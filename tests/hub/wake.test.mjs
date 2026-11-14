@@ -47,7 +47,7 @@ test("a submission wakes the holder with the line that names the session", async
         type: "user",
         message: {
           role: "user",
-          content: `pair: the reviewer sent feedback on round 1 of session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints the feedback and your next step.`,
+          content: `pair: your user sent feedback on round 1 in pair, for session ${a.directory}. Run pair read --session-dir ${a.directory} first, which prints their feedback and your next step.`,
         },
       },
     },
