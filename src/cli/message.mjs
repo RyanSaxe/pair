@@ -164,18 +164,36 @@ async function identifySender(label) {
   try {
     const detected = detectAgent();
     if (!detected) return unregistered("your user");
-    registered = await registerAgent(detected);
+    registered =
+      (await subagentSender(detected)) ?? (await registerAgent(detected));
   } catch (error) {
     throw new Error(
       `pair sent nothing, because it could not register this session, and the receiver can answer only a registered session. ${error.message}`,
     );
   }
-  const { entry, running } = registered;
+  const { entry, running, subagent } = registered;
+  const address = subagent ? `${entry.id}/${subagent}` : entry.id;
+  const name = subagent ? `${entry.name}/${subagent}` : entry.name;
   return {
-    name: `${entry.name} (${adapters[entry.cli].name} in ${shortPath(entry.directory)})`,
-    answer: entry.id,
+    name: `${name} (${adapters[entry.cli].name} in ${shortPath(entry.directory)})`,
+    answer: address,
     running,
   };
+}
+
+// A Codex subagent has a session of its own, which pair does not list, so a
+// message from it names the subagent through its parent's entry, as
+// NAME/SUBAGENT reaches it. subagentSender returns null for any other sender,
+// and for a subagent whose parent has no entry, which registerAgent refuses.
+async function subagentSender({ target }) {
+  const server = await adapters[target.harness]
+    .serverSession?.(target)
+    .catch(() => null);
+  if (!server?.parent?.nickname) return null;
+  const { running } = await readAgents();
+  const parentId = `${target.harness}:${server.parent.sessionId}`;
+  const entry = running.find((each) => each.id === parentId);
+  return entry ? { entry, running, subagent: server.parent.nickname } : null;
 }
 
 // With PAIR_WAKE=off, wakeRunner writes the line to stderr instead of sending

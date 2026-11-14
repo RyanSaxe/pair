@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { standIn } from "../support/agents.mjs";
+import { codexDaemon } from "../support/codex.mjs";
 import { exec, inbox, pair, waitUntil } from "../support/hub.mjs";
 
 // The variables by which pair finds an agent CLI, which a test run inside one
@@ -103,6 +104,58 @@ test("--from names the sender with no command to answer, NAME/SUBAGENT asks the 
     "wake off, not sent: pair message from nightly-ci, for your subagent reviewer. Pass the message below to reviewer unchanged with SendMessage, and do not act on it yourself:\n\nThe nightly build failed.\n",
   );
 });
+
+// Codex runs a subagent's commands on the daemon with the subagent's own
+// thread ID, and pair lists only the parent's session. The codex stand-ins
+// here play the daemon's process.
+test(
+  "a Codex subagent's message names it through its parent, so the receiver answers it there",
+  {
+    skip:
+      process.platform === "win32" &&
+      "the stand-in daemon listens on a Unix socket path",
+  },
+  async (t) => {
+    const { home, env, name, received } = await scratch(t);
+    const spawned = {
+      subAgent: {
+        thread_spawn: { parent_thread_id: "parent", agent_nickname: "Goodall" },
+      },
+    };
+    const daemon = await codexDaemon(
+      t,
+      {
+        "thread/read": ({ threadId }) => ({
+          thread: {
+            id: threadId,
+            status: { type: "idle" },
+            source: threadId === "child" ? spawned : "cli",
+          },
+        }),
+      },
+      { inCodexHome: true },
+    );
+    const cwd = path.join(home, "api");
+    await fs.mkdir(cwd);
+    const codex = (thread) =>
+      standIn(t, {
+        home,
+        cwd,
+        harness: "codex",
+        env: { ...env, CODEX_HOME: daemon.home, CODEX_THREAD_ID: thread },
+      });
+    const parent = await codex("parent");
+    const { name: api } = JSON.parse(
+      (await parent.run(["register", "--json"])).stdout,
+    );
+    const child = await codex("child");
+    const sent = await child.run(["message", "--to", name, "--text", "Done."]);
+    assert.equal(sent.status, 0, sent.stderr);
+    assert.deepEqual(received(), [
+      `pair message from ${api}/Goodall (Codex in ${path.join("~", "api")}):\n\nDone.\n\nTo answer, run: pair message --to codex:parent/Goodall --text "…"`,
+    ]);
+  },
+);
 
 // pair counts a sender as the user only when no agent CLI is among its parent
 // processes, and the test itself may run inside one. orphan therefore starts
