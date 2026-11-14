@@ -23,6 +23,7 @@ it. `pair --version` prints the version.
 | `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. `pair start --session-dir` resumes it. You end a session by closing it in the browser.                                                                                                                                                                             |
 | `pair register`                                        | Adds the agent session it runs in to pair's list of running agent sessions, or updates its entry, and prints the session's name and ID, as [pair register and pair agents](#pair-register-and-pair-agents) describes. `--name NAME` names the session, and `--hook` is for an agent CLI's start hook.                  |
 | `pair agents`                                          | Lists the registered agent sessions whose CLI is still running.                                                                                                                                                                                                                                                        |
+| `pair message --to NAME --text TEXT`                   | Sends a message to a running agent session, as [pair message](#pair-message) describes. `--file PATH` sends a file's text, and `--from LABEL` names a sender outside any agent CLI.                                                                                                                                    |
 | `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
 | `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
@@ -134,18 +135,62 @@ on stdin when the environment has none, `session_id` from Codex and
 `sessionId` from Copilot CLI, prints one line, and exits 0 even when it cannot
 register.
 
+## pair message
+
+`pair message` sends a message to a running agent session through its agent
+CLI, and prints when the session's agent reads it. It takes no
+`--session-dir` and needs no hub.
+
+```console
+$ pair message --to fix-login-3f --text "The session table now has a revoked_at column. Use it for logout."
+Sent to fix-login-3f (Claude Code). It reads the message at once if it is idle, and otherwise between the steps of its current turn.
+```
+
+The agent in `fix-login-3f` reads this:
+
+```text
+pair message from api-a0 (Codex in ~/src/api):
+
+The session table now has a revoked_at column. Use it for logout.
+
+To answer, run: pair message --to codex:0199c1d4-1111-7000-8000-000000000000 --text "…"
+```
+
+`--to` takes a name or an ID that `pair agents` prints, or the start of one
+ID. `pair message` first deletes every entry that is not running, as
+`pair agents` does. It refuses a name or ID that no running session has, and
+a start of an ID that more than one session's ID has. `--text` and `--file`
+take at most 100 KB of text. Claude Code 2.1.325, Codex 0.169 and pi 1.5.0
+each received a 100 KB message whole.
+
+Inside an agent CLI, `pair message` registers the session it runs in, as
+`pair register` does, and sends nothing when it cannot. The first line names
+that session, and the last line gives the command that answers it, with the
+whole ID, because another session can take the name after this one exits.
+Outside any agent CLI, the first line is `pair message from your user:`, and
+`--from LABEL` makes it `pair message from LABEL:`. Neither message ends with
+a command to answer it.
+
+`--to NAME/SUBAGENT` sends the message to a subagent of the session:
+
+| Agent CLI   | How the message reaches the subagent                                                                                                                                                                                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | The parent receives it, with a first line that asks the parent's agent to pass it on unchanged with `SendMessage`.                                                                                                                                                                       |
+| Codex       | The parent receives it, with a first line that asks the parent's agent to pass it on unchanged with `followup_task` and the subagent's agent path, such as `/root/echo`. pair finds the subagent on Codex's daemon by the name the parent gave it or by its nickname, such as `Goodall`. |
+| pi          | `pair message` refuses, because pair's extension cannot send to a pi subagent.                                                                                                                                                                                                           |
+
 ## Environment variables
 
 All six are optional.
 
-| Variable                | Default          | Meaning                                                                                                                          |
-| ----------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `PAIR_HUB_PORT`         | 4747             | The hub's port on 127.0.0.1. With `0`, the system assigns a free port, as the tests do.                                          |
-| `PAIR_HUB_HOST`         | unset            | An extra address for the hub to listen on, such as a Tailscale IP, so you can review on a phone.                                 |
-| `PAIR_HUB_IDLE_SECONDS` | 900              | How long the hub keeps running with no live session.                                                                             |
-| `PAIR_WAKE`             | on               | With `off`, the hub writes each wake line to its log instead of sending it. pair refuses `off` with the default state directory. |
-| `XDG_STATE_HOME`        | `~/.local/state` | pair stores the sessions and the hub's files in its `pair/` folder.                                                              |
-| `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files and moment files from its `pair/` folder.                                                |
+| Variable                | Default          | Meaning                                                                                                                                                                           |
+| ----------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PAIR_HUB_PORT`         | 4747             | The hub's port on 127.0.0.1. With `0`, the system assigns a free port, as the tests do.                                                                                           |
+| `PAIR_HUB_HOST`         | unset            | An extra address for the hub to listen on, such as a Tailscale IP, so you can review on a phone.                                                                                  |
+| `PAIR_HUB_IDLE_SECONDS` | 900              | How long the hub keeps running with no live session.                                                                                                                              |
+| `PAIR_WAKE`             | on               | With `off`, the hub writes each wake line to its log instead of sending it, and `pair message` writes its message to stderr. pair refuses `off` with the default state directory. |
+| `XDG_STATE_HOME`        | `~/.local/state` | pair stores the sessions and the hub's files in its `pair/` folder.                                                                                                               |
+| `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files and moment files from its `pair/` folder.                                                                                                 |
 
 The hub's browser routes need no token, so the hub listens on an extra address
 only when you set `PAIR_HUB_HOST`. Anyone who can reach that address can

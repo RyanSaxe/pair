@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { withSandboxHint } from "../../adapters/codex/rules.mjs";
+import { subagentTool } from "../../adapters/codex/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 import {
   codexCommand,
@@ -277,5 +278,40 @@ test(
       "--message",
     ]);
     relayed(args[4]);
+  },
+);
+
+// Codex 0.169 gives a subagent a random nickname, and its parent knows it by
+// the agent path made from the name the parent gave it.
+test(
+  "pair message finds a Codex subagent by its nickname or its name, and names its agent path",
+  {
+    skip:
+      process.platform === "win32" &&
+      "the stand-in daemon listens on a Unix socket path",
+  },
+  async (t) => {
+    const subagent = {
+      id: "thread-2",
+      agentNickname: "Goodall",
+      source: {
+        subAgent: {
+          thread_spawn: { parent_thread_id: thread, agent_path: "/root/echo" },
+        },
+      },
+    };
+    const daemon = await codexDaemon(t, {
+      "thread/list": ({ parentThreadId }) => ({
+        data: parentThreadId === thread ? [subagent] : [],
+        nextCursor: null,
+      }),
+    });
+    const target = { harness: "codex", thread, socket: daemon.socket };
+    for (const name of ["echo", "goodall"])
+      assert.equal(
+        await subagentTool(target, name),
+        "followup_task and target /root/echo",
+      );
+    await assert.rejects(subagentTool(target, "reviewer"), /echo \(Goodall\)/);
   },
 );

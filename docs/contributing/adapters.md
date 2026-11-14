@@ -36,15 +36,17 @@ It also exports these functions:
 
 An adapter exports these too when its CLI needs them:
 
-| Export                  | Value                                                                                                                                                                                                                                                                                                      |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sessionId(target)`     | The ID that the CLI keeps when the session resumes, when `identity` is something else. `pair register` lists the session under this ID, or under `identity` without it. Claude Code's adapter returns `CLAUDE_CODE_SESSION_ID`, because its identity is the inbox socket.                                  |
-| `hookVariables(input)`  | The variables that the JSON on a start hook's stdin gives when the CLI leaves them out of the hook's environment, for Codex's `session_id` and Copilot CLI's `sessionId`.                                                                                                                                  |
-| `serverSession(target)` | `{ loaded, parent }` from the server process that runs the session, for Codex's app-server daemon, which runs the sessions of every Codex started with no `-c` override and keeps running after they exit. `parent` names the session that started a subagent. It rejects when the server does not answer. |
+| Export                       | Value                                                                                                                                                                                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sessionId(target)`          | The ID that the CLI keeps when the session resumes, when `identity` is something else. `pair register` lists the session under this ID, or under `identity` without it. Claude Code's adapter returns `CLAUDE_CODE_SESSION_ID`, because its identity is the inbox socket.                                  |
+| `hookVariables(input)`       | The variables that the JSON on a start hook's stdin gives when the CLI leaves them out of the hook's environment, for Codex's `session_id` and Copilot CLI's `sessionId`.                                                                                                                                  |
+| `serverSession(target)`      | `{ loaded, parent }` from the server process that runs the session, for Codex's app-server daemon, which runs the sessions of every Codex started with no `-c` override and keeps running after they exit. `parent` names the session that started a subagent. It rejects when the server does not answer. |
+| `subagentTool(target, name)` | The tool, and for Codex its target, with which the parent's agent passes a message on to its subagent `name`. `pair message` writes it into the first line of a message it sends the parent: `SendMessage` for Claude Code, and `followup_task` with the subagent's agent path for Codex.                  |
 
 ## How the hub chooses an adapter
 
-`src/hub/wake.mjs` lists the adapters and chooses one for `pair start`:
+`src/hub/wake.mjs` lists the adapters and chooses one for `pair start`, and
+`pair message` chooses the sender's the same way:
 
 1. It compares each ancestor process of the `pair` command, nearest first,
    with every adapter's `command`. That way it chooses the agent CLI that
@@ -54,6 +56,10 @@ An adapter exports these too when its CLI needs them:
    adapter whose first variable is set.
 3. It then calls that adapter's `detect`, or refuses with the adapter's
    `unwakeable` message when one of its `variables` is unset.
+
+When neither step chooses an adapter, `detectAgent` returns `null`.
+`detectWake`, which `pair start` calls, then refuses, and `pair message`
+names the sender as your user.
 
 `detectWake` returns the wake target and the CLI's process ID, which is the
 ancestor process from step 1, or `null` when it chose the adapter in step 2.

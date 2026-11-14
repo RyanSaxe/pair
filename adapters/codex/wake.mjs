@@ -78,6 +78,46 @@ export async function serverSession({ thread, socket }) {
   }
 }
 
+// pair message asks the parent's agent to pass a message on to its subagent
+// with followup_task. Codex 0.169 gives a subagent a random nickname, such as
+// Goodall, and an agent path made of the name the parent gave it, such as
+// /root/echo, which the parent's tools show as the subagent's agent ID.
+// subagentTool finds the subagent among the threads the parent spawned, by
+// either name, and names its agent path, or its thread ID when it has no path.
+export async function subagentTool({ thread, socket }, name) {
+  const daemon = await openDaemon(socket);
+  try {
+    const spawned = [];
+    let cursor = null;
+    do {
+      const page = await daemon.request("thread/list", {
+        parentThreadId: thread,
+        cursor,
+      });
+      spawned.push(...page.data);
+      cursor = page.nextCursor;
+    } while (cursor);
+    const path = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
+    const names = (child) =>
+      [path(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
+    const subagent = spawned.find((child) =>
+      names(child).some((each) => each.toLowerCase() === name.toLowerCase()),
+    );
+    if (!subagent) {
+      const known = spawned.map((child) => {
+        const [first, ...others] = names(child);
+        return others.length ? `${first} (${others.join(", ")})` : first;
+      });
+      throw new Error(
+        `The Codex session has no subagent named ${name}. ${known.length > 1 ? `Its subagents are ${known.join(", ")}.` : known.length ? `Its subagent is ${known[0]}.` : "It has no subagents."}`,
+      );
+    }
+    return `followup_task and target ${path(subagent) ?? subagent.id}`;
+  } finally {
+    daemon.close();
+  }
+}
+
 // When a turn of the thread is in progress on the daemon, deliver() sends the
 // line into the turn with turn/steer. When the daemon runs the thread and no
 // turn is in progress, deliver() adds the line to the thread's queue with
