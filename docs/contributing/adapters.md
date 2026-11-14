@@ -14,7 +14,7 @@ Each folder's `wake.mjs` exports these values:
 | `variables`  | The variables the CLI gives the commands it runs.        |
 | `unwakeable` | The message for a session that lacks any of `variables`. |
 
-It also exports four functions:
+It also exports these functions:
 
 - `detect(env, tools)` returns the wake target for the adapter's agent CLI.
   `src/hub/wake.mjs` calls it only for the adapter it chose, once every one
@@ -33,12 +33,10 @@ It also exports four functions:
   result, and `steerable` as `holder.steerable` in `status.json`. The frame
   reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
   on Message the agent.
-- `launch({ directory, name, sessionId, prompt })` returns the command line,
-  as an array of arguments, that starts a new interactive session of the CLI
-  in `directory` with `prompt` as its first message. Where the CLI takes them
-  on its command line, it also gives the session the display name `name` and
-  the ID `sessionId`. The hub passes the array to the user's launch script,
-  as `src/shared/launch.mjs` describes.
+- `launch({ name, prompt })` returns the command line, as an array, that
+  starts a new session of the CLI with `prompt` as its first message, named
+  `name` where the CLI takes a name. The hub passes it to the user's launch
+  script, as `src/shared/launch.mjs` describes.
 
 ## How the hub chooses an adapter
 

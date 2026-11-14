@@ -50,14 +50,11 @@ export async function waitUntil(check, ms = 5000) {
 }
 
 // launchConfig creates a config folder for a hub, with a launch script at the
-// path settings() gives it, unless script is false. The script appends the
-// folder it runs in and its arguments to a file as one JSON line, and with
-// error, then writes error to its error output and exits with status 1. On
-// Windows it is a PowerShell script. runs() returns the recorded runs.
-export async function launchConfig(
-  t,
-  { error, script = true, mode = 0o755 } = {},
-) {
+// path settings() gives it. The script appends the folder it runs in and its
+// arguments to a file as one JSON line, and with error, then writes error to
+// its error output and exits with status 1. On Windows it is a PowerShell
+// script. runs() returns the recorded runs.
+export async function launchConfig(t, { error } = {}) {
   const config = await fs.realpath(
     await fs.mkdtemp(path.join(os.tmpdir(), "pair-launch-")),
   );
@@ -80,7 +77,7 @@ export async function launchConfig(
           ...(error ? [`echo '${error}' >&2`, "exit 1"] : []),
         ];
   await fs.mkdir(path.dirname(file));
-  if (script) await fs.writeFile(file, `${lines.join("\n")}\n`, { mode });
+  await fs.writeFile(file, `${lines.join("\n")}\n`, { mode: 0o755 });
   const runs = async () =>
     (await fs.readFile(record, "utf8").catch(() => ""))
       .split("\n")

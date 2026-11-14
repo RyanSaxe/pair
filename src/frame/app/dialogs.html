@@ -389,18 +389,7 @@
         Save for later <kbd data-send-key></kbd>
       </button>
     </div>
-    <!-- The frame shows Start agent in place of Open a new agent session
-         when the hub can start an agent with the user's launch script. -->
     <div class="actions" data-start-for="new-agent">
-      <button
-        class="btn primary"
-        type="button"
-        id="start-agent"
-        aria-keyshortcuts="Shift+Enter"
-        hidden
-      >
-        Start agent <kbd>⇧ ↵</kbd>
-      </button>
       <button
         class="btn primary start-open"
         type="button"
@@ -408,7 +397,8 @@
         aria-describedby="start-open-tip"
         aria-keyshortcuts="Shift+Enter"
       >
-        Open a new agent session <kbd>⇧ ↵</kbd
+        <span id="start-open-label">Open a new agent session</span>
+        <kbd>⇧ ↵</kbd
         ><span class="line-tip" id="start-open-tip"
           >This does not always work.</span
         >

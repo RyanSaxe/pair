@@ -56,7 +56,7 @@ export function message(data) {
 // the same 4,000-character limit as Start's message, because no message goes
 // with it. The frame chooses the ID, because Copy command copies it before the
 // hub answers.
-const reviewerActions = ["save", "start", "start-agent", "open-agent"];
+const reviewerActions = ["save", "start", "open-agent"];
 export async function writtenCard(session, data) {
   const id = typeof data?.id === "string" ? data.id : "";
   requireValue(
@@ -65,7 +65,7 @@ export async function writtenCard(session, data) {
   );
   requireValue(
     reviewerActions.includes(data.action),
-    "A work item's action is save, start, start-agent or open-agent",
+    "A work item's action is save, start or open-agent",
   );
   const delivers =
     typeof data.delivers === "string" ? data.delivers.trim() : "";
@@ -169,13 +169,4 @@ export function refuse(card, action, messages) {
     messages[state] ?? messages[groups[state]] ?? messages.other,
     409,
   );
-}
-// refuseStart refuses to start a card that is not proposed.
-export function refuseStart(card) {
-  refuse(card, "start", {
-    declined: `The reviewer declined proposal ${card.id}`,
-    withdrawn: `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
-    finished: `Proposal ${card.id} is already marked done.`,
-    started: `Proposal ${card.id} is already approved.`,
-  });
 }

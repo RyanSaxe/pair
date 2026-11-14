@@ -556,15 +556,14 @@ export async function startHub(config = settings()) {
             await session.exclusive(() => session.writeProposal(data)),
           );
         }
-        // Only start, start-agent and open-agent have a body. The body of
-        // start contains where the work runs, and every body can contain the
-        // reviewer's message.
+        // Only start and open-agent have a body. The body of start contains
+        // where the work runs, and both bodies can contain the reviewer's
+        // message.
         const cardActions = {
           start: session.startProposal,
           decline: session.declineProposal,
           restore: session.restoreProposal,
           "open-agent": session.openAgent,
-          "start-agent": session.startAgent,
         };
         if (
           method === "POST" &&
@@ -573,7 +572,7 @@ export async function startHub(config = settings()) {
           rest.length === 4 &&
           Object.hasOwn(cardActions, rest[3])
         ) {
-          const data = ["start", "open-agent", "start-agent"].includes(rest[3])
+          const data = ["start", "open-agent"].includes(rest[3])
             ? await readBody(req, 50_000)
             : null;
           const id = decodeURIComponent(rest[2]);

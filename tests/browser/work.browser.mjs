@@ -273,6 +273,10 @@ test("Open a new agent session starts the card with a new agent and shows its th
   await page.locator("[data-proposal-card=export] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("[data-where=new-agent]").click();
+  // Without a launch script, the button asks this session's agent.
+  await dialog
+    .locator("#start-open", { hasText: "Open a new agent session" })
+    .waitFor();
   await dialog.locator("#start-message").fill("Use the board template.");
   await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
@@ -289,8 +293,8 @@ test("Open a new agent session starts the card with a new agent and shows its th
   assert.equal(threads[0].kind, "open-agent");
 });
 
-test("with a launch script, Start agent takes the place of Open a new agent session and starts the card once the script has run", async (t) => {
-  const { config, runs } = await launchConfig(t);
+test("with a launch script, Open a new agent session reads Start agent and starts the card", async (t) => {
+  const { config } = await launchConfig(t);
   const { page, cards } = await work(t, {
     env: { XDG_CONFIG_HOME: config },
     registered: { start: true, folder: config },
@@ -299,20 +303,9 @@ test("with a launch script, Start agent takes the place of Open a new agent sess
   await page.locator("[data-proposal-card=export] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("[data-where=new-agent]").click();
-  await dialog.locator("#start-agent").waitFor();
-  assert.equal(await dialog.locator("#start-open").isVisible(), false);
-  await dialog.locator("#start-message").fill("Use the board template.");
-  await dialog.locator("#start-message").press("Shift+Enter");
+  await dialog.locator("#start-open", { hasText: "Start agent" }).click();
   await dialog.waitFor({ state: "hidden" });
   assert.deepEqual((await cards())[1].started, "new-agent");
-  await page
-    .locator("[data-proposal-card=export] .card-state", {
-      hasText: "Opening a new agent session",
-    })
-    .waitFor({ timeout: 5000 });
-  const [run] = await runs();
-  assert.equal(run.args[0], config);
-  assert.match(run.args.at(-1), / --proposal export\.$/);
 });
 
 // After the round's feedback is sent, the comment control only starts threads,

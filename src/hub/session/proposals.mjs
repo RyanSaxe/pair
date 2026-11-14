@@ -1,16 +1,18 @@
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { runLaunch } from "../../shared/launch.mjs";
 import { accepts } from "../../shared/lifecycle.mjs";
 import { allows, proposalState } from "../../shared/proposal-state.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
+import { adapters } from "../wake.mjs";
 import {
   message,
   place,
   planFirst,
   proposeAction,
   refuse,
-  refuseStart,
   words,
   written,
   writtenCard,
@@ -161,7 +163,12 @@ export async function proposals(session) {
   // prints the start.
   async function start(card, started, holder = false) {
     open();
-    refuseStart(card);
+    refuse(card, "start", {
+      declined: `The reviewer declined proposal ${card.id}`,
+      withdrawn: `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
+      finished: `Proposal ${card.id} is already marked done.`,
+      started: `Proposal ${card.id} is already approved.`,
+    });
     const round = session.state.current?.round ?? null;
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
@@ -240,10 +247,22 @@ export async function proposals(session) {
     return started;
   }
   const fromCommand = (id) => `pair start --from ${directory} --proposal ${id}`;
+  // With the user's launch script and the folder in which the holder ran pair
+  // start, the frame shows Open a new agent session as Start agent.
+  const launcher = () => {
+    const { holder } = session.state;
+    return holder?.folder && existsSync(session.config.launchScript)
+      ? holder
+      : null;
+  };
+  const canStartAgent = () => Boolean(launcher());
   // For Open a new agent session on a card, openAgent asks this session's
   // holder, in a thread on the card, to open a separate agent that runs pair
-  // start --from. It first starts the card with a new agent when nobody has
-  // started it, and start refuses a declined, withdrawn or finished card.
+  // start --from. With a launcher, it runs the launch script instead, which
+  // starts a session of the holder's agent CLI in the holder's folder. It first
+  // starts the card with a new agent when nobody has started it, and start
+  // refuses a declined, withdrawn or finished card. A failed script leaves the
+  // card started, as after Copy command, and openAgent returns its error.
   async function openAgent(id, data) {
     open();
     const card = find(id);
@@ -264,6 +283,17 @@ export async function proposals(session) {
           : `Proposal ${id} was already started`,
         409,
       );
+    const holder = launcher();
+    if (holder) {
+      const prompt = `Run pair guide and follow what it prints. Then run ${fromCommand(id)}.`;
+      const command = adapters[holder.harness].launch({ name: id, prompt });
+      try {
+        await runLaunch(session.config.launchScript, holder.folder, command);
+      } catch (error) {
+        return { ...listed(), launchError: error.message };
+      }
+      return listed();
+    }
     const thread = await session.agentThread(
       find(id),
       text || "Open a new agent session for this proposal.",
@@ -272,9 +302,7 @@ export async function proposals(session) {
   }
   // writeProposal adds a card the reviewer wrote on Work, and data.action says
   // what to do with it. Save leaves it in Proposed, and the hub tells no agent
-  // about it until the reviewer starts it. For Start agent, the hub saves the
-  // card only after the launch script succeeds, so a failed launch leaves no
-  // card and the reviewer can press Start agent again.
+  // about it until the reviewer starts it.
   async function writeProposal(data) {
     open();
     const fields = await writtenCard(session, data);
@@ -283,12 +311,8 @@ export async function proposals(session) {
       `This session already has work item ${fields.id}`,
       409,
     );
-    if (data.action === "start-agent")
-      await session.launchAgent(fields.id, data);
     await save(fields);
     if (data.action === "start") return startProposal(fields.id, data);
-    if (data.action === "start-agent")
-      return startProposal(fields.id, { ...data, where: "new-agent" });
     if (data.action === "open-agent") return openAgent(fields.id, data);
     return listed();
   }
@@ -502,6 +526,7 @@ export async function proposals(session) {
     reopenedSession,
     built,
     openAgent,
+    canStartAgent,
     propose,
     writeStatus,
     startProposal,

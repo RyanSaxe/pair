@@ -14,14 +14,8 @@ export const unwakeable =
 
 export const identity = (target) => target.thread;
 
-// launch returns the command line that starts a new Codex session. Codex takes
-// no session name or ID on its command line.
-export const launch = ({ directory, prompt }) => [
-  command,
-  "-C",
-  directory,
-  prompt,
-];
+// launch returns the command line that starts a new session with a prompt.
+export const launch = ({ prompt }) => [command, prompt];
 
 // Codex 0.160 runs its threads on an app-server daemon, which listens on a
 // control socket under CODEX_HOME.
