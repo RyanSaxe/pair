@@ -41,6 +41,7 @@ An adapter exports these too when its CLI needs them:
 | `sessionId(target)`     | The ID that the CLI keeps when the session resumes, when `identity` is something else. `pair register` lists the session under this ID, or under `identity` without it. Claude Code's adapter returns `CLAUDE_CODE_SESSION_ID`, because its identity is the inbox socket.                                  |
 | `hookVariables(input)`  | The variables that the JSON on a start hook's stdin gives when the CLI leaves them out of the hook's environment, for Codex's `session_id` and Copilot CLI's `sessionId`.                                                                                                                                  |
 | `serverSession(target)` | `{ loaded, parent }` from the server process that runs the session, for Codex's app-server daemon, which runs the sessions of every Codex started with no `-c` override and keeps running after they exit. `parent` names the session that started a subagent. It rejects when the server does not answer. |
+| `sharesProcess`         | `true` when one process of the CLI serves several sessions, as opencode's does, so a new session's registration leaves the other sessions of its process listed.                                                                                                                                           |
 
 ## How the hub chooses an adapter
 

@@ -1,4 +1,5 @@
 import { adapters, detectWake } from "../hub/wake.mjs";
+import { ancestors } from "../shared/processes.mjs";
 import { requireNode } from "../shared/settings.mjs";
 import { usageError } from "./arguments.mjs";
 import { readAgents, registerAgent, shortId, shortPath } from "./agents.mjs";
@@ -31,7 +32,10 @@ async function registerSession(options) {
       "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
     );
   const input = options.hook ? await hookInput() : null;
-  const target = detectWake(process.env, undefined, input);
+  // pair register talks to no hub, so it walks the ancestors as registering
+  // does, with PowerShell on Windows, where ps finds none. A Codex start hook
+  // has no CODEX_THREAD_ID, so only a codex ancestor chooses Codex for it.
+  const target = detectWake(process.env, { ancestors }, input);
   const { entry, running } = await registerAgent(target, {
     name: options.name,
   });
