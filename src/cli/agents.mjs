@@ -127,14 +127,13 @@ function currentBranch(directory) {
 // command, and its start time, which the running check compares. Only
 // registering looks it up, because on Windows the walk starts PowerShell.
 function cliProcess(adapter) {
-  const pid = ancestors().find(
-    ({ command }) => command === adapter.command,
-  )?.pid;
+  const cli = ancestors().find(({ command }) => command === adapter.command);
   requireValue(
-    pid,
+    cli,
     `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
   );
-  const processStart = processStarts([pid]).get(pid);
+  const { pid } = cli;
+  const processStart = cli.start ?? processStarts([pid]).get(pid);
   requireValue(
     processStart,
     `pair could not read the start time of ${adapter.name}'s process ${pid}.`,
