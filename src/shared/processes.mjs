@@ -98,7 +98,11 @@ const windows = {
     const table = new Map(windowsProcesses().map((row) => [row.pid, row]));
     const chain = [];
     for (let row = table.get(pid); row && chain.length < 64;) {
-      chain.push({ pid: row.pid, command: row.name.replace(/\.exe$/i, "") });
+      chain.push({
+        pid: row.pid,
+        command: row.name.replace(/\.exe$/i, ""),
+        start: row.start,
+      });
       const parent = table.get(row.parent);
       if (!parent?.start || !row.start || parent.start > row.start) break;
       row = parent;
@@ -118,7 +122,8 @@ const windows = {
 const platform = process.platform === "win32" ? windows : posix;
 
 // ancestors returns pid and each process above it, nearest first, with the
-// base name of its executable, without .exe on Windows.
+// base name of its executable, without .exe on Windows. On Windows each
+// process also has its start time, which the walk has already read.
 export const ancestors = (pid = process.ppid) => platform.ancestors(pid);
 
 // processStarts returns the start time of each process in pids that is
