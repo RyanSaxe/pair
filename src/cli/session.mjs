@@ -335,6 +335,7 @@ export async function start(options) {
     );
   const started = await attach(directory, config, wake, {
     start: true,
+    folder: process.cwd(),
     ...(from
       ? { from: path.resolve(options.from), proposal: options.proposal }
       : resuming

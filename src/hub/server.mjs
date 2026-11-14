@@ -351,6 +351,11 @@ export async function startHub(config = settings()) {
             Object.hasOwn(adapters, data.wake.harness),
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
+        requireValue(
+          data.folder === undefined ||
+            (typeof data.folder === "string" && path.isAbsolute(data.folder)),
+          "folder must be an absolute path",
+        );
         const requested = path.resolve(data.sessionDir);
         const { session, created, card, joined } = await register(async () => {
           const created = !(await exists(path.join(requested, "status.json")));
@@ -551,14 +556,15 @@ export async function startHub(config = settings()) {
             await session.exclusive(() => session.writeProposal(data)),
           );
         }
-        // Only start and open-agent have a body. The body of start contains
-        // where the work runs, and both bodies can contain the reviewer's
-        // message.
+        // Only start, start-agent and open-agent have a body. The body of
+        // start contains where the work runs, and every body can contain the
+        // reviewer's message.
         const cardActions = {
           start: session.startProposal,
           decline: session.declineProposal,
           restore: session.restoreProposal,
           "open-agent": session.openAgent,
+          "start-agent": session.startAgent,
         };
         if (
           method === "POST" &&
@@ -567,7 +573,7 @@ export async function startHub(config = settings()) {
           rest.length === 4 &&
           Object.hasOwn(cardActions, rest[3])
         ) {
-          const data = ["start", "open-agent"].includes(rest[3])
+          const data = ["start", "open-agent", "start-agent"].includes(rest[3])
             ? await readBody(req, 50_000)
             : null;
           const id = decodeURIComponent(rest[2]);
