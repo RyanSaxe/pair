@@ -288,7 +288,7 @@ export const commands = {
     group: "messaging",
     purpose: "Add this agent session to the list that pair agents prints",
     about:
-      "Add this agent session to pair's list of running agent sessions, or update its entry, and print its name and ID. The name is the folder's name, a hyphen and two random hex characters, unless --name sets another, and the session keeps it each time it registers again.",
+      "Add this agent session to pair's list of running agent sessions, or update its entry, and print its name and ID. The name is the folder's name, a hyphen and two hex characters from a hash of the session's ID, unless --name sets another, and the session keeps it each time it registers again.",
     flags: {
       name: {
         value: "NAME",

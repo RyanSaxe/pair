@@ -96,7 +96,7 @@ Registered fix-login-3f, claude-code:6f1c2a9e, in ~/src/app-worktrees/fix-login.
 $ pair agents
 NAME          CLI          DIRECTORY                      BRANCH     ID
 fix-login-3f  Claude Code  ~/src/app-worktrees/fix-login  fix-login  claude-code:6f1c2a9e
-api-a0        Codex        ~/src/api                      main       codex:0199c1d4
+api-d3        Codex        ~/src/api                      main       codex:0199c1d4
 ```
 
 A session's ID is the CLI and the session ID that the CLI keeps when the
@@ -155,7 +155,7 @@ Sent to fix-login-3f (Claude Code). It reads the message at once if it is idle, 
 The agent in `fix-login-3f` reads this:
 
 ```text
-pair message from api-a0 (Codex in ~/src/api):
+pair message from api-d3 (Codex in ~/src/api):
 
 The session table now has a revoked_at column. Use it for logout.
 
@@ -175,7 +175,7 @@ that session, and the last line gives the command that answers it, with the
 whole ID, because another session can take the name after this one exits.
 A Codex subagent has no entry, so a message from it names it as
 `PARENT/NICKNAME`, which reaches it through its parent, such as
-`api-a0/Goodall`.
+`api-d3/Goodall`.
 Outside any agent CLI, the first line is `pair message from your user:`, and
 `--from LABEL` makes it `pair message from LABEL:`. Neither message has a
 command to answer it, so each ends with the line `This message has no answer
