@@ -13,6 +13,11 @@ export const unwakeable = `Ask the user to run \`pi install ${extension}\` and r
 
 // The socket changes when pi restarts, and the session ID does not.
 export const identity = (target) => target.session;
+export const sessionId = (target) => target.session;
+
+// pair's extension runs inside pi's own process, so it passes that process's
+// ID in this variable.
+export const pidVariable = "PAIR_PI_PID";
 
 export const detect = (env) => ({
   harness: "pi",

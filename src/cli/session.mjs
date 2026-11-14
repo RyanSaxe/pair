@@ -155,13 +155,15 @@ export async function openSession(options, { anyAgent = false } = {}) {
   requireNode();
   const config = settings();
   const directory = path.resolve(options["session-dir"]);
-  let wake = null;
+  let detected = null;
   try {
-    wake = detectWake();
+    detected = detectWake();
   } catch (error) {
     if (!anyAgent) throw error;
   }
-  const register = () => attach(directory, config, (wake ||= detectWake()));
+  let wake = detected?.target ?? null;
+  const register = () =>
+    attach(directory, config, (wake ||= detectWake().target));
   // Only pair start creates a session, so a mistyped path fails here instead
   // of starting a session outside sessions/ that no hub loads again.
   requireValue(
@@ -320,7 +322,8 @@ export async function start(options) {
       "pair start requires --title TEXT when it creates a session.",
     );
   const config = settings();
-  const wake = detectWake();
+  const detected = detectWake();
+  const wake = detected.target;
   if (wake.harness === "codex" && !(await rulesExist()))
     throw new Error(codexRefusal(rulesFile));
   const directory = resuming

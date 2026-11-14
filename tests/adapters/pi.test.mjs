@@ -31,7 +31,7 @@ test("a pi wake reaches the session through pair's extension as a steering messa
   );
   // detectWake does here what pair start does inside pi: it finds pi among the
   // process's ancestors and reads the variables that the extension exported.
-  const target = detectWake(process.env, {
+  const { target } = detectWake(process.env, {
     ancestors: () => [{ pid: 2, command: "pi" }],
   });
   assert.equal(target.session, "pi-session-1");

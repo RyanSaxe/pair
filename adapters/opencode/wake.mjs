@@ -29,6 +29,11 @@ export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${glob
 // One opencode process serves several sessions through one plugin socket, so
 // the session ID identifies the agent.
 export const identity = (target) => target.session;
+export const sessionId = (target) => target.session;
+
+// pair's plugin runs inside opencode's own process, so it passes that
+// process's ID in this variable.
+export const pidVariable = "PAIR_OPENCODE_PID";
 
 export const detect = (env) => ({
   harness: "opencode",

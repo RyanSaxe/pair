@@ -47,17 +47,37 @@ function ancestors(pid = process.ppid) {
 }
 // The hub can wake an agent CLI's session only when every one of the
 // adapter's variables is set, so detectWake throws adapter.unwakeable when
-// one is missing.
-export function detectWake(env = process.env, tools = { ancestors }) {
+// one is missing. hookInput is the JSON that a CLI's start hook reads on stdin,
+// which fills in a variable the CLI leaves out of the hook's environment.
+//
+// detectWake returns the wake target and the process ID of the agent CLI,
+// which is null when no ancestor process is the CLI and the adapter's
+// pidVariable is not set.
+export function detectWake(
+  env = process.env,
+  tools = { ancestors },
+  hookInput = null,
+) {
   for (const ancestor of [...tools.ancestors(), null])
     for (const adapter of Object.values(adapters)) {
       const claimed = ancestor
         ? ancestor.command === adapter.command
         : Boolean(env[adapter.variables[0]]);
       if (!claimed) continue;
-      if (!adapter.variables.every((name) => env[name]))
+      const seen = {
+        ...(hookInput && adapter.hookVariables?.(hookInput)),
+        ...env,
+      };
+      if (!adapter.variables.every((name) => seen[name]))
         throw new Error(adapter.unwakeable);
-      return adapter.detect(env, { ...tools, ancestor });
+      const passed = Number(adapter.pidVariable && seen[adapter.pidVariable]);
+      return {
+        target: adapter.detect(seen, { ...tools, ancestor }),
+        pid:
+          Number.isInteger(passed) && passed > 0
+            ? passed
+            : (ancestor?.pid ?? null),
+      };
     }
   requireValue(
     false,

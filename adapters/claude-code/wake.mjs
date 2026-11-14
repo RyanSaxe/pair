@@ -15,10 +15,17 @@ export const unwakeable =
 // A Claude Code session has one inbox socket, and its subagents share it.
 export const identity = (target) => target.socket;
 
+// The session ID stays the same when the session resumes, and the inbox socket
+// does not.
+export const sessionId = (target) => target.session;
+
+// The hub wakes a Claude Code session with its socket and token alone, so
+// detect leaves the session out when CLAUDE_CODE_SESSION_ID is not set.
 export const detect = (env) => ({
   harness: "claude-code",
   socket: env.CLAUDE_CODE_MESSAGING_SOCKET,
   token: env.CLAUDE_CODE_MESSAGING_TOKEN,
+  ...(env.CLAUDE_CODE_SESSION_ID && { session: env.CLAUDE_CODE_SESSION_ID }),
 });
 
 // Claude Code reads its inbox between the steps of a turn, so a wake reaches a

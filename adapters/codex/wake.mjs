@@ -13,6 +13,11 @@ export const unwakeable =
   "Tell the user that this Codex session exports no CODEX_THREAD_ID, so the hub cannot wake it, and stop.";
 
 export const identity = (target) => target.thread;
+export const sessionId = (target) => target.thread;
+
+// Codex gives a SessionStart hook the thread ID as session_id on stdin, and not
+// in the hook's environment.
+export const hookVariables = (input) => ({ CODEX_THREAD_ID: input.session_id });
 
 // Codex 0.160 runs its threads on an app-server daemon, which listens on a
 // control socket under CODEX_HOME.

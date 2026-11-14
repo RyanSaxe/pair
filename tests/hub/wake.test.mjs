@@ -210,8 +210,12 @@ const claude = {
   CLAUDE_CODE_MESSAGING_TOKEN: "tok",
 };
 
-test("the nearest harness ancestor decides the wake target", () => {
-  const env = { ...claude, CODEX_THREAD_ID: "outer" };
+test("the nearest harness ancestor decides the wake target and the CLI's process", () => {
+  const env = {
+    ...claude,
+    CLAUDE_CODE_SESSION_ID: "cc-session",
+    CODEX_THREAD_ID: "outer",
+  };
   assert.deepEqual(
     detectWake(
       env,
@@ -222,9 +226,13 @@ test("the nearest harness ancestor decides the wake target", () => {
       ]),
     ),
     {
-      harness: "claude-code",
-      socket: claude.CLAUDE_CODE_MESSAGING_SOCKET,
-      token: "tok",
+      target: {
+        harness: "claude-code",
+        socket: claude.CLAUDE_CODE_MESSAGING_SOCKET,
+        token: "tok",
+        session: "cc-session",
+      },
+      pid: 3,
     },
   );
   // Codex records its daemon's socket under CODEX_HOME.
@@ -234,23 +242,65 @@ test("the nearest harness ancestor decides the wake target", () => {
     thread: "t",
     socket: path.join("/c", "app-server-control", "app-server-control.sock"),
   };
-  assert.deepEqual(
-    detectWake(codex, tools([{ pid: 3, command: "codex" }])),
-    codexTarget,
-  );
+  assert.deepEqual(detectWake(codex, tools([{ pid: 3, command: "codex" }])), {
+    target: codexTarget,
+    pid: 3,
+  });
   assert.deepEqual(
     detectWake(
       { COPILOT_AGENT_SESSION_ID: "s" },
       tools([{ pid: 3, command: "copilot" }]),
     ),
-    { harness: "copilot", sessionId: "s", port: 4321, sdk: "/sdk/index.js" },
+    {
+      target: {
+        harness: "copilot",
+        sessionId: "s",
+        port: 4321,
+        sdk: "/sdk/index.js",
+      },
+      pid: 3,
+    },
   );
-  assert.deepEqual(
-    detectWake(codex, tools([{ pid: 2, command: "sh" }])),
-    codexTarget,
+  // With no agent CLI among the ancestors, detectWake finds the CLI by its
+  // variables and has no process for it.
+  assert.deepEqual(detectWake(codex, tools([{ pid: 2, command: "sh" }])), {
+    target: codexTarget,
+    pid: null,
+  });
+  // pair's pi extension and opencode plugin pass the process of the CLI they
+  // run inside. tests/adapters/pi.test.mjs and tests/adapters/opencode.test.mjs
+  // check the targets of pi and opencode with the variables their extensions
+  // set.
+  const pi = { PAIR_PI_SOCKET: "/p.sock", PAIR_PI_SESSION: "p" };
+  assert.equal(detectWake({ ...pi, PAIR_PI_PID: "77" }, tools([])).pid, 77);
+  assert.equal(detectWake(pi, tools([])).pid, null);
+});
+
+// Codex gives its SessionStart hook the thread ID only on stdin, and Copilot
+// gives its sessionStart hook the session ID there. tests/cli/agents.test.mjs
+// runs pair register --hook with that stdin.
+test("a start hook's input gives the session ID that the hook's environment lacks", () => {
+  const codexAncestor = tools([{ pid: 3, command: "codex" }]);
+  assert.equal(
+    detectWake({}, codexAncestor, { session_id: "from-hook" }).target.thread,
+    "from-hook",
   );
-  // tests/adapters/pi.test.mjs and tests/adapters/opencode.test.mjs check the
-  // targets of pi and opencode with the variables their extensions set.
+  assert.equal(
+    detectWake({ CODEX_THREAD_ID: "from-env" }, codexAncestor, {
+      session_id: "from-hook",
+    }).target.thread,
+    "from-env",
+  );
+  assert.equal(
+    detectWake({}, tools([{ pid: 3, command: "copilot" }]), {
+      sessionId: "copilot-session",
+    }).target.sessionId,
+    "copilot-session",
+  );
+  assert.throws(
+    () => detectWake({}, codexAncestor, { sessionId: "copilot-field" }),
+    /exports no CODEX_THREAD_ID/,
+  );
 });
 
 const extension = fileURLToPath(
