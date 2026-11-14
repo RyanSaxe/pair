@@ -30,6 +30,17 @@ export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${glob
 // the session ID identifies the agent.
 export const identity = (target) => target.session;
 
+// launch returns the command line that starts a new opencode 2 session.
+// opencode's session IDs start with ses_.
+export const launch = ({ directory, sessionId, prompt }) => [
+  command,
+  directory,
+  "--session",
+  `ses_${sessionId}`,
+  "--prompt",
+  prompt,
+];
+
 export const detect = (env) => ({
   harness: "opencode",
   socket: env.PAIR_OPENCODE_SOCKET,

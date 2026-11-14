@@ -14,6 +14,17 @@ export const unwakeable = `Ask the user to run \`pi install ${extension}\` and r
 // The socket changes when pi restarts, and the session ID does not.
 export const identity = (target) => target.session;
 
+// launch returns the command line that starts a new pi session. pi works in
+// the folder it starts in, so the launch script starts it in directory.
+export const launch = ({ name, sessionId, prompt }) => [
+  command,
+  "--name",
+  name,
+  "--session-id",
+  sessionId,
+  prompt,
+];
+
 export const detect = (env) => ({
   harness: "pi",
   socket: env.PAIR_PI_SOCKET,

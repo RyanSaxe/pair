@@ -145,6 +145,9 @@ export function settings(env = process.env) {
     startLock: path.join(root, "hub", "start.lock"),
     hubLog: path.join(root, "hub", "hub.log"),
     seenFile: path.join(root, "hub", "seen.json"),
+    // The hub runs this script to start an agent CLI in a new terminal, as
+    // src/shared/launch.mjs describes.
+    launchScript: path.join(configRoot(env), "spawn"),
     port,
     host: env.PAIR_HUB_HOST || null,
     idleMs: seconds("PAIR_HUB_IDLE_SECONDS", 900) * 1000,

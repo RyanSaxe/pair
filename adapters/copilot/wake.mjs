@@ -53,6 +53,20 @@ export const command = "copilot";
 export const variables = ["COPILOT_AGENT_SESSION_ID"];
 export const unwakeable =
   "Tell the user that this Copilot session exports no COPILOT_AGENT_SESSION_ID, so the hub cannot wake it, and stop.";
+// launch returns the command line that starts a new Copilot session. The hub
+// wakes only a Copilot session that runs with --ui-server.
+export const launch = ({ directory, name, sessionId, prompt }) => [
+  command,
+  "-C",
+  directory,
+  "--ui-server",
+  "--session-id",
+  sessionId,
+  "-n",
+  name,
+  "-i",
+  prompt,
+];
 export function detect(
   env,
   {
