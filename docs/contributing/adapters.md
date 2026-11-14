@@ -39,6 +39,7 @@ An adapter exports these too when its CLI needs them:
 | Export                       | Value                                                                                                                                                                                                                                                                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `sessionId(target)`          | The ID that the CLI keeps when the session resumes, when `identity` is something else. `pair register` lists the session under this ID, or under `identity` without it. Claude Code's adapter returns `CLAUDE_CODE_SESSION_ID`, because its identity is the inbox socket.                                                                              |
+| `pidVariable`                | The variable in which pair's code inside the CLI sets the CLI's process ID, for pi's extension and opencode's plugin. On Windows, pi runs as `node.exe`, so no process named `pi` is among a command's parents there.                                                                                                                                  |
 | `hookVariables(input)`       | The variables that the JSON on a start hook's stdin gives when the CLI leaves them out of the hook's environment, for Codex's `session_id` and Copilot CLI's `sessionId`.                                                                                                                                                                              |
 | `serverSession(target)`      | `{ loaded, parent }` from the server process that runs the session, for Codex's app-server daemon, which runs the sessions of every Codex started with no `-c` override and keeps running after they exit. `parent` names the session that started a subagent. It rejects when the server does not answer.                                             |
 | `reachesSubagents`           | `true` when `wake` delivers to the subagent that `target.subagent` names, for `pair message --to NAME/SUBAGENT`: Copilot CLI's adapter through the SDK's `tasks.sendMessage`, and opencode's through pair's plugin.                                                                                                                                    |
@@ -50,9 +51,9 @@ An adapter exports these too when its CLI needs them:
 `pair message` chooses the sender's the same way:
 
 1. It compares each ancestor process of the `pair` command, nearest first,
-   with every adapter's `command`. That way it chooses the agent CLI that
-   ran the command over an outer CLI whose variables the inner one
-   inherited.
+   with every adapter's `command`, and its process ID with the adapter's
+   `pidVariable`. That way it chooses the agent CLI that ran the command
+   over an outer CLI whose variables the inner one inherited.
 2. When no ancestor runs an adapter's `command`, it chooses the first
    adapter whose first variable is set.
 3. It then calls that adapter's `detect`, or refuses with the adapter's
@@ -173,7 +174,23 @@ runs opencode's plugins, closes a half-closed socket.
 
 ### The session's variables
 
-The extension and the plugin set two variables for the commands the CLI
-runs, the socket and the ID of the CLI's session. The socket changes each
-time the CLI starts, and the session ID stays the same after `pi --continue`
-or `opencode --continue`, so `identity` returns the session ID.
+The extension and the plugin set three variables for the commands the CLI
+runs: the socket, the ID of the CLI's session and the `pidVariable`, the
+CLI's process ID. The socket changes each time the CLI starts, and the
+session ID stays the same after `pi --continue` or `opencode --continue`, so
+`identity` returns the session ID.
+
+### Registering at start
+
+The extension and the plugin add each session to pair's list of running
+sessions when it starts, as a start hook does in the other CLIs. The
+extension does it at pi's `session_start`. The plugin does it at opencode's
+`session.created` for a session without a `parentID`, because pair reaches a
+subagent's session through its parent.
+
+Both call `register(cwd, variables)` in `adapters/register.mjs`, which runs
+`node src/cli.mjs register --hook` with the session's variables. pair needs
+a newer Node than pi's may be, and opencode runs plugins on Bun, so it runs
+the `node` on the path. The command gets an empty stdin and no output, the
+CLI does not wait for it, and its failures are ignored. A session that it
+does not register registers at its first `pair` command.

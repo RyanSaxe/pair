@@ -20,6 +20,13 @@ export const identify = (target) => ({
   harness: target.harness,
   id: adapters[target.harness].identity(target),
 });
+// An adapter recognizes an ancestor process that runs its command, or whose
+// ID is in the adapter's pidVariable, which pi's extension and opencode's
+// plugin set to the ID of the process they run in.
+const recognizes = (adapter, ancestor, env) =>
+  ancestor.command === adapter.command ||
+  (adapter.pidVariable !== undefined &&
+    ancestor.pid === Number(env[adapter.pidVariable]));
 // detectAgent uses the nearest ancestor process that an adapter recognizes,
 // because an agent CLI started inside another one inherits the outer CLI's
 // variables. The hub can wake an agent CLI's session only when every one of
@@ -40,7 +47,7 @@ export function detectAgent(
   for (const ancestor of [...tools.ancestors(), null])
     for (const adapter of Object.values(adapters)) {
       const claimed = ancestor
-        ? ancestor.command === adapter.command
+        ? recognizes(adapter, ancestor, env)
         : Boolean(env[adapter.variables[0]]);
       if (!claimed) continue;
       const seen = {

@@ -123,7 +123,9 @@ thread loaded, which ends about a minute after the session exits.
 `pair register` and `pair agents` delete every entry that is not running.
 
 `pair start` registers the agent that runs it. When registering fails, it
-prints why on stderr and starts the session as usual.
+prints why on stderr and starts the session as usual. pair's pi extension
+registers each pi session when it starts, and pair's opencode plugin
+registers each opencode session but a subagent's when opencode creates it.
 
 `pair register` refuses outside an agent CLI, and when pair finds no process
 of the CLI among the command's parent processes. It also refuses a Codex
@@ -133,7 +135,8 @@ reaches it through the session that started it. pair reads processes with
 an agent CLI's start hook runs, it reads the session ID from the hook's JSON
 on stdin when the environment has none, `session_id` from Codex and
 `sessionId` from Copilot CLI, prints one line, and exits 0 even when it cannot
-register.
+register. Codex 0.169 runs its SessionStart hook when the session's first turn
+starts, so a Codex session registers then, not when Codex opens.
 
 ## pair message
 

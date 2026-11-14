@@ -1,4 +1,5 @@
 import { listen } from "../listener.mjs";
+import { register } from "../register.mjs";
 
 // The task tool titles the session of each subagent it starts "DESCRIPTION
 // (@AGENT subagent)". subagentSession returns the newest child session of
@@ -50,10 +51,21 @@ export const PairWake = async ({ client }) => {
     if (error)
       throw new Error(`opencode refused the prompt: ${JSON.stringify(error)}`);
   });
+  const variables = (sessionID) => ({
+    PAIR_OPENCODE_SOCKET: listener.socket,
+    PAIR_OPENCODE_PID: String(process.pid),
+    ...(sessionID && { PAIR_OPENCODE_SESSION: sessionID }),
+  });
   return {
     "shell.env": async ({ sessionID }, output) => {
-      output.env.PAIR_OPENCODE_SOCKET = listener.socket;
-      if (sessionID) output.env.PAIR_OPENCODE_SESSION = sessionID;
+      Object.assign(output.env, variables(sessionID));
+    },
+    // A subagent's session has a parentID, and pair reaches it through the
+    // session that started it, so the plugin registers only the others.
+    event: async ({ event }) => {
+      if (event.type !== "session.created") return;
+      const { id, directory, parentID } = event.properties.info;
+      if (!parentID) register(directory, variables(id));
     },
     dispose: async () => listener.close(),
   };

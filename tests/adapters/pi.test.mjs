@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import pair from "../../adapters/pi/extension.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
+import { inProcessState } from "../support/agents.mjs";
+import { waitUntil } from "../support/hub.mjs";
 
 // pi calls an extension's default export with its API. standInPi records the
 // handlers that pair's extension registers and each message the extension
@@ -20,14 +22,27 @@ function standInPi() {
   return { handlers, sent };
 }
 
-test("a pi wake reaches the session through pair's extension as a steering message", async (t) => {
+test("pair's extension registers a pi session when it starts, and a wake reaches it as a steering message", async (t) => {
+  const { home, agents } = await inProcessState(t);
   const { handlers, sent } = standInPi();
   // Without this hook, a failed assertion would leave the extension's socket
   // open.
   t.after(() => handlers.session_shutdown({ type: "session_shutdown" }));
   handlers.session_start(
-    { type: "session_start" },
-    { sessionManager: { getSessionId: () => "pi-session-1" } },
+    { type: "session_start", reason: "startup" },
+    { cwd: home, sessionManager: { getSessionId: () => "pi-session-1" } },
+  );
+  // This process stands in for pi, and its command is node, as pi's is on
+  // Windows, so pair register finds it only by the process ID that the
+  // extension passes.
+  let listed = [];
+  assert.ok(
+    await waitUntil(async () => (listed = await agents()).length > 0, 30_000),
+    "the extension registered no session",
+  );
+  assert.deepEqual(
+    listed.map(({ id, pid, directory }) => ({ id, pid, directory })),
+    [{ id: "pi:pi-session-1", pid: process.pid, directory: home }],
   );
   // detectWake does here what pair start does inside pi: it finds pi among the
   // process's ancestors and reads the variables that the extension exported.
@@ -48,6 +63,7 @@ test("a pi wake reaches the session through pair's extension as a steering messa
   handlers.session_shutdown({ type: "session_shutdown" });
   assert.equal(process.env.PAIR_PI_SOCKET, undefined);
   assert.equal(process.env.PAIR_PI_SESSION, undefined);
+  assert.equal(process.env.PAIR_PI_PID, undefined);
   await assert.rejects(wakeRunner(target, line), {
     message: `the agent CLI has exited (ENOENT ${target.socket})`,
   });

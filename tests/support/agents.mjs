@@ -3,8 +3,9 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import { once } from "node:events";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
-import { agentExecutable, pair } from "./hub.mjs";
+import { agentExecutable, exec, pair } from "./hub.mjs";
 
 // outsideAgents is this process's environment without the variables by which
 // pair finds an agent CLI and a scratch hub, and without git's, which a test
@@ -74,4 +75,34 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
       await exited;
     },
   };
+}
+
+// pi's extension and opencode's plugin run pair register with the environment
+// of the CLI's process, and a test that loads them plays the CLI in its own
+// process. inProcessState gives this process a state directory of its own
+// until the test ends, and returns a folder for the session and agents(),
+// which returns what pair agents --json lists.
+export async function inProcessState(t) {
+  const home = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "pair-in-process-")),
+  );
+  const saved = {
+    XDG_STATE_HOME: process.env.XDG_STATE_HOME,
+    PAIR_HUB_PORT: process.env.PAIR_HUB_PORT,
+  };
+  Object.assign(process.env, {
+    XDG_STATE_HOME: path.join(home, "state"),
+    PAIR_HUB_PORT: "0",
+  });
+  t.after(async () => {
+    for (const [name, value] of Object.entries(saved))
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
+  });
+  const agents = async () =>
+    JSON.parse(
+      (await exec(process.execPath, [pair, "agents", "--json"])).stdout,
+    ).agents;
+  return { home, agents };
 }
