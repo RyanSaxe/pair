@@ -54,8 +54,8 @@ An adapter exports these too when its CLI needs them:
    with every adapter's `command`, and its process ID with the adapter's
    `pidVariable`. That way it chooses the agent CLI that ran the command
    over an outer CLI whose variables the inner one inherited.
-2. When no ancestor runs an adapter's `command`, it chooses the first
-   adapter whose first variable is set.
+2. When no ancestor matches, it chooses the first adapter whose first
+   variable is set.
 3. It then calls that adapter's `detect`, or refuses with the adapter's
    `unwakeable` message when one of its `variables` is unset.
 
@@ -68,7 +68,7 @@ alone. Git for Windows' `ps` takes no `-o`, so on Windows `detectWake` chooses
 the adapter in step 2.
 
 `pair register` and `pair start` register the session under the CLI's
-process, the nearest ancestor that runs the adapter's `command`, which
+process, the nearest ancestor that matches the adapter as in step 1, which
 `src/shared/processes.mjs` reads with `ps` on macOS and Linux and with
 PowerShell on Windows. `pair register` refuses without that process, and
 refuses a subagent that `serverSession` gives a parent. When `serverSession`

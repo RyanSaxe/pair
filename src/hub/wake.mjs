@@ -23,7 +23,7 @@ export const identify = (target) => ({
 // An adapter recognizes an ancestor process that runs its command, or whose
 // ID is in the adapter's pidVariable, which pi's extension and opencode's
 // plugin set to the ID of the process they run in.
-const recognizes = (adapter, ancestor, env) =>
+export const recognizes = (adapter, ancestor, env = process.env) =>
   ancestor.command === adapter.command ||
   (adapter.pidVariable !== undefined &&
     ancestor.pid === Number(env[adapter.pidVariable]));

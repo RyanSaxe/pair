@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { adapters } from "../hub/wake.mjs";
+import { adapters, recognizes } from "../hub/wake.mjs";
 import { ancestors, processStarts } from "../shared/processes.mjs";
 import { settings } from "../shared/settings.mjs";
 import { atomic, requireValue, withoutGitVariables } from "../shared/util.mjs";
@@ -123,12 +123,12 @@ function currentBranch(directory) {
   return (status === 0 && stdout.trim()) || null;
 }
 
-// cliProcess returns the nearest ancestor process that runs the adapter's
-// command, and its start time, which the running check compares. Only
+// cliProcess returns the nearest ancestor process that the adapter
+// recognizes, and its start time, which the running check compares. Only
 // registering looks it up, because on Windows the walk starts PowerShell.
 function cliProcess(adapter) {
-  const pid = ancestors().find(
-    ({ command }) => command === adapter.command,
+  const pid = ancestors().find((ancestor) =>
+    recognizes(adapter, ancestor),
   )?.pid;
   requireValue(
     pid,
