@@ -108,11 +108,11 @@ test("--from names the sender with no command to answer, NAME/SUBAGENT asks the 
   });
   assert.equal(off.code, undefined, off.stderr);
   assert.deepEqual(received(), [
-    "pair message from nightly-ci:\n\nThe nightly build failed.",
+    "pair message from nightly-ci:\n\nThe nightly build failed.\n\nThis message has no answer command. Answer in your own chat, if at all.",
   ]);
   assert.equal(
     off.stderr,
-    "wake off, not sent: pair message from nightly-ci, for your subagent reviewer. Pass the message below to reviewer unchanged with SendMessage, and do not act on it yourself:\n\nThe nightly build failed.\n",
+    "wake off, not sent: pair message from nightly-ci, for your subagent reviewer. Pass the message below to reviewer unchanged with SendMessage, and do not act on it yourself:\n\nThe nightly build failed.\n\nThis message has no answer command. Answer in your own chat, if at all.\n",
   );
 });
 
@@ -184,5 +184,7 @@ test("a message from outside any agent CLI is from your user, with no command to
     ...env,
   });
   assert.ok(await waitUntil(() => received().length), await output());
-  assert.deepEqual(received(), ["pair message from your user:\n\nStop here."]);
+  assert.deepEqual(received(), [
+    "pair message from your user:\n\nStop here.\n\nThis message has no answer command. Answer in your own chat, if at all.",
+  ]);
 });

@@ -177,8 +177,9 @@ A Codex subagent has no entry, so a message from it names it as
 `PARENT/NICKNAME`, which reaches it through its parent, such as
 `api-a0/Goodall`.
 Outside any agent CLI, the first line is `pair message from your user:`, and
-`--from LABEL` makes it `pair message from LABEL:`. Neither message ends with
-a command to answer it.
+`--from LABEL` makes it `pair message from LABEL:`. Neither message has a
+command to answer it, so each ends with the line `This message has no answer
+command. Answer in your own chat, if at all.`
 
 `--to NAME/SUBAGENT` sends the message to a subagent of the session:
 
