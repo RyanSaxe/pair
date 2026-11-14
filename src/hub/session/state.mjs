@@ -21,6 +21,7 @@ import { wakeAccepts } from "../../shared/wake-state.mjs";
 import { adapters } from "../wake.mjs";
 import { activity } from "./activity.mjs";
 import { agent, answersRound } from "./agent.mjs";
+import { agentLaunch } from "./agent-launch.mjs";
 import { draftStore } from "./draft.mjs";
 import { links } from "./links.mjs";
 import { notifications } from "./notifications.mjs";
@@ -219,6 +220,7 @@ export async function loadSession(
     threads(session),
     await activity(session),
     await proposals(session),
+    agentLaunch(session),
     await draftStore(session),
     links(session),
     quiet(session),
@@ -296,6 +298,9 @@ export async function loadSession(
     return {
       ...view(),
       sessionDir: directory,
+      // startAgent is true when Start can start a new agent with the launch
+      // script.
+      startAgent: session.canStartAgent(),
       threads: session.threadView(),
       parent: session.parentView(),
       draftId: session.draftView().id,
@@ -418,6 +423,7 @@ export async function loadSession(
     startProposal: session.startProposal,
     writeProposal: session.writeProposal,
     openAgent: session.openAgent,
+    startAgent: session.startAgent,
     declineProposal: session.declineProposal,
     restoreProposal: session.restoreProposal,
     parentView: session.parentView,

@@ -115,11 +115,11 @@ of any proposals joined into it, and the three places the work can run, with
 the agent's recommendation marked. It also has a box for a message to the
 agent.
 
-| Choice           | What happens                                                                                                                                                                                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Here             | This session's agent starts the work right away. It publishes the work's pages in the session's next round, or in the round it is writing when it has not yet published that round's Agreed.                                                                                                                    |
-| In a sub-session | This session's agent creates a session linked to this one and builds the work there, with subagents doing the steps, so this session's rounds continue.                                                                                                                                                         |
-| With a new agent | A separate agent builds the work in its own session, linked to this one. Pressing **Copy command** approves the work and copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open that agent where you can see it. |
+| Choice           | What happens                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Here             | This session's agent starts the work right away. It publishes the work's pages in the session's next round, or in the round it is writing when it has not yet published that round's Agreed.                                                                                                                                                                                                                |
+| In a sub-session | This session's agent creates a session linked to this one and builds the work there, with subagents doing the steps, so this session's rounds continue.                                                                                                                                                                                                                                                     |
+| With a new agent | A separate agent builds the work in its own session, linked to this one. Pressing **Copy command** approves the work and copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open that agent where you can see it. When you have a launch script, **Start agent** takes the place of Open a new agent session. |
 
 Below the message box is the **Plan it first** checkbox. When you check it,
 the agent in the work's own session works towards a plan in that session's
@@ -130,6 +130,12 @@ session would mix with its other work.
 
 Starting work never ends the round you are reading. Your drafts on the
 round stay, and you can start more work before you send the round.
+
+With a [launch script](../../README.md#start-an-agent-in-a-new-terminal),
+**Start agent** starts a new session of this session's agent CLI in a new
+terminal, in the folder where this session's agent ran `pair start`. The hub
+approves the work only once the script succeeds. When the script fails, the
+drawer shows its error and the hub leaves the proposal as it was.
 
 The agent cannot always open a new agent session. It replies in a thread
 on the card with what it opened, or with the command when it cannot open an

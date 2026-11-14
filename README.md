@@ -79,6 +79,57 @@ machine, the hub, serves the pages to your browser and wakes the agent when
 you send a round. [Architecture](docs/concepts/architecture.md) shows what
 runs where, and [Concepts](docs/concepts/) explains each part.
 
+## Start an agent in a new terminal
+
+When you press Start on a proposal and choose With a new agent, pair can
+start that agent for you. Save an executable launch script at
+`~/.config/pair/spawn`, or at `$XDG_CONFIG_HOME/pair/spawn`, and Start shows
+**Start agent**. When you press it, the hub runs:
+
+```text
+~/.config/pair/spawn DIR COMMAND ARG…
+```
+
+`DIR` is the folder in which your agent ran `pair start`. `COMMAND ARG…`
+starts a new session of the same agent CLI, with a prompt to run
+`pair guide` and then `pair start --from` for the proposal. pair passes each
+part as its own argument, with no shell in between, so the script receives the
+prompt exactly as pair wrote it. The script must open the command in a new
+terminal and exit within 10 seconds. It runs in the hub's environment, which
+comes from the agent that started the hub, so start the command in a terminal
+that has its own environment, as both examples do.
+
+For tmux, open a new window in the tmux server you already run:
+
+```sh
+#!/bin/sh
+dir=$1
+shift
+exec tmux new-window -c "$dir" "$@"
+```
+
+For macOS Terminal, write the command to a `.command` file, which Terminal
+runs in a new window:
+
+```sh
+#!/bin/bash
+dir=$1
+shift
+file=$(mktemp "${TMPDIR:-/tmp}/pair-spawn-XXXXXX")
+mv "$file" "$file.command"
+file=$file.command
+{
+  printf '#!/bin/bash\nrm -f %q\ncd %q || exit\nexec' "$file" "$dir"
+  printf ' %q' "$@"
+  printf '\n'
+} > "$file"
+chmod +x "$file"
+open -a Terminal "$file"
+```
+
+Without the script, Start offers Copy command, which copies the
+`pair start --from` command for you to paste into any agent.
+
 ## Documentation
 
 - [Getting started](docs/getting-started/) explains how to install `pair`

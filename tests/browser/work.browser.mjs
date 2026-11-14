@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
 import { hub, planData, waitUntil } from "../support/hub.mjs";
@@ -11,10 +14,11 @@ const card = (id, title) => ({
   recommend: "here",
 });
 // work publishes round 1, which waits for the reviewer, proposes two cards, the
-// first from round 1's Overview page, and opens Work.
-async function work(t) {
-  const h = await hub(t);
-  const session = await h.session();
+// first from round 1's Overview page, and opens Work. env is the hub's
+// environment, and registered is how the session registers.
+async function work(t, { env = {}, registered } = {}) {
+  const h = await hub(t, env);
+  const session = await h.session(registered);
   assert.equal((await session.publish(planData())).code, 200);
   for (const [id, title, page] of [
     ["deck", "Build the deck", "1/overview"],
@@ -287,6 +291,44 @@ test("Open a new agent session starts the card with a new agent and shows its th
   const { threads } = (await session.status()).body;
   assert.equal(threads[0].kind, "open-agent");
 });
+
+test(
+  "with a launch script, Start agent takes the place of Open a new agent session and starts the card once the script has run",
+  { skip: process.platform === "win32" && "Windows runs no shell script" },
+  async (t) => {
+    const config = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), "pair-launch-")),
+    );
+    t.after(() => fs.rm(config, { recursive: true, force: true }));
+    const script = path.join(config, "pair", "spawn");
+    await fs.mkdir(path.dirname(script));
+    await fs.writeFile(script, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\n', {
+      mode: 0o755,
+    });
+    const { page, cards } = await work(t, {
+      env: { XDG_CONFIG_HOME: config },
+      registered: { start: true, folder: config },
+    });
+    if (!page) return;
+    await page.locator("[data-proposal-card=export] .proposal-start").click();
+    const dialog = page.locator("#start-dialog");
+    await dialog.locator("[data-where=new-agent]").click();
+    await dialog.locator("#start-agent").waitFor();
+    assert.equal(await dialog.locator("#start-open").isVisible(), false);
+    await dialog.locator("#start-message").fill("Use the board template.");
+    await dialog.locator("#start-message").press("Shift+Enter");
+    await dialog.waitFor({ state: "hidden" });
+    assert.deepEqual((await cards())[1].started, "new-agent");
+    await page
+      .locator("[data-proposal-card=export] .card-state", {
+        hasText: "Opening a new agent session",
+      })
+      .waitFor({ timeout: 5000 });
+    const args = (await fs.readFile(`${script}.args`, "utf8")).split("\n");
+    assert.equal(args[0], config);
+    assert.match(args.at(-2), / --proposal export\.$/);
+  },
+);
 
 // After the round's feedback is sent, the comment control only starts threads,
 // so Shift+Enter types a new line.

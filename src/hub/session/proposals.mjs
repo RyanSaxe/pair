@@ -10,6 +10,7 @@ import {
   planFirst,
   proposeAction,
   refuse,
+  refuseStart,
   words,
   written,
   writtenCard,
@@ -160,12 +161,7 @@ export async function proposals(session) {
   // prints the start.
   async function start(card, started, holder = false) {
     open();
-    refuse(card, "start", {
-      declined: `The reviewer declined proposal ${card.id}`,
-      withdrawn: `Proposal ${card.id} was withdrawn. Record the work as a new proposal.`,
-      finished: `Proposal ${card.id} is already marked done.`,
-      started: `Proposal ${card.id} is already approved.`,
-    });
+    refuseStart(card);
     const round = session.state.current?.round ?? null;
     const changed = await save(card, {
       started: { at: timestamp(), round, ...started },
@@ -276,7 +272,9 @@ export async function proposals(session) {
   }
   // writeProposal adds a card the reviewer wrote on Work, and data.action says
   // what to do with it. Save leaves it in Proposed, and the hub tells no agent
-  // about it until the reviewer starts it.
+  // about it until the reviewer starts it. For Start agent, the hub saves the
+  // card only after the launch script succeeds, so a failed launch leaves no
+  // card and the reviewer can press Start agent again.
   async function writeProposal(data) {
     open();
     const fields = await writtenCard(session, data);
@@ -285,8 +283,12 @@ export async function proposals(session) {
       `This session already has work item ${fields.id}`,
       409,
     );
+    if (data.action === "start-agent")
+      await session.launchAgent(fields.id, data);
     await save(fields);
     if (data.action === "start") return startProposal(fields.id, data);
+    if (data.action === "start-agent")
+      return startProposal(fields.id, { ...data, where: "new-agent" });
     if (data.action === "open-agent") return openAgent(fields.id, data);
     return listed();
   }

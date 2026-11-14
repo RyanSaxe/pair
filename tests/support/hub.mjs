@@ -139,7 +139,14 @@ export async function inbox(t, home) {
 // its own wakes. options override settings that no environment variable sets.
 export async function hub(t, extra = {}, options = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
-  const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
+  // env.mjs points XDG_CONFIG_HOME at a folder that does not exist, so the hub
+  // finds no launch script of the developer's.
+  const env = {
+    XDG_STATE_HOME: home,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+    PAIR_HUB_PORT: "0",
+    ...extra,
+  };
   const config = { ...settings(env), log() {}, ...options };
   const server = await startHub(config);
   t.after(async () => {
@@ -165,9 +172,9 @@ export async function hub(t, extra = {}, options = {}) {
   };
   // session() registers a session with an inbox, or with the agent that cli
   // runs as, so that cli commands can act on it. With start, it registers the
-  // way pair start does, and with from and proposal, the way pair start --from
-  // does.
-  async function session({ cli, box, start, from, proposal } = {}) {
+  // way pair start does, with folder as the folder pair start runs in, and
+  // with from and proposal, the way pair start --from does.
+  async function session({ cli, box, start, folder, from, proposal } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
       ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
@@ -177,7 +184,13 @@ export async function hub(t, extra = {}, options = {}) {
     const registered = await register(
       directory,
       wake,
-      start ? { start, ...(from ? { from, proposal } : {}) } : {},
+      start
+        ? {
+            start,
+            ...(folder ? { folder } : {}),
+            ...(from ? { from, proposal } : {}),
+          }
+        : {},
     );
     assert.equal(registered.code, 200, registered.body.error);
     const info = registered.body;

@@ -100,7 +100,10 @@ function resetDialog(choice) {
   select(choice);
   $("start-message").value = (card && state.startMessages[card.id]) || "";
   $("start-error").hidden = true;
-  for (const id of ["start-send", "start-copy", "start-open"])
+  const launches = Boolean(remote?.startAgent);
+  $("start-agent").hidden = !launches;
+  $("start-open").hidden = launches;
+  for (const id of ["start-send", "start-copy", "start-open", "start-agent"])
     $(id).disabled = false;
   $("start-copy").textContent = "Copy command";
 }
@@ -246,11 +249,13 @@ export function installStart() {
   $("start-send").onclick = () => send("start", $("start-send"));
   $("start-copy").onclick = copy;
   $("start-open").onclick = () => send("open-agent", $("start-open"));
+  $("start-agent").onclick = () => send("start-agent", $("start-agent"));
   for (const id of ["start-message", "start-write-title", "start-write-text"])
     $(id).addEventListener("keydown", (event) => {
       if (!shiftEnter(event)) return;
       event.preventDefault();
-      const main = $(where === "new-agent" ? "start-open" : "start-send");
+      const newAgent = $("start-agent").hidden ? "start-open" : "start-agent";
+      const main = $(where === "new-agent" ? newAgent : "start-send");
       if (!main.disabled) main.click();
     });
 }
