@@ -27,8 +27,10 @@ export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
 export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run \`pair start\` again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket, so
-// the session ID identifies the agent.
+// the session ID identifies the agent, and a new session's registration
+// leaves the other sessions of its process listed.
 export const identity = (target) => target.session;
+export const sharesProcess = true;
 
 export const detect = (env) => ({
   harness: "opencode",

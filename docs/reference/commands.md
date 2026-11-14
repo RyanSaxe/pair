@@ -121,6 +121,9 @@ for a Codex session on Codex's app-server daemon, whose commands run under
 the daemon. pair counts such a session as running while the daemon has its
 thread loaded, which ends about a minute after the session exits.
 `pair register` and `pair agents` delete every entry that is not running.
+A session that a CLI starts in the same process, as Claude Code's `/clear`
+and pi's `/new` do, replaces that process's other entries when it registers,
+except in opencode, whose one process serves several sessions.
 
 `pair start` registers the agent that runs it. When registering fails, it
 prints why on stderr and starts the session as usual.

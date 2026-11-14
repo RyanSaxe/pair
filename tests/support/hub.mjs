@@ -330,8 +330,11 @@ export async function pairCli(
   const codex = harness === "codex";
   const name = codex ? "codex" : "claude";
   // Node 24 on Linux names its main thread MainThread, which ps then prints as
-  // the process's command, so the relay sets its title to its own name.
-  const relay = `process.title = "${name}"; const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;`;
+  // the process's command, so the relay sets its title to its own name. It
+  // runs pair with this process's Node, because Windows locks the stand-in's
+  // executable while a process started from it runs, such as the hub that
+  // pair start starts.
+  const relay = `process.title = "${name}"; const { status } = require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;`;
   const agentCli = await agentExecutable(home, name);
   const env = {
     ...process.env,
