@@ -186,6 +186,22 @@ test("pair agents deletes the entry of a CLI that exited and of a process ID tha
   assert.deepEqual(await fs.readdir(list), ["claude-code-stays.json"]);
 });
 
+test("a new session in the same process replaces the entry of the session before it, as after /clear", async (t) => {
+  const { folder, agent, agents } = await scratch(t);
+  const claude = await agent(await folder("app"), {
+    env: { CLAUDE_CODE_SESSION_ID: "before" },
+  });
+  assert.equal((await claude.run(["register"])).status, 0);
+  const cleared = await claude.run(["register"], {
+    env: { CLAUDE_CODE_SESSION_ID: "after" },
+  });
+  assert.equal(cleared.status, 0, cleared.stderr);
+  assert.deepEqual(
+    (await agents()).map((entry) => entry.id),
+    ["claude-code:after"],
+  );
+});
+
 test("pair register --hook reads Codex's thread ID from stdin, and exits 0 when it cannot register", async (t) => {
   const { folder, agent, agents } = await scratch(t);
   const directory = await folder("api");

@@ -168,7 +168,23 @@ export async function registerAgent(target, { name } = {}) {
       `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${parent?.name ?? parentId}/${server.parent.nickname ?? sessionId}.`,
     );
   }
-  const others = running.filter((entry) => entry.id !== id);
+  // Claude Code's /clear and pi's /new start a new session in the same
+  // process, so the new session's entry replaces that process's other entries.
+  const replaces = (entry) =>
+    !adapter.sharesProcess &&
+    entry.cli === target.harness &&
+    entry.pid === pid &&
+    entry.processStart === processStart &&
+    entry.runningCheck === "process";
+  const others = [];
+  for (const entry of running) {
+    if (entry.id === id) continue;
+    if (!replaces(entry)) others.push(entry);
+    else
+      await fs.rm(entryFile(entry.cli, entry.id.slice(entry.cli.length + 1)), {
+        force: true,
+      });
+  }
   const taken = new Set(others.map((entry) => entry.name));
   if (name !== undefined) {
     const namesake = others.find((entry) => entry.name === name);
