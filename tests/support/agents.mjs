@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { once } from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pair } from "./hub.mjs";
+import { agentExecutable, pair } from "./hub.mjs";
 
 // The variables by which pair finds an agent CLI and a scratch hub, and git's,
 // which a test inside an agent CLI or a git hook would otherwise pass on.
@@ -37,8 +37,7 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
   const name = harness === "codex" ? "codex" : "claude";
   const bin = path.join(home, `bin-${crypto.randomUUID()}`);
   await fs.mkdir(bin);
-  const executable = path.join(bin, name);
-  await fs.symlink(process.execPath, executable);
+  const executable = await agentExecutable(bin, name);
   const base = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !inherited.test(key)),
   );
@@ -52,7 +51,10 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
         };
   const child = spawn(executable, ["-e", relay(name)], {
     cwd,
-    env: { ...base, ...inbox, ...env },
+    // The stand-in's home is the test's directory, so pair prints the test's
+    // folders under ~ on every platform. Windows keeps its temporary folders
+    // under the user's home, and other systems do not.
+    env: { ...base, HOME: home, USERPROFILE: home, ...inbox, ...env },
     stdio: ["ignore", "ignore", "inherit", "ipc"],
   });
   await once(child, "spawn");

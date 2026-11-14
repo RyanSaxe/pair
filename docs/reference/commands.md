@@ -125,12 +125,12 @@ after a restart, if the agent has an entry. When registering fails, a session
 command prints why on stderr and runs as usual.
 
 `pair register` refuses outside an agent CLI, and when pair finds no process
-of the CLI among the command's parent processes. It also refuses on Windows,
-where pair cannot read a process's parent or start time, and there
-`pair start` and the other session commands register nothing. With `--hook`, which an agent
-CLI's start hook runs, it reads the session ID from the hook's JSON on stdin
-when the environment has none, `session_id` from Codex and `sessionId` from
-Copilot CLI, prints one line, and exits 0 even when it cannot register.
+of the CLI among the command's parent processes. pair reads processes with
+`ps` on macOS and Linux and with PowerShell on Windows. With `--hook`, which
+an agent CLI's start hook runs, it reads the session ID from the hook's JSON
+on stdin when the environment has none, `session_id` from Codex and
+`sessionId` from Copilot CLI, prints one line, and exits 0 even when it cannot
+register.
 
 ## Environment variables
 
