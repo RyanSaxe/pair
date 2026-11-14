@@ -298,8 +298,8 @@ export async function hub(t, extra = {}, options = {}) {
 
 // agentExecutable makes Node available as directory/name, so that pair finds a
 // process started from it by that name. Windows runs only a file with an
-// executable extension, and names a process started through a link by the
-// link's target, so on Windows it is a hard link, or a copy when the
+// executable extension, so there it is NAME.exe: a hard link to node.exe,
+// which Win32_Process reports by the link's own name, or a copy when the
 // directory is on another volume.
 export async function agentExecutable(directory, name) {
   if (process.platform !== "win32") {

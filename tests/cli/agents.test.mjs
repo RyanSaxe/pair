@@ -20,9 +20,14 @@ async function scratch(t) {
     await fs.mkdtemp(path.join(os.tmpdir(), "pair-agents-")),
   );
   const env = { XDG_STATE_HOME: path.join(home, "state"), PAIR_HUB_PORT: "0" };
+  const started = [];
+  // Windows refuses to remove the working directory or the executable of a
+  // running process, so the stand-ins and the hub stop before the test's
+  // directory goes, and rm retries while Windows releases them.
   t.after(async () => {
+    for (const agent of started) await agent.kill();
     await killHub(settings(env));
-    await fs.rm(home, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
   });
   const list = path.join(env.XDG_STATE_HOME, "pair", "agents");
   return {
@@ -34,8 +39,16 @@ async function scratch(t) {
       await fs.mkdir(directory);
       return directory;
     },
-    agent: (cwd, options = {}) =>
-      standIn(t, { home, cwd, ...options, env: { ...env, ...options.env } }),
+    agent: async (cwd, options = {}) => {
+      const agent = await standIn(t, {
+        home,
+        cwd,
+        ...options,
+        env: { ...env, ...options.env },
+      });
+      started.push(agent);
+      return agent;
+    },
     // pair agents runs outside any agent CLI.
     agents: async () =>
       JSON.parse(
