@@ -1,10 +1,12 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 const here = fileURLToPath(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 export const name = "Copilot CLI";
 
@@ -148,6 +150,27 @@ export async function wake(target, line, run) {
   }
 }
 
+// Copilot gives a subagent's commands the subagent's own session ID, which
+// Copilot's server has no session for, so the subagent would register as a
+// session of its own and replace its parent's entry. serverSession gives such
+// a session the server's foreground session as its parent. Copilot names no
+// subagent by that ID, so the parent comes without a nickname.
+export async function serverSession(target) {
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [here, target.sdk, String(target.port), target.sessionId, "parent"],
+    { timeout: 30_000 },
+  );
+  const { known, foreground } = JSON.parse(stdout);
+  return {
+    loaded: false,
+    parent:
+      !known && foreground && foreground !== target.sessionId
+        ? { sessionId: foreground }
+        : null,
+  };
+}
+
 // pair message tries tasks.sendMessage first. When it fails, pair message asks
 // the parent's agent to pass the message on with write_agent, Copilot's tool
 // for a message to a background subagent.
@@ -179,7 +202,9 @@ async function sendToSubagent(session, name, message) {
 
 // This block runs only in the child process. It connects to the TUI's embedded
 // server through the SDK shipped inside the CLI, resumes the session, and sends
-// one prompt in the given mode, or to the subagent named after the line.
+// one prompt in the given mode, or to the subagent named after the line. With
+// the mode parent, it prints whether the server has the session and the
+// server's foreground session instead.
 if (process.argv[1] === here) {
   const [sdk, port, sessionId, mode, line, subagent] = process.argv.slice(2);
   const { CopilotClient, approveAll } = await import(pathToFileURL(sdk).href);
@@ -189,11 +214,17 @@ if (process.argv[1] === here) {
   });
   await client.start();
   try {
-    const session = await client.resumeSession(sessionId, {
-      onPermissionRequest: approveAll,
-    });
-    if (mode === "subagent") await sendToSubagent(session, subagent, line);
-    else await session.send({ prompt: line, mode });
+    if (mode === "parent") {
+      const known = Boolean(await client.getSessionMetadata(sessionId));
+      const foreground = await client.getForegroundSessionId();
+      process.stdout.write(JSON.stringify({ known, foreground }));
+    } else {
+      const session = await client.resumeSession(sessionId, {
+        onPermissionRequest: approveAll,
+      });
+      if (mode === "subagent") await sendToSubagent(session, subagent, line);
+      else await session.send({ prompt: line, mode });
+    }
   } finally {
     await client.stop();
   }

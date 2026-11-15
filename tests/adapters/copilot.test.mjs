@@ -17,6 +17,8 @@ export const approveAll = () => ({ kind: "approved" });
 export class CopilotClient {
   constructor(options) { calls.push(["client", options]); }
   async start() { calls.push(["start"]); }
+  async getForegroundSessionId() { return "s-1"; }
+  async getSessionMetadata(id) { return id === "s-1" ? { sessionId: id } : undefined; }
   async resumeSession(id, { onPermissionRequest }) {
     calls.push(["resume", id, onPermissionRequest === approveAll]);
     return {
@@ -159,4 +161,27 @@ test("pair recognizes a node process that runs Copilot's script, and finds the S
     { ancestor: copilotNode, listeningPort: () => 4321 },
   );
   assert.equal(target.sdk, sdk);
+});
+
+// A Copilot subagent's commands get the subagent's own session ID, which the
+// server has no session for.
+test("a Copilot session that the server does not have is a subagent of the foreground session", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-copilot-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const sdk = path.join(directory, "index.mjs");
+  await fs.writeFile(sdk, sdkSource(path.join(directory, "calls.json")));
+  const target = (sessionId) => ({
+    harness: "copilot",
+    sessionId,
+    port: 4321,
+    sdk,
+  });
+  assert.deepEqual(await copilot.serverSession(target("s-1")), {
+    loaded: false,
+    parent: null,
+  });
+  assert.deepEqual(await copilot.serverSession(target("sub-1")), {
+    loaded: false,
+    parent: { sessionId: "s-1" },
+  });
 });

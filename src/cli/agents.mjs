@@ -171,8 +171,9 @@ export async function registerAgent(target, { name } = {}) {
   if (server?.parent) {
     const parentId = `${target.harness}:${server.parent.sessionId}`;
     const parent = running.find((entry) => entry.id === parentId);
+    const through = parent?.name ?? parentId;
     throw new Error(
-      `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${parent?.name ?? parentId}/${server.parent.nickname ?? sessionId}.`,
+      `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${server.parent.nickname ? `${through}/${server.parent.nickname}` : `${through}/SUBAGENT, with the name ${through} gave it`}.`,
     );
   }
   // Claude Code's /clear and pi's /new start a new session in the same
