@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { endOptions } from "../../src/shared/launch.mjs";
 import { commandLine } from "../../src/shared/processes.mjs";
 import { connect } from "./app-server.mjs";
 import { daemonArguments } from "./daemon-rule.mjs";
@@ -22,13 +23,12 @@ export const identity = (target) => target.thread;
 export const hookVariables = (input) => ({ CODEX_THREAD_ID: input.session_id });
 
 // launch returns the command line that starts a new session with a prompt.
-// args are the caller's own flags for Codex. The -- before the prompt ends the
-// options, so a flag that takes several values, such as --image, does not
-// take the prompt as one of them.
+// args are the caller's own flags for Codex, which end with --, so that a
+// flag that takes several values, such as --image, does not take the prompt
+// as one of them.
 export const launch = ({ prompt, args = [] }) => [
   command,
-  ...args,
-  "--",
+  ...endOptions(args),
   prompt,
 ];
 

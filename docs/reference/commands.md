@@ -197,9 +197,14 @@ before it runs the script. Without a launch script, `pair spawn` refuses and
 starts nothing. When the script fails, or runs longer than 10 seconds,
 `pair spawn` fails with the script's error.
 
-For `claude`, `codex` and `pi`, `pair spawn` puts `--` before the first
-prompt, so a flag that takes several values, such as `--add-dir`, cannot take
-the prompt as one of them.
+When you give arguments after `--`, `pair spawn` ends them with `--` for
+`claude`, `codex` and `pi`, so a flag that takes several values, such as
+`--add-dir`, cannot take the prompt as one of them. A flag that your launch
+script adds then belongs right after COMMAND, not after the prompt.
+
+Without `--name`, `pair spawn` finds the new session by its folder. Give
+`--name` with an argument that makes the CLI run in another folder, such as
+Codex's `-C` or `--worktree`.
 
 Inside an agent session, `pair spawn` registers that session first, so the
 new session can message it. When that fails, `pair spawn` prints why and

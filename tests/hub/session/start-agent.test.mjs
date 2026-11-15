@@ -49,7 +49,6 @@ test("with a launch script, Open a new agent session runs it in the folder where
         "claude",
         "--name",
         "churn-export",
-        "--",
         prompt(directory, "churn-export"),
       ],
     },

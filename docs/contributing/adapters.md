@@ -37,8 +37,10 @@ It also exports these functions:
   that starts a new session of the CLI with `prompt` as its first message,
   named `name` where the CLI takes a name. `args` are the arguments for the
   CLI that `pair spawn` takes after `--`, and `launch` puts them before the
-  prompt. The hub and `pair spawn` pass the command line to the user's launch
-  script, as `src/shared/launch.mjs` describes. An adapter can also export
+  prompt. For a CLI whose prompt is a positional argument, `endOptions(args)`
+  from `src/shared/launch.mjs` ends them with `--`. The hub and `pair spawn`
+  pass the command line to the user's launch script, as
+  `src/shared/launch.mjs` describes. An adapter can also export
   `launchWarning(args)`, which returns the line that `pair spawn` prints
   before it runs the script when the CLI, given `args`, starts a session that
   reads each message only when its turn ends or that first asks a question

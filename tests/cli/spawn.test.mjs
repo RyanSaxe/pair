@@ -36,7 +36,10 @@ async function scratch(t) {
 // it runs in, its arguments and the process it starts, then starts the CLI's
 // arguments under a stand-in for Claude Code or Codex in the background and
 // exits. The stand-in is a process named for the command, claude or codex,
-// that runs the pair command its prompt asks for and exits.
+// that runs in the folder that -C names, as Codex does, or else in the
+// script's folder, runs the pair command its prompt asks for and exits. On
+// Windows the script reads each of its arguments as a string, as the
+// spawn.ps1 example in docs/guides/advanced-setup.md does.
 async function terminal({ home, env }) {
   const bin = path.join(home, "bin");
   await fs.mkdir(bin);
@@ -70,8 +73,9 @@ require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, [${
     start,
     `const [directory, command, ...args] = process.argv.slice(2);
 const cli = ${JSON.stringify(clis)}[command];
+const cd = args.indexOf("-C");
 const agent = require("node:child_process").spawn(cli.executable, [${JSON.stringify(agent)}, command, ...args], {
-  cwd: directory,
+  cwd: cd === -1 ? directory : args[cd + 1],
   detached: true,
   stdio: "ignore",
   windowsHide: true,
@@ -86,7 +90,7 @@ require("node:fs").appendFileSync(${JSON.stringify(path.join(home, "runs"))}, JS
   const quoted = (text) => `'${text.replaceAll("'", "''")}'`;
   const text =
     process.platform === "win32"
-      ? `& ${quoted(process.execPath)} ${quoted(start)} @args\nexit $LASTEXITCODE\n`
+      ? `$words = @($args | ForEach-Object { [string]$_ })\n& ${quoted(process.execPath)} ${quoted(start)} @words\nexit $LASTEXITCODE\n`
       : `#!/bin/sh\nexec "${process.execPath}" "${start}" "$@"\n`;
   await fs.mkdir(path.dirname(script), { recursive: true });
   await fs.writeFile(script, text, { mode: 0o755 });
@@ -103,8 +107,8 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
 
   const args = ["--dir", api, "--name", "api-fix"];
   const prompt = ["--prompt", "Fix the checkout test."];
-  // PowerShell's -File reads a word that starts with - as a parameter, so a
-  // word with a colon after = shows whether Windows passes it on whole.
+  // Windows runs the launch script with powershell.exe -File, which must pass
+  // on whole a word that starts with - and contains a colon, as a path does.
   const forwarded = ["--", "--model", "sonnet", "--settings=C:\\pair.json"];
   const spawned = await orphan(
     home,
@@ -161,21 +165,30 @@ test("every adapter's launch puts the forwarded arguments, in order, among the C
 
 // Codex starts a session that a -c override other than a feature names
 // without its app-server daemon, and the hub can then only queue a message for
-// the end of the session's turn.
-test("pair spawn passes the arguments after -- to Codex before the first prompt, and warns about one that starts Codex without its daemon", async (t) => {
+// the end of the session's turn. With -C, the session runs and registers in
+// another folder than --dir, and pair spawn finds it by its name.
+test("pair spawn passes the arguments after -- to Codex before the first prompt, finds the named session in the folder they choose, and warns about one that starts Codex without its daemon", async (t) => {
   const context = await scratch(t);
   const { env, folder, home, runs } = context;
   await terminal(context);
   const api = await folder("api");
+  const tree = await folder("api-tree");
 
-  const forwarded = ["-m", "gpt-5.5", "-c", "model_reasoning_effort=high"];
+  const forwarded = [
+    "-m",
+    "gpt-5.5",
+    "-C",
+    tree,
+    "-c",
+    "model_reasoning_effort=high",
+  ];
   const spawned = await orphan(
     home,
     ["spawn", "codex", "--dir", api, "--name", "api-fix", "--", ...forwarded],
     { ...outsideAgents, ...env },
   );
   assert.deepEqual(spawned, {
-    stdout: `Started api-fix (Codex) in ${path.join("~", "api")}. Message it with: pair message --to api-fix --text "…"\n`,
+    stdout: `Started api-fix (Codex) in ${path.join("~", "api-tree")}. Message it with: pair message --to api-fix --text "…"\n`,
     stderr:
       "pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads each message only when its current turn ends.\n",
   });
@@ -224,6 +237,20 @@ test("pair spawn inside an agent session registers that session, prints the new 
     stderr: `pair: The running session claude-code:sender in ${path.join("~", "app")} is named ${listed.name}. Give another --name.\n`,
   });
   assert.equal((await runs()).length, 1);
+});
+
+// pair spawn reads its own flags only before --, so a --help after it is the
+// CLI's, and a flag for the CLI before it is refused with where it belongs.
+test("pair spawn refuses a flag of the CLI given before --, and passes a --help after -- to the CLI", async (t) => {
+  const { spawn } = await scratch(t);
+  for (const flag of ["--model", "-m"]) {
+    const refused = await spawn("claude", flag, "sonnet");
+    assert.equal(refused.code, 1);
+    assert.match(refused.stderr, /Give it after -- to pass it to the CLI\./);
+  }
+  const forwarded = await spawn("claude", "--", "--help");
+  assert.equal(forwarded.code, 1);
+  assert.match(forwarded.stderr, /^pair: pair spawn needs a launch script/);
 });
 
 test("pair spawn refuses without a launch script", async (t) => {

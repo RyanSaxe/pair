@@ -107,17 +107,20 @@ export async function spawn(options) {
   if (warning) console.error(`pair: ${warning}`);
   const command = adapter.launch({ name: options.name, prompt, args });
   await runLaunch(launchScript, directory, command);
-  // Windows compares paths without case, as path.relative does there, so a
-  // drive letter in the other case names the same folder.
+  // A name identifies the new session in whatever folder it runs, as in the
+  // worktree that Codex's --worktree creates. Without one, pair spawn finds
+  // it by its folder. Windows compares paths without case, as path.relative
+  // does there, so a drive letter in the other case names the same folder.
   const entry = await newEntry(
     before,
     (each) =>
       each.cli === harness &&
-      typeof each.directory === "string" &&
-      path.relative(each.directory, directory) === "" &&
-      (options.name === undefined || each.name === options.name),
+      (options.name === undefined
+        ? typeof each.directory === "string" &&
+          path.relative(each.directory, directory) === ""
+        : each.name === options.name),
   );
-  const where = shortPath(directory);
+  const where = shortPath(entry?.directory ?? directory);
   return {
     data: entry
       ? `Started ${entry.name} (${adapter.name}) in ${where}. Message it with: pair message --to ${entry.name} --text "…"`
