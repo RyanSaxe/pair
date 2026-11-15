@@ -41,8 +41,14 @@ export const identity = (target) => target.session;
 export const sharesProcess = () => true;
 
 // launch returns the command line that starts a new session with a prompt,
-// from opencode's documentation.
-export const launch = ({ prompt }) => [command, "--prompt", prompt];
+// from opencode's documentation, with args, the caller's own flags for
+// opencode.
+export const launch = ({ prompt, args = [] }) => [
+  command,
+  ...args,
+  "--prompt",
+  prompt,
+];
 
 export function detect(env) {
   const session = env.PAIR_OPENCODE_SESSION ?? env.OPENCODE_SESSION_ID;

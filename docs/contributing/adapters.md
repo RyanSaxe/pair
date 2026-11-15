@@ -33,9 +33,11 @@ It also exports these functions:
   result, and `steerable` as `holder.steerable` in `status.json`. The frame
   reads `holder.steerable` to choose the tooltip on "Sent to the agent" and
   on Message the agent.
-- `launch({ name, prompt })` returns the command line, as an array, that
-  starts a new session of the CLI with `prompt` as its first message, named
-  `name` where the CLI takes a name. The hub passes it to the user's launch
+- `launch({ name, prompt, args })` returns the command line, as an array,
+  that starts a new session of the CLI with `prompt` as its first message,
+  named `name` where the CLI takes a name. `args` are the arguments for the
+  CLI that `pair spawn` takes after `--`, and `launch` puts them before the
+  prompt. The hub and `pair spawn` pass the command line to the user's launch
   script, as `src/shared/launch.mjs` describes.
 
 An adapter exports these too when its CLI needs them, for the list of

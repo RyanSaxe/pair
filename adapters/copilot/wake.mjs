@@ -111,9 +111,15 @@ function windowsCopilot() {
 }
 
 // launch returns the command line that starts a new session with a prompt,
-// from Copilot's documentation. The hub wakes only a session that runs with
-// --ui-server.
-export const launch = ({ prompt }) => [command, "--ui-server", "-i", prompt];
+// from Copilot's documentation, with args, the caller's own flags for
+// Copilot. The hub wakes only a session that runs with --ui-server.
+export const launch = ({ prompt, args = [] }) => [
+  command,
+  "--ui-server",
+  ...args,
+  "-i",
+  prompt,
+];
 export function detect(
   env,
   {

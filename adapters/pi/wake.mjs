@@ -18,10 +18,14 @@ export const unwakeable = `Ask the user to run \`pi install ${extension}\` and r
 export const identity = (target) => target.session;
 
 // launch returns the command line that starts a new session with a prompt,
-// and with name, the name that pi shows for the session.
-export const launch = ({ name, prompt }) => [
+// and with name, the name that pi shows for the session. args are the
+// caller's own flags for pi. The -- before the prompt ends the options, so a
+// flag that an extension adds does not take the prompt as its value.
+export const launch = ({ name, prompt, args = [] }) => [
   command,
   ...(name ? ["--name", name] : []),
+  ...args,
+  "--",
   prompt,
 ];
 

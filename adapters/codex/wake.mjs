@@ -21,7 +21,15 @@ export const identity = (target) => target.thread;
 export const hookVariables = (input) => ({ CODEX_THREAD_ID: input.session_id });
 
 // launch returns the command line that starts a new session with a prompt.
-export const launch = ({ prompt }) => [command, prompt];
+// args are the caller's own flags for Codex. The -- before the prompt ends the
+// options, so a flag that takes several values, such as --image, does not
+// take the prompt as one of them.
+export const launch = ({ prompt, args = [] }) => [
+  command,
+  ...args,
+  "--",
+  prompt,
+];
 
 // Codex 0.160 runs its threads on an app-server daemon, which listens on a
 // control socket under CODEX_HOME.

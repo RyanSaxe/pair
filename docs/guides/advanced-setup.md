@@ -63,10 +63,12 @@ Start-Process -FilePath $command -ArgumentList $arguments -WorkingDirectory $dir
 ```
 
 `pair spawn` runs the same script from a terminal or from an agent, and
-prints the name that `pair message --to` takes:
+prints the name that `pair message --to` takes. It passes the arguments after
+`--` to the CLI, as [`pair spawn`](../reference/commands.md#pair-spawn)
+describes:
 
 ```console
-$ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test."
+$ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test." -- -m gpt-5.5
 Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-3f --text "…"
 ```
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { adapters } from "../../src/hub/wake.mjs";
 import { settings } from "../../src/shared/settings.mjs";
 import { agentsScratch, orphan, outsideAgents } from "../support/agents.mjs";
 import {
@@ -82,7 +83,7 @@ require("node:fs").appendFileSync(${JSON.stringify(path.join(home, "runs"))}, JS
 // A person runs pair spawn in a terminal, with no agent CLI among its parent
 // processes, so pair spawn registers no session there and prints nothing about
 // one.
-test("pair spawn outside any agent CLI runs the launch script with the CLI's command line, and prints only the name the new session registers", async (t) => {
+test("pair spawn outside any agent CLI runs the launch script with the CLI's command line, with the arguments after -- before the first prompt, and prints only the name the new session registers", async (t) => {
   const context = await scratch(t);
   const { env, folder, home, runs } = context;
   await terminal(context);
@@ -90,10 +91,14 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
 
   const args = ["--dir", api, "--name", "api-fix"];
   const prompt = ["--prompt", "Fix the checkout test."];
-  const spawned = await orphan(home, ["spawn", "claude", ...args, ...prompt], {
-    ...outsideAgents,
-    ...env,
-  });
+  // PowerShell's -File reads a word that starts with - as a parameter, so a
+  // word with a colon after = shows whether Windows passes it on whole.
+  const forwarded = ["--", "--model", "sonnet", "--settings=C:\\pair.json"];
+  const spawned = await orphan(
+    home,
+    ["spawn", "claude", ...args, ...prompt, ...forwarded],
+    { ...outsideAgents, ...env },
+  );
   assert.deepEqual(spawned, {
     stdout: `Started api-fix (Claude Code) in ${path.join("~", "api")}. Message it with: pair message --to api-fix --text "…"\n`,
     stderr: "",
@@ -108,6 +113,10 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
         "claude",
         "--name",
         "api-fix",
+        "--model",
+        "sonnet",
+        "--settings=C:\\pair.json",
+        "--",
         "In your own shell, run pair register --name api-fix first. If another running session has that name, run pair register without --name. Fix the checkout test.",
       ],
     },
@@ -115,6 +124,27 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
   // Windows refuses to remove the working directory or the executable of a
   // running process, so the stand-in exits before the test's directory goes.
   await waitUntil(() => !alive(run.pid));
+});
+
+// Each CLI reads its options before its prompt.
+// A flag that takes several values, such as Claude Code's --add-dir, takes
+// every word after it until one that ends the options or starts another flag.
+test("every adapter's launch puts the forwarded arguments, in order, among the CLI's options, and the prompt where no forwarded flag can take it", () => {
+  const args = ["--add-dir", "a folder"];
+  for (const [harness, adapter] of Object.entries(adapters)) {
+    const command = adapter.launch({
+      name: "api-fix",
+      prompt: "Say hi.",
+      args,
+    });
+    const at = command.indexOf("--add-dir");
+    const prompt = command.indexOf("Say hi.");
+    assert.ok(at > 0, harness);
+    assert.ok(!command.slice(0, prompt - 1).includes("--"), harness);
+    assert.deepEqual(command.slice(at, at + args.length), args, harness);
+    assert.ok(at + args.length < prompt, harness);
+    assert.ok(["--", "-i", "--prompt"].includes(command[prompt - 1]), harness);
+  }
 });
 
 // The agent spawns the new session in its own folder, so the agent's own new
