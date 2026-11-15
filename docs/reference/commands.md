@@ -98,47 +98,12 @@ fix-login-54  Claude Code  ~/src/app-worktrees/fix-login  fix-login  claude-code
 api-d3        Codex        ~/src/api                      main       codex:0199c1d4
 ```
 
-A session's ID is its CLI and the session ID that the CLI keeps when the
-session resumes. `pair agents` prints eight characters of the session ID, or
-more when two IDs start the same way, and `--json` prints whole IDs.
-
-A session's name is its folder's name, lowercased, with each character other
-than a letter, digit or hyphen turned into a hyphen, then a hyphen and two hex
-characters from a hash of the session's ID. When a running session has that
-name, pair takes the next value. A session therefore gets the same name each
-time it registers, also after its CLI restarts. `--name NAME` sets another
-name, and refuses one that a running session has.
-
-pair keeps one file per session in `$XDG_STATE_HOME/pair/agents/`, which only
-you can read, because Claude Code's entry contains its inbox token. A session
-counts as running while a process with the entry's process ID and start time
-runs, so a process that gets the same ID after a restart does not count. That
-process is the CLI's, with two exceptions:
-
-- A Codex session on Codex's app-server daemon runs while the daemon has its
-  thread loaded, which ends about a minute after the session exits.
-- An opencode 2 session runs while an opencode window has it open, because
-  opencode 2's background server keeps running after its windows exit.
-
-Every command that reads the list deletes the entry of each session that is
-not running. It leaves out and keeps an entry it cannot check, such as one
-from a CLI that this pair has no adapter for. A session that a CLI starts in
-the same process, as Claude Code's `/clear` and pi's `/new` do, replaces that
-process's other entries, except on Codex's daemon and in opencode, where one
-process serves several sessions.
-
-pair reads the processes with `ps` on macOS and Linux and with PowerShell on
-Windows. When it cannot run them, as in Codex's sandbox, every command that
-reads the list refuses and deletes nothing.
-
-`pair register` refuses outside an agent CLI, and when pair finds no process
-of the CLI among the command's parent processes. It refuses a subagent of
-Codex, Copilot CLI or opencode, which has a session ID of its own, and prints
-the `NAME/SUBAGENT` that reaches it through the session that started it.
-`pair start` registers the agent that runs it, and when that fails, prints
-why on stderr and starts the session as usual. pair's pi extension registers
-each pi session when it starts, and pair's opencode plugin registers each
-opencode session but a subagent's when opencode creates it.
+A session is named for its folder and two hex characters from its ID, keeps
+that name when its CLI restarts, and `--name NAME` sets another. `pair agents`
+prints the start of each ID, `--json` prints whole IDs, and a session leaves
+the list when its CLI exits. `pair start` registers the agent that runs it,
+and pair's pi extension and opencode plugin register each session when it
+starts.
 
 An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 `pair register` reads the session ID from the hook's JSON on stdin when the
