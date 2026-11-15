@@ -362,7 +362,6 @@ export const commands = {
         value: "PATH",
         text: "A file whose text is the rest of the first prompt, in place of --prompt.",
       },
-      json,
     },
     run: spawn,
   },

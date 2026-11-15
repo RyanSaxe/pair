@@ -7,13 +7,7 @@ import { runLaunch } from "../shared/launch.mjs";
 import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { requireValue } from "../shared/util.mjs";
-import {
-  agentsDir,
-  registerAgent,
-  requireName,
-  shortPath,
-  shown,
-} from "./agents.mjs";
+import { agentsDir, registerAgent, requireName, shortPath } from "./agents.mjs";
 import { usageError } from "./arguments.mjs";
 
 const examples =
@@ -112,13 +106,9 @@ export async function spawn(options) {
       (options.name === undefined || each.name === options.name),
   );
   const where = shortPath(directory);
-  return entry
-    ? {
-        data: `Started ${entry.name} (${adapter.name}) in ${where}. Message it with: pair message --to ${entry.name} --text "…"`,
-        json: { agent: shown(entry) },
-      }
-    : {
-        data: `Started ${adapter.name} in ${where}. It appears in pair agents once it runs pair register.`,
-        json: { agent: null },
-      };
+  return {
+    data: entry
+      ? `Started ${entry.name} (${adapter.name}) in ${where}. Message it with: pair message --to ${entry.name} --text "…"`
+      : `Started ${adapter.name} in ${where}. It appears in pair agents once it runs pair register.`,
+  };
 }

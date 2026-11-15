@@ -208,7 +208,7 @@ export function shortPath(directory) {
 
 // The wake target contains Claude Code's inbox token, so pair prints every
 // field of an entry but the target.
-export const shown = ({ target, ...entry }) => entry;
+const shown = ({ target, ...entry }) => entry;
 
 export function requireName(command, name) {
   if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name))
