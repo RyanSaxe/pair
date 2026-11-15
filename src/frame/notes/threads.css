@@ -292,6 +292,17 @@ pair-thread[collapsed] > :not(.thread-head) {
     animation: none;
   }
 }
+/* The agent's ack spans the avatar column, as the status line under the
+   messages does. */
+.thread-agent-ack {
+  grid-column: 1 / -1;
+}
+.thread-agent-ack::before {
+  content: "✓";
+  margin-right: 6px;
+  color: var(--ok);
+  font-weight: 600;
+}
 :is(#reading, #work-view, #review-view) .thread-bad {
   color: var(--danger);
   font-size: var(--text-meta);

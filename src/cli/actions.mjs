@@ -83,14 +83,21 @@ const MARKDOWN = /\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)|`[^`\n]+`|^\s*[-*] /m;
 
 export async function reply(options) {
   const id = options.thread;
-  if (options.text !== undefined && options.file !== undefined)
-    throw usageError("reply", "pair reply takes --text or --file, not both.");
-  const text = options.text !== undefined;
-  if (!text && options.file === undefined)
+  const given = ["text", "file", "ack"].filter(
+    (name) => options[name] !== undefined,
+  );
+  if (given.length > 1)
     throw usageError(
       "reply",
-      "pair reply requires --text TEXT or --file HTML.",
+      "pair reply takes one of --text, --file and --ack.",
     );
+  if (!given.length)
+    throw usageError(
+      "reply",
+      "pair reply requires --text TEXT, --file HTML or --ack.",
+    );
+  if (options.ack) return postAck(options);
+  const text = options.text !== undefined;
   if (text && MARKDOWN.test(options.text))
     throw usageError(
       "reply",
@@ -108,6 +115,27 @@ export async function reply(options) {
   return {
     next: result.next,
     data: `Posted your reply in thread ${id}.`,
+    json: result,
+  };
+}
+
+async function postAck(options) {
+  const id = options.thread;
+  const session = await openSession(options);
+  const result = await session.request({
+    action: "reply",
+    note: id,
+    ack: true,
+  });
+  // A hub on code from before --ack takes the request as pair read --thread,
+  // which returns the thread, or the thread's text on the previous release.
+  if (result.thread || result.text !== undefined)
+    throw new Error(
+      `The hub runs code from before pair reply --ack, so it marked thread ${id} read and recorded no acknowledgement. Answer the thread with pair reply --text or --file.`,
+    );
+  return {
+    next: result.next,
+    data: `Acknowledged thread ${id}.`,
     json: result,
   };
 }

@@ -551,6 +551,56 @@ test("a --source that is empty or a file is refused and leaves nothing", async (
   assert.equal(await exists(path.join(sessionDir, "src", "1")), false);
 });
 
+test("pair reply --ack acknowledges the reviewer's waiting messages, and pair read --thread prints it", async (t) => {
+  const h = await hub(t);
+  const root = path.join(h.home, "cli");
+  await fs.mkdir(root);
+  const cli = await pairCli(root, {
+    XDG_STATE_HOME: h.home,
+    PAIR_HUB_PORT: "0",
+  });
+  const session = await h.session({ cli });
+  assert.equal((await session.publish(planData())).code, 200);
+  const id = "thanks";
+  const started = await session.request(`${session.base}/api/threads`, {
+    id,
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    text: "Looks right to me.",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const dir = ["--session-dir", session.directory];
+  const ack = (...args) =>
+    cli.run("reply", ...dir, "--thread", id, "--ack", ...args);
+  const refused = (pattern) => (error) => {
+    assert.equal(error.code, 1);
+    assert.match(error.stderr, pattern);
+    return true;
+  };
+  await assert.rejects(
+    ack("--text", "Thanks."),
+    refused(/takes one of --text, --file and --ack/),
+  );
+  assert.match(await ack(), new RegExp(`Acknowledged thread ${id}\\.`));
+  const thread = async () => (await session.status()).body.threads[0];
+  const acked = (await thread()).messages[1];
+  assert.deepEqual(acked, { from: "agent", at: acked.at, kind: "ack" });
+  await assert.rejects(ack(), refused(/nothing to acknowledge/));
+  assert.match(
+    await cli.run("read", ...dir, "--thread", id),
+    /<pair_message from="agent" at="[^"]+" kind="ack"><\/pair_message>/,
+  );
+  // The reviewer's next message waits for an answer again.
+  const sent = await session.request(
+    `${session.base}/api/threads/${id}/messages`,
+    { text: "One more: keep the order." },
+  );
+  assert.equal(sent.code, 201, sent.body.error);
+  assert.match(await ack(), /Acknowledged/);
+  assert.equal((await thread()).messages.length, 4);
+});
+
 test("pair read --thread prints the thread, and pair reply posts to it", async (t) => {
   const h = await hub(t);
   const root = path.join(h.home, "cli");
