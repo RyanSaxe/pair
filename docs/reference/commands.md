@@ -134,7 +134,9 @@ of the CLI among the command's parent processes. It refuses a subagent of
 Codex, Copilot CLI or opencode, which has a session ID of its own, and prints
 the `NAME/SUBAGENT` that reaches it through the session that started it.
 `pair start` registers the agent that runs it, and when that fails, prints
-why on stderr and starts the session as usual.
+why on stderr and starts the session as usual. pair's pi extension registers
+each pi session when it starts, and pair's opencode plugin registers each
+opencode session but a subagent's when opencode creates it.
 
 An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 `pair register` reads the session ID from the hook's JSON on stdin when the

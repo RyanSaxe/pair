@@ -177,7 +177,20 @@ runs opencode's plugins, closes a half-closed socket.
 
 ### The session's variables
 
-The extension and the plugin set two variables for the commands the CLI
-runs, the socket and the ID of the CLI's session. The socket changes each
-time the CLI starts, and the session ID stays the same after `pi --continue`
-or `opencode --continue`, so `identity` returns the session ID.
+The extension and the plugin set three variables for the commands the CLI
+runs: the socket, the ID of the CLI's session and, in the adapter's
+`pidVariable`, the CLI's process ID. The socket changes each time the CLI
+starts, and the session ID stays the same after `pi --continue` or
+`opencode --continue`, so `identity` returns the session ID.
+
+### Registering at start
+
+The extension registers each pi session at pi's `session_start`, and the
+plugin each opencode session at opencode's `session.created`, except a
+subagent's session, which has a `parentID`. Both call `register(cwd,
+variables)` in `adapters/register.mjs`, which runs
+`node src/cli.mjs register --hook` with the session's variables. It runs the
+`node` on the path, because pi may run on an older Node than pair needs and
+opencode runs plugins on Bun. The CLI does not wait for the command and
+ignores its failures, and a session that it does not register registers at
+its first `pair` command.

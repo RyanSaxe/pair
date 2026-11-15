@@ -25,6 +25,9 @@ export const name = "opencode";
 // shell command that opencode runs.
 export const command = "opencode";
 export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
+// The plugin also sets the ID of opencode's process, so that pair finds the
+// process whatever name it runs under, such as nixpkgs' .opencode-wrapped.
+export const pidVariable = "PAIR_OPENCODE_PID";
 export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket, so

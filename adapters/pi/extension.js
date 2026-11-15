@@ -1,4 +1,5 @@
 import { listen } from "../listener.mjs";
+import { register } from "../register.mjs";
 
 // pi loads this file as an extension.
 export default function pair(pi) {
@@ -12,10 +13,13 @@ export default function pair(pi) {
     );
     process.env.PAIR_PI_SOCKET = listener.socket;
     process.env.PAIR_PI_SESSION = ctx.sessionManager.getSessionId();
+    process.env.PAIR_PI_PID = String(process.pid);
+    register(ctx.cwd);
   });
   pi.on("session_shutdown", () => {
     listener?.close();
     delete process.env.PAIR_PI_SOCKET;
     delete process.env.PAIR_PI_SESSION;
+    delete process.env.PAIR_PI_PID;
   });
 }

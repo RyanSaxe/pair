@@ -6,6 +6,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
+import { inProcessState } from "../support/agents.mjs";
+import { waitUntil } from "../support/hub.mjs";
 
 // opencode calls each plugin export with its SDK client. standInClient records
 // each prompt the plugin sends. While refusal is set, the client returns an
@@ -39,7 +41,7 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   await plugin["shell.env"]({ cwd: "/", sessionID: "ses_1" }, { env });
   const plain = {};
   await plugin["shell.env"]({ cwd: "/" }, { env: plain });
-  assert.deepEqual(Object.keys(plain), ["PAIR_OPENCODE_SOCKET"]);
+  assert.equal(plain.PAIR_OPENCODE_SESSION, undefined);
   // detectWake does here what pair start does inside opencode: it finds
   // opencode among the process's ancestors and reads the variables that the
   // plugin set for the shell.
@@ -63,6 +65,43 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   await assert.rejects(wakeRunner(target, "third"), {
     message: `the agent CLI has exited (ENOENT ${target.socket})`,
   });
+});
+
+// One opencode process serves several sessions, and this process stands in
+// for it. Its command is node, so pair register finds it only by the process
+// ID that the plugin passes.
+test("pair's plugin registers each opencode session when opencode creates it, and not a subagent's session", async (t) => {
+  const { home, agents } = await inProcessState(t);
+  const { client } = standInClient();
+  const plugin = await PairWake({ client });
+  t.after(() => plugin.dispose());
+  const created = (info) =>
+    plugin.event({
+      event: {
+        type: "session.created",
+        properties: { info: { directory: home, ...info } },
+      },
+    });
+  const listed = async (count) => {
+    let entries = [];
+    await waitUntil(
+      async () => (entries = await agents()).length >= count,
+      30_000,
+    );
+    return entries.map(({ id, pid }) => ({ id, pid })).reverse();
+  };
+  // The subagent's session comes first, so that pair register would have
+  // listed it by the time it lists the others.
+  await created({ id: "ses_child", parentID: "ses_root" });
+  await created({ id: "ses_root" });
+  assert.deepEqual(await listed(1), [
+    { id: "opencode:ses_root", pid: process.pid },
+  ]);
+  await created({ id: "ses_new" });
+  assert.deepEqual(await listed(2), [
+    { id: "opencode:ses_root", pid: process.pid },
+    { id: "opencode:ses_new", pid: process.pid },
+  ]);
 });
 
 // opencode 1's task tool titles a subagent's session "TASK (@AGENT
