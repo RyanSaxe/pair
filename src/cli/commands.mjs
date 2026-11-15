@@ -313,9 +313,9 @@ export const commands = {
     group: "messaging",
     purpose: "Send a message to a running agent session",
     about:
-      "Send a message to the running agent session that --to names, through its agent CLI, and print when the session's agent reads it. Run inside an agent CLI, pair message registers this session first, and the message names this session in its first line and ends with the command that answers it. Outside any agent CLI, the first line says the message is from your user.",
+      "Send a message to the running agent session that --to names, through its agent CLI, and print when the session's agent reads it. Run inside an agent CLI, pair message registers this session first, and the message names this session in its first line and ends with the commands that answer and acknowledge it. Outside any agent CLI, the first line says the message is from your user.",
     usage:
-      "pair message --to NAME|ID|NAME/SUBAGENT (--text TEXT | --file PATH) [--from LABEL]",
+      "pair message --to NAME|ID|NAME/SUBAGENT (--text TEXT | --file PATH | --ack) [--from LABEL]",
     flags: {
       to: {
         value: "NAME",
@@ -324,13 +324,16 @@ export const commands = {
       },
       text: { value: "TEXT", text: "The message." },
       file: { value: "PATH", text: "A file whose text is the message." },
+      ack: {
+        text: "Acknowledge the session's message instead of answering it, when you have nothing to say. pair message sends one line, which asks the session's agent not to answer.",
+      },
       from: {
         value: "LABEL",
         text: "Name the sender LABEL, for a sender outside any agent CLI, such as a script. The message then has no command to answer it.",
       },
       json,
     },
-    footer: "Give --text or --file, not both.",
+    footer: "Give one of --text, --file and --ack.",
     run: message,
   },
   guide: {

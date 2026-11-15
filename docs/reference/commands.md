@@ -23,7 +23,7 @@ it. `pair --version` prints the version.
 | `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. `pair start --session-dir` resumes it. You end a session by closing it in the browser.                                                                                                                                                                             |
 | `pair register`                                        | Adds the agent session it runs in to pair's list of running agent sessions, or updates its entry, and prints the session's name and ID, as [pair register and pair agents](#pair-register-and-pair-agents) describes. `--name NAME` names the session, and `--hook` is for an agent CLI's start hook.                  |
 | `pair agents`                                          | Lists the registered agent sessions whose CLI is still running.                                                                                                                                                                                                                                                        |
-| `pair message --to NAME --text TEXT`                   | Sends a message to a running agent session, as [pair message](#pair-message) describes. `--file PATH` sends a file's text, and `--from LABEL` names a sender outside any agent CLI.                                                                                                                                    |
+| `pair message --to NAME --text TEXT`                   | Sends a message to a running agent session, as [pair message](#pair-message) describes. `--file PATH` sends a file's text, `--ack` acknowledges a message, and `--from LABEL` names a sender outside any agent CLI.                                                                                                    |
 | `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
 | `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
@@ -160,6 +160,7 @@ pair message from api-d3 (Codex in ~/src/api):
 The session table now has a revoked_at column. Use it for logout.
 
 To answer, run: pair message --to codex:0199c1d4-1111-7000-8000-000000000000 --text "…"
+If you have nothing to say, acknowledge it: pair message --to codex:0199c1d4-1111-7000-8000-000000000000 --ack
 ```
 
 `--to` takes a name or an ID that `pair agents` prints, or the start of one
@@ -171,8 +172,9 @@ each received a 100 KB message whole.
 
 Inside an agent CLI, `pair message` registers the session it runs in, as
 `pair register` does, and sends nothing when it cannot. The first line names
-that session, and the last line gives the command that answers it, with the
-whole ID, because another session can take the name after this one exits.
+that session, and the last two lines give the commands that answer it and
+acknowledge it, with the whole ID, because another session can take the name
+after this one exits.
 A Codex subagent has no entry, so a message from it names it as
 `PARENT/NICKNAME`, which reaches it through its parent, such as
 `api-d3/Goodall`.
@@ -180,6 +182,16 @@ Outside any agent CLI, the first line is `pair message from your user:`, and
 `--from LABEL` makes it `pair message from LABEL:`. Neither message has a
 command to answer it, so each ends with the line `This message has no answer
 command. Answer in your own chat, if at all.`
+
+`--ack`, in place of `--text` or `--file`, sends one line that says this
+session read the message, and no command to answer it:
+
+```text
+pair message from fix-login-3f (Claude Code in ~/src/app-worktrees/fix-login) acknowledges your message. Don't answer it.
+```
+
+`--ack` works only inside an agent session, and refuses `--from`, because
+the line names the session that read the message.
 
 `--to NAME/SUBAGENT` sends the message to a subagent of the session:
 
