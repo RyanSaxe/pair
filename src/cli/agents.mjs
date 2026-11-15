@@ -3,68 +3,66 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { text } from "node:stream/consumers";
 import { adapters, detectWake, recognizes } from "../hub/wake.mjs";
 import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { atomic, requireValue } from "../shared/util.mjs";
 import { listing, usageError } from "./arguments.mjs";
 
-// pair's list of running agent sessions has one file per session in this
-// directory, named for the entry's ID, the CLI and the session ID that the
-// CLI keeps when the session resumes. Claude Code's wake target contains its
-// inbox token, so only the user can open the directory, and atomic() writes
-// each file with mode 600. Windows refuses a colon in a file name.
+// pair's list of running agent sessions has one file per session, named for
+// the entry's ID: the CLI and the session ID that the CLI keeps when the
+// session resumes. Claude Code's wake target contains its inbox token, so only
+// the user can open the directory, and atomic() writes each file with mode
+// 600. Windows refuses a colon in a file name.
 export const agentsDir = () => path.join(settings().root, "agents");
-const entryFile = (id) =>
-  path.join(agentsDir(), `${id.replace(":", "-")}.json`);
 
 // A session runs while a process with the entry's process ID and start time
 // runs, so a process that a restart gives the same ID does not count. An
 // adapter whose process outlives its sessions, such as Codex's daemon, also
-// asks the process about the session, and keeps the entry when it does not
-// answer. sessionState returns "unknown" for an entry that pair cannot check,
-// such as one from a CLI that this pair has no adapter for, and pair skips
-// and keeps that entry.
+// asks about the session, and keeps the entry when nothing answers. An entry
+// that pair cannot check, such as one from a CLI this pair has no adapter
+// for, is "unknown", and pair skips and keeps it.
 async function sessionState(entry, table) {
   const adapter = adapters[entry?.cli];
-  const { name, processStart, registeredAt } = entry ?? {};
-  const fields = [name, processStart, registeredAt];
+  const fields = [entry?.name, entry?.processStart, entry?.registeredAt];
   if (!adapter || !fields.every((field) => typeof field === "string"))
     return "unknown";
   const cli = table.get(entry.pid);
   if (cli?.start !== entry.processStart) return "ended";
-  if (!adapter.running) return "running";
-  const running = await adapter.running(entry.target, cli).catch(() => true);
-  return running ? "running" : "ended";
+  const running = adapter.running?.(entry.target, cli).catch(() => true);
+  return (await (running ?? true)) ? "running" : "ended";
 }
 
-// readAgents deletes the entry of every session that has ended, and returns
-// the running ones, the most recently registered first.
-export async function readAgents(table = processTable()) {
-  const names = await fs.readdir(agentsDir()).catch((error) => {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  });
+// readAgents deletes the entry of every session that has ended, and of every
+// running one that replaced says a new session replaces, and returns the
+// others that run, the most recently registered first.
+export async function readAgents(
+  table = processTable(),
+  replaced = () => false,
+) {
+  const names = await fs.readdir(agentsDir()).catch(() => []);
+  const files = names.filter((name) => name.endsWith(".json"));
   const entries = await Promise.all(
-    names
-      .filter((name) => name.endsWith(".json"))
-      .map(async (name) => {
-        const file = path.join(agentsDir(), name);
-        const entry = await fs
-          .readFile(file, "utf8")
-          .then(JSON.parse)
-          .catch(() => null);
-        const state = await sessionState(entry, table).catch(() => "unknown");
-        if (state === "ended") await fs.rm(file, { force: true });
-        return state === "running" ? entry : null;
-      }),
+    files.map(async (name) => {
+      const file = path.join(agentsDir(), name);
+      const entry = await fs
+        .readFile(file, "utf8")
+        .then(JSON.parse)
+        .catch(() => null);
+      const state = await sessionState(entry, table).catch(() => "unknown");
+      const ended =
+        state === "ended" || (state === "running" && replaced(entry));
+      if (ended) await fs.rm(file, { force: true });
+      return state === "running" && !ended ? entry : null;
+    }),
   );
   return entries
     .filter(Boolean)
     .sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
 }
 
-// A default name is the folder's name, then two hex characters from a hash of
+// A default name is the folder's name and two hex characters from a hash of
 // the session's ID, so the session gets the same name each time it registers,
 // even after its CLI restarts, or the next value when a running session has
 // that name.
@@ -74,54 +72,35 @@ function defaultName(directory, id, taken) {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}-]/gu, "-");
   const [first] = crypto.createHash("sha256").update(id).digest();
-  for (let step = 0; step < 256; step++) {
-    const name = `${base}-${((first + step) % 256).toString(16).padStart(2, "0")}`;
-    if (!taken.has(name)) return name;
-  }
-  requireValue(
-    false,
-    `Running sessions have every name from ${base}-00 to ${base}-ff. Give this one a name with --name.`,
+  const names = Array.from(
+    { length: 256 },
+    (_, step) =>
+      `${base}-${((first + step) % 256).toString(16).padStart(2, "0")}`,
   );
+  return names.find((each) => !taken.has(each)) ?? names[0];
 }
 
-// Git gives its hooks GIT_DIR and the other GIT_* variables, which would point
-// git at the hook's repository, so currentBranch leaves them out.
-function currentBranch(directory) {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-  );
+function currentBranch(cwd) {
   const { status, stdout } = spawnSync("git", ["branch", "--show-current"], {
-    cwd: directory,
-    env,
+    cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   });
   return (status === 0 && stdout.trim()) || null;
 }
 
-// cliProcess returns the ancestor that runs the session: the process in the
-// adapter's pidVariable, because a pi started inside pi without pair's
-// extension inherits the outer pi's variables and exits before the outer pi,
-// or else the nearest ancestor that the adapter recognizes.
-function cliProcess(adapter, chain) {
-  const owner = Number(process.env[adapter.pidVariable]);
-  const cli =
-    chain.find((ancestor) => ancestor.pid === owner) ??
-    chain.find((ancestor) => recognizes(adapter, ancestor));
-  requireValue(
-    cli?.start,
-    `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
-  );
-  return cli;
-}
-
 // registerAgent writes the entry of the session that target names, and
-// returns it with every running entry, itself first. A running session keeps
-// its name unless name gives another. A subagent gets no entry, because pair
-// reaches it through its parent.
+// returns it with every running entry, itself first. The session runs in the
+// ancestor in the adapter's pidVariable, or else in the nearest ancestor that
+// the adapter recognizes. The pidVariable comes first because pi's subagent
+// example starts pi without pair's extension loaded by -e, and that inner pi
+// inherits the outer pi's variables and exits first. A subagent gets no entry,
+// because pair reaches it through its parent, and for a sender whose parent
+// is listed, registerAgent returns the parent's entry and the subagent's
+// nickname instead of refusing.
 export async function registerAgent(
   target,
-  { name, table = processTable() } = {},
+  { name, table = processTable(), sender = false } = {},
 ) {
   const adapter = adapters[target.harness];
   const sessionId = (adapter.sessionId ?? adapter.identity)(target);
@@ -133,48 +112,53 @@ export async function registerAgent(
     /^[\w.-]+$/.test(sessionId),
     `${adapter.name}'s session ID ${sessionId} has characters that pair cannot use in a file name.`,
   );
-  const cli = cliProcess(adapter, ancestors(table));
+  const chain = ancestors(table);
+  const cli =
+    chain.find(({ pid }) => pid === Number(process.env[adapter.pidVariable])) ??
+    chain.find((ancestor) => recognizes(adapter, ancestor));
+  requireValue(
+    cli?.start,
+    `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
+  );
   const id = `${target.harness}:${sessionId}`;
-  const running = await readAgents(table);
   const parent = await adapter.parentSession?.(target).catch(() => null);
   if (parent) {
     const parentId = `${target.harness}:${parent.sessionId}`;
-    const through =
-      running.find((entry) => entry.id === parentId)?.name ?? parentId;
+    const running = await readAgents(table);
+    const listed = running.find((each) => each.id === parentId);
+    if (sender && listed && parent.nickname)
+      return { entry: listed, subagent: parent.nickname, running };
+    const via = listed?.name ?? parentId;
     throw new Error(
-      `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${parent.nickname ? `${through}/${parent.nickname}` : `${through}/SUBAGENT, with the name ${through} gave it`}.`,
+      `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${via}/${parent.nickname ?? `SUBAGENT, with the name ${via} gave it`}.`,
     );
   }
   // Claude Code's /clear and pi's /new start a new session in the same
   // process, so the new session's entry replaces that process's other entries,
   // unless the process serves several sessions.
-  const replaces = (entry) =>
-    entry.cli === target.harness &&
-    entry.pid === cli.pid &&
-    entry.processStart === cli.start &&
-    !adapter.sharesProcess?.(cli);
-  const others = [];
-  for (const entry of running) {
-    if (entry.id === id) continue;
-    if (replaces(entry)) await fs.rm(entryFile(entry.id), { force: true });
-    else others.push(entry);
-  }
-  if (name !== undefined) {
-    const namesake = others.find((entry) => entry.name === name);
-    requireValue(
-      !namesake,
-      namesake &&
-        `The running session ${namesake.id} in ${shortPath(namesake.directory)} is named ${name}. Give another --name.`,
-    );
-  }
+  const running = await readAgents(
+    table,
+    (entry) =>
+      entry.id !== id &&
+      entry.cli === target.harness &&
+      entry.pid === cli.pid &&
+      entry.processStart === cli.start &&
+      !adapter.sharesProcess?.(cli),
+  );
+  const others = running.filter((entry) => entry.id !== id);
+  const namesake = name && others.find((entry) => entry.name === name);
+  requireValue(
+    !namesake,
+    namesake &&
+      `The running session ${namesake.id} in ${shortPath(namesake.directory)} is named ${name}. Give another --name.`,
+  );
   const directory = process.cwd();
-  const taken = new Set(others.map((entry) => entry.name));
   const entry = {
     id,
     name:
       name ??
       running.find((each) => each.id === id)?.name ??
-      defaultName(directory, id, taken),
+      defaultName(directory, id, new Set(others.map((each) => each.name))),
     cli: target.harness,
     directory,
     branch: currentBranch(directory),
@@ -184,14 +168,12 @@ export async function registerAgent(
     registeredAt: new Date().toISOString(),
   };
   await fs.mkdir(agentsDir(), { recursive: true, mode: 0o700 });
-  await atomic(entryFile(id), entry);
+  await atomic(path.join(agentsDir(), `${id.replace(":", "-")}.json`), entry);
   return { entry, running: [entry, ...others] };
 }
 
-// findAgent returns the entry that NAME|ID names: the entry with that name,
-// the entry with that ID, or the one entry whose ID starts with it. It returns
-// null when none matches, and refuses a start of an ID that more than one
-// entry's ID has.
+// findAgent returns the entry with the name or ID to, or the one entry whose
+// ID starts with it, or null. It refuses a start that several IDs share.
 export function findAgent(entries, to) {
   const exact =
     entries.find((entry) => entry.name === to) ??
@@ -205,15 +187,15 @@ export function findAgent(entries, to) {
   return matches[0] ?? null;
 }
 
-// pair prints an entry's ID cut to the shortest start, of at least eight
-// characters of the session ID, that no other entry's ID in ids has.
-export function shortId(id, ids) {
-  const sessionStart = id.indexOf(":") + 1;
-  for (let end = sessionStart + 8; end < id.length; end++) {
-    const prefix = id.slice(0, end);
-    if (!ids.some((other) => other !== id && other.startsWith(prefix)))
-      return prefix;
-  }
+// pair prints an ID cut to the shortest start, of at least eight characters
+// of the session ID, that no other ID in ids has, because Codex's thread IDs
+// start with the time.
+function shortId(id, ids) {
+  for (let end = id.indexOf(":") + 9; end < id.length; end++)
+    if (
+      !ids.some((other) => other !== id && other.startsWith(id.slice(0, end)))
+    )
+      return id.slice(0, end);
   return id;
 }
 
@@ -236,31 +218,24 @@ export function requireName(command, name) {
     );
 }
 
-// A CLI writes its start hook's JSON to stdin and closes it, and an empty
-// stdin such as /dev/null ends at once.
-async function hookInput() {
-  if (process.stdin.isTTY) return null;
-  let text = "";
-  for await (const chunk of process.stdin) text += chunk;
-  return JSON.parse(text || "null");
-}
-
-// A CLI's start hook runs pair register --hook, and a failed hook must not
-// stop the CLI from starting, so with --hook pair register prints its error
-// and exits 0. pair register talks to no hub, so it reads the processes with
-// PowerShell on Windows, where detectWake alone finds no ancestors.
+// A CLI's start hook runs pair register --hook and writes its JSON to stdin.
+// A failed hook must not stop the CLI from starting, so with --hook pair
+// register prints its error and exits 0. pair register talks to no hub, so it
+// reads the processes with PowerShell on Windows, where detectWake alone
+// finds no ancestors.
 export async function register(options) {
   requireNode();
-  requireName("register", options.name);
   try {
-    const input = options.hook ? await hookInput().catch(() => null) : null;
+    requireName("register", options.name);
+    const stdin =
+      options.hook && !process.stdin.isTTY ? await text(process.stdin) : "";
+    const input = /^\s*\{/.test(stdin) ? JSON.parse(stdin) : null;
     const table = processTable();
     const tools = { ancestors: () => ancestors(table) };
-    const target = detectWake(process.env, tools, input);
-    const { entry, running } = await registerAgent(target, {
-      name: options.name,
-      table,
-    });
+    const { entry, running } = await registerAgent(
+      detectWake(process.env, tools, input),
+      { name: options.name, table },
+    );
     const id = shortId(
       entry.id,
       running.map((other) => other.id),
@@ -276,32 +251,29 @@ export async function register(options) {
   }
 }
 
-function table(rows) {
-  const widths = rows[0].map((_, column) =>
-    Math.max(...rows.map((row) => row[column].length)),
-  );
-  return rows
-    .map((row) =>
-      row.map((cell, column) => cell.padEnd(widths[column] + 2)).join(""),
-    )
-    .map((line) => line.trimEnd())
-    .join("\n");
-}
-
 export async function agents() {
   requireNode();
   const running = await readAgents();
   const ids = running.map((entry) => entry.id);
-  const rows = running.map((entry) => [
-    entry.name,
-    adapters[entry.cli].name,
-    shortPath(entry.directory),
-    entry.branch ?? "-",
-    shortId(entry.id, ids),
-  ]);
+  const rows = [
+    ["NAME", "CLI", "DIRECTORY", "BRANCH", "ID"],
+    ...running.map((entry) => [
+      entry.name,
+      adapters[entry.cli].name,
+      shortPath(entry.directory),
+      entry.branch ?? "-",
+      shortId(entry.id, ids),
+    ]),
+  ];
+  const widths = rows[0].map((_, column) =>
+    Math.max(...rows.map((row) => row[column].length)),
+  );
+  const table = rows.map((row) =>
+    row.map((cell, column) => cell.padEnd(widths[column] + 2)).join(""),
+  );
   return {
-    data: rows.length
-      ? table([["NAME", "CLI", "DIRECTORY", "BRANCH", "ID"], ...rows])
+    data: running.length
+      ? table.map((line) => line.trimEnd()).join("\n")
       : "No registered agent session is running.",
     json: { agents: running.map(shown) },
   };

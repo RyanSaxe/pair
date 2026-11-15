@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import * as copilot from "../../adapters/copilot/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
+import { processTable } from "../../src/shared/processes.mjs";
 
 // The hub wakes a Copilot session from a child process, through the SDK that
 // ships inside Copilot CLI. This stand-in SDK appends each child's calls to the
@@ -101,17 +103,20 @@ test("pair recognizes a node process that runs Copilot's script, and finds the S
     for (const child of children) child.kill();
     await fs.rm(directory, { recursive: true, force: true, maxRetries: 5 });
   });
-  const node = (script) => {
+  // pair reads each ancestor from the process table, which on Windows has its
+  // command line.
+  const node = async (script) => {
     const child = spawn(process.execPath, [script, "--ui-server"], {
       stdio: "ignore",
     });
     children.push(child);
-    return { pid: child.pid, command: "node" };
+    await once(child, "spawn");
+    return processTable().get(child.pid);
   };
-  const copilotNode = node(path.join(folder, "index.js"));
+  const copilotNode = await node(path.join(folder, "index.js"));
   assert.equal(copilot.recognizes(copilotNode), true);
   assert.equal(
-    copilot.recognizes(node(path.join(directory, "index.js"))),
+    copilot.recognizes(await node(path.join(directory, "index.js"))),
     false,
   );
   const target = copilot.detect(

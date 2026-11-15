@@ -36,16 +36,11 @@ function frame(message) {
 // in received. Like the daemon, it closes the connection on a frame that is not
 // one masked text frame. It also refuses a thread/queue method when the
 // connection's initialize did not declare the experimentalApi capability.
-// With inCodexHome, the socket is where Codex puts the daemon's socket under
-// the returned home, for a codex whose CODEX_HOME is that home.
-export async function codexDaemon(t, answers, { inCodexHome = false } = {}) {
+export async function codexDaemon(t, answers) {
   // macOS refuses a socket path over 104 bytes, so codexDaemon creates the
   // socket in a short directory of its own.
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "cx-"));
-  const socket = inCodexHome
-    ? path.join(directory, "app-server-control", "app-server-control.sock")
-    : path.join(directory, "d.sock");
-  if (inCodexHome) await fs.mkdir(path.dirname(socket));
+  const socket = path.join(directory, "d.sock");
   const received = [];
   const table = {
     initialize: {
@@ -132,7 +127,7 @@ export async function codexDaemon(t, answers, { inCodexHome = false } = {}) {
     await new Promise((resolve) => server.close(resolve));
     await fs.rm(directory, { recursive: true, force: true });
   });
-  return { socket, home: directory, received };
+  return { socket, received };
 }
 
 // codexCommand puts a stand-in codex first on PATH, and the stand-in logs the

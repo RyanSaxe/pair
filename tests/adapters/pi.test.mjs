@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import pair from "../../adapters/pi/extension.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
-import { inProcessState, standIn } from "../support/agents.mjs";
-import { waitUntil } from "../support/hub.mjs";
+import { inProcessState, listed, standIn } from "../support/agents.mjs";
 
 // pi calls an extension's default export with its API. standInPi records the
 // handlers that pair's extension registers and each message the extension
@@ -24,16 +23,7 @@ function standInPi() {
 
 // This process stands in for pi, and its command is node, as pi's is on
 // Windows, so pair register finds it only by the process ID that the
-// extension passes. listed waits for pair register, which the extension
-// starts without waiting for it.
-async function listed(agents) {
-  let entries = [];
-  assert.ok(
-    await waitUntil(async () => (entries = await agents()).length > 0, 30_000),
-    "the extension registered no session",
-  );
-  return entries.map(({ id, pid }) => ({ id, pid }));
-}
+// extension passes.
 
 test("pair's extension registers a pi session when it starts, and a wake reaches it as a steering message", async (t) => {
   const { home, agents } = await inProcessState(t);
@@ -73,9 +63,10 @@ test("pair's extension registers a pi session when it starts, and a wake reaches
   });
 });
 
-// A pi that runs inside pi without pair's extension, as a pi subagent may,
-// inherits the outer pi's variables, so a pair command in it registers the
-// outer session, whose entry must outlive the inner pi.
+// pi's subagent example extension starts each subagent as a pi process with
+// the parent's environment, and that pi lacks pair's extension when the
+// parent loaded it with pi -e. A pair command in it registers the outer
+// session, whose entry must outlive the inner pi.
 test("a pair command in a pi without the extension, inside a pi with it, keeps the outer session listed after the inner pi exits", async (t) => {
   const { home, agents } = await inProcessState(t);
   const { handlers } = standInPi();

@@ -41,17 +41,16 @@ It also exports these functions:
 An adapter exports these too when its CLI needs them, for the list of
 running sessions that `src/cli/agents.mjs` keeps:
 
-| Export                        | Value                                                                                                                                                                                                                       |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sessionId(target)`           | The ID that the CLI keeps when the session resumes, when `identity` is something else, as for Claude Code, whose `identity` is the inbox socket.                                                                            |
-| `hookVariables(input)`        | The variables that the JSON on a start hook's stdin gives, when the CLI leaves them out of the hook's environment, as Codex and Copilot CLI do.                                                                             |
-| `pidVariable`                 | The variable in which pair's code inside the CLI sets the CLI's process ID, for a CLI whose process has another name, such as `node`.                                                                                       |
-| `recognizes(ancestor)`        | `true` for an ancestor process that runs the CLI under another name, as Copilot CLI's `node` with its `index.js` in nixpkgs.                                                                                                |
-| `parentSession(target)`       | The `{ sessionId, nickname }` of the session that started a subagent, or `null` for a session that is not a subagent.                                                                                                       |
-| `sharesProcess(cliProcess)`   | `true` when the CLI's process serves several sessions, as Codex's daemon and opencode's process do, so a new session leaves the others listed.                                                                              |
-| `subagentTool(target, name)`  | The tool with which the parent's agent passes a message on to its subagent `name`, which `pair message --to NAME/SUBAGENT` names in its first line: `SendMessage`, `followup_task` with the agent path, or `write_agent`.   |
-| `reachesSubagents`            | `true` when `wake` delivers to the subagent that `target.subagent` names, as opencode's plugin does.                                                                                                                        |
-| `running(target, cliProcess)` | Whether the session runs, for a process that outlives its sessions: Codex's daemon, and opencode 2's background server, whose session runs while a window has it open. `pair agents` asks it once the process check passes. |
+| Export                        | Value                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sessionId(target)`           | The ID that the CLI keeps when the session resumes, when `identity` is something else, as for Claude Code, whose `identity` is the inbox socket.                                                                                                                                                                                  |
+| `hookVariables(input)`        | The variables that the JSON on a start hook's stdin gives, when the CLI leaves them out of the hook's environment, as Codex and Copilot CLI do.                                                                                                                                                                                   |
+| `pidVariable`                 | The variable in which pair's code inside the CLI sets the CLI's process ID, for a CLI whose process has another name, such as `node`.                                                                                                                                                                                             |
+| `recognizes(ancestor)`        | `true` for an ancestor process that runs the CLI under another name, as Copilot CLI's `node` with its `index.js` in nixpkgs.                                                                                                                                                                                                      |
+| `parentSession(target)`       | The `{ sessionId, nickname }` of the session that started a subagent, or `null` for a session that is not a subagent.                                                                                                                                                                                                             |
+| `sharesProcess(cliProcess)`   | `true` when the CLI's process serves several sessions, as Codex's daemon and opencode's process do, so a new session leaves the others listed.                                                                                                                                                                                    |
+| `subagentTool(target, name)`  | The tool with which the parent's agent passes a message on to its subagent `name`, which `pair message --to NAME/SUBAGENT` names in its first line: `SendMessage`, `followup_task` with the agent path, or `write_agent`, or `null` when `wake` delivers to the subagent that `target.subagent` names, as opencode's plugin does. |
+| `running(target, cliProcess)` | Whether the session runs, for a process that outlives its sessions: Codex's daemon, and opencode 2's background server, whose session runs while a window has it open. `pair agents` asks it once the process check passes.                                                                                                       |
 
 ## How the hub chooses an adapter
 
@@ -60,21 +59,13 @@ running sessions that `src/cli/agents.mjs` keeps:
 names the sender as your user when it returns `null`:
 
 1. It compares each ancestor process of the `pair` command, nearest first,
-   with every adapter's `command`, `pidVariable` and `recognizes`. That way
-   it chooses the agent CLI that ran the command over an outer CLI whose
-   variables the inner one inherited.
+   with every adapter's `command` and `pidVariable`, and then asks each
+   adapter's `recognizes`. That way it chooses the agent CLI that ran the
+   command over an outer CLI whose variables the inner one inherited.
 2. When no ancestor matches, it chooses the first adapter whose first
    variable is set.
 3. It then calls that adapter's `detect`, or refuses with the adapter's
    `unwakeable` message when one of its `variables` is unset.
-
-When neither step chooses an adapter, `detectAgent` returns `null`, and
-`detectWake` refuses. Every session command runs `detectWake`, which reads
-the processes with `ps` alone, so on Windows it chooses the adapter in step 2.
-`pair register` reads them with PowerShell on Windows, through
-`src/shared/processes.mjs`, and lists the session under the CLI's process:
-the ancestor in `pidVariable`, or else the nearest one that matches the
-adapter.
 
 ## When the CLI reads the line
 
@@ -162,8 +153,8 @@ The extension and the plugin both use `adapters/listener.mjs`:
   each connection. The listener calls `deliver` with the parsed line, and
   replies with `ok` once `deliver` returns, followed by the value it returns
   as JSON when there is one, or with the error's message when `deliver`
-  throws. The opencode plugins return a session's parent and title, and
-  opencode 2's also whether a window has the session open.
+  throws. The opencode plugins return a session's parent, its title and
+  whether a window has it open, which opencode 1's always says it has.
 - `send(socket, message)` runs in the hub, from the adapter's `wake`, and in
   `pair` commands that ask the plugin about a session. It writes the line,
   waits up to 5 seconds for the reply, resolves with the value after `ok`,

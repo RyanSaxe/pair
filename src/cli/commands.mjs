@@ -333,7 +333,6 @@ export const commands = {
         value: "LABEL",
         text: "Name the sender LABEL, such as a script. The message then has no command to answer it, also inside an agent CLI.",
       },
-      json,
     },
     footer: "Give one of --text, --file and --ack.",
     run: message,
