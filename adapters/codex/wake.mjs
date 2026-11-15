@@ -59,12 +59,25 @@ export async function wake(target, line, run) {
     throw new Error(
       `Codex added the line to the queue of thread ${thread} and started no turn with it: ${waiting}`,
     );
-  if (!sent)
+  if (!sent) await queue(thread, text, run);
+  if (relayed) return { via: "parent", steerable: false };
+  return { via: steered ? "steer" : "queue", steerable };
+}
+
+// codex queue takes the message as an argument, and the system refuses to
+// start a command line over its limit, such as 32,767 characters on Windows.
+// Node then fails with E2BIG or ENAMETOOLONG.
+async function queue(thread, text, run) {
+  try {
     await run(
       ...codexInvocation(["queue", "--thread", thread, "--message", text]),
     );
-  if (relayed) return { via: "parent", steerable: false };
-  return { via: steered ? "steer" : "queue", steerable };
+  } catch (error) {
+    if (!/\b(E2BIG|ENAMETOOLONG)\b/.test(error.message)) throw error;
+    throw new Error(
+      `The Codex daemon did not take the message, so pair ran codex queue, which takes the message as an argument. The system refused to start codex queue with a message of ${text.length} characters. Send a shorter message.`,
+    );
+  }
 }
 
 // relay() instructs the parent to use followup_task, which starts a turn for an

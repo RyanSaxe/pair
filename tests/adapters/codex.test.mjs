@@ -118,6 +118,12 @@ test("a Codex wake falls back to codex queue", async (t) => {
   }
   assert.equal((await codex.runs()).length, cases.length);
   // The hub records the error's message as the reason the wake failed.
+  // Every supported system refuses a command line with an argument of 1 MiB.
+  const long = "x".repeat(2 ** 20);
+  await assert.rejects(
+    wakeRunner({ harness: "codex", thread, socket: missing }, long),
+    new RegExp(`with a message of ${long.length} characters`),
+  );
   process.env.PAIR_TEST_FAIL = "1";
   await assert.rejects(
     wakeRunner({ harness: "codex", thread, socket: missing }, line),
