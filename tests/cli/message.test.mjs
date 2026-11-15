@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { standIn } from "../support/agents.mjs";
 import { codexDaemon } from "../support/codex.mjs";
-import { exec, inbox, pair, waitUntil } from "../support/hub.mjs";
+import { alive, exec, inbox, pair, waitUntil } from "../support/hub.mjs";
 
 // The variables by which pair finds an agent CLI, which a test run inside one
 // would otherwise pass on.
@@ -108,11 +108,7 @@ test("--ack sends one line that acknowledges a message, and refuses outside an a
     ...plain,
     ...env,
   });
-  assert.ok(
-    await waitUntil(async () =>
-      (await refused()).includes("--ack works only inside an agent session"),
-    ),
-  );
+  assert.match(refused, /--ack works only inside an agent session/);
   assert.deepEqual(received(), [
     `pair message from ${sender.name} (Claude Code in ${path.join("~", "api")}) acknowledges your message. Don't answer it.`,
   ]);
@@ -188,13 +184,18 @@ test(
 // pair counts a sender as the user only when no agent CLI is among its parent
 // processes, and the test itself may run inside one. orphan therefore starts
 // pair message from a node process that exits at once, so the system adopts
-// the command before pair reads its parent processes.
+// the command before pair reads its parent processes. orphan waits for the
+// command to exit, which on Windows takes seconds while PowerShell reads the
+// processes, and returns what it printed.
 async function orphan(home, args, env) {
   const output = path.join(home, "orphan.txt");
   const start = `const fd = require("node:fs").openSync(${JSON.stringify(output)}, "w");
-require("node:child_process").spawn(process.execPath, ${JSON.stringify([pair, "message", ...args])}, { detached: true, windowsHide: true, stdio: ["ignore", fd, fd] }).unref();`;
-  await exec(process.execPath, ["-e", start], { env });
-  return () => fs.readFile(output, "utf8");
+const child = require("node:child_process").spawn(process.execPath, ${JSON.stringify([pair, "message", ...args])}, { detached: true, windowsHide: true, stdio: ["ignore", fd, fd] });
+process.stdout.write(String(child.pid));
+child.unref();`;
+  const { stdout } = await exec(process.execPath, ["-e", start], { env });
+  assert.ok(await waitUntil(() => !alive(Number(stdout)), 30_000));
+  return fs.readFile(output, "utf8");
 }
 
 test("a message from outside any agent CLI is from your user, with no command to answer", async (t) => {
@@ -203,8 +204,11 @@ test("a message from outside any agent CLI is from your user, with no command to
     ...plain,
     ...env,
   });
-  assert.ok(await waitUntil(() => received().length), await output());
-  assert.deepEqual(received(), [
-    "pair message from your user:\n\nStop here.\n\nThis message has no answer command. Answer in your own chat, if at all.",
-  ]);
+  assert.deepEqual(
+    received(),
+    [
+      "pair message from your user:\n\nStop here.\n\nThis message has no answer command. Answer in your own chat, if at all.",
+    ],
+    output,
+  );
 });
