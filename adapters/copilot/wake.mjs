@@ -4,7 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { commandLine } from "../../src/shared/processes.mjs";
+import {
+  ancestors,
+  commandLine,
+  powershell,
+  processTable,
+} from "../../src/shared/processes.mjs";
 
 const here = fileURLToPath(import.meta.url);
 
@@ -18,8 +23,16 @@ export const hookVariables = (input) => ({
   COPILOT_AGENT_SESSION_ID: input.sessionId,
 });
 
+// Copilot started with --ui-server listens on a port of 127.0.0.1. Windows has
+// no lsof, so there pair asks Get-NetTCPConnection for the port.
 function listeningPort(pid) {
   try {
+    if (process.platform === "win32") {
+      const port = powershell(
+        `(Get-NetTCPConnection -State Listen -LocalAddress 127.0.0.1 -OwningProcess ${pid} -ErrorAction SilentlyContinue | Select-Object -First 1).LocalPort`,
+      ).trim();
+      return port ? Number(port) : null;
+    }
     const out = execFileSync(
       "lsof",
       ["-a", "-p", String(pid), "-iTCP", "-sTCP:LISTEN", "-nP", "-Fn"],
@@ -82,6 +95,21 @@ export const command = "copilot";
 export const variables = ["COPILOT_AGENT_SESSION_ID"];
 export const unwakeable =
   "Tell the user that this Copilot session exports no COPILOT_AGENT_SESSION_ID, so the hub cannot wake it, and stop.";
+// Every session command reads the processes with ps alone, which finds none on
+// Windows, so there detect looks for Copilot's process itself.
+function windowsCopilot() {
+  if (process.platform !== "win32") return null;
+  try {
+    return (
+      ancestors(processTable()).find(
+        (row) => row.command === command || recognizes(row),
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
 // launch returns the command line that starts a new session with a prompt,
 // from Copilot's documentation. The hub wakes only a session that runs with
 // --ui-server.
@@ -95,12 +123,13 @@ export function detect(
   },
 ) {
   const sessionId = env.COPILOT_AGENT_SESSION_ID;
-  const port = ancestor ? portOf(ancestor.pid) : null;
+  const cli = ancestor ?? windowsCopilot();
+  const port = cli ? portOf(cli.pid) : null;
   if (!port)
     throw new Error(
       `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run this pair command again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
-  const { sdk, tried } = findSdk(env, ancestor);
+  const { sdk, tried } = findSdk(env, cli);
   if (!sdk)
     throw new Error(
       `Tell the user that the Copilot SDK was not found at ${tried.join(", ")}, so the hub cannot wake this session, and stop.`,
