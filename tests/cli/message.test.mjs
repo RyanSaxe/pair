@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import opencodePlugin from "../../adapters/opencode/server.js";
 import { standIn } from "../support/agents.mjs";
 import { codexDaemon } from "../support/codex.mjs";
 import { alive, exec, inbox, pair, waitUntil } from "../support/hub.mjs";
@@ -180,6 +181,55 @@ test(
     ]);
   },
 );
+
+// opencode gives a subagent's commands the subagent's own session ID, and
+// pair's plugin, which this process runs as opencode's server does, answers
+// with the session's parent and task. The opencode stand-ins play opencode.
+test("an opencode subagent's message names it through its parent by its task, and its register refuses", async (t) => {
+  const { name, agent, received } = await scratch(t);
+  const sessions = {
+    ses_root: { title: "Fix the login" },
+    ses_child: { parentID: "ses_root", title: "Find the tests" },
+  };
+  const plugin = { env: {} };
+  const cleanup = await opencodePlugin.setup({
+    session: { get: async ({ sessionID }) => sessions[sessionID] },
+    shell: { hook: async (_name, hook) => hook(plugin) },
+    event: {
+      async *subscribe({ signal }) {
+        await new Promise((resolve) =>
+          signal.addEventListener("abort", resolve),
+        );
+      },
+    },
+  });
+  t.after(() => cleanup());
+  const opencode = (session) =>
+    agent(
+      "api",
+      {
+        PAIR_OPENCODE_SOCKET: plugin.env.PAIR_OPENCODE_SOCKET,
+        OPENCODE_SESSION_ID: session,
+      },
+      "opencode",
+    );
+  const parent = await opencode("ses_root");
+  const registered = await parent.run(["register", "--json"]);
+  assert.equal(registered.status, 0, registered.stderr);
+  const { name: api } = JSON.parse(registered.stdout);
+  const child = await opencode("ses_child");
+  assert.deepEqual(await child.run(["register"]), {
+    status: 1,
+    stdout: "",
+    stderr: `pair: This opencode session is a subagent, so pair lists only the session that started it. Reach it through that session as ${api}/Find the tests.\n`,
+  });
+  const sent = await child.run(["message", "--to", name, "--text", "Done."]);
+  assert.equal(sent.status, 0, sent.stderr);
+  const answer = '"opencode:ses_root/Find the tests"';
+  assert.deepEqual(received(), [
+    `pair message from ${api}/Find the tests (opencode in ${path.join("~", "api")}):\n\nDone.\n\nTo answer, run: pair message --to ${answer} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${answer} --ack`,
+  ]);
+});
 
 // pair counts a sender as the user only when no agent CLI is among its parent
 // processes, and the test itself may run inside one. orphan therefore starts

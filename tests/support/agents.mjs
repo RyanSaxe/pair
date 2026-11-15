@@ -44,16 +44,18 @@ process.on("message", ({ args, input, env }) => {
 // command's stdin, which is /dev/null without it, adds env to the command's
 // environment, and returns { status, stdout, stderr }.
 export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
-  const name = harness === "codex" || harness === "pi" ? harness : "claude";
+  const name = ["codex", "pi", "opencode"].includes(harness)
+    ? harness
+    : "claude";
   const bin = path.join(home, `bin-${crypto.randomUUID()}`);
   await fs.mkdir(bin);
   const executable = await agentExecutable(bin, name);
   // A Codex stand-in's CODEX_HOME has no daemon unless the test starts one,
-  // and a pi stand-in has the variables the test gives it.
+  // and a pi or opencode stand-in has the variables the test gives it.
   const inbox =
     harness === "codex"
       ? { CODEX_HOME: path.join(bin, "codex-home") }
-      : harness === "pi"
+      : harness === "pi" || harness === "opencode"
         ? {}
         : {
             CLAUDE_CODE_MESSAGING_SOCKET: path.join(bin, "none.sock"),

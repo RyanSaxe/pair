@@ -45,6 +45,20 @@ export function detect(env) {
   return { harness: "opencode", socket: env.PAIR_OPENCODE_SOCKET, session };
 }
 
+// A subagent's commands get the subagent's own session ID, so pair asks the
+// plugin for the session's parent. pair names a subagent by its task, which
+// opencode makes the title of the subagent's session.
+export async function serverSession(target) {
+  const { parentID, title } = await send(target.socket, {
+    session: target.session,
+    query: "session",
+  });
+  return {
+    loaded: false,
+    parent: parentID ? { sessionId: parentID, nickname: title } : null,
+  };
+}
+
 // pair message sends a message to a subagent through the plugin, which
 // prompts the subagent's own session.
 export const reachesSubagents = true;

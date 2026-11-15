@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import serverPlugin from "../../adapters/opencode/server.js";
+import { serverSession } from "../../adapters/opencode/wake.mjs";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
 import { inProcessState } from "../support/agents.mjs";
 import { waitUntil } from "../support/hub.mjs";
@@ -138,6 +139,38 @@ test("an opencode message to a subagent prompts the newest session of that subag
     wakeRunner({ ...target, subagent: "planner" }, "third"),
     /no subagent named planner/,
   );
+});
+
+// opencode 1's task tool titles a subagent's session "TASK (@AGENT
+// subagent)", and pair names the subagent by its task.
+test("pair's opencode 1 plugin gives a subagent's session its parent and task", async (t) => {
+  const { client } = standInClient();
+  const sessions = {
+    ses_1: { id: "ses_1", title: "Fix the login" },
+    ses_a: {
+      id: "ses_a",
+      parentID: "ses_1",
+      title: "Find the tests (@explore subagent)",
+    },
+  };
+  client.session.get = async ({ path: { id } }) => ({ data: sessions[id] });
+  const plugin = await PairWake({ client });
+  t.after(() => plugin.dispose());
+  const env = {};
+  await plugin["shell.env"]({ sessionID: "ses_a" }, { env });
+  const target = (session) => ({
+    harness: "opencode",
+    socket: env.PAIR_OPENCODE_SOCKET,
+    session,
+  });
+  assert.deepEqual(await serverSession(target("ses_1")), {
+    loaded: false,
+    parent: null,
+  });
+  assert.deepEqual(await serverSession(target("ses_a")), {
+    loaded: false,
+    parent: { sessionId: "ses_1", nickname: "Find the tests" },
+  });
 });
 
 // adapters/opencode/wake.mjs finds opencode's global config file when the

@@ -37,7 +37,18 @@ async function subagentSession(client, session, name) {
 // opencode starts a request with the prompt. A prompt with no agent runs under
 // the default agent, so a prompt to a subagent's session names its agent.
 export const PairWake = async ({ client }) => {
-  const listener = listen(async ({ session, text, subagent }) => {
+  const listener = listen(async ({ session, text, subagent, query }) => {
+    if (query === "session") {
+      const { data, error } = await client.session.get({
+        path: { id: session },
+      });
+      if (error)
+        throw new Error(
+          `opencode did not find the session: ${JSON.stringify(error)}`,
+        );
+      const [, task] = /^(.*) \(@.+ subagent\)$/.exec(data.title) ?? [];
+      return { parentID: data.parentID, title: task ?? data.title };
+    }
     const child = subagent
       ? await subagentSession(client, session, subagent)
       : null;

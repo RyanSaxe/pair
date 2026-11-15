@@ -29,7 +29,13 @@ async function subagentSession(ctx, session, name) {
 export default {
   id: "pair",
   async setup(ctx) {
-    const listener = listen(async ({ session, text, subagent }) => {
+    const listener = listen(async ({ session, text, subagent, query }) => {
+      if (query === "session") {
+        const { parentID, title } = await ctx.session.get({
+          sessionID: session,
+        });
+        return { parentID, title };
+      }
       const sessionID = subagent
         ? (await subagentSession(ctx, session, subagent)).id
         : session;

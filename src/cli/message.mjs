@@ -211,10 +211,14 @@ const whole = ({ first, body }) => (first ? `${first}\n\n${body}` : body);
 // A message from an agent session ends with the commands that answer and
 // acknowledge it. A message from the user or from --from has no address to
 // answer, and without its last line Claude Code's agents went looking for one.
-const ending = (answer) =>
-  answer
-    ? `To answer, run: pair message --to ${answer} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${answer} --ack`
-    : "This message has no answer command. Answer in your own chat, if at all.";
+// An opencode subagent's name is its task, which may have spaces, so the
+// address is quoted when the shell would split it.
+const ending = (answer) => {
+  if (!answer)
+    return "This message has no answer command. Answer in your own chat, if at all.";
+  const to = /^[\w.:/-]+$/.test(answer) ? answer : JSON.stringify(answer);
+  return `To answer, run: pair message --to ${to} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${to} --ack`;
+};
 
 // With PAIR_WAKE=off, wakeRunner writes the line to stderr instead of sending
 // it, as the hub writes it to its log.
