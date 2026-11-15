@@ -29,23 +29,56 @@ function listeningPort(pid) {
     return null;
   }
 }
-function copilotSdk(env) {
+// Copilot runs as its own executable, except where a package manager, such
+// as nixpkgs, runs Copilot's index.js with node. Copilot's SDK is in the
+// folder of that index.js, so copilotScript returns the folder, or null for a
+// node process that runs something else.
+function copilotScript(pid) {
+  let args;
+  try {
+    args = execFileSync("ps", ["-o", "args=", "-p", String(pid)], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+  const script = args
+    .trim()
+    .split(/\s+/)
+    .find(
+      (word) =>
+        path.basename(word) === "index.js" &&
+        existsSync(path.join(path.dirname(word), "copilot-sdk", "index.js")),
+    );
+  return script ? path.dirname(script) : null;
+}
+
+export const recognizes = (ancestor, { script = copilotScript } = {}) =>
+  ancestor.command === "node" && script(ancestor.pid) !== null;
+
+function copilotSdk(env, ancestor) {
+  const folder =
+    ancestor?.command === "node" ? copilotScript(ancestor.pid) : null;
   const roots = [
     env.COPILOT_PKG_CACHE_HOME,
     path.join(os.homedir(), "Library", "Caches", "copilot"),
     env.XDG_CACHE_HOME && path.join(env.XDG_CACHE_HOME, "copilot"),
     path.join(os.homedir(), ".cache", "copilot"),
   ].filter(Boolean);
-  const tried = roots.map((root) =>
-    path.join(
-      root,
-      "pkg",
-      `${process.platform}-${process.arch}`,
-      env.COPILOT_CLI_BINARY_VERSION || "",
-      "copilot-sdk",
-      "index.js",
+  const tried = [
+    ...(folder ? [path.join(folder, "copilot-sdk", "index.js")] : []),
+    ...roots.map((root) =>
+      path.join(
+        root,
+        "pkg",
+        `${process.platform}-${process.arch}`,
+        env.COPILOT_CLI_BINARY_VERSION || "",
+        "copilot-sdk",
+        "index.js",
+      ),
     ),
-  );
+  ];
   return {
     sdk: tried.find((candidate) => existsSync(candidate)) || null,
     tried,
@@ -72,7 +105,7 @@ export function detect(
     throw new Error(
       `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run this pair command again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
-  const { sdk, tried } = findSdk(env);
+  const { sdk, tried } = findSdk(env, ancestor);
   if (!sdk)
     throw new Error(
       `Tell the user that the Copilot SDK was not found at ${tried.join(", ")}, so the hub cannot wake this session, and stop.`,

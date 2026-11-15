@@ -20,11 +20,13 @@ export const identify = (target) => ({
   harness: target.harness,
   id: adapters[target.harness].identity(target),
 });
-// An adapter recognizes an ancestor process that runs its command, or whose
-// ID is in the adapter's pidVariable, which pi's extension and opencode's
-// plugin set to the ID of the process they run in.
+// An adapter recognizes an ancestor process that runs its command, that its
+// own recognizes accepts, as Copilot's accepts node running Copilot's script,
+// or whose ID is in the adapter's pidVariable, which pi's extension and
+// opencode's plugin set to the ID of the process they run in.
 export const recognizes = (adapter, ancestor, env = process.env) =>
   ancestor.command === adapter.command ||
+  Boolean(adapter.recognizes?.(ancestor)) ||
   (adapter.pidVariable !== undefined &&
     ancestor.pid === Number(env[adapter.pidVariable]));
 // detectAgent uses the nearest ancestor process that an adapter recognizes,

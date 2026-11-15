@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import * as copilot from "../../adapters/copilot/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 
 // The hub wakes a Copilot session from a child process, through the SDK that
@@ -122,4 +124,39 @@ test("a Copilot message to a subagent goes to the agent task with that name", as
     ["sendMessage", { id: "task-1", message: line }],
   ]);
   await assert.rejects(wakeRunner({ ...target, subagent: "planner" }, line));
+});
+
+// nixpkgs runs Copilot as node with Copilot's index.js, and Copilot's SDK is
+// in the folder of that script.
+test("pair recognizes a node process that runs Copilot's script, and finds the SDK beside it", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-copilot-"));
+  const folder = path.join(directory, "github-copilot-cli");
+  const sdk = path.join(folder, "copilot-sdk", "index.js");
+  await fs.mkdir(path.dirname(sdk), { recursive: true });
+  await fs.writeFile(sdk, "");
+  await fs.writeFile(
+    path.join(folder, "index.js"),
+    "setInterval(() => {}, 1000);",
+  );
+  await fs.writeFile(
+    path.join(directory, "index.js"),
+    "setInterval(() => {}, 1000);",
+  );
+  const run = (script) => {
+    const child = spawn(process.execPath, [script, "--ui-server"], {
+      stdio: "ignore",
+    });
+    t.after(() => child.kill());
+    return { pid: child.pid, command: "node" };
+  };
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const copilotNode = run(path.join(folder, "index.js"));
+  const otherNode = run(path.join(directory, "index.js"));
+  assert.equal(copilot.recognizes(copilotNode), true);
+  assert.equal(copilot.recognizes(otherNode), false);
+  const target = copilot.detect(
+    { COPILOT_AGENT_SESSION_ID: "s" },
+    { ancestor: copilotNode, listeningPort: () => 4321 },
+  );
+  assert.equal(target.sdk, sdk);
 });
