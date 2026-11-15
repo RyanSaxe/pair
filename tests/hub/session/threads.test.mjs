@@ -60,9 +60,9 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
   assert.equal(await settled(id), true);
   assert.equal((await thread(id)).state, "sent");
   const wakes = () => a.inbox.wakes.map((wake) => wake.message.message.content);
-  const line = `pair: the reviewer wrote to you in a thread on "Overview" in session ${a.directory}. Before your next step, run pair read --session-dir ${a.directory} --thread ${id}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.`;
+  const line = `pair: your user wrote to you in a thread on "Overview" in pair, for session ${a.directory}. Before your next step, run pair read --session-dir ${a.directory} --thread ${id}, which marks the thread read for your user and prints it with how to answer it. Then go on with your work.`;
   assert.deepEqual(wakes(), [
-    `${line}\n\nThe reviewer's message, which pair read also prints:\nWhat happens to a failed item?\n\nThe reviewer attached an image to the message. pair read prints its path.`,
+    `${line}\n\nYour user's message, which pair read also prints:\nWhat happens to a failed item?\n\nYour user attached an image to the message. pair read prints its path.`,
   ]);
   const stored = JSON.parse(
     await fs.readFile(path.join(a.directory, "threads", `${id}.json`), "utf8"),
@@ -111,9 +111,9 @@ test("a thread wakes the holder with each message the reviewer sends, whether or
     ["reviewer", "reviewer", "reviewer", "agent", "reviewer"],
   );
   assert.deepEqual(wakes().slice(1), [
-    `${line}\n\nThe reviewer's message, which pair read also prints:\nOr a retry?`,
-    `${line}\n\nThe beginning of the reviewer's message, which pair read prints whole:\n${words.trimEnd()}…`,
-    `${line}\n\nThe reviewer's message, which pair read also prints:\nAnd a retry?`,
+    `${line}\n\nYour user's message, which pair read also prints:\nOr a retry?`,
+    `${line}\n\nThe beginning of your user's message, which pair read prints whole:\n${words.trimEnd()}…`,
+    `${line}\n\nYour user's message, which pair read also prints:\nAnd a retry?`,
   ]);
 });
 
@@ -430,7 +430,7 @@ test("a thread starts on Agreed's progress card, on the overall comment and on W
     assert.match(
       a.inbox.wakes.at(-1).message.message.content,
       new RegExp(
-        `^pair: the reviewer wrote to you in a thread on "${page}" in session `,
+        `^pair: your user wrote to you in a thread on "${page}" in pair, for session `,
       ),
     );
     const opened = await a.action("reply", { note: id });
