@@ -1,4 +1,5 @@
 import "./env.mjs";
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import { once } from "node:events";
@@ -6,7 +7,14 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { settings } from "../../src/shared/settings.mjs";
-import { agentExecutable, exec, killHub, pair, waitUntil } from "./hub.mjs";
+import {
+  agentExecutable,
+  alive,
+  exec,
+  killHub,
+  pair,
+  waitUntil,
+} from "./hub.mjs";
 
 // outsideAgents is this process's environment without the variables by which
 // pair finds an agent CLI, and without git's, which a test run inside an agent
@@ -16,6 +24,24 @@ export const outsideAgents = Object.fromEntries(
     ([key]) => !/^(CLAUDE|CODEX|COPILOT|PAIR|PI|OPENCODE)_|^GIT_/.test(key),
   ),
 );
+
+// pair finds an agent CLI among a command's parent processes, and the test
+// itself may run inside one. orphan therefore runs pair ARGS from a node
+// process that exits at once, so the system adopts the command before pair
+// reads its parent processes. orphan waits for the command to exit, and
+// returns its stdout and stderr, which it writes to files in home.
+export async function orphan(home, args, env) {
+  const output = path.join(home, `orphan-${crypto.randomUUID()}`);
+  const start = `const fs = require("node:fs");
+const stdio = ["ignore", fs.openSync(${JSON.stringify(`${output}.out`)}, "w"), fs.openSync(${JSON.stringify(`${output}.err`)}, "w")];
+const child = require("node:child_process").spawn(process.execPath, ${JSON.stringify([pair, ...args])}, { detached: true, windowsHide: true, stdio });
+process.stdout.write(String(child.pid));
+child.unref();`;
+  const { stdout } = await exec(process.execPath, ["-e", start], { env });
+  assert.ok(await waitUntil(() => !alive(Number(stdout)), 30_000));
+  const read = (suffix) => fs.readFile(`${output}${suffix}`, "utf8");
+  return { stdout: await read(".out"), stderr: await read(".err") };
+}
 
 // The stand-in runs each command it receives as its child and sends back the
 // command's exit status and output. With PAIR_TEST_LISTEN, it also listens on

@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { settings } from "../../src/shared/settings.mjs";
-import { agentsScratch } from "../support/agents.mjs";
+import { agentsScratch, orphan, outsideAgents } from "../support/agents.mjs";
 import {
   agentExecutable,
   alive,
@@ -79,25 +79,25 @@ require("node:fs").appendFileSync(${JSON.stringify(path.join(home, "runs"))}, JS
   await fs.writeFile(script, text, { mode: 0o755 });
 }
 
-test("pair spawn runs the launch script with the CLI's command line, and prints the name the new session registers", async (t) => {
+// A person runs pair spawn in a terminal, with no agent CLI among its parent
+// processes, so pair spawn registers no session there and prints nothing about
+// one.
+test("pair spawn outside any agent CLI runs the launch script with the CLI's command line, and prints only the name the new session registers", async (t) => {
   const context = await scratch(t);
-  const { folder, runs, spawn } = context;
+  const { env, folder, home, runs } = context;
   await terminal(context);
   const api = await folder("api");
 
-  const { stdout } = await spawn(
-    "claude",
-    "--dir",
-    api,
-    "--name",
-    "api-fix",
-    "--prompt",
-    "Fix the checkout test.",
-  );
-  assert.equal(
-    stdout,
-    `Started api-fix (Claude Code) in ${path.join("~", "api")}. Message it with: pair message --to api-fix --text "…"\n`,
-  );
+  const args = ["--dir", api, "--name", "api-fix"];
+  const prompt = ["--prompt", "Fix the checkout test."];
+  const spawned = await orphan(home, ["spawn", "claude", ...args, ...prompt], {
+    ...outsideAgents,
+    ...env,
+  });
+  assert.deepEqual(spawned, {
+    stdout: `Started api-fix (Claude Code) in ${path.join("~", "api")}. Message it with: pair message --to api-fix --text "…"\n`,
+    stderr: "",
+  });
   const [run] = await runs();
   assert.deepEqual(
     { cwd: run.cwd, args: run.args },
