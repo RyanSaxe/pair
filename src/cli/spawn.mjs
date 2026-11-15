@@ -75,11 +75,14 @@ export async function spawn(options) {
   const before = new Set(await entryFiles());
   const command = adapter.launch({ name: options.name, prompt });
   await runLaunch(launchScript, directory, command);
+  // Windows compares paths without case, as path.relative does there, so a
+  // drive letter in the other case names the same folder.
   const entry = await newEntry(
     before,
     (each) =>
       each.cli === harness &&
-      each.directory === directory &&
+      typeof each.directory === "string" &&
+      path.relative(each.directory, directory) === "" &&
       (options.name === undefined || each.name === options.name),
   );
   const where = shortPath(directory);
