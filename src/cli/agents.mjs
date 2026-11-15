@@ -14,7 +14,7 @@ import { usageError } from "./arguments.mjs";
 // CLI keeps when the session resumes. Claude Code's wake target contains its
 // inbox token, so only the user can open the directory, and atomic() writes
 // each file with mode 600. Windows refuses a colon in a file name.
-const agentsDir = () => path.join(settings().root, "agents");
+export const agentsDir = () => path.join(settings().root, "agents");
 const entryFile = (id) =>
   path.join(agentsDir(), `${id.replace(":", "-")}.json`);
 
@@ -209,7 +209,15 @@ export function shortPath(directory) {
 
 // The wake target contains Claude Code's inbox token, so pair prints every
 // field of an entry but the target.
-const shown = ({ target, ...entry }) => entry;
+export const shown = ({ target, ...entry }) => entry;
+
+export function requireName(command, name) {
+  if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name))
+    throw usageError(
+      command,
+      "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
+    );
+}
 
 // A CLI writes its start hook's JSON to stdin and closes it, and an empty
 // stdin such as /dev/null ends at once.
@@ -226,14 +234,7 @@ async function hookInput() {
 // PowerShell on Windows, where detectWake alone finds no ancestors.
 export async function register(options) {
   requireNode();
-  if (
-    options.name !== undefined &&
-    !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(options.name)
-  )
-    throw usageError(
-      "register",
-      "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
-    );
+  requireName("register", options.name);
   try {
     const input = options.hook ? await hookInput().catch(() => null) : null;
     const table = processTable();

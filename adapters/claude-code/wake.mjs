@@ -19,8 +19,13 @@ export const identity = (target) => target.socket;
 // does not.
 export const sessionId = (target) => target.session;
 
-// launch returns the command line that starts a new session with a prompt.
-export const launch = ({ name, prompt }) => [command, "--name", name, prompt];
+// launch returns the command line that starts a new session with a prompt,
+// and with name, the name that Claude Code shows for the session.
+export const launch = ({ name, prompt }) => [
+  command,
+  ...(name ? ["--name", name] : []),
+  prompt,
+];
 
 // The hub wakes a Claude Code session with its socket and token alone, so
 // detect leaves the session out when CLAUDE_CODE_SESSION_ID is not set.

@@ -23,6 +23,7 @@ it. `pair --version` prints the version.
 | `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. `pair start --session-dir` resumes it. You end a session by closing it in the browser.                                                                                                                                                                             |
 | `pair register`                                        | Adds the agent session it runs in to pair's list of running agent sessions and prints the session's name and ID, as [`pair register` and `pair agents`](#pair-register-and-pair-agents) describes.                                                                                                                     |
 | `pair agents`                                          | Lists the registered agent sessions that are running.                                                                                                                                                                                                                                                                  |
+| `pair spawn CLI`                                       | Starts a session of an agent CLI through your launch script and prints its name, as [`pair spawn`](#pair-spawn) describes.                                                                                                                                                                                             |
 | `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
 | `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
@@ -141,6 +142,47 @@ environment has none, `session_id` from Codex and `sessionId` from Copilot
 CLI, prints one line, and exits 0 even when it cannot register. Codex 0.169
 and Copilot CLI 1.0.105 run the start hook when the session's first turn
 starts, so a session registers then.
+
+## pair spawn
+
+`pair spawn` starts a new session of an agent CLI in a folder, with a first
+prompt, and prints the name that `pair message --to` takes.
+
+```console
+$ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test, then message shop-ea when it passes."
+Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-3f --text "…"
+```
+
+| Part                             | Meaning                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `CLI`                            | `claude`, `codex`, `copilot`, `pi` or `opencode`.                          |
+| `--dir DIR`                      | The folder to start it in. The default is the current folder.              |
+| `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
+| `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
+
+pair cannot open a terminal itself, so `pair spawn` runs your launch script,
+`~/.config/pair/spawn`, as `spawn DIR COMMAND ARG…`. The hub runs the same
+script when you press Start agent on a proposal. On Windows the script is `spawn.ps1`, which pair runs with
+PowerShell. pair passes each part as its own argument, with no shell between.
+`COMMAND ARG…` starts the CLI with the first prompt
+`Run pair register first.`, or `Run pair register --name NAME first.`,
+followed by your prompt, so the session registers whether or not its CLI has
+a start hook. Without a launch script, `pair spawn` refuses and starts
+nothing. When the script fails, or does not exit within 10 seconds,
+`pair spawn` fails with the script's error.
+
+`pair spawn` then waits up to 30 seconds for a new entry of that CLI in that
+folder, with that name when you give `--name`. While it waits, it reads only
+the new files in `$XDG_STATE_HOME/pair/agents/`, so it runs no `ps` or
+PowerShell. When no entry appears, as while the CLI waits at its folder-trust
+prompt, it prints this and exits 0, because the session started:
+
+```console
+Started Codex in ~/code/shop. It appears in pair agents once it runs pair register.
+```
+
+pair adds no flag that skips a CLI's folder-trust prompt. Your launch script
+can add one.
 
 ## Environment variables
 
