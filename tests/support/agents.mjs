@@ -18,7 +18,8 @@ export const outsideAgents = Object.fromEntries(
 );
 
 // The stand-in runs each command it receives as its child and sends back the
-// command's exit status and output. A command given no input reads an empty
+// command's exit status and output. With PAIR_TEST_LISTEN, it also listens on
+// that port of 127.0.0.1, as copilot --ui-server does. A command given no input reads an empty
 // stdin. Node 24 on Linux names its main thread MainThread, which ps then
 // prints as the process's command, so the stand-in sets its title to its own
 // name. It runs pair with this process's Node, because Windows locks the
@@ -27,6 +28,8 @@ export const outsideAgents = Object.fromEntries(
 const relay = (name) => `
 process.title = ${JSON.stringify(name)};
 const { spawnSync } = require("node:child_process");
+const port = Number(process.env.PAIR_TEST_LISTEN);
+if (port) require("node:net").createServer().listen(port, "127.0.0.1");
 process.on("message", ({ args, input, env }) => {
   const { status, stdout, stderr } = spawnSync(${JSON.stringify(process.execPath)}, args, {
     encoding: "utf8",

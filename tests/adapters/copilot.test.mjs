@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import fs from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import * as copilot from "../../adapters/copilot/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 import { processTable } from "../../src/shared/processes.mjs";
+import { agentsScratch } from "../support/agents.mjs";
+import { freePort, waitUntil } from "../support/hub.mjs";
 
 // The hub wakes a Copilot session from a child process, through the SDK that
 // ships inside Copilot CLI. This stand-in SDK appends each child's calls to the
@@ -143,4 +146,42 @@ test("a Copilot session that the server does not have is a subagent of the foreg
   assert.deepEqual(await copilot.parentSession(target("sub-1")), {
     sessionId: "s-1",
   });
+});
+
+// Copilot started with --ui-server listens on 127.0.0.1. pair finds the port
+// with lsof on macOS and Linux and with Get-NetTCPConnection on Windows, where
+// pair start's own walk finds no ancestors and the adapter looks for Copilot's
+// process itself.
+test("pair start under Copilot CLI finds the port that Copilot's server listens on", async (t) => {
+  const { home, list, folder, agent } = await agentsScratch(t);
+  const cache = path.join(home, "cache");
+  const platform = `${process.platform}-${process.arch}`;
+  const sdk = path.join(cache, "pkg", platform, "copilot-sdk", "index.js");
+  await fs.mkdir(path.dirname(sdk), { recursive: true });
+  await fs.writeFile(sdk, "");
+  const port = await freePort();
+  const copilot = await agent(await folder("app"), {
+    harness: "copilot",
+    env: {
+      COPILOT_AGENT_SESSION_ID: "s-1",
+      COPILOT_PKG_CACHE_HOME: cache,
+      PAIR_TEST_LISTEN: String(port),
+    },
+  });
+  const listening = () =>
+    new Promise((resolve) =>
+      net
+        .connect(port, "127.0.0.1", function () {
+          this.end();
+          resolve(true);
+        })
+        .on("error", () => resolve(false)),
+    );
+  assert.ok(await waitUntil(listening));
+  const started = await copilot.run(["start", "--title", "Test"]);
+  assert.equal(started.status, 0, started.stderr);
+  assert.equal(started.stderr, "");
+  const [file] = await fs.readdir(list);
+  const { target } = JSON.parse(await fs.readFile(path.join(list, file)));
+  assert.deepEqual(target, { harness: "copilot", sessionId: "s-1", port, sdk });
 });

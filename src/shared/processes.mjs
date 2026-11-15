@@ -34,25 +34,30 @@ function psRows() {
   });
 }
 
+// powershell runs a PowerShell script on Windows and returns what it prints.
+// PowerShell gets the script base64-encoded, so no character in it needs
+// quoting.
+export function powershell(script) {
+  const utf8 = `[Console]::OutputEncoding = [Text.Encoding]::UTF8\n${script}`;
+  const encoded = Buffer.from(utf8, "utf16le").toString("base64");
+  return execFileSync(
+    "powershell",
+    ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+    { ...quiet, timeout: 30_000 },
+  );
+}
+
 // Git for Windows' ps takes no -o, so on Windows pair reads every process from
-// Win32_Process, with its command line, in one PowerShell call. PowerShell gets
-// the script base64-encoded, so no character in it needs quoting.
+// Win32_Process, with its command line, in one PowerShell call.
 function cimRows() {
-  const script = `
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
+  const stdout = powershell(`
 $rows = @(Get-CimInstance Win32_Process | ForEach-Object {
   $start = $null
   if ($_.CreationDate) { $start = $_.CreationDate.ToUniversalTime().ToString("o") }
   [pscustomobject]@{ pid = $_.ProcessId; parent = $_.ParentProcessId; name = $_.Name; start = $start; args = $_.CommandLine }
 })
 ConvertTo-Json -InputObject $rows -Compress
-`;
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
-  const stdout = execFileSync(
-    "powershell",
-    ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
-    { ...quiet, timeout: 30_000 },
-  );
+`);
   return JSON.parse(stdout).map(({ name, ...row }) => ({
     ...row,
     command: name.replace(/\.exe$/i, ""),
