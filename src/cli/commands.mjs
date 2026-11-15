@@ -1,8 +1,10 @@
+import { agents, register } from "./agents.mjs";
 import { main as build } from "./build.mjs";
 import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
+import { message } from "./message.mjs";
 import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
@@ -282,6 +284,57 @@ export const commands = {
     },
     footer: "A new proposal needs --title, --delivers and --recommend.",
     run: propose,
+  },
+  register: {
+    group: "messaging",
+    purpose: "Add this agent session to the list that pair agents prints",
+    about:
+      "Add this agent session to pair's list of running agent sessions, or update its entry, and print its name and ID. The name is the folder's name, a hyphen and two hex characters from a hash of the session's ID, unless --name sets another, and the session keeps it each time it registers again.",
+    flags: {
+      name: {
+        value: "NAME",
+        text: "Name the session NAME, in up to 64 letters, digits and hyphens. pair register refuses a name that another running session has.",
+      },
+      hook: {
+        text: "Run as an agent CLI's start hook: read the session ID from the hook's JSON on stdin when the environment has none, and exit 0 even when pair register fails.",
+      },
+      json,
+    },
+    run: register,
+  },
+  agents: {
+    group: "messaging",
+    purpose: "List the registered agent sessions that are running",
+    about:
+      "List each registered agent session whose CLI is still running, with its name, CLI, folder, branch and ID, the most recently registered first. pair agents deletes the entry of every session whose CLI has exited.",
+    flags: { json },
+    run: agents,
+  },
+  message: {
+    group: "messaging",
+    purpose: "Send a message to a running agent session",
+    about:
+      "Send a message to the running agent session that --to names, through its agent CLI, and print when the session's agent reads it. Run inside an agent CLI, pair message registers this session first, and the message names this session in its first line and ends with the commands that answer and acknowledge it. Outside any agent CLI, the first line says the message is from your user.",
+    usage:
+      "pair message --to NAME|ID|NAME/SUBAGENT (--text TEXT | --file PATH | --ack) [--from LABEL]",
+    flags: {
+      to: {
+        value: "NAME",
+        required: true,
+        text: "The session's name or ID, or a start of its ID, as pair agents prints them. NAME/SUBAGENT sends the message to that subagent of the session.",
+      },
+      text: { value: "TEXT", text: "The message." },
+      file: { value: "PATH", text: "A file whose text is the message." },
+      ack: {
+        text: "Acknowledge the session's message instead of answering it, when you have nothing to say. pair message sends one line, which asks the session's agent not to answer.",
+      },
+      from: {
+        value: "LABEL",
+        text: "Name the sender LABEL, such as a script. The message then has no command to answer it, also inside an agent CLI.",
+      },
+    },
+    footer: "Give one of --text, --file and --ack.",
+    run: message,
   },
   guide: {
     group: "pages",

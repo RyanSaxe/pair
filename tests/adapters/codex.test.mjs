@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { withSandboxHint } from "../../adapters/codex/rules.mjs";
+import * as codex from "../../adapters/codex/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 import {
   codexCommand,
@@ -273,4 +274,74 @@ test("a Codex wake for a spawned subagent goes to its parent thread", async (t) 
     "--message",
   ]);
   relayed(args[4]);
+});
+
+// Codex started with no -c override runs every session's thread, and each
+// command, on its app-server daemon, which keeps running after a session exits
+// and unloads the session's thread about a minute later. A Codex started with
+// a -c override runs its session in its own process. A subagent has a thread
+// of its own, which its parent spawned.
+test("a Codex session on the daemon runs while the daemon has its thread loaded, and a subagent's thread names its parent", async (t) => {
+  await codexCommand(t);
+  let status = "idle";
+  const spawn = { parent_thread_id: thread, agent_nickname: "Goodall" };
+  const daemon = await codexDaemon(t, {
+    "thread/read": ({ threadId }) => ({
+      thread: {
+        id: threadId,
+        status: { type: status },
+        source:
+          threadId === thread ? "cli" : { subAgent: { thread_spawn: spawn } },
+      },
+    }),
+  });
+  const target = (id) => ({
+    harness: "codex",
+    thread: id,
+    socket: daemon.socket,
+  });
+  assert.equal(await codex.parentSession(target(thread)), null);
+  assert.deepEqual(await codex.parentSession(target("thread-2")), {
+    sessionId: thread,
+    nickname: "Goodall",
+  });
+  const onDaemon = {
+    pid: 7,
+    args: "/u/.codex/packages/app-server-daemon/releases/0.169.0/bin/codex app-server --listen unix://",
+  };
+  const ownProcess = { pid: 8, args: "codex -c model=o4 --yolo" };
+  assert.equal(codex.sharesProcess(onDaemon), true);
+  assert.equal(codex.sharesProcess(ownProcess), false);
+  assert.equal(await codex.running(target(thread), onDaemon), true);
+  status = "notLoaded";
+  assert.equal(await codex.running(target(thread), onDaemon), false);
+  assert.equal(await codex.running(target(thread), ownProcess), true);
+});
+
+// Codex 0.169 gives a subagent a random nickname, and its parent knows it by
+// the agent path made from the name the parent gave it.
+test("pair message finds a Codex subagent by its nickname or its name, and names its agent path", async (t) => {
+  await codexCommand(t);
+  const subagent = {
+    id: "thread-2",
+    agentNickname: "Goodall",
+    source: {
+      subAgent: {
+        thread_spawn: { parent_thread_id: thread, agent_path: "/root/echo" },
+      },
+    },
+  };
+  const daemon = await codexDaemon(t, {
+    "thread/list": ({ parentThreadId }) => ({
+      data: parentThreadId === thread ? [subagent] : [],
+      nextCursor: null,
+    }),
+  });
+  const target = { harness: "codex", thread, socket: daemon.socket };
+  for (const name of ["echo", "goodall"])
+    assert.equal(
+      await codex.subagentTool(target, name),
+      "followup_task and target /root/echo",
+    );
+  await assert.rejects(codex.subagentTool(target, "reviewer"), /echo/);
 });

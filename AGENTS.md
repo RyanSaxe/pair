@@ -33,8 +33,9 @@ Each module has its own folder, and a module's tests are in the folder of the
 same name under `tests/`:
 
 - The command, `src/cli.mjs` and `src/cli/`, reads the arguments and runs the
-  command. `build`, `diff`, `check`, `setup-codex`, `guide` and `components`
-  run on their own, and each session command sends a request to the hub.
+  command. `build`, `diff`, `check`, `setup-codex`, `guide`, `components`,
+  `register`, `agents` and `message` run on their own, and each session
+  command sends a request to the hub.
 - The hub, `src/hub/`, serves the HTTP routes on `127.0.0.1:4747`. A session
   command starts it when none is running, and it exits after 15 minutes with
   no live session. It wakes the holder, the agent that last ran `pair start`
