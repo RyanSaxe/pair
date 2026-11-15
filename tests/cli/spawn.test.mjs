@@ -108,7 +108,7 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
         "claude",
         "--name",
         "api-fix",
-        "Run pair register --name api-fix first. Fix the checkout test.",
+        "Run pair register --name api-fix first. If another running session has that name, run pair register without --name. Fix the checkout test.",
       ],
     },
   );
@@ -119,7 +119,7 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
 
 // The agent spawns the new session in its own folder, so the agent's own new
 // entry is also an entry of that CLI in that folder.
-test("pair spawn inside an agent session registers that session, and prints the new session's name, not that one", async (t) => {
+test("pair spawn inside an agent session registers that session, prints the new session's name, not that one, and refuses that session's name for --name", async (t) => {
   const context = await scratch(t);
   const { agent, agents, env, folder, runs } = context;
   await terminal(context);
@@ -142,6 +142,15 @@ test("pair spawn inside an agent session registers that session, and prints the 
     `^Started (app-[0-9a-f]{2}) \\(Claude Code\\) in ${literal(path.join("~", "app"))}\\.`,
   ).exec(spawned.stdout);
   assert.notEqual(name, listed.name);
+
+  // A running session has that name, so pair spawn runs no launch script.
+  const taken = await sender.run(["spawn", "claude", "--name", listed.name]);
+  assert.deepEqual(taken, {
+    status: 1,
+    stdout: "",
+    stderr: `pair: The running session claude-code:sender in ${path.join("~", "app")} is named ${listed.name}. Give another --name.\n`,
+  });
+  assert.equal((await runs()).length, 1);
 });
 
 test("pair spawn refuses without a launch script", async (t) => {

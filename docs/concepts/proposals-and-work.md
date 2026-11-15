@@ -136,10 +136,11 @@ With an executable launch script at `~/.config/pair/spawn`, or
 reads **Start agent**. The hub then runs the script, with PowerShell on
 Windows, as `spawn DIR COMMAND ARG…`. `DIR` is the folder in which this
 session's agent ran `pair start`, and the command starts a new session of the
-same agent CLI. Its first prompt has it run `pair register --name ID`, where
-ID is the proposal's ID, then `pair guide` and `pair start --from` for the
-proposal, so `pair agents` lists the session by the proposal's ID. When the
-script fails, the drawer shows its error, and the work stays approved as after
+same agent CLI with a prompt to run `pair register --name ID`, where ID is the
+proposal's ID, then `pair guide` and `pair start --from` for the proposal.
+`pair agents` then lists the session by the proposal's ID, or by its default
+name when another running session already has that name. When the script
+fails, the drawer shows its error, and the work stays approved as after
 Copy command.
 
 The agent cannot always open a new agent session. It replies in a thread

@@ -146,12 +146,7 @@ export async function registerAgent(
       !adapter.sharesProcess?.(cli),
   );
   const others = running.filter((entry) => entry.id !== id);
-  const namesake = name && others.find((entry) => entry.name === name);
-  requireValue(
-    !namesake,
-    namesake &&
-      `The running session ${namesake.id} in ${shortPath(namesake.directory)} is named ${name}. Give another --name.`,
-  );
+  requireFreeName(others, name);
   const directory = process.cwd();
   const entry = {
     id,
@@ -209,6 +204,17 @@ export function shortPath(directory) {
 // The wake target contains Claude Code's inbox token, so pair prints every
 // field of an entry but the target.
 const shown = ({ target, ...entry }) => entry;
+
+// requireFreeName refuses name when one of running, the running sessions'
+// entries, has it.
+export function requireFreeName(running, name) {
+  const namesake = name && running.find((entry) => entry.name === name);
+  requireValue(
+    !namesake,
+    namesake &&
+      `The running session ${namesake.id} in ${shortPath(namesake.directory)} is named ${name}. Give another --name.`,
+  );
+}
 
 export function requireName(command, name) {
   if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name))

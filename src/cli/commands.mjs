@@ -352,7 +352,7 @@ export const commands = {
       },
       name: {
         value: "NAME",
-        text: "Have the session register as NAME, in up to 64 letters, digits and hyphens. The default is the name pair register gives.",
+        text: "Have the session register as NAME, in up to 64 letters, digits and hyphens. The default is the name pair register gives. pair spawn refuses a name that a running session has.",
       },
       prompt: {
         value: "TEXT",

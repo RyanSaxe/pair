@@ -52,8 +52,14 @@ export function runLaunch(script, directory, command) {
 // A session that pair starts runs pair register as its first step, so pair
 // agents lists it and pair message reaches it whether or not its CLI has a
 // start hook. firstPrompt returns that step, with --name when name is given,
-// followed by rest.
+// followed by rest. Two sessions started together with one name both run
+// pair register --name, and the second must not stop to ask for another name.
 export const firstPrompt = (name, rest) =>
-  [`Run pair register${name ? ` --name ${name}` : ""} first.`, rest]
+  [
+    name
+      ? `Run pair register --name ${name} first. If another running session has that name, run pair register without --name.`
+      : "Run pair register first.",
+    rest,
+  ]
     .filter(Boolean)
     .join(" ");

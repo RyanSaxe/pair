@@ -7,7 +7,14 @@ import { firstPrompt, runLaunch } from "../shared/launch.mjs";
 import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { requireValue } from "../shared/util.mjs";
-import { agentsDir, registerAgent, requireName, shortPath } from "./agents.mjs";
+import {
+  agentsDir,
+  readAgents,
+  registerAgent,
+  requireFreeName,
+  requireName,
+  shortPath,
+} from "./agents.mjs";
 import { usageError } from "./arguments.mjs";
 
 const examples =
@@ -41,18 +48,21 @@ async function newEntry(before, matches) {
 }
 
 // pair spawn registers the agent session it runs in, as pair message does, so
-// the new session can message that session. Starting the new session needs no
-// entry for the sender, so a failure only prints why, as in pair start.
+// the new session can message that session, and returns the running sessions'
+// entries. Starting the new session needs no entry for the sender, so a
+// failure only prints why, as in pair start, and returns no entries.
 async function registerSender() {
   try {
     const table = processTable();
     const tools = { ancestors: () => ancestors(table) };
     const target = detectAgent(process.env, tools);
-    if (target) await registerAgent(target, { table, sender: true });
+    if (!target) return await readAgents(table);
+    return (await registerAgent(target, { table, sender: true })).running;
   } catch (error) {
     console.error(
       `pair: This agent is not registered, so the new session cannot message it. ${error.message}`,
     );
+    return [];
   }
 }
 
@@ -87,8 +97,10 @@ export async function spawn(options) {
   const prompt = firstPrompt(options.name, asked);
 
   // The sender registers before pair spawn lists the entry files, so its own
-  // new entry is never taken for the new session's.
-  await registerSender();
+  // new entry is never taken for the new session's. The new session's pair
+  // register would refuse a name that a running session has, so pair spawn
+  // refuses it before it runs the script.
+  requireFreeName(await registerSender(), options.name);
   const before = new Set(await entryFiles());
   const command = adapter.launch({ name: options.name, prompt });
   await runLaunch(launchScript, directory, command);
