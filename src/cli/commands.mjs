@@ -373,6 +373,8 @@ export const commands = {
       "  pair spawn claude --prompt TEXT -- --model sonnet",
       "",
       "Give the prompt with --prompt or --file, not after --.",
+      "",
+      "A codex session reads a message between the steps of its turn only on Codex's app-server daemon, and pair spawn follows Codex 0.169's rules for it. With -m, -s, -a, -C, -i, --add-dir or --worktree, Codex starts the session on the daemon. With a -c that sets anything but a feature, or with -p, --profile, --search, --oss, --approve-for-me, --strict-config, --dangerously-bypass-hook-trust or --no-daemon, Codex starts the session without the daemon, so the session reads each message only when its turn ends. When the daemon has another setting for a feature that --enable, --disable or -c features.NAME=true or false sets, Codex asks in the new terminal whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without it. pair spawn prints a warning for each of the last two cases.",
     ].join("\n"),
     run: spawn,
   },

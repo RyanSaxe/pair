@@ -102,11 +102,10 @@ export async function spawn(options) {
   // refuses it before it runs the script.
   requireFreeName(await registerSender(), options.name);
   const before = new Set(await entryFiles());
-  const command = adapter.launch({
-    name: options.name,
-    prompt,
-    args: options.forwarded,
-  });
+  const args = options.forwarded;
+  const warning = adapter.launchWarning?.(args);
+  if (warning) console.error(`pair: ${warning}`);
+  const command = adapter.launch({ name: options.name, prompt, args });
   await runLaunch(launchScript, directory, command);
   // Windows compares paths without case, as path.relative does there, so a
   // drive letter in the other case names the same folder.

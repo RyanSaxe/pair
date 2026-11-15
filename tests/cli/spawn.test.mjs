@@ -34,17 +34,33 @@ async function scratch(t) {
 
 // terminal writes a launch script that plays a terminal: it records the folder
 // it runs in, its arguments and the process it starts, then starts the CLI's
-// arguments under a stand-in for Claude Code in the background and exits. The
-// stand-in is a process named claude that runs the pair command its prompt
-// asks for and exits.
+// arguments under a stand-in for Claude Code or Codex in the background and
+// exits. The stand-in is a process named for the command, claude or codex,
+// that runs the pair command its prompt asks for and exits.
 async function terminal({ home, env }) {
   const bin = path.join(home, "bin");
   await fs.mkdir(bin);
-  const claude = await agentExecutable(bin, "claude");
+  const clis = {
+    claude: {
+      executable: await agentExecutable(bin, "claude"),
+      env: {
+        CLAUDE_CODE_MESSAGING_SOCKET: path.join(bin, "none.sock"),
+        CLAUDE_CODE_MESSAGING_TOKEN: "test",
+        CLAUDE_CODE_SESSION_ID: "spawned",
+      },
+    },
+    codex: {
+      executable: await agentExecutable(bin, "codex"),
+      env: {
+        CODEX_HOME: path.join(bin, "codex-home"),
+        CODEX_THREAD_ID: "spawned",
+      },
+    },
+  };
   const agent = path.join(bin, "agent.js");
   await fs.writeFile(
     agent,
-    `process.title = "claude";
+    `process.title = process.argv[2];
 const [, command] = /^In your own shell, run pair (.+?) first\\./.exec(process.argv.at(-1));
 require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, [${JSON.stringify(pair)}, ...command.split(" ")], { stdio: "ignore" });
 `,
@@ -52,18 +68,14 @@ require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, [${
   const start = path.join(bin, "terminal.js");
   await fs.writeFile(
     start,
-    `const [directory, , ...args] = process.argv.slice(2);
-const agent = require("node:child_process").spawn(${JSON.stringify(claude)}, [${JSON.stringify(agent)}, ...args], {
+    `const [directory, command, ...args] = process.argv.slice(2);
+const cli = ${JSON.stringify(clis)}[command];
+const agent = require("node:child_process").spawn(cli.executable, [${JSON.stringify(agent)}, command, ...args], {
   cwd: directory,
   detached: true,
   stdio: "ignore",
   windowsHide: true,
-  env: {
-    ...process.env,
-    CLAUDE_CODE_MESSAGING_SOCKET: ${JSON.stringify(path.join(bin, "none.sock"))},
-    CLAUDE_CODE_MESSAGING_TOKEN: "test",
-    CLAUDE_CODE_SESSION_ID: "spawned",
-  },
+  env: { ...process.env, ...cli.env },
 });
 agent.unref();
 const run = { cwd: process.cwd(), args: process.argv.slice(2), pid: agent.pid };
@@ -145,6 +157,37 @@ test("every adapter's launch puts the forwarded arguments, in order, among the C
     assert.ok(at + args.length < prompt, harness);
     assert.ok(["--", "-i", "--prompt"].includes(command[prompt - 1]), harness);
   }
+});
+
+// Codex starts a session that a -c override other than a feature names
+// without its app-server daemon, and the hub can then only queue a message for
+// the end of the session's turn.
+test("pair spawn passes the arguments after -- to Codex before the first prompt, and warns about one that starts Codex without its daemon", async (t) => {
+  const context = await scratch(t);
+  const { env, folder, home, runs } = context;
+  await terminal(context);
+  const api = await folder("api");
+
+  const forwarded = ["-m", "gpt-5.5", "-c", "model_reasoning_effort=high"];
+  const spawned = await orphan(
+    home,
+    ["spawn", "codex", "--dir", api, "--name", "api-fix", "--", ...forwarded],
+    { ...outsideAgents, ...env },
+  );
+  assert.deepEqual(spawned, {
+    stdout: `Started api-fix (Codex) in ${path.join("~", "api")}. Message it with: pair message --to api-fix --text "…"\n`,
+    stderr:
+      "pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads each message only when its current turn ends.\n",
+  });
+  const [run] = await runs();
+  assert.deepEqual(run.args, [
+    api,
+    "codex",
+    ...forwarded,
+    "--",
+    "In your own shell, run pair register --name api-fix first. If another running session has that name, run pair register without --name.",
+  ]);
+  await waitUntil(() => !alive(run.pid));
 });
 
 // The agent spawns the new session in its own folder, so the agent's own new

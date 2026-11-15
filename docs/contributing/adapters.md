@@ -38,7 +38,12 @@ It also exports these functions:
   named `name` where the CLI takes a name. `args` are the arguments for the
   CLI that `pair spawn` takes after `--`, and `launch` puts them before the
   prompt. The hub and `pair spawn` pass the command line to the user's launch
-  script, as `src/shared/launch.mjs` describes.
+  script, as `src/shared/launch.mjs` describes. An adapter can also export
+  `launchWarning(args)`, which returns the line that `pair spawn` prints
+  before it runs the script when the CLI, given `args`, starts a session that
+  reads each message only when its turn ends or that first asks a question
+  in its terminal, as Codex does with `-c` and `--enable`. It returns `null`
+  for other arguments.
 
 An adapter exports these too when its CLI needs them, for the list of
 running sessions that `src/cli/agents.mjs` keeps:

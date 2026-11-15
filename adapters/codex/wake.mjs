@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { commandLine } from "../../src/shared/processes.mjs";
 import { connect } from "./app-server.mjs";
+import { daemonArguments } from "./daemon-rule.mjs";
 import { codexInvocation } from "./invocation.mjs";
 
 export const name = "Codex";
@@ -30,6 +31,25 @@ export const launch = ({ prompt, args = [] }) => [
   "--",
   prompt,
 ];
+
+const listed = (items) =>
+  items.length === 1
+    ? items[0]
+    : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+
+// Without the daemon, wake() can only run codex queue, so pair spawn warns
+// about the arguments that start the session without it. A feature that
+// differs from the daemon's setting makes Codex ask, in the session's
+// terminal, whether to restart the daemon, which every other session on it
+// shares. Codex compares the features only for a session on the daemon.
+export function launchWarning(args) {
+  const { optOuts, features } = daemonArguments(args);
+  if (optOuts.length)
+    return `With ${listed(optOuts)}, Codex starts the session without its app-server daemon, so the session reads each message only when its current turn ends.`;
+  if (features.length)
+    return `When Codex's app-server daemon has another setting for a feature in ${listed(features)}, Codex asks in the new terminal whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without the daemon.`;
+  return null;
+}
 
 // Codex 0.160 runs its threads on an app-server daemon, which listens on a
 // control socket under CODEX_HOME.
