@@ -47,7 +47,7 @@ export function agent(session) {
   async function step() {
     if (isClosed(session.state)) return closed;
     const [event] = await pending();
-    if (event) return `Run ${command("read")} to see what the reviewer sent.`;
+    if (event) return `Run ${command("read")} to see what your user sent.`;
     if (lifecycle(session.state) === "paused")
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
     if (!session.state.current)

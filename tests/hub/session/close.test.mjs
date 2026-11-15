@@ -167,7 +167,7 @@ const beforeClose = [
       await a.feedback(a.event());
     },
     stage: "submitted",
-    next: /^Run pair read .* to see what the reviewer sent/,
+    next: /^Run pair read .* to see what your user sent/,
     step: (a) => a.action("read"),
   },
   {

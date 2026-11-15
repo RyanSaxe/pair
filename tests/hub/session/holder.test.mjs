@@ -152,6 +152,6 @@ test("a start that takes over names no submission after a complete round, or for
   const unread = await h.register(a.directory, three.target, { start: true });
   assert.equal(
     unread.body.next,
-    `If you have not run pair guide in this conversation, run it first. Run pair read --session-dir ${a.directory} to see what the reviewer sent.`,
+    `If you have not run pair guide in this conversation, run it first. Run pair read --session-dir ${a.directory} to see what your user sent.`,
   );
 });
