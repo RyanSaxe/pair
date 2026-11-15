@@ -119,7 +119,10 @@ with the entry's process ID and start time runs, so a process that gets the
 same ID after a restart does not count. That process is the CLI's, except
 for a Codex session on Codex's app-server daemon, whose commands run under
 the daemon. pair counts such a session as running while the daemon has its
-thread loaded, which ends about a minute after the session exits.
+thread loaded, which ends about a minute after the session exits. opencode 2
+runs every session in its background server, which keeps running after
+opencode exits, so pair counts an opencode 2 session as running while an
+opencode window has it open in a tab.
 `pair register` and `pair agents` delete every entry that is not running.
 A session that a CLI starts in the same process, as Claude Code's `/clear`
 and pi's `/new` do, replaces that process's other entries when it registers,
@@ -131,10 +134,11 @@ registers each pi session when it starts, and pair's opencode plugin
 registers each opencode session but a subagent's when opencode creates it.
 
 `pair register` refuses outside an agent CLI, and when pair finds no process
-of the CLI among the command's parent processes. It also refuses a Codex
-subagent, which has a thread of its own, and prints the `NAME/SUBAGENT` that
-reaches it through the session that started it. pair reads processes with
-`ps` on macOS and Linux and with PowerShell on Windows. When pair cannot run
+of the CLI among the command's parent processes. It also refuses a subagent
+of Codex, Copilot CLI or opencode, which has a session of its own, and prints
+the `NAME/SUBAGENT` that reaches it through the session that started it.
+pair reads processes with `ps` on macOS and Linux and with PowerShell on
+Windows. When pair cannot run
 them, as in Codex's sandbox, every command that reads the list refuses and
 keeps every entry. With `--hook`, which
 an agent CLI's start hook runs, it reads the session ID from the hook's JSON
@@ -170,8 +174,8 @@ If you have nothing to say, acknowledge it: pair message --to codex:0199c1d4-111
 ID. `pair message` first deletes every entry that is not running, as
 `pair agents` does. It refuses a name or ID that no running session has, and
 a start of an ID that more than one session's ID has. `--text` and `--file`
-take at most 100 KB of text. Claude Code 2.1.325, Codex 0.169, pi 1.5.0 and
-Copilot CLI 1.0.105 each received a 100 KB message whole.
+take at most 100 KB of text. Claude Code 2.1.325, Codex 0.169, pi 1.5.0,
+Copilot CLI 1.0.105 and opencode 2.2.5 each received a 100 KB message whole.
 
 Inside an agent CLI, `pair message` registers the session it runs in, as
 `pair register` does, and sends nothing when it cannot. The first line names
@@ -180,7 +184,9 @@ acknowledge it, with the whole ID, because another session can take the name
 after this one exits.
 A Codex subagent has no entry, so a message from it names it as
 `PARENT/NICKNAME`, which reaches it through its parent, such as
-`api-d3/Goodall`. A Copilot CLI subagent has no entry either, and
+`api-d3/Goodall`. An opencode subagent has no entry either, and a message
+from it names it as `PARENT/TASK`, quoted when the task has a space. A
+Copilot CLI subagent has no entry either, and
 `pair message` inside it sends only with `--from`.
 Outside any agent CLI, the first line is `pair message from your user:`.
 `--from LABEL` makes it `pair message from LABEL:`, inside an agent CLI too,
@@ -205,7 +211,7 @@ the line names the session that read the message.
 | Claude Code | The parent receives it, with a first line that asks the parent's agent to pass it on unchanged with `SendMessage`.                                                                                                                                                                       |
 | Codex       | The parent receives it, with a first line that asks the parent's agent to pass it on unchanged with `followup_task` and the subagent's agent path, such as `/root/echo`. pair finds the subagent on Codex's daemon by the name the parent gave it or by its nickname, such as `Goodall`. |
 | Copilot CLI | Copilot's SDK sends it to the subagent's task, found by its name or its task. When that fails, the parent receives it, with a first line that asks the parent's agent to pass it on with `write_agent`.                                                                                  |
-| opencode    | pair's plugin prompts the subagent's session, found by its title, its task or its agent.                                                                                                                                                                                                 |
+| opencode    | pair's plugin prompts the subagent's session, found by its task, which opencode 2 makes the session's title, or by its agent.                                                                                                                                                            |
 | pi          | `pair message` refuses, because pi has no subagents of its own. A subagent that an extension runs as another pi process registers as its own session when it loads pair's extension, and `--to` reaches it by that session's name while it runs.                                         |
 
 ## Environment variables
