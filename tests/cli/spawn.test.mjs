@@ -44,7 +44,7 @@ async function terminal({ home, env }) {
   await fs.writeFile(
     agent,
     `process.title = "claude";
-const [, command] = /^Run pair (.+?) first\\./.exec(process.argv.at(-1));
+const [, command] = /^In your own shell, run pair (.+?) first\\./.exec(process.argv.at(-1));
 require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, [${JSON.stringify(pair)}, ...command.split(" ")], { stdio: "ignore" });
 `,
   );
@@ -108,7 +108,7 @@ test("pair spawn outside any agent CLI runs the launch script with the CLI's com
         "claude",
         "--name",
         "api-fix",
-        "Run pair register --name api-fix first. If another running session has that name, run pair register without --name. Fix the checkout test.",
+        "In your own shell, run pair register --name api-fix first. If another running session has that name, run pair register without --name. Fix the checkout test.",
       ],
     },
   );
