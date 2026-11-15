@@ -19,6 +19,11 @@ export const identity = (target) => target.socket;
 // does not.
 export const sessionId = (target) => target.session;
 
+// A Claude Code subagent has no inbox of its own, so pair message asks the
+// parent's agent to pass a message on with its SendMessage tool, which takes
+// the subagent's name.
+export const subagentTool = () => "SendMessage";
+
 // launch returns the command line that starts a new session with a prompt,
 // and with name, the name that Claude Code shows for the session.
 export const launch = ({ name, prompt }) => [

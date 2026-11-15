@@ -6,6 +6,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
+import { inProcessState } from "../support/agents.mjs";
+import { waitUntil } from "../support/hub.mjs";
 
 // opencode calls each plugin export with its SDK client. standInClient records
 // each prompt the plugin sends. While refusal is set, the client returns an
@@ -39,7 +41,7 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   await plugin["shell.env"]({ cwd: "/", sessionID: "ses_1" }, { env });
   const plain = {};
   await plugin["shell.env"]({ cwd: "/" }, { env: plain });
-  assert.deepEqual(Object.keys(plain), ["PAIR_OPENCODE_SOCKET"]);
+  assert.equal(plain.PAIR_OPENCODE_SESSION, undefined);
   // detectWake does here what pair start does inside opencode: it finds
   // opencode among the process's ancestors and reads the variables that the
   // plugin set for the shell.
@@ -63,6 +65,86 @@ test("an opencode wake prompts the session at once through pair's plugin", async
   await assert.rejects(wakeRunner(target, "third"), {
     message: `the agent CLI has exited (ENOENT ${target.socket})`,
   });
+});
+
+// One opencode process serves several sessions, and this process stands in
+// for it. Its command is node, so pair register finds it only by the process
+// ID that the plugin passes.
+test("pair's plugin registers each opencode session when opencode creates it, and not a subagent's session", async (t) => {
+  const { home, agents } = await inProcessState(t);
+  const { client } = standInClient();
+  const plugin = await PairWake({ client });
+  t.after(() => plugin.dispose());
+  const created = (info) =>
+    plugin.event({
+      event: {
+        type: "session.created",
+        properties: { info: { directory: home, ...info } },
+      },
+    });
+  const listed = async (count) => {
+    let entries = [];
+    await waitUntil(
+      async () => (entries = await agents()).length >= count,
+      30_000,
+    );
+    return entries.map(({ id, pid }) => ({ id, pid })).reverse();
+  };
+  // The subagent's session comes first, so that pair register would have
+  // listed it by the time it lists the others.
+  await created({ id: "ses_child", parentID: "ses_root" });
+  await created({ id: "ses_root" });
+  assert.deepEqual(await listed(1), [
+    { id: "opencode:ses_root", pid: process.pid },
+  ]);
+  await created({ id: "ses_new" });
+  assert.deepEqual(await listed(2), [
+    { id: "opencode:ses_root", pid: process.pid },
+    { id: "opencode:ses_new", pid: process.pid },
+  ]);
+});
+
+// opencode 1's task tool titles a subagent's session "TASK (@AGENT
+// subagent)", and a prompt without an agent runs under the default agent.
+test("an opencode message to a subagent prompts the newest session of that subagent, under its agent", async (t) => {
+  const { client, prompts } = standInClient();
+  const child = (id, task, agent, created) => ({
+    id,
+    title: `${task} (@${agent} subagent)`,
+    agent,
+    time: { created },
+  });
+  client.session.children = async ({ path: { id } }) => ({
+    data:
+      id === "ses_1"
+        ? [
+            child("ses_a", "Review the diff", "reviewer", 1),
+            child("ses_b", "Review the diff again", "reviewer", 2),
+            child("ses_c", "Find the tests", "explore", 3),
+          ]
+        : [],
+  });
+  const plugin = await PairWake({ client });
+  t.after(() => plugin.dispose());
+  const env = {};
+  await plugin["shell.env"]({ sessionID: "ses_1" }, { env });
+  const target = detectWake(env, {
+    ancestors: () => [{ pid: 2, command: "opencode" }],
+  });
+  await wakeRunner({ ...target, subagent: "reviewer" }, "first");
+  await wakeRunner({ ...target, subagent: "find the tests" }, "second");
+  const toAgent = (id, agent, text) => ({
+    path: { id },
+    body: { agent, parts: [{ type: "text", text }] },
+  });
+  assert.deepEqual(prompts, [
+    toAgent("ses_b", "reviewer", "first"),
+    toAgent("ses_c", "explore", "second"),
+  ]);
+  await assert.rejects(
+    wakeRunner({ ...target, subagent: "planner" }, "third"),
+    /no subagent named planner/,
+  );
 });
 
 // adapters/opencode/wake.mjs finds opencode's global config file when the

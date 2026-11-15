@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { send } from "../listener.mjs";
+import { parseTitle } from "./subagents.mjs";
 
 const plugin = fileURLToPath(new URL("plugin.js", import.meta.url));
 
@@ -24,6 +25,9 @@ export const name = "opencode";
 // shell command that opencode runs.
 export const command = "opencode";
 export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
+// The plugin also sets the ID of opencode's process, so that pair finds the
+// process whatever name it runs under, such as nixpkgs' .opencode-wrapped.
+export const pidVariable = "PAIR_OPENCODE_PID";
 export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket, so
@@ -43,18 +47,22 @@ export const detect = (env) => ({
 });
 
 // A subagent's commands get the subagent's own session ID, so pair asks the
-// plugin for the session's parent. pair names a subagent by its task, which
-// opencode's task tool makes the title of the subagent's session, as "TASK
-// (@AGENT subagent)".
+// plugin for the session's parent, and names the subagent by its task.
 export async function parentSession({ socket, session }) {
   const { parentID, title } = await send(socket, { session, query: "session" });
-  const task = /^(.*) \(@.+ subagent\)$/.exec(title)?.[1] ?? title;
-  return parentID ? { sessionId: parentID, nickname: task } : null;
+  return parentID
+    ? { sessionId: parentID, nickname: parseTitle(title).task }
+    : null;
 }
 
+// pair message sends a message to a subagent through the plugin, which
+// prompts the subagent's own session.
+export const reachesSubagents = true;
+
 // The plugin sends the line with promptAsync, and opencode adds it to the
-// running request between its steps.
-export async function wake(target, line) {
-  await send(target.socket, { session: target.session, text: line });
+// running request between its steps. With target.subagent, the plugin sends
+// it to that subagent's session.
+export async function wake({ socket, session, subagent }, line) {
+  await send(socket, { session, text: line, ...(subagent && { subagent }) });
   return { via: "prompt", steerable: true };
 }

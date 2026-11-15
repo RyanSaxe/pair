@@ -313,3 +313,41 @@ test(
     assert.equal(await codex.running(target, ownProcess), true);
   },
 );
+
+// Codex 0.169 gives a subagent a random nickname, and its parent knows it by
+// the agent path made from the name the parent gave it.
+test(
+  "pair message finds a Codex subagent by its nickname or its name, and names its agent path",
+  {
+    skip:
+      process.platform === "win32" &&
+      "codexDaemon listens on a Unix socket path, which Node on Windows cannot",
+  },
+  async (t) => {
+    const subagent = {
+      id: "thread-2",
+      agentNickname: "Goodall",
+      source: {
+        subAgent: {
+          thread_spawn: { parent_thread_id: thread, agent_path: "/root/echo" },
+        },
+      },
+    };
+    const daemon = await codexDaemon(t, {
+      "thread/list": ({ parentThreadId }) => ({
+        data: parentThreadId === thread ? [subagent] : [],
+        nextCursor: null,
+      }),
+    });
+    const target = { harness: "codex", thread, socket: daemon.socket };
+    for (const name of ["echo", "goodall"])
+      assert.equal(
+        await codex.subagentTool(target, name),
+        "followup_task and target /root/echo",
+      );
+    await assert.rejects(
+      codex.subagentTool(target, "reviewer"),
+      /no subagent named reviewer\. Its subagent is echo \(Goodall\)\./,
+    );
+  },
+);
