@@ -202,7 +202,7 @@ the line names the session that read the message.
 | Codex       | The parent receives it, with a first line that asks the parent's agent to pass it on unchanged with `followup_task` and the subagent's agent path, such as `/root/echo`. pair finds the subagent on Codex's daemon by the name the parent gave it or by its nickname, such as `Goodall`. |
 | Copilot CLI | Copilot's SDK sends it to the subagent's task, found by its name or its task. When that fails, the parent receives it, with a first line that asks the parent's agent to pass it on with `write_agent`.                                                                                  |
 | opencode    | pair's plugin prompts the subagent's session, found by its title, its task or its agent.                                                                                                                                                                                                 |
-| pi          | `pair message` refuses, because pair's extension cannot send to a pi subagent.                                                                                                                                                                                                           |
+| pi          | `pair message` refuses, because pi has no subagents of its own. A subagent that an extension runs as another pi process registers as its own session when it loads pair's extension, and `--to` reaches it by that session's name while it runs.                                         |
 
 ## Environment variables
 
