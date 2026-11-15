@@ -190,7 +190,7 @@ test("pair spawn passes the arguments after -- to Codex before the first prompt,
   assert.deepEqual(spawned, {
     stdout: `Started api-fix (Codex) in ${path.join("~", "api-tree")}. Message it with: pair message --to api-fix --text "…"\n`,
     stderr:
-      "pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads each message only when its current turn ends.\n",
+      "pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads a message that arrives during a turn only when the turn ends.\n",
   });
   const [run] = await runs();
   assert.deepEqual(run.args, [

@@ -2,7 +2,7 @@
 // command line opts out, by the rules in codex-rs/tui/src/daemon_startup.rs.
 // Each of these flags opts out. Codex turns --search and --approve-for-me
 // into -c overrides, and every -c override opts out except a boolean feature
-// and two boolean TUI settings.
+// and two boolean settings.
 const optOutFlags = new Set([
   "--no-daemon",
   "--oss",
@@ -36,10 +36,11 @@ const featureTable =
 const tuiTable = /^\{\s*fullscreen_transcript\s*=\s*(true|false)\s*\}$/;
 
 // overrideKind returns "feature" for a -c override that sets features,
-// "setting" for one that sets a boolean TUI setting, and "opt-out" otherwise.
+// "setting" for one that sets one of the boolean settings, "other" for one
+// with no =, with which Codex refuses to start, and "opt-out" otherwise.
 function overrideKind(override) {
   const at = override.indexOf("=");
-  if (at === -1) return "opt-out";
+  if (at === -1) return "other";
   const key = override.slice(0, at).trim();
   const value = override.slice(at + 1).trim();
   if (key === "features")

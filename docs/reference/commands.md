@@ -223,21 +223,21 @@ can add one, or you can give it after `--`.
 
 A Codex session reads a message in the middle of its turn only when it runs
 on Codex's app-server daemon, as [Codex](../concepts/architecture.md#codex)
-describes. For `codex`, `pair spawn` follows Codex 0.169's rules for the
-daemon:
+describes. `pair spawn` checks the arguments for `codex` by Codex 0.169's
+rules for the daemon:
 
-| Arguments                                                                                                                                                                                                        | What Codex does                                                                                                                                                                                                                            |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `-m` or `--model`, `-s` or `--sandbox`, `-a` or `--ask-for-approval`, `-C` or `--cd`, `-i` or `--image`, `--add-dir`, `--worktree`, `--no-alt-screen`                                                            | Starts the session on the daemon.                                                                                                                                                                                                          |
-| `--enable`, `--disable`, and `-c` or `--config` when it sets a feature to `true` or `false`, as `-c features.NAME=true` does                                                                                     | Starts the session on the daemon when the daemon has the same setting for each feature. Otherwise it asks in the new terminal whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without it. |
-| Any other `-c` or `--config`, such as `-c model_reasoning_effort=high`, and `-p` or `--profile`, `--search`, `--oss`, `--approve-for-me`, `--strict-config`, `--dangerously-bypass-hook-trust` and `--no-daemon` | Starts the session without the daemon, so the session reads each message only when its turn ends.                                                                                                                                          |
+| Arguments                                                                                                                                                                                                                                                     | What Codex does                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-m` or `--model`, `-s` or `--sandbox`, `-a` or `--ask-for-approval`, `-C` or `--cd`, `-i` or `--image`, `--add-dir`, `--worktree`, `--no-alt-screen`, and `-c tui.fullscreen_transcript` or `-c suppress_unstable_features_warning` set to `true` or `false` | Starts the session on the daemon.                                                                                                                                                                                                                                 |
+| `--enable`, `--disable`, and `-c` or `--config` when it sets a feature to `true` or `false`, as `-c features.NAME=true` does                                                                                                                                  | Starts the session on the daemon when the daemon has the same setting for each feature. Otherwise it stops in the new terminal until someone chooses whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without it. |
+| Any other `-c` or `--config`, such as `-c model_reasoning_effort=high`, and `-p` or `--profile`, `--search`, `--oss`, `--approve-for-me`, `--strict-config`, `--dangerously-bypass-hook-trust` and `--no-daemon`                                              | Starts the session without the daemon, so the session reads a message that arrives during a turn only when the turn ends.                                                                                                                                         |
 
 For the arguments in the last two rows, `pair spawn` prints a warning that
 names them, then starts the session:
 
 ```console
 $ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test." -- -m gpt-5.5 -c model_reasoning_effort=high
-pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads each message only when its current turn ends.
+pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads a message that arrives during a turn only when the turn ends.
 Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-3f --text "…"
 ```
 

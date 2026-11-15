@@ -44,10 +44,12 @@ const listed = (items) =>
 // shares. Codex compares the features only for a session on the daemon.
 export function launchWarning(args) {
   const { optOuts, features } = daemonArguments(args);
+  const turnEnd =
+    "the session reads a message that arrives during a turn only when the turn ends";
   if (optOuts.length)
-    return `With ${listed(optOuts)}, Codex starts the session without its app-server daemon, so the session reads each message only when its current turn ends.`;
+    return `With ${listed(optOuts)}, Codex starts the session without its app-server daemon, so ${turnEnd}.`;
   if (features.length)
-    return `When Codex's app-server daemon has another setting for a feature in ${listed(features)}, Codex asks in the new terminal whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without the daemon.`;
+    return `When Codex's app-server daemon has another setting for a feature that ${listed(features)} ${features.length === 1 ? "sets" : "set"}, Codex stops in the new terminal until someone chooses whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without the daemon, where ${turnEnd}.`;
   return null;
 }
 

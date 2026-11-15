@@ -70,34 +70,34 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
 test("launchWarning names every argument that starts Codex without its daemon, or else every feature Codex compares with the daemon's", () => {
   const warnings = {
     "opt-out": /starts the session without its app-server daemon/,
-    feature: /asks in the new terminal whether to restart the daemon/,
+    feature: /stops in the new terminal until someone chooses/,
   };
-  for (const [args, kind, named] of [
+  // Each row has the arguments, the kind of warning, and the arguments that
+  // the warning names.
+  for (const [args, kind, named = []] of [
+    [["-m", "gpt-5.5", "-s", "workspace-write", "-a", "never", "-i", "a.png"]],
+    [["-c", "tui.fullscreen_transcript=true", "--no-alt-screen"]],
+    // Codex refuses to start with a -c that has no =.
+    [["-c", "model"]],
     [
-      ["-m", "gpt-5.5", "-s", "workspace-write", "-a", "never", "-i", "a.png"],
-      null,
-    ],
-    [["-c", "tui.fullscreen_transcript=true", "--no-alt-screen"], null],
-    [
-      ["--enable", "shell_tool", "-c", "features={worktrees=false}"],
+      ["--enable", "shell_tool", "-c", "features.worktrees=false"],
       "feature",
-      ["--enable shell_tool", "-c features={worktrees=false}"],
+      ["--enable shell_tool", "-c features.worktrees=false"],
     ],
+    [["-c", "features={shell_tool=true}"], "feature", ["features={"]],
+    [["-c", "use_legacy_landlock=true"], "feature", ["use_legacy_landlock"]],
     [
-      ["-c", "model_reasoning_effort=high"],
+      ["-cmodel_reasoning_effort=high"],
       "opt-out",
-      ["-c model_reasoning_effort=high"],
+      ["-cmodel_reasoning_effort"],
     ],
     [["--config=model=o3"], "opt-out", ["--config=model=o3"]],
+    [["-c", "features.a.b=true"], "opt-out", ["-c features.a.b=true"]],
+    [["-c", "features.goals='true'"], "opt-out", ["-c features.goals='true'"]],
     [
-      ["-c", "features.shell_tool='true'"],
+      ["--enable", "shell_tool", "--profile", "deep", "--search"],
       "opt-out",
-      ["-c features.shell_tool='true'"],
-    ],
-    [
-      ["-m", "gpt-5.5", "-pfast", "--search", "--enable", "shell_tool"],
-      "opt-out",
-      ["-pfast", "--search"],
+      ["--profile deep", "--search"],
     ],
   ]) {
     const warning = codex.launchWarning(args);
@@ -108,6 +108,8 @@ test("launchWarning names every argument that starts Codex without its daemon, o
     }
     assert.match(warning, warnings[kind], what);
     for (const each of named) assert.ok(warning.includes(each), what);
+    // Codex compares the features only for a session on the daemon.
+    if (kind === "opt-out") assert.ok(!warning.includes("--enable"), what);
   }
 });
 

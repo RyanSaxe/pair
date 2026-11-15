@@ -43,9 +43,9 @@ It also exports these functions:
   `src/shared/launch.mjs` describes. An adapter can also export
   `launchWarning(args)`, which returns the line that `pair spawn` prints
   before it runs the script when the CLI, given `args`, starts a session that
-  reads each message only when its turn ends or that first asks a question
-  in its terminal, as Codex does with `-c` and `--enable`. It returns `null`
-  for other arguments.
+  reads a message that arrives during a turn only when the turn ends, or that
+  first asks a question in its terminal, as Codex does with `-c` and
+  `--enable`. It returns `null` for other arguments.
 
 An adapter exports these too when its CLI needs them, for the list of
 running sessions that `src/cli/agents.mjs` keeps:

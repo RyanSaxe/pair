@@ -174,8 +174,9 @@ Codex calls threads, on a shared app-server daemon. The daemon listens on
   so the hub starts the turn itself.
 - In every other case the hub runs `codex queue`. When Codex is idle, it
   then starts a turn with the line at once. When the daemon does not run
-  the thread, as with a Codex older than 0.160 or one started with a `-c`
-  override, Codex reads the line when its turn ends.
+  the thread, as with a Codex older than 0.160 or one started with an
+  argument that [`pair spawn`](../reference/commands.md#pair-spawn) warns
+  about, Codex reads the line when its turn ends.
 
 Codex asks you to approve each command its sandbox blocks, every `pair`
 command included, unless an allow rule matches the command. `pair start`
