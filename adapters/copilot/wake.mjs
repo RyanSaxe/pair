@@ -151,6 +151,10 @@ export async function parentSession({ sdk, port, sessionId }) {
     : null;
 }
 
+// pair message asks the parent's agent to pass a message on to its subagent
+// with write_agent, Copilot's tool for a message to a background subagent.
+export const subagentTool = () => "write_agent";
+
 // This block runs only in the child process. It connects to the TUI's embedded
 // server through the SDK shipped inside the CLI, resumes the session, and sends
 // one prompt in the given mode. With the mode parent, it prints whether the

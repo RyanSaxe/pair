@@ -77,6 +77,45 @@ export async function parentSession(target) {
     : null;
 }
 
+// pair message asks the parent's agent to pass a message on to its subagent
+// with followup_task. Codex 0.169 gives a subagent a random nickname, such as
+// Goodall, and an agent path made of the name the parent gave it, such as
+// /root/echo, which the parent's tools show as the subagent's agent ID.
+// subagentTool finds the subagent among the threads the parent spawned, by
+// either name, and names its agent path, or its thread ID when it has none.
+export async function subagentTool({ thread, socket }, name) {
+  const daemon = await openDaemon(socket);
+  const spawned = [];
+  try {
+    let cursor = null;
+    do {
+      const page = await daemon.request("thread/list", {
+        parentThreadId: thread,
+        cursor,
+      });
+      spawned.push(...page.data);
+      cursor = page.nextCursor;
+    } while (cursor);
+  } finally {
+    daemon.close();
+  }
+  const agentPath = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
+  const names = (child) =>
+    [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
+  const subagent = spawned.find((child) =>
+    names(child).some((each) => each.toLowerCase() === name.toLowerCase()),
+  );
+  if (subagent)
+    return `followup_task and target ${agentPath(subagent) ?? subagent.id}`;
+  const known = spawned.map((child) => {
+    const [first, ...others] = names(child);
+    return others.length ? `${first} (${others.join(", ")})` : first;
+  });
+  throw new Error(
+    `The Codex session has no subagent named ${name}. ${known.length > 1 ? `Its subagents are ${known.join(", ")}.` : known.length ? `Its subagent is ${known[0]}.` : "It has no subagents."}`,
+  );
+}
+
 // Codex started with no -c override runs its sessions' threads on the
 // app-server daemon, so each command's nearest codex ancestor is the daemon,
 // which runs as codex app-server, serves every such session and keeps

@@ -7,7 +7,7 @@ import { adapters, detectWake, recognizes } from "../hub/wake.mjs";
 import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { atomic, requireValue } from "../shared/util.mjs";
-import { usageError } from "./arguments.mjs";
+import { listing, usageError } from "./arguments.mjs";
 
 // pair's list of running agent sessions has one file per session in this
 // directory, named for the entry's ID, the CLI and the session ID that the
@@ -186,6 +186,23 @@ export async function registerAgent(
   await fs.mkdir(agentsDir(), { recursive: true, mode: 0o700 });
   await atomic(entryFile(id), entry);
   return { entry, running: [entry, ...others] };
+}
+
+// findAgent returns the entry that NAME|ID names: the entry with that name,
+// the entry with that ID, or the one entry whose ID starts with it. It returns
+// null when none matches, and refuses a start of an ID that more than one
+// entry's ID has.
+export function findAgent(entries, to) {
+  const exact =
+    entries.find((entry) => entry.name === to) ??
+    entries.find((entry) => entry.id === to);
+  if (exact) return exact;
+  const matches = entries.filter((entry) => entry.id.startsWith(to));
+  requireValue(
+    matches.length < 2,
+    `${to} is the start of the IDs of ${matches.length} sessions, ${listing(matches.map((entry) => `${entry.name} (${entry.id})`))}. Give the session's name or more of its ID.`,
+  );
+  return matches[0] ?? null;
 }
 
 // pair prints an entry's ID cut to the shortest start, of at least eight

@@ -4,6 +4,7 @@ import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
+import { message } from "./message.mjs";
 import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
@@ -308,6 +309,33 @@ export const commands = {
       "List each registered agent session whose CLI is still running, with its name, CLI, folder, branch and ID, the most recently registered first. pair agents deletes the entry of every session whose CLI has exited.",
     flags: { json },
     run: agents,
+  },
+  message: {
+    group: "messaging",
+    purpose: "Send a message to a running agent session",
+    about:
+      "Send a message to the running agent session that --to names, through its agent CLI, and print when the session's agent reads it. Run inside an agent CLI, pair message registers this session first, and the message names this session in its first line and ends with the commands that answer and acknowledge it. Outside any agent CLI, the first line says the message is from your user.",
+    usage:
+      "pair message --to NAME|ID|NAME/SUBAGENT (--text TEXT | --file PATH | --ack) [--from LABEL]",
+    flags: {
+      to: {
+        value: "NAME",
+        required: true,
+        text: "The session's name or ID, or a start of its ID, as pair agents prints them. NAME/SUBAGENT sends the message to that subagent of the session.",
+      },
+      text: { value: "TEXT", text: "The message." },
+      file: { value: "PATH", text: "A file whose text is the message." },
+      ack: {
+        text: "Acknowledge the session's message instead of answering it, when you have nothing to say. pair message sends one line, which asks the session's agent not to answer.",
+      },
+      from: {
+        value: "LABEL",
+        text: "Name the sender LABEL, such as a script. The message then has no command to answer it, also inside an agent CLI.",
+      },
+      json,
+    },
+    footer: "Give one of --text, --file and --ack.",
+    run: message,
   },
   guide: {
     group: "pages",
