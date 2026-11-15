@@ -138,13 +138,11 @@ of the CLI among the command's parent processes. It also refuses a subagent
 of Codex, Copilot CLI or opencode, which has a session of its own, and prints
 the `NAME/SUBAGENT` that reaches it through the session that started it.
 pair reads processes with `ps` on macOS and Linux and with PowerShell on
-Windows. When pair cannot run
-them, as in Codex's sandbox, every command that reads the list refuses and
-keeps every entry. With `--hook`, which
-an agent CLI's start hook runs, it reads the session ID from the hook's JSON
-on stdin when the environment has none, `session_id` from Codex and
-`sessionId` from Copilot CLI, prints one line, and exits 0 even when it cannot
-register. Codex 0.169 and Copilot CLI 1.0.105 run their session start hooks
+Windows. When pair cannot run them, as in Codex's sandbox, every command that
+reads the list refuses and keeps every entry. With `--hook`, which an agent
+CLI's start hook runs, it reads the session ID from the hook's JSON on stdin
+when the environment has none, `session_id` from Codex and `sessionId` from
+Copilot CLI, prints one line, and exits 0 even when it cannot register. Codex 0.169 and Copilot CLI 1.0.105 run their session start hooks
 when the session's first turn starts, so a session registers then, not when
 the CLI opens.
 
