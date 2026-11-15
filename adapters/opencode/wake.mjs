@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { send } from "../listener.mjs";
 import { parseTitle } from "./subagents.mjs";
 
+// opencode 2 loads a plugin from a folder, server.js and tui.js in this one,
+// and opencode 1 from a file, plugin.js.
 const plugin = fileURLToPath(new URL("plugin.js", import.meta.url));
+const folder = path.dirname(plugin);
 
 // opencode reads the first of these files in its global config directory,
 // and writes opencode.jsonc there when none exists.
@@ -21,14 +24,15 @@ function globalConfig(env = process.env) {
 
 export const name = "opencode";
 
-// pair's plugin, plugin.js, sets these variables in the environment of each
-// shell command that opencode runs.
+// pair's plugin sets PAIR_OPENCODE_SOCKET in the environment of each shell
+// command that opencode runs. opencode 1's plugin also sets
+// PAIR_OPENCODE_SESSION, and opencode 2 sets OPENCODE_SESSION_ID itself.
 export const command = "opencode";
-export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
+export const variables = ["PAIR_OPENCODE_SOCKET"];
 // The plugin also sets the ID of opencode's process, so that pair finds the
 // process whatever name it runs under, such as nixpkgs' .opencode-wrapped.
 export const pidVariable = "PAIR_OPENCODE_PID";
-export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
+export const unwakeable = `Ask the user to add "${folder}" to "plugin" in ${globalConfig()}, or "${plugin}" on opencode 1, and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket, so
 // the session ID identifies the agent, and a new session's registration
@@ -40,11 +44,11 @@ export const sharesProcess = () => true;
 // from opencode's documentation.
 export const launch = ({ prompt }) => [command, "--prompt", prompt];
 
-export const detect = (env) => ({
-  harness: "opencode",
-  socket: env.PAIR_OPENCODE_SOCKET,
-  session: env.PAIR_OPENCODE_SESSION,
-});
+export function detect(env) {
+  const session = env.PAIR_OPENCODE_SESSION ?? env.OPENCODE_SESSION_ID;
+  if (!session) throw new Error(unwakeable);
+  return { harness: "opencode", socket: env.PAIR_OPENCODE_SOCKET, session };
+}
 
 // A subagent's commands get the subagent's own session ID, so pair asks the
 // plugin for the session's parent, and names the subagent by its task.
@@ -53,6 +57,15 @@ export async function parentSession({ socket, session }) {
   return parentID
     ? { sessionId: parentID, nickname: parseTitle(title).task }
     : null;
+}
+
+// opencode 2 runs pair's plugin in its background server, which keeps running
+// after every opencode window exits, so that plugin also says whether a
+// window has the session open. opencode 1's plugin runs in the window's own
+// process, and says nothing.
+export async function running({ socket, session }) {
+  const { open } = await send(socket, { session, query: "session" });
+  return open ?? true;
 }
 
 // pair message sends a message to a subagent through the plugin, which

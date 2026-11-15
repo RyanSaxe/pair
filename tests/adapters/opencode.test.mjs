@@ -5,6 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { PairWake } from "../../adapters/opencode/plugin.js";
+import serverPlugin from "../../adapters/opencode/server.js";
+import tuiPlugin from "../../adapters/opencode/tui.js";
+import { running } from "../../adapters/opencode/wake.mjs";
+import { windowsDir } from "../../adapters/opencode/windows.mjs";
+import { processTable } from "../../src/shared/processes.mjs";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
 import { inProcessState } from "../support/agents.mjs";
 import { waitUntil } from "../support/hub.mjs";
@@ -159,13 +164,13 @@ test("start in opencode without the plugin names the config file to add it to", 
     return fs.rm(home, { recursive: true, force: true });
   });
   process.env.XDG_CONFIG_HOME = home;
-  const plugin = fileURLToPath(
-    new URL("../../adapters/opencode/plugin.js", import.meta.url),
+  const folder = fileURLToPath(
+    new URL("../../adapters/opencode", import.meta.url),
   );
   const refusal = async (copy) =>
     (await import(`../../adapters/opencode/wake.mjs?${copy}`)).unwakeable;
   const line = (file) =>
-    `Ask the user to add "${plugin}" to "plugin" in ${file} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
+    `Ask the user to add "${folder}" to "plugin" in ${file}, or "${path.join(folder, "plugin.js")}" on opencode 1, and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
   const config = path.join(home, "opencode");
   assert.equal(
     await refusal("none"),
@@ -174,4 +179,197 @@ test("start in opencode without the plugin names the config file to add it to", 
   await fs.mkdir(config);
   await fs.writeFile(path.join(config, "opencode.json"), "{}\n");
   assert.equal(await refusal("json"), line(path.join(config, "opencode.json")));
+});
+
+// opencode 2 calls the default export's setup with a context that has its
+// session, shell and event APIs. standInContext records each prompt and
+// delivers each event that emit() adds. While refusal is set, prompt throws as
+// opencode does.
+function standInContext() {
+  const prompts = [];
+  const queue = [];
+  let next = () => {};
+  const ctx = {
+    refusal: null,
+    children: [],
+    shellHook: null,
+    emit(event) {
+      queue.push(event);
+      next();
+    },
+    session: {
+      async get() {
+        return { title: "Fix the login" };
+      },
+      async prompt(input) {
+        if (ctx.refusal) throw ctx.refusal;
+        prompts.push(input);
+        return {};
+      },
+      async list({ parentID }) {
+        return {
+          data: ctx.children.filter((child) => child.parentID === parentID),
+        };
+      },
+    },
+    shell: {
+      async hook(name, callback) {
+        assert.equal(name, "create.before");
+        ctx.shellHook = callback;
+      },
+    },
+    event: {
+      async *subscribe({ types, signal }) {
+        assert.deepEqual(types, ["session.created"]);
+        while (!signal.aborted) {
+          while (queue.length) yield queue.shift();
+          await new Promise((resolve) => {
+            next = resolve;
+            signal.addEventListener("abort", resolve, { once: true });
+          });
+        }
+      },
+    },
+  };
+  return { ctx, prompts };
+}
+
+// opencode 2 adds OPENCODE_SESSION_ID to a shell command's environment after
+// the plugin's hook runs.
+async function opencode2Target(ctx, session) {
+  const env = {};
+  await ctx.shellHook({ command: "pair start", cwd: "/", env });
+  return detectWake(
+    { ...env, OPENCODE_SESSION_ID: session },
+    { ancestors: () => [{ pid: 2, command: "opencode" }] },
+  );
+}
+
+// tui.js runs in each opencode 2 window, and this process stands in for one.
+const openWindow = (sessions) =>
+  tuiPlugin.setup({
+    ui: {
+      tabs: {
+        enabled: () => true,
+        list: () => sessions.map((sessionID) => ({ sessionID })),
+      },
+      router: { current: () => ({ type: "home" }) },
+    },
+  });
+
+test("an opencode 2 wake prompts the session at once through pair's plugin", async (t) => {
+  const { ctx, prompts } = standInContext();
+  const cleanup = await serverPlugin.setup(ctx);
+  t.after(() => cleanup());
+  const target = await opencode2Target(ctx, "ses_1");
+  assert.deepEqual(identify(target), { harness: "opencode", id: "ses_1" });
+  assert.deepEqual(await wakeRunner(target, "first"), {
+    via: "prompt",
+    steerable: true,
+  });
+  assert.deepEqual(prompts, [{ sessionID: "ses_1", text: "first" }]);
+  ctx.refusal = new Error("Session not found: ses_1");
+  await assert.rejects(wakeRunner(target, "second"), {
+    message: "Session not found: ses_1",
+  });
+  cleanup();
+  await assert.rejects(wakeRunner(target, "third"), {
+    message: `the agent CLI has exited (ENOENT ${target.socket})`,
+  });
+});
+
+// opencode 2's background server keeps running after every window exits, so
+// a session counts as running while a window has it open. pair's plugin
+// registers a session when opencode creates it, before its window lists it.
+test("pair's opencode 2 plugin registers each session but a subagent's, which pair agents lists while a window has it open", async (t) => {
+  const { home, agents } = await inProcessState(t);
+  const { ctx } = standInContext();
+  const cleanup = await serverPlugin.setup(ctx);
+  t.after(() => cleanup());
+  const created = (data) =>
+    ctx.emit({
+      type: "session.created",
+      data: { location: { directory: home }, ...data },
+    });
+  created({ sessionID: "ses_child", parentID: "ses_root" });
+  created({ sessionID: "ses_root" });
+  const entry = path.join(
+    home,
+    "state",
+    "pair",
+    "agents",
+    "opencode-ses_root.json",
+  );
+  assert.ok(
+    await waitUntil(
+      () =>
+        fs.access(entry).then(
+          () => true,
+          () => false,
+        ),
+      30_000,
+    ),
+    "the plugin registered no session",
+  );
+  const closeWindow = openWindow(["ses_root", "ses_child"]);
+  t.after(() => closeWindow());
+  assert.deepEqual(
+    (await agents()).map(({ id, pid }) => ({ id, pid })),
+    [{ id: "opencode:ses_root", pid: process.pid }],
+  );
+  closeWindow();
+  assert.deepEqual(await agents(), []);
+});
+
+test("an opencode 2 session runs only while a window with the start time it recorded has it open", async (t) => {
+  await inProcessState(t);
+  const { ctx } = standInContext();
+  const cleanup = await serverPlugin.setup(ctx);
+  t.after(() => cleanup());
+  const target = await opencode2Target(ctx, "ses_1");
+  const runs = (session) => running({ ...target, session });
+  const closeWindow = openWindow(["ses_1"]);
+  assert.equal(await runs("ses_1"), true);
+  assert.equal(await runs("ses_2"), false);
+  closeWindow();
+  assert.equal(await runs("ses_1"), false);
+  // A window that exits without unloading the plugin leaves its file, and a
+  // new process can get its ID.
+  const file = path.join(windowsDir(), `${process.pid}.json`);
+  const window = (start) =>
+    fs.writeFile(file, JSON.stringify({ start, sessions: ["ses_1"] }));
+  await window("Thu Jan 1 00:00:00 1970");
+  assert.equal(await runs("ses_1"), false);
+  await window(processTable().get(process.pid).start);
+  assert.equal(await runs("ses_1"), true);
+});
+
+// opencode 2's task tool titles a subagent's session with its task.
+test("an opencode 2 message to a subagent prompts the newest session with that task or agent", async (t) => {
+  const { ctx, prompts } = standInContext();
+  const child = (id, title, agent, created) => ({
+    id,
+    parentID: "ses_1",
+    title,
+    agent,
+    time: { created },
+  });
+  ctx.children = [
+    child("ses_a", "Review the diff", "reviewer", 1),
+    child("ses_b", "Review the diff again", "reviewer", 2),
+    child("ses_c", "Find the tests", "explore", 3),
+  ];
+  const cleanup = await serverPlugin.setup(ctx);
+  t.after(() => cleanup());
+  const target = await opencode2Target(ctx, "ses_1");
+  await wakeRunner({ ...target, subagent: "reviewer" }, "first");
+  await wakeRunner({ ...target, subagent: "find the tests" }, "second");
+  assert.deepEqual(prompts, [
+    { sessionID: "ses_b", text: "first" },
+    { sessionID: "ses_c", text: "second" },
+  ]);
+  await assert.rejects(
+    wakeRunner({ ...target, subagent: "planner" }, "third"),
+    /no subagent named planner/,
+  );
 });

@@ -114,10 +114,12 @@ pair keeps one file per session in `$XDG_STATE_HOME/pair/agents/`, which only
 you can read, because Claude Code's entry contains its inbox token. A session
 counts as running while a process with the entry's process ID and start time
 runs, so a process that gets the same ID after a restart does not count. That
-process is the CLI's, with one exception:
+process is the CLI's, with two exceptions:
 
 - A Codex session on Codex's app-server daemon runs while the daemon has its
   thread loaded, which ends about a minute after the session exits.
+- An opencode 2 session runs while an opencode window has it open, because
+  opencode 2's background server keeps running after its windows exit.
 
 Every command that reads the list deletes the entry of each session that is
 not running. It leaves out and keeps an entry it cannot check, such as one
