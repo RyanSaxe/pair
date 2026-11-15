@@ -1,5 +1,7 @@
+import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import net from "node:net";
+import { codexInvocation } from "./invocation.mjs";
 
 // The app-server daemon of Codex 0.160 speaks JSON-RPC over WebSocket on its
 // control socket. A WebSocket client must mask each frame it sends, and the
@@ -48,11 +50,37 @@ function readFrames(bytes) {
   return [frames, bytes];
 }
 
+// Codex's daemon listens on an AF_UNIX socket on Windows too, and Node on
+// Windows opens a path only as a named pipe. On Windows, open() therefore
+// starts codex stdio-to-uds, which relays the socket over its stdin and
+// stdout. open() calls fail when the connection ends.
+function open(socketPath, fail) {
+  const closed = "the daemon closed the socket";
+  if (process.platform !== "win32") {
+    const socket = net.connect(socketPath);
+    socket.on("error", fail);
+    socket.on("close", () => fail(new Error(closed)));
+    return { reader: socket, writer: socket, stop: () => socket.destroy() };
+  }
+  const bridge = spawn(...codexInvocation(["stdio-to-uds", socketPath]));
+  let said = "";
+  bridge.stderr.on("data", (chunk) => (said += chunk));
+  // A write after the bridge exits fails, and close then reports the
+  // bridge's error output.
+  bridge.stdin.on("error", () => {});
+  bridge.on("error", fail);
+  bridge.on("close", () => fail(new Error(said.trim() || closed)));
+  const stop = () => {
+    for (const stream of bridge.stdio) stream.destroy();
+    bridge.kill();
+  };
+  return { reader: bridge.stdout, writer: bridge.stdin, stop };
+}
+
 // The timeout counts from the connect, not from each request. Once it passes,
 // every pending and later request rejects.
 export function connect(socketPath, timeout) {
   return new Promise((resolve, reject) => {
-    const socket = net.connect(socketPath);
     const answers = new Map();
     let ids = 0;
     let bytes = Buffer.alloc(0);
@@ -64,12 +92,11 @@ export function connect(socketPath, timeout) {
       reject(failure);
       for (const waiting of answers.values()) waiting.reject(failure);
       answers.clear();
-      socket.destroy();
+      stop();
     };
+    const { reader, writer, stop } = open(socketPath, fail);
     const timer = setTimeout(() => fail(new Error("timed out")), timeout);
-    socket.on("error", fail);
-    socket.on("close", () => fail(new Error("the daemon closed the socket")));
-    socket.on("data", (chunk) => {
+    reader.on("data", (chunk) => {
       try {
         bytes = Buffer.concat([bytes, chunk]);
         if (!upgraded) {
@@ -100,7 +127,7 @@ export function connect(socketPath, timeout) {
       }
     });
     const key = crypto.randomBytes(16).toString("base64");
-    socket.write(
+    writer.write(
       [
         "GET / HTTP/1.1",
         "Host: localhost",
@@ -118,11 +145,11 @@ export function connect(socketPath, timeout) {
         const id = ++ids;
         return new Promise((resolve, reject) => {
           answers.set(id, { resolve, reject });
-          socket.write(frame({ jsonrpc: "2.0", id, method, params }));
+          writer.write(frame({ jsonrpc: "2.0", id, method, params }));
         });
       },
       notify(method) {
-        socket.write(frame({ jsonrpc: "2.0", method }));
+        writer.write(frame({ jsonrpc: "2.0", method }));
       },
       close: () => fail(new Error("closed")),
     };

@@ -65,13 +65,8 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
 // The hub wakes a Codex session through the app-server daemon of Codex 0.160.
 // When the daemon cannot add the line to a turn in progress, the adapter runs
 // codex queue instead. codexDaemon stands in for the daemon, and codexCommand
-// stands in for codex.
-// On Windows, npm installs Codex as codex.cmd, and the adapter's execFile
-// cannot run a .cmd file without a shell, so a Codex wake does not work there
-// yet.
-const unix = {
-  skip: process.platform === "win32" && "a Codex wake needs codex.cmd support",
-};
+// stands in for codex. On Windows, the adapter reaches the daemon through
+// codex stdio-to-uds, and runs the script that npm's codex.cmd names.
 const thread = "thread-1";
 // This line copies the hub's wake line for a thread, which contains the
 // session's directory and the pair read command that prints the thread. It is
@@ -80,7 +75,7 @@ const thread = "thread-1";
 const line = `pair: a thread on "Overview", session /s, needs an answer. Answer it between your current steps without dropping your work: run pair read --session-dir /s --thread 6f1c2a9e-5b7d-4e3a-9c2f-8a1b3d4e5f60, which prints the thread and how to answer.\n\nThe reviewer's message, which pair read prints too:\nWhat happens to a failed item?`;
 const queued = ["queue", "--thread", thread, "--message", line];
 
-test("a Codex wake steers the turn in progress", unix, async (t) => {
+test("a Codex wake steers the turn in progress", async (t) => {
   const codex = await codexCommand(t);
   const daemon = await codexDaemon(t, turnInProgress(thread, "turn-2"));
   const result = await wakeRunner(
@@ -97,7 +92,7 @@ test("a Codex wake steers the turn in progress", unix, async (t) => {
   assert.deepEqual(await codex.runs(), []);
 });
 
-test("a Codex wake falls back to codex queue", unix, async (t) => {
+test("a Codex wake falls back to codex queue", async (t) => {
   const codex = await codexCommand(t);
   const missing = path.join(codex.directory, "none.sock");
   const status = (type) => ({
@@ -123,7 +118,17 @@ test("a Codex wake falls back to codex queue", unix, async (t) => {
     assert.deepEqual((await codex.runs()).at(-1), queued, name);
   }
   assert.equal((await codex.runs()).length, cases.length);
+  // pnpm's codex.cmd names the script with %~dp0 where npm's has %dp0%.
+  await codex.shim("pnpm");
+  await wakeRunner({ harness: "codex", thread, socket: missing }, line);
+  assert.deepEqual(await codex.runs(), [...cases.map(() => queued), queued]);
   // The hub records the error's message as the reason the wake failed.
+  // Every supported system refuses a command line with an argument of 1 MiB.
+  const long = "x".repeat(2 ** 20);
+  await assert.rejects(
+    wakeRunner({ harness: "codex", thread, socket: missing }, long),
+    new RegExp(`with a message of ${long.length} characters`),
+  );
   process.env.PAIR_TEST_FAIL = "1";
   await assert.rejects(
     wakeRunner({ harness: "codex", thread, socket: missing }, line),
@@ -161,208 +166,182 @@ function idleQueue({ interrupted, start }) {
   };
 }
 
-test(
-  "a Codex wake starts a turn with the line it queues on an idle thread",
-  unix,
-  async (t) => {
-    const codex = await codexCommand(t);
-    const draining = {
-      error: { code: -32600, message: "server is draining" },
-    };
-    const cases = [
-      ["after an interrupted turn", { interrupted: true }],
-      ["Codex starts the line itself", { interrupted: false }],
-    ];
-    for (const [name, options] of cases) {
-      const daemon = await codexDaemon(t, idleQueue(options));
-      const result = await wakeRunner(
-        { harness: "codex", thread, socket: daemon.socket },
-        line,
-      );
-      assert.deepEqual(result, { via: "queue", steerable: true }, name);
-      const add = daemon.received.find(
-        ({ method }) => method === "thread/queue/add",
-      );
-      assert.deepEqual(add.params.input, [{ type: "text", text: line }], name);
-      const start = daemon.received.find(
-        ({ method }) => method === "thread/queue/start",
-      );
-      assert.deepEqual(
-        start.params,
-        { threadId: thread, queuedSubmissionId: "queued-1" },
-        name,
-      );
-    }
-    assert.deepEqual(await codex.runs(), []);
-    // The hub records the error's message as the reason the wake failed.
-    const waiting = await codexDaemon(
-      t,
-      idleQueue({ interrupted: true, start: draining }),
+test("a Codex wake starts a turn with the line it queues on an idle thread", async (t) => {
+  const codex = await codexCommand(t);
+  const draining = {
+    error: { code: -32600, message: "server is draining" },
+  };
+  const cases = [
+    ["after an interrupted turn", { interrupted: true }],
+    ["Codex starts the line itself", { interrupted: false }],
+  ];
+  for (const [name, options] of cases) {
+    const daemon = await codexDaemon(t, idleQueue(options));
+    const result = await wakeRunner(
+      { harness: "codex", thread, socket: daemon.socket },
+      line,
     );
-    await assert.rejects(
-      wakeRunner({ harness: "codex", thread, socket: waiting.socket }, line),
-      /started no turn with it: server is draining$/,
+    assert.deepEqual(result, { via: "queue", steerable: true }, name);
+    const add = daemon.received.find(
+      ({ method }) => method === "thread/queue/add",
     );
-    assert.deepEqual(await codex.runs(), []);
-  },
-);
+    assert.deepEqual(add.params.input, [{ type: "text", text: line }], name);
+    const start = daemon.received.find(
+      ({ method }) => method === "thread/queue/start",
+    );
+    assert.deepEqual(
+      start.params,
+      { threadId: thread, queuedSubmissionId: "queued-1" },
+      name,
+    );
+  }
+  assert.deepEqual(await codex.runs(), []);
+  // The hub records the error's message as the reason the wake failed.
+  const waiting = await codexDaemon(
+    t,
+    idleQueue({ interrupted: true, start: draining }),
+  );
+  await assert.rejects(
+    wakeRunner({ harness: "codex", thread, socket: waiting.socket }, line),
+    /started no turn with it: server is draining$/,
+  );
+  assert.deepEqual(await codex.runs(), []);
+});
 
 // Codex refuses input from another process to a spawned subagent that its
 // daemon has not loaded. The adapter therefore sends the hub's line to the
 // parent thread with the subagent's ID, and the parent agent passes it on.
-test(
-  "a Codex wake for a spawned subagent goes to its parent thread",
-  unix,
-  async (t) => {
-    const codex = await codexCommand(t);
-    const parent = "thread-parent";
-    // Codex 0.160 answers thread/read with this for a subagent that an
-    // in-process parent spawned.
-    const subagent = {
-      id: thread,
-      parentThreadId: parent,
-      source: {
-        subAgent: {
-          thread_spawn: {
-            parent_thread_id: parent,
-            depth: 1,
-            agent_path: null,
-            agent_nickname: "Dalton",
-            agent_role: null,
-          },
+test("a Codex wake for a spawned subagent goes to its parent thread", async (t) => {
+  const codex = await codexCommand(t);
+  const parent = "thread-parent";
+  // Codex 0.160 answers thread/read with this for a subagent that an
+  // in-process parent spawned.
+  const subagent = {
+    id: thread,
+    parentThreadId: parent,
+    source: {
+      subAgent: {
+        thread_spawn: {
+          parent_thread_id: parent,
+          depth: 1,
+          agent_path: null,
+          agent_nickname: "Dalton",
+          agent_role: null,
         },
       },
-      agentNickname: "Dalton",
-      status: { type: "notLoaded" },
-    };
-    const daemon = (parentAnswers) =>
-      codexDaemon(t, {
-        ...parentAnswers,
-        "thread/read": ({ threadId }) =>
-          threadId === thread
-            ? { thread: subagent }
-            : parentAnswers["thread/read"],
-      });
-    const relayed = (text) => {
-      assert(text.endsWith(`\n\n${line}`), text);
-      for (const part of ["Dalton", `target ${thread}`, "followup_task"])
-        assert(text.includes(part), text);
-    };
-
-    const steered = await daemon(turnInProgress(parent, "turn-7"));
-    const result = await wakeRunner(
-      { harness: "codex", thread, socket: steered.socket },
-      line,
-    );
-    assert.deepEqual(result, { via: "parent", steerable: false });
-    const steer = steered.received.find(
-      ({ method }) => method === "turn/steer",
-    );
-    assert.equal(steer.params.threadId, parent);
-    assert.equal(steer.params.expectedTurnId, "turn-7");
-    relayed(steer.params.input[0].text);
-    assert.deepEqual(await codex.runs(), []);
-
-    const idle = await daemon({
-      "thread/read": { thread: { id: parent, status: { type: "notLoaded" } } },
+    },
+    agentNickname: "Dalton",
+    status: { type: "notLoaded" },
+  };
+  const daemon = (parentAnswers) =>
+    codexDaemon(t, {
+      ...parentAnswers,
+      "thread/read": ({ threadId }) =>
+        threadId === thread
+          ? { thread: subagent }
+          : parentAnswers["thread/read"],
     });
-    assert.deepEqual(
-      await wakeRunner({ harness: "codex", thread, socket: idle.socket }, line),
-      { via: "parent", steerable: false },
-    );
-    const [args] = await codex.runs();
-    assert.deepEqual(args.slice(0, 4), [
-      "queue",
-      "--thread",
-      parent,
-      "--message",
-    ]);
-    relayed(args[4]);
-  },
-);
+  const relayed = (text) => {
+    assert(text.endsWith(`\n\n${line}`), text);
+    for (const part of ["Dalton", `target ${thread}`, "followup_task"])
+      assert(text.includes(part), text);
+  };
 
-// Codex's daemon listens on an AF_UNIX socket on Windows too, through the
-// uds_windows crate in openai/codex's codex-rs/uds, and Node on Windows opens a
-// local path only as a named pipe, so pair cannot reach the daemon there.
-const daemonOnWindows =
-  "Node on Windows cannot connect to the AF_UNIX socket of Codex's daemon";
+  const steered = await daemon(turnInProgress(parent, "turn-7"));
+  const result = await wakeRunner(
+    { harness: "codex", thread, socket: steered.socket },
+    line,
+  );
+  assert.deepEqual(result, { via: "parent", steerable: false });
+  const steer = steered.received.find(({ method }) => method === "turn/steer");
+  assert.equal(steer.params.threadId, parent);
+  assert.equal(steer.params.expectedTurnId, "turn-7");
+  relayed(steer.params.input[0].text);
+  assert.deepEqual(await codex.runs(), []);
+
+  const idle = await daemon({
+    "thread/read": { thread: { id: parent, status: { type: "notLoaded" } } },
+  });
+  assert.deepEqual(
+    await wakeRunner({ harness: "codex", thread, socket: idle.socket }, line),
+    { via: "parent", steerable: false },
+  );
+  const [args] = await codex.runs();
+  assert.deepEqual(args.slice(0, 4), [
+    "queue",
+    "--thread",
+    parent,
+    "--message",
+  ]);
+  relayed(args[4]);
+});
 
 // Codex started with no -c override runs every session's thread, and each
 // command, on its app-server daemon, which keeps running after a session exits
 // and unloads the session's thread about a minute later. A Codex started with
 // a -c override runs its session in its own process. A subagent has a thread
 // of its own, which its parent spawned.
-test(
-  "a Codex session on the daemon runs while the daemon has its thread loaded, and a subagent's thread names its parent",
-  {
-    skip: process.platform === "win32" && daemonOnWindows,
-  },
-  async (t) => {
-    let status = "idle";
-    const spawn = { parent_thread_id: thread, agent_nickname: "Goodall" };
-    const daemon = await codexDaemon(t, {
-      "thread/read": ({ threadId }) => ({
-        thread: {
-          id: threadId,
-          status: { type: status },
-          source:
-            threadId === thread ? "cli" : { subAgent: { thread_spawn: spawn } },
-        },
-      }),
-    });
-    const target = (id) => ({
-      harness: "codex",
-      thread: id,
-      socket: daemon.socket,
-    });
-    assert.equal(await codex.parentSession(target(thread)), null);
-    assert.deepEqual(await codex.parentSession(target("thread-2")), {
-      sessionId: thread,
-      nickname: "Goodall",
-    });
-    const onDaemon = {
-      pid: 7,
-      args: "/u/.codex/packages/app-server-daemon/releases/0.169.0/bin/codex app-server --listen unix://",
-    };
-    const ownProcess = { pid: 8, args: "codex -c model=o4 --yolo" };
-    assert.equal(codex.sharesProcess(onDaemon), true);
-    assert.equal(codex.sharesProcess(ownProcess), false);
-    assert.equal(await codex.running(target(thread), onDaemon), true);
-    status = "notLoaded";
-    assert.equal(await codex.running(target(thread), onDaemon), false);
-    assert.equal(await codex.running(target(thread), ownProcess), true);
-  },
-);
+test("a Codex session on the daemon runs while the daemon has its thread loaded, and a subagent's thread names its parent", async (t) => {
+  await codexCommand(t);
+  let status = "idle";
+  const spawn = { parent_thread_id: thread, agent_nickname: "Goodall" };
+  const daemon = await codexDaemon(t, {
+    "thread/read": ({ threadId }) => ({
+      thread: {
+        id: threadId,
+        status: { type: status },
+        source:
+          threadId === thread ? "cli" : { subAgent: { thread_spawn: spawn } },
+      },
+    }),
+  });
+  const target = (id) => ({
+    harness: "codex",
+    thread: id,
+    socket: daemon.socket,
+  });
+  assert.equal(await codex.parentSession(target(thread)), null);
+  assert.deepEqual(await codex.parentSession(target("thread-2")), {
+    sessionId: thread,
+    nickname: "Goodall",
+  });
+  const onDaemon = {
+    pid: 7,
+    args: "/u/.codex/packages/app-server-daemon/releases/0.169.0/bin/codex app-server --listen unix://",
+  };
+  const ownProcess = { pid: 8, args: "codex -c model=o4 --yolo" };
+  assert.equal(codex.sharesProcess(onDaemon), true);
+  assert.equal(codex.sharesProcess(ownProcess), false);
+  assert.equal(await codex.running(target(thread), onDaemon), true);
+  status = "notLoaded";
+  assert.equal(await codex.running(target(thread), onDaemon), false);
+  assert.equal(await codex.running(target(thread), ownProcess), true);
+});
 
 // Codex 0.169 gives a subagent a random nickname, and its parent knows it by
 // the agent path made from the name the parent gave it.
-test(
-  "pair message finds a Codex subagent by its nickname or its name, and names its agent path",
-  {
-    skip: process.platform === "win32" && daemonOnWindows,
-  },
-  async (t) => {
-    const subagent = {
-      id: "thread-2",
-      agentNickname: "Goodall",
-      source: {
-        subAgent: {
-          thread_spawn: { parent_thread_id: thread, agent_path: "/root/echo" },
-        },
+test("pair message finds a Codex subagent by its nickname or its name, and names its agent path", async (t) => {
+  await codexCommand(t);
+  const subagent = {
+    id: "thread-2",
+    agentNickname: "Goodall",
+    source: {
+      subAgent: {
+        thread_spawn: { parent_thread_id: thread, agent_path: "/root/echo" },
       },
-    };
-    const daemon = await codexDaemon(t, {
-      "thread/list": ({ parentThreadId }) => ({
-        data: parentThreadId === thread ? [subagent] : [],
-        nextCursor: null,
-      }),
-    });
-    const target = { harness: "codex", thread, socket: daemon.socket };
-    for (const name of ["echo", "goodall"])
-      assert.equal(
-        await codex.subagentTool(target, name),
-        "followup_task and target /root/echo",
-      );
-    await assert.rejects(codex.subagentTool(target, "reviewer"), /echo/);
-  },
-);
+    },
+  };
+  const daemon = await codexDaemon(t, {
+    "thread/list": ({ parentThreadId }) => ({
+      data: parentThreadId === thread ? [subagent] : [],
+      nextCursor: null,
+    }),
+  });
+  const target = { harness: "codex", thread, socket: daemon.socket };
+  for (const name of ["echo", "goodall"])
+    assert.equal(
+      await codex.subagentTool(target, name),
+      "followup_task and target /root/echo",
+    );
+  await assert.rejects(codex.subagentTool(target, "reviewer"), /echo/);
+});
