@@ -135,11 +135,47 @@ export async function codexDaemon(t, answers) {
   return { socket, received };
 }
 
+// npm's cmd-shim and pnpm's @zkochan/cmd-shim write these codex.cmd files for
+// the script at node_modules/@openai/codex/bin/codex.js.
+const shims = {
+  npm: [
+    "@ECHO off",
+    "GOTO start",
+    ":find_dp0",
+    "SET dp0=%~dp0",
+    "EXIT /b",
+    ":start",
+    "SETLOCAL",
+    "CALL :find_dp0",
+    "",
+    'IF EXIST "%dp0%\\node.exe" (',
+    '  SET "_prog=%dp0%\\node.exe"',
+    ") ELSE (",
+    '  SET "_prog=node"',
+    "  SET PATHEXT=%PATHEXT:;.JS;=;%",
+    ")",
+    "",
+    'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\@openai\\codex\\bin\\codex.js" %*',
+    "",
+  ],
+  pnpm: [
+    "@SETLOCAL",
+    '@IF EXIST "%~dp0\\node.exe" (',
+    '  "%~dp0\\node.exe"  "%~dp0\\node_modules\\@openai\\codex\\bin\\codex.js" %*',
+    ") ELSE (",
+    "  @SET PATHEXT=%PATHEXT:;.JS;=;%",
+    '  node  "%~dp0\\node_modules\\@openai\\codex\\bin\\codex.js" %*',
+    ")",
+    "",
+  ],
+};
+
 // codexCommand puts a stand-in codex first on PATH, as a script for Unix and as
-// the codex.cmd that npm writes on Windows, which runs the same script. The
-// stand-in relays codex stdio-to-uds SOCKET to the socket, as Codex does, and
-// logs the arguments of every other run. With PAIR_TEST_FAIL set, the stand-in
-// exits 1, as codex does when it cannot queue the message.
+// the codex.cmd that npm writes on Windows, which runs the same script.
+// shim("pnpm") rewrites codex.cmd in pnpm's format. The stand-in relays codex
+// stdio-to-uds SOCKET to the socket, as Codex does, and logs the arguments of
+// every other run. With PAIR_TEST_FAIL set, the stand-in exits 1, as codex
+// does when it cannot queue the message.
 export async function codexCommand(t) {
   const bin = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
   const log = path.join(bin, "runs.jsonl");
@@ -164,28 +200,9 @@ if (args[0] === "stdio-to-uds") {
   await fs.mkdir(npmScript, { recursive: true });
   await fs.writeFile(path.join(npmScript, "codex.js"), script);
   await fs.writeFile(path.join(bin, "codex"), script, { mode: 0o755 });
-  // npm's cmd-shim writes this codex.cmd for the script.
-  const shim = [
-    "@ECHO off",
-    "GOTO start",
-    ":find_dp0",
-    "SET dp0=%~dp0",
-    "EXIT /b",
-    ":start",
-    "SETLOCAL",
-    "CALL :find_dp0",
-    "",
-    'IF EXIST "%dp0%\\node.exe" (',
-    '  SET "_prog=%dp0%\\node.exe"',
-    ") ELSE (",
-    '  SET "_prog=node"',
-    "  SET PATHEXT=%PATHEXT:;.JS;=;%",
-    ")",
-    "",
-    'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\@openai\\codex\\bin\\codex.js" %*',
-    "",
-  ];
-  await fs.writeFile(path.join(bin, "codex.cmd"), shim.join("\r\n"));
+  const shim = (format) =>
+    fs.writeFile(path.join(bin, "codex.cmd"), shims[format].join("\r\n"));
+  await shim("npm");
   const searched = process.env.PATH;
   process.env.PATH = bin + path.delimiter + searched;
   t.after(() => {
@@ -195,6 +212,7 @@ if (args[0] === "stdio-to-uds") {
   });
   return {
     directory: bin,
+    shim,
     runs: () =>
       fs.readFile(log, "utf8").then(
         (text) => text.trim().split("\n").map(JSON.parse),

@@ -117,6 +117,10 @@ test("a Codex wake falls back to codex queue", async (t) => {
     assert.deepEqual((await codex.runs()).at(-1), queued, name);
   }
   assert.equal((await codex.runs()).length, cases.length);
+  // pnpm's codex.cmd names the script with %~dp0 where npm's has %dp0%.
+  await codex.shim("pnpm");
+  await wakeRunner({ harness: "codex", thread, socket: missing }, line);
+  assert.deepEqual(await codex.runs(), [...cases.map(() => queued), queued]);
   // The hub records the error's message as the reason the wake failed.
   // Every supported system refuses a command line with an argument of 1 MiB.
   const long = "x".repeat(2 ** 20);
