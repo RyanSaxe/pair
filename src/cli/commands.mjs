@@ -1,3 +1,4 @@
+import { agents, register } from "./agents.mjs";
 import { main as build } from "./build.mjs";
 import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
@@ -282,6 +283,31 @@ export const commands = {
     },
     footer: "A new proposal needs --title, --delivers and --recommend.",
     run: propose,
+  },
+  register: {
+    group: "messaging",
+    purpose: "Add this agent session to the list that pair agents prints",
+    about:
+      "Add this agent session to pair's list of running agent sessions, or update its entry, and print its name and ID. The name is the folder's name, a hyphen and two hex characters from a hash of the session's ID, unless --name sets another, and the session keeps it each time it registers again.",
+    flags: {
+      name: {
+        value: "NAME",
+        text: "Name the session NAME, in up to 64 letters, digits and hyphens. pair register refuses a name that another running session has.",
+      },
+      hook: {
+        text: "Run as an agent CLI's start hook: read the session ID from the hook's JSON on stdin when the environment has none, and exit 0 even when pair register fails.",
+      },
+      json,
+    },
+    run: register,
+  },
+  agents: {
+    group: "messaging",
+    purpose: "List the registered agent sessions that are running",
+    about:
+      "List each registered agent session whose CLI is still running, with its name, CLI, folder, branch and ID, the most recently registered first. pair agents deletes the entry of every session whose CLI has exited.",
+    flags: { json },
+    run: agents,
   },
   guide: {
     group: "pages",

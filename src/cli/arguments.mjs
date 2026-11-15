@@ -120,6 +120,7 @@ export function helpText({ name, entry }) {
 
 const groups = {
   session: "Session commands, each taking --session-dir DIR:",
+  messaging: "Messaging:",
   pages: "Pages:",
   setup: "Setup:",
 };

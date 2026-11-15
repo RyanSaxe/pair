@@ -211,7 +211,11 @@ const claude = {
 };
 
 test("the nearest harness ancestor decides the wake target", () => {
-  const env = { ...claude, CODEX_THREAD_ID: "outer" };
+  const env = {
+    ...claude,
+    CLAUDE_CODE_SESSION_ID: "cc-session",
+    CODEX_THREAD_ID: "outer",
+  };
   assert.deepEqual(
     detectWake(
       env,
@@ -225,6 +229,7 @@ test("the nearest harness ancestor decides the wake target", () => {
       harness: "claude-code",
       socket: claude.CLAUDE_CODE_MESSAGING_SOCKET,
       token: "tok",
+      session: "cc-session",
     },
   );
   // Codex records its daemon's socket under CODEX_HOME.
@@ -253,6 +258,16 @@ test("the nearest harness ancestor decides the wake target", () => {
   // targets of pi and opencode with the variables their extensions set.
 });
 
+// tests/cli/agents.test.mjs runs pair register --hook with Codex's stdin.
+test("a Copilot start hook's input gives the session ID", () => {
+  assert.equal(
+    detectWake({}, tools([{ pid: 3, command: "copilot" }]), {
+      sessionId: "copilot-session",
+    }).sessionId,
+    "copilot-session",
+  );
+});
+
 const extension = fileURLToPath(
   new URL("../../adapters/pi/extension.js", import.meta.url),
 );
@@ -265,7 +280,7 @@ test("start refuses without a wake path and says what to do", () => {
   // detectWake refuses a pi session without pair's extension, whether it finds
   // pi among the ancestors or, with no agent CLI among them, by PAIR_PI_SOCKET.
   const pi = {
-    message: `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`,
+    message: `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run this pair command again. This pi session runs without pair's extension, so the hub cannot wake it.`,
   };
   assert.throws(() => detectWake({}, tools([{ pid: 3, command: "pi" }])), pi);
   assert.throws(
@@ -288,7 +303,7 @@ test("start refuses without a wake path and says what to do", () => {
         { COPILOT_AGENT_SESSION_ID: "s" },
         tools([{ pid: 3, command: "copilot" }], null),
       ),
-    /copilot --ui-server --resume s`, then run `pair start` again/,
+    /copilot --ui-server --resume s`, then run this pair command again/,
   );
   assert.throws(
     () =>

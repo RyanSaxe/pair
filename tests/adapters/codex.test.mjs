@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { withSandboxHint } from "../../adapters/codex/rules.mjs";
+import * as codex from "../../adapters/codex/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 import {
   codexCommand,
@@ -277,5 +278,38 @@ test(
       "--message",
     ]);
     relayed(args[4]);
+  },
+);
+
+// Codex started with no -c override runs every session's thread, and each
+// command, on its app-server daemon, which keeps running after a session exits
+// and unloads the session's thread about a minute later. A Codex started with
+// a -c override runs its session in its own process.
+test(
+  "a Codex session on the daemon runs while the daemon has its thread loaded",
+  {
+    skip:
+      process.platform === "win32" &&
+      "codexDaemon listens on a Unix socket path, which Node on Windows cannot",
+  },
+  async (t) => {
+    let status = "idle";
+    const daemon = await codexDaemon(t, {
+      "thread/read": ({ threadId }) => ({
+        thread: { id: threadId, status: { type: status }, source: "cli" },
+      }),
+    });
+    const target = { harness: "codex", thread, socket: daemon.socket };
+    const onDaemon = {
+      pid: 7,
+      args: "/u/.codex/packages/app-server-daemon/releases/0.169.0/bin/codex app-server --listen unix://",
+    };
+    const ownProcess = { pid: 8, args: "codex -c model=o4 --yolo" };
+    assert.equal(codex.sharesProcess(onDaemon), true);
+    assert.equal(codex.sharesProcess(ownProcess), false);
+    assert.equal(await codex.running(target, onDaemon), true);
+    status = "notLoaded";
+    assert.equal(await codex.running(target, onDaemon), false);
+    assert.equal(await codex.running(target, ownProcess), true);
   },
 );

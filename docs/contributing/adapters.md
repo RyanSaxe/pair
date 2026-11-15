@@ -38,18 +38,40 @@ It also exports these functions:
   `name` where the CLI takes a name. The hub passes it to the user's launch
   script, as `src/shared/launch.mjs` describes.
 
+An adapter exports these too when its CLI needs them, for the list of
+running sessions that `src/cli/agents.mjs` keeps:
+
+| Export                        | Value                                                                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sessionId(target)`           | The ID that the CLI keeps when the session resumes, when `identity` is something else, as for Claude Code, whose `identity` is the inbox socket. |
+| `hookVariables(input)`        | The variables that the JSON on a start hook's stdin gives, when the CLI leaves them out of the hook's environment, as Codex and Copilot CLI do.  |
+| `pidVariable`                 | The variable in which pair's code inside the CLI sets the CLI's process ID, for a CLI whose process has another name, such as `node`.            |
+| `recognizes(ancestor)`        | `true` for an ancestor process that runs the CLI under another name, as Copilot CLI's `node` with its `index.js` in nixpkgs.                     |
+| `parentSession(target)`       | The `{ sessionId, nickname }` of the session that started a subagent, or `null` for a session that is not a subagent.                            |
+| `sharesProcess(cliProcess)`   | `true` when the CLI's process serves several sessions, as Codex's daemon and opencode's process do, so a new session leaves the others listed.   |
+| `running(target, cliProcess)` | Whether the session runs, for a process that outlives its sessions, such as Codex's daemon. `pair agents` asks it once the process check passes. |
+
 ## How the hub chooses an adapter
 
-`src/hub/wake.mjs` lists the adapters and chooses one for `pair start`:
+`src/hub/wake.mjs` lists the adapters, and `detectAgent` chooses one for
+`pair start` and `pair register`:
 
 1. It compares each ancestor process of the `pair` command, nearest first,
-   with every adapter's `command`. That way it chooses the agent CLI that
-   ran the command over an outer CLI whose variables the inner one
-   inherited.
-2. When no ancestor runs an adapter's `command`, it chooses the first
-   adapter whose first variable is set.
+   with every adapter's `command`, `pidVariable` and `recognizes`. That way
+   it chooses the agent CLI that ran the command over an outer CLI whose
+   variables the inner one inherited.
+2. When no ancestor matches, it chooses the first adapter whose first
+   variable is set.
 3. It then calls that adapter's `detect`, or refuses with the adapter's
    `unwakeable` message when one of its `variables` is unset.
+
+When neither step chooses an adapter, `detectAgent` returns `null`, and
+`detectWake` refuses. Every session command runs `detectWake`, which reads
+the processes with `ps` alone, so on Windows it chooses the adapter in step 2.
+`pair register` reads them with PowerShell on Windows, through
+`src/shared/processes.mjs`, and lists the session under the CLI's process:
+the ancestor in `pidVariable`, or else the nearest one that matches the
+adapter.
 
 ## When the CLI reads the line
 

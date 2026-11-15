@@ -1,8 +1,10 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
+import { commandLine } from "../../src/shared/processes.mjs";
 
 const here = fileURLToPath(import.meta.url);
 
@@ -10,6 +12,11 @@ export const name = "Copilot CLI";
 
 // The port changes when Copilot restarts, and the session ID does not.
 export const identity = (target) => target.sessionId;
+
+// Copilot gives a sessionStart hook the session ID as sessionId on stdin.
+export const hookVariables = (input) => ({
+  COPILOT_AGENT_SESSION_ID: input.sessionId,
+});
 
 function listeningPort(pid) {
   try {
@@ -24,23 +31,46 @@ function listeningPort(pid) {
     return null;
   }
 }
-function copilotSdk(env) {
+// Copilot runs as its own executable, except where a package manager, such as
+// nixpkgs or npm on Windows, runs Copilot's index.js with node. Copilot's SDK
+// is in the folder of that index.js, so copilotFolder returns the folder, or
+// null for a node process that runs something else. Node 24 on Linux names its
+// main thread MainThread, which ps prints as the process's command.
+function copilotFolder(ancestor) {
+  if (!["node", "MainThread"].includes(ancestor?.command)) return null;
+  const words = [...(commandLine(ancestor) ?? "").matchAll(/"([^"]+)"|(\S+)/g)];
+  const script = words
+    .map(([, quoted, bare]) => quoted ?? bare)
+    .find(
+      (word) =>
+        path.basename(word) === "index.js" &&
+        existsSync(path.join(path.dirname(word), "copilot-sdk", "index.js")),
+    );
+  return script ? path.dirname(script) : null;
+}
+export const recognizes = (ancestor) => copilotFolder(ancestor) !== null;
+
+function copilotSdk(env, ancestor) {
+  const folder = copilotFolder(ancestor);
   const roots = [
     env.COPILOT_PKG_CACHE_HOME,
     path.join(os.homedir(), "Library", "Caches", "copilot"),
     env.XDG_CACHE_HOME && path.join(env.XDG_CACHE_HOME, "copilot"),
     path.join(os.homedir(), ".cache", "copilot"),
   ].filter(Boolean);
-  const tried = roots.map((root) =>
-    path.join(
-      root,
-      "pkg",
-      `${process.platform}-${process.arch}`,
-      env.COPILOT_CLI_BINARY_VERSION || "",
-      "copilot-sdk",
-      "index.js",
+  const tried = [
+    ...(folder ? [path.join(folder, "copilot-sdk", "index.js")] : []),
+    ...roots.map((root) =>
+      path.join(
+        root,
+        "pkg",
+        `${process.platform}-${process.arch}`,
+        env.COPILOT_CLI_BINARY_VERSION || "",
+        "copilot-sdk",
+        "index.js",
+      ),
     ),
-  );
+  ];
   return {
     sdk: tried.find((candidate) => existsSync(candidate)) || null,
     tried,
@@ -69,9 +99,9 @@ export function detect(
   const port = ancestor ? portOf(ancestor.pid) : null;
   if (!port)
     throw new Error(
-      `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run \`pair start\` again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
+      `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run this pair command again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
-  const { sdk, tried } = findSdk(env);
+  const { sdk, tried } = findSdk(env, ancestor);
   if (!sdk)
     throw new Error(
       `Tell the user that the Copilot SDK was not found at ${tried.join(", ")}, so the hub cannot wake this session, and stop.`,
@@ -104,9 +134,27 @@ export async function wake(target, line, run) {
   }
 }
 
+// Copilot gives a subagent's commands the subagent's own session ID, which
+// Copilot's server has no session for, so the subagent would register as a
+// session of its own and replace its parent's entry. parentSession gives such
+// a session the server's foreground session as its parent. Copilot names no
+// subagent by that ID, so the parent comes without a nickname.
+export async function parentSession({ sdk, port, sessionId }) {
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [here, sdk, String(port), sessionId, "parent"],
+    { timeout: 30_000 },
+  );
+  const { known, foreground } = JSON.parse(stdout);
+  return !known && foreground && foreground !== sessionId
+    ? { sessionId: foreground }
+    : null;
+}
+
 // This block runs only in the child process. It connects to the TUI's embedded
 // server through the SDK shipped inside the CLI, resumes the session, and sends
-// one prompt in the given mode.
+// one prompt in the given mode. With the mode parent, it prints whether the
+// server has the session, and the server's foreground session, instead.
 if (process.argv[1] === here) {
   const [sdk, port, sessionId, mode, line] = process.argv.slice(2);
   const { CopilotClient, approveAll } = await import(pathToFileURL(sdk).href);
@@ -116,10 +164,16 @@ if (process.argv[1] === here) {
   });
   await client.start();
   try {
-    const session = await client.resumeSession(sessionId, {
-      onPermissionRequest: approveAll,
-    });
-    await session.send({ prompt: line, mode });
+    if (mode === "parent") {
+      const known = Boolean(await client.getSessionMetadata(sessionId));
+      const foreground = await client.getForegroundSessionId();
+      process.stdout.write(JSON.stringify({ known, foreground }));
+    } else {
+      const session = await client.resumeSession(sessionId, {
+        onPermissionRequest: approveAll,
+      });
+      await session.send({ prompt: line, mode });
+    }
   } finally {
     await client.stop();
   }

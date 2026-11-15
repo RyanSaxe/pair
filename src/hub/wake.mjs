@@ -20,10 +20,8 @@ export const identify = (target) => ({
   harness: target.harness,
   id: adapters[target.harness].identity(target),
 });
-// detectWake uses the nearest ancestor process that an adapter recognizes,
-// because an agent CLI started inside another one inherits the outer CLI's
-// variables. Every session command runs detectWake, so it reads the processes
-// with ps alone, and finds no ancestors on Windows or where ps cannot run.
+// Every session command runs detectWake, so it reads the processes with ps
+// alone, and finds no ancestors on Windows or where ps cannot run.
 function sessionAncestors() {
   if (process.platform === "win32") return [];
   try {
@@ -32,27 +30,54 @@ function sessionAncestors() {
     return [];
   }
 }
-// The hub can wake an agent CLI's session only when every one of the
-// adapter's variables is set, so detectWake throws adapter.unwakeable when
-// one is missing.
-export function detectWake(
+// An adapter recognizes an ancestor process that runs its command, that its
+// own recognizes accepts, as Copilot's accepts node running Copilot's script,
+// or whose ID is in the adapter's pidVariable, which pi's extension and
+// opencode's plugin set to the ID of the process they run in.
+export const recognizes = (adapter, ancestor, env = process.env) =>
+  ancestor.command === adapter.command ||
+  (adapter.pidVariable !== undefined &&
+    ancestor.pid === Number(env[adapter.pidVariable])) ||
+  Boolean(adapter.recognizes?.(ancestor));
+// detectAgent uses the nearest ancestor process that an adapter recognizes,
+// because an agent CLI started inside another one inherits the outer CLI's
+// variables. The hub can wake an agent CLI's session only when every one of
+// the adapter's variables is set, so detectAgent throws adapter.unwakeable
+// when one is missing. hookInput is the JSON that a CLI's start hook reads on
+// stdin, which fills in a variable the CLI leaves out of the hook's
+// environment.
+//
+// detectAgent returns the wake target, or null in a plain terminal, where no
+// ancestor process is an agent CLI and none of the adapters' variables is set.
+// detectWake throws there.
+export function detectAgent(
   env = process.env,
   tools = { ancestors: sessionAncestors },
+  hookInput = null,
 ) {
   for (const ancestor of [...tools.ancestors(), null])
     for (const adapter of Object.values(adapters)) {
       const claimed = ancestor
-        ? ancestor.command === adapter.command
+        ? recognizes(adapter, ancestor, env)
         : Boolean(env[adapter.variables[0]]);
       if (!claimed) continue;
-      if (!adapter.variables.every((name) => env[name]))
+      const seen = {
+        ...(hookInput && adapter.hookVariables?.(hookInput)),
+        ...env,
+      };
+      if (!adapter.variables.every((name) => seen[name]))
         throw new Error(adapter.unwakeable);
-      return adapter.detect(env, { ...tools, ancestor });
+      return adapter.detect(seen, { ...tools, ancestor });
     }
+  return null;
+}
+export function detectWake(env, tools, hookInput) {
+  const target = detectAgent(env, tools, hookInput);
   requireValue(
-    false,
+    target,
     "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. Tell the user, and stop.",
   );
+  return target;
 }
 function run(file, args) {
   return new Promise((resolve, reject) => {

@@ -24,11 +24,13 @@ export const name = "opencode";
 // shell command that opencode runs.
 export const command = "opencode";
 export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
-export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run \`pair start\` again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
+export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket, so
-// the session ID identifies the agent.
+// the session ID identifies the agent, and a new session's registration
+// leaves the other sessions of its process listed.
 export const identity = (target) => target.session;
+export const sharesProcess = () => true;
 
 // launch returns the command line that starts a new session with a prompt,
 // from opencode's documentation.
@@ -39,6 +41,16 @@ export const detect = (env) => ({
   socket: env.PAIR_OPENCODE_SOCKET,
   session: env.PAIR_OPENCODE_SESSION,
 });
+
+// A subagent's commands get the subagent's own session ID, so pair asks the
+// plugin for the session's parent. pair names a subagent by its task, which
+// opencode's task tool makes the title of the subagent's session, as "TASK
+// (@AGENT subagent)".
+export async function parentSession({ socket, session }) {
+  const { parentID, title } = await send(socket, { session, query: "session" });
+  const task = /^(.*) \(@.+ subagent\)$/.exec(title)?.[1] ?? title;
+  return parentID ? { sessionId: parentID, nickname: task } : null;
+}
 
 // The plugin sends the line with promptAsync, and opencode adds it to the
 // running request between its steps.

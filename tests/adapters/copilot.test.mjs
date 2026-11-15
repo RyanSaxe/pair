@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import * as copilot from "../../adapters/copilot/wake.mjs";
 import { wakeRunner } from "../../src/hub/wake.mjs";
 
 // The hub wakes a Copilot session from a child process, through the SDK that
@@ -15,6 +17,8 @@ export const approveAll = () => ({ kind: "approved" });
 export class CopilotClient {
   constructor(options) { calls.push(["client", options]); }
   async start() { calls.push(["start"]); }
+  async getForegroundSessionId() { return "s-1"; }
+  async getSessionMetadata(id) { return id === "s-1" ? { sessionId: id } : undefined; }
   async resumeSession(id, { onPermissionRequest }) {
     calls.push(["resume", id, onPermissionRequest === approveAll]);
     return {
@@ -79,4 +83,59 @@ test("a Copilot wake sends the line into the turn in progress, and enqueues it w
   process.env.PAIR_TEST_REFUSE = "immediate enqueue";
   await assert.rejects(wakeRunner(target, line), /Copilot refused enqueue/);
   assert.deepEqual(await children(), [child("immediate"), child("enqueue")]);
+});
+
+// nixpkgs runs Copilot as node with Copilot's index.js, and Copilot's SDK is
+// in the folder of that script.
+test("pair recognizes a node process that runs Copilot's script, and finds the SDK beside it", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-copilot-"));
+  const folder = path.join(directory, "github-copilot-cli");
+  const sdk = path.join(folder, "copilot-sdk", "index.js");
+  await fs.mkdir(path.dirname(sdk), { recursive: true });
+  await fs.writeFile(sdk, "");
+  const idle = "setInterval(() => {}, 1000);";
+  await fs.writeFile(path.join(folder, "index.js"), idle);
+  await fs.writeFile(path.join(directory, "index.js"), idle);
+  const children = [];
+  t.after(async () => {
+    for (const child of children) child.kill();
+    await fs.rm(directory, { recursive: true, force: true, maxRetries: 5 });
+  });
+  const node = (script) => {
+    const child = spawn(process.execPath, [script, "--ui-server"], {
+      stdio: "ignore",
+    });
+    children.push(child);
+    return { pid: child.pid, command: "node" };
+  };
+  const copilotNode = node(path.join(folder, "index.js"));
+  assert.equal(copilot.recognizes(copilotNode), true);
+  assert.equal(
+    copilot.recognizes(node(path.join(directory, "index.js"))),
+    false,
+  );
+  const target = copilot.detect(
+    { COPILOT_AGENT_SESSION_ID: "s" },
+    { ancestor: copilotNode, listeningPort: () => 4321 },
+  );
+  assert.equal(target.sdk, sdk);
+});
+
+// A Copilot subagent's commands get the subagent's own session ID, which the
+// server has no session for.
+test("a Copilot session that the server does not have is a subagent of the foreground session", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-copilot-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const sdk = path.join(directory, "index.mjs");
+  await fs.writeFile(sdk, sdkSource(path.join(directory, "calls.json")));
+  const target = (sessionId) => ({
+    harness: "copilot",
+    sessionId,
+    port: 4321,
+    sdk,
+  });
+  assert.equal(await copilot.parentSession(target("s-1")), null);
+  assert.deepEqual(await copilot.parentSession(target("sub-1")), {
+    sessionId: "s-1",
+  });
 });

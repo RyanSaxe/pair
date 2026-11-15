@@ -346,6 +346,24 @@ export async function hub(t, extra = {}, options = {}) {
   };
 }
 
+// agentExecutable makes Node available as directory/name, so that pair finds a
+// process started from it by that name. Windows runs only a file with an
+// executable extension, so there it is NAME.exe: a hard link to node.exe,
+// which Win32_Process reports by the link's own name, or a copy when the
+// directory is on another volume.
+export async function agentExecutable(directory, name) {
+  if (process.platform !== "win32") {
+    const file = path.join(directory, name);
+    await fs.symlink(process.execPath, file);
+    return file;
+  }
+  const file = path.join(directory, `${name}.exe`);
+  await fs
+    .link(process.execPath, file)
+    .catch(() => fs.copyFile(process.execPath, file));
+  return file;
+}
+
 // The pair command finds its wake target and its identity in the nearest agent
 // CLI among its ancestor processes. pairCli runs each command under a process
 // named claude whose inbox socket has no listener, so a test wake reaches no
@@ -359,16 +377,14 @@ export async function pairCli(
   extra = {},
   { cli = pair, harness = "claude-code", cwd } = {},
 ) {
-  const relay =
-    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
   const codex = harness === "codex";
-  // Windows runs only a file with an executable extension.
   const name = codex ? "codex" : "claude";
-  const agentCli = path.join(
-    home,
-    process.platform === "win32" ? `${name}.exe` : name,
-  );
-  await fs.symlink(process.execPath, agentCli);
+  // Node 24 on Linux names its main thread MainThread, which ps then prints as
+  // the process's command, so the relay sets its title to its own name. It
+  // runs pair with this process's Node, because Windows locks the relay's
+  // executable while a process started from it runs, such as the hub.
+  const relay = `process.title = "${name}"; const { status } = require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;`;
+  const agentCli = await agentExecutable(home, name);
   const env = {
     ...process.env,
     XDG_STATE_HOME: home,
@@ -377,6 +393,7 @@ export async function pairCli(
       : {
           CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
           CLAUDE_CODE_MESSAGING_TOKEN: "test",
+          CLAUDE_CODE_SESSION_ID: "test-session",
         }),
     ...extra,
   };

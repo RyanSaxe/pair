@@ -91,3 +91,18 @@ export function ancestors(table, pid = process.ppid) {
   }
   return chain;
 }
+// commandLine returns the command line of a process in the table, or null when
+// pair cannot read it. Windows' table has each command line, with each
+// argument that has a space in quotes, and ps prints one with no quotes.
+export function commandLine(row) {
+  if (row.args !== undefined) return row.args;
+  try {
+    return execFileSync(
+      "ps",
+      ["-o", "args=", "-p", String(row.pid)],
+      quiet,
+    ).trim();
+  } catch {
+    return null;
+  }
+}

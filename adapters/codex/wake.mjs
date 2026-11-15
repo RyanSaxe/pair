@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { commandLine } from "../../src/shared/processes.mjs";
 import { connect } from "./app-server.mjs";
 
 export const name = "Codex";
@@ -13,6 +14,10 @@ export const unwakeable =
   "Tell the user that this Codex session exports no CODEX_THREAD_ID, so the hub cannot wake it, and stop.";
 
 export const identity = (target) => target.thread;
+
+// Codex gives a SessionStart hook the thread ID as session_id on stdin, and not
+// in the hook's environment.
+export const hookVariables = (input) => ({ CODEX_THREAD_ID: input.session_id });
 
 // launch returns the command line that starts a new session with a prompt.
 export const launch = ({ prompt }) => [command, prompt];
@@ -35,6 +40,55 @@ export const detect = (env) => ({
 const { version } = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 );
+
+async function openDaemon(socket) {
+  const daemon = await connect(socket, 5000);
+  try {
+    // The thread/queue methods are experimental in Codex 0.160.
+    await daemon.request("initialize", {
+      clientInfo: { name: "pair", version },
+      capabilities: { experimentalApi: true },
+    });
+  } catch (error) {
+    daemon.close();
+    throw error;
+  }
+  daemon.notify("initialized");
+  return daemon;
+}
+
+// readThread rejects when the daemon does not answer. thread/read gives a
+// subagent's source from disk when the daemon has not loaded its thread, as
+// when its parent runs in-process.
+async function readThread({ thread, socket }) {
+  const daemon = await openDaemon(socket);
+  try {
+    return (await daemon.request("thread/read", { threadId: thread })).thread;
+  } finally {
+    daemon.close();
+  }
+}
+
+// A subagent has a thread of its own, which the parent spawned.
+export async function parentSession(target) {
+  const spawn = (await readThread(target)).source?.subAgent?.thread_spawn;
+  return spawn
+    ? { sessionId: spawn.parent_thread_id, nickname: spawn.agent_nickname }
+    : null;
+}
+
+// Codex started with no -c override runs its sessions' threads on the
+// app-server daemon, so each command's nearest codex ancestor is the daemon,
+// which runs as codex app-server, serves every such session and keeps
+// running after they exit. The daemon unloads a thread about a minute after
+// its session exits, and keeps the thread of a running session loaded while
+// the session is idle.
+const isDaemon = (cli) => /\bapp-server\b/.test(commandLine(cli) ?? "");
+export const sharesProcess = isDaemon;
+export async function running(target, cli) {
+  if (!isDaemon(cli)) return true;
+  return (await readThread(target)).status.type !== "notLoaded";
+}
 
 // When a turn of the thread is in progress on the daemon, deliver() sends the
 // line into the turn with turn/steer. When the daemon runs the thread and no
@@ -112,13 +166,7 @@ async function deliver({ thread, socket = controlSocket(process.env) }, line) {
   };
   let daemon;
   try {
-    daemon = await connect(socket, 5000);
-    // The thread/queue methods are experimental in Codex 0.160.
-    await daemon.request("initialize", {
-      clientInfo: { name: "pair", version },
-      capabilities: { experimentalApi: true },
-    });
-    daemon.notify("initialized");
+    daemon = await openDaemon(socket);
     const read = async () =>
       (await daemon.request("thread/read", { threadId: delivery.thread }))
         .thread;

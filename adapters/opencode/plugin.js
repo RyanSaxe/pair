@@ -7,7 +7,17 @@ import { listen } from "../listener.mjs";
 // model reads it after the tool calls of the current step. For an idle session,
 // opencode starts a request with the prompt.
 export const PairWake = async ({ client }) => {
-  const listener = listen(async ({ session, text }) => {
+  const listener = listen(async ({ session, text, query }) => {
+    if (query === "session") {
+      const { data, error } = await client.session.get({
+        path: { id: session },
+      });
+      if (error)
+        throw new Error(
+          `opencode did not find the session: ${JSON.stringify(error)}`,
+        );
+      return { parentID: data.parentID, title: data.title };
+    }
     const { error } = await client.session.promptAsync({
       path: { id: session },
       body: { parts: [{ type: "text", text }] },
