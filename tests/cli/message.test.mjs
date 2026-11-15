@@ -66,7 +66,7 @@ async function scratch(t) {
   return { home, env, web, name, agent, outside, received };
 }
 
-test("pair message sends the sender's first line and the command to answer it, and refuses a session that exited", async (t) => {
+test("pair message sends the sender's first line and the commands to answer and acknowledge it, and refuses a session that exited", async (t) => {
   const { web, name, agent, received } = await scratch(t);
   const api = await agent("api", { CLAUDE_CODE_SESSION_ID: "sender" });
   const sent = await api.run([
@@ -85,7 +85,7 @@ test("pair message sends the sender's first line and the command to answer it, a
   // again.
   const sender = JSON.parse((await api.run(["register", "--json"])).stdout);
   assert.deepEqual(received(), [
-    `pair message from ${sender.name} (Claude Code in ${path.join("~", "api")}):\n\nUse revoked_at for logout.\n\nTo answer, run: pair message --to claude-code:sender --text "…"`,
+    `pair message from ${sender.name} (Claude Code in ${path.join("~", "api")}):\n\nUse revoked_at for logout.\n\nTo answer, run: pair message --to claude-code:sender --text "…"\nIf you have nothing to say, acknowledge it: pair message --to claude-code:sender --ack`,
   ]);
 
   await web.kill();
@@ -96,6 +96,26 @@ test("pair message sends the sender's first line and the command to answer it, a
     new RegExp(`No running agent session .*${name}`),
   );
   assert.equal(received().length, 1);
+});
+
+test("--ack sends one line that acknowledges a message, and refuses outside an agent session", async (t) => {
+  const { home, env, name, agent, received } = await scratch(t);
+  const api = await agent("api", { CLAUDE_CODE_SESSION_ID: "sender" });
+  const acked = await api.run(["message", "--to", name, "--ack"]);
+  assert.equal(acked.status, 0, acked.stderr);
+  const sender = JSON.parse((await api.run(["register", "--json"])).stdout);
+  const refused = await orphan(home, ["--to", name, "--ack"], {
+    ...plain,
+    ...env,
+  });
+  assert.ok(
+    await waitUntil(async () =>
+      (await refused()).includes("--ack works only inside an agent session"),
+    ),
+  );
+  assert.deepEqual(received(), [
+    `pair message from ${sender.name} (Claude Code in ${path.join("~", "api")}) acknowledges your message. Don't answer it.`,
+  ]);
 });
 
 test("--from names the sender with no command to answer, NAME/SUBAGENT asks the parent to pass the message on, and PAIR_WAKE=off sends nothing", async (t) => {
@@ -160,7 +180,7 @@ test(
     const sent = await child.run(["message", "--to", name, "--text", "Done."]);
     assert.equal(sent.status, 0, sent.stderr);
     assert.deepEqual(received(), [
-      `pair message from ${api}/Goodall (Codex in ${path.join("~", "api")}):\n\nDone.\n\nTo answer, run: pair message --to codex:parent/Goodall --text "…"`,
+      `pair message from ${api}/Goodall (Codex in ${path.join("~", "api")}):\n\nDone.\n\nTo answer, run: pair message --to codex:parent/Goodall --text "…"\nIf you have nothing to say, acknowledge it: pair message --to codex:parent/Goodall --ack`,
     ]);
   },
 );

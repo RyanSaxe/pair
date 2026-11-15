@@ -111,16 +111,17 @@ export async function agents() {
 const largestText = 100_000;
 
 async function messageText(options) {
-  if (options.text !== undefined && options.file !== undefined)
+  const given = ["text", "file", "ack"].filter(
+    (key) => options[key] !== undefined,
+  );
+  if (given.length !== 1)
     throw usageError(
       "message",
-      "pair message takes --text or --file, not both.",
+      given.length
+        ? "pair message takes only one of --text, --file and --ack."
+        : "pair message requires --text TEXT, --file PATH or --ack.",
     );
-  if (options.text === undefined && options.file === undefined)
-    throw usageError(
-      "message",
-      "pair message requires --text TEXT or --file PATH.",
-    );
+  if (options.ack) return null;
   const text =
     options.text ?? (await fs.readFile(path.resolve(options.file), "utf8"));
   requireValue(text.trim(), "The message is empty. Give it some text.");
@@ -202,6 +203,18 @@ async function subagentSender(target) {
   return entry ? { entry, running, subagent: server.parent.nickname } : null;
 }
 
+// A message is its first line, which names the sender, and its body. A relay
+// to a subagent's parent replaces the first line with its own.
+const whole = ({ first, body }) => (first ? `${first}\n\n${body}` : body);
+
+// A message from an agent session ends with the commands that answer and
+// acknowledge it. A message from the user or from --from has no address to
+// answer, and without its last line Claude Code's agents went looking for one.
+const ending = (answer) =>
+  answer
+    ? `To answer, run: pair message --to ${answer} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${answer} --ack`
+    : "This message has no answer command. Answer in your own chat, if at all.";
+
 // With PAIR_WAKE=off, wakeRunner writes the line to stderr instead of sending
 // it, as the hub writes it to its log.
 async function send(target, line) {
@@ -215,14 +228,11 @@ async function send(target, line) {
 // with a first line that asks the parent's agent to pass the message on with
 // that tool. pair tries the subagent first and asks the parent when that
 // fails.
-async function sendToSubagent(entry, subagent, sender, body) {
+async function sendToSubagent(entry, subagent, sender, message) {
   const adapter = adapters[entry.cli];
   if (adapter.reachesSubagents)
     try {
-      return await send(
-        { ...entry.target, subagent },
-        `pair message from ${sender}:\n\n${body}`,
-      );
+      return await send({ ...entry.target, subagent }, whole(message));
     } catch (error) {
       if (!adapter.subagentTool) throw error;
     }
@@ -233,7 +243,7 @@ async function sendToSubagent(entry, subagent, sender, body) {
   const tool = await adapter.subagentTool(entry.target, subagent);
   const relay = `pair message from ${sender}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:`;
   return {
-    ...(await send(entry.target, `${relay}\n\n${body}`)),
+    ...(await send(entry.target, `${relay}\n\n${message.body}`)),
     relayed: true,
   };
 }
@@ -255,20 +265,32 @@ export async function message(options) {
   const { session, subagent } = receiver(options.to);
   const label =
     options.from === undefined ? undefined : senderLabel(options.from);
+  if (options.ack && label !== undefined)
+    throw usageError(
+      "message",
+      "--ack acknowledges as this agent session, so it takes no --from.",
+    );
   const sender = await identifySender(label);
+  requireValue(
+    !options.ack || sender.answer,
+    "pair message --ack works only inside an agent session, because it names that session as the one that read the message.",
+  );
   const entry = findAgent(sender.running, session);
   requireValue(
     entry,
     `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start or pair message, or after a start hook in its CLI runs pair register --hook.`,
   );
-  // A message from the user or from --from has no address to answer, and
-  // without this line Claude Code's agents went looking for one.
-  const body = sender.answer
-    ? `${text}\n\nTo answer, run: pair message --to ${sender.answer} --text "…"`
-    : `${text}\n\nThis message has no answer command. Answer in your own chat, if at all.`;
+  const message = options.ack
+    ? {
+        body: `pair message from ${sender.name} acknowledges your message. Don't answer it.`,
+      }
+    : {
+        first: `pair message from ${sender.name}:`,
+        body: `${text}\n\n${ending(sender.answer)}`,
+      };
   const delivery = subagent
-    ? await sendToSubagent(entry, subagent, sender.name, body)
-    : await send(entry.target, `pair message from ${sender.name}:\n\n${body}`);
+    ? await sendToSubagent(entry, subagent, sender.name, message)
+    : await send(entry.target, whole(message));
   return {
     data: sentText(entry, subagent, delivery),
     json: {
