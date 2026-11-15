@@ -140,8 +140,9 @@ keeps every entry. With `--hook`, which
 an agent CLI's start hook runs, it reads the session ID from the hook's JSON
 on stdin when the environment has none, `session_id` from Codex and
 `sessionId` from Copilot CLI, prints one line, and exits 0 even when it cannot
-register. Codex 0.169 runs its SessionStart hook when the session's first turn
-starts, so a Codex session registers then, not when Codex opens.
+register. Codex 0.169 and Copilot CLI 1.0.105 run their session start hooks
+when the session's first turn starts, so a session registers then, not when
+the CLI opens.
 
 ## pair message
 
@@ -169,8 +170,8 @@ If you have nothing to say, acknowledge it: pair message --to codex:0199c1d4-111
 ID. `pair message` first deletes every entry that is not running, as
 `pair agents` does. It refuses a name or ID that no running session has, and
 a start of an ID that more than one session's ID has. `--text` and `--file`
-take at most 100 KB of text. Claude Code 2.1.325, Codex 0.169 and pi 1.5.0
-each received a 100 KB message whole.
+take at most 100 KB of text. Claude Code 2.1.325, Codex 0.169, pi 1.5.0 and
+Copilot CLI 1.0.105 each received a 100 KB message whole.
 
 Inside an agent CLI, `pair message` registers the session it runs in, as
 `pair register` does, and sends nothing when it cannot. The first line names
@@ -179,7 +180,8 @@ acknowledge it, with the whole ID, because another session can take the name
 after this one exits.
 A Codex subagent has no entry, so a message from it names it as
 `PARENT/NICKNAME`, which reaches it through its parent, such as
-`api-d3/Goodall`.
+`api-d3/Goodall`. A Copilot CLI subagent has no entry either, and
+`pair message` inside it sends only with `--from`.
 Outside any agent CLI, the first line is `pair message from your user:`.
 `--from LABEL` makes it `pair message from LABEL:`, inside an agent CLI too,
 where pair then registers nothing. Neither message has a command to answer

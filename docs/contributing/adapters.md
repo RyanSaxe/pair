@@ -84,17 +84,17 @@ Where the agent CLI allows it, the adapter adds the line to the turn in
 progress, so the agent reads it in the middle of the turn instead of after
 it.
 
-| Agent CLI   | `via`       | API                                                                                                    | While a turn runs, the agent reads the line                      |
-| ----------- | ----------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| Claude Code | `inbox`     | A user message over the inbox socket                                                                   | Between the steps of the turn                                    |
-| Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                                              | Between the steps of the turn                                    |
-| Codex       | `queue`     | `thread/queue/add` and `thread/queue/start` on the daemon, or `codex queue --thread ID --message TEXT` | When the turn ends                                               |
-| Codex       | `parent`    | The `steer` or `queue` path to the parent thread of a spawned subagent                                 | After the parent passes the line on with `followup_task`         |
-| Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI                               | At once. Copilot moves a running shell command to the background |
-| Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                                                     | When the turn ends                                               |
-| Copilot CLI | `subagent`  | `tasks.sendMessage` to a subagent's task, for `pair message`                                           | Between the steps of the subagent's turn                         |
-| pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension                                       | After the tool calls of the current model response               |
-| opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                                                         | After the tool calls of the current model response               |
+| Agent CLI   | `via`       | API                                                                                                    | While a turn runs, the agent reads the line                                                                                 |
+| ----------- | ----------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `inbox`     | A user message over the inbox socket                                                                   | Between the steps of the turn                                                                                               |
+| Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                                              | Between the steps of the turn                                                                                               |
+| Codex       | `queue`     | `thread/queue/add` and `thread/queue/start` on the daemon, or `codex queue --thread ID --message TEXT` | When the turn ends                                                                                                          |
+| Codex       | `parent`    | The `steer` or `queue` path to the parent thread of a spawned subagent                                 | After the parent passes the line on with `followup_task`                                                                    |
+| Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI                               | At once while a shell command runs, which Copilot moves to the background. While the model writes a reply, after that reply |
+| Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                                                     | When the turn ends                                                                                                          |
+| Copilot CLI | `subagent`  | `tasks.sendMessage` to a subagent's task, for `pair message`                                           | Between the steps of the subagent's turn                                                                                    |
+| pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension                                       | After the tool calls of the current model response                                                                          |
+| opencode    | `prompt`    | `client.session.promptAsync`, in pair's plugin                                                         | After the tool calls of the current model response                                                                          |
 
 - Codex's adapter uses `turn/steer` only while a turn of the thread is in
   progress on the daemon. When the daemon runs the thread and no turn is in
@@ -121,7 +121,7 @@ it.
   so a parent that waits on its subagent passes the line on after the
   subagent finishes.
 - Copilot's adapter sends with `enqueue` only after Copilot refuses
-  `immediate`. Every Copilot CLI from 1.0.70 to 1.0.91 lists `immediate` in
+  `immediate`. Every Copilot CLI from 1.0.70 to 1.0.105 lists `immediate` in
   its API schema.
 
 When the CLI is idle, it starts a turn with the line on every path except

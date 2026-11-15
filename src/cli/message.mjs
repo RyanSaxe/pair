@@ -106,8 +106,9 @@ export async function agents() {
 }
 
 // The largest message, in bytes of text, that pair message sends. Claude Code
-// 2.1.325, Codex 0.169 and pi 1.5.0 each received a message of this size whole
-// through their adapters, and no larger size was tried.
+// 2.1.325, Codex 0.169, pi 1.5.0 and Copilot CLI 1.0.105 each received a
+// message of this size whole through their adapters, and no larger size was
+// tried.
 const largestText = 100_000;
 
 async function messageText(options) {
