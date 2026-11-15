@@ -175,10 +175,11 @@ after this one exits.
 A Codex subagent has no entry, so a message from it names it as
 `PARENT/NICKNAME`, which reaches it through its parent, such as
 `api-d3/Goodall`.
-Outside any agent CLI, the first line is `pair message from your user:`, and
-`--from LABEL` makes it `pair message from LABEL:`. Neither message has a
-command to answer it, so each ends with the line `This message has no answer
-command. Answer in your own chat, if at all.`
+Outside any agent CLI, the first line is `pair message from your user:`.
+`--from LABEL` makes it `pair message from LABEL:`, inside an agent CLI too,
+where pair then registers nothing. Neither message has a command to answer
+it, so each ends with the line `This message has no answer command. Answer
+in your own chat, if at all.`
 
 `--ack`, in place of `--text` or `--file`, sends one line that says this
 session read the message, and no command to answer it:
