@@ -63,10 +63,21 @@ const posix = {
     }
     return starts;
   },
+  commandLine(pid) {
+    try {
+      return execFileSync("ps", ["-o", "args=", "-p", String(pid)], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    } catch {
+      return null;
+    }
+  },
 };
 
 // windowsProcesses lists each process that the WQL filter selects, or every
-// process without one, as { pid, parent, name, start }, with start in UTC.
+// process without one, as { pid, parent, name, start, args }, with start in
+// UTC and args the process's command line.
 // PowerShell gets the script base64-encoded, so no character in it needs
 // quoting on the command line. It throws when PowerShell fails.
 function windowsProcesses(filter) {
@@ -77,7 +88,7 @@ $rows = @(Get-CimInstance Win32_Process ${filter ? `-Filter '${filter}'` : ""} |
   if ($_.CreationDate) {
     $start = $_.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", [Globalization.CultureInfo]::InvariantCulture)
   }
-  [pscustomobject]@{ pid = $_.ProcessId; parent = $_.ParentProcessId; name = $_.Name; start = $start }
+  [pscustomobject]@{ pid = $_.ProcessId; parent = $_.ParentProcessId; name = $_.Name; start = $start; args = $_.CommandLine }
 })
 ConvertTo-Json -InputObject $rows -Compress
 `;
@@ -136,9 +147,23 @@ const windows = {
       rows.filter((row) => row.start).map((row) => [row.pid, row.start]),
     );
   },
+  commandLine(pid) {
+    try {
+      return windowsProcesses(`ProcessId=${pid}`)[0]?.args ?? null;
+    } catch {
+      return null;
+    }
+  },
 };
 
 const platform = process.platform === "win32" ? windows : posix;
+
+// commandLine returns the command line of the process pid, or null when pair
+// cannot read it. Windows quotes each argument that has a space, and ps
+// quotes none.
+export function commandLine(pid) {
+  return Number.isInteger(pid) && pid > 0 ? platform.commandLine(pid) : null;
+}
 
 // ancestors returns pid and each process above it, nearest first, with the
 // base name of its executable, without .exe on Windows. On Windows each

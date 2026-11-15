@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { commandLine } from "../../src/shared/processes.mjs";
 
 const here = fileURLToPath(import.meta.url);
 const execFileAsync = promisify(execFile);
@@ -32,27 +33,20 @@ function listeningPort(pid) {
   }
 }
 // Copilot runs as its own executable, except where a package manager, such
-// as nixpkgs, runs Copilot's index.js with node. Copilot's SDK is in the
-// folder of that index.js, so copilotScript returns the folder, or null for a
-// node process that runs something else.
+// as nixpkgs or npm on Windows, runs Copilot's index.js with node. Copilot's
+// SDK is in the folder of that index.js, so copilotScript returns the folder,
+// or null for a node process that runs something else.
 function copilotScript(pid) {
-  let args;
-  try {
-    args = execFileSync("ps", ["-o", "args=", "-p", String(pid)], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
-    return null;
-  }
-  const script = args
-    .trim()
-    .split(/\s+/)
-    .find(
-      (word) =>
-        path.basename(word) === "index.js" &&
-        existsSync(path.join(path.dirname(word), "copilot-sdk", "index.js")),
-    );
+  const args = commandLine(pid);
+  if (!args) return null;
+  const words = [...args.matchAll(/"([^"]+)"|(\S+)/g)].map(
+    ([, quoted, bare]) => quoted ?? bare,
+  );
+  const script = words.find(
+    (word) =>
+      path.basename(word) === "index.js" &&
+      existsSync(path.join(path.dirname(word), "copilot-sdk", "index.js")),
+  );
   return script ? path.dirname(script) : null;
 }
 
