@@ -5,7 +5,8 @@ import { once } from "node:events";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { agentExecutable, exec, pair } from "./hub.mjs";
+import { settings } from "../../src/shared/settings.mjs";
+import { agentExecutable, exec, killHub, pair, waitUntil } from "./hub.mjs";
 
 // outsideAgents is this process's environment without the variables by which
 // pair finds an agent CLI, and without git's, which a test run inside an agent
@@ -79,6 +80,74 @@ export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
   };
 }
 
+// listAgents returns what pair agents --json lists in the state directory of
+// env, run outside any agent CLI.
+const listAgents = async (env) =>
+  JSON.parse(
+    (
+      await exec(process.execPath, [pair, "agents", "--json"], {
+        env: { ...outsideAgents, ...env },
+      })
+    ).stdout,
+  ).agents;
+
+// listed waits until agents() lists at least count sessions, for a session
+// that pi's extension or opencode's plugin registers without waiting, and
+// returns each one's ID and process ID, the most recently registered first.
+export async function listed(agents, count = 1) {
+  let entries = [];
+  await waitUntil(
+    async () => (entries = await agents()).length >= count,
+    30_000,
+  );
+  return entries.map(({ id, pid }) => ({ id, pid }));
+}
+
+// agentsScratch gives a test a home and a state directory of its own, in
+// env. folder(name) creates a folder in the home, agent(cwd, { harness, env })
+// starts a stand-in there, outside(args, env) runs pair outside any agent CLI,
+// and agents() returns what pair agents --json lists. Windows refuses to
+// remove the working directory or the executable of a running process, so the
+// stand-ins and any hub stop before the home goes, and rm retries while
+// Windows releases them.
+export async function agentsScratch(t) {
+  const home = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "pair-agents-")),
+  );
+  const env = { XDG_STATE_HOME: path.join(home, "state"), PAIR_HUB_PORT: "0" };
+  const started = [];
+  t.after(async () => {
+    for (const agent of started) await agent.kill();
+    await killHub(settings(env));
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
+  });
+  return {
+    home,
+    env,
+    list: path.join(env.XDG_STATE_HOME, "pair", "agents"),
+    folder: async (name) => {
+      const directory = path.join(home, name);
+      await fs.mkdir(directory, { recursive: true });
+      return directory;
+    },
+    agent: async (cwd, { harness, env: extra } = {}) => {
+      const agent = await standIn(t, {
+        home,
+        cwd,
+        harness,
+        env: { ...env, ...extra },
+      });
+      started.push(agent);
+      return agent;
+    },
+    outside: (args, extra = {}) =>
+      exec(process.execPath, [pair, ...args], {
+        env: { ...outsideAgents, ...env, ...extra },
+      }).catch((error) => error),
+    agents: () => listAgents(env),
+  };
+}
+
 // pi's extension and opencode's plugins run in the CLI's own process, and a
 // test that loads them plays the CLI in this process. inProcessState gives
 // this process a state directory of its own until the test ends, and returns
@@ -95,13 +164,6 @@ export async function inProcessState(t) {
     else process.env.XDG_STATE_HOME = saved;
     await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
   });
-  const agents = async () =>
-    JSON.parse(
-      (
-        await exec(process.execPath, [pair, "agents", "--json"], {
-          env: { ...outsideAgents, XDG_STATE_HOME: process.env.XDG_STATE_HOME },
-        })
-      ).stdout,
-    ).agents;
-  return { home, agents };
+  const state = { XDG_STATE_HOME: process.env.XDG_STATE_HOME };
+  return { home, agents: () => listAgents(state) };
 }
