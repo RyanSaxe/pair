@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import serverPlugin from "../../adapters/opencode/server.js";
+import tuiPlugin from "../../adapters/opencode/tui.js";
 import { serverSession } from "../../adapters/opencode/wake.mjs";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
 import { inProcessState } from "../support/agents.mjs";
@@ -344,4 +345,30 @@ test("an opencode 2 message to a subagent prompts the newest session with that t
     wakeRunner({ ...target, subagent: "planner" }, "third"),
     /no subagent named planner/,
   );
+});
+
+// opencode 2's server keeps running after every window exits, and pair's TUI
+// plugin, which each window runs, says which sessions the window has open.
+test("an opencode 2 session counts as loaded only while a window has it open", async (t) => {
+  await inProcessState(t);
+  const { ctx } = standInContext();
+  ctx.session.get = async () => ({ title: "Fix the login" });
+  const cleanup = await serverPlugin.setup(ctx);
+  t.after(() => cleanup());
+  const target = detectWake(await shellEnvironment(ctx, "ses_1"), {
+    ancestors: () => [{ pid: 2, command: "opencode" }],
+  });
+  const closeWindow = tuiPlugin.setup({
+    ui: {
+      tabs: { enabled: () => true, list: () => [{ sessionID: "ses_1" }] },
+      router: { current: () => ({ type: "home" }) },
+    },
+  });
+  t.after(() => closeWindow());
+  const loaded = async (session) =>
+    (await serverSession({ ...target, session })).loaded;
+  assert.equal(await loaded("ses_1"), true);
+  assert.equal(await loaded("ses_2"), false);
+  closeWindow();
+  assert.equal(await loaded("ses_1"), false);
 });

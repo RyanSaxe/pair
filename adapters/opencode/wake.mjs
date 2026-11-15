@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { send } from "../listener.mjs";
+import { openInWindow } from "./windows.mjs";
 
 // opencode 2 loads a plugin from a folder, server.js in this one, and
 // opencode 1 from a file, plugin.js.
@@ -47,14 +48,16 @@ export function detect(env) {
 
 // A subagent's commands get the subagent's own session ID, so pair asks the
 // plugin for the session's parent. pair names a subagent by its task, which
-// opencode makes the title of the subagent's session.
+// opencode makes the title of the subagent's session. opencode 2's server
+// keeps running after every window exits, so its session counts as loaded
+// while a window has it open, which opencode 1 never reports.
 export async function serverSession(target) {
   const { parentID, title } = await send(target.socket, {
     session: target.session,
     query: "session",
   });
   return {
-    loaded: false,
+    loaded: openInWindow(target.session),
     parent: parentID ? { sessionId: parentID, nickname: title } : null,
   };
 }

@@ -55,12 +55,18 @@ export default {
         types: ["session.created"],
         signal: controller.signal,
       }))
+        // pair registers a session as running while a window has it open,
+        // and the window that created it lists it within half a second.
         if (!data.parentID)
-          register(data.location.directory, {
-            PAIR_OPENCODE_SOCKET: listener.socket,
-            PAIR_OPENCODE_SESSION: data.sessionID,
-            PAIR_OPENCODE_PID: String(process.pid),
-          });
+          setTimeout(
+            () =>
+              register(data.location.directory, {
+                PAIR_OPENCODE_SOCKET: listener.socket,
+                PAIR_OPENCODE_SESSION: data.sessionID,
+                PAIR_OPENCODE_PID: String(process.pid),
+              }),
+            1000,
+          ).unref();
       // Aborting the subscription when the plugin unloads ends the loop with
       // an error, and a session the plugin misses registers at its first pair
       // command.
