@@ -4,7 +4,7 @@ Optional setup for pair beyond installing it: a launch script that opens a
 new agent for you, messaging between agent sessions, your own text in pair's
 instructions, and your own components.
 
-## Start agent: the launch script
+## Start agent and pair spawn: the launch script
 
 When you press Start on a proposal and choose With a new agent, pair can open
 that agent for you. Save an executable script at `~/.config/pair/spawn`, or
@@ -60,6 +60,14 @@ $arguments = $args | Select-Object -Skip 2 | ForEach-Object {
   '"' + ($_ -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
 }
 Start-Process -FilePath $command -ArgumentList $arguments -WorkingDirectory $dir
+```
+
+`pair spawn` runs the same script from a terminal or from an agent, and
+prints the name that `pair message --to` takes:
+
+```console
+$ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test."
+Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-3f --text "…"
 ```
 
 ## Messaging between agent sessions
