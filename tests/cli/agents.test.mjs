@@ -186,6 +186,28 @@ test("pair agents deletes the entry of a CLI that exited and of a process ID tha
   assert.deepEqual(await fs.readdir(list), ["claude-code-stays.json"]);
 });
 
+// Codex's sandbox refuses to run ps, and a PATH without ps or PowerShell
+// stands in for it on every system.
+test("pair agents fails and keeps every entry when it cannot read which processes run", async (t) => {
+  const { list, folder, agent, agents } = await scratch(t);
+  const claude = await agent(await folder("api"), {
+    env: { CLAUDE_CODE_SESSION_ID: "kept" },
+  });
+  assert.equal((await claude.run(["register"])).status, 0);
+  const noTools = await folder("no-tools");
+  const blind = await claude.run(["agents"], { env: { PATH: noTools } });
+  assert.equal(blind.status, 1);
+  assert.match(
+    blind.stderr,
+    /^pair: pair could not read which agent sessions run: /,
+  );
+  assert.deepEqual(await fs.readdir(list), ["claude-code-kept.json"]);
+  assert.deepEqual(
+    (await agents()).map((entry) => entry.id),
+    ["claude-code:kept"],
+  );
+});
+
 test("a new session in the same process replaces the entry of the session before it, as after /clear", async (t) => {
   const { folder, agent, agents } = await scratch(t);
   const claude = await agent(await folder("app"), {

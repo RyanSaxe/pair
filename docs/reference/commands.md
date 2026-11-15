@@ -131,7 +131,9 @@ prints why on stderr and starts the session as usual.
 of the CLI among the command's parent processes. It also refuses a Codex
 subagent, which has a thread of its own, and prints the `NAME/SUBAGENT` that
 reaches it through the session that started it. pair reads processes with
-`ps` on macOS and Linux and with PowerShell on Windows. With `--hook`, which
+`ps` on macOS and Linux and with PowerShell on Windows. When pair cannot run
+them, as in Codex's sandbox, every command that reads the list refuses and
+keeps every entry. With `--hook`, which
 an agent CLI's start hook runs, it reads the session ID from the hook's JSON
 on stdin when the environment has none, `session_id` from Codex and
 `sessionId` from Copilot CLI, prints one line, and exits 0 even when it cannot

@@ -6,6 +6,12 @@ import path from "node:path";
 // functions below. A start time is a string that stays the same for as long as
 // the process runs.
 
+// When pair cannot run ps or PowerShell, as in Codex's sandbox, which refuses
+// ps with EPERM, it cannot tell which processes run, so it fails rather than
+// take every process for stopped.
+const unreadable = (error, purpose) =>
+  new Error(`pair could not read ${purpose}: ${error.message}`);
+
 // psAncestors walks the parent chain with ps. Git for Windows' ps takes no -o,
 // so on Windows it returns no process.
 export function psAncestors(pid = process.ppid) {
@@ -19,7 +25,9 @@ export function psAncestors(pid = process.ppid) {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       }).trim();
-    } catch {
+    } catch (error) {
+      if (error.code === "EPERM")
+        throw unreadable(error, "the parent processes of this command");
       break;
     }
     const match = /^(\d+)\s+(.*)$/.exec(line);
@@ -40,11 +48,16 @@ const posix = {
   processStarts(pids) {
     const starts = new Map();
     for (const pid of pids) {
-      const { stdout } = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], {
-        encoding: "utf8",
-        env: { ...process.env, TZ: "UTC", LC_ALL: "C" },
-        stdio: ["ignore", "pipe", "ignore"],
-      });
+      const { stdout, error } = spawnSync(
+        "ps",
+        ["-o", "lstart=", "-p", String(pid)],
+        {
+          encoding: "utf8",
+          env: { ...process.env, TZ: "UTC", LC_ALL: "C" },
+          stdio: ["ignore", "pipe", "ignore"],
+        },
+      );
+      if (error) throw unreadable(error, "which agent sessions run");
       const start = (stdout || "").trim();
       if (start) starts.set(pid, start);
     }
@@ -55,7 +68,7 @@ const posix = {
 // windowsProcesses lists each process that the WQL filter selects, or every
 // process without one, as { pid, parent, name, start }, with start in UTC.
 // PowerShell gets the script base64-encoded, so no character in it needs
-// quoting on the command line. It returns no process when PowerShell fails.
+// quoting on the command line. It throws when PowerShell fails.
 function windowsProcesses(filter) {
   const script = `
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
@@ -68,34 +81,36 @@ $rows = @(Get-CimInstance Win32_Process ${filter ? `-Filter '${filter}'` : ""} |
 })
 ConvertTo-Json -InputObject $rows -Compress
 `;
-  try {
-    const stdout = execFileSync(
-      "powershell",
-      [
-        "-NoProfile",
-        "-NonInteractive",
-        "-EncodedCommand",
-        Buffer.from(script, "utf16le").toString("base64"),
-      ],
-      {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-        timeout: 30_000,
-        windowsHide: true,
-      },
-    );
-    return JSON.parse(stdout);
-  } catch {
-    return [];
-  }
+  const stdout = execFileSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-EncodedCommand",
+      Buffer.from(script, "utf16le").toString("base64"),
+    ],
+    {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 30_000,
+      windowsHide: true,
+    },
+  );
+  return JSON.parse(stdout);
 }
 
 const windows = {
   // Windows keeps a process's parent ID after the parent exits, and a new
   // process can get that ID, so ancestors stops at a parent that started
-  // after its child.
+  // after its child. It returns no process when PowerShell fails.
   ancestors(pid) {
-    const table = new Map(windowsProcesses().map((row) => [row.pid, row]));
+    let rows;
+    try {
+      rows = windowsProcesses();
+    } catch {
+      return [];
+    }
+    const table = new Map(rows.map((row) => [row.pid, row]));
     const chain = [];
     for (let row = table.get(pid); row && chain.length < 64;) {
       chain.push({
@@ -111,10 +126,14 @@ const windows = {
   },
   processStarts(pids) {
     const filter = pids.map((pid) => `ProcessId=${pid}`).join(" OR ");
+    let rows;
+    try {
+      rows = windowsProcesses(filter);
+    } catch (error) {
+      throw unreadable(error, "which agent sessions run");
+    }
     return new Map(
-      windowsProcesses(filter)
-        .filter((row) => row.start)
-        .map((row) => [row.pid, row.start]),
+      rows.filter((row) => row.start).map((row) => [row.pid, row.start]),
     );
   },
 };
