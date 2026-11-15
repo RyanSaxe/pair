@@ -7,6 +7,7 @@ import { guide } from "./guide.mjs";
 import { message } from "./message.mjs";
 import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
+import { spawn } from "./spawn.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
@@ -335,6 +336,34 @@ export const commands = {
     },
     footer: "Give one of --text, --file and --ack.",
     run: message,
+  },
+  spawn: {
+    group: "messaging",
+    purpose: "Start an agent session in a new terminal, and print its name",
+    about:
+      'Start a session of CLI, which is claude, codex, copilot, pi or opencode, through your launch script, ~/.config/pair/spawn, or spawn.ps1 on Windows, which opens the CLI in a new terminal. The session\'s first prompt is "Run pair register first." followed by --prompt or --file. Run inside an agent CLI, pair spawn registers this session first, so the new session can message it. pair spawn waits up to 30 seconds for the new session to register, then prints the name that pair message --to takes.',
+    usage:
+      "pair spawn CLI [--dir DIR] [--name NAME] [--prompt TEXT | --file PATH]",
+    args: [{ name: "CLI" }],
+    flags: {
+      dir: {
+        value: "DIR",
+        text: "Start the session in DIR. The default is the current folder.",
+      },
+      name: {
+        value: "NAME",
+        text: "Have the session register as NAME, in up to 64 letters, digits and hyphens. The default is the name pair register gives. pair spawn refuses a name that a running session has.",
+      },
+      prompt: {
+        value: "TEXT",
+        text: "The rest of the first prompt. Without --prompt or --file, the session only registers.",
+      },
+      file: {
+        value: "PATH",
+        text: "A file whose text is the rest of the first prompt, in place of --prompt.",
+      },
+    },
+    run: spawn,
   },
   guide: {
     group: "pages",

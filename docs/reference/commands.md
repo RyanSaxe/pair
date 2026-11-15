@@ -24,6 +24,7 @@ it. `pair --version` prints the version.
 | `pair register`                                        | Adds the agent session it runs in to pair's list of running agent sessions and prints the session's name and ID, as [`pair register` and `pair agents`](#pair-register-and-pair-agents) describes.                                                                                                                     |
 | `pair agents`                                          | Lists the registered agent sessions that are running.                                                                                                                                                                                                                                                                  |
 | `pair message --to NAME --text TEXT`                   | Sends a message to a running agent session, as [`pair message`](#pair-message) describes. `--file PATH` sends a file's text, and `--ack` acknowledges a message.                                                                                                                                                       |
+| `pair spawn CLI`                                       | Starts a session of an agent CLI through your launch script and prints its name, as [`pair spawn`](#pair-spawn) describes.                                                                                                                                                                                             |
 | `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
 | `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
 | `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
@@ -101,9 +102,9 @@ api-d3        Codex        ~/src/api                      main       codex:0199c
 A session is named for its folder and two hex characters from its ID, keeps
 that name when its CLI restarts, and `--name NAME` sets another. `pair agents`
 prints the start of each ID, `--json` prints whole IDs, and a session leaves
-the list when its CLI exits. `pair start` registers the agent that runs it,
-and pair's pi extension and opencode plugin register each session when it
-starts.
+the list when its CLI exits. `pair start`, `pair message` and `pair spawn`
+register the agent that runs them, and pair's pi extension and opencode
+plugin register each session when it starts.
 
 An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 `pair register` reads the session ID from the hook's JSON on stdin when the
@@ -164,6 +165,49 @@ parent gave it or by its nickname. In opencode, pair's plugin prompts the
 subagent's session, found by its task or its agent. pi has no subagents of its
 own, and a pi that an extension runs with pair's extension registers as a
 session of its own.
+
+## pair spawn
+
+`pair spawn` starts a new session of an agent CLI in a folder, with a first
+prompt, and prints the name that `pair message --to` takes.
+
+```console
+$ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test, then message shop-ea when it passes."
+Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-3f --text "…"
+```
+
+| Part                             | Meaning                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `CLI`                            | `claude`, `codex`, `copilot`, `pi` or `opencode`.                          |
+| `--dir DIR`                      | The folder to start it in. The default is the current folder.              |
+| `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
+| `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
+
+`pair spawn` runs your launch script, `~/.config/pair/spawn DIR COMMAND ARG…`,
+or `spawn.ps1` on Windows, which is the script the hub runs when you press
+Start agent on a proposal. `COMMAND ARG…` starts the CLI with the first prompt
+`Run pair register first.`, followed by your prompt. With `--name NAME`, the
+first prompt starts with
+`Run pair register --name NAME first. If another running session has that name, run pair register without --name.`
+instead, and `pair spawn` refuses a NAME that a running session already has
+before it runs the script. Without a launch script, `pair spawn` refuses and
+starts nothing. When the script fails, or runs longer than 10 seconds,
+`pair spawn` fails with the script's error.
+
+Inside an agent session, `pair spawn` registers that session first, so the
+new session can message it. When that fails, `pair spawn` prints why and
+starts the new session anyway.
+
+`pair spawn` waits up to 30 seconds for the new session to register. When it
+does not, as while the CLI waits at its folder-trust prompt, `pair spawn`
+prints this and exits 0:
+
+```console
+Started Codex in ~/code/shop. It appears in pair agents once it runs pair register.
+```
+
+pair adds no flag that skips a CLI's folder-trust prompt. Your launch script
+can add one.
 
 ## Environment variables
 

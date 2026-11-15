@@ -4,8 +4,8 @@ import path from "node:path";
 import test from "node:test";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import { findAgent } from "../../src/cli/agents.mjs";
-import { agentsScratch, outsideAgents } from "../support/agents.mjs";
-import { alive, exec, inbox, pair, waitUntil } from "../support/hub.mjs";
+import { agentsScratch, orphan, outsideAgents } from "../support/agents.mjs";
+import { inbox } from "../support/hub.mjs";
 
 // A receiving Claude Code session, with an inbox that records each message,
 // and senders inside a stand-in agent CLI or outside any agent CLI.
@@ -57,26 +57,15 @@ test("a message from an agent session names it and ends with the commands to ans
 });
 
 // pair counts a sender as the user only when no agent CLI is among its parent
-// processes, and the test itself may run inside one. orphan therefore starts
-// pair message from a node process that exits at once, so the system adopts
-// the command before pair reads its parent processes. orphan waits for the
-// command to exit.
-async function orphan(home, args, env) {
-  const start = `const child = require("node:child_process").spawn(process.execPath, ${JSON.stringify([pair, "message", ...args])}, { detached: true, windowsHide: true, stdio: "ignore" });
-process.stdout.write(String(child.pid));
-child.unref();`;
-  const { stdout } = await exec(process.execPath, ["-e", start], { env });
-  assert.ok(await waitUntil(() => !alive(Number(stdout)), 30_000));
-}
-
+// processes, so these senders run as orphans.
 test("a message from outside any agent CLI is from your user, and --ack sends nothing there", async (t) => {
   const { home, env, name, received } = await scratch(t);
   const plain = { ...outsideAgents, ...env };
-  await orphan(home, ["--to", name, "--text", "Stop here."], plain);
+  await orphan(home, ["message", "--to", name, "--text", "Stop here."], plain);
   assert.deepEqual(received(), [
     `pair message from your user:\n\nStop here.\n\n${noAnswer}`,
   ]);
-  await orphan(home, ["--to", name, "--ack"], plain);
+  await orphan(home, ["message", "--to", name, "--ack"], plain);
   assert.equal(received().length, 1);
 });
 

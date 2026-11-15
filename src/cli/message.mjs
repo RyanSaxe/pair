@@ -131,7 +131,7 @@ export async function message(options) {
   const entry = findAgent(sender.running ?? (await readAgents(table)), session);
   requireValue(
     entry,
-    `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start or pair message, or after a start hook in its CLI runs pair register --hook.`,
+    `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start, pair message or pair spawn, or after a start hook in its CLI runs pair register --hook.`,
   );
   const { way, target, tool } = await route(entry, subagent);
   const from = `pair message from ${sender.name}`;

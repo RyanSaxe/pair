@@ -4,8 +4,9 @@ import path from "node:path";
 import test from "node:test";
 import { hub, launchConfig, pairCli, planData } from "../../support/hub.mjs";
 
+// The new session registers under the card's ID before it runs pair guide.
 const prompt = (directory, id) =>
-  `Run pair guide and follow what it prints. Then run pair start --from ${directory} --proposal ${id}.`;
+  `Run pair register --name ${id} first. If another running session has that name, run pair register without --name. Run pair guide and follow what it prints. Then run pair start --from ${directory} --proposal ${id}.`;
 
 test("with a launch script, Open a new agent session runs it in the folder where the holder ran pair start, and the new agent's pair start --from links the card", async (t) => {
   const { config, runs } = await launchConfig(t);

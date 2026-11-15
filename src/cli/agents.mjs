@@ -15,7 +15,7 @@ import { listing, usageError } from "./arguments.mjs";
 // session resumes. Claude Code's wake target contains its inbox token, so only
 // the user can open the directory, and atomic() writes each file with mode
 // 600. Windows refuses a colon in a file name.
-const agentsDir = () => path.join(settings().root, "agents");
+export const agentsDir = () => path.join(settings().root, "agents");
 
 // A session runs while a process with the entry's process ID and start time
 // runs, so a process that a restart gives the same ID does not count. An
@@ -146,12 +146,7 @@ export async function registerAgent(
       !adapter.sharesProcess?.(cli),
   );
   const others = running.filter((entry) => entry.id !== id);
-  const namesake = name && others.find((entry) => entry.name === name);
-  requireValue(
-    !namesake,
-    namesake &&
-      `The running session ${namesake.id} in ${shortPath(namesake.directory)} is named ${name}. Give another --name.`,
-  );
+  requireFreeName(others, name);
   const directory = process.cwd();
   const entry = {
     id,
@@ -210,6 +205,25 @@ export function shortPath(directory) {
 // field of an entry but the target.
 const shown = ({ target, ...entry }) => entry;
 
+// requireFreeName refuses name when one of running, the running sessions'
+// entries, has it.
+export function requireFreeName(running, name) {
+  const namesake = name && running.find((entry) => entry.name === name);
+  requireValue(
+    !namesake,
+    namesake &&
+      `The running session ${namesake.id} in ${shortPath(namesake.directory)} is named ${name}. Give another --name.`,
+  );
+}
+
+export function requireName(command, name) {
+  if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name))
+    throw usageError(
+      command,
+      "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
+    );
+}
+
 // A CLI's start hook runs pair register --hook and writes its JSON to stdin.
 // A failed hook must not stop the CLI from starting, so with --hook pair
 // register prints its error and exits 0. pair register talks to no hub, so it
@@ -218,14 +232,7 @@ const shown = ({ target, ...entry }) => entry;
 export async function register(options) {
   requireNode();
   try {
-    if (
-      options.name !== undefined &&
-      !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(options.name)
-    )
-      throw usageError(
-        "register",
-        "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
-      );
+    requireName("register", options.name);
     const stdin =
       options.hook && !process.stdin.isTTY ? await text(process.stdin) : "";
     const input = /^\s*\{/.test(stdin) ? JSON.parse(stdin) : null;
