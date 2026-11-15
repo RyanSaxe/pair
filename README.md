@@ -87,6 +87,9 @@ runs where, and [Concepts](docs/concepts/) explains each part.
   proposals and the hub.
 - [Guides](docs/guides/) covers planning a change, understanding code,
   building the work and search.
+- [Advanced setup](docs/guides/advanced-setup.md) explains Start agent's
+  launch script, messaging between agent sessions, and your own instructions
+  and components.
 - [Reference](docs/reference/) lists every command and setting, and the
   files the agent reads.
 - [Troubleshooting](docs/troubleshooting.md) explains how to fix known
