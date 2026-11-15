@@ -60,9 +60,9 @@ running sessions that `src/cli/agents.mjs` keeps:
 names the sender as your user when it returns `null`:
 
 1. It compares each ancestor process of the `pair` command, nearest first,
-   with every adapter's `command`, `pidVariable` and `recognizes`. That way
-   it chooses the agent CLI that ran the command over an outer CLI whose
-   variables the inner one inherited.
+   with every adapter's `command` and `pidVariable`, and then asks each
+   adapter's `recognizes`. That way it chooses the agent CLI that ran the
+   command over an outer CLI whose variables the inner one inherited.
 2. When no ancestor matches, it chooses the first adapter whose first
    variable is set.
 3. It then calls that adapter's `detect`, or refuses with the adapter's

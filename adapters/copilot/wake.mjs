@@ -32,12 +32,11 @@ function listeningPort(pid) {
   }
 }
 // Copilot runs as its own executable, except where a package manager, such as
-// nixpkgs or npm on Windows, runs Copilot's index.js with node. Copilot's SDK
-// is in the folder of that index.js, so copilotFolder returns the folder, or
-// null for a node process that runs something else. Node 24 on Linux names its
-// main thread MainThread, which ps prints as the process's command.
+// nixpkgs or npm on Windows, runs Copilot's index.js with node, whose process
+// Linux names MainThread or node-MainThread. Copilot's SDK is in the folder of
+// that index.js, so copilotFolder returns the folder, or null for a process
+// that runs something else.
 function copilotFolder(ancestor) {
-  if (!["node", "MainThread"].includes(ancestor?.command)) return null;
   const words = [...(commandLine(ancestor) ?? "").matchAll(/"([^"]+)"|(\S+)/g)];
   const script = words
     .map(([, quoted, bare]) => quoted ?? bare)
@@ -51,7 +50,7 @@ function copilotFolder(ancestor) {
 export const recognizes = (ancestor) => copilotFolder(ancestor) !== null;
 
 function copilotSdk(env, ancestor) {
-  const folder = copilotFolder(ancestor);
+  const folder = ancestor && copilotFolder(ancestor);
   const roots = [
     env.COPILOT_PKG_CACHE_HOME,
     path.join(os.homedir(), "Library", "Caches", "copilot"),

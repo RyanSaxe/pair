@@ -30,45 +30,43 @@ function sessionAncestors() {
     return [];
   }
 }
-// An adapter recognizes an ancestor process that runs its command, that its
-// own recognizes accepts, as Copilot's accepts node running Copilot's script,
-// or whose ID is in the adapter's pidVariable, which pi's extension and
-// opencode's plugin set to the ID of the process they run in.
-export const recognizes = (adapter, ancestor, env = process.env) =>
+// An adapter recognizes an ancestor that runs its command, whose ID is in the
+// adapter's pidVariable, which pi's extension and opencode's plugin set, or
+// that the adapter's own recognizes accepts, as Copilot's accepts node running
+// Copilot's script. That one reads the command line, so detectAgent asks it
+// only about an ancestor that no adapter recognizes by name or ID.
+const named = (adapter, ancestor, env) =>
   ancestor.command === adapter.command ||
-  (adapter.pidVariable !== undefined &&
-    ancestor.pid === Number(env[adapter.pidVariable])) ||
-  Boolean(adapter.recognizes?.(ancestor));
-// detectAgent uses the nearest ancestor process that an adapter recognizes,
-// because an agent CLI started inside another one inherits the outer CLI's
-// variables. The hub can wake an agent CLI's session only when every one of
-// the adapter's variables is set, so detectAgent throws adapter.unwakeable
-// when one is missing. hookInput is the JSON that a CLI's start hook reads on
-// stdin, which fills in a variable the CLI leaves out of the hook's
-// environment.
-//
-// detectAgent returns the wake target, or null in a plain terminal, where no
-// ancestor process is an agent CLI and none of the adapters' variables is set.
-// detectWake throws there.
+  ancestor.pid === Number(env[adapter.pidVariable]);
+export const recognizes = (adapter, ancestor, env = process.env) =>
+  named(adapter, ancestor, env) || Boolean(adapter.recognizes?.(ancestor));
+// detectAgent uses the nearest ancestor that an adapter recognizes, because an
+// agent CLI started inside another one inherits the outer CLI's variables, or
+// else the first adapter whose first variable is set. The hub can wake a
+// session only when every one of the adapter's variables is set, so it throws
+// adapter.unwakeable when one is missing. hookInput, the JSON on a start
+// hook's stdin, fills in a variable the hook's environment lacks. detectAgent
+// returns null in a plain terminal, and detectWake throws there.
 export function detectAgent(
   env = process.env,
   tools = { ancestors: sessionAncestors },
   hookInput = null,
 ) {
-  for (const ancestor of [...tools.ancestors(), null])
-    for (const adapter of Object.values(adapters)) {
-      const claimed = ancestor
-        ? recognizes(adapter, ancestor, env)
-        : Boolean(env[adapter.variables[0]]);
-      if (!claimed) continue;
-      const seen = {
-        ...(hookInput && adapter.hookVariables?.(hookInput)),
-        ...env,
-      };
-      if (!adapter.variables.every((name) => seen[name]))
-        throw new Error(adapter.unwakeable);
-      return adapter.detect(seen, { ...tools, ancestor });
-    }
+  const list = Object.values(adapters);
+  for (const ancestor of [...tools.ancestors(), null]) {
+    const adapter = ancestor
+      ? (list.find((each) => named(each, ancestor, env)) ??
+        list.find((each) => each.recognizes?.(ancestor)))
+      : list.find((each) => env[each.variables[0]]);
+    if (!adapter) continue;
+    const seen = {
+      ...(hookInput && adapter.hookVariables?.(hookInput)),
+      ...env,
+    };
+    if (!adapter.variables.every((name) => seen[name]))
+      throw new Error(adapter.unwakeable);
+    return adapter.detect(seen, { ...tools, ancestor });
+  }
   return null;
 }
 export function detectWake(env, tools, hookInput) {
