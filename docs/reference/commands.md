@@ -183,22 +183,17 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 | `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
 | `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
 
-pair cannot open a terminal itself, so `pair spawn` runs your launch script,
-`~/.config/pair/spawn`, as `spawn DIR COMMAND ARG…`. The hub runs the same
-script when you press Start agent on a proposal. On Windows the script is `spawn.ps1`, which pair runs with
-PowerShell. pair passes each part as its own argument, with no shell between.
-`COMMAND ARG…` starts the CLI with the first prompt
+`pair spawn` runs your launch script, `~/.config/pair/spawn DIR COMMAND ARG…`,
+or `spawn.ps1` on Windows, which is the script the hub runs when you press
+Start agent on a proposal. `COMMAND ARG…` starts the CLI with the first prompt
 `Run pair register first.`, or `Run pair register --name NAME first.`,
-followed by your prompt, so the session registers whether or not its CLI has
-a start hook. Without a launch script, `pair spawn` refuses and starts
-nothing. When the script fails, or does not exit within 10 seconds,
+followed by your prompt. Without a launch script, `pair spawn` refuses and
+starts nothing. When the script fails, or runs longer than 10 seconds,
 `pair spawn` fails with the script's error.
 
-`pair spawn` then waits up to 30 seconds for a new entry of that CLI in that
-folder, with that name when you give `--name`. While it waits, it reads only
-the new files in `$XDG_STATE_HOME/pair/agents/`, so it runs no `ps` or
-PowerShell. When no entry appears, as while the CLI waits at its folder-trust
-prompt, it prints this and exits 0, because the session started:
+`pair spawn` waits up to 30 seconds for the session to register. When it does
+not, as while the CLI waits at its folder-trust prompt, `pair spawn` prints
+this and exits 0:
 
 ```console
 Started Codex in ~/code/shop. It appears in pair agents once it runs pair register.
