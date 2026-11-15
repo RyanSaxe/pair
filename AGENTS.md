@@ -78,14 +78,14 @@ removed or its job changes.
 
 ## Rules for the code
 
-Keep a file to 500 lines or fewer where you can, and never above 1000. ESLint
+Keep a file to 600 lines or fewer where you can, and never above 1000. ESLint
 checks the length of each JavaScript file with its `max-lines` rule.
 `eslint.config.mjs` sets the rule to fail a file over 1000 lines, and CI runs
-ESLint a second time with the rule at 500 as a warning, which lists each file
-over 500 lines without failing:
+ESLint a second time with the rule at 600 as a warning, which lists each file
+over 600 lines without failing:
 
 ```sh
-npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 500]}' .
+npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 600]}' .
 ```
 
 Frame modules import each other by `#frame/…` and `#shared/…` names. The
