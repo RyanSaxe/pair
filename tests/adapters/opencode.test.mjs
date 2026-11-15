@@ -83,7 +83,7 @@ test("start in opencode without the plugin names the config file to add it to", 
   const refusal = async (copy) =>
     (await import(`../../adapters/opencode/wake.mjs?${copy}`)).unwakeable;
   const line = (file) =>
-    `Ask the user to add "${plugin}" to "plugin" in ${file} and restart opencode with \`opencode --continue\`, then run \`pair start\` again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
+    `Ask the user to add "${plugin}" to "plugin" in ${file} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
   const config = path.join(home, "opencode");
   assert.equal(
     await refusal("none"),

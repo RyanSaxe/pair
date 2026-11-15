@@ -280,7 +280,7 @@ test("start refuses without a wake path and says what to do", () => {
   // detectWake refuses a pi session without pair's extension, whether it finds
   // pi among the ancestors or, with no agent CLI among them, by PAIR_PI_SOCKET.
   const pi = {
-    message: `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`,
+    message: `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run this pair command again. This pi session runs without pair's extension, so the hub cannot wake it.`,
   };
   assert.throws(() => detectWake({}, tools([{ pid: 3, command: "pi" }])), pi);
   assert.throws(
@@ -303,7 +303,7 @@ test("start refuses without a wake path and says what to do", () => {
         { COPILOT_AGENT_SESSION_ID: "s" },
         tools([{ pid: 3, command: "copilot" }], null),
       ),
-    /copilot --ui-server --resume s`, then run `pair start` again/,
+    /copilot --ui-server --resume s`, then run this pair command again/,
   );
   assert.throws(
     () =>

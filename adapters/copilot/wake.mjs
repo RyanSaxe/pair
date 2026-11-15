@@ -70,7 +70,7 @@ export function detect(
   const port = ancestor ? portOf(ancestor.pid) : null;
   if (!port)
     throw new Error(
-      `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run \`pair start\` again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
+      `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run this pair command again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
   const { sdk, tried } = findSdk(env);
   if (!sdk)
