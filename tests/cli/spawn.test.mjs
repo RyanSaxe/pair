@@ -117,6 +117,33 @@ test("pair spawn runs the launch script with the CLI's command line, and prints 
   await waitUntil(() => !alive(run.pid));
 });
 
+// The agent spawns the new session in its own folder, so the agent's own new
+// entry is also an entry of that CLI in that folder.
+test("pair spawn inside an agent session registers that session, and prints the new session's name, not that one", async (t) => {
+  const context = await scratch(t);
+  const { agent, agents, env, folder, runs } = context;
+  await terminal(context);
+  const sender = await agent(await folder("app"), {
+    env: {
+      CLAUDE_CODE_SESSION_ID: "sender",
+      XDG_CONFIG_HOME: env.XDG_CONFIG_HOME,
+    },
+  });
+
+  const spawned = await sender.run(["spawn", "claude"]);
+  assert.equal(spawned.status, 0, spawned.stderr);
+  const [run] = await runs();
+  await waitUntil(() => !alive(run.pid));
+  const listed = (await agents()).find(
+    (entry) => entry.id === "claude-code:sender",
+  );
+  assert.ok(listed, "pair agents lists the session that ran pair spawn");
+  const [, name] = new RegExp(
+    `^Started (app-[0-9a-f]{2}) \\(Claude Code\\) in ${literal(path.join("~", "app"))}\\.`,
+  ).exec(spawned.stdout);
+  assert.notEqual(name, listed.name);
+});
+
 test("pair spawn refuses without a launch script", async (t) => {
   const { spawn } = await scratch(t);
   const script = path.basename(settings().launchScript);

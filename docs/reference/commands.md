@@ -102,9 +102,9 @@ api-d3        Codex        ~/src/api                      main       codex:0199c
 A session is named for its folder and two hex characters from its ID, keeps
 that name when its CLI restarts, and `--name NAME` sets another. `pair agents`
 prints the start of each ID, `--json` prints whole IDs, and a session leaves
-the list when its CLI exits. `pair start` registers the agent that runs it,
-and pair's pi extension and opencode plugin register each session when it
-starts.
+the list when its CLI exits. `pair start`, `pair message` and `pair spawn`
+register the agent that runs them, and pair's pi extension and opencode
+plugin register each session when it starts.
 
 An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 `pair register` reads the session ID from the hook's JSON on stdin when the
@@ -191,9 +191,13 @@ followed by your prompt. Without a launch script, `pair spawn` refuses and
 starts nothing. When the script fails, or runs longer than 10 seconds,
 `pair spawn` fails with the script's error.
 
-`pair spawn` waits up to 30 seconds for the session to register. When it does
-not, as while the CLI waits at its folder-trust prompt, `pair spawn` prints
-this and exits 0:
+Inside an agent session, `pair spawn` registers that session first, so the
+new session can message it. When that fails, `pair spawn` prints why and
+starts the new session anyway.
+
+`pair spawn` waits up to 30 seconds for the new session to register. When it
+does not, as while the CLI waits at its folder-trust prompt, `pair spawn`
+prints this and exits 0:
 
 ```console
 Started Codex in ~/code/shop. It appears in pair agents once it runs pair register.

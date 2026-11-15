@@ -2,11 +2,18 @@ import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { adapters } from "../hub/wake.mjs";
+import { adapters, detectAgent } from "../hub/wake.mjs";
 import { runLaunch } from "../shared/launch.mjs";
+import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { requireValue } from "../shared/util.mjs";
-import { agentsDir, requireName, shortPath, shown } from "./agents.mjs";
+import {
+  agentsDir,
+  registerAgent,
+  requireName,
+  shortPath,
+  shown,
+} from "./agents.mjs";
 import { usageError } from "./arguments.mjs";
 
 const examples =
@@ -37,6 +44,22 @@ async function newEntry(before, matches) {
     await sleep(pollMs);
   }
   return null;
+}
+
+// pair spawn registers the agent session it runs in, as pair message does, so
+// the new session can message that session. Starting the new session needs no
+// entry for the sender, so a failure only prints why, as in pair start.
+async function registerSender() {
+  try {
+    const table = processTable();
+    const tools = { ancestors: () => ancestors(table) };
+    const target = detectAgent(process.env, tools);
+    if (target) await registerAgent(target, { table, sender: true });
+  } catch (error) {
+    console.error(
+      `pair: This agent is not registered, so the new session cannot message it. ${error.message}`,
+    );
+  }
 }
 
 export async function spawn(options) {
@@ -72,6 +95,9 @@ export async function spawn(options) {
     : "pair register";
   const prompt = [`Run ${register} first.`, asked].filter(Boolean).join(" ");
 
+  // The sender registers before pair spawn lists the entry files, so its own
+  // new entry is never taken for the new session's.
+  await registerSender();
   const before = new Set(await entryFiles());
   const command = adapter.launch({ name: options.name, prompt });
   await runLaunch(launchScript, directory, command);
