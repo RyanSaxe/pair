@@ -24,7 +24,7 @@ export const name = "opencode";
 // shell command that opencode runs.
 export const command = "opencode";
 export const variables = ["PAIR_OPENCODE_SOCKET", "PAIR_OPENCODE_SESSION"];
-export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run \`pair start\` again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
+export const unwakeable = `Ask the user to add "${plugin}" to "plugin" in ${globalConfig()} and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
 
 // One opencode process serves several sessions through one plugin socket, so
 // the session ID identifies the agent, and a new session's registration

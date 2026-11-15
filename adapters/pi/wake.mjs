@@ -9,7 +9,7 @@ export const name = "pi";
 // each command that pi runs.
 export const command = "pi";
 export const variables = ["PAIR_PI_SOCKET", "PAIR_PI_SESSION"];
-export const unwakeable = `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`;
+export const unwakeable = `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run this pair command again. This pi session runs without pair's extension, so the hub cannot wake it.`;
 
 // The socket changes when pi restarts, and the session ID does not.
 export const identity = (target) => target.session;
