@@ -375,6 +375,25 @@ for (const engine of ["chrome", "webkit"]) {
     await previewCovers(page, { top: 200, bottom: 400 });
   });
 
+  test(`on a phone in ${engine}, a note closed with no save brings the split back, and the search field's keyboard still shows only the results`, async (t) => {
+    const page = await showNote(t, engine);
+    if (!page) return;
+    await keyboard(page, 280);
+    await wholeOnScreen(page, "#note-text");
+    await shownFrame(page).getByRole("button", { name: "Close note" }).click();
+    await noteClosed(page);
+    await splitShows(page);
+    await keyboard(page);
+    await previewCovers(page, { top: 380, bottom: 760 });
+
+    await page.locator(".search-input").tap();
+    await keyboard(page, 400);
+    assert.equal(await previewVisible(page), false);
+    await page.locator(".search-input").blur();
+    await keyboard(page);
+    await splitShows(page);
+  });
+
   test(`on a phone in ${engine}, a reply box in the preview has the window, and leaving it brings the split back`, async (t) => {
     const { a, page } = await searchPage(t, phone(engine));
     if (!page) return;
@@ -408,27 +427,6 @@ for (const engine of ["chrome", "webkit"]) {
     );
   });
 }
-
-// The WebKit runs of the Save tests above check that a press on a button in the
-// preview's note lands in an iPhone's engine, so this test runs in Chrome only.
-test("on a phone, a note closed with no save brings the split back, and the search field's keyboard still shows only the results", async (t) => {
-  const page = await showNote(t, "chrome");
-  if (!page) return;
-  await keyboard(page, 280);
-  await wholeOnScreen(page, "#note-text");
-  await shownFrame(page).getByRole("button", { name: "Close note" }).click();
-  await noteClosed(page);
-  await splitShows(page);
-  await keyboard(page);
-  await previewCovers(page, { top: 380, bottom: 760 });
-
-  await page.locator(".search-input").tap();
-  await keyboard(page, 400);
-  assert.equal(await previewVisible(page), false);
-  await page.locator(".search-input").blur();
-  await keyboard(page);
-  await splitShows(page);
-});
 
 test("on a phone, the row a tap chose stays in the results when the split shrinks them", async (t) => {
   // A short keyboard leaves more of the list to tap in than the split keeps.
