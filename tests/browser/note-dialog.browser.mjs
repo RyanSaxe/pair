@@ -249,8 +249,10 @@ test("the same words selected in two paragraphs keep separate drafts", async (t)
   assert.notEqual(saved[0].target, saved[1].target);
 });
 
-// Two tabs of one browser save one draft in localStorage, so the second tab
-// loses the note when the first tab removes it.
+// Another device drops a removed note from its draft at its next poll of the
+// hub. Two tabs of one browser save one draft in localStorage, so the second
+// tab loses the note as soon as the first tab removes it, and the test needs
+// no wait for a poll.
 test("an edit saved after another tab removed the note sends as a new note, with only the images added in the edit", async (t) => {
   const { session: s, url, hubNotes, onHub } = await session(t);
   const blank = await open(t, "about:blank");
