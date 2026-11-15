@@ -19,7 +19,7 @@ export const PairWake = async ({ client }) => {
         throw new Error(
           `opencode did not find the session: ${JSON.stringify(error)}`,
         );
-      return { parentID: data.parentID, title: data.title };
+      return { parentID: data.parentID, title: data.title, open: true };
     }
     let child = null;
     if (subagent) {

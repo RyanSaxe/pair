@@ -6,9 +6,9 @@ import { processTable } from "../../src/shared/processes.mjs";
 // pair's window plugin, tui.js, runs in each opencode 2 window and keeps a
 // file in this folder, named for the window's process ID, with the window's
 // start time and the sessions it has open.
-export const windowsDir = (env = process.env) =>
+export const windowsDir = () =>
   path.join(
-    env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state"),
+    process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state"),
     "pair",
     "opencode-windows",
   );

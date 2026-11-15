@@ -16,8 +16,6 @@ import { listing, usageError } from "./arguments.mjs";
 // the user can open the directory, and atomic() writes each file with mode
 // 600. Windows refuses a colon in a file name.
 const agentsDir = () => path.join(settings().root, "agents");
-const entryFile = (id) =>
-  path.join(agentsDir(), `${id.replace(":", "-")}.json`);
 
 // A session runs while a process with the entry's process ID and start time
 // runs, so a process that a restart gives the same ID does not count. An
@@ -36,9 +34,13 @@ async function sessionState(entry, table) {
   return (await (running ?? true)) ? "running" : "ended";
 }
 
-// readAgents deletes the entry of every session that has ended, and returns
-// the running ones, the most recently registered first.
-export async function readAgents(table = processTable()) {
+// readAgents deletes the entry of every session that has ended, and of every
+// running one that replaced says a new session replaces, and returns the
+// others that run, the most recently registered first.
+export async function readAgents(
+  table = processTable(),
+  replaced = () => false,
+) {
   const names = await fs.readdir(agentsDir()).catch(() => []);
   const files = names.filter((name) => name.endsWith(".json"));
   const entries = await Promise.all(
@@ -49,8 +51,10 @@ export async function readAgents(table = processTable()) {
         .then(JSON.parse)
         .catch(() => null);
       const state = await sessionState(entry, table).catch(() => "unknown");
-      if (state === "ended") await fs.rm(file, { force: true });
-      return state === "running" ? entry : null;
+      const ended =
+        state === "ended" || (state === "running" && replaced(entry));
+      if (ended) await fs.rm(file, { force: true });
+      return state === "running" && !ended ? entry : null;
     }),
   );
   return entries
@@ -68,25 +72,17 @@ function defaultName(directory, id, taken) {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}-]/gu, "-");
   const [first] = crypto.createHash("sha256").update(id).digest();
-  for (let step = 0; step < 256; step++) {
-    const name = `${base}-${((first + step) % 256).toString(16).padStart(2, "0")}`;
-    if (!taken.has(name)) return name;
-  }
-  requireValue(
-    false,
-    `Running sessions have every name from ${base}-00 to ${base}-ff. Give this one a name with --name.`,
+  const names = Array.from(
+    { length: 256 },
+    (_, step) =>
+      `${base}-${((first + step) % 256).toString(16).padStart(2, "0")}`,
   );
+  return names.find((each) => !taken.has(each)) ?? names[0];
 }
 
-// Git gives its hooks GIT_DIR and the other GIT_* variables, which would point
-// git at the hook's repository, so currentBranch leaves them out.
 function currentBranch(cwd) {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-  );
   const { status, stdout } = spawnSync("git", ["branch", "--show-current"], {
     cwd,
-    env,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   });
@@ -95,13 +91,16 @@ function currentBranch(cwd) {
 
 // registerAgent writes the entry of the session that target names, and
 // returns it with every running entry, itself first. The session runs in the
-// ancestor in the adapter's pidVariable, because a pi started inside pi
-// without pair's extension inherits the outer pi's variables and exits first,
-// or else in the nearest ancestor that the adapter recognizes. A subagent gets
-// no entry, because pair reaches it through its parent.
+// ancestor in the adapter's pidVariable, or else in the nearest ancestor that
+// the adapter recognizes. The pidVariable comes first because pi's subagent
+// example starts pi without pair's extension loaded by -e, and that inner pi
+// inherits the outer pi's variables and exits first. A subagent gets no entry,
+// because pair reaches it through its parent, and for a sender whose parent
+// is listed, registerAgent returns the parent's entry and the subagent's
+// nickname instead of refusing.
 export async function registerAgent(
   target,
-  { name, table = processTable() } = {},
+  { name, table = processTable(), sender = false } = {},
 ) {
   const adapter = adapters[target.harness];
   const sessionId = (adapter.sessionId ?? adapter.identity)(target);
@@ -122,11 +121,14 @@ export async function registerAgent(
     `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
   );
   const id = `${target.harness}:${sessionId}`;
-  const running = await readAgents(table);
   const parent = await adapter.parentSession?.(target).catch(() => null);
   if (parent) {
     const parentId = `${target.harness}:${parent.sessionId}`;
-    const via = running.find((each) => each.id === parentId)?.name ?? parentId;
+    const running = await readAgents(table);
+    const listed = running.find((each) => each.id === parentId);
+    if (sender && listed && parent.nickname)
+      return { entry: listed, subagent: parent.nickname, running };
+    const via = listed?.name ?? parentId;
     throw new Error(
       `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${via}/${parent.nickname ?? `SUBAGENT, with the name ${via} gave it`}.`,
     );
@@ -134,15 +136,16 @@ export async function registerAgent(
   // Claude Code's /clear and pi's /new start a new session in the same
   // process, so the new session's entry replaces that process's other entries,
   // unless the process serves several sessions.
-  const replaced = (entry) =>
-    entry.cli === target.harness &&
-    entry.pid === cli.pid &&
-    entry.processStart === cli.start &&
-    !adapter.sharesProcess?.(cli);
-  const others = [];
-  for (const entry of running.filter((each) => each.id !== id))
-    if (replaced(entry)) await fs.rm(entryFile(entry.id), { force: true });
-    else others.push(entry);
+  const running = await readAgents(
+    table,
+    (entry) =>
+      entry.id !== id &&
+      entry.cli === target.harness &&
+      entry.pid === cli.pid &&
+      entry.processStart === cli.start &&
+      !adapter.sharesProcess?.(cli),
+  );
+  const others = running.filter((entry) => entry.id !== id);
   const namesake = name && others.find((entry) => entry.name === name);
   requireValue(
     !namesake,
@@ -165,7 +168,7 @@ export async function registerAgent(
     registeredAt: new Date().toISOString(),
   };
   await fs.mkdir(agentsDir(), { recursive: true, mode: 0o700 });
-  await atomic(entryFile(id), entry);
+  await atomic(path.join(agentsDir(), `${id.replace(":", "-")}.json`), entry);
   return { entry, running: [entry, ...others] };
 }
 

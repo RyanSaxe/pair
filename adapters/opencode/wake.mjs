@@ -60,17 +60,16 @@ export async function parentSession({ socket, session }) {
 }
 
 // opencode 2 runs pair's plugin in its background server, which keeps running
-// after every opencode window exits, so that plugin also says whether a
-// window has the session open. opencode 1's plugin runs in the window's own
-// process, and says nothing.
+// after every opencode window exits, so that plugin answers whether a window
+// has the session open. opencode 1's plugin runs in the window's own process,
+// and answers that it does.
 export async function running({ socket, session }) {
-  const { open } = await send(socket, { session, query: "session" });
-  return open ?? true;
+  return (await send(socket, { session, query: "session" })).open;
 }
 
-// pair message sends a message to a subagent through the plugin, which
-// prompts the subagent's own session.
-export const reachesSubagents = true;
+// The plugin prompts a subagent's own session, so pair message needs no tool
+// for the parent to pass a message on with.
+export const subagentTool = () => null;
 
 // The plugin sends the line with promptAsync, and opencode adds it to the
 // running request between its steps. With target.subagent, the plugin sends

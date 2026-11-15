@@ -58,22 +58,17 @@ function receiver(to) {
 async function identifySender(label, table) {
   if (label !== undefined) return { name: label, answer: null };
   try {
-    const target = detectAgent(process.env, {
-      ancestors: () => ancestors(table),
-    });
+    const tools = { ancestors: () => ancestors(table) };
+    const target = detectAgent(process.env, tools);
     if (!target) return { name: "your user", answer: null };
-    const adapter = adapters[target.harness];
-    const sender = (entry, subagent = "") => ({
-      name: `${entry.name}${subagent} (${adapter.name} in ${shortPath(entry.directory)})`,
-      answer: `${entry.id}${subagent}`,
+    const { entry, subagent, running } = await registerAgent(target, {
+      table,
+      sender: true,
     });
-    const parent = await adapter.parentSession?.(target).catch(() => null);
-    if (parent?.nickname) {
-      const parentId = `${target.harness}:${parent.sessionId}`;
-      const entry = (await readAgents(table)).find(({ id }) => id === parentId);
-      if (entry) return sender(entry, `/${parent.nickname}`);
-    }
-    return sender((await registerAgent(target, { table })).entry);
+    const address = subagent ? `${entry.id}/${subagent}` : entry.id;
+    const name = subagent ? `${entry.name}/${subagent}` : entry.name;
+    const where = `${adapters[entry.cli].name} in ${shortPath(entry.directory)}`;
+    return { name: `${name} (${where})`, answer: address, running };
   } catch (error) {
     throw new Error(
       `pair sent nothing, because it could not register this session, and the receiver can answer only a registered session. ${error.message}`,
@@ -93,37 +88,31 @@ function ending(answer) {
   return `To answer, run: pair message --to ${to} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${to} --ack`;
 }
 
-// An adapter with reachesSubagents delivers to the subagent that
-// target.subagent names. One with subagentTool delivers to the parent, with a
-// first line that asks the parent's agent to pass the message on with that
-// tool. relay returns the target and the line to send.
-async function relay(entry, subagent, sender, { first, body }) {
+// A message goes to the session itself, to the subagent that target.subagent
+// names when the adapter's subagentTool returns null, as opencode's plugin
+// delivers it, or to the parent, with a first line that asks the parent's
+// agent to pass it on with the tool that subagentTool names.
+async function route(entry, subagent) {
+  if (!subagent) return { way: "direct", target: entry.target };
   const adapter = adapters[entry.cli];
-  const line = first ? `${first}\n\n${body}` : body;
-  if (!subagent) return { target: entry.target, line, relayed: false };
-  if (adapter.reachesSubagents)
-    return { target: { ...entry.target, subagent }, line, relayed: false };
   requireValue(
     adapter.subagentTool,
     `pair cannot send a message to a subagent of a ${adapter.name} session.`,
   );
   const tool = await adapter.subagentTool(entry.target, subagent);
-  return {
-    target: entry.target,
-    line: `pair message from ${sender}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:\n\n${body}`,
-    relayed: true,
-  };
+  return tool === null
+    ? { way: "subagent", target: { ...entry.target, subagent } }
+    : { way: "relayed", target: entry.target, tool };
 }
 
-function sentText(entry, subagent, { sent, relayed, steerable }) {
+function sentText(entry, subagent, way, { steerable }) {
   const session = `${entry.name} (${adapters[entry.cli].name})`;
-  if (!sent)
-    return `PAIR_WAKE is off, so pair wrote the message to stderr instead of sending it to ${session}.`;
   const when = `at once if it is idle, and otherwise ${steerable ? "between the steps of its current turn" : "when its current turn ends"}`;
-  if (!subagent) return `Sent to ${session}. It reads the message ${when}.`;
-  if (relayed)
-    return `Sent to ${session}, to pass on to its subagent ${subagent}. ${entry.name} reads the message ${when}.`;
-  return `Sent to ${subagent}, a subagent of ${session}. It reads the message ${when}.`;
+  return {
+    direct: `Sent to ${session}. It reads the message ${when}.`,
+    subagent: `Sent to ${subagent}, a subagent of ${session}. It reads the message ${when}.`,
+    relayed: `Sent to ${session}, to pass on to its subagent ${subagent}. ${entry.name} reads the message ${when}.`,
+  }[way];
 }
 
 export async function message(options) {
@@ -133,53 +122,35 @@ export async function message(options) {
   const label = options.from?.trim();
   if (options.from !== undefined && (!label || /[\r\n]/.test(label)))
     throw usageError("message", "--from takes a label of one line.");
-  if (options.ack && label !== undefined)
-    throw usageError(
-      "message",
-      "--ack acknowledges as this agent session, so it takes no --from.",
-    );
   const table = processTable();
   const sender = await identifySender(label, table);
   requireValue(
     !options.ack || sender.answer,
     "pair message --ack works only inside an agent session, because it names that session as the one that read the message.",
   );
-  const entry = findAgent(await readAgents(table), session);
+  const entry = findAgent(sender.running ?? (await readAgents(table)), session);
   requireValue(
     entry,
     `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start or pair message, or after a start hook in its CLI runs pair register --hook.`,
   );
-  const { target, line, relayed } = await relay(
-    entry,
-    subagent,
-    sender.name,
-    options.ack
-      ? {
-          body: `pair message from ${sender.name} acknowledges your message. Don't answer it.`,
-        }
-      : {
-          first: `pair message from ${sender.name}:`,
-          body: `${text}\n\n${ending(sender.answer)}`,
-        },
-  );
+  const { way, target, tool } = await route(entry, subagent);
+  const from = `pair message from ${sender.name}`;
+  const body = options.ack
+    ? `${from} acknowledges your message. Don't answer it.`
+    : `${text}\n\n${ending(sender.answer)}`;
+  const line =
+    way === "relayed"
+      ? `${from}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:\n\n${body}`
+      : options.ack
+        ? body
+        : `${from}:\n\n${body}`;
   // With PAIR_WAKE=off, wakeRunner writes the line to stderr instead of
   // sending it, as the hub writes it to its log.
-  const { wake: sent } = settings();
-  const delivery = await wakeRunner(target, line, {
-    wake: sent,
-    log: console.error,
-  });
+  const { wake } = settings();
+  const delivery = await wakeRunner(target, line, { wake, log: console.error });
   return {
-    data: sentText(entry, subagent, { sent, relayed, ...delivery }),
-    json: {
-      sent,
-      to: entry.id,
-      name: entry.name,
-      cli: entry.cli,
-      subagent,
-      relayed,
-      via: delivery?.via ?? null,
-      steerable: delivery?.steerable ?? null,
-    },
+    data: wake
+      ? sentText(entry, subagent, way, delivery)
+      : `PAIR_WAKE is off, so pair wrote the message to stderr instead of sending it to ${entry.name} (${adapters[entry.cli].name}).`,
   };
 }

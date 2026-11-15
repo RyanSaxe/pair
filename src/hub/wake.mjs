@@ -38,8 +38,9 @@ function sessionAncestors() {
 const named = (adapter, ancestor, env) =>
   ancestor.command === adapter.command ||
   ancestor.pid === Number(env[adapter.pidVariable]);
-export const recognizes = (adapter, ancestor, env = process.env) =>
-  named(adapter, ancestor, env) || Boolean(adapter.recognizes?.(ancestor));
+export const recognizes = (adapter, ancestor) =>
+  named(adapter, ancestor, process.env) ||
+  Boolean(adapter.recognizes?.(ancestor));
 // detectAgent uses the nearest ancestor that an adapter recognizes, because an
 // agent CLI started inside another one inherits the outer CLI's variables, or
 // else the first adapter whose first variable is set. The hub can wake a
