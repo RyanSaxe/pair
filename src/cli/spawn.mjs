@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { adapters, detectAgent } from "../hub/wake.mjs";
-import { runLaunch } from "../shared/launch.mjs";
+import { firstPrompt, runLaunch } from "../shared/launch.mjs";
 import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { requireValue } from "../shared/util.mjs";
@@ -84,10 +84,7 @@ export async function spawn(options) {
     options.file === undefined
       ? options.prompt
       : (await fs.readFile(options.file, "utf8")).trim();
-  const register = options.name
-    ? `pair register --name ${options.name}`
-    : "pair register";
-  const prompt = [`Run ${register} first.`, asked].filter(Boolean).join(" ");
+  const prompt = firstPrompt(options.name, asked);
 
   // The sender registers before pair spawn lists the entry files, so its own
   // new entry is never taken for the new session's.

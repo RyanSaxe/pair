@@ -48,3 +48,12 @@ export function runLaunch(script, directory, command) {
     ),
   );
 }
+
+// A session that pair starts runs pair register as its first step, so pair
+// agents lists it and pair message reaches it whether or not its CLI has a
+// start hook. firstPrompt returns that step, with --name when name is given,
+// followed by rest.
+export const firstPrompt = (name, rest) =>
+  [`Run pair register${name ? ` --name ${name}` : ""} first.`, rest]
+    .filter(Boolean)
+    .join(" ");

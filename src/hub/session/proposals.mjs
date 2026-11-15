@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { runLaunch } from "../../shared/launch.mjs";
+import { firstPrompt, runLaunch } from "../../shared/launch.mjs";
 import { accepts } from "../../shared/lifecycle.mjs";
 import { allows, proposalState } from "../../shared/proposal-state.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
@@ -285,7 +285,12 @@ export async function proposals(session) {
       );
     const holder = launcher();
     if (holder) {
-      const prompt = `Run pair guide and follow what it prints. Then run ${fromCommand(id)}.`;
+      // The new session registers under the card's ID, the name that launch
+      // gives the session in its CLI.
+      const prompt = firstPrompt(
+        id,
+        `Run pair guide and follow what it prints. Then run ${fromCommand(id)}.`,
+      );
       const command = adapters[holder.harness].launch({ name: id, prompt });
       try {
         await runLaunch(session.config.launchScript, holder.folder, command);
