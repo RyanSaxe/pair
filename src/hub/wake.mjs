@@ -1,10 +1,10 @@
-import { execFile, execFileSync } from "node:child_process";
-import path from "node:path";
+import { execFile } from "node:child_process";
 import * as claudeCode from "../../adapters/claude-code/wake.mjs";
 import * as codex from "../../adapters/codex/wake.mjs";
 import * as copilot from "../../adapters/copilot/wake.mjs";
 import * as opencode from "../../adapters/opencode/wake.mjs";
 import * as pi from "../../adapters/pi/wake.mjs";
+import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireValue } from "../shared/util.mjs";
 
 // When no agent CLI is among the ancestor processes, detectWake picks the
@@ -22,33 +22,23 @@ export const identify = (target) => ({
 });
 // detectWake uses the nearest ancestor process that an adapter recognizes,
 // because an agent CLI started inside another one inherits the outer CLI's
-// variables. ancestors returns each process's executable name.
-function ancestors(pid = process.ppid) {
-  const chain = [];
-  for (let current = pid; current > 1;) {
-    let line;
-    try {
-      // ps prints its own error when it fails, as Git for Windows' ps does
-      // for -o, so ancestors discards its stderr to keep the error out of the
-      // command's output.
-      line = execFileSync("ps", ["-o", "ppid=,comm=", "-p", String(current)], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
-    } catch {
-      break;
-    }
-    const match = /^(\d+)\s+(.*)$/.exec(line);
-    if (!match) break;
-    chain.push({ pid: current, command: path.basename(match[2].trim()) });
-    current = Number(match[1]);
+// variables. Every session command runs detectWake, so it reads the processes
+// with ps alone, and finds no ancestors on Windows or where ps cannot run.
+function sessionAncestors() {
+  if (process.platform === "win32") return [];
+  try {
+    return ancestors(processTable());
+  } catch {
+    return [];
   }
-  return chain;
 }
 // The hub can wake an agent CLI's session only when every one of the
 // adapter's variables is set, so detectWake throws adapter.unwakeable when
 // one is missing.
-export function detectWake(env = process.env, tools = { ancestors }) {
+export function detectWake(
+  env = process.env,
+  tools = { ancestors: sessionAncestors },
+) {
   for (const ancestor of [...tools.ancestors(), null])
     for (const adapter of Object.values(adapters)) {
       const claimed = ancestor
