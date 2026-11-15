@@ -150,11 +150,11 @@ export const commands = {
   },
   reply: {
     group: "session",
-    purpose: "Post your reply in a thread",
+    purpose: "Post your reply in a thread, or acknowledge it",
     about:
-      "Post your reply in a thread. pair read --thread ID prints the thread.",
+      "Post your reply in a thread, or acknowledge the reviewer's messages without a reply. pair read --thread ID prints the thread.",
     usage:
-      "pair reply --session-dir DIR --thread ID (--text TEXT | --file HTML)",
+      "pair reply --session-dir DIR --thread ID (--text TEXT | --file HTML | --ack)",
     flags: {
       "session-dir": sessionDir,
       thread: {
@@ -170,9 +170,12 @@ export const commands = {
         value: "HTML",
         text: "Your reply as an HTML fragment that passes pair build's page checks. Use it for links, bold, code and lists.",
       },
+      ack: {
+        text: "Acknowledge the reviewer's messages that wait for an answer, in place of a reply, when they ask for nothing and you have nothing to add.",
+      },
       json,
     },
-    footer: "Give --text or --file, not both.",
+    footer: "Give one of --text, --file and --ack.",
     run: reply,
   },
   pause: {

@@ -42,6 +42,11 @@ newest. When you expand or collapse a card yourself, pair keeps it that way.
   agent makes the change. When you ask for other work, the agent records a
   proposal and starts it, quoting you, as [When you ask in your own
   words](proposals-and-work.md#when-you-ask-in-your-own-words) describes.
+- When your message asks for nothing and the agent has nothing to add, the
+  agent acknowledges it with `pair reply --ack` instead of writing a reply.
+  pair then shows "Acknowledged by the agent" with the time in the thread's
+  card, and the bell lists the acknowledgement as it lists a reply. Your
+  next message in the thread waits for an answer again.
 - To agree with a reply without writing anything, press the thumbs up beside
   the agent's name. The agent then treats what it suggested in that reply
   as settled, as if you had settled it in words, and does not reply to the
@@ -75,4 +80,5 @@ The line under your message shows the thread's status.
 | Agent paused. Send a message in chat. | The agent paused the session, so the hub sends it no wake. When you ask the agent in chat to continue, it runs `pair start`, which prints the thread's ID.           |
 | Sent to the agent                     | The hub woke the agent to read the thread, or the agent resumed the paused session with `pair start`, which printed the thread's ID.                                 |
 | Read · replying                       | The agent read the thread and is writing its reply.                                                                                                                  |
+| Acknowledged by the agent             | The agent acknowledged your message with `pair reply --ack` and wrote no reply.                                                                                      |
 | Could not reach the agent             | The hub could not wake the agent. The card shows the session's handoff line, which you can give to another agent to [take the session over](holders-and-handoff.md). |

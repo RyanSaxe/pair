@@ -12,6 +12,7 @@ import {
   propose,
   replied,
   reply,
+  round,
   row,
   selected,
   sessions,
@@ -558,4 +559,44 @@ test("a card's row opens the card on its Work tab, says Waiting for Start until 
   await page.locator("#search-dialog").waitFor({ state: "hidden" });
   await page.locator('#work-tab-running[aria-selected="true"]').waitFor();
   await page.locator('[data-proposal-card="deck"]').waitFor();
+});
+
+test("an agent's ack reads Acknowledged by the agent in the bell and its thread, and its row moves to Read", async (t) => {
+  const h = await hub(t);
+  const here = await h.session();
+  assert.equal((await here.publish(round("Here"))).code, 200);
+  await here.request("/api/seen", { cleared: [] });
+  const id = await thread(here, "Looks right to me.");
+  const acked = await here.action("reply", { note: id, ack: true });
+  assert.equal(acked.code, 200, acked.body.error);
+  const page = await openOn(t, h, here, {}, false);
+  if (!page) return;
+  await badge(page, 1);
+  await page.locator("#bell").click();
+  const line = page.locator("#center-list .session-row");
+  assert.equal(
+    await line.locator(".title").textContent(),
+    "Acknowledged by the agent",
+  );
+  assert.equal(
+    await line.locator(".where").textContent(),
+    "“Looks right to me.”",
+  );
+  await line.click();
+  const card = page.locator(`pair-thread[data-thread="${id}"]`);
+  await card.waitFor();
+  await badge(page, 0);
+  assert.match(
+    await card.locator(".thread-agent-ack").textContent(),
+    /^Acknowledged by the agent · (now|\d+s ago)$/,
+  );
+  assert.equal(await card.locator(".thread-status").isVisible(), false);
+  await card.locator(".thread-fold").click();
+  assert.match(
+    await card.locator(".thread-title").textContent(),
+    / · 1 message · Agent acknowledged$/,
+  );
+  await openAll(page);
+  await row(page, "Looks right to me.").waitFor();
+  assert.deepEqual(await heads(page), ["Read"]);
 });

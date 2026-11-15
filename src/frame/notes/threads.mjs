@@ -254,12 +254,24 @@ export function images(message) {
   }
   return strip;
 }
+// The agent's ack has no words, so its row is one quiet line.
+function agentAckRow(message) {
+  const line = element("p", "thread-meta thread-agent-ack");
+  const time = element("span", "", when(message.at));
+  time.dataset.at = message.at;
+  line.append("Acknowledged by the agent · ", time);
+  return line;
+}
 function messageRow(thread, message, index) {
   const agent = message.from === "agent";
   const row = element("div", "thread-message");
   // The frame opens the page at this ID for a reply's notification. The hub
   // only appends messages, so an index always names the same message.
   row.id = `thread-${thread.id}-${index}`;
+  if (message.kind === "ack") {
+    row.append(agentAckRow(message));
+    return row;
+  }
   const avatar = element("span", "thread-avatar", agent ? "A" : "Y");
   avatar.classList.toggle("agent", agent);
   avatar.setAttribute("aria-hidden", "true");

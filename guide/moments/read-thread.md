@@ -1,8 +1,9 @@
 Open the file at the `path` of every `<pair_image>` in the thread, and read
 its `scene` when it has one.
 
-Answer every message the reviewer sends in a thread, even one that asks for
-nothing.
+Answer every message the reviewer sends in a thread. When a message asks for
+nothing and you have nothing to add, acknowledge it with
+`pair reply --session-dir PATH --thread ID --ack` instead of writing a reply.
 
 Answer the question the reviewer asked in a few sentences, and leave out
 the background, alternatives and tables they did not ask for. Explain in

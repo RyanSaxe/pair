@@ -13,6 +13,7 @@ const stateWords = (thread) =>
         sent: "Sent to the agent",
         read: "Agent replying",
         replied: "Agent replied",
+        agentAcknowledged: "Agent acknowledged",
         failed: "Could not reach the agent",
         unanswered: "Closed before a reply",
       }[thread.state];
@@ -32,9 +33,11 @@ function threadName(thread, part, collapsed) {
   if (thread.anchor === thread.page) return "On this page";
   return `On ${thread.anchor}`;
 }
-// part is the name that partOf returns, such as "row Read", or null.
+// part is the name that partOf returns, such as "row Read", or null. The
+// count leaves out the agent's acks, which have no words.
 export function threadTitle(thread, part, collapsed) {
-  const count = plural(thread.messages.length, "message");
+  const worded = thread.messages.filter((message) => message.kind !== "ack");
+  const count = plural(worded.length, "message");
   return {
     name: threadName(thread, part, collapsed),
     meta: collapsed ? `${count} · ${stateWords(thread)}` : count,

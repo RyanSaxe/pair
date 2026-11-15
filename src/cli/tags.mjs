@@ -196,12 +196,15 @@ export function threadText(thread) {
       {
         from: message.from,
         at: clock(message.at),
+        kind: message.kind,
         agreed: message.acknowledgedAt ? "yes" : undefined,
       },
-      [
-        tagText(message.html ?? message.text),
-        ...images(message.attachments),
-      ].join("\n"),
+      message.kind === "ack"
+        ? ""
+        : [
+            tagText(message.html ?? message.text),
+            ...images(message.attachments),
+          ].join("\n"),
     ),
   );
   return tag(

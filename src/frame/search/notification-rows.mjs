@@ -42,6 +42,7 @@ const KIND_OF = {
 const roundWaits = (entry, event) =>
   entry.needsYou && entry.round === event.round;
 function eventWords(entry, event) {
+  if (event.agentAck) return "Acknowledged by the agent";
   if (event.kind === "reply") return event.words ?? eventTitle(event);
   if (event.kind === "proposal") return `Proposal: ${event.name}`;
   if (event.kind === "waiting" && !roundWaits(entry, event))
@@ -112,11 +113,12 @@ function statusOf(card, sessions) {
   });
   return word === "Proposed" ? WAITING_FOR_START : word;
 }
+const ANSWERED = ["replied", "agentAcknowledged"];
 function threadRow(line, entry, thisId) {
   return {
     key: `thread:${line.thread}`,
     kind: "thread",
-    state: line.state === "replied" ? "read" : "waiting",
+    state: ANSWERED.includes(line.state) ? "read" : "waiting",
     words: line.text,
     at: line.at,
     count: 1,
@@ -137,7 +139,8 @@ function threadRow(line, entry, thisId) {
 }
 
 // Every row of the live sessions. The unread rows are bellRows. A thread line
-// whose state is not replied is waiting, and every other row is read.
+// whose state is not replied or agentAcknowledged is waiting, and every other
+// row is read.
 // threadLines is the answer of /api/notifications, by session. Before it
 // arrives, a thread the reviewer just read still has a row, from its events.
 export function notificationRows(sessions, threadLines, cleared, thisId) {

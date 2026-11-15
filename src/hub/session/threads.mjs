@@ -9,6 +9,7 @@ import {
   threadAccepts,
   threadState,
   upgradeThread,
+  waitingMessage,
 } from "../../shared/thread-state.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { replyImages } from "./thread-images.mjs";
@@ -302,8 +303,8 @@ export function threads(session) {
       ? thread.messages[data.message]
       : null;
     requireValue(
-      message?.from === "agent",
-      "Only an agent's message takes a thumbs up",
+      message?.from === "agent" && message.kind !== "ack",
+      "Only an agent's reply takes a thumbs up",
     );
     requireValue(
       typeof data.acknowledged === "boolean",
@@ -357,20 +358,23 @@ export function threads(session) {
     );
     requireValue(!found.length, found.join("\n"));
   }
-  // pair read --thread calls reply with no text or HTML, and reply then
+  // pair read --thread calls reply with no text, HTML or ack, and reply then
   // marks the thread read and returns it. With text or HTML, reply posts the
-  // agent's reply.
+  // agent's reply. With ack, pair reply --ack, it posts the agent's ack.
   async function reply(data) {
     requireValue(
       idPattern.test(data.note || ""),
       "Give --thread the ID of a thread that pair read printed.",
     );
     const thread = threadFor(data.note);
-    requireValue(
-      data.text === undefined || data.html === undefined,
-      "pair reply takes --text or --file, not both",
+    const given = [data.text, data.html, data.ack].filter(
+      (value) => value !== undefined,
     );
-    if (data.text === undefined && data.html === undefined) {
+    requireValue(
+      given.length < 2,
+      "pair reply takes one of --text, --file and --ack",
+    );
+    if (!given.length) {
       // readCount records how many messages this read printed.
       if (threadAccepts(thread, "read")) {
         thread.readAt = timestamp();
@@ -394,14 +398,23 @@ export function threads(session) {
         moment: "read-thread",
       };
     }
-    if (data.html !== undefined) {
+    const ack = data.ack !== undefined;
+    if (ack) {
+      requireValue(data.ack === true, "ack must be true");
+      requireValue(
+        threadAccepts(thread, "ack"),
+        `Every message the reviewer wrote in thread ${thread.id} has an answer, so there is nothing to acknowledge.`,
+        409,
+      );
+    } else if (data.html !== undefined) {
       requireValue(text(data.html), "The reply file is empty");
       await checkReply(thread, data.html);
     } else requireValue(text(data.text), "--text needs the reply's text");
     // A reply answers every message before it. When the agent ran pair read
     // --thread after its previous reply, the reply answers only the messages
     // that read printed. The reply then records that number in answers, and
-    // the thread waits for an answer to the reviewer's later messages.
+    // the thread waits for an answer to the reviewer's later messages. An ack
+    // answers the same messages.
     const previous = thread.messages.findLastIndex(
       (message) => message.from === "agent",
     );
@@ -410,15 +423,19 @@ export function threads(session) {
     thread.messages.push({
       from: "agent",
       at: timestamp(),
-      ...(data.html !== undefined
-        ? { html: data.html.trim() }
-        : { text: data.text.trim() }),
+      ...(ack
+        ? { kind: "ack" }
+        : data.html !== undefined
+          ? { html: data.html.trim() }
+          : { text: data.text.trim() }),
       ...(answers < thread.messages.length ? { answers } : {}),
     });
-    const waits = threadState(thread) !== "replied";
+    const waits = Boolean(waitingMessage(thread));
     await saveThread(thread);
+    // The frame's bell lists an ack as it lists a reply, with its own words.
     await session.addActivity({
       kind: "reply",
+      ...(ack ? { agentAck: true } : {}),
       name: thread.page,
       ...(thread.proposal
         ? { page: "work", proposal: thread.proposal }
@@ -481,13 +498,13 @@ export function threads(session) {
   function unansweredLine() {
     if (!accepts(session.state, "wake")) return null;
     const waiting = [...records.values()]
-      .filter((thread) => threadState(thread) !== "replied")
+      .filter((thread) => waitingMessage(thread))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     if (!waiting.length) return null;
     const named = waiting.map((thread) => `${thread.id} on "${thread.page}"`);
     if (named.length === 1)
-      return `You have not answered the reviewer's thread ${named[0]}. Before you end your turn, run ${readCommand(waiting[0].id)}, which prints the thread with how to answer it, and answer it.`;
-    return `You have not answered the reviewer's threads ${named.slice(0, -1).join(", ")} and ${named.at(-1)}. Before you end your turn, run ${readCommand("ID")} for each of them, which prints the thread with how to answer it, and answer it.`;
+      return `You have not answered the reviewer's thread ${named[0]}. Before you end your turn, run ${readCommand(waiting[0].id)}, which prints the thread with how to answer it, and answer or acknowledge it.`;
+    return `You have not answered the reviewer's threads ${named.slice(0, -1).join(", ")} and ${named.at(-1)}. Before you end your turn, run ${readCommand("ID")} for each of them, which prints the thread with how to answer it, and answer or acknowledge it.`;
   }
   // A hub stops without waiting for the wakes it scheduled, so a hub that
   // stopped during a thread's wake left the thread sending, and
