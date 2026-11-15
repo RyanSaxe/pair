@@ -39,18 +39,18 @@ function wakeNote(message) {
   const words = message.text;
   let note;
   if (words.length <= quoted)
-    note = `The reviewer's message, which pair read also prints:\n${words}`;
+    note = `Your user's message, which pair read also prints:\n${words}`;
   else {
     const space = words.slice(0, quoted + 1).search(/\s\S*$/);
     const opening = words.slice(0, space > 0 ? space : quoted).trimEnd();
-    note = `The beginning of the reviewer's message, which pair read prints whole:\n${opening}…`;
+    note = `The beginning of your user's message, which pair read prints whole:\n${opening}…`;
   }
   const count = message.attachments?.length ?? 0;
   if (count === 1)
     note +=
-      "\n\nThe reviewer attached an image to the message. pair read prints its path.";
+      "\n\nYour user attached an image to the message. pair read prints its path.";
   else if (count > 1)
-    note += `\n\nThe reviewer attached ${count} images to the message. pair read prints their paths.`;
+    note += `\n\nYour user attached ${count} images to the message. pair read prints their paths.`;
   return `\n\n${note}`;
 }
 
@@ -128,7 +128,7 @@ export function threads(session) {
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
-    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Before your next step, run ${readCommand(thread.id)}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.${wakeNote(message)}`;
+    const line = `pair: your user wrote to you in a thread on ${on} in pair, for session ${directory}. Before your next step, run ${readCommand(thread.id)}, which marks the thread read for your user and prints it with how to answer it. Then go on with your work.${wakeNote(message)}`;
     // through counts the messages the wake goes out with, those that joined
     // it included.
     const through = thread.messages.length;

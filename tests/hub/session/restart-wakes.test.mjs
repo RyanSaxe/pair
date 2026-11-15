@@ -154,7 +154,7 @@ for (const [kind, send, line] of [
       });
       assert.equal(sent.status, 200);
     },
-    /^pair: the reviewer sent feedback on round 1 of session /,
+    /^pair: your user sent feedback on round 1 in pair, for session /,
   ],
   [
     "a Start",
@@ -170,7 +170,7 @@ for (const [kind, send, line] of [
       });
       assert.equal(started.status, 200);
     },
-    /^pair: the reviewer approved proposal docs-pass, "Docs pass", to run in session /,
+    /^pair: your user approved proposal docs-pass, "Docs pass", in pair, to run in session /,
   ],
 ])
   test(

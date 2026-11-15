@@ -105,7 +105,7 @@ test("a Start in a sub-session wakes the holder, leaves the round waiting, and p
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
   assert.match(
     a.inbox.wakes[0].message.message.content,
-    /approved proposal deck, "Build the deck", to run in a sub-session of session /,
+    /approved proposal deck, "Build the deck", in pair, to run in a sub-session of session /,
   );
   const before = (await a.status()).body;
   assert.equal(before.needsYou, true);

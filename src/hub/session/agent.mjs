@@ -47,7 +47,7 @@ export function agent(session) {
   async function step() {
     if (isClosed(session.state)) return closed;
     const [event] = await pending();
-    if (event) return `Run ${command("read")} to see what the reviewer sent.`;
+    if (event) return `Run ${command("read")} to see what your user sent.`;
     if (lifecycle(session.state) === "paused")
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
     if (!session.state.current)
@@ -123,7 +123,7 @@ export function agent(session) {
   // reviewer's Sent state.
   const wakeAgent = (round) =>
     wakeForSend(
-      `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`,
+      `pair: your user sent feedback on round ${round} in pair, for session ${directory}. Run ${command("read")} first, which prints their feedback and your next step.`,
     );
   // The reviewer closes a session from the browser. The hub sends the agent
   // no wake, and act refuses the agent's next command with closed. close
