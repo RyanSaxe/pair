@@ -62,57 +62,6 @@ test("the sandbox hint follows a refusal, not the environment alone", () => {
   );
 });
 
-// Codex 0.169 starts a session without its app-server daemon when the command
-// line opts out, by the rules in codex-rs/tui/src/daemon_startup.rs. When the
-// daemon has another setting for a feature that the command line sets, Codex
-// asks whether to restart the daemon. pair spawn prints launchWarning before
-// it starts such a session.
-test("launchWarning names every argument that starts Codex without its daemon, or else every feature Codex compares with the daemon's", () => {
-  const warnings = {
-    "opt-out": /starts the session without its app-server daemon/,
-    feature: /stops in the new terminal until someone chooses/,
-  };
-  // Each row has the arguments, the kind of warning, and the arguments that
-  // the warning names.
-  for (const [args, kind, named = []] of [
-    [["-m", "gpt-5.5", "-s", "workspace-write", "-a", "never", "-i", "a.png"]],
-    [["-c", "tui.fullscreen_transcript=true", "--no-alt-screen"]],
-    // Codex refuses to start with a -c that has no =.
-    [["-c", "model"]],
-    [
-      ["--enable", "shell_tool", "-c", "features.worktrees=false"],
-      "feature",
-      ["--enable shell_tool", "-c features.worktrees=false"],
-    ],
-    [["-c", "features={shell_tool=true}"], "feature", ["features={"]],
-    [["-c", "use_legacy_landlock=true"], "feature", ["use_legacy_landlock"]],
-    [
-      ["-cmodel_reasoning_effort=high"],
-      "opt-out",
-      ["-cmodel_reasoning_effort"],
-    ],
-    [["--config=model=o3"], "opt-out", ["--config=model=o3"]],
-    [["-c", "features.a.b=true"], "opt-out", ["-c features.a.b=true"]],
-    [["-c", "features.goals='true'"], "opt-out", ["-c features.goals='true'"]],
-    [
-      ["--enable", "shell_tool", "--profile", "deep", "--search"],
-      "opt-out",
-      ["--profile deep", "--search"],
-    ],
-  ]) {
-    const warning = codex.launchWarning(args);
-    const what = args.join(" ");
-    if (!kind) {
-      assert.equal(warning, null, what);
-      continue;
-    }
-    assert.match(warning, warnings[kind], what);
-    for (const each of named) assert.ok(warning.includes(each), what);
-    // Codex compares the features only for a session on the daemon.
-    if (kind === "opt-out") assert.ok(!warning.includes("--enable"), what);
-  }
-});
-
 // The hub wakes a Codex session through the app-server daemon of Codex 0.160.
 // When the daemon cannot add the line to a turn in progress, the adapter runs
 // codex queue instead. codexDaemon stands in for the daemon, and codexCommand

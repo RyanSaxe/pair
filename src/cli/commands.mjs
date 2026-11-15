@@ -373,8 +373,6 @@ export const commands = {
       "  pair spawn claude --prompt TEXT -- --model sonnet",
       "",
       "Give the prompt with --prompt or --file, not after --. Without --name, pair spawn finds the new session by its folder, so give --name when an ARG makes CLI run in another folder, as Codex's -C and --worktree do.",
-      "",
-      "A codex session reads a message in the middle of a turn only on Codex's app-server daemon, and pair spawn warns by Codex 0.169's rules for it. With -m, -s, -a, -C, -i, --add-dir, --worktree or --no-alt-screen, Codex starts the session on the daemon. With a -c that sets anything but a feature, tui.fullscreen_transcript or suppress_unstable_features_warning, or with -p, --profile, --search, --oss, --approve-for-me, --strict-config, --dangerously-bypass-hook-trust or --no-daemon, Codex starts the session without the daemon, so the session reads a message that arrives during a turn only when the turn ends. When the daemon has another setting for a feature that --enable, --disable or -c features.NAME=true or false sets, Codex stops in the new terminal until someone chooses whether to restart the daemon, which can interrupt other Codex sessions, or to start the session without it. pair spawn prints a warning for each of the last two cases.",
     ].join("\n"),
     run: spawn,
   },

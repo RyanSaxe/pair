@@ -163,25 +163,16 @@ test("every adapter's launch puts the forwarded arguments, in order, among the C
   }
 });
 
-// Codex starts a session that a -c override other than a feature names
-// without its app-server daemon, and the hub can then only queue a message for
-// the end of the session's turn. With -C, the session runs and registers in
-// another folder than --dir, and pair spawn finds it by its name.
-test("pair spawn passes the arguments after -- to Codex before the first prompt, finds the named session in the folder they choose, and warns about one that starts Codex without its daemon", async (t) => {
+// With -C, the session runs and registers in another folder than --dir, and
+// pair spawn finds it by its name.
+test("pair spawn passes the arguments after -- to Codex before the first prompt, and finds the named session in the folder they choose", async (t) => {
   const context = await scratch(t);
   const { env, folder, home, runs } = context;
   await terminal(context);
   const api = await folder("api");
   const tree = await folder("api-tree");
 
-  const forwarded = [
-    "-m",
-    "gpt-5.5",
-    "-C",
-    tree,
-    "-c",
-    "model_reasoning_effort=high",
-  ];
+  const forwarded = ["-m", "gpt-5.5", "-C", tree];
   const spawned = await orphan(
     home,
     ["spawn", "codex", "--dir", api, "--name", "api-fix", "--", ...forwarded],
@@ -189,8 +180,7 @@ test("pair spawn passes the arguments after -- to Codex before the first prompt,
   );
   assert.deepEqual(spawned, {
     stdout: `Started api-fix (Codex) in ${path.join("~", "api-tree")}. Message it with: pair message --to api-fix --text "…"\n`,
-    stderr:
-      "pair: With -c model_reasoning_effort=high, Codex starts the session without its app-server daemon, so the session reads a message that arrives during a turn only when the turn ends.\n",
+    stderr: "",
   });
   const [run] = await runs();
   assert.deepEqual(run.args, [

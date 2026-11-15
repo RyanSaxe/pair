@@ -102,10 +102,11 @@ export async function spawn(options) {
   // refuses it before it runs the script.
   requireFreeName(await registerSender(), options.name);
   const before = new Set(await entryFiles());
-  const args = options.forwarded;
-  const warning = adapter.launchWarning?.(args);
-  if (warning) console.error(`pair: ${warning}`);
-  const command = adapter.launch({ name: options.name, prompt, args });
+  const command = adapter.launch({
+    name: options.name,
+    prompt,
+    args: options.forwarded,
+  });
   await runLaunch(launchScript, directory, command);
   // A name identifies the new session in whatever folder it runs, as in the
   // worktree that Codex's --worktree creates. Without one, pair spawn finds
