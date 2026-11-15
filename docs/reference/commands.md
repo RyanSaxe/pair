@@ -183,10 +183,12 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 | `--dir DIR`                      | The folder to start it in. The default is the current folder.              |
 | `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
 | `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
+| `-- ARG…`                        | Options for the CLI, such as `-- --model sonnet`, but not the prompt.      |
 
 `pair spawn` runs your launch script, `~/.config/pair/spawn DIR COMMAND ARG…`,
 or `spawn.ps1` on Windows, which is the script the hub runs when you press
-Start agent on a proposal. `COMMAND ARG…` starts the CLI with the first prompt
+Start agent on a proposal. `COMMAND ARG…` starts the CLI with the arguments
+after `--`, then the first prompt
 `In your own shell, run pair register first.`, followed by your prompt. With
 `--name NAME`, the first prompt starts with
 `In your own shell, run pair register --name NAME first. If another running session has that name, run pair register without --name.`
@@ -194,6 +196,15 @@ instead, and `pair spawn` refuses a NAME that a running session already has
 before it runs the script. Without a launch script, `pair spawn` refuses and
 starts nothing. When the script fails, or runs longer than 10 seconds,
 `pair spawn` fails with the script's error.
+
+When you give arguments after `--`, `pair spawn` ends them with `--` for
+`claude`, `codex` and `pi`, so a flag that takes several values, such as
+`--add-dir`, cannot take the prompt as one of them. A flag that your launch
+script adds then belongs right after COMMAND, not after the prompt.
+
+Without `--name`, `pair spawn` finds the new session by its folder. Give
+`--name` with an argument that makes the CLI run in another folder, such as
+Codex's `-C` or `--worktree`.
 
 Inside an agent session, `pair spawn` registers that session first, so the
 new session can message it. When that fails, `pair spawn` prints why and
@@ -208,7 +219,11 @@ Started Codex in ~/code/shop. It appears in pair agents once it runs pair regist
 ```
 
 pair adds no flag that skips a CLI's folder-trust prompt. Your launch script
-can add one.
+can add one, or you can give it after `--`.
+
+A Codex session started with a `-c` override, `--profile` or `--search` runs
+without Codex's shared app-server daemon, unlike one started with `-m`, so
+pair's messages reach it only between turns.
 
 ## Environment variables
 

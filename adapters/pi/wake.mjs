@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { endOptions } from "../../src/shared/launch.mjs";
 import { send } from "../listener.mjs";
 
 const extension = fileURLToPath(new URL("extension.js", import.meta.url));
@@ -18,10 +19,13 @@ export const unwakeable = `Ask the user to run \`pi install ${extension}\` and r
 export const identity = (target) => target.session;
 
 // launch returns the command line that starts a new session with a prompt,
-// and with name, the name that pi shows for the session.
-export const launch = ({ name, prompt }) => [
+// and with name, the name that pi shows for the session. args are the
+// caller's own flags for pi, which end with --, so that a flag that an
+// extension adds does not take the prompt as its value.
+export const launch = ({ name, prompt, args = [] }) => [
   command,
   ...(name ? ["--name", name] : []),
+  ...endOptions(args),
   prompt,
 ];
 

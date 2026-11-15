@@ -1,4 +1,5 @@
 import net from "node:net";
+import { endOptions } from "../../src/shared/launch.mjs";
 
 export const name = "Claude Code";
 
@@ -25,10 +26,14 @@ export const sessionId = (target) => target.session;
 export const subagentTool = () => "SendMessage";
 
 // launch returns the command line that starts a new session with a prompt,
-// and with name, the name that Claude Code shows for the session.
-export const launch = ({ name, prompt }) => [
+// and with name, the name that Claude Code shows for the session. args are
+// the caller's own flags for Claude Code, which end with --, so that a flag
+// that takes several values, such as --add-dir, does not take the prompt as
+// one of them.
+export const launch = ({ name, prompt, args = [] }) => [
   command,
   ...(name ? ["--name", name] : []),
+  ...endOptions(args),
   prompt,
 ];
 

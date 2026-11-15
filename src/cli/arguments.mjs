@@ -17,14 +17,27 @@ export function findCommand(commands, argv) {
     : null;
 }
 
+// A command whose entry sets forwards, to the name of the program it starts,
+// reads its own arguments and flags only before the first --, and passes
+// every word after it, unread, to that program.
+export function ownWords({ entry, rest }) {
+  const end = entry.forwards ? rest.indexOf("--") : -1;
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
 export function parse({ name, entry, rest }) {
   const refuse = (text) => {
     throw usageError(name, text);
   };
   const flags = entry.flags || {};
+  const own = ownWords({ entry, rest });
   const options = { args: [] };
-  for (let i = 0; i < rest.length; i++) {
-    const word = rest[i];
+  const forwardHint = entry.forwards
+    ? ` Give it after -- to pass it to ${entry.forwards}.`
+    : "";
+  if (entry.forwards) options.forwarded = rest.slice(own.length + 1);
+  for (let i = 0; i < own.length; i++) {
+    const word = own[i];
     if (!word.startsWith("--")) {
       options.args.push(word);
       continue;
@@ -33,13 +46,16 @@ export function parse({ name, entry, rest }) {
     const flag = Object.hasOwn(flags, key) ? flags[key] : null;
     if (!flag) {
       const takes = flagsOf(entry).map(([known]) => `--${known}`);
+      // pair takes a flag's value only as the next word, so --prompt=TEXT
+      // is pair's --prompt misspelled, not a flag for the program.
+      const pairFlag = Object.hasOwn(flags, key.split("=")[0]);
       refuse(
-        `${word} is not a flag of pair ${name}, which takes ${takes.length ? listing(takes) : "only --help"}.`,
+        `${word} is not a flag of pair ${name}, which takes ${takes.length ? listing(takes) : "only --help"}.${pairFlag ? "" : forwardHint}`,
       );
     }
     let value = true;
     if (flag.value) {
-      value = rest[++i];
+      value = own[++i];
       if (value === undefined || value.startsWith("--"))
         refuse(`${word} takes a value, as ${word} ${flag.value}.`);
     }
@@ -49,12 +65,13 @@ export function parse({ name, entry, rest }) {
     else options[key] = value;
   }
   const slots = entry.args || [];
-  if (options.args.length > slots.length)
-    refuse(
-      slots.length
-        ? `${options.args[slots.length]} is an extra argument, and pair ${name} takes ${listing(slots.map((slot) => slot.name))}.`
-        : `pair ${name} takes no argument ${options.args[0]}.`,
-    );
+  const extra = options.args[slots.length];
+  if (extra !== undefined) {
+    const refusal = slots.length
+      ? `${extra} is an extra argument, and pair ${name} takes ${listing(slots.map((slot) => slot.name))}.`
+      : `pair ${name} takes no argument ${extra}.`;
+    refuse(`${refusal}${extra.startsWith("-") ? forwardHint : ""}`);
+  }
   const missing = slots.slice(options.args.length).filter((s) => !s.optional);
   if (missing.length)
     refuse(
@@ -113,7 +130,16 @@ export function helpText({ name, entry }) {
       ([label, text]) =>
         `  ${label.padEnd(width)}${wrap(text, 78 - width, " ".repeat(width + 2))}`,
     ),
-    ...(entry.footer ? ["", entry.footer] : []),
+    // A footer line that starts with a space is an example, which the help
+    // prints whole.
+    ...(entry.footer
+      ? [
+          "",
+          ...entry.footer
+            .split("\n")
+            .map((line) => (line.startsWith(" ") ? line : wrap(line, 80))),
+        ]
+      : []),
     "",
   ].join("\n");
 }

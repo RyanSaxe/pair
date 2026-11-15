@@ -49,6 +49,13 @@ export function runLaunch(script, directory, command) {
   );
 }
 
+// endOptions ends the caller's arguments for a CLI whose prompt is a
+// positional argument with --, after which the CLI reads the prompt as the
+// prompt whatever flag comes before it. With no arguments, the command line
+// stays as it was before pair spawn took any, for a launch script that adds a
+// flag after the prompt.
+export const endOptions = (args) => (args.length ? [...args, "--"] : []);
+
 // A session that pair starts runs pair register as its first step, so pair
 // agents lists it and pair message reaches it whether or not its CLI has a
 // start hook. firstPrompt returns that step, with --name when name is given,
