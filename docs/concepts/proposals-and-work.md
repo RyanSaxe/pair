@@ -131,6 +131,15 @@ session would mix with its other work.
 Starting work never ends the round you are reading. Your drafts on the
 round stay, and you can start more work before you send the round.
 
+With an executable launch script at `~/.config/pair/spawn`, or
+`~/.config/pair/spawn.ps1` on Windows, the Open a new agent session button
+reads **Start agent**. The hub then runs the script, with PowerShell on
+Windows, as `spawn DIR COMMAND ARG…`. `DIR` is the folder in which this
+session's agent ran `pair start`, and the command starts a new session of the
+same agent CLI, which runs `pair start --from` for the proposal. When the
+script fails, the drawer shows its error, and the work stays approved as after
+Copy command.
+
 The agent cannot always open a new agent session. It replies in a thread
 on the card with what it opened, or with the command when it cannot open an
 agent. To tell the agent how to open one on your machine, such as in a tmux

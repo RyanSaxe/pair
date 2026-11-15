@@ -91,7 +91,7 @@ All six are optional.
 | `PAIR_HUB_IDLE_SECONDS` | 900              | How long the hub keeps running with no live session.                                                                             |
 | `PAIR_WAKE`             | on               | With `off`, the hub writes each wake line to its log instead of sending it. pair refuses `off` with the default state directory. |
 | `XDG_STATE_HOME`        | `~/.local/state` | pair stores the sessions and the hub's files in its `pair/` folder.                                                              |
-| `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files and moment files from its `pair/` folder.                                                |
+| `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files, moment files and launch script from its `pair/` folder.                                 |
 
 The hub's browser routes need no token, so the hub listens on an extra address
 only when you set `PAIR_HUB_HOST`. Anyone who can reach that address can

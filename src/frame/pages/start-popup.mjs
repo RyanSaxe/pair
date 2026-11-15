@@ -103,6 +103,12 @@ function resetDialog(choice) {
   for (const id of ["start-send", "start-copy", "start-open"])
     $(id).disabled = false;
   $("start-copy").textContent = "Copy command";
+  // With the user's launch script, the hub starts the new agent itself.
+  const launches = Boolean(remote?.startAgent);
+  $("start-open-label").textContent = launches
+    ? "Start agent"
+    : "Open a new agent session";
+  $("start-open-tip").hidden = launches;
 }
 export function openStart(proposal, joined, then) {
   if (!yieldNote()) return;
@@ -183,9 +189,30 @@ async function send(action, button) {
   const writing = !card;
   const result = await post(action, button);
   if (!result) return;
+  const id = card?.id ?? newId;
+  // A launch script that failed leaves the card started with a new agent, so
+  // the dialog stays open with the script's error and Copy command.
+  if (result.launchError) {
+    startedWithNewAgent(result, id, writing);
+    $("start-error").textContent = result.launchError;
+    $("start-error").hidden = false;
+    return;
+  }
   if (writing) clearItem();
   $("start-dialog").close();
-  after(result, card?.id ?? newId);
+  after(result, id);
+}
+// startedWithNewAgent keeps the dialog open on a card that now runs with a new
+// agent, so the frame disables every other choice.
+function startedWithNewAgent(result, id, writing) {
+  card = result.proposals.find((item) => item.id === id) || card;
+  for (const row of rows()) row.disabled = row.dataset.where !== "new-agent";
+  if (writing) {
+    clearItem();
+    lockItem(true);
+    showSave(false);
+  }
+  after(result, id);
 }
 // copy() copies the command before it posts, because the browser allows a
 // copy only while the click's user activation lasts. It starts the card with
@@ -199,16 +226,7 @@ async function copy() {
     const writing = !card;
     const result = await post("start", $("start-copy"));
     if (!result) return;
-    card = result.proposals.find((item) => item.id === id) || card;
-    // The card now runs with a new agent, so the frame disables every other
-    // choice.
-    for (const row of rows()) row.disabled = row.dataset.where !== "new-agent";
-    if (writing) {
-      clearItem();
-      lockItem(true);
-      showSave(false);
-    }
-    after(result, id);
+    startedWithNewAgent(result, id, writing);
   }
   $("start-copy").textContent = copied ? "Copied" : "Copy failed";
 }

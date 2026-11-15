@@ -15,6 +15,9 @@ export const unwakeable =
 // A Claude Code session has one inbox socket, and its subagents share it.
 export const identity = (target) => target.socket;
 
+// launch returns the command line that starts a new session with a prompt.
+export const launch = ({ name, prompt }) => [command, "--name", name, prompt];
+
 export const detect = (env) => ({
   harness: "claude-code",
   socket: env.CLAUDE_CODE_MESSAGING_SOCKET,

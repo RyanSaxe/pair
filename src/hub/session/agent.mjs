@@ -449,7 +449,13 @@ export function agent(session) {
     // notice.
     if (!start && held && !same) return {};
     const at = timestamp();
-    const holder = { ...(same ? held : { ...agent, at }), commandAt: at };
+    // folder is where the agent ran pair start, and Start agent starts a new
+    // agent there.
+    const holder = {
+      ...(same ? held : { ...agent, at }),
+      commandAt: at,
+      ...(start && options.folder ? { folder: options.folder } : {}),
+    };
     const reopening =
       start && options.reopen === true && accepts(session.state, "reopen");
     if (reopening) await reopen(agent, holder);
