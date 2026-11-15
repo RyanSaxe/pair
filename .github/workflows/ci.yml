@@ -98,7 +98,7 @@ jobs:
           node-version: 24
           check-latest: true
       # eslint.config.mjs fails a file over 1000 lines. The second run lists
-      # each file over 500 as a warning and does not fail.
+      # each file over 600 as a warning and does not fail.
       - run: npx --yes eslint@10.11.0 .
       - run: |
-          npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 500]}' .
+          npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 600]}' .
