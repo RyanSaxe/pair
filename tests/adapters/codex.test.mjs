@@ -281,6 +281,12 @@ test(
   },
 );
 
+// Codex's daemon listens on an AF_UNIX socket on Windows too, through the
+// uds_windows crate in openai/codex's codex-rs/uds, and Node on Windows opens a
+// local path only as a named pipe, so pair cannot reach the daemon there.
+const daemonOnWindows =
+  "Node on Windows cannot connect to the AF_UNIX socket of Codex's daemon";
+
 // Codex started with no -c override runs every session's thread, and each
 // command, on its app-server daemon, which keeps running after a session exits
 // and unloads the session's thread about a minute later. A Codex started with
@@ -289,9 +295,7 @@ test(
 test(
   "a Codex session on the daemon runs while the daemon has its thread loaded, and a subagent's thread names its parent",
   {
-    skip:
-      process.platform === "win32" &&
-      "codexDaemon listens on a Unix socket path, which Node on Windows cannot",
+    skip: process.platform === "win32" && daemonOnWindows,
   },
   async (t) => {
     let status = "idle";
@@ -335,9 +339,7 @@ test(
 test(
   "pair message finds a Codex subagent by its nickname or its name, and names its agent path",
   {
-    skip:
-      process.platform === "win32" &&
-      "codexDaemon listens on a Unix socket path, which Node on Windows cannot",
+    skip: process.platform === "win32" && daemonOnWindows,
   },
   async (t) => {
     const subagent = {
