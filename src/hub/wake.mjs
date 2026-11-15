@@ -74,7 +74,7 @@ export function detectWake(env, tools, hookInput) {
   const target = detectAgent(env, tools, hookInput);
   requireValue(
     target,
-    "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. Tell the user, and stop.",
+    "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. If you are one of those agents, run this command in your own shell, not in a new terminal or pane. Otherwise tell the user, and stop.",
   );
   return target;
 }

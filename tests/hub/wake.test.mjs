@@ -275,7 +275,7 @@ const extension = fileURLToPath(
 test("start refuses without a wake path and says what to do", () => {
   assert.throws(() => detectWake({}, tools([])), {
     message:
-      "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. Tell the user, and stop.",
+      "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. If you are one of those agents, run this command in your own shell, not in a new terminal or pane. Otherwise tell the user, and stop.",
   });
   // detectWake refuses a pi session without pair's extension, whether it finds
   // pi among the ancestors or, with no agent CLI among them, by PAIR_PI_SOCKET.
