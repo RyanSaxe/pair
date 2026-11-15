@@ -33,6 +33,9 @@ your browser.
   work you approved while the agent builds it, and how to review the result.
 - [Search](guides/search.md) explains how to find anything you read or wrote
   in pair, across every session.
+- [Advanced setup](guides/advanced-setup.md) explains the launch script for
+  Start agent, messaging between agent sessions, your own text in pair's
+  instructions, and your own components.
 
 ## Reference
 
