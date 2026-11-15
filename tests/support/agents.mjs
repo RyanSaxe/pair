@@ -35,7 +35,7 @@ process.on("message", ({ args, input, env }) => {
   process.send({ status, stdout, stderr });
 });`;
 
-// standIn starts a process named claude, or codex with harness "codex", that
+// standIn starts a process named claude, or codex or pi with that harness, that
 // runs until the test ends or kill() stops it, and runs each pair command as
 // its child, as an agent CLI runs its agent's commands. pair register finds
 // the stand-in among the command's parent processes and records its process.
@@ -44,18 +44,21 @@ process.on("message", ({ args, input, env }) => {
 // command's stdin, which is /dev/null without it, adds env to the command's
 // environment, and returns { status, stdout, stderr }.
 export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
-  const name = harness === "codex" ? "codex" : "claude";
+  const name = harness === "codex" || harness === "pi" ? harness : "claude";
   const bin = path.join(home, `bin-${crypto.randomUUID()}`);
   await fs.mkdir(bin);
   const executable = await agentExecutable(bin, name);
-  // A Codex stand-in's CODEX_HOME has no daemon unless the test starts one.
+  // A Codex stand-in's CODEX_HOME has no daemon unless the test starts one,
+  // and a pi stand-in has the variables the test gives it.
   const inbox =
     harness === "codex"
       ? { CODEX_HOME: path.join(bin, "codex-home") }
-      : {
-          CLAUDE_CODE_MESSAGING_SOCKET: path.join(bin, "none.sock"),
-          CLAUDE_CODE_MESSAGING_TOKEN: "test",
-        };
+      : harness === "pi"
+        ? {}
+        : {
+            CLAUDE_CODE_MESSAGING_SOCKET: path.join(bin, "none.sock"),
+            CLAUDE_CODE_MESSAGING_TOKEN: "test",
+          };
   const child = spawn(executable, ["-e", relay(name)], {
     cwd,
     // The stand-in's home is the test's directory, so pair prints the test's

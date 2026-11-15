@@ -123,11 +123,19 @@ function currentBranch(directory) {
   return (status === 0 && stdout.trim()) || null;
 }
 
-// cliProcess returns the nearest ancestor process that the adapter
-// recognizes, and its start time, which the running check compares. Only
-// registering looks it up, because on Windows the walk starts PowerShell.
+// cliProcess returns the ancestor process that runs the session, and its
+// start time, which the running check compares. That is the process whose ID
+// is in the adapter's pidVariable when it is an ancestor, because a pi
+// started inside pi without pair's extension, as a pi subagent may be,
+// inherits the outer pi's variables and exits before the outer pi. Otherwise
+// it is the nearest ancestor that the adapter recognizes. Only registering
+// looks it up, because on Windows the walk starts PowerShell.
 function cliProcess(adapter) {
-  const cli = ancestors().find((ancestor) => recognizes(adapter, ancestor));
+  const chain = ancestors();
+  const owner = adapter.pidVariable && Number(process.env[adapter.pidVariable]);
+  const cli =
+    chain.find((ancestor) => owner && ancestor.pid === owner) ??
+    chain.find((ancestor) => recognizes(adapter, ancestor));
   requireValue(
     cli,
     `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
