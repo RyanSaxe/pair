@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { connect } from "./app-server.mjs";
+import { codexInvocation } from "./invocation.mjs";
 
 export const name = "Codex";
 
@@ -59,7 +60,9 @@ export async function wake(target, line, run) {
       `Codex added the line to the queue of thread ${thread} and started no turn with it: ${waiting}`,
     );
   if (!sent)
-    await run("codex", ["queue", "--thread", thread, "--message", text]);
+    await run(
+      ...codexInvocation(["queue", "--thread", thread, "--message", text]),
+    );
   if (relayed) return { via: "parent", steerable: false };
   return { via: steered ? "steer" : "queue", steerable };
 }

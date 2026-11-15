@@ -29,18 +29,23 @@ function frame(message) {
 }
 
 // codexDaemon stands in for the app-server daemon of Codex 0.160, a WebSocket
-// server on a Unix socket. It replies to each request with the matching entry
-// of answers as the result, or as the error when the entry has an `error`
-// field. For an entry that is a function, it replies with what the function
-// returns for the request's params. It records every message the client sends
-// in received. Like the daemon, it closes the connection on a frame that is not
-// one masked text frame. It also refuses a thread/queue method when the
-// connection's initialize did not declare the experimentalApi capability.
+// server on a Unix socket. On Windows it listens on a named pipe, which the
+// stand-in codex stdio-to-uds of codexCommand connects to. It replies to each
+// request with the matching entry of answers as the result, or as the error
+// when the entry has an `error` field. For an entry that is a function, it
+// replies with what the function returns for the request's params. It records
+// every message the client sends in received. Like the daemon, it closes the
+// connection on a frame that is not one masked text frame. It also refuses a
+// thread/queue method when the connection's initialize did not declare the
+// experimentalApi capability.
 export async function codexDaemon(t, answers) {
   // macOS refuses a socket path over 104 bytes, so codexDaemon creates the
   // socket in a short directory of its own.
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "cx-"));
-  const socket = path.join(directory, "d.sock");
+  const socket =
+    process.platform === "win32"
+      ? `\\\\.\\pipe\\pair-${path.basename(directory)}`
+      : path.join(directory, "d.sock");
   const received = [];
   const table = {
     initialize: {
@@ -130,23 +135,57 @@ export async function codexDaemon(t, answers) {
   return { socket, received };
 }
 
-// codexCommand puts a stand-in codex first on PATH, and the stand-in logs the
-// arguments of each run. With PAIR_TEST_FAIL set, the stand-in exits 1, as
-// codex does when it cannot queue the message.
+// codexCommand puts a stand-in codex first on PATH, as a script for Unix and as
+// the codex.cmd that npm writes on Windows, which runs the same script. The
+// stand-in relays codex stdio-to-uds SOCKET to the socket, as Codex does, and
+// logs the arguments of every other run. With PAIR_TEST_FAIL set, the stand-in
+// exits 1, as codex does when it cannot queue the message.
 export async function codexCommand(t) {
   const bin = await fs.mkdtemp(path.join(os.tmpdir(), "pair-codex-"));
   const log = path.join(bin, "runs.jsonl");
-  await fs.writeFile(
-    path.join(bin, "codex"),
-    `#!${process.execPath}
-require("node:fs").appendFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)) + "\\n");
-if (process.env.PAIR_TEST_FAIL) {
-  console.error("thread gone");
-  process.exit(1);
+  const script = `#!${process.execPath}
+const args = process.argv.slice(2);
+if (args[0] === "stdio-to-uds") {
+  const socket = require("node:net").connect(args[1]);
+  socket.on("error", (error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+  process.stdin.pipe(socket).pipe(process.stdout);
+} else {
+  require("node:fs").appendFileSync(${JSON.stringify(log)}, JSON.stringify(args) + "\\n");
+  if (process.env.PAIR_TEST_FAIL) {
+    console.error("thread gone");
+    process.exit(1);
+  }
 }
-`,
-    { mode: 0o755 },
-  );
+`;
+  const npmScript = path.join(bin, "node_modules", "@openai", "codex", "bin");
+  await fs.mkdir(npmScript, { recursive: true });
+  await fs.writeFile(path.join(npmScript, "codex.js"), script);
+  await fs.writeFile(path.join(bin, "codex"), script, { mode: 0o755 });
+  // npm's cmd-shim writes this codex.cmd for the script.
+  const shim = [
+    "@ECHO off",
+    "GOTO start",
+    ":find_dp0",
+    "SET dp0=%~dp0",
+    "EXIT /b",
+    ":start",
+    "SETLOCAL",
+    "CALL :find_dp0",
+    "",
+    'IF EXIST "%dp0%\\node.exe" (',
+    '  SET "_prog=%dp0%\\node.exe"',
+    ") ELSE (",
+    '  SET "_prog=node"',
+    "  SET PATHEXT=%PATHEXT:;.JS;=;%",
+    ")",
+    "",
+    'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\@openai\\codex\\bin\\codex.js" %*',
+    "",
+  ];
+  await fs.writeFile(path.join(bin, "codex.cmd"), shim.join("\r\n"));
   const searched = process.env.PATH;
   process.env.PATH = bin + path.delimiter + searched;
   t.after(() => {
