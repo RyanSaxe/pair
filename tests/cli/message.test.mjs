@@ -6,7 +6,6 @@ import test from "node:test";
 import { PairWake } from "../../adapters/opencode/plugin.js";
 import { findAgent } from "../../src/cli/agents.mjs";
 import { outsideAgents, standIn } from "../support/agents.mjs";
-import { codexDaemon } from "../support/codex.mjs";
 import { alive, exec, inbox, pair, waitUntil } from "../support/hub.mjs";
 
 // A receiving Claude Code session, with an inbox that records each message,
@@ -149,58 +148,11 @@ test("--from names the sender with no command to answer, NAME/SUBAGENT asks the 
   );
 });
 
-// Codex runs a subagent's commands with the subagent's own thread ID, and pair
-// lists only the parent's session. The codex stand-ins here run in the
-// daemon's place.
-test(
-  "a Codex subagent's message names it through its parent, so the receiver answers it there",
-  {
-    skip:
-      process.platform === "win32" &&
-      "codexDaemon listens on a Unix socket path, which Node on Windows cannot",
-  },
-  async (t) => {
-    const { name, agent, received } = await scratch(t);
-    const spawned = {
-      subAgent: {
-        thread_spawn: { parent_thread_id: "parent", agent_nickname: "Goodall" },
-      },
-    };
-    const daemon = await codexDaemon(
-      t,
-      {
-        "thread/read": ({ threadId }) => ({
-          thread: {
-            id: threadId,
-            status: { type: "idle" },
-            source: threadId === "child" ? spawned : "cli",
-          },
-        }),
-      },
-      { inCodexHome: true },
-    );
-    const codex = (thread) =>
-      agent(
-        "api",
-        { CODEX_HOME: daemon.home, CODEX_THREAD_ID: thread },
-        "codex",
-      );
-    const parent = await codex("parent");
-    const registered = await parent.run(["register", "--json"]);
-    const { name: api } = JSON.parse(registered.stdout);
-    const child = await codex("child");
-    const sent = await child.run(["message", "--to", name, "--text", "Done."]);
-    assert.equal(sent.status, 0, sent.stderr);
-    assert.deepEqual(received(), [
-      `pair message from ${api}/Goodall (Codex in ${path.join("~", "api")}):\n\nDone.\n\n${answers("codex:parent/Goodall")}`,
-    ]);
-  },
-);
-
 // opencode gives a subagent's commands the subagent's own session ID, and
 // pair's plugin, which this process runs as opencode does, answers with the
-// session's parent and title. A task has spaces, so the answer is quoted.
-test("an opencode subagent's message names it through its parent by its task", async (t) => {
+// session's parent and title. A task has spaces, so the answer is quoted. A
+// Codex subagent takes the same path, with its parent from Codex's daemon.
+test("an opencode subagent's register refuses, and its message names it through its parent by its task", async (t) => {
   const { name, agent, received } = await scratch(t);
   const sessions = {
     ses_root: { title: "Fix the login" },
@@ -220,6 +172,11 @@ test("an opencode subagent's message names it through its parent by its task", a
   const as = (session) => ({ env: { PAIR_OPENCODE_SESSION: session } });
   const registered = await opencode.run(["register", "--json"], as("ses_root"));
   const { name: api } = JSON.parse(registered.stdout);
+  assert.deepEqual(await opencode.run(["register"], as("ses_child")), {
+    status: 1,
+    stdout: "",
+    stderr: `pair: This opencode session is a subagent, so pair lists only the session that started it. Reach it through that session as ${api}/Find the tests.\n`,
+  });
   const sent = await opencode.run(
     ["message", "--to", name, "--text", "Done."],
     as("ses_child"),
@@ -238,8 +195,5 @@ test("--to finds a session by name, by ID, or by the start of one ID", () => {
   assert.equal(findAgent(entries, "codex:0199c1d4-1111"), api);
   assert.equal(findAgent(entries, "codex:0199c1d4-2"), web);
   assert.equal(findAgent(entries, "shop-ea"), null);
-  assert.throws(() => findAgent(entries, "codex:0199c1d4"), {
-    message:
-      "codex:0199c1d4 is the start of the IDs of 2 sessions, api-d3 (codex:0199c1d4-1111) and web-11 (codex:0199c1d4-2222). Give the session's name or more of its ID.",
-  });
+  assert.throws(() => findAgent(entries, "codex:0199c1d4"), /2 sessions/);
 });

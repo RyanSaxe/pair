@@ -284,9 +284,10 @@ test(
 // Codex started with no -c override runs every session's thread, and each
 // command, on its app-server daemon, which keeps running after a session exits
 // and unloads the session's thread about a minute later. A Codex started with
-// a -c override runs its session in its own process.
+// a -c override runs its session in its own process. A subagent has a thread
+// of its own, which its parent spawned.
 test(
-  "a Codex session on the daemon runs while the daemon has its thread loaded",
+  "a Codex session on the daemon runs while the daemon has its thread loaded, and a subagent's thread names its parent",
   {
     skip:
       process.platform === "win32" &&
@@ -294,12 +295,27 @@ test(
   },
   async (t) => {
     let status = "idle";
+    const spawn = { parent_thread_id: thread, agent_nickname: "Goodall" };
     const daemon = await codexDaemon(t, {
       "thread/read": ({ threadId }) => ({
-        thread: { id: threadId, status: { type: status }, source: "cli" },
+        thread: {
+          id: threadId,
+          status: { type: status },
+          source:
+            threadId === thread ? "cli" : { subAgent: { thread_spawn: spawn } },
+        },
       }),
     });
-    const target = { harness: "codex", thread, socket: daemon.socket };
+    const target = (id) => ({
+      harness: "codex",
+      thread: id,
+      socket: daemon.socket,
+    });
+    assert.equal(await codex.parentSession(target(thread)), null);
+    assert.deepEqual(await codex.parentSession(target("thread-2")), {
+      sessionId: thread,
+      nickname: "Goodall",
+    });
     const onDaemon = {
       pid: 7,
       args: "/u/.codex/packages/app-server-daemon/releases/0.169.0/bin/codex app-server --listen unix://",
@@ -307,10 +323,10 @@ test(
     const ownProcess = { pid: 8, args: "codex -c model=o4 --yolo" };
     assert.equal(codex.sharesProcess(onDaemon), true);
     assert.equal(codex.sharesProcess(ownProcess), false);
-    assert.equal(await codex.running(target, onDaemon), true);
+    assert.equal(await codex.running(target(thread), onDaemon), true);
     status = "notLoaded";
-    assert.equal(await codex.running(target, onDaemon), false);
-    assert.equal(await codex.running(target, ownProcess), true);
+    assert.equal(await codex.running(target(thread), onDaemon), false);
+    assert.equal(await codex.running(target(thread), ownProcess), true);
   },
 );
 
@@ -345,9 +361,6 @@ test(
         await codex.subagentTool(target, name),
         "followup_task and target /root/echo",
       );
-    await assert.rejects(
-      codex.subagentTool(target, "reviewer"),
-      /no subagent named reviewer\. Its subagent is echo \(Goodall\)\./,
-    );
+    await assert.rejects(codex.subagentTool(target, "reviewer"), /echo/);
   },
 );

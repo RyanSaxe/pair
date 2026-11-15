@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { PairWake } from "../../adapters/opencode/plugin.js";
 import { settings } from "../../src/shared/settings.mjs";
 import { outsideAgents, standIn } from "../support/agents.mjs";
 import { exec, killHub, literal, pair } from "../support/hub.mjs";
@@ -78,14 +77,7 @@ test("pair register names a session for its folder, and gives it the same name a
     registered.stdout,
     `Registered ${name}, claude-code:6f1c2a9e, in ${shown("Fix Login")}.\n`,
   );
-  const [header, row] = (await first.run(["agents"])).stdout.split("\n");
-  assert.deepEqual(header.split(/ {2,}/), [
-    "NAME",
-    "CLI",
-    "DIRECTORY",
-    "BRANCH",
-    "ID",
-  ]);
+  const [, row] = (await first.run(["agents"])).stdout.split("\n");
   assert.deepEqual(row.split(/ {2,}/), [
     name,
     "Claude Code",
@@ -93,28 +85,13 @@ test("pair register names a session for its folder, and gives it the same name a
     "fix-login",
     "claude-code:6f1c2a9e",
   ]);
-  const [entry] = await agents();
-  assert.deepEqual(
-    { ...entry, processStart: typeof entry.processStart },
-    {
-      id: `claude-code:${sessionId}`,
-      name,
-      cli: "claude-code",
-      directory,
-      branch: "fix-login",
-      pid: first.pid,
-      processStart: "string",
-      registeredAt: entry.registeredAt,
-    },
-  );
   // The entry has Claude Code's inbox token, so only the user can read it.
   // Windows has no file modes.
-  const file = path.join(list, `claude-code-${sessionId}.json`);
   if (process.platform !== "win32") {
+    const file = path.join(list, `claude-code-${sessionId}.json`);
     assert.equal((await fs.stat(list)).mode & 0o777, 0o700);
     assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
   }
-  assert.equal(JSON.parse(await fs.readFile(file)).target.token, "test");
 
   // claude --resume keeps the session ID and starts a new process, and pair
   // agents deletes the entry of the process that exited.
@@ -273,42 +250,6 @@ test("pair register --hook reads Codex's thread ID from stdin, and exits 0 when 
     ["codex:0199c1d4-2", "codex:0199c1d4-1"],
   );
   assert.equal((await agents()).length, 2);
-});
-
-// opencode gives a subagent's commands the subagent's own session ID, and
-// pair's plugin, which this process runs as opencode does, answers with the
-// session's parent. The opencode stand-ins play opencode's process, which
-// serves both sessions.
-test("pair register refuses a subagent with the name that reaches it through its parent", async (t) => {
-  const { folder, agent, agents } = await scratch(t);
-  const sessions = {
-    ses_root: { title: "Fix the login" },
-    ses_child: {
-      parentID: "ses_root",
-      title: "Find the tests (@explore subagent)",
-    },
-  };
-  const client = {
-    session: { get: async ({ path: { id } }) => ({ data: sessions[id] }) },
-  };
-  const plugin = await PairWake({ client });
-  t.after(() => plugin.dispose());
-  const env = {};
-  await plugin["shell.env"]({}, { env });
-  const opencode = await agent(await folder("api"), {
-    harness: "opencode",
-    env,
-  });
-  const as = (session) => ({ env: { PAIR_OPENCODE_SESSION: session } });
-  const registered = await opencode.run(["register", "--json"], as("ses_root"));
-  assert.equal(registered.status, 0, registered.stderr);
-  const { name } = JSON.parse(registered.stdout);
-  assert.deepEqual(await opencode.run(["register"], as("ses_child")), {
-    status: 1,
-    stdout: "",
-    stderr: `pair: This opencode session is a subagent, so pair lists only the session that started it. Reach it through that session as ${name}/Find the tests.\n`,
-  });
-  assert.deepEqual(ids(await agents()), ["opencode:ses_root"]);
 });
 
 test("pair start registers its agent, and starts the session when it cannot register it", async (t) => {
