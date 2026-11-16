@@ -115,10 +115,14 @@ export function threads(session) {
   // The hub wakes the holder for each of the reviewer's messages, except one
   // added while an earlier wake waits to be sent, and except in a paused
   // session, where pair start's next step names the thread instead. wakeLater
-  // sends the wake after the hub answers the browser's request.
+  // sends the wake after the hub answers the browser's request. It quotes the
+  // reviewer's newest message, because in a thread that resendWakes finds
+  // sending, the agent's answer to an earlier message can come after it.
   function wakeLater(thread) {
     if (!accepts(session.state, "wake")) return;
-    const message = thread.messages.at(-1);
+    const message = thread.messages.findLast(
+      (item) => item.from === "reviewer",
+    );
     setTimeout(
       () => session.exclusive(() => wakeHolder(thread.id, message)),
       0,
