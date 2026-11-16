@@ -1,5 +1,5 @@
 // A thread's state comes from three facts the hub stores on it. readCount is
-// the number of messages the agent's last counted pair read --thread printed.
+// the number of messages the agent's last pair read --thread printed.
 // A reply that leaves the reviewer's later messages waiting has answers, the
 // number of messages, from the first, that it answers. wake.through is the
 // number of messages when the hub's last wake for the thread went out, beside
@@ -49,13 +49,13 @@ export function threadState(thread, lifecycleState = "live") {
 // The actions each state accepts. A wake is the hub waking the holder for a
 // message the reviewer adds. A thread that is sending has a wake waiting to
 // go out, and the new message joins it. A paused session takes no wake, so
-// neither does a held thread. A read is pair read --thread
-// recording readCount and readAt, which a read after the agent read or
-// answered every message leaves as they were. An ack is pair reply --ack,
-// which moves the thread to agentAcknowledged and needs a message that
-// waits. A reply moves a thread in any state of a live or paused session to
-// replied, and a message the reviewer adds moves a replied or
-// agentAcknowledged thread back to sending.
+// neither does a held thread. A read is pair read --thread recording readAt,
+// which a read after the agent read or answered every message leaves as it
+// was. Every read records readCount, which leaves such a thread in its state.
+// An ack is pair reply --ack, which moves the thread to agentAcknowledged and
+// needs a message that waits. A reply moves a thread in any state of a live or
+// paused session to replied, and a message the reviewer adds moves a replied
+// or agentAcknowledged thread back to sending.
 const accepted = {
   sending: ["read", "ack"],
   held: ["read", "ack"],

@@ -129,8 +129,10 @@ export function planData(round = "1", name = "example") {
 
 // inbox stands in for a Claude Code session. The hub wakes it on its socket the
 // way the hub wakes Claude Code, and inbox records each wake as its auth line
-// and its message. After close, the next wake fails the way a wake to a
-// finished session fails.
+// and its message. Between hold and release, inbox keeps each wake's
+// connection open, as a slow agent CLI does, so the hub's wake stays in
+// progress, except on a Windows named pipe, where the wake can finish anyway.
+// After close, the next wake fails the way a wake to a finished session fails.
 export async function inbox(t, home) {
   // macOS limits a socket path to 104 bytes, so inbox puts the socket in the
   // hub's home rather than in a session directory. Windows has no socket files,
@@ -142,7 +144,9 @@ export async function inbox(t, home) {
       : path.join(home, `${name}.sock`);
   const token = crypto.randomUUID();
   const wakes = [];
-  const server = net.createServer((client) => {
+  const held = [];
+  let holding = false;
+  const server = net.createServer({ allowHalfOpen: true }, (client) => {
     let text = "";
     client.on("data", (chunk) => (text += chunk));
     client.on("end", () => {
@@ -151,21 +155,32 @@ export async function inbox(t, home) {
         .split("\n")
         .map((line) => JSON.parse(line));
       wakes.push({ auth, message });
-      client.end();
+      if (holding) held.push(client);
+      else client.end();
     });
   });
+  const hold = () => (holding = true);
+  const release = () => {
+    holding = false;
+    for (const client of held.splice(0)) client.end();
+  };
   await new Promise((resolve) => server.listen(socket, resolve));
   // node:test skips a test's remaining after hooks once one throws, so close
   // may never run. server.unref() stops the socket from keeping the test
   // process alive, so a failed cleanup fails its test instead of stalling the
   // run until CI cancels it.
   server.unref();
-  const close = () => new Promise((resolve) => server.close(() => resolve()));
+  const close = () => {
+    release();
+    return new Promise((resolve) => server.close(() => resolve()));
+  };
   t.after(close);
   return {
     socket,
     token,
     wakes,
+    hold,
+    release,
     close,
     target: { harness: "claude-code", socket, token },
     agent: { harness: "claude-code", id: socket },

@@ -199,6 +199,86 @@ test("a paused session is not woken until its agent runs pair start", async (t) 
   assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
 });
 
+// The hub sends a thread's wake after it answers the browser, so the agent's
+// pair pause or the reviewer's Close can reach the hub before the wake goes
+// out. The hub then sends no wake, and the pair start that makes the session
+// live names the thread. The wake for an earlier thread keeps the hub busy,
+// so the new thread and the pause or Close run in the order the test sends
+// them. A paused session also takes a new thread, so the test checks that
+// the hub saved the thread before the pause.
+for (const [change, send, changedAt, options] of [
+  [
+    "pauses",
+    (a) => a.action("pause", { reason: "Done for today" }),
+    (status) => status.paused.at,
+    {},
+  ],
+  [
+    "closes",
+    (a) => a.request(`${a.base}/api/dismiss`, {}),
+    (status) => status.closedAt,
+    { reopen: true },
+  ],
+])
+  test(
+    `the hub sends no thread wake when the session ${change} before the wake goes out, and pair start names the thread`,
+    {
+      skip:
+        process.platform === "win32" &&
+        "inbox cannot keep a wake in progress on a Windows named pipe",
+    },
+    async (t) => {
+      const h = await hub(t);
+      const a = await h.session();
+      assert.equal((await a.publish(planData())).code, 200);
+      const startThread = (text) =>
+        a.request(`${a.base}/api/threads`, {
+          id: crypto.randomUUID(),
+          round: "1",
+          topic: "overview",
+          anchor: "Failure handling",
+          text,
+        });
+      a.inbox.hold();
+      const first = await startThread("What happens to a failed item?");
+      assert.equal(first.code, 201, first.body.error);
+      assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
+      const opened = startThread("Why three retries?");
+      await sleep(100);
+      const changed = send(a);
+      await sleep(100);
+      a.inbox.release();
+      const { code, body } = await opened;
+      assert.equal(code, 201, body.error);
+      assert.equal((await changed).code, 200);
+      assert.ok(body.thread.createdAt <= changedAt((await a.status()).body));
+      // pair status waits in the same queue as the thread's wake, so the
+      // inbox has that wake, if the hub sent one, once pair status answers.
+      assert.equal((await a.action("status")).code, 200);
+      assert.equal(a.inbox.wakes.length, 1);
+
+      const started = await h.register(a.directory, a.inbox.target, {
+        start: true,
+        ...options,
+      });
+      assert.equal(started.code, 200, started.body.error);
+      const { id } = body.thread;
+      assert.ok(
+        started.body.next.includes(`${id} on "Overview"`),
+        started.body.next,
+      );
+      const thread = (await a.status()).body.threads.find(
+        (item) => item.id === id,
+      );
+      assert.equal(threadState(thread), "sent");
+      const added = await a.request(`${a.base}/api/threads/${id}/messages`, {
+        text: "Or two?",
+      });
+      assert.equal(added.code, 201, added.body.error);
+      assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
+    },
+  );
+
 const tools = (chain, port = 4321, sdk = "/sdk/index.js") => ({
   ancestors: () => chain,
   listeningPort: () => port,

@@ -113,18 +113,25 @@ export function threads(session) {
     };
   }
   // The hub wakes the holder for each of the reviewer's messages, except one
-  // added while an earlier wake waits to be sent, and except in a paused
-  // session, where pair start's next step names the thread instead. wakeLater
-  // sends the wake after the hub answers the browser's request.
+  // added while an earlier wake waits to be sent, and except while the
+  // session is paused or closed, where the pair start that makes the session
+  // live names the thread instead. wakeLater sends the wake after the hub
+  // answers the browser's request, and a pause or a Close can reach the hub
+  // first, so wakeHolder checks the session again. The wake quotes the
+  // reviewer's newest message, because in a thread that resendWakes finds
+  // sending, the agent's answer to an earlier message can come after it.
   function wakeLater(thread) {
     if (!accepts(session.state, "wake")) return;
-    const message = thread.messages.at(-1);
+    const message = thread.messages.findLast(
+      (item) => item.from === "reviewer",
+    );
     setTimeout(
       () => session.exclusive(() => wakeHolder(thread.id, message)),
       0,
     );
   }
   async function wakeHolder(id, message) {
+    if (!accepts(session.state, "wake")) return;
     const thread = records.get(id);
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
@@ -375,12 +382,13 @@ export function threads(session) {
       "pair reply takes one of --text, --file and --ack",
     );
     if (!given.length) {
-      // readCount records how many messages this read printed.
-      if (threadAccepts(thread, "read")) {
-        thread.readAt = timestamp();
-        thread.readCount = thread.messages.length;
-        await saveThread(thread);
-      }
+      // readCount records how many messages this read printed, and the
+      // agent's next reply answers only those, so every read records it.
+      // readAt is when the thread became read, which a read of a thread the
+      // agent has read or answered leaves as it was.
+      if (threadAccepts(thread, "read")) thread.readAt = timestamp();
+      thread.readCount = thread.messages.length;
+      await saveThread(thread);
       await session.transition(session.report());
       if (opensAgent(thread))
         return {
@@ -515,9 +523,9 @@ export function threads(session) {
       if (threadState(thread) === "sending") wakeLater(thread);
   }
   // pair start's next step names every thread the agent has not answered.
-  // When pair start resumes a paused session, heldSent records that next step
-  // as the wake of each thread whose wake the hub held, so the thread takes
-  // the wake for the reviewer's next message.
+  // When pair start makes a paused or closed session live, heldSent records
+  // that next step as the wake of each thread whose wake the hub held, so the
+  // thread takes the wake for the reviewer's next message.
   async function heldSent() {
     for (const thread of records.values()) {
       if (threadState(thread) !== "sending") continue;

@@ -13,37 +13,44 @@ import {
   alive,
   killHub,
   pairCli,
+  sleep,
   task,
   waitUntil,
 } from "../../support/hub.mjs";
 
 // A hub stops without waiting for the wakes it scheduled, as when a command on
-// newer code replaces it. The stub stands in for a slow agent CLI: it keeps the
-// first wake's connection open, so the hub stops during that wake, and it
-// answers every later wake at once. On Windows, where the stub would listen
-// on a named pipe, the hub's wake can finish while the stub holds the pipe
-// open, so the wake can go out before the hub stops.
+// newer code replaces it. The stub stands in for a slow agent CLI: it keeps
+// each wake's connection open until release, so the hub stops during a wake,
+// and it answers every wake of the next hub at once. On Windows, where the
+// stub would listen on a named pipe, the hub's wake can finish while the stub
+// holds the pipe open, so the wake can go out before the hub stops.
 const skip =
   process.platform === "win32" &&
   "the stub cannot keep a wake in progress on a Windows named pipe";
 
 // stoppedHub starts a hub as its own process with pair start, and publishes
-// round 1 on the agent's route, as pair publish does. stop waits for the first
-// wake to reach the stub, stops that hub during the wake, and starts the next
-// hub in the test process.
+// round 1 on the agent's route, as pair publish does. stop(owed) waits for
+// wake number owed to reach the stub, stops that hub during the wake, and
+// starts the next hub in the test process.
 async function stoppedHub(t) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-owed-"));
   const socket = path.join(home, "agent.sock");
   const wakes = [];
+  const held = [];
+  let holding = true;
   const stub = net.createServer({ allowHalfOpen: true }, (client) => {
     let text = "";
     client.on("error", () => {});
     client.on("data", (chunk) => (text += chunk));
     client.on("end", () => {
       wakes.push(JSON.parse(text.trim().split("\n")[1]).message.content);
-      if (wakes.length > 1) client.end();
+      if (holding) held.push(client);
+      else client.end();
     });
   });
+  const release = () => {
+    for (const client of held.splice(0)) client.end();
+  };
   await new Promise((resolve) => stub.listen(socket, resolve));
   stub.unref();
   const { config, agent, start } = await pairCli(home, {
@@ -97,17 +104,18 @@ async function stoppedHub(t) {
     });
   const status = async () =>
     (await fetch(`${origin}/s/${sessionId}/api/status`)).json();
-  async function stop() {
-    assert.equal(await waitUntil(() => wakes.length === 1), true);
+  async function stop(owed = 1) {
+    assert.equal(await waitUntil(() => wakes.length === owed), true);
     process.kill(first.pid, "SIGTERM");
     assert.equal(await waitUntil(() => !alive(first.pid)), true);
+    holding = false;
     const next = await startHub({ ...config, log() {} });
     t.after(() => next.close());
     origin = next.origin;
-    assert.equal(await waitUntil(() => wakes.length === 2), true);
-    assert.equal(wakes[1], wakes[0]);
+    assert.equal(await waitUntil(() => wakes.length === owed + 1), true);
+    assert.equal(wakes[owed], wakes[owed - 1]);
   }
-  return { act, sessionId, sessionDir, wakes, post, status, stop };
+  return { act, sessionId, sessionDir, wakes, post, status, release, stop };
 }
 
 test(
@@ -136,6 +144,53 @@ test(
     assert.match(wakes[2], /Second message$/);
   },
 );
+
+// The agent can answer the message it read after the reviewer wrote again and
+// before the wake for that message went out. The thread is then sending with
+// the agent's answer last, and the next hub's wake quotes the reviewer's
+// message. The held first wake keeps the hub busy, so the read, the second
+// message and the answer run in the order the test sends them.
+for (const [kind, answer] of [
+  ["reply", { text: "It stops." }],
+  ["ack", { ack: true }],
+])
+  test(
+    `the next hub quotes the reviewer's message, not the agent's ${kind}, in the wake it sends again`,
+    { skip },
+    async (t) => {
+      const { act, wakes, post, status, release, stop } = await stoppedHub(t);
+      const id = crypto.randomUUID();
+      const thread = { id, round: "1", topic: "overview", anchor: "One" };
+      const opened = await post("threads", {
+        ...thread,
+        text: "First message",
+      });
+      assert.equal(opened.status, 201);
+      assert.equal(await waitUntil(() => wakes.length === 1), true);
+      const read = act("reply", { note: id });
+      await sleep(100);
+      const added = post(`threads/${id}/messages`, { text: "Second message" });
+      await sleep(100);
+      const answered = act("reply", { note: id, ...answer });
+      await sleep(100);
+      release();
+      await read;
+      assert.equal((await added).status, 201);
+      await answered;
+      const found = async () =>
+        (await status()).threads.find((item) => item.id === id);
+      assert.deepEqual(
+        (await found()).messages.map((message) => message.from),
+        ["reviewer", "reviewer", "agent"],
+      );
+      await stop(2);
+      assert.match(wakes[2], /Second message$/);
+      assert.equal(
+        await waitUntil(async () => threadState(await found()) === "sent"),
+        true,
+      );
+    },
+  );
 
 // The reviewer's feedback and a Start each wake the holder after the hub saves
 // them, and the next hub sends the wake that a stopped hub owed.

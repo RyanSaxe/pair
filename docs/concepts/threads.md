@@ -78,7 +78,7 @@ The line under your message shows the thread's status.
 | Line                                  | Meaning                                                                                                                                                              |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Agent paused. Send a message in chat. | The agent paused the session, so the hub sends it no wake. When you ask the agent in chat to continue, it runs `pair start`, which prints the thread's ID.           |
-| Sent to the agent                     | The hub woke the agent to read the thread, or the agent resumed the paused session with `pair start`, which printed the thread's ID.                                 |
+| Sent to the agent                     | The hub woke the agent to read the thread, or the agent's `pair start` after a pause, or `pair start --reopen` after a Close, printed the thread's ID.               |
 | Read · replying                       | The agent read the thread and is writing its reply.                                                                                                                  |
 | Acknowledged by the agent             | The agent acknowledged your message with `pair reply --ack` and wrote no reply.                                                                                      |
 | Could not reach the agent             | The hub could not wake the agent. The card shows the session's handoff line, which you can give to another agent to [take the session over](holders-and-handoff.md). |
