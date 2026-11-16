@@ -7,6 +7,7 @@ import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
 import { startHub } from "../../../src/hub/server.mjs";
 import { readPlanData } from "../../../src/shared/records.mjs";
+import { threadState } from "../../../src/shared/thread-state.mjs";
 import {
   exec,
   hub,
@@ -270,6 +271,49 @@ test("pair start without --reopen leaves a closed session closed", async (t) => 
   assert.equal(started.body.next, closed);
   assert.equal(typeof (await a.status()).body.closedAt, "string");
   assert.equal((await a.action("read")).code, 409);
+});
+
+// The hub sends no wake for a thread in a paused session, and the pair start
+// that makes the session live names the thread instead. A pair start on the
+// closed session clears the pause but leaves the session closed, so the pair
+// start --reopen after it is the one that names the thread.
+test("pair start --reopen names a thread the hub held no wake for, and the next message wakes the agent, also after a pair start on the closed session", async (t) => {
+  const h = await hub(t);
+  const a = await h.session();
+  await a.publish(planData());
+  assert.equal(
+    (await a.action("pause", { reason: "Done for today" })).code,
+    200,
+  );
+  const opened = await a.request(`${a.base}/api/threads`, {
+    id: crypto.randomUUID(),
+    round: "1",
+    topic: "overview",
+    anchor: "Failure handling",
+    text: "What happens to a failed item?",
+  });
+  assert.equal(opened.code, 201, opened.body.error);
+  const { id } = opened.body.thread;
+  assert.equal((await close(a)).code, 200);
+  const start = (options) =>
+    h.register(a.directory, a.inbox.target, { start: true, ...options });
+  assert.equal((await start()).body.next, closed);
+  const reopened = await start({ reopen: true });
+  assert.equal(reopened.code, 200, reopened.body.error);
+  assert.ok(
+    reopened.body.next.includes(
+      `You have not answered the reviewer's thread ${id} on "Overview".`,
+    ),
+    reopened.body.next,
+  );
+  const thread = async () =>
+    (await a.status()).body.threads.find((item) => item.id === id);
+  assert.equal(threadState(await thread()), "sent");
+  const added = await a.request(`${a.base}/api/threads/${id}/messages`, {
+    text: "Or a retry?",
+  });
+  assert.equal(added.code, 201, added.body.error);
+  assert.equal(await waitUntil(() => a.inbox.wakes.length === 1), true);
 });
 
 test("pair start --reopen on a live session is a plain pair start", async (t) => {

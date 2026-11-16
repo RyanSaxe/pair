@@ -456,11 +456,15 @@ export function agent(session) {
       commandAt: at,
       ...(start && options.folder ? { folder: options.folder } : {}),
     };
+    // The next step of a pair start that makes a paused or closed session live
+    // names every thread the agent has not answered, so heldSent records it
+    // as the wake of each thread whose wake the hub held.
+    const live = () => lifecycle(session.state) === "live";
+    const wasLive = live();
     const reopening =
       start && options.reopen === true && accepts(session.state, "reopen");
     if (reopening) await reopen(agent, holder);
     await requireHolder(agent, start);
-    const resuming = start && lifecycle(session.state) === "paused";
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
@@ -482,7 +486,7 @@ export function agent(session) {
         ],
       });
     await transition(patch);
-    if (resuming) await session.heldSent();
+    if (!wasLive && live()) await session.heldSent();
     if (start && !held && !session.state.current)
       await session.addActivity({
         kind: "session",

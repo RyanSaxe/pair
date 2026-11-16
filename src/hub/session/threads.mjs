@@ -520,9 +520,9 @@ export function threads(session) {
       if (threadState(thread) === "sending") wakeLater(thread);
   }
   // pair start's next step names every thread the agent has not answered.
-  // When pair start resumes a paused session, heldSent records that next step
-  // as the wake of each thread whose wake the hub held, so the thread takes
-  // the wake for the reviewer's next message.
+  // When pair start makes a paused or closed session live, heldSent records
+  // that next step as the wake of each thread whose wake the hub held, so the
+  // thread takes the wake for the reviewer's next message.
   async function heldSent() {
     for (const thread of records.values()) {
       if (threadState(thread) !== "sending") continue;
