@@ -375,12 +375,13 @@ export function threads(session) {
       "pair reply takes one of --text, --file and --ack",
     );
     if (!given.length) {
-      // readCount records how many messages this read printed.
-      if (threadAccepts(thread, "read")) {
-        thread.readAt = timestamp();
-        thread.readCount = thread.messages.length;
-        await saveThread(thread);
-      }
+      // readCount records how many messages this read printed, and the
+      // agent's next reply answers only those, so every read records it.
+      // readAt is when the thread became read, which a read of a thread the
+      // agent has read or answered leaves as it was.
+      if (threadAccepts(thread, "read")) thread.readAt = timestamp();
+      thread.readCount = thread.messages.length;
+      await saveThread(thread);
       await session.transition(session.report());
       if (opensAgent(thread))
         return {

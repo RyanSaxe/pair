@@ -282,6 +282,15 @@ test("a reply leaves the reviewer's follow-up waiting when the agent last read t
   await answer("Refunds stop too.");
   assert.equal((await thread(id)).state, "replied");
   assert.equal((await line()).state, "replied");
+
+  // A read of a thread the agent has answered counts too, so the reply after
+  // it leaves waiting the message the read did not print.
+  assert.equal((await a.action("reply", { note: id })).code, 200);
+  assert.equal((await send(id, { text: "And partial refunds?" })).code, 201);
+  await settled(id);
+  assert.ok((await answer("Those stop too.")).includes(read));
+  assert.equal((await thread(id)).state, "sent");
+  assert.equal((await line()).state, "sent");
 });
 
 // Without the line, the Next line after the agent read a thread told it to
