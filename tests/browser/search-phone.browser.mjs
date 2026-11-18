@@ -291,7 +291,7 @@ for (const engine of ["chrome", "webkit"]) {
   });
 
   for (const [name, { up, down }] of Object.entries(KEYBOARDS)) {
-    test(`on a phone in ${engine}, when ${name}, a note in the preview has the window, and saving it brings the split back`, async (t) => {
+    test(`on a phone in ${engine}, when ${name}, a note in the preview has the window, and saving it with a held press brings the split back`, async (t) => {
       const page = await showNote(t, engine);
       if (!page) return;
       await previewCovers(page, await up(page));
@@ -302,7 +302,17 @@ for (const engine of ["chrome", "webkit"]) {
       await text.pressSequentially("A narwhal note");
       await wholeOnScreen(page, "#note-text");
       assert.equal(await page.inputValue(".search-input"), "narwhal");
-      await shownFrame(page).locator("#note-save").click();
+      // The field loses focus when the press starts. The press lasts longer
+      // than the frame waits after that, and the visual viewport resizes
+      // during it.
+      const save = await shownFrame(page).locator("#note-save").boundingBox();
+      await page.mouse.move(save.x + save.width / 2, save.y + save.height / 2);
+      await page.mouse.down();
+      await page.evaluate(() =>
+        visualViewport.dispatchEvent(new Event("resize")),
+      );
+      await page.waitForTimeout(500);
+      await page.mouse.up();
       await noteClosed(page);
       // The split is back before the keyboard has dropped.
       await splitShows(page);

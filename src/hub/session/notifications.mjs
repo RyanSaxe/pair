@@ -13,18 +13,20 @@ const clipped = (message) =>
 
 export function notifications(session) {
   const { threadRecords: records } = session;
-  // A line has the start of the thread's newest message and the thread's
-  // state. waitingSince is when the reviewer wrote the first message the
-  // agent has not answered. message and at name the newest message.
+  // A line has the start of the thread's newest message with words, which an
+  // agent's ack has not, and the thread's state. waitingSince is when the
+  // reviewer wrote the first message the agent has not answered. message and
+  // at name the newest message.
   const threadLines = () =>
     [...records.values()].map((thread) => {
       const { messages } = thread;
       const waiting = waitingMessage(thread);
       const newest = messages.at(-1);
+      const worded = messages.findLast((message) => message.kind !== "ack");
       return {
         thread: thread.id,
         name: thread.page,
-        text: newest ? clipped(newest) : (thread.anchor ?? ""),
+        text: worded ? clipped(worded) : (thread.anchor ?? ""),
         message: messages.length - 1,
         at: newest?.at ?? thread.createdAt,
         ...(thread.proposal
@@ -55,7 +57,8 @@ export function notifications(session) {
   });
   // activity.json stores no words, so older events get them too. A cleared event
   // shows nowhere, so the session list carries words only for the others. A
-  // reply's question is the reviewer's message that began its thread.
+  // reply's question is the reviewer's message that began its thread. An ack
+  // has no words, and the frame names it.
   const withWords = (events, cleared) =>
     events.map((event) => {
       const messages =
@@ -67,7 +70,7 @@ export function notifications(session) {
       const question = messages.find((item) => item.from === "reviewer");
       return {
         ...event,
-        words: clipped(message),
+        ...(message.kind === "ack" ? {} : { words: clipped(message) }),
         ...(question ? { question: clipped(question) } : {}),
       };
     });

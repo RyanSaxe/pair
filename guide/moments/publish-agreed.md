@@ -6,7 +6,9 @@ Now write the round's pages.
   also while a subagent does the work.
 - Hand a page to a subagent when its research or writing would hold up the
   other pages. Give the subagent the session directory, the page's ID and
-  the `pair progress` command, so it posts its own notes.
+  the `pair progress` command, so it posts its own notes. Also name
+  `pair guide writing.md` in its brief, with each writing skill and
+  instruction you follow.
 - Publish each page as soon as it builds and you have checked it against
   `pair guide writing.md`. Check a subagent's page the same way, and check
   its facts too.

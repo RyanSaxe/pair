@@ -8,6 +8,7 @@ import { detectWake, identify } from "../hub/wake.mjs";
 import { pageData } from "../shared/records.mjs";
 import { requireNode, settings, version } from "../shared/settings.mjs";
 import { exists, read, requireValue } from "../shared/util.mjs";
+import { registerAgent } from "./agents.mjs";
 import { usageError } from "./arguments.mjs";
 import { components } from "./components.mjs";
 import { rows, tooBigToPublish } from "./output.mjs";
@@ -335,12 +336,20 @@ export async function start(options) {
     );
   const started = await attach(directory, config, wake, {
     start: true,
+    folder: process.cwd(),
     ...(from
       ? { from: path.resolve(options.from), proposal: options.proposal }
       : resuming
         ? { reopen: options.reopen }
         : { title: options.title.trim() }),
   });
+  // The session works without its agent in pair agents, so pair start prints a
+  // registration error and goes on.
+  await registerAgent(wake).catch((error) =>
+    console.error(
+      `pair: This agent is not registered, so pair agents does not list it. ${error.message}`,
+    ),
+  );
   const card = started.proposal;
   return {
     next: started.next,

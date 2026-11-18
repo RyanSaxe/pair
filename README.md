@@ -19,8 +19,8 @@ approve each piece of work before the agent edits your project for it.
 
 ## Get started
 
-`pair` needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or
-26.12.1 or newer.
+`pair` needs Node 22.23.5 or newer in 22, 24.22.3 or newer in 24, or
+26.13.1 or newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -87,6 +87,9 @@ runs where, and [Concepts](docs/concepts/) explains each part.
   proposals and the hub.
 - [Guides](docs/guides/) covers planning a change, understanding code,
   building the work and search.
+- [Advanced setup](docs/guides/advanced-setup.md) explains Start agent's
+  launch script, messaging between agent sessions, and your own instructions
+  and components.
 - [Reference](docs/reference/) lists every command and setting, and the
   files the agent reads.
 - [Troubleshooting](docs/troubleshooting.md) explains how to fix known

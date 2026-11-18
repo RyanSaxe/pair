@@ -47,7 +47,7 @@ export function agent(session) {
   async function step() {
     if (isClosed(session.state)) return closed;
     const [event] = await pending();
-    if (event) return `Run ${command("read")} to see what the reviewer sent.`;
+    if (event) return `Run ${command("read")} to see what your user sent.`;
     if (lifecycle(session.state) === "paused")
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
     if (!session.state.current)
@@ -123,7 +123,7 @@ export function agent(session) {
   // reviewer's Sent state.
   const wakeAgent = (round) =>
     wakeForSend(
-      `pair: the reviewer sent feedback on round ${round} of session ${directory}. Run ${command("read")} first, which prints the feedback and your next step.`,
+      `pair: your user sent feedback on round ${round} in pair, for session ${directory}. Run ${command("read")} first, which prints their feedback and your next step.`,
     );
   // The reviewer closes a session from the browser. The hub sends the agent
   // no wake, and act refuses the agent's next command with closed. close
@@ -449,12 +449,22 @@ export function agent(session) {
     // notice.
     if (!start && held && !same) return {};
     const at = timestamp();
-    const holder = { ...(same ? held : { ...agent, at }), commandAt: at };
+    // folder is where the agent ran pair start, and Start agent starts a new
+    // agent there.
+    const holder = {
+      ...(same ? held : { ...agent, at }),
+      commandAt: at,
+      ...(start && options.folder ? { folder: options.folder } : {}),
+    };
+    // The next step of a pair start that makes a paused or closed session live
+    // names every thread the agent has not answered, so heldSent records it
+    // as the wake of each thread whose wake the hub held.
+    const live = () => lifecycle(session.state) === "live";
+    const wasLive = live();
     const reopening =
       start && options.reopen === true && accepts(session.state, "reopen");
     if (reopening) await reopen(agent, holder);
     await requireHolder(agent, start);
-    const resuming = start && lifecycle(session.state) === "paused";
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
@@ -476,7 +486,7 @@ export function agent(session) {
         ],
       });
     await transition(patch);
-    if (resuming) await session.heldSent();
+    if (!wasLive && live()) await session.heldSent();
     if (start && !held && !session.state.current)
       await session.addActivity({
         kind: "session",

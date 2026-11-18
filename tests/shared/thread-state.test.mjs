@@ -33,6 +33,24 @@ test("a thread whose wake waits to go out takes no other wake, and a thread whos
   }
 });
 
+// pair reply --ack answers the messages that a reply in its place would. The
+// reviewer's next message waits again, and a reply after an ack is replied.
+test("an ack answers the waiting messages, takes none once nothing waits, and gives way to a later message or reply", () => {
+  const ack = (answers) => ({ ...reply(answers), kind: "ack" });
+  const sent = { ok: true, through: 3 };
+  for (const [thread, expected, acks] of [
+    [{ messages: [asks], readCount: 1 }, "read", true],
+    [{ messages: [asks, ack()] }, "agentAcknowledged", false],
+    [{ messages: [asks, ack(), asks], wake: sent }, "sent", true],
+    [{ messages: [asks, ack(), reply()] }, "replied", false],
+    [{ messages: [asks, asks, ack(1)], wake: sent }, "sent", true],
+  ]) {
+    assert.equal(threadState(thread), expected, JSON.stringify(thread));
+    assert.equal(threadAccepts(thread, "ack"), acks, JSON.stringify(thread));
+  }
+  assert.equal(threadAccepts({ messages: [asks, ack()] }, "wake"), true);
+});
+
 // A session saved before the facts stored each thread's state.
 test("upgradeThread gives a thread saved with its state the same state", () => {
   const followed = [asks, asks, reply(1)];

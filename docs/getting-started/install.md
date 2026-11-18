@@ -1,7 +1,7 @@
 # Install
 
-`pair` needs Node 22.23.4 or newer in 22, 24.22.1 or newer in 24, or
-26.12.1 or newer.
+`pair` needs Node 22.23.5 or newer in 22, 24.22.3 or newer in 24, or
+26.13.1 or newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -12,13 +12,13 @@ npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 
 Claude Code lists the skill as `/pair`, and Codex as `$pair`.
 
-| Agent CLI   | What it needs                                                                                                                                                                                 |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | When `npx skills add` asks which agents to install to, select Claude Code and keep Symlink.                                                                                                   |
-| Codex       | Run `pair setup-codex` once, then restart Codex. `pair start` refuses to run under Codex until you do. See [Troubleshooting](../troubleshooting.md#codex-asks-to-approve-every-pair-command). |
-| Copilot CLI | Start it as `copilot --ui-server`, or the hub cannot wake it. When you started it without that flag, `pair start` prints the command that restarts your Copilot session with it.              |
-| pi          | pi 0.79.3 or newer. Install pair's extension once with `pi install`, then restart pi. `pair start` prints the full command, with the extension's path on your machine.                        |
-| opencode    | opencode 1.17.7 or newer. Add pair's plugin to `"plugin"` in opencode's global config once, then restart opencode. `pair start` prints the plugin's path and the config file to add it to.    |
+| Agent CLI   | What it needs                                                                                                                                                                                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | When `npx skills add` asks which agents to install to, select Claude Code and keep Symlink.                                                                                                                                                                                                                |
+| Codex       | Run `pair setup-codex` once, then restart Codex. `pair start` refuses to run under Codex until you do. See [Troubleshooting](../troubleshooting.md#codex-asks-to-approve-every-pair-command).                                                                                                              |
+| Copilot CLI | Start it as `copilot --ui-server`, or the hub cannot wake it. When you started it without that flag, `pair start` prints the command that restarts your Copilot session with it.                                                                                                                           |
+| pi          | pi 0.79.3 or newer. Install pair's extension once with `pi install`, then restart pi. `pair start` prints the full command, with the extension's path on your machine.                                                                                                                                     |
+| opencode    | opencode 1.17.7 or newer. Add pair's plugin to `"plugin"` in opencode's global config once, then restart opencode. On opencode 2 the plugin is the folder `adapters/opencode`, and on opencode 1 the file `adapters/opencode/plugin.js`. `pair start` prints both paths and the config file to add one to. |
 
 A `codex exec` run needs permission to run `pair` outside Codex's sandbox
 before it starts. The hub can wake a `codex exec` run only while it is

@@ -9,6 +9,7 @@ import {
   threadAccepts,
   threadState,
   upgradeThread,
+  waitingMessage,
 } from "../../shared/thread-state.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
 import { replyImages } from "./thread-images.mjs";
@@ -39,18 +40,18 @@ function wakeNote(message) {
   const words = message.text;
   let note;
   if (words.length <= quoted)
-    note = `The reviewer's message, which pair read also prints:\n${words}`;
+    note = `Your user's message, which pair read also prints:\n${words}`;
   else {
     const space = words.slice(0, quoted + 1).search(/\s\S*$/);
     const opening = words.slice(0, space > 0 ? space : quoted).trimEnd();
-    note = `The beginning of the reviewer's message, which pair read prints whole:\n${opening}…`;
+    note = `The beginning of your user's message, which pair read prints whole:\n${opening}…`;
   }
   const count = message.attachments?.length ?? 0;
   if (count === 1)
     note +=
-      "\n\nThe reviewer attached an image to the message. pair read prints its path.";
+      "\n\nYour user attached an image to the message. pair read prints its path.";
   else if (count > 1)
-    note += `\n\nThe reviewer attached ${count} images to the message. pair read prints their paths.`;
+    note += `\n\nYour user attached ${count} images to the message. pair read prints their paths.`;
   return `\n\n${note}`;
 }
 
@@ -112,23 +113,30 @@ export function threads(session) {
     };
   }
   // The hub wakes the holder for each of the reviewer's messages, except one
-  // added while an earlier wake waits to be sent, and except in a paused
-  // session, where pair start's next step names the thread instead. wakeLater
-  // sends the wake after the hub answers the browser's request.
+  // added while an earlier wake waits to be sent, and except while the
+  // session is paused or closed, where the pair start that makes the session
+  // live names the thread instead. wakeLater sends the wake after the hub
+  // answers the browser's request, and a pause or a Close can reach the hub
+  // first, so wakeHolder checks the session again. The wake quotes the
+  // reviewer's newest message, because in a thread that resendWakes finds
+  // sending, the agent's answer to an earlier message can come after it.
   function wakeLater(thread) {
     if (!accepts(session.state, "wake")) return;
-    const message = thread.messages.at(-1);
+    const message = thread.messages.findLast(
+      (item) => item.from === "reviewer",
+    );
     setTimeout(
       () => session.exclusive(() => wakeHolder(thread.id, message)),
       0,
     );
   }
   async function wakeHolder(id, message) {
+    if (!accepts(session.state, "wake")) return;
     const thread = records.get(id);
     const on = thread.proposal
       ? `proposal ${thread.proposal}, "${thread.page}"`
       : `"${thread.page}"`;
-    const line = `pair: the reviewer wrote to you in a thread on ${on} in session ${directory}. Before your next step, run ${readCommand(thread.id)}, which marks the thread read for the reviewer and prints it with how to answer it. Then go on with your work.${wakeNote(message)}`;
+    const line = `pair: your user wrote to you in a thread on ${on} in pair, for session ${directory}. Before your next step, run ${readCommand(thread.id)}, which marks the thread read for your user and prints it with how to answer it. Then go on with your work.${wakeNote(message)}`;
     // through counts the messages the wake goes out with, those that joined
     // it included.
     const through = thread.messages.length;
@@ -302,8 +310,8 @@ export function threads(session) {
       ? thread.messages[data.message]
       : null;
     requireValue(
-      message?.from === "agent",
-      "Only an agent's message takes a thumbs up",
+      message?.from === "agent" && message.kind !== "ack",
+      "Only an agent's reply takes a thumbs up",
     );
     requireValue(
       typeof data.acknowledged === "boolean",
@@ -357,32 +365,36 @@ export function threads(session) {
     );
     requireValue(!found.length, found.join("\n"));
   }
-  // pair read --thread calls reply with no text or HTML, and reply then
+  // pair read --thread calls reply with no text, HTML or ack, and reply then
   // marks the thread read and returns it. With text or HTML, reply posts the
-  // agent's reply.
+  // agent's reply. With ack, pair reply --ack, it posts the agent's ack.
   async function reply(data) {
     requireValue(
       idPattern.test(data.note || ""),
       "Give --thread the ID of a thread that pair read printed.",
     );
     const thread = threadFor(data.note);
-    requireValue(
-      data.text === undefined || data.html === undefined,
-      "pair reply takes --text or --file, not both",
+    const given = [data.text, data.html, data.ack].filter(
+      (value) => value !== undefined,
     );
-    if (data.text === undefined && data.html === undefined) {
-      // readCount records how many messages this read printed.
-      if (threadAccepts(thread, "read")) {
-        thread.readAt = timestamp();
-        thread.readCount = thread.messages.length;
-        await saveThread(thread);
-      }
+    requireValue(
+      given.length < 2,
+      "pair reply takes one of --text, --file and --ack",
+    );
+    if (!given.length) {
+      // readCount records how many messages this read printed, and the
+      // agent's next reply answers only those, so every read records it.
+      // readAt is when the thread became read, which a read of a thread the
+      // agent has read or answered leaves as it was.
+      if (threadAccepts(thread, "read")) thread.readAt = timestamp();
+      thread.readCount = thread.messages.length;
+      await saveThread(thread);
       await session.transition(session.report());
       if (opensAgent(thread))
         return {
           status: session.view(),
           thread: shown(thread),
-          next: `Open a new agent session and have it run pair start --from ${directory} --proposal ${thread.proposal} first, then post what you opened with ${replyCommand(thread.id)} --text "…". If you cannot open one, post that command instead. Then go back to what you were doing.`,
+          next: `Start the new agent in the CLI and with the settings the reviewer named in the thread, and give it pair start --from ${directory} --proposal ${thread.proposal} as its first command. Then post what you started with ${replyCommand(thread.id)} --text "…". If you cannot start one, post that command instead. Then go back to what you were doing.`,
           moment: "read-open-agent",
         };
       return {
@@ -394,14 +406,23 @@ export function threads(session) {
         moment: "read-thread",
       };
     }
-    if (data.html !== undefined) {
+    const ack = data.ack !== undefined;
+    if (ack) {
+      requireValue(data.ack === true, "ack must be true");
+      requireValue(
+        threadAccepts(thread, "ack"),
+        `Every message the reviewer wrote in thread ${thread.id} has an answer, so there is nothing to acknowledge.`,
+        409,
+      );
+    } else if (data.html !== undefined) {
       requireValue(text(data.html), "The reply file is empty");
       await checkReply(thread, data.html);
     } else requireValue(text(data.text), "--text needs the reply's text");
     // A reply answers every message before it. When the agent ran pair read
     // --thread after its previous reply, the reply answers only the messages
     // that read printed. The reply then records that number in answers, and
-    // the thread waits for an answer to the reviewer's later messages.
+    // the thread waits for an answer to the reviewer's later messages. An ack
+    // answers the same messages.
     const previous = thread.messages.findLastIndex(
       (message) => message.from === "agent",
     );
@@ -410,15 +431,19 @@ export function threads(session) {
     thread.messages.push({
       from: "agent",
       at: timestamp(),
-      ...(data.html !== undefined
-        ? { html: data.html.trim() }
-        : { text: data.text.trim() }),
+      ...(ack
+        ? { kind: "ack" }
+        : data.html !== undefined
+          ? { html: data.html.trim() }
+          : { text: data.text.trim() }),
       ...(answers < thread.messages.length ? { answers } : {}),
     });
-    const waits = threadState(thread) !== "replied";
+    const waits = Boolean(waitingMessage(thread));
     await saveThread(thread);
+    // The frame's bell lists an ack as it lists a reply, with its own words.
     await session.addActivity({
       kind: "reply",
+      ...(ack ? { agentAck: true } : {}),
       name: thread.page,
       ...(thread.proposal
         ? { page: "work", proposal: thread.proposal }
@@ -481,13 +506,13 @@ export function threads(session) {
   function unansweredLine() {
     if (!accepts(session.state, "wake")) return null;
     const waiting = [...records.values()]
-      .filter((thread) => threadState(thread) !== "replied")
+      .filter((thread) => waitingMessage(thread))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     if (!waiting.length) return null;
     const named = waiting.map((thread) => `${thread.id} on "${thread.page}"`);
     if (named.length === 1)
-      return `You have not answered the reviewer's thread ${named[0]}. Before you end your turn, run ${readCommand(waiting[0].id)}, which prints the thread with how to answer it, and answer it.`;
-    return `You have not answered the reviewer's threads ${named.slice(0, -1).join(", ")} and ${named.at(-1)}. Before you end your turn, run ${readCommand("ID")} for each of them, which prints the thread with how to answer it, and answer it.`;
+      return `You have not answered the reviewer's thread ${named[0]}. Before you end your turn, run ${readCommand(waiting[0].id)}, which prints the thread with how to answer it, and answer or acknowledge it.`;
+    return `You have not answered the reviewer's threads ${named.slice(0, -1).join(", ")} and ${named.at(-1)}. Before you end your turn, run ${readCommand("ID")} for each of them, which prints the thread with how to answer it, and answer or acknowledge it.`;
   }
   // A hub stops without waiting for the wakes it scheduled, so a hub that
   // stopped during a thread's wake left the thread sending, and
@@ -498,9 +523,9 @@ export function threads(session) {
       if (threadState(thread) === "sending") wakeLater(thread);
   }
   // pair start's next step names every thread the agent has not answered.
-  // When pair start resumes a paused session, heldSent records that next step
-  // as the wake of each thread whose wake the hub held, so the thread takes
-  // the wake for the reviewer's next message.
+  // When pair start makes a paused or closed session live, heldSent records
+  // that next step as the wake of each thread whose wake the hub held, so the
+  // thread takes the wake for the reviewer's next message.
   async function heldSent() {
     for (const thread of records.values()) {
       if (threadState(thread) !== "sending") continue;

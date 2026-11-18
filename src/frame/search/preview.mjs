@@ -9,8 +9,7 @@ const KEPT = 3;
 const REST_MS = 60;
 // A frame not loaded yet costs a download, so it waits out a reader's typing.
 const LOAD_REST_MS = 300;
-// Longer than a press on a button lasts, and about as long as a keyboard takes to
-// drop.
+// About as long as a keyboard takes to drop.
 const LEAVE_REST_MS = 300;
 const LOAD_LIMIT_MS = 60000;
 const POLL_MS = 20;
@@ -36,6 +35,10 @@ export function createPreview({
   let shown = null;
   let restTimer = 0;
   let turn = 0;
+  // A press on a button takes the focus before its click, and the click misses
+  // the button if the frame moves first. A press that starts while the reader
+  // writes in the frame keeps the window until it ends.
+  let pressHeld = false;
   const bar = document.createElement("div");
   bar.className = "search-progress";
   host.append(bar);
@@ -57,8 +60,22 @@ export function createPreview({
     win.addEventListener("focusin", () => {
       if (fieldIn(win.document)) onFocus();
     });
-    // A press on a button takes the focus before its click, and the click misses
-    // the button if the frame moves first.
+    win.addEventListener(
+      "pointerdown",
+      () => (pressHeld = Boolean(host.closest(".is-writing"))),
+      true,
+    );
+    for (const type of ["pointerup", "pointercancel"])
+      win.addEventListener(
+        type,
+        () => {
+          if (!pressHeld) return;
+          pressHeld = false;
+          // The click comes after pointerup in the same task.
+          setTimeout(onFocus);
+        },
+        true,
+      );
     win.addEventListener("focusout", () => setTimeout(onFocus, LEAVE_REST_MS));
     // The close event doesn't bubble, and a dialog closes with no focus change
     // when the control that opened it has gone.
@@ -79,7 +96,7 @@ export function createPreview({
     const frame = shown?.frame;
     return (
       frame === document.activeElement &&
-      Boolean(fieldIn(frame.contentDocument))
+      (pressHeld || Boolean(fieldIn(frame.contentDocument)))
     );
   }
 

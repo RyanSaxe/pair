@@ -8,6 +8,7 @@ export function eventTitle(event) {
   if (event.kind === "waiting")
     return `Round ${event.round} is waiting for you`;
   if (event.kind === "proposal") return `Agent proposed ${event.name}`;
+  if (event.agentAck) return `Agent acknowledged your message on ${event.name}`;
   return `Agent replied on ${event.name}`;
 }
 // A reply event from before events included the message index opens at

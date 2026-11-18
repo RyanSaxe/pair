@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     # The rulesets of main and develop require these jobs by name, such as
-    # test (22.23.4) and test (macos-latest, 26), so a change to the matrix
+    # test (22.23.5) and test (macos-latest, 26), so a change to the matrix
     # needs the same change to the rulesets. The macOS and Windows jobs add
     # their platform to their names.
     name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.node) || format('test ({0}, {1})', matrix.os, matrix.node) }}
@@ -21,7 +21,7 @@ jobs:
         os: [ubuntu-latest]
         # The floor of each Node line in engines.node, the oldest release
         # pair supports on that line, and the latest release of each line.
-        node: [22.23.4, 22, 24.22.1, 24, 26.12.1, 26]
+        node: [22.23.5, 22, 24.22.3, 24, 26.13.1, 26]
         # macOS limits socket paths to 104 bytes and puts temporary
         # directories under long /var/folders paths, and Windows has named
         # pipes instead of socket files and runs only files with an
@@ -98,7 +98,7 @@ jobs:
           node-version: 24
           check-latest: true
       # eslint.config.mjs fails a file over 1000 lines. The second run lists
-      # each file over 500 as a warning and does not fail.
+      # each file over 600 as a warning and does not fail.
       - run: npx --yes eslint@10.11.0 .
       - run: |
-          npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 500]}' .
+          npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 600]}' .

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { endOptions } from "../../src/shared/launch.mjs";
 import { send } from "../listener.mjs";
 
 const extension = fileURLToPath(new URL("extension.js", import.meta.url));
@@ -9,10 +10,24 @@ export const name = "pi";
 // each command that pi runs.
 export const command = "pi";
 export const variables = ["PAIR_PI_SOCKET", "PAIR_PI_SESSION"];
-export const unwakeable = `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run \`pair start\` again. This pi session runs without pair's extension, so the hub cannot wake it.`;
+// The extension also sets pi's process ID, because on Windows pi runs as
+// node.exe, and no process named pi is among a command's parents there.
+export const pidVariable = "PAIR_PI_PID";
+export const unwakeable = `Ask the user to run \`pi install ${extension}\` and restart pi with \`pi --continue\`, then run this pair command again. This pi session runs without pair's extension, so the hub cannot wake it.`;
 
 // The socket changes when pi restarts, and the session ID does not.
 export const identity = (target) => target.session;
+
+// launch returns the command line that starts a new session with a prompt,
+// and with name, the name that pi shows for the session. args are the
+// caller's own flags for pi, which end with --, so that a flag that an
+// extension adds does not take the prompt as its value.
+export const launch = ({ name, prompt, args = [] }) => [
+  command,
+  ...(name ? ["--name", name] : []),
+  ...endOptions(args),
+  prompt,
+];
 
 export const detect = (env) => ({
   harness: "pi",

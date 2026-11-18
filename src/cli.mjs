@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 import { withSandboxHint } from "../adapters/codex/rules.mjs";
-import { findCommand, helpText, overview, parse } from "./cli/arguments.mjs";
+import {
+  findCommand,
+  helpText,
+  overview,
+  ownWords,
+  parse,
+} from "./cli/arguments.mjs";
 import { commands } from "./cli/commands.mjs";
 import { print } from "./cli/output.mjs";
 import { followHub } from "./cli/session.mjs";
@@ -19,8 +25,9 @@ async function main(argv) {
     return;
   }
   // The --help check runs before parse(), so --help prints the help even beside
-  // arguments that parse() would refuse.
-  if (command.rest.includes("--help"))
+  // arguments that parse() would refuse. A --help that a command forwards to
+  // the program it starts is that program's.
+  if (ownWords(command).includes("--help"))
     return process.stdout.write(helpText(command));
   const options = parse(command);
   const output = await command.entry.run(options);

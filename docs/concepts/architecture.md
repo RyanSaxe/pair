@@ -97,8 +97,8 @@ The hub wakes the holder at these moments:
   paused. When the holder runs that command itself, `pair propose` prints
   the started work, so the hub sends no wake and `pair read` does not print
   the start again.
-- When you press Open a new agent session, which starts a thread on the
-  card, unless the session is paused.
+- When you press Open a new agent session, or Start agent with a message,
+  which starts a thread on the card, unless the session is paused.
 - When a page or a proposal has had no update for 10 minutes and no `pair`
   command has run on the session for 10 minutes, unless the session is
   paused, as [Quiet work](#quiet-work) describes.

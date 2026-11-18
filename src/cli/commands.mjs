@@ -1,10 +1,13 @@
+import { agents, register } from "./agents.mjs";
 import { main as build } from "./build.mjs";
 import { check, setupCodex } from "./check.mjs";
 import { components } from "./components.mjs";
 import { main as diff } from "./diff.mjs";
 import { guide } from "./guide.mjs";
+import { message } from "./message.mjs";
 import { search } from "./search.mjs";
 import { publish, runHub, start } from "./session.mjs";
+import { spawn } from "./spawn.mjs";
 import { pause, progress, propose, read, reply, status } from "./actions.mjs";
 
 const sessionDir = {
@@ -150,11 +153,11 @@ export const commands = {
   },
   reply: {
     group: "session",
-    purpose: "Post your reply in a thread",
+    purpose: "Post your reply in a thread, or acknowledge it",
     about:
-      "Post your reply in a thread. pair read --thread ID prints the thread.",
+      "Post your reply in a thread, or acknowledge the reviewer's messages without a reply. pair read --thread ID prints the thread.",
     usage:
-      "pair reply --session-dir DIR --thread ID (--text TEXT | --file HTML)",
+      "pair reply --session-dir DIR --thread ID (--text TEXT | --file HTML | --ack)",
     flags: {
       "session-dir": sessionDir,
       thread: {
@@ -170,9 +173,12 @@ export const commands = {
         value: "HTML",
         text: "Your reply as an HTML fragment that passes pair build's page checks. Use it for links, bold, code and lists.",
       },
+      ack: {
+        text: "Acknowledge the reviewer's messages that wait for an answer, in place of a reply, when they ask for nothing and you have nothing to add.",
+      },
       json,
     },
-    footer: "Give --text or --file, not both.",
+    footer: "Give one of --text, --file and --ack.",
     run: reply,
   },
   pause: {
@@ -282,6 +288,93 @@ export const commands = {
     },
     footer: "A new proposal needs --title, --delivers and --recommend.",
     run: propose,
+  },
+  register: {
+    group: "messaging",
+    purpose: "Add this agent session to the list that pair agents prints",
+    about:
+      "Add this agent session to pair's list of running agent sessions, or update its entry, and print its name and ID. The name is the folder's name, a hyphen and two hex characters from a hash of the session's ID, unless --name sets another, and the session keeps it each time it registers again.",
+    flags: {
+      name: {
+        value: "NAME",
+        text: "Name the session NAME, in up to 64 letters, digits and hyphens. pair register refuses a name that another running session has.",
+      },
+      hook: {
+        text: "Run as an agent CLI's start hook: read the session ID from the hook's JSON on stdin when the environment has none, and exit 0 even when pair register fails.",
+      },
+      json,
+    },
+    run: register,
+  },
+  agents: {
+    group: "messaging",
+    purpose: "List the registered agent sessions that are running",
+    about:
+      "List each registered agent session whose CLI is still running, with its name, CLI, folder, branch and ID, the most recently registered first. pair agents deletes the entry of every session whose CLI has exited.",
+    flags: { json },
+    run: agents,
+  },
+  message: {
+    group: "messaging",
+    purpose: "Send a message to a running agent session",
+    about:
+      "Send a message to the running agent session that --to names, through its agent CLI, and print when the session's agent reads it. Run inside an agent CLI, pair message registers this session first, and the message names this session in its first line and ends with the commands that answer and acknowledge it. Outside any agent CLI, the first line says the message is from your user.",
+    usage:
+      "pair message --to NAME|ID|NAME/SUBAGENT (--text TEXT | --file PATH | --ack) [--from LABEL]",
+    flags: {
+      to: {
+        value: "NAME",
+        required: true,
+        text: "The session's name or ID, or a start of its ID, as pair agents prints them. NAME/SUBAGENT sends the message to that subagent of the session.",
+      },
+      text: { value: "TEXT", text: "The message." },
+      file: { value: "PATH", text: "A file whose text is the message." },
+      ack: {
+        text: "Acknowledge the session's message instead of answering it, when you have nothing to say. pair message sends one line, which asks the session's agent not to answer.",
+      },
+      from: {
+        value: "LABEL",
+        text: "Name the sender LABEL, such as a script. The message then has no command to answer it, also inside an agent CLI.",
+      },
+    },
+    footer: "Give one of --text, --file and --ack.",
+    run: message,
+  },
+  spawn: {
+    group: "messaging",
+    purpose: "Start an agent session in a new terminal, and print its name",
+    about:
+      'Start a session of CLI, which is claude, codex, copilot, pi or opencode, through your launch script, ~/.config/pair/spawn, or spawn.ps1 on Windows, which opens the CLI in a new terminal. The session\'s first prompt is "In your own shell, run pair register first." followed by --prompt or --file. Run inside an agent CLI, pair spawn registers this session first, so the new session can message it. pair spawn waits up to 30 seconds for the new session to register, then prints the name that pair message --to takes.',
+    usage:
+      "pair spawn CLI [--dir DIR] [--name NAME] [--prompt TEXT | --file PATH] [-- ARG...]",
+    args: [{ name: "CLI" }],
+    forwards: "the CLI",
+    flags: {
+      dir: {
+        value: "DIR",
+        text: "Start the session in DIR. The default is the current folder.",
+      },
+      name: {
+        value: "NAME",
+        text: "Have the session register as NAME, in up to 64 letters, digits and hyphens. The default is the name pair register gives. pair spawn refuses a name that a running session has.",
+      },
+      prompt: {
+        value: "TEXT",
+        text: "The rest of the first prompt. Without --prompt or --file, the session only registers.",
+      },
+      file: {
+        value: "PATH",
+        text: "A file whose text is the rest of the first prompt, in place of --prompt.",
+      },
+    },
+    footer: [
+      "pair spawn passes every ARG after -- to CLI, before the first prompt:",
+      "",
+      "  pair spawn claude --prompt TEXT -- --model sonnet",
+      "",
+      "Give the prompt with --prompt or --file, not after --. Without --name, pair spawn finds the new session by its folder, so give --name when an ARG makes CLI run in another folder, as Codex's -C and --worktree do.",
+    ].join("\n"),
+    run: spawn,
   },
   guide: {
     group: "pages",

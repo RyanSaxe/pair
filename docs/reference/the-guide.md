@@ -46,7 +46,7 @@ prints a moment's text after its next step, and
 | `read-thread.md`            | `pair read --thread`                | Prints a thread.                                                                                                |
 | `read-start-here.md`        | `pair read`, `pair propose --start` | Prints work you approved to run in this session, with Start or in your own words.                               |
 | `read-start-sub-session.md` | `pair read`, `pair propose --start` | Prints work you approved to run in a sub-session.                                                               |
-| `read-open-agent.md`        | `pair read --thread`                | Prints the thread you started with Open a new agent session, until a session is linked to the proposal.         |
+| `read-open-agent.md`        | `pair read --thread`                | Prints the thread of Open a new agent session or Start agent with a message, until a session links to it.       |
 | `read-declined.md`          | `pair read`                         | Prints the proposals you declined since the last `pair read`, each once.                                        |
 | `read-closed.md`            | `pair read`                         | Prints the proposals whose linked session you closed since the last `pair read`, each once.                     |
 | `publish-agreed.md`         | `pair publish`                      | Publishes Agreed.                                                                                               |
@@ -55,16 +55,16 @@ prints a moment's text after its next step, and
 
 ## Reference files
 
-| File                                               | Command                    | The agent reads it                                      |
-| -------------------------------------------------- | -------------------------- | ------------------------------------------------------- |
-| [`guide/agreements.md`](../../guide/agreements.md) | `pair guide agreements.md` | Before it writes Agreed                                 |
-| [`guide/pages.md`](../../guide/pages.md)           | `pair guide pages.md`      | Before the session's first page                         |
-| [`guide/components.md`](../../guide/components.md) | `pair guide components.md` | Before the session's first page                         |
-| [`guide/writing.md`](../../guide/writing.md)       | `pair guide writing.md`    | Before the session's first page, and to check each page |
-| [`guide/prototypes.md`](../../guide/prototypes.md) | `pair guide prototypes.md` | When a page has a prototype                             |
-| [`guide/session.md`](../../guide/session.md)       | `pair guide session.md`    | Before it takes a session over, resumes it or pauses it |
-| [`guide/setup.md`](../../guide/setup.md)           | `pair guide setup.md`      | When a command fails                                    |
-| [`guide/proposals.md`](../../guide/proposals.md)   | `pair guide proposals.md`  | Before it records its first proposal                    |
+| File                                               | Command                    | The agent reads it                                                       |
+| -------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| [`guide/agreements.md`](../../guide/agreements.md) | `pair guide agreements.md` | Before it writes Agreed                                                  |
+| [`guide/pages.md`](../../guide/pages.md)           | `pair guide pages.md`      | Before the session's first page                                          |
+| [`guide/components.md`](../../guide/components.md) | `pair guide components.md` | Before the session's first page                                          |
+| [`guide/writing.md`](../../guide/writing.md)       | `pair guide writing.md`    | Before the session's first page, and to check each page and thread reply |
+| [`guide/prototypes.md`](../../guide/prototypes.md) | `pair guide prototypes.md` | When a page has a prototype                                              |
+| [`guide/session.md`](../../guide/session.md)       | `pair guide session.md`    | Before it takes a session over, resumes it or pauses it                  |
+| [`guide/setup.md`](../../guide/setup.md)           | `pair guide setup.md`      | When a command fails                                                     |
+| [`guide/proposals.md`](../../guide/proposals.md)   | `pair guide proposals.md`  | Before it records its first proposal                                     |
 
 ## Other files `pair guide` prints
 

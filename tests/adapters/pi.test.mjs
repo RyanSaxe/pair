@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import pair from "../../adapters/pi/extension.js";
 import { detectWake, identify, wakeRunner } from "../../src/hub/wake.mjs";
+import { inProcessState, listed, standIn } from "../support/agents.mjs";
 
 // pi calls an extension's default export with its API. standInPi records the
 // handlers that pair's extension registers and each message the extension
@@ -20,15 +21,23 @@ function standInPi() {
   return { handlers, sent };
 }
 
-test("a pi wake reaches the session through pair's extension as a steering message", async (t) => {
+// This process stands in for pi, and its command is node, as pi's is on
+// Windows, so pair register finds it only by the process ID that the
+// extension passes.
+
+test("pair's extension registers a pi session when it starts, and a wake reaches it as a steering message", async (t) => {
+  const { home, agents } = await inProcessState(t);
   const { handlers, sent } = standInPi();
   // Without this hook, a failed assertion would leave the extension's socket
   // open.
   t.after(() => handlers.session_shutdown({ type: "session_shutdown" }));
   handlers.session_start(
     { type: "session_start" },
-    { sessionManager: { getSessionId: () => "pi-session-1" } },
+    { cwd: home, sessionManager: { getSessionId: () => "pi-session-1" } },
   );
+  assert.deepEqual(await listed(agents), [
+    { id: "pi:pi-session-1", pid: process.pid },
+  ]);
   // detectWake does here what pair start does inside pi: it finds pi among the
   // process's ancestors and reads the variables that the extension exported.
   const target = detectWake(process.env, {
@@ -48,7 +57,39 @@ test("a pi wake reaches the session through pair's extension as a steering messa
   handlers.session_shutdown({ type: "session_shutdown" });
   assert.equal(process.env.PAIR_PI_SOCKET, undefined);
   assert.equal(process.env.PAIR_PI_SESSION, undefined);
+  assert.equal(process.env.PAIR_PI_PID, undefined);
   await assert.rejects(wakeRunner(target, line), {
     message: `the agent CLI has exited (ENOENT ${target.socket})`,
   });
+});
+
+// pi's subagent example extension starts each subagent as a pi process with
+// the parent's environment, and that pi lacks pair's extension when the
+// parent loaded it with pi -e. A pair command in it registers the outer
+// session, whose entry must outlive the inner pi.
+test("a pair command in a pi without the extension, inside a pi with it, keeps the outer session listed after the inner pi exits", async (t) => {
+  const { home, agents } = await inProcessState(t);
+  const { handlers } = standInPi();
+  t.after(() => handlers.session_shutdown({ type: "session_shutdown" }));
+  handlers.session_start(
+    { type: "session_start" },
+    { cwd: home, sessionManager: { getSessionId: () => "pi-outer" } },
+  );
+  const outer = [{ id: "pi:pi-outer", pid: process.pid }];
+  assert.deepEqual(await listed(agents), outer);
+  const inherited = Object.fromEntries(
+    ["XDG_STATE_HOME", "PAIR_PI_SOCKET", "PAIR_PI_SESSION", "PAIR_PI_PID"].map(
+      (name) => [name, process.env[name]],
+    ),
+  );
+  const inner = await standIn(t, {
+    home,
+    cwd: home,
+    harness: "pi",
+    env: inherited,
+  });
+  const registered = await inner.run(["register"]);
+  assert.equal(registered.status, 0, registered.stderr);
+  await inner.kill();
+  assert.deepEqual(await listed(agents), outer);
 });

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { test } from "node:test";
 import { open } from "../support/browser.mjs";
-import { hub, planData, waitUntil } from "../support/hub.mjs";
+import { hub, launchConfig, planData, waitUntil } from "../support/hub.mjs";
 
 const card = (id, title) => ({
   id,
@@ -11,10 +11,11 @@ const card = (id, title) => ({
   recommend: "here",
 });
 // work publishes round 1, which waits for the reviewer, proposes two cards, the
-// first from round 1's Overview page, and opens Work.
-async function work(t) {
-  const h = await hub(t);
-  const session = await h.session();
+// first from round 1's Overview page, and opens Work. env is the hub's
+// environment, and registered is how the session registers.
+async function work(t, { env = {}, registered } = {}) {
+  const h = await hub(t, env);
+  const session = await h.session(registered);
   assert.equal((await session.publish(planData())).code, 200);
   for (const [id, title, page] of [
     ["deck", "Build the deck", "1/overview"],
@@ -272,6 +273,10 @@ test("Open a new agent session starts the card with a new agent and shows its th
   await page.locator("[data-proposal-card=export] .proposal-start").click();
   const dialog = page.locator("#start-dialog");
   await dialog.locator("[data-where=new-agent]").click();
+  // Without a launch script, the button asks this session's agent.
+  await dialog
+    .locator("#start-open", { hasText: "Open a new agent session" })
+    .waitFor();
   await dialog.locator("#start-message").fill("Use the board template.");
   await dialog.locator("#start-message").press("Shift+Enter");
   await dialog.waitFor({ state: "hidden" });
@@ -286,6 +291,21 @@ test("Open a new agent session starts the card with a new agent and shows its th
     .waitFor({ timeout: 5000 });
   const { threads } = (await session.status()).body;
   assert.equal(threads[0].kind, "open-agent");
+});
+
+test("with a launch script, Open a new agent session reads Start agent and starts the card", async (t) => {
+  const { config } = await launchConfig(t);
+  const { page, cards } = await work(t, {
+    env: { XDG_CONFIG_HOME: config },
+    registered: { start: true, folder: config },
+  });
+  if (!page) return;
+  await page.locator("[data-proposal-card=export] .proposal-start").click();
+  const dialog = page.locator("#start-dialog");
+  await dialog.locator("[data-where=new-agent]").click();
+  await dialog.locator("#start-open", { hasText: "Start agent" }).click();
+  await dialog.waitFor({ state: "hidden" });
+  assert.deepEqual((await cards())[1].started, "new-agent");
 });
 
 // After the round's feedback is sent, the comment control only starts threads,

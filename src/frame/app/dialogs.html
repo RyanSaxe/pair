@@ -357,8 +357,10 @@
           Sent to the agent with Start. You can still send this session's round.
         </p>
         <p class="small" id="start-hint-new-agent" data-start-for="new-agent">
-          The new agent reads this message when it starts. Copy command gives
-          you the command to paste into any agent.
+          The new agent reads this message when it starts. Name a CLI, model,
+          effort or mode here, such as “codex, high effort”, and this session's
+          agent starts it with them. Copy command gives you the command to paste
+          into any agent.
         </p>
       </div>
     </div>
@@ -397,7 +399,8 @@
         aria-describedby="start-open-tip"
         aria-keyshortcuts="Shift+Enter"
       >
-        Open a new agent session <kbd>⇧ ↵</kbd
+        <span id="start-open-label">Open a new agent session</span>
+        <kbd>⇧ ↵</kbd
         ><span class="line-tip" id="start-open-tip"
           >This does not always work.</span
         >

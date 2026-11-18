@@ -1,4 +1,5 @@
 import net from "node:net";
+import { endOptions } from "../../src/shared/launch.mjs";
 
 export const name = "Claude Code";
 
@@ -15,10 +16,34 @@ export const unwakeable =
 // A Claude Code session has one inbox socket, and its subagents share it.
 export const identity = (target) => target.socket;
 
+// The session ID stays the same when the session resumes, and the inbox socket
+// does not.
+export const sessionId = (target) => target.session;
+
+// A Claude Code subagent has no inbox of its own, so pair message asks the
+// parent's agent to pass a message on with its SendMessage tool, which takes
+// the subagent's name.
+export const subagentTool = () => "SendMessage";
+
+// launch returns the command line that starts a new session with a prompt,
+// and with name, the name that Claude Code shows for the session. args are
+// the caller's own flags for Claude Code, which end with --, so that a flag
+// that takes several values, such as --add-dir, does not take the prompt as
+// one of them.
+export const launch = ({ name, prompt, args = [] }) => [
+  command,
+  ...(name ? ["--name", name] : []),
+  ...endOptions(args),
+  prompt,
+];
+
+// The hub wakes a Claude Code session with its socket and token alone, so
+// detect leaves the session out when CLAUDE_CODE_SESSION_ID is not set.
 export const detect = (env) => ({
   harness: "claude-code",
   socket: env.CLAUDE_CODE_MESSAGING_SOCKET,
   token: env.CLAUDE_CODE_MESSAGING_TOKEN,
+  ...(env.CLAUDE_CODE_SESSION_ID && { session: env.CLAUDE_CODE_SESSION_ID }),
 });
 
 // Claude Code reads its inbox between the steps of a turn, so a wake reaches a

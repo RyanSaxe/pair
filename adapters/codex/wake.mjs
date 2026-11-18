@@ -2,7 +2,10 @@ import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { endOptions } from "../../src/shared/launch.mjs";
+import { commandLine } from "../../src/shared/processes.mjs";
 import { connect } from "./app-server.mjs";
+import { codexInvocation } from "./invocation.mjs";
 
 export const name = "Codex";
 
@@ -13,6 +16,20 @@ export const unwakeable =
   "Tell the user that this Codex session exports no CODEX_THREAD_ID, so the hub cannot wake it, and stop.";
 
 export const identity = (target) => target.thread;
+
+// Codex gives a SessionStart hook the thread ID as session_id on stdin, and not
+// in the hook's environment.
+export const hookVariables = (input) => ({ CODEX_THREAD_ID: input.session_id });
+
+// launch returns the command line that starts a new session with a prompt.
+// args are the caller's own flags for Codex, which end with --, so that a
+// flag that takes several values, such as --image, does not take the prompt
+// as one of them.
+export const launch = ({ prompt, args = [] }) => [
+  command,
+  ...endOptions(args),
+  prompt,
+];
 
 // Codex 0.160 runs its threads on an app-server daemon, which listens on a
 // control socket under CODEX_HOME.
@@ -32,6 +49,94 @@ export const detect = (env) => ({
 const { version } = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 );
+
+async function openDaemon(socket) {
+  const daemon = await connect(socket, 5000);
+  try {
+    // The thread/queue methods are experimental in Codex 0.160.
+    await daemon.request("initialize", {
+      clientInfo: { name: "pair", version },
+      capabilities: { experimentalApi: true },
+    });
+  } catch (error) {
+    daemon.close();
+    throw error;
+  }
+  daemon.notify("initialized");
+  return daemon;
+}
+
+// readThread rejects when the daemon does not answer. thread/read gives a
+// subagent's source from disk when the daemon has not loaded its thread, as
+// when its parent runs in-process.
+async function readThread({ thread, socket }) {
+  const daemon = await openDaemon(socket);
+  try {
+    return (await daemon.request("thread/read", { threadId: thread })).thread;
+  } finally {
+    daemon.close();
+  }
+}
+
+// A subagent has a thread of its own, which the parent spawned.
+export async function parentSession(target) {
+  const spawn = (await readThread(target)).source?.subAgent?.thread_spawn;
+  return spawn
+    ? { sessionId: spawn.parent_thread_id, nickname: spawn.agent_nickname }
+    : null;
+}
+
+// pair message asks the parent's agent to pass a message on to its subagent
+// with followup_task. Codex 0.169 gives a subagent a random nickname, such as
+// Goodall, and an agent path made of the name the parent gave it, such as
+// /root/echo, which the parent's tools show as the subagent's agent ID.
+// subagentTool finds the subagent among the threads the parent spawned, by
+// either name, and names its agent path, or its thread ID when it has none.
+export async function subagentTool({ thread, socket }, name) {
+  const daemon = await openDaemon(socket);
+  const spawned = [];
+  try {
+    let cursor = null;
+    do {
+      const page = await daemon.request("thread/list", {
+        parentThreadId: thread,
+        cursor,
+      });
+      spawned.push(...page.data);
+      cursor = page.nextCursor;
+    } while (cursor);
+  } finally {
+    daemon.close();
+  }
+  const agentPath = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
+  const names = (child) =>
+    [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
+  const subagent = spawned.find((child) =>
+    names(child).some((each) => each.toLowerCase() === name.toLowerCase()),
+  );
+  if (subagent)
+    return `followup_task and target ${agentPath(subagent) ?? subagent.id}`;
+  const known = spawned.map((child) => {
+    const [first, ...others] = names(child);
+    return others.length ? `${first} (${others.join(", ")})` : first;
+  });
+  throw new Error(
+    `The Codex session has no subagent named ${name}. ${known.length > 1 ? `Its subagents are ${known.join(", ")}.` : known.length ? `Its subagent is ${known[0]}.` : "It has no subagents."}`,
+  );
+}
+
+// Codex started with no -c override runs its sessions' threads on the
+// app-server daemon, so each command's nearest codex ancestor is the daemon,
+// which runs as codex app-server, serves every such session and keeps
+// running after they exit. The daemon unloads a thread about a minute after
+// its session exits, and keeps the thread of a running session loaded while
+// the session is idle.
+const isDaemon = (cli) => /\bapp-server\b/.test(commandLine(cli) ?? "");
+export const sharesProcess = isDaemon;
+export async function running(target, cli) {
+  if (!isDaemon(cli)) return true;
+  return (await readThread(target)).status.type !== "notLoaded";
+}
 
 // When a turn of the thread is in progress on the daemon, deliver() sends the
 // line into the turn with turn/steer. When the daemon runs the thread and no
@@ -55,10 +160,25 @@ export async function wake(target, line, run) {
     throw new Error(
       `Codex added the line to the queue of thread ${thread} and started no turn with it: ${waiting}`,
     );
-  if (!sent)
-    await run("codex", ["queue", "--thread", thread, "--message", text]);
+  if (!sent) await queue(thread, text, run);
   if (relayed) return { via: "parent", steerable: false };
   return { via: steered ? "steer" : "queue", steerable };
+}
+
+// codex queue takes the message as an argument, and the system refuses to
+// start a command line over its limit, such as 32,767 characters on Windows.
+// Node then fails with E2BIG or ENAMETOOLONG.
+async function queue(thread, text, run) {
+  try {
+    await run(
+      ...codexInvocation(["queue", "--thread", thread, "--message", text]),
+    );
+  } catch (error) {
+    if (!/\b(E2BIG|ENAMETOOLONG)\b/.test(error.message)) throw error;
+    throw new Error(
+      `The Codex daemon did not take the message, so pair ran codex queue, which takes the message as an argument. The system refused to start codex queue with a message of ${text.length} characters. Send a shorter message.`,
+    );
+  }
 }
 
 // relay() instructs the parent to use followup_task, which starts a turn for an
@@ -109,13 +229,7 @@ async function deliver({ thread, socket = controlSocket(process.env) }, line) {
   };
   let daemon;
   try {
-    daemon = await connect(socket, 5000);
-    // The thread/queue methods are experimental in Codex 0.160.
-    await daemon.request("initialize", {
-      clientInfo: { name: "pair", version },
-      capabilities: { experimentalApi: true },
-    });
-    daemon.notify("initialized");
+    daemon = await openDaemon(socket);
     const read = async () =>
       (await daemon.request("thread/read", { threadId: delivery.thread }))
         .thread;

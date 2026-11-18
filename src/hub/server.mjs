@@ -351,6 +351,11 @@ export async function startHub(config = settings()) {
             Object.hasOwn(adapters, data.wake.harness),
           `wake must name a harness: ${Object.keys(adapters).join(", ")}`,
         );
+        requireValue(
+          data.folder === undefined ||
+            (typeof data.folder === "string" && path.isAbsolute(data.folder)),
+          "folder must be an absolute path",
+        );
         const requested = path.resolve(data.sessionDir);
         const { session, created, card, joined } = await register(async () => {
           const created = !(await exists(path.join(requested, "status.json")));

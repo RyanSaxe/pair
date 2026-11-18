@@ -49,6 +49,43 @@ export async function waitUntil(check, ms = 5000) {
   return false;
 }
 
+// launchConfig creates a config folder for a hub, with a launch script at the
+// path settings() gives it. The script appends the folder it runs in and its
+// arguments to a file as one JSON line, and with error, then writes error to
+// its error output and exits with status 1. On Windows it is a PowerShell
+// script. runs() returns the recorded runs.
+export async function launchConfig(t, { error } = {}) {
+  const config = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "pair-launch-")),
+  );
+  t.after(() => fs.rm(config, { recursive: true, force: true }));
+  const file = settings({ XDG_CONFIG_HOME: config }).launchScript;
+  const record = `${file}.runs`;
+  const powershell = (text) => `'${text.replaceAll("'", "''")}'`;
+  const lines =
+    process.platform === "win32"
+      ? [
+          "$run = [ordered]@{ cwd = (Get-Location).Path; args = [string[]]$args }",
+          `[IO.File]::AppendAllText(${powershell(record)}, ($run | ConvertTo-Json -Compress) + "\`n")`,
+          ...(error
+            ? [`[Console]::Error.WriteLine(${powershell(error)})`, "exit 1"]
+            : []),
+        ]
+      : [
+          "#!/bin/sh",
+          `"${process.execPath}" -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2) }) + "\\n")' "${record}" "$@"`,
+          ...(error ? [`echo '${error}' >&2`, "exit 1"] : []),
+        ];
+  await fs.mkdir(path.dirname(file));
+  await fs.writeFile(file, `${lines.join("\n")}\n`, { mode: 0o755 });
+  const runs = async () =>
+    (await fs.readFile(record, "utf8").catch(() => ""))
+      .split("\n")
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line));
+  return { config, file, runs };
+}
+
 export async function freePort() {
   const server = net.createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -92,8 +129,10 @@ export function planData(round = "1", name = "example") {
 
 // inbox stands in for a Claude Code session. The hub wakes it on its socket the
 // way the hub wakes Claude Code, and inbox records each wake as its auth line
-// and its message. After close, the next wake fails the way a wake to a
-// finished session fails.
+// and its message. Between hold and release, inbox keeps each wake's
+// connection open, as a slow agent CLI does, so the hub's wake stays in
+// progress, except on a Windows named pipe, where the wake can finish anyway.
+// After close, the next wake fails the way a wake to a finished session fails.
 export async function inbox(t, home) {
   // macOS limits a socket path to 104 bytes, so inbox puts the socket in the
   // hub's home rather than in a session directory. Windows has no socket files,
@@ -105,7 +144,9 @@ export async function inbox(t, home) {
       : path.join(home, `${name}.sock`);
   const token = crypto.randomUUID();
   const wakes = [];
-  const server = net.createServer((client) => {
+  const held = [];
+  let holding = false;
+  const server = net.createServer({ allowHalfOpen: true }, (client) => {
     let text = "";
     client.on("data", (chunk) => (text += chunk));
     client.on("end", () => {
@@ -114,21 +155,32 @@ export async function inbox(t, home) {
         .split("\n")
         .map((line) => JSON.parse(line));
       wakes.push({ auth, message });
-      client.end();
+      if (holding) held.push(client);
+      else client.end();
     });
   });
+  const hold = () => (holding = true);
+  const release = () => {
+    holding = false;
+    for (const client of held.splice(0)) client.end();
+  };
   await new Promise((resolve) => server.listen(socket, resolve));
   // node:test skips a test's remaining after hooks once one throws, so close
   // may never run. server.unref() stops the socket from keeping the test
   // process alive, so a failed cleanup fails its test instead of stalling the
   // run until CI cancels it.
   server.unref();
-  const close = () => new Promise((resolve) => server.close(() => resolve()));
+  const close = () => {
+    release();
+    return new Promise((resolve) => server.close(() => resolve()));
+  };
   t.after(close);
   return {
     socket,
     token,
     wakes,
+    hold,
+    release,
     close,
     target: { harness: "claude-code", socket, token },
     agent: { harness: "claude-code", id: socket },
@@ -139,7 +191,14 @@ export async function inbox(t, home) {
 // its own wakes. options override settings that no environment variable sets.
 export async function hub(t, extra = {}, options = {}) {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "pair-hub-"));
-  const env = { XDG_STATE_HOME: home, PAIR_HUB_PORT: "0", ...extra };
+  // env.mjs points XDG_CONFIG_HOME at a folder that does not exist, so the hub
+  // finds no launch script of the developer's.
+  const env = {
+    XDG_STATE_HOME: home,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+    PAIR_HUB_PORT: "0",
+    ...extra,
+  };
   const config = { ...settings(env), log() {}, ...options };
   const server = await startHub(config);
   t.after(async () => {
@@ -165,9 +224,9 @@ export async function hub(t, extra = {}, options = {}) {
   };
   // session() registers a session with an inbox, or with the agent that cli
   // runs as, so that cli commands can act on it. With start, it registers the
-  // way pair start does, and with from and proposal, the way pair start --from
-  // does.
-  async function session({ cli, box, start, from, proposal } = {}) {
+  // way pair start does, with folder as the folder pair start runs in, and
+  // with from and proposal, the way pair start --from does.
+  async function session({ cli, box, start, folder, from, proposal } = {}) {
     const mailbox = cli ? null : box || (await inbox(t, home));
     const wake = cli
       ? { harness: "claude-code", socket: cli.agent.id, token: "test" }
@@ -177,7 +236,13 @@ export async function hub(t, extra = {}, options = {}) {
     const registered = await register(
       directory,
       wake,
-      start ? { start, ...(from ? { from, proposal } : {}) } : {},
+      start
+        ? {
+            start,
+            ...(folder ? { folder } : {}),
+            ...(from ? { from, proposal } : {}),
+          }
+        : {},
     );
     assert.equal(registered.code, 200, registered.body.error);
     const info = registered.body;
@@ -296,6 +361,24 @@ export async function hub(t, extra = {}, options = {}) {
   };
 }
 
+// agentExecutable makes Node available as directory/name, so that pair finds a
+// process started from it by that name. Windows runs only a file with an
+// executable extension, so there it is NAME.exe: a hard link to node.exe,
+// which Win32_Process reports by the link's own name, or a copy when the
+// directory is on another volume.
+export async function agentExecutable(directory, name) {
+  if (process.platform !== "win32") {
+    const file = path.join(directory, name);
+    await fs.symlink(process.execPath, file);
+    return file;
+  }
+  const file = path.join(directory, `${name}.exe`);
+  await fs
+    .link(process.execPath, file)
+    .catch(() => fs.copyFile(process.execPath, file));
+  return file;
+}
+
 // The pair command finds its wake target and its identity in the nearest agent
 // CLI among its ancestor processes. pairCli runs each command under a process
 // named claude whose inbox socket has no listener, so a test wake reaches no
@@ -309,16 +392,14 @@ export async function pairCli(
   extra = {},
   { cli = pair, harness = "claude-code", cwd } = {},
 ) {
-  const relay =
-    'const { status } = require("node:child_process").spawnSync(process.execPath, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;';
   const codex = harness === "codex";
-  // Windows runs only a file with an executable extension.
   const name = codex ? "codex" : "claude";
-  const agentCli = path.join(
-    home,
-    process.platform === "win32" ? `${name}.exe` : name,
-  );
-  await fs.symlink(process.execPath, agentCli);
+  // Node 24 on Linux names its main thread MainThread, which ps then prints as
+  // the process's command, so the relay sets its title to its own name. It
+  // runs pair with this process's Node, because Windows locks the relay's
+  // executable while a process started from it runs, such as the hub.
+  const relay = `process.title = "${name}"; const { status } = require("node:child_process").spawnSync(${JSON.stringify(process.execPath)}, process.argv.slice(1), { stdio: "inherit" }); process.exitCode = status ?? 1;`;
+  const agentCli = await agentExecutable(home, name);
   const env = {
     ...process.env,
     XDG_STATE_HOME: home,
@@ -327,6 +408,7 @@ export async function pairCli(
       : {
           CLAUDE_CODE_MESSAGING_SOCKET: path.join(home, "none.sock"),
           CLAUDE_CODE_MESSAGING_TOKEN: "test",
+          CLAUDE_CODE_SESSION_ID: "test-session",
         }),
     ...extra,
   };

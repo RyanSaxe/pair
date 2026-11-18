@@ -1,9 +1,12 @@
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { firstPrompt, runLaunch } from "../../shared/launch.mjs";
 import { accepts } from "../../shared/lifecycle.mjs";
 import { allows, proposalState } from "../../shared/proposal-state.mjs";
 import { atomic, read, requireValue, timestamp } from "../../shared/util.mjs";
+import { adapters } from "../wake.mjs";
 import {
   message,
   place,
@@ -189,7 +192,7 @@ export async function proposals(session) {
     const fromWords = started.by === "words";
     const text = fromWords ? started.quote : started.message;
     const note = text
-      ? `\n\nThe reviewer's words, which pair read also prints:\n${text}`
+      ? `\n\nYour user's words, which pair read also prints:\n${text}`
       : "";
     const place =
       started.where === "here"
@@ -197,10 +200,10 @@ export async function proposals(session) {
         : `in a sub-session of session ${directory}`;
     const verb = card.source?.reviewer ? "wrote" : "approved";
     const what = fromWords
-      ? `the reviewer asked for proposal ${id}, "${card.title}", in their own words, to run ${place}`
-      : `the reviewer ${verb} proposal ${id}, "${card.title}", to run ${place}`;
+      ? `your user asked for proposal ${id}, "${card.title}", in their own words, in pair, to run ${place}`
+      : `your user ${verb} proposal ${id}, "${card.title}", in pair, to run ${place}`;
     return session.wakeForSend(
-      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what the reviewer approved and your next step.${note}`,
+      `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what your user approved and your next step.${note}`,
     );
   }
   const wakeLater = (id) => {
@@ -244,10 +247,25 @@ export async function proposals(session) {
     return started;
   }
   const fromCommand = (id) => `pair start --from ${directory} --proposal ${id}`;
+  // With the user's launch script and the folder in which the holder ran pair
+  // start, the frame shows Open a new agent session as Start agent.
+  const launcher = () => {
+    const { holder } = session.state;
+    return holder?.folder && existsSync(session.config.launchScript)
+      ? holder
+      : null;
+  };
+  const canStartAgent = () => Boolean(launcher());
   // For Open a new agent session on a card, openAgent asks this session's
   // holder, in a thread on the card, to open a separate agent that runs pair
-  // start --from. It first starts the card with a new agent when nobody has
-  // started it, and start refuses a declined, withdrawn or finished card.
+  // start --from. With a launcher and no message, it runs the launch script
+  // instead, which starts a session of the holder's agent CLI in the holder's
+  // folder with no flags. A message can name the CLI, model, effort or mode
+  // for the new agent, and only an agent can turn those words into the CLI's
+  // flags, so a start with a message always goes to the holder. It first
+  // starts the card with a new agent when nobody has started it, and start
+  // refuses a declined, withdrawn or finished card. A failed script leaves the
+  // card started, as after Copy command, and openAgent returns its error.
   async function openAgent(id, data) {
     open();
     const card = find(id);
@@ -268,6 +286,22 @@ export async function proposals(session) {
           : `Proposal ${id} was already started`,
         409,
       );
+    const holder = launcher();
+    if (holder && !text) {
+      // The new session registers under the card's ID, the name that launch
+      // gives the session in its CLI.
+      const prompt = firstPrompt(
+        id,
+        `Run pair guide and follow what it prints. Then run ${fromCommand(id)}.`,
+      );
+      const command = adapters[holder.harness].launch({ name: id, prompt });
+      try {
+        await runLaunch(session.config.launchScript, holder.folder, command);
+      } catch (error) {
+        return { ...listed(), launchError: error.message };
+      }
+      return listed();
+    }
     const thread = await session.agentThread(
       find(id),
       text || "Open a new agent session for this proposal.",
@@ -500,6 +534,7 @@ export async function proposals(session) {
     reopenedSession,
     built,
     openAgent,
+    canStartAgent,
     propose,
     writeStatus,
     startProposal,

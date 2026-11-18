@@ -1,8 +1,15 @@
 Open the file at the `path` of every `<pair_image>` in the thread, and read
 its `scene` when it has one.
 
-Answer every message the reviewer sends in a thread, even one that asks for
-nothing.
+Answer every message the reviewer sends in a thread. When a message asks for
+nothing and you have nothing to add, acknowledge it with
+`pair reply --session-dir PATH --thread ID --ack` instead of writing a reply.
+
+Answer the question the reviewer asked in a few sentences, and leave out
+the background, alternatives and tables they did not ask for. Explain in
+plain words each term that the reviewer has not used and that no page or
+earlier reply has explained. Check the reply against
+`pair guide writing.md` before you post it.
 
 Answer in the thread with text, or with an HTML fragment written like a
 page, which can use any component except a decision, a checklist or a

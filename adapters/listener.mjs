@@ -6,7 +6,8 @@ import path from "node:path";
 // pi and opencode call listen() inside their own process. mkdtempSync creates
 // the directory with mode 0700, so only this user can reach the socket. Each
 // connection sends one JSON line, and listen() writes "ok" once deliver()
-// resolves, or the error's message otherwise. Bun, which runs opencode's
+// resolves, followed by the value it resolves to as JSON when there is one, or
+// the error's message otherwise. Bun, which runs opencode's
 // plugins, closes a half-closed socket, so neither side half-closes before the
 // reply.
 export function listen(deliver) {
@@ -23,8 +24,12 @@ export function listen(deliver) {
       text += chunk;
       if (!text.includes("\n")) return;
       try {
-        await deliver(JSON.parse(text.slice(0, text.indexOf("\n"))));
-        connection.end("ok\n");
+        const value = await deliver(
+          JSON.parse(text.slice(0, text.indexOf("\n"))),
+        );
+        connection.end(
+          value === undefined ? "ok\n" : `ok ${JSON.stringify(value)}\n`,
+        );
       } catch (error) {
         connection.end(`${error.message}\n`);
       }
@@ -58,13 +63,14 @@ export function send(socket, message) {
           : error,
       ),
     );
-    client.on("end", () =>
-      reply.trim() === "ok"
-        ? resolve()
-        : reject(
-            new Error(reply.trim() || "the listener closed without an answer"),
-          ),
-    );
+    client.on("end", () => {
+      const ok = /^ok(?: (.*))?$/s.exec(reply.trim());
+      if (ok) resolve(ok[1] === undefined ? undefined : JSON.parse(ok[1]));
+      else
+        reject(
+          new Error(reply.trim() || "the listener closed without an answer"),
+        );
+    });
     client.write(JSON.stringify(message) + "\n");
   });
 }

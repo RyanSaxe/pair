@@ -218,12 +218,20 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
     await fs.rm(home, { recursive: true, force: true });
   });
   // A new hub answers on its port before it has loaded these 400 sessions,
-  // which takes it a few hundred milliseconds.
+  // which takes it at least a few hundred milliseconds. Each session has the
+  // four directories that the hub creates in every session. Without them, the
+  // hub creates 1,600 directories as it loads, which doubled its load on
+  // Windows and brought it near the 15 s that start waits for a new hub.
   await Promise.all(
     Array.from({ length: 400 }, async () => {
       const sessionId = crypto.randomUUID();
       const directory = path.join(config.sessions, sessionId);
       await fs.mkdir(directory, { recursive: true });
+      await Promise.all(
+        ["feedback", "uploads", "scenes", "threads"].map((child) =>
+          fs.mkdir(path.join(directory, child)),
+        ),
+      );
       await fs.writeFile(
         path.join(directory, "status.json"),
         JSON.stringify({
