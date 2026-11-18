@@ -296,8 +296,8 @@ export async function loadSession(
     return {
       ...view(),
       sessionDir: directory,
-      // startAgent is true when Open a new agent session runs the user's
-      // launch script.
+      // startAgent is true when Open a new agent session with no message
+      // runs the user's launch script.
       startAgent: session.canStartAgent(),
       threads: session.threadView(),
       parent: session.parentView(),

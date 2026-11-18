@@ -187,8 +187,8 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 
 `pair spawn` runs your launch script, `~/.config/pair/spawn DIR COMMAND ARG…`,
 or `spawn.ps1` on Windows, which is the script the hub runs when you press
-Start agent on a proposal. `COMMAND ARG…` starts the CLI with the arguments
-after `--`, then the first prompt
+Start agent on a proposal with no message. `COMMAND ARG…` starts the CLI with
+the arguments after `--`, then the first prompt
 `In your own shell, run pair register first.`, followed by your prompt. With
 `--name NAME`, the first prompt starts with
 `In your own shell, run pair register --name NAME first. If another running session has that name, run pair register without --name.`

@@ -46,7 +46,7 @@ prints a moment's text after its next step, and
 | `read-thread.md`            | `pair read --thread`                | Prints a thread.                                                                                                |
 | `read-start-here.md`        | `pair read`, `pair propose --start` | Prints work you approved to run in this session, with Start or in your own words.                               |
 | `read-start-sub-session.md` | `pair read`, `pair propose --start` | Prints work you approved to run in a sub-session.                                                               |
-| `read-open-agent.md`        | `pair read --thread`                | Prints the thread you started with Open a new agent session, until a session is linked to the proposal.         |
+| `read-open-agent.md`        | `pair read --thread`                | Prints the thread of Open a new agent session or Start agent with a message, until a session links to it.       |
 | `read-declined.md`          | `pair read`                         | Prints the proposals you declined since the last `pair read`, each once.                                        |
 | `read-closed.md`            | `pair read`                         | Prints the proposals whose linked session you closed since the last `pair read`, each once.                     |
 | `publish-agreed.md`         | `pair publish`                      | Publishes Agreed.                                                                                               |

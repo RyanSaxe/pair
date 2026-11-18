@@ -258,8 +258,11 @@ export async function proposals(session) {
   const canStartAgent = () => Boolean(launcher());
   // For Open a new agent session on a card, openAgent asks this session's
   // holder, in a thread on the card, to open a separate agent that runs pair
-  // start --from. With a launcher, it runs the launch script instead, which
-  // starts a session of the holder's agent CLI in the holder's folder. It first
+  // start --from. With a launcher and no message, it runs the launch script
+  // instead, which starts a session of the holder's agent CLI in the holder's
+  // folder with no flags. A message can name the CLI, model, effort or mode
+  // for the new agent, and only an agent can turn those words into the CLI's
+  // flags, so a start with a message always goes to the holder. It first
   // starts the card with a new agent when nobody has started it, and start
   // refuses a declined, withdrawn or finished card. A failed script leaves the
   // card started, as after Copy command, and openAgent returns its error.
@@ -284,7 +287,7 @@ export async function proposals(session) {
         409,
       );
     const holder = launcher();
-    if (holder) {
+    if (holder && !text) {
       // The new session registers under the card's ID, the name that launch
       // gives the session in its CLI.
       const prompt = firstPrompt(

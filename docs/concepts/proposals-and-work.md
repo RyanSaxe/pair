@@ -133,21 +133,27 @@ round stay, and you can start more work before you send the round.
 
 With an executable launch script at `~/.config/pair/spawn`, or
 `~/.config/pair/spawn.ps1` on Windows, the Open a new agent session button
-reads **Start agent**. The hub then runs the script, with PowerShell on
-Windows, as `spawn DIR COMMAND ARG…`. `DIR` is the folder in which this
-session's agent ran `pair start`, and the command starts a new session of the
-same agent CLI with a prompt to run `pair register --name ID`, where ID is the
-proposal's ID, then `pair guide` and `pair start --from` for the proposal.
-`pair agents` then lists the session by the proposal's ID, or by its default
-name when another running session already has that name. When the script
-fails, the drawer shows its error, and the work stays approved as after
-Copy command.
+reads **Start agent**. When you press it with no message, the hub runs the
+script, with PowerShell on Windows, as `spawn DIR COMMAND ARG…`. `DIR` is the
+folder in which this session's agent ran `pair start`, and the command starts
+a new session of the same agent CLI with a prompt to run
+`pair register --name ID`, where ID is the proposal's ID, then `pair guide`
+and `pair start --from` for the proposal. `pair agents` then lists the
+session by the proposal's ID, or by its default name when another running
+session already has that name. When the script fails, the drawer shows its
+error, and the work stays approved as after Copy command. When you press
+Start agent with a message, the hub runs no script and asks this session's
+agent, as Open a new agent session does.
 
-The agent cannot always open a new agent session. It replies in a thread
-on the card with what it opened, or with the command when it cannot open an
-agent. To tell the agent how to open one on your machine, such as in a tmux
-pane, write your instructions in `~/.config/pair/moments/read-open-agent.md`.
-`pair` prints that file after its own instructions for that step, as
+Name a CLI, model, effort or mode in the message, such as “codex, high
+effort, no approvals”, and this session's agent starts the new agent with
+them. It uses `pair spawn` when you have a launch script, and otherwise
+starts the agent any other way it can. The agent cannot always start a new
+agent. It replies in a thread on the card with what it started, or with the
+command when it cannot start one. To tell the agent how to start one on your
+machine, such as in a tmux pane, write your instructions in
+`~/.config/pair/moments/read-open-agent.md`. `pair` prints that file after
+its own instructions for that step, as
 [the guide](../reference/the-guide.md) describes.
 
 ## When you ask in your own words
