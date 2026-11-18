@@ -8,7 +8,8 @@ instructions, and your own components.
 
 When you press Start on a proposal and choose With a new agent, pair can open
 that agent for you. Save an executable script at `~/.config/pair/spawn`, or
-`spawn.ps1` on Windows, and the button reads Start agent. Pressing it runs:
+`spawn.ps1` on Windows, and the button reads Start agent. Pressing it with no
+message runs:
 
 ```text
 ~/.config/pair/spawn DIR COMMAND ARG…
@@ -21,6 +22,11 @@ argument, with no shell between, so the script receives the prompt exactly as
 pair wrote it. The script must open the command in a new terminal and exit
 within 10 seconds. Without a script, Start offers Open a new agent session
 and Copy command.
+
+With a message, Start agent asks your session's agent to start the new agent
+instead, so a message such as “claude opus, max effort” starts it in that CLI
+with those settings. The agent can start it with `pair spawn`, which runs the
+same script with the CLI's flags for those settings.
 
 tmux, in a new window of the tmux server you already run:
 

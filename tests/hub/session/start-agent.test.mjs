@@ -90,3 +90,29 @@ test("a launch script that fails leaves the card started with a new agent, as Co
   assert.equal(card.started.where, "new-agent");
   assert.equal(card.started.session, undefined);
 });
+
+test("with a launch script, Start agent with a message runs no script and asks the holder in a thread with the message", async (t) => {
+  const launch = await launchConfig(t);
+  const h = await hub(t, { XDG_CONFIG_HOME: launch.config });
+  const a = await h.session({ start: true, folder: launch.config });
+  assert.equal((await a.publish(planData())).code, 200);
+  const added = await a.action("propose", {
+    id: "churn-export",
+    title: "Refresh the export",
+    delivers: "The new schema.",
+    recommend: "new-agent",
+  });
+  assert.equal(added.code, 200, added.body.error);
+  const pressed = await a.request(
+    `${a.base}/api/proposals/churn-export/open-agent`,
+    { where: "new-agent", message: "codex, high effort, no approvals" },
+  );
+  assert.equal(pressed.code, 200, pressed.body.error);
+  assert.deepEqual(await launch.runs(), []);
+  assert.equal(pressed.body.launchError, undefined);
+  assert.equal(pressed.body.thread.proposal, "churn-export");
+  assert.equal(
+    pressed.body.thread.messages[0].text,
+    "codex, high effort, no approvals",
+  );
+});
