@@ -394,7 +394,7 @@ export function threads(session) {
         return {
           status: session.view(),
           thread: shown(thread),
-          next: `Open a new agent session and have it run pair start --from ${directory} --proposal ${thread.proposal} first, then post what you opened with ${replyCommand(thread.id)} --text "…". If you cannot open one, post that command instead. Then go back to what you were doing.`,
+          next: `Start the new agent in the CLI and with the settings the reviewer named in the thread, and give it pair start --from ${directory} --proposal ${thread.proposal} as its first command. Then post what you started with ${replyCommand(thread.id)} --text "…". If you cannot start one, post that command instead. Then go back to what you were doing.`,
           moment: "read-open-agent",
         };
       return {
