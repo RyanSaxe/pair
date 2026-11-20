@@ -74,7 +74,7 @@ export async function spawn(options) {
   if (!adapter)
     throw usageError(
       "spawn",
-      `pair spawn has no CLI ${cli}. Give claude, codex, copilot, pi or opencode.`,
+      `pair spawn has no CLI ${cli}. Give claude, codex, copilot, pi, opencode or agy.`,
     );
   requireName("spawn", options.name);
   if (options.prompt !== undefined && options.file !== undefined)

@@ -21,7 +21,8 @@ import {
 // CLI or a git hook would otherwise pass on.
 export const outsideAgents = Object.fromEntries(
   Object.entries(process.env).filter(
-    ([key]) => !/^(CLAUDE|CODEX|COPILOT|PAIR|PI|OPENCODE)_|^GIT_/.test(key),
+    ([key]) =>
+      !/^(ANTIGRAVITY|CLAUDE|CODEX|COPILOT|PAIR|PI|OPENCODE)_|^GIT_/.test(key),
   ),
 );
 
