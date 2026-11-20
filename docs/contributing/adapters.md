@@ -52,6 +52,7 @@ running sessions that `src/cli/agents.mjs` keeps:
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sessionId(target)`           | The ID that the CLI keeps when the session resumes, when `identity` is something else, as for Claude Code, whose `identity` is the inbox socket.                                                                                                                                                                                                         |
 | `hookVariables(input)`        | The variables that the JSON on a start hook's stdin gives, when the CLI leaves them out of the hook's environment, as Codex and Copilot CLI do.                                                                                                                                                                                                          |
+| `hookResponse(ancestor, ctx)` | The JSON object that `pair register --hook` prints for a CLI whose hook environment lacks its wake variables, or `null` to print nothing, as Antigravity CLI's `PreInvocation` hook does. Return `undefined` to continue with normal registration.                                                                                                       |
 | `pidVariable`                 | The variable in which pair's code inside the CLI sets the CLI's process ID, for a CLI whose process has another name, such as `node`.                                                                                                                                                                                                                    |
 | `recognizes(ancestor)`        | `true` for an ancestor process that runs the CLI under another name, as Copilot CLI's `node` with its `index.js` in nixpkgs.                                                                                                                                                                                                                             |
 | `parentSession(target)`       | The `{ sessionId, nickname }` of the session that started a subagent, or `null` for a session that is not a subagent.                                                                                                                                                                                                                                    |
@@ -141,8 +142,9 @@ from another process:
   reaches agy's language server. agy gives each command its agent
   runs the server's address in `ANTIGRAVITY_LS_ADDRESS` and its token in
   `ANTIGRAVITY_CSRF_TOKEN`, and the adapter runs `agentapi` with both. agy
-  gives a hook only `ANTIGRAVITY_CONVERSATION_ID`, so a start hook cannot
-  register an agy session that the hub can wake.
+  gives a hook only `ANTIGRAVITY_CONVERSATION_ID`, so `pair register --hook`
+  in a `PreInvocation` hook returns an `ephemeralMessage` asking the agent to
+  run `pair register` when that interactive `agy` process is not yet listed.
 
 pi and opencode accept no message from another process, so their adapters
 include code that runs inside the CLI. That code is the pi extension

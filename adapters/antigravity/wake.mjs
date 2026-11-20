@@ -1,7 +1,11 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { commandLine } from "../../src/shared/processes.mjs";
 
 const exec = promisify(execFile);
+
+const nonInteractive =
+  /(?:^|\s)(?:-p(?:=|\s|$)|--print(?:=|\s|$)|--prompt(?:=|\s|$)|--input-format(?:=|\s|$)|acp(?:\s|$)|agentapi(?:\s|$))/;
 
 export const name = "Antigravity CLI";
 
@@ -73,6 +77,35 @@ export async function parentSession(target) {
 // pair message asks the parent's agent to pass a message on to its subagent
 // with send_message, Antigravity CLI's tool for messaging a subagent.
 export const subagentTool = () => "send_message";
+
+// agy leaves ANTIGRAVITY_LS_ADDRESS, ANTIGRAVITY_CSRF_TOKEN and
+// ANTIGRAVITY_AGENTAPI_EXE out of a hook's environment, so a PreInvocation
+// hook cannot register a wakeable session itself. Instead, pair register
+// --hook checks whether this interactive agy process is already listed and,
+// when it is not, returns an ephemeralMessage asking the agent to run pair
+// register alongside its first action. Once registered, later turns and
+// subagents share the same agy process and print nothing; an `agy -c` restart
+// starts a new agy process and re-registers on its next turn.
+export function hookResponse(ancestor, { running, env, input, name }) {
+  if (nonInteractive.test(commandLine(ancestor) ?? "")) return null;
+  if (variables.every((key) => env[key])) return undefined;
+  const registered = running.some(
+    (entry) =>
+      entry.cli === "antigravity" &&
+      entry.pid === ancestor.pid &&
+      entry.processStart === ancestor.start,
+  );
+  if (registered) return null;
+  if (/\bpair register\b/.test(input?.lastUserInput ?? "")) return null;
+  const command = name ? `pair register --name ${name}` : "pair register";
+  return {
+    injectSteps: [
+      {
+        ephemeralMessage: `Run \`${command}\` in your own shell outside the sandbox alongside your first action so other agents can reach this session. Do not mention it unless it fails.`,
+      },
+    ],
+  };
+}
 
 // agentapi prints its error as JSON, such as {"error": "…"}.
 function agentapiError(output) {

@@ -145,3 +145,108 @@ if (command === "get-conversation-metadata") {
     /^pair message from verifier, for your subagent Codebase Researcher\. Pass the message below to Codebase Researcher unchanged with send_message, and do not act on it yourself:\n\nCheck the tests\./,
   );
 });
+
+// agy withholds ANTIGRAVITY_LS_ADDRESS and ANTIGRAVITY_CSRF_TOKEN from hooks.
+// As a PreInvocation hook, pair register --hook injects one ephemeralMessage
+// asking the agent to run pair register when the interactive agy process is
+// not yet listed, stays silent once that process registers (and when the
+// prompt already runs pair register), and injects again after a restart.
+test("pair register --hook guides an unregistered agy process once per process and stays silent for non-interactive runs", async (t) => {
+  const { folder, agent } = await agentsScratch(t);
+  const directory = await folder("app");
+  const hookEnv = { ANTIGRAVITY_CONVERSATION_ID: "conv-hook" };
+  const agy = await agent(directory, { harness: "antigravity" });
+
+  // Before registering, the hook prints an injectSteps ephemeralMessage.
+  const first = await agy.run(["register", "--hook"], {
+    input: JSON.stringify({
+      conversationId: "conv-hook",
+      invocationNum: 0,
+      lastUserInput: "Check the failing tests.",
+    }),
+    env: hookEnv,
+  });
+  assert.equal(first.status, 0, first.stderr);
+  const payload = JSON.parse(first.stdout);
+  assert.equal(payload.injectSteps.length, 1);
+  assert.match(payload.injectSteps[0].ephemeralMessage, /pair register/);
+
+  // When the user's prompt already asks for pair register (as pair spawn
+  // does), the hook prints nothing so it does not compete with --name.
+  const spawned = await agy.run(["register", "--hook"], {
+    input: JSON.stringify({
+      conversationId: "conv-hook",
+      invocationNum: 0,
+      lastUserInput:
+        "In your own shell, run pair register --name worker first.",
+    }),
+    env: hookEnv,
+  });
+  assert.equal(spawned.status, 0, spawned.stderr);
+  assert.equal(spawned.stdout, "");
+
+  // Once this agy process registers, later turns print nothing.
+  const reg = await agy.run(["register"], {
+    env: {
+      ANTIGRAVITY_CONVERSATION_ID: "conv-hook",
+      ANTIGRAVITY_LS_ADDRESS: "localhost:61712",
+      ANTIGRAVITY_CSRF_TOKEN: "csrf-1",
+      ANTIGRAVITY_AGENTAPI_EXE: "/opt/agy",
+    },
+  });
+  assert.equal(reg.status, 0, reg.stderr);
+  const after = await agy.run(["register", "--hook"], {
+    input: JSON.stringify({
+      conversationId: "conv-hook",
+      invocationNum: 1,
+      lastUserInput: "Continue.",
+    }),
+    env: hookEnv,
+  });
+  assert.equal(after.status, 0, after.stderr);
+  assert.equal(after.stdout, "");
+
+  // A new agy process (such as `agy -c` after a restart) gets the prompt again.
+  const restarted = await agent(directory, { harness: "antigravity" });
+  const again = await restarted.run(["register", "--hook"], {
+    input: JSON.stringify({
+      conversationId: "conv-hook",
+      invocationNum: 0,
+      lastUserInput: "Continue.",
+    }),
+    env: hookEnv,
+  });
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(
+    JSON.parse(again.stdout).injectSteps[0].ephemeralMessage,
+    /pair register/,
+  );
+
+  // Non-interactive agy runs (-p, --print, --prompt, acp) print nothing, while
+  // interactive -i / --prompt-interactive still gets the ephemeralMessage.
+  assert.equal(
+    antigravity.hookResponse(
+      { pid: 99, start: "s", command: "agy", args: "agy -p 'Reply OK'" },
+      { running: [], env: hookEnv, input: {} },
+    ),
+    null,
+  );
+  assert.equal(
+    antigravity.hookResponse(
+      { pid: 99, start: "s", command: "agy", args: "agy acp" },
+      { running: [], env: hookEnv, input: {} },
+    ),
+    null,
+  );
+  assert.ok(
+    antigravity.hookResponse(
+      {
+        pid: 99,
+        start: "s",
+        command: "agy",
+        args: "agy --prompt-interactive 'Check tests'",
+      },
+      { running: [], env: hookEnv, input: {} },
+    )?.injectSteps,
+  );
+});

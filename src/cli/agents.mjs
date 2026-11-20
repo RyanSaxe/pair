@@ -224,6 +224,29 @@ export function requireName(command, name) {
     );
 }
 
+// Some CLIs, such as Antigravity CLI, leave wake variables out of a hook's
+// environment, so pair register --hook cannot write the entry itself. An
+// adapter's hookResponse returns the JSON the hook prints (or null to print
+// nothing), or undefined when register should continue as usual.
+async function hookResponse(env, table, chain, input, name) {
+  const list = Object.values(adapters);
+  for (const ancestor of chain) {
+    const adapter = list.find((each) => recognizes(each, ancestor));
+    if (!adapter) continue;
+    if (!adapter.hookResponse) return undefined;
+    const running = await readAgents(table);
+    const payload = adapter.hookResponse(ancestor, {
+      running,
+      env,
+      input,
+      name,
+    });
+    if (payload === undefined) return undefined;
+    return payload ? { data: JSON.stringify(payload), json: payload } : null;
+  }
+  return undefined;
+}
+
 // A CLI's start hook runs pair register --hook and writes its JSON to stdin.
 // A failed hook must not stop the CLI from starting, so with --hook pair
 // register prints its error and exits 0. pair register talks to no hub, so it
@@ -237,7 +260,18 @@ export async function register(options) {
       options.hook && !process.stdin.isTTY ? await text(process.stdin) : "";
     const input = /^\s*\{/.test(stdin) ? JSON.parse(stdin) : null;
     const table = processTable();
-    const tools = { ancestors: () => ancestors(table) };
+    const chain = ancestors(table);
+    const tools = { ancestors: () => chain };
+    if (options.hook) {
+      const reply = await hookResponse(
+        process.env,
+        table,
+        chain,
+        input,
+        options.name,
+      );
+      if (reply !== undefined) return reply;
+    }
     const { entry, running } = await registerAgent(
       detectWake(process.env, tools, input),
       { name: options.name, table },
