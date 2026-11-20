@@ -222,13 +222,19 @@ conversation. After a restart, the hub cannot wake the agent until it runs a
 running, the wake fails with agy's error, such as
 `… connect: connection refused`.
 
-agy's own documentation describes `agentapi send-message` only for the
-sidecars of the Antigravity app, and describes neither
-`ANTIGRAVITY_LS_ADDRESS` nor `ANTIGRAVITY_CSRF_TOKEN`, and `agy --help` does
-not list `agentapi`. pair relies on what Antigravity CLI 1.5.6 does. When a
-later agy stops setting one of the four variables, `pair start` refuses with a
-message that names them, and when it drops `agentapi`, the wake fails with
-agy's error.
+To keep a subagent from replacing its parent in `pair agents`, `pair` runs
+`agy agentapi get-conversation-metadata` with the conversation ID. When the
+metadata names a parent conversation, `pair` refuses to register the subagent
+on its own and routes its messages through the root conversation.
+
+agy's own documentation describes `agentapi send-message` and
+`agentapi get-conversation-metadata` only for the sidecars of the Antigravity
+app. It describes neither `ANTIGRAVITY_LS_ADDRESS` nor
+`ANTIGRAVITY_CSRF_TOKEN`, and `agy --help` does not list `agentapi`. pair
+relies on what Antigravity CLI 1.5.6 and 1.5.13 do. When a later agy stops
+setting one of the four variables, `pair start` refuses with a message that
+names them. When it drops `agentapi`, a wake fails with agy's error, and
+`pair` cannot tell a subagent from its parent.
 
 ## The result of a wake
 

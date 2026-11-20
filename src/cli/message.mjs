@@ -51,10 +51,10 @@ function receiver(to) {
 }
 
 // pair message registers the agent session it runs in, so the receiver can
-// answer that session by its ID. A subagent of Codex or opencode has no entry,
-// so its message names it through its parent's entry, as NAME/SUBAGENT reaches
-// it. A sender outside any agent CLI is the user, and --from names any other
-// sender, such as a script. Neither has an ID to answer.
+// answer that session by its ID. A subagent of Codex, opencode or Antigravity
+// CLI has no entry, so its message names it through its parent's entry, as
+// NAME/SUBAGENT reaches it. A sender outside any agent CLI is the user, and
+// --from names any other sender, such as a script. Neither has an ID to answer.
 async function identifySender(label, table) {
   if (label !== undefined) return { name: label, answer: null };
   try {
