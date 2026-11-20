@@ -1,7 +1,23 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { commandLine } from "../../src/shared/processes.mjs";
 
 const exec = promisify(execFile);
+
+function isNonInteractive(line) {
+  const words = [...(line ?? "").matchAll(/"([^"]*)"|(\S+)/g)].map(
+    ([, quoted, bare]) => quoted ?? bare,
+  );
+  if (words[1] === "acp" || words[1] === "agentapi") return true;
+  for (const word of words.slice(1)) {
+    if (word === "--") return false;
+    const flag = word.split("=", 1)[0];
+    if (flag === "-i" || flag === "--prompt-interactive") return false;
+    if (["-p", "--print", "--prompt", "--input-format"].includes(flag))
+      return true;
+  }
+  return false;
+}
 
 export const name = "Antigravity CLI";
 
@@ -73,6 +89,38 @@ export async function parentSession(target) {
 // pair message asks the parent's agent to pass a message on to its subagent
 // with send_message, Antigravity CLI's tool for messaging a subagent.
 export const subagentTool = () => "send_message";
+
+// agy leaves ANTIGRAVITY_LS_ADDRESS, ANTIGRAVITY_CSRF_TOKEN and
+// ANTIGRAVITY_AGENTAPI_EXE out of a hook's environment, so a PreInvocation
+// hook cannot register a wakeable session itself. Instead, pair register
+// --hook checks whether this interactive agy process is already listed and,
+// when it is not, prints an ephemeralMessage asking the agent to run pair
+// register alongside its first action. Once registered, later turns and
+// subagents share the same agy process and print nothing; restarting with
+// `agy -c` starts a new agy process and re-registers on its next turn.
+export async function hookResponse(ancestor, { readAgents, env, input, name }) {
+  if (isNonInteractive(commandLine(ancestor))) return null;
+  if (variables.every((key) => env[key])) return undefined;
+  if (/\bpair register\b/.test(input?.lastUserInput ?? "")) return null;
+  const running = await readAgents();
+  const registered = running.some(
+    (entry) =>
+      entry.cli === "antigravity" &&
+      entry.pid === ancestor.pid &&
+      entry.processStart === ancestor.start,
+  );
+  if (registered) return null;
+  const registerCommand = name
+    ? `pair register --name ${name}`
+    : "pair register";
+  return {
+    injectSteps: [
+      {
+        ephemeralMessage: `Run \`${registerCommand}\` in your own shell outside the sandbox alongside your first action so other agents can reach this session. Do not mention it unless it fails.`,
+      },
+    ],
+  };
+}
 
 // agentapi prints its error as JSON, such as {"error": "…"}.
 function agentapiError(output) {

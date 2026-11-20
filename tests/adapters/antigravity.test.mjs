@@ -145,3 +145,115 @@ if (command === "get-conversation-metadata") {
     /^pair message from verifier, for your subagent Codebase Researcher\. Pass the message below to Codebase Researcher unchanged with send_message, and do not act on it yourself:\n\nCheck the tests\./,
   );
 });
+
+// agy withholds ANTIGRAVITY_LS_ADDRESS and ANTIGRAVITY_CSRF_TOKEN from hooks.
+// As a PreInvocation hook, pair register --hook injects one ephemeralMessage
+// asking the agent to run pair register when the interactive agy process is
+// not yet listed, stays silent once that process registers (and when the
+// prompt already runs pair register), and injects again after a restart.
+test("pair register --hook guides an unregistered agy process once per process and stays silent for non-interactive runs", async (t) => {
+  const { folder, agent } = await agentsScratch(t);
+  const directory = await folder("app");
+  const hookEnv = { ANTIGRAVITY_CONVERSATION_ID: "conv-hook" };
+  const agy = await agent(directory, { harness: "antigravity" });
+  const hook = (
+    cli,
+    {
+      args = [],
+      lastUserInput = "Check the failing tests.",
+      conversationId = "conv-hook",
+      env = { ANTIGRAVITY_CONVERSATION_ID: conversationId },
+    } = {},
+  ) =>
+    cli.run(["register", "--hook", ...args], {
+      input: JSON.stringify({
+        conversationId,
+        invocationNum: 0,
+        lastUserInput,
+      }),
+      env,
+    });
+
+  const first = await hook(agy);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(
+    JSON.parse(first.stdout).injectSteps[0].ephemeralMessage,
+    /pair register/,
+  );
+
+  const named = await hook(agy, { args: ["--name", "worker"] });
+  assert.equal(named.status, 0, named.stderr);
+  assert.match(
+    JSON.parse(named.stdout).injectSteps[0].ephemeralMessage,
+    /pair register --name worker/,
+  );
+
+  const spawned = await hook(agy, {
+    lastUserInput: "In your own shell, run pair register --name worker first.",
+  });
+  assert.equal(spawned.status, 0, spawned.stderr);
+  assert.equal(spawned.stdout, "");
+
+  // With all four wake variables present, register --hook registers directly.
+  const direct = await hook(agy, {
+    env: {
+      ANTIGRAVITY_CONVERSATION_ID: "conv-hook",
+      ANTIGRAVITY_LS_ADDRESS: "localhost:61712",
+      ANTIGRAVITY_CSRF_TOKEN: "csrf-1",
+      ANTIGRAVITY_AGENTAPI_EXE: "/opt/agy",
+    },
+  });
+  assert.equal(direct.status, 0, direct.stderr);
+  assert.match(direct.stdout, /^Registered /);
+
+  // Once listed, later turns and subagents of that agy process print nothing.
+  for (const conversationId of ["conv-hook", "conv-sub-hook"]) {
+    const after = await hook(agy, {
+      conversationId,
+      lastUserInput: "Continue.",
+    });
+    assert.equal(after.status, 0, after.stderr);
+    assert.equal(after.stdout, "");
+  }
+
+  // A new agy process (such as after `agy -c`) receives the instruction again.
+  const restarted = await agent(directory, { harness: "antigravity" });
+  const again = await hook(restarted, { lastUserInput: "Continue." });
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(
+    JSON.parse(again.stdout).injectSteps[0].ephemeralMessage,
+    /pair register/,
+  );
+
+  const neverRead = async () => {
+    throw new Error("readAgents should not run for non-interactive agy");
+  };
+  for (const args of [
+    "agy -p 'Reply OK'",
+    'agy.exe "-p" "Reply OK"',
+    "agy --model gemini-3.8-flash-low --print=hi",
+    "agy acp",
+    'agy.exe "acp"',
+  ]) {
+    assert.equal(
+      await antigravity.hookResponse(
+        { pid: 99, start: "s", command: "agy", args },
+        { readAgents: neverRead, env: hookEnv, input: {} },
+      ),
+      null,
+      args,
+    );
+  }
+  for (const args of [
+    "agy -i -p is broken",
+    'agy -i "Fix git add -p and agentapi wake errors"',
+    'agy --prompt-interactive "Inspect acp handling"',
+    '"C:\\my acp tools\\agy.exe" --model gemini-4-neon',
+  ]) {
+    const reply = await antigravity.hookResponse(
+      { pid: 99, start: "s", command: "agy", args },
+      { readAgents: async () => [], env: hookEnv, input: {} },
+    );
+    assert.ok(reply?.injectSteps, args);
+  }
+});

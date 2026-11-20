@@ -112,7 +112,12 @@ An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 environment has none, `session_id` from Codex and `sessionId` from Copilot
 CLI, prints one line, and exits 0 even when it cannot register. Codex 0.169
 and Copilot CLI 1.0.105 run the start hook when the session's first turn
-starts, so a session registers then.
+starts, so a session registers then. Antigravity CLI leaves its language
+server address and token out of hook environments. In a `PreInvocation` hook,
+`pair register --hook` prints a `PreInvocation` JSON message instructing the
+agent to run `pair register` when that interactive `agy` process is not yet
+listed. Once that `agy` process is listed, later turns and its subagents print
+nothing, and headless `-p` runs always print nothing.
 
 ## pair message
 
