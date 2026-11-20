@@ -147,25 +147,25 @@ whole.
 | `--from LABEL`, anywhere | `pair message from LABEL:`             | The same line as from a plain terminal                                    |
 
 Inside an agent session, `pair message` registers that session first, and
-sends nothing when it cannot. A subagent of Codex or opencode has no entry,
-so its message names it through its parent, as `api-d3/Goodall`, and a
-Copilot CLI subagent sends only with `--from`. `--ack`, in
-place of `--text`, sends one line and no command to answer it, and works only
-inside an agent session:
+sends nothing when it cannot. A subagent of Codex, opencode or Antigravity CLI
+has no entry, so its message names it through its parent, as `api-d3/Goodall`,
+and a Copilot CLI subagent sends only with `--from`. `--ack`, in place of
+`--text`, sends one line and no command to answer it, and works only inside an
+agent session:
 
 ```text
 pair message from fix-login-54 (Claude Code in ~/src/app-worktrees/fix-login) acknowledges your message. Don't answer it.
 ```
 
 `--to NAME/SUBAGENT` sends the message to a subagent of the session. In
-Claude Code, Codex and Copilot CLI the parent receives it, with a first line
-that asks the parent's agent to pass it on unchanged: with `SendMessage` in
-Claude Code, `followup_task` and the subagent's agent path in Codex, and
-`write_agent` in Copilot CLI. pair finds a Codex subagent by the name the
-parent gave it or by its nickname. In opencode, pair's plugin prompts the
-subagent's session, found by its task or its agent. pi has no subagents of its
-own, and a pi that an extension runs with pair's extension registers as a
-session of its own.
+Claude Code, Codex, Copilot CLI and Antigravity CLI the parent receives it,
+with a first line that asks the parent's agent to pass it on unchanged: with
+`SendMessage` in Claude Code, `followup_task` and the subagent's agent path in
+Codex, `write_agent` in Copilot CLI, and `send_message` in Antigravity CLI.
+pair finds a Codex subagent by the name the parent gave it or by its nickname.
+In opencode, pair's plugin prompts the subagent's session, found by its task
+or its agent. pi has no subagents of its own, and a pi that an extension runs
+with pair's extension registers as a session of its own.
 
 ## pair spawn
 

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 import * as antigravity from "../../adapters/antigravity/wake.mjs";
 import { detectWake } from "../../src/hub/wake.mjs";
+import { agentsScratch } from "../support/agents.mjs";
 
 // agy cannot run in CI, so this test checks only pair's side: the values
 // that agy gives a command reach the agentapi call that wakes the session.
@@ -30,4 +33,115 @@ test("a wake from inside agy runs agentapi with the session's conversation, lang
       },
     },
   ]);
+});
+
+// An agy subagent shares its parent's agy process with a conversation ID of
+// its own. Without parentSession it would replace its parent's entry in pair
+// agents; with parentSession and subagentTool, pair refuses to list it, names
+// its messages through the parent by role, and relays --to NAME/SUBAGENT
+// through the parent with send_message.
+test("an agy subagent keeps its parent listed, sends through its parent by role, and receives via send_message", async (t) => {
+  const { home, folder, agent, agents } = await agentsScratch(t);
+  const directory = await folder("api");
+  const sentLog = path.join(home, "sent.jsonl");
+  const conversations = {
+    "conv-root": {
+      parentConversationId: "",
+      rootConversationId: "conv-root",
+      subagentSpec: null,
+    },
+    "conv-sub": {
+      parentConversationId: "conv-root",
+      rootConversationId: "conv-root",
+      subagentSpec: { role: "Codebase Researcher" },
+    },
+    "conv-nested": {
+      parentConversationId: "conv-sub",
+      rootConversationId: "conv-root",
+      subagentSpec: { role: "Deep Reader" },
+    },
+  };
+  // Node executes this file when process.execPath runs `agentapi <cmd> ...`,
+  // so the stand-in works the same on macOS, Linux and Windows.
+  await fs.writeFile(
+    path.join(directory, "agentapi"),
+    `const fs = require("node:fs");
+const [command, id, message] = process.argv.slice(2);
+const conversations = ${JSON.stringify(conversations)};
+if (command === "get-conversation-metadata") {
+  const metadata = conversations[id];
+  if (!metadata) process.exit(1);
+  process.stdout.write(JSON.stringify({ response: { conversationMetadata: { metadata } } }));
+} else if (command === "send-message") {
+  fs.appendFileSync(${JSON.stringify(sentLog)}, JSON.stringify({ id, message }) + "\\n");
+}
+`,
+  );
+  const agy = await agent(directory, {
+    harness: "antigravity",
+    env: {
+      ANTIGRAVITY_LS_ADDRESS: "localhost:55433",
+      ANTIGRAVITY_CSRF_TOKEN: "csrf-live",
+      ANTIGRAVITY_AGENTAPI_EXE: process.execPath,
+    },
+  });
+  const as = (id) => ({ env: { ANTIGRAVITY_CONVERSATION_ID: id } });
+
+  const registered = await agy.run(["register", "--json"], as("conv-root"));
+  assert.equal(registered.status, 0, registered.stderr);
+  const { name: rootName } = JSON.parse(registered.stdout);
+
+  for (const [id, role] of [
+    ["conv-sub", "Codebase Researcher"],
+    ["conv-nested", "Deep Reader"],
+  ]) {
+    const refused = await agy.run(["register"], as(id));
+    assert.equal(refused.status, 1, refused.stdout);
+    assert.ok(refused.stderr.includes(`${rootName}/${role}`), refused.stderr);
+  }
+  assert.deepEqual(
+    (await agents()).map((entry) => entry.id),
+    ["antigravity:conv-root"],
+  );
+
+  // Sending from the subagent names it through its parent with a quoted answer
+  // command, and sending to NAME/SUBAGENT relays through the parent with
+  // send_message.
+  const fromSub = await agy.run(
+    ["message", "--to", rootName, "--text", "Found the bug."],
+    as("conv-sub"),
+  );
+  assert.equal(fromSub.status, 0, fromSub.stderr);
+
+  const toSub = await agy.run(
+    [
+      "message",
+      "--to",
+      `${rootName}/Codebase Researcher`,
+      "--from",
+      "verifier",
+      "--text",
+      "Check the tests.",
+    ],
+    as("conv-root"),
+  );
+  assert.equal(toSub.status, 0, toSub.stderr);
+
+  const sent = (await fs.readFile(sentLog, "utf8"))
+    .trim()
+    .split("\n")
+    .map(JSON.parse);
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].id, "conv-root");
+  assert.match(
+    sent[0].message,
+    new RegExp(
+      `^pair message from ${rootName}/Codebase Researcher \\(Antigravity CLI in .*\\):\\n\\nFound the bug\\.\\n\\nTo answer, run: pair message --to "antigravity:conv-root/Codebase Researcher" --text "…"`,
+    ),
+  );
+  assert.equal(sent[1].id, "conv-root");
+  assert.match(
+    sent[1].message,
+    /^pair message from verifier, for your subagent Codebase Researcher\. Pass the message below to Codebase Researcher unchanged with send_message, and do not act on it yourself:\n\nCheck the tests\./,
+  );
 });

@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const exec = promisify(execFile);
+
 export const name = "Antigravity CLI";
 
 // agy gives each command that its agent runs the session's conversation ID,
@@ -34,6 +39,40 @@ export const detect = (env) => ({
   token: env.ANTIGRAVITY_CSRF_TOKEN,
   agentapi: env.ANTIGRAVITY_AGENTAPI_EXE,
 });
+
+// An agy subagent shares its parent's agy process with a conversation ID of
+// its own, so without parentSession it would register as a session of its own
+// and replace its parent's entry. agentapi get-conversation-metadata returns
+// parentConversationId on a subagent, rootConversationId for the top-level
+// session listed in pair agents, and subagentSpec.role for the subagent's
+// role.
+export async function parentSession(target) {
+  const { stdout } = await exec(
+    target.agentapi,
+    ["agentapi", "get-conversation-metadata", target.conversation],
+    {
+      timeout: 30_000,
+      maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        ANTIGRAVITY_LS_ADDRESS: target.address,
+        ANTIGRAVITY_CSRF_TOKEN: target.token,
+      },
+    },
+  );
+  const metadata = JSON.parse(stdout)?.response?.conversationMetadata?.metadata;
+  if (!metadata?.parentConversationId) return null;
+  const role = metadata.subagentSpec?.role?.trim();
+  return {
+    sessionId: metadata.rootConversationId || metadata.parentConversationId,
+    ...(role && { nickname: role }),
+  };
+}
+
+// pair message asks the parent's agent to pass a message on to its subagent
+// with send_message, Antigravity CLI's tool for messaging a subagent.
+export const subagentTool = () => "send_message";
 
 // agentapi prints its error as JSON, such as {"error": "…"}.
 function agentapiError(output) {
