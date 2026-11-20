@@ -61,7 +61,7 @@ How soon the agent reads a thread depends on its agent CLI.
 
 | Agent CLI                                                                         | The agent reads a thread                                                         |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Claude Code, pi, opencode                                                         | Between the steps of its turn, after the tool call it is running                 |
+| Claude Code, pi, opencode, Antigravity CLI                                        | Between the steps of its turn, after the tool call it is running                 |
 | Codex whose app-server daemon runs the thread, as a plain `codex` from 0.160 does | Between the steps of its turn                                                    |
 | Copilot CLI                                                                       | At once. Copilot moves a running shell command to the background                 |
 | Any other Codex                                                                   | When its turn ends, so while it writes a round, after it publishes the last page |

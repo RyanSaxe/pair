@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import * as antigravity from "../../adapters/antigravity/wake.mjs";
 import * as claudeCode from "../../adapters/claude-code/wake.mjs";
 import * as codex from "../../adapters/codex/wake.mjs";
 import * as copilot from "../../adapters/copilot/wake.mjs";
@@ -15,6 +16,7 @@ export const adapters = {
   "claude-code": claudeCode,
   pi,
   opencode,
+  antigravity,
 };
 export const identify = (target) => ({
   harness: target.harness,
@@ -74,14 +76,18 @@ export function detectWake(env, tools, hookInput) {
   const target = detectAgent(env, tools, hookInput);
   requireValue(
     target,
-    "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi or opencode, and none of their session variables is set here. If you are one of those agents, run this command in your own shell, not in a new terminal or pane. Otherwise tell the user, and stop.",
+    "pair found no agent CLI it can wake. It works inside Claude Code, Codex, Copilot CLI, pi, opencode or Antigravity CLI, and none of their session variables is set here. If you are one of those agents, run this command in your own shell, not in a new terminal or pane. Otherwise tell the user, and stop.",
   );
   return target;
 }
-function run(file, args) {
+// run adds env to the hub's environment for the program. It rejects with the
+// program's error output, or with its output when it prints its errors there,
+// as agy's agentapi does.
+function run(file, args, env = {}) {
   return new Promise((resolve, reject) => {
-    execFile(file, args, { timeout: 30_000 }, (error, stdout, stderr) => {
-      if (error) reject(new Error((stderr || error.message).trim()));
+    const options = { timeout: 30_000, env: { ...process.env, ...env } };
+    execFile(file, args, options, (error, stdout, stderr) => {
+      if (error) reject(new Error((stderr || stdout || error.message).trim()));
       else resolve();
     });
   });

@@ -1,7 +1,7 @@
 # Adapters
 
-The hub wakes Claude Code, Codex, Copilot CLI, pi and opencode, each through
-the CLI's folder under `adapters/`.
+The hub wakes Claude Code, Codex, Copilot CLI, pi, opencode and Antigravity
+CLI, each through the CLI's folder under `adapters/`.
 
 ## What `wake.mjs` exports
 
@@ -24,10 +24,13 @@ It also exports these functions:
   throws when the session still cannot be woken.
 - `identity(target)` returns the part of a wake target that distinguishes
   one session of the CLI from another. Claude Code's adapter returns the inbox
-  socket, Codex's the thread ID, and the others the session ID.
+  socket, Codex's the thread ID, Antigravity CLI's the conversation ID, and the
+  others the session ID.
 - `wake(target, line, run)` delivers one line to the running session, or
-  throws with the reason. `run(file, args)` runs a program and rejects with
-  its error output. `wake` resolves to `{ via, steerable }`, where `via` is
+  throws with the reason. `run(file, args, env)` runs a program with the
+  variables in `env` added to the hub's environment, and rejects with its
+  error output, or with its output when it writes no error output, as agy's
+  `agentapi` does. `wake` resolves to `{ via, steerable }`, where `via` is
   the name of the delivery path, and `steerable` is `true` when the CLI reads a
   message in the middle of a turn. The hub records `via` in the wake's
   result, and `steerable` as `holder.steerable` in `status.json`. The frame
@@ -77,16 +80,17 @@ Where the agent CLI allows it, the adapter adds the line to the turn in
 progress, so the agent reads it in the middle of the turn instead of after
 it.
 
-| Agent CLI   | `via`       | API                                                                                                    | While a turn runs, the agent reads the line                      |
-| ----------- | ----------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| Claude Code | `inbox`     | A user message over the inbox socket                                                                   | Between the steps of the turn                                    |
-| Codex       | `steer`     | `turn/steer` on Codex's app-server daemon                                                              | Between the steps of the turn                                    |
-| Codex       | `queue`     | `thread/queue/add` and `thread/queue/start` on the daemon, or `codex queue --thread ID --message TEXT` | When the turn ends                                               |
-| Codex       | `parent`    | The `steer` or `queue` path to the parent thread of a spawned subagent                                 | After the parent passes the line on with `followup_task`         |
-| Copilot CLI | `immediate` | `session.send` with mode `immediate`, through the SDK inside Copilot CLI                               | At once. Copilot moves a running shell command to the background |
-| Copilot CLI | `enqueue`   | `session.send` with mode `enqueue`                                                                     | When the turn ends                                               |
-| pi          | `steer`     | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension                                       | After the tool calls of the current model response               |
-| opencode    | `prompt`    | `ctx.session.prompt` in pair's plugin on opencode 2, `client.session.promptAsync` on opencode 1        | After the tool calls of the current model response               |
+| Agent CLI       | `via`          | API                                                                                                    | While a turn runs, the agent reads the line                      |
+| --------------- | -------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Claude Code     | `inbox`        | A user message over the inbox socket                                                                   | Between the steps of the turn                                    |
+| Codex           | `steer`        | `turn/steer` on Codex's app-server daemon                                                              | Between the steps of the turn                                    |
+| Codex           | `queue`        | `thread/queue/add` and `thread/queue/start` on the daemon, or `codex queue --thread ID --message TEXT` | When the turn ends                                               |
+| Codex           | `parent`       | The `steer` or `queue` path to the parent thread of a spawned subagent                                 | After the parent passes the line on with `followup_task`         |
+| Copilot CLI     | `immediate`    | `session.send` with mode `immediate`, through the SDK inside Copilot CLI                               | At once. Copilot moves a running shell command to the background |
+| Copilot CLI     | `enqueue`      | `session.send` with mode `enqueue`                                                                     | When the turn ends                                               |
+| pi              | `steer`        | `sendUserMessage` with `deliverAs: "steer"`, in pair's extension                                       | After the tool calls of the current model response               |
+| opencode        | `prompt`       | `ctx.session.prompt` in pair's plugin on opencode 2, `client.session.promptAsync` on opencode 1        | After the tool calls of the current model response               |
+| Antigravity CLI | `send-message` | `agy agentapi send-message CONVERSATION LINE`, at the address of agy's language server                 | After the tool call in progress                                  |
 
 - Codex's adapter uses `turn/steer` only while a turn of the thread is in
   progress on the daemon. When the daemon runs the thread and no turn is in
@@ -126,13 +130,19 @@ wake.
 
 ## A listener inside the CLI
 
-Claude Code, Codex and Copilot CLI each accept a message from another
-process:
+Claude Code, Codex, Copilot CLI and Antigravity CLI each accept a message
+from another process:
 
 - Claude Code accepts it through its inbox socket.
 - Codex accepts it through `turn/steer` and the `thread/queue` methods on
   its app-server daemon, or through `codex queue`.
 - Copilot CLI accepts it through its SDK.
+- Antigravity CLI accepts it through `agy agentapi send-message`, which
+  reaches agy's language server. agy gives each command its agent
+  runs the server's address in `ANTIGRAVITY_LS_ADDRESS` and its token in
+  `ANTIGRAVITY_CSRF_TOKEN`, and the adapter runs `agentapi` with both. agy
+  gives a hook only `ANTIGRAVITY_CONVERSATION_ID`, so a start hook cannot
+  register an agy session that the hub can wake.
 
 pi and opencode accept no message from another process, so their adapters
 include code that runs inside the CLI. That code is the pi extension

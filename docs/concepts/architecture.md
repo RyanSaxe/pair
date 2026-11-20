@@ -143,13 +143,14 @@ next step names it until the agent marks it done.
 `pair start` records how to wake the agent that ran it. When it finds no way
 to wake the agent, it refuses and prints what to do.
 
-| Agent CLI   | What `pair start` records                                              | How the hub wakes the agent                                                                                                                                                                   |
-| ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`       | It sends a message over the inbox socket.                                                                                                                                                     |
-| Codex       | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon         | It sends `turn/steer` over the daemon's socket into the turn in progress, queues the line and starts a turn with it on an idle thread, or else runs `codex queue --thread ID --message TEXT`. |
-| Copilot CLI | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on             | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.                                                                   |
-| pi          | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension          | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                                                                               |
-| opencode    | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                                                                                   |
+| Agent CLI       | What `pair start` records                                                                                        | How the hub wakes the agent                                                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code     | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`                                                 | It sends a message over the inbox socket.                                                                                                                                                     |
+| Codex           | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon                                                   | It sends `turn/steer` over the daemon's socket into the turn in progress, queues the line and starts a turn with it on an idle thread, or else runs `codex queue --thread ID --message TEXT`. |
+| Copilot CLI     | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on                                                       | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.                                                                   |
+| pi              | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension                                                    | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                                                                               |
+| opencode        | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin                                           | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                                                                                   |
+| Antigravity CLI | `ANTIGRAVITY_CONVERSATION_ID`, `ANTIGRAVITY_LS_ADDRESS`, `ANTIGRAVITY_CSRF_TOKEN` and `ANTIGRAVITY_AGENTAPI_EXE` | It runs `agy agentapi send-message` with the conversation ID and the line, at the address of agy's language server.                                                                           |
 
 Most agent CLIs read a wake message in the middle of a turn. A Codex whose
 daemon does not run the thread, and a Copilot CLI that refuses `immediate`,
@@ -203,6 +204,31 @@ happens before the agent reads it.
 When pi or opencode has exited, the wake fails with
 `the agent CLI has exited (ENOENT …)` after a clean exit, or with
 `(ECONNREFUSED …)` after the CLI was killed.
+
+### Antigravity CLI
+
+agy gives each command its agent runs the address and CSRF token of agy's
+language server, the conversation's ID and the path of agy itself.
+`pair start` records all four, and the hub wakes the agent by running
+`agy agentapi send-message` with the conversation ID and the line, with that
+address and token in the environment. While a turn runs, agy adds the line to
+the turn after the tool call in progress, and when agy is idle it starts a
+turn with the line. agy's window shows the agent's answer, not the line.
+
+The address and the token change each time agy starts, and the conversation
+ID stays the same when `agy --conversation ID` or `agy --continue` resumes the
+conversation. After a restart, the hub cannot wake the agent until it runs a
+`pair` command, which sends the new address and token. While agy is not
+running, the wake fails with agy's error, such as
+`… connect: connection refused`.
+
+agy's own documentation describes `agentapi send-message` only for the
+sidecars of the Antigravity app, and describes neither
+`ANTIGRAVITY_LS_ADDRESS` nor `ANTIGRAVITY_CSRF_TOKEN`, and `agy --help` does
+not list `agentapi`. pair relies on what Antigravity CLI 1.5.6 does. When a
+later agy stops setting one of the four variables, `pair start` refuses with a
+message that names them, and when it drops `agentapi`, the wake fails with
+agy's error.
 
 ## The result of a wake
 

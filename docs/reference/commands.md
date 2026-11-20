@@ -179,7 +179,7 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 
 | Part                             | Meaning                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------- |
-| `CLI`                            | `claude`, `codex`, `copilot`, `pi` or `opencode`.                          |
+| `CLI`                            | `claude`, `codex`, `copilot`, `pi`, `opencode` or `agy`.                   |
 | `--dir DIR`                      | The folder to start it in. The default is the current folder.              |
 | `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
 | `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
