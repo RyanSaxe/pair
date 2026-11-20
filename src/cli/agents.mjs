@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { text } from "node:stream/consumers";
-import { adapters, detectWake, recognizes } from "../hub/wake.mjs";
+import { adapterFor, adapters, detectWake, recognizes } from "../hub/wake.mjs";
 import { ancestors, processTable } from "../shared/processes.mjs";
 import { requireNode, settings } from "../shared/settings.mjs";
 import { atomic, requireValue } from "../shared/util.mjs";
@@ -229,14 +229,12 @@ export function requireName(command, name) {
 // adapter's hookResponse returns the JSON the hook prints (or null to print
 // nothing), or undefined when register should continue as usual.
 async function hookResponse(env, table, chain, input, name) {
-  const list = Object.values(adapters);
   for (const ancestor of chain) {
-    const adapter = list.find((each) => recognizes(each, ancestor));
+    const adapter = adapterFor(ancestor, env);
     if (!adapter) continue;
     if (!adapter.hookResponse) return undefined;
-    const running = await readAgents(table);
-    const payload = adapter.hookResponse(ancestor, {
-      running,
+    const payload = await adapter.hookResponse(ancestor, {
+      readAgents: () => readAgents(table),
       env,
       input,
       name,

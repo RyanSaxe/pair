@@ -4,8 +4,48 @@ import { commandLine } from "../../src/shared/processes.mjs";
 
 const exec = promisify(execFile);
 
-const nonInteractive =
-  /(?:^|\s)(?:-p(?:=|\s|$)|--print(?:=|\s|$)|--prompt(?:=|\s|$)|--input-format(?:=|\s|$)|acp(?:\s|$)|agentapi(?:\s|$))/;
+const interactiveFlags = new Set(["-i", "--prompt-interactive"]);
+const nonInteractiveFlags = new Set([
+  "-p",
+  "--print",
+  "--prompt",
+  "--input-format",
+]);
+const nonInteractiveSubcommands = new Set(["acp", "agentapi"]);
+const valueFlags = new Set([
+  "--add-dir",
+  "--agent",
+  "--conversation",
+  "--effort",
+  "--json-schema",
+  "--log-file",
+  "--mode",
+  "--model",
+  "--output-format",
+  "--print-timeout",
+  "--project",
+  "--settings",
+]);
+
+function isNonInteractive(line) {
+  if (!line) return false;
+  const words = [];
+  for (const [, quoted, bare] of line.matchAll(/"([^"]*)"|(\S+)/g))
+    words.push(quoted ?? bare);
+  for (let index = 1; index < words.length; index += 1) {
+    const word = words[index];
+    if (word === "--") break;
+    if (word.startsWith("-")) {
+      const flag = word.includes("=") ? word.slice(0, word.indexOf("=")) : word;
+      if (interactiveFlags.has(flag)) return false;
+      if (nonInteractiveFlags.has(flag)) return true;
+      if (!word.includes("=") && valueFlags.has(flag)) index += 1;
+      continue;
+    }
+    return nonInteractiveSubcommands.has(word);
+  }
+  return false;
+}
 
 export const name = "Antigravity CLI";
 
@@ -82,13 +122,15 @@ export const subagentTool = () => "send_message";
 // ANTIGRAVITY_AGENTAPI_EXE out of a hook's environment, so a PreInvocation
 // hook cannot register a wakeable session itself. Instead, pair register
 // --hook checks whether this interactive agy process is already listed and,
-// when it is not, returns an ephemeralMessage asking the agent to run pair
+// when it is not, prints an ephemeralMessage asking the agent to run pair
 // register alongside its first action. Once registered, later turns and
-// subagents share the same agy process and print nothing; an `agy -c` restart
-// starts a new agy process and re-registers on its next turn.
-export function hookResponse(ancestor, { running, env, input, name }) {
-  if (nonInteractive.test(commandLine(ancestor) ?? "")) return null;
+// subagents share the same agy process and print nothing; restarting with
+// `agy -c` starts a new agy process and re-registers on its next turn.
+export async function hookResponse(ancestor, { readAgents, env, input, name }) {
+  if (isNonInteractive(commandLine(ancestor))) return null;
   if (variables.every((key) => env[key])) return undefined;
+  if (/\bpair register\b/.test(input?.lastUserInput ?? "")) return null;
+  const running = await readAgents();
   const registered = running.some(
     (entry) =>
       entry.cli === "antigravity" &&
@@ -96,12 +138,13 @@ export function hookResponse(ancestor, { running, env, input, name }) {
       entry.processStart === ancestor.start,
   );
   if (registered) return null;
-  if (/\bpair register\b/.test(input?.lastUserInput ?? "")) return null;
-  const command = name ? `pair register --name ${name}` : "pair register";
+  const registerCommand = name
+    ? `pair register --name ${name}`
+    : "pair register";
   return {
     injectSteps: [
       {
-        ephemeralMessage: `Run \`${command}\` in your own shell outside the sandbox alongside your first action so other agents can reach this session. Do not mention it unless it fails.`,
+        ephemeralMessage: `Run \`${registerCommand}\` in your own shell outside the sandbox alongside your first action so other agents can reach this session. Do not mention it unless it fails.`,
       },
     ],
   };

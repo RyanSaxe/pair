@@ -171,6 +171,21 @@ test("pair register --hook guides an unregistered agy process once per process a
   assert.equal(payload.injectSteps.length, 1);
   assert.match(payload.injectSteps[0].ephemeralMessage, /pair register/);
 
+  // Forwarding --name puts the flag in the injected command.
+  const named = await agy.run(["register", "--hook", "--name", "worker"], {
+    input: JSON.stringify({
+      conversationId: "conv-hook",
+      invocationNum: 0,
+      lastUserInput: "Check the failing tests.",
+    }),
+    env: hookEnv,
+  });
+  assert.equal(named.status, 0, named.stderr);
+  assert.match(
+    JSON.parse(named.stdout).injectSteps[0].ephemeralMessage,
+    /pair register --name worker/,
+  );
+
   // When the user's prompt already asks for pair register (as pair spawn
   // does), the hook prints nothing so it does not compete with --name.
   const spawned = await agy.run(["register", "--hook"], {
@@ -185,8 +200,14 @@ test("pair register --hook guides an unregistered agy process once per process a
   assert.equal(spawned.status, 0, spawned.stderr);
   assert.equal(spawned.stdout, "");
 
-  // Once this agy process registers, later turns print nothing.
-  const reg = await agy.run(["register"], {
+  // When all four wake variables are present in the hook environment, pair
+  // register --hook falls through and registers the session directly.
+  const direct = await agy.run(["register", "--hook"], {
+    input: JSON.stringify({
+      conversationId: "conv-hook",
+      invocationNum: 0,
+      lastUserInput: "Check the failing tests.",
+    }),
     env: {
       ANTIGRAVITY_CONVERSATION_ID: "conv-hook",
       ANTIGRAVITY_LS_ADDRESS: "localhost:61712",
@@ -194,17 +215,23 @@ test("pair register --hook guides an unregistered agy process once per process a
       ANTIGRAVITY_AGENTAPI_EXE: "/opt/agy",
     },
   });
-  assert.equal(reg.status, 0, reg.stderr);
-  const after = await agy.run(["register", "--hook"], {
-    input: JSON.stringify({
-      conversationId: "conv-hook",
-      invocationNum: 1,
-      lastUserInput: "Continue.",
-    }),
-    env: hookEnv,
-  });
-  assert.equal(after.status, 0, after.stderr);
-  assert.equal(after.stdout, "");
+  assert.equal(direct.status, 0, direct.stderr);
+  assert.match(direct.stdout, /^Registered /);
+
+  // Once this agy process is listed, later turns and subagents (with their own
+  // conversationId under the same agy process) print nothing.
+  for (const conversationId of ["conv-hook", "conv-sub-hook"]) {
+    const after = await agy.run(["register", "--hook"], {
+      input: JSON.stringify({
+        conversationId,
+        invocationNum: 1,
+        lastUserInput: "Continue.",
+      }),
+      env: { ANTIGRAVITY_CONVERSATION_ID: conversationId },
+    });
+    assert.equal(after.status, 0, after.stderr);
+    assert.equal(after.stdout, "");
+  }
 
   // A new agy process (such as `agy -c` after a restart) gets the prompt again.
   const restarted = await agent(directory, { harness: "antigravity" });
@@ -222,31 +249,39 @@ test("pair register --hook guides an unregistered agy process once per process a
     /pair register/,
   );
 
-  // Non-interactive agy runs (-p, --print, --prompt, acp) print nothing, while
-  // interactive -i / --prompt-interactive still gets the ephemeralMessage.
-  assert.equal(
-    antigravity.hookResponse(
-      { pid: 99, start: "s", command: "agy", args: "agy -p 'Reply OK'" },
-      { running: [], env: hookEnv, input: {} },
-    ),
-    null,
-  );
-  assert.equal(
-    antigravity.hookResponse(
-      { pid: 99, start: "s", command: "agy", args: "agy acp" },
-      { running: [], env: hookEnv, input: {} },
-    ),
-    null,
-  );
-  assert.ok(
-    antigravity.hookResponse(
-      {
-        pid: 99,
-        start: "s",
-        command: "agy",
-        args: "agy --prompt-interactive 'Check tests'",
-      },
-      { running: [], env: hookEnv, input: {} },
-    )?.injectSteps,
-  );
+  // Non-interactive agy runs (-p, --print, --prompt, acp, including
+  // Windows-quoted arguments) print nothing without reading agent files, while
+  // interactive -i / --prompt-interactive sessions whose prompt or executable
+  // path contains those words still receive the instruction.
+  const neverRead = async () => {
+    throw new Error("readAgents should not run for non-interactive agy");
+  };
+  for (const args of [
+    "agy -p 'Reply OK'",
+    'agy.exe "-p" "Reply OK"',
+    "agy --model gemini-3.8-flash-low --print=hi",
+    "agy acp",
+    'agy.exe "acp"',
+  ]) {
+    assert.equal(
+      await antigravity.hookResponse(
+        { pid: 99, start: "s", command: "agy", args },
+        { readAgents: neverRead, env: hookEnv, input: {} },
+      ),
+      null,
+      args,
+    );
+  }
+  for (const args of [
+    "agy -i -p is broken",
+    'agy -i "Fix git add -p and agentapi wake errors"',
+    'agy --prompt-interactive "Inspect acp handling"',
+    '"C:\\my acp tools\\agy.exe" --model gemini-4-neon',
+  ]) {
+    const reply = await antigravity.hookResponse(
+      { pid: 99, start: "s", command: "agy", args },
+      { readAgents: async () => [], env: hookEnv, input: {} },
+    );
+    assert.ok(reply?.injectSteps, args);
+  }
 });

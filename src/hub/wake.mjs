@@ -43,6 +43,14 @@ const named = (adapter, ancestor, env) =>
 export const recognizes = (adapter, ancestor) =>
   named(adapter, ancestor, process.env) ||
   Boolean(adapter.recognizes?.(ancestor));
+export function adapterFor(ancestor, env = process.env) {
+  const list = Object.values(adapters);
+  return (
+    list.find((each) => named(each, ancestor, env)) ??
+    list.find((each) => each.recognizes?.(ancestor)) ??
+    null
+  );
+}
 // detectAgent uses the nearest ancestor that an adapter recognizes, because an
 // agent CLI started inside another one inherits the outer CLI's variables, or
 // else the first adapter whose first variable is set. The hub can wake a
@@ -58,8 +66,7 @@ export function detectAgent(
   const list = Object.values(adapters);
   for (const ancestor of [...tools.ancestors(), null]) {
     const adapter = ancestor
-      ? (list.find((each) => named(each, ancestor, env)) ??
-        list.find((each) => each.recognizes?.(ancestor)))
+      ? adapterFor(ancestor, env)
       : list.find((each) => env[each.variables[0]]);
     if (!adapter) continue;
     const seen = {
