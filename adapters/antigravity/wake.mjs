@@ -4,45 +4,17 @@ import { commandLine } from "../../src/shared/processes.mjs";
 
 const exec = promisify(execFile);
 
-const interactiveFlags = new Set(["-i", "--prompt-interactive"]);
-const nonInteractiveFlags = new Set([
-  "-p",
-  "--print",
-  "--prompt",
-  "--input-format",
-]);
-const nonInteractiveSubcommands = new Set(["acp", "agentapi"]);
-const valueFlags = new Set([
-  "--add-dir",
-  "--agent",
-  "--conversation",
-  "--effort",
-  "--json-schema",
-  "--log-file",
-  "--mode",
-  "--model",
-  "--output-format",
-  "--print-timeout",
-  "--project",
-  "--settings",
-]);
-
 function isNonInteractive(line) {
-  if (!line) return false;
-  const words = [];
-  for (const [, quoted, bare] of line.matchAll(/"([^"]*)"|(\S+)/g))
-    words.push(quoted ?? bare);
-  for (let index = 1; index < words.length; index += 1) {
-    const word = words[index];
-    if (word === "--") break;
-    if (word.startsWith("-")) {
-      const flag = word.includes("=") ? word.slice(0, word.indexOf("=")) : word;
-      if (interactiveFlags.has(flag)) return false;
-      if (nonInteractiveFlags.has(flag)) return true;
-      if (!word.includes("=") && valueFlags.has(flag)) index += 1;
-      continue;
-    }
-    return nonInteractiveSubcommands.has(word);
+  const words = [...(line ?? "").matchAll(/"([^"]*)"|(\S+)/g)].map(
+    ([, quoted, bare]) => quoted ?? bare,
+  );
+  if (words[1] === "acp" || words[1] === "agentapi") return true;
+  for (const word of words.slice(1)) {
+    if (word === "--") return false;
+    const flag = word.split("=", 1)[0];
+    if (flag === "-i" || flag === "--prompt-interactive") return false;
+    if (["-p", "--print", "--prompt", "--input-format"].includes(flag))
+      return true;
   }
   return false;
 }

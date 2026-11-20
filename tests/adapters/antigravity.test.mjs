@@ -156,58 +156,46 @@ test("pair register --hook guides an unregistered agy process once per process a
   const directory = await folder("app");
   const hookEnv = { ANTIGRAVITY_CONVERSATION_ID: "conv-hook" };
   const agy = await agent(directory, { harness: "antigravity" });
+  const hook = (
+    cli,
+    {
+      args = [],
+      lastUserInput = "Check the failing tests.",
+      conversationId = "conv-hook",
+      env = { ANTIGRAVITY_CONVERSATION_ID: conversationId },
+    } = {},
+  ) =>
+    cli.run(["register", "--hook", ...args], {
+      input: JSON.stringify({
+        conversationId,
+        invocationNum: 0,
+        lastUserInput,
+      }),
+      env,
+    });
 
-  // Before registering, the hook prints an injectSteps ephemeralMessage.
-  const first = await agy.run(["register", "--hook"], {
-    input: JSON.stringify({
-      conversationId: "conv-hook",
-      invocationNum: 0,
-      lastUserInput: "Check the failing tests.",
-    }),
-    env: hookEnv,
-  });
+  const first = await hook(agy);
   assert.equal(first.status, 0, first.stderr);
-  const payload = JSON.parse(first.stdout);
-  assert.equal(payload.injectSteps.length, 1);
-  assert.match(payload.injectSteps[0].ephemeralMessage, /pair register/);
+  assert.match(
+    JSON.parse(first.stdout).injectSteps[0].ephemeralMessage,
+    /pair register/,
+  );
 
-  // Forwarding --name puts the flag in the injected command.
-  const named = await agy.run(["register", "--hook", "--name", "worker"], {
-    input: JSON.stringify({
-      conversationId: "conv-hook",
-      invocationNum: 0,
-      lastUserInput: "Check the failing tests.",
-    }),
-    env: hookEnv,
-  });
+  const named = await hook(agy, { args: ["--name", "worker"] });
   assert.equal(named.status, 0, named.stderr);
   assert.match(
     JSON.parse(named.stdout).injectSteps[0].ephemeralMessage,
     /pair register --name worker/,
   );
 
-  // When the user's prompt already asks for pair register (as pair spawn
-  // does), the hook prints nothing so it does not compete with --name.
-  const spawned = await agy.run(["register", "--hook"], {
-    input: JSON.stringify({
-      conversationId: "conv-hook",
-      invocationNum: 0,
-      lastUserInput:
-        "In your own shell, run pair register --name worker first.",
-    }),
-    env: hookEnv,
+  const spawned = await hook(agy, {
+    lastUserInput: "In your own shell, run pair register --name worker first.",
   });
   assert.equal(spawned.status, 0, spawned.stderr);
   assert.equal(spawned.stdout, "");
 
-  // When all four wake variables are present in the hook environment, pair
-  // register --hook falls through and registers the session directly.
-  const direct = await agy.run(["register", "--hook"], {
-    input: JSON.stringify({
-      conversationId: "conv-hook",
-      invocationNum: 0,
-      lastUserInput: "Check the failing tests.",
-    }),
+  // With all four wake variables present, register --hook registers directly.
+  const direct = await hook(agy, {
     env: {
       ANTIGRAVITY_CONVERSATION_ID: "conv-hook",
       ANTIGRAVITY_LS_ADDRESS: "localhost:61712",
@@ -218,41 +206,25 @@ test("pair register --hook guides an unregistered agy process once per process a
   assert.equal(direct.status, 0, direct.stderr);
   assert.match(direct.stdout, /^Registered /);
 
-  // Once this agy process is listed, later turns and subagents (with their own
-  // conversationId under the same agy process) print nothing.
+  // Once listed, later turns and subagents of that agy process print nothing.
   for (const conversationId of ["conv-hook", "conv-sub-hook"]) {
-    const after = await agy.run(["register", "--hook"], {
-      input: JSON.stringify({
-        conversationId,
-        invocationNum: 1,
-        lastUserInput: "Continue.",
-      }),
-      env: { ANTIGRAVITY_CONVERSATION_ID: conversationId },
+    const after = await hook(agy, {
+      conversationId,
+      lastUserInput: "Continue.",
     });
     assert.equal(after.status, 0, after.stderr);
     assert.equal(after.stdout, "");
   }
 
-  // A new agy process (such as `agy -c` after a restart) gets the prompt again.
+  // A new agy process (such as after `agy -c`) receives the instruction again.
   const restarted = await agent(directory, { harness: "antigravity" });
-  const again = await restarted.run(["register", "--hook"], {
-    input: JSON.stringify({
-      conversationId: "conv-hook",
-      invocationNum: 0,
-      lastUserInput: "Continue.",
-    }),
-    env: hookEnv,
-  });
+  const again = await hook(restarted, { lastUserInput: "Continue." });
   assert.equal(again.status, 0, again.stderr);
   assert.match(
     JSON.parse(again.stdout).injectSteps[0].ephemeralMessage,
     /pair register/,
   );
 
-  // Non-interactive agy runs (-p, --print, --prompt, acp, including
-  // Windows-quoted arguments) print nothing without reading agent files, while
-  // interactive -i / --prompt-interactive sessions whose prompt or executable
-  // path contains those words still receive the instruction.
   const neverRead = async () => {
     throw new Error("readAgents should not run for non-interactive agy");
   };
