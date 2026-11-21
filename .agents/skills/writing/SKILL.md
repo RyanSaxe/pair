@@ -94,7 +94,7 @@ the docs.
 | Work           | The frame's page that lists every proposal of the session, in the tabs Running, Proposed and Done.                                                                                               |
 | plan           | A round the agent marks with `"plan": true` in Agreed's source, from which someone who saw none of the rounds could build the work. pair can show more than one plan in a session.               |
 | linked session | A session that `pair start --from` created for a proposal of another session, its parent. A sub-session is one the parent's holder holds, and a new agent session is one a separate agent holds. |
-| agent CLI      | Claude Code, Codex, Copilot CLI, pi or opencode, each with a folder under `adapters/`.                                                                                                           |
+| agent CLI      | Claude Code, Codex, Copilot CLI, pi, opencode or Antigravity CLI, each with a folder under `adapters/`.                                                                                          |
 | handoff line   | The line that another agent runs to take a session over.                                                                                                                                         |
 
 ## Instructions for the agent

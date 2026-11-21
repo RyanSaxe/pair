@@ -80,8 +80,8 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 
 ## Messaging between agent sessions
 
-`pair message` lets an agent in Claude Code, Codex, Copilot CLI, pi or
-opencode message a running session of any of them.
+`pair message` lets an agent in Claude Code, Codex, Copilot CLI, pi, opencode
+or Antigravity CLI message a running session of any of them.
 [Commands](../reference/commands.md) describes `pair register`, `pair agents`
 and `pair message`.
 
@@ -98,13 +98,14 @@ Sent to fix-login-3f (Claude Code). It reads the message at once if it is idle, 
 A session appears in `pair agents` once a `pair` command runs inside it. To
 list every session as it starts, add the start hook for each CLI you use:
 
-| CLI         | Start hook                                                                                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | In `~/.claude/settings.json`: `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"pair register --hook"}]}]}}`                                                     |
-| Codex       | The same JSON in `$CODEX_HOME/hooks.json`. Codex asks you once to trust it, and runs it when a session's first turn starts.                                                      |
-| Copilot CLI | In `~/.copilot/hooks/pair.json`: `{"version":1,"hooks":{"sessionStart":[{"type":"command","bash":"pair register --hook","powershell":"pair register --hook","timeoutSec":30}]}}` |
-| pi          | None. pair's extension, which [Install](../getting-started/install.md) sets up, registers each session.                                                                          |
-| opencode    | None. pair's plugin, which [Install](../getting-started/install.md) sets up, registers each session.                                                                             |
+| CLI             | Start hook                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code     | In `~/.claude/settings.json`: `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"pair register --hook"}]}]}}`                                                                                                                                                                                                                                                |
+| Codex           | The same JSON in `$CODEX_HOME/hooks.json`. Codex asks you once to trust it, and runs it when a session's first turn starts.                                                                                                                                                                                                                                                 |
+| Copilot CLI     | In `~/.copilot/hooks/pair.json`: `{"version":1,"hooks":{"sessionStart":[{"type":"command","bash":"pair register --hook","powershell":"pair register --hook","timeoutSec":30}]}}`                                                                                                                                                                                            |
+| pi              | None. pair's extension, which [Install](../getting-started/install.md) sets up, registers each session.                                                                                                                                                                                                                                                                     |
+| opencode        | None. pair's plugin, which [Install](../getting-started/install.md) sets up, registers each session.                                                                                                                                                                                                                                                                        |
+| Antigravity CLI | In `~/.gemini/config/hooks.json`: `{"pair-register":{"PreInvocation":[{"type":"command","command":"pair register --hook"}]}}`. On the first turn of an interactive session, and on the first turn after you resume with `agy -c`, `pair register --hook` prints JSON that instructs the agent to run `pair register`. Once that `agy` process is listed, it prints nothing. |
 
 Add this to a project's `AGENTS.md` so its agents use pair's messaging:
 

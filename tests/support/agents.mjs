@@ -21,7 +21,8 @@ import {
 // CLI or a git hook would otherwise pass on.
 export const outsideAgents = Object.fromEntries(
   Object.entries(process.env).filter(
-    ([key]) => !/^(CLAUDE|CODEX|COPILOT|PAIR|PI|OPENCODE)_|^GIT_/.test(key),
+    ([key]) =>
+      !/^(ANTIGRAVITY|CLAUDE|CODEX|COPILOT|PAIR|PI|OPENCODE)_|^GIT_/.test(key),
   ),
 );
 
@@ -73,7 +74,8 @@ process.on("message", ({ args, input, env }) => {
 // daemon. run(args, { input, env }) writes input to the command's stdin, adds
 // env to the command's environment, and returns { status, stdout, stderr }.
 export async function standIn(t, { home, cwd, harness = "claude-code", env }) {
-  const name = harness === "claude-code" ? "claude" : harness;
+  const name =
+    { "claude-code": "claude", antigravity: "agy" }[harness] ?? harness;
   const bin = path.join(home, `bin-${crypto.randomUUID()}`);
   await fs.mkdir(bin);
   const executable = await agentExecutable(bin, name);

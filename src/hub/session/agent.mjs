@@ -399,8 +399,8 @@ export function agent(session) {
       };
     },
   };
-  // pi, opencode and Copilot keep their identity when they restart and then
-  // listen on a new socket or port. Each command sends the agent's current
+  // pi, opencode, Copilot and agy keep their identity when they restart and
+  // then listen on a new socket or port. Each command sends the agent's current
   // wake target, and the hub wakes the holder at the one its latest command
   // sent. Like hold, refreshTarget keeps the target in wake.json only.
   async function refreshTarget(target) {

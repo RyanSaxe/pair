@@ -112,7 +112,12 @@ An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 environment has none, `session_id` from Codex and `sessionId` from Copilot
 CLI, prints one line, and exits 0 even when it cannot register. Codex 0.169
 and Copilot CLI 1.0.105 run the start hook when the session's first turn
-starts, so a session registers then.
+starts, so a session registers then. Antigravity CLI leaves its language
+server address and token out of hook environments. In a `PreInvocation` hook,
+`pair register --hook` prints a `PreInvocation` JSON message instructing the
+agent to run `pair register` when that interactive `agy` process is not yet
+listed. Once that `agy` process is listed, later turns and its subagents print
+nothing, and headless `-p` runs always print nothing.
 
 ## pair message
 
@@ -147,25 +152,25 @@ whole.
 | `--from LABEL`, anywhere | `pair message from LABEL:`             | The same line as from a plain terminal                                    |
 
 Inside an agent session, `pair message` registers that session first, and
-sends nothing when it cannot. A subagent of Codex or opencode has no entry,
-so its message names it through its parent, as `api-d3/Goodall`, and a
-Copilot CLI subagent sends only with `--from`. `--ack`, in
-place of `--text`, sends one line and no command to answer it, and works only
-inside an agent session:
+sends nothing when it cannot. A subagent of Codex, opencode or Antigravity CLI
+has no entry, so its message names it through its parent, as `api-d3/Goodall`,
+and a Copilot CLI subagent sends only with `--from`. `--ack`, in place of
+`--text`, sends one line and no command to answer it, and works only inside an
+agent session:
 
 ```text
 pair message from fix-login-54 (Claude Code in ~/src/app-worktrees/fix-login) acknowledges your message. Don't answer it.
 ```
 
 `--to NAME/SUBAGENT` sends the message to a subagent of the session. In
-Claude Code, Codex and Copilot CLI the parent receives it, with a first line
-that asks the parent's agent to pass it on unchanged: with `SendMessage` in
-Claude Code, `followup_task` and the subagent's agent path in Codex, and
-`write_agent` in Copilot CLI. pair finds a Codex subagent by the name the
-parent gave it or by its nickname. In opencode, pair's plugin prompts the
-subagent's session, found by its task or its agent. pi has no subagents of its
-own, and a pi that an extension runs with pair's extension registers as a
-session of its own.
+Claude Code, Codex, Copilot CLI and Antigravity CLI the parent receives it,
+with a first line that asks the parent's agent to pass it on unchanged: with
+`SendMessage` in Claude Code, `followup_task` and the subagent's agent path in
+Codex, `write_agent` in Copilot CLI, and `send_message` in Antigravity CLI.
+pair finds a Codex subagent by the name the parent gave it or by its nickname.
+In opencode, pair's plugin prompts the subagent's session, found by its task
+or its agent. pi has no subagents of its own, and a pi that an extension runs
+with pair's extension registers as a session of its own.
 
 ## pair spawn
 
@@ -179,7 +184,7 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 
 | Part                             | Meaning                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------- |
-| `CLI`                            | `claude`, `codex`, `copilot`, `pi` or `opencode`.                          |
+| `CLI`                            | `claude`, `codex`, `copilot`, `pi`, `opencode` or `agy`.                   |
 | `--dir DIR`                      | The folder to start it in. The default is the current folder.              |
 | `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
 | `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
