@@ -64,16 +64,16 @@ const round = () => ({
 });
 
 const widths = {
-  phone: { width: 390, height: 844 },
-  desktop: { width: 1280, height: 800 },
+  phone: { viewport: { width: 390, height: 844 }, hasTouch: true },
+  desktop: { viewport: { width: 1280, height: 800 } },
 };
 
-async function setup(t, engine, viewport) {
+async function setup(t, engine, screen) {
   const h = await hub(t);
   const session = await h.session();
   assert.equal((await session.publish(round())).code, 200);
   const url = (rest) => `${h.server.origin}${session.base}/${rest}`;
-  const page = await open(t, "about:blank", { engine, viewport });
+  const page = await open(t, "about:blank", { engine, ...screen });
   if (!page) return null;
   await page.addInitScript(gate);
   await page.route(/esm\.sh\/shiki/, (route) =>

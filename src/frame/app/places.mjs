@@ -59,10 +59,12 @@ export function loadPlaces() {
   }
   return placeStore;
 }
-/* Above 720px main scrolls, and at 720px and below .app-body scrolls. */
+/* Above 720px main scrolls, and at 720px and below .app-body scrolls. shell.css
+   uses the same media rule. scroller() goes by the rule, not by the pane's
+   overflow, because endFlick() hides that overflow for a frame. */
 export const scroller = () =>
-  [document.querySelector("main"), document.querySelector(".app-body")].find(
-    (el) => /auto|scroll/.test(getComputedStyle(el).overflowY),
+  document.querySelector(
+    matchMedia("(max-width: 720px)").matches ? ".app-body" : "main",
   );
 const shownView = () =>
   ({ work: $("work-view"), feedback: $("review-view") })[shownPage()] ||
@@ -196,7 +198,13 @@ function takeReloadPlace() {
    unless focusHeading is false. While land() is placing a target,
    refocus() returns focus to it when focus drops to no element, because
    the browser clears focus at load when the element that the # part names
-   is not focusable. */
+   is not focusable.
+   On a touch screen a flick keeps the pane scrolling after the finger
+   lifts, and setting the pane's scroll does not end it. A flick that was
+   under way when the reader opened another page would carry the new page
+   away from its anchor, and while land() holds the anchor the two pull
+   against each other every frame, so the page shakes. land() ends the
+   flick first. */
 const QUIET_MS = 1000;
 const WAIT_MS = 10000;
 const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
@@ -206,9 +214,31 @@ const heading = () =>
     ({ work: $("work-view"), feedback: $("review-view") })[shownPage()] ||
     $("reading")
   ).querySelector("h1");
+/* Hiding a pane's overflow ends its flick. It would also hide a scroll bar
+   that takes room, so endFlick() acts only on a touch screen, where scroll
+   bars take none. The overflow returns once a frame has been drawn without
+   it. */
+let flickRestore = null;
+function endFlick(box) {
+  if (!matchMedia("(pointer: coarse)").matches) return;
+  flickRestore?.();
+  box.style.overflow = "hidden";
+  let frame = requestAnimationFrame(() => {
+    frame = requestAnimationFrame(() => {
+      box.style.overflow = "";
+      flickRestore = null;
+    });
+  });
+  flickRestore = () => {
+    cancelAnimationFrame(frame);
+    box.style.overflow = "";
+    flickRestore = null;
+  };
+}
 export function land(anchor, { focusHeading = true } = {}) {
   held?.stop();
   const box = scroller();
+  endFlick(box);
   const view = shownView();
   const id = anchor?.target ?? anchor?.id;
   if (!id) {
