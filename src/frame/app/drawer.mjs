@@ -324,12 +324,15 @@ function focusIn(event) {
   follow();
   if (covered) revealField("instant");
 }
-// The keyboard drops when focus leaves the text boxes.
+/* The keyboard drops when focus leaves the text boxes, so a modal grows back.
+   A drawer stays where it is: focus leaves its text box when the reviewer
+   presses one of its buttons, and a drawer whose words moved, such as under a
+   thread's new reply, would move away from the press before its click. */
 function focusOut(event) {
   if (!textField(event.target) || textField(event.relatedTarget)) return;
   clearTimeout(settling);
   rising = 0;
-  follow();
+  keepAboveKeyboard();
 }
 
 /* revealInForm scrolls the form that element is in by as little as shows it,
