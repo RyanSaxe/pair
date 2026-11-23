@@ -471,3 +471,44 @@ test("the page stays in use behind one drawer at a time, and a note with words i
     "For card two.",
   );
 });
+
+test("a reply that moves a note's words leaves the note's buttons where the reviewer presses them", async (t) => {
+  const h = await hub(t);
+  const s = await h.session();
+  const plan = planData();
+  plan.pages[0].html = `<p id="first">${quote}</p>${filler(3)}<p id="noted">Words to note, under the thread.</p>`;
+  assert.equal((await s.publish(plan)).code, 200);
+  const started = await s.request(`${s.base}/api/threads`, {
+    id: "asked",
+    round: "1",
+    topic: "overview",
+    anchor: "Overview",
+    quote,
+    text: "Why a file?",
+  });
+  assert.equal(started.code, 201, started.body.error);
+  const page = await openPage(t, `${h.server.origin}${s.base}/`, {
+    viewport: { width: 1280, height: 800 },
+  });
+  if (!page) return;
+  const card = page.locator('pair-thread[data-thread="asked"]');
+  await card.waitFor();
+  await select(page, "Words to note", "noted");
+  await page.locator("#comment-here").click();
+  await page.locator("#note-text").fill("A second question.");
+  await settled(page, "note-dialog");
+
+  // The reply makes the card above the words taller, so the words move down
+  // while the note is open.
+  const replied = await s.action("reply", {
+    note: "asked",
+    text: "It outlives the session.\n\nA second paragraph.\n\nA third.",
+  });
+  assert.equal(replied.code, 200, replied.body.error);
+  await card.locator(".thread-message").nth(1).waitFor();
+  await page.getByRole("button", { name: "Start a thread" }).click();
+  assert.equal(
+    await waitUntil(async () => (await s.status()).body.threads.length === 2),
+    true,
+  );
+});
