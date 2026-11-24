@@ -7,7 +7,7 @@ import {
   imageTypes,
   uploadImages,
 } from "#frame/notes/images.mjs";
-import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/threads.mjs";
+import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/send-key.mjs";
 
 /* replyForm keeps the reply's text and images in state.replyDrafts until
    Send, so a reload keeps them. */

@@ -1,7 +1,7 @@
 import { since } from "#frame/app/time.mjs";
-import { cardState } from "#frame/pages/work.mjs";
+import { cardState } from "#frame/pages/work-model.mjs";
 import { escapeHtml, GLYPHS, marked, snippet } from "#frame/search/rows.mjs";
-import { bellLines } from "#frame/sync/center.mjs";
+import { bellLines } from "#frame/sync/center-state.mjs";
 import { eventTitle } from "#frame/sync/notifications.mjs";
 
 /* What the bell and the Notifications window say about each row. Nothing here
@@ -141,6 +141,27 @@ function threadRow(line, entry, thisId) {
   };
 }
 
+function mergeSessionRows(rows, entry, { sessions, listed, thisId }) {
+  for (const line of listed.threads) {
+    const row = threadRow(line, entry, thisId);
+    if (!rows.has(row.key)) rows.set(row.key, row);
+  }
+  const newest = (entry.events || []).toSorted((a, b) =>
+    b.at.localeCompare(a.at),
+  );
+  for (const event of newest) {
+    if (!KEY_OF[event.kind]) continue;
+    const key = KEY_OF[event.kind](entry, event);
+    if (!rows.has(key)) {
+      rows.set(key, eventRow(entry, event, { state: "read", thisId }));
+    }
+  }
+  for (const card of listed.proposals) {
+    const row = rows.get(`proposal:${entry.id}:${card.id}`);
+    if (row) row.status = statusOf(card, sessions);
+  }
+}
+
 // Every row of the live sessions. The unread rows are bellRows. A thread line
 // whose state is not replied or agentAcknowledged is waiting, and every other
 // row is read.
@@ -152,24 +173,7 @@ export function notificationRows(sessions, { threadLines, cleared, thisId }) {
   for (const entry of sessions) {
     if (entry.closed) continue;
     const listed = threadLines[entry.id] ?? { threads: [], proposals: [] };
-    for (const line of listed.threads) {
-      const row = threadRow(line, entry, thisId);
-      if (!rows.has(row.key)) rows.set(row.key, row);
-    }
-    const newest = (entry.events || []).toSorted((a, b) =>
-      b.at.localeCompare(a.at),
-    );
-    for (const event of newest) {
-      if (!KEY_OF[event.kind]) continue;
-      const key = KEY_OF[event.kind](entry, event);
-      if (!rows.has(key)) {
-        rows.set(key, eventRow(entry, event, { state: "read", thisId }));
-      }
-    }
-    for (const card of listed.proposals) {
-      const row = rows.get(`proposal:${entry.id}:${card.id}`);
-      if (row) row.status = statusOf(card, sessions);
-    }
+    mergeSessionRows(rows, entry, { sessions, listed, thisId });
   }
   return [...rows.values()];
 }

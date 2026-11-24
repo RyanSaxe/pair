@@ -54,26 +54,28 @@ export function rebuildKnown() {
     indexPage(topic);
   }
 }
-export function stale(kind, key, item) {
-  if (kind === "note") {
-    // Every round has Review's overall comment and Work, so a note on either
-    // is never stale.
-    if (item.topic === "overall" || item.topic === "work") return false;
-    if (item.topic === "agreed") {
-      return Boolean(
-        item.agreementId &&
-        !(item.agreementId === "task" && agreedTask) &&
-        !agreements.some((entry) => entry.id === item.agreementId),
-      );
-    }
-    if (!known.text.has(item.topic)) {
-      return !pages.some((entry) => entry.id === item.topic && entry.pending);
-    }
-    return (
-      Boolean(item.quote) &&
-      !known.text.get(item.topic).includes(normalize(item.quote))
+function staleNote(item) {
+  // Every round has Review's overall comment and Work, so a note on either
+  // is never stale.
+  if (item.topic === "overall" || item.topic === "work") return false;
+  if (item.topic === "agreed") {
+    return Boolean(
+      item.agreementId &&
+      !(item.agreementId === "task" && agreedTask) &&
+      !agreements.some((entry) => entry.id === item.agreementId),
     );
   }
+  if (!known.text.has(item.topic)) {
+    return !pages.some((entry) => entry.id === item.topic && entry.pending);
+  }
+  return (
+    Boolean(item.quote) &&
+    !known.text.get(item.topic).includes(normalize(item.quote))
+  );
+}
+
+export function stale(kind, key, item) {
+  if (kind === "note") return staleNote(item);
   if (pages.some((entry) => entry.id === item.topic && entry.pending)) {
     return false;
   }

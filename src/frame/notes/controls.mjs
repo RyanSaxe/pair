@@ -1,13 +1,8 @@
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, controlKey, typingIn } from "#frame/app/util.mjs";
-import {
-  editable,
-  feedbackEditable,
-  page,
-  pages,
-  plan,
-} from "#frame/app/view.mjs";
+import { editable, page, pages, plan } from "#frame/app/view.mjs";
 import { blockTargets } from "#frame/notes/blocks.mjs";
+import { feedbackEditable } from "#frame/review/send-state.mjs";
 
 let answerTimer;
 // pageTargets gives the same IDs to the live page and to a template of its

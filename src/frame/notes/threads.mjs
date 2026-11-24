@@ -1,14 +1,9 @@
-import { enhance } from "#frame/app/registry.mjs";
+import { enhance } from "#frame/app/components.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
+import { remote, selectedTab } from "#frame/app/state.mjs";
 import { prefs } from "#frame/app/store.mjs";
 import { ago } from "#frame/app/time.mjs";
-import {
-  $,
-  apple,
-  normalize,
-  plural,
-  unreachable,
-  uuid,
-} from "#frame/app/util.mjs";
+import { $, normalize, plural, unreachable, uuid } from "#frame/app/util.mjs";
 import {
   base,
   editable,
@@ -18,7 +13,8 @@ import {
   shownPage,
   topicTitle,
 } from "#frame/app/view.mjs";
-import { findText, placeMarks } from "#frame/notes/notes.mjs";
+import { findText } from "#frame/notes/quote.mjs";
+import { modifier, sendKeyLabel } from "#frame/notes/send-key.mjs";
 import { ackButton, syncAcks } from "#frame/notes/thread-ack.mjs";
 import { partOf, threadTitle } from "#frame/notes/thread-head.mjs";
 import { replyForm } from "#frame/notes/thread-reply.mjs";
@@ -27,24 +23,14 @@ import {
   diffViews,
   setDiffThreads,
 } from "#frame/pages/renderers.mjs";
-import { clearThread } from "#frame/sync/center.mjs";
 import { messageTiming } from "#frame/sync/activity.mjs";
-import { remote, selectedTab } from "#frame/sync/rounds.mjs";
+import { clearThread } from "#frame/sync/center-state.mjs";
 import { lifecycle } from "#shared/lifecycle.mjs";
 import { threadState } from "#shared/thread-state.mjs";
 
 /* The hub stores every thread, and each status poll returns all of them.
    placeThreads draws the cards from the poll, and from sent for a message
    that this browser sent and the poll does not show yet. */
-
-const modifier = () => (apple() ? "⌘" : "Ctrl");
-export const sendKeyLabel = () => `${modifier()} ↵`;
-export const sendKeyName = () => (apple() ? "Meta+Enter" : "Control+Enter");
-export const sendKey = (event) =>
-  event.key === "Enter" &&
-  !event.shiftKey &&
-  !event.altKey &&
-  (apple() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey);
 
 // sent maps a thread ID to a thread that this browser sent and the hub's
 // poll does not show yet.
@@ -100,22 +86,32 @@ async function post({ id, url, body, saved }) {
   }
   placeThreads();
 }
+const optionalThreadFields = [
+  "quote",
+  "target",
+  "occurrence",
+  "diffLine",
+  "diagramNode",
+  "agreementId",
+];
+
+function threadFields(context) {
+  if (context.proposal) return { id: uuid(), proposal: context.proposal };
+  const fields = {
+    id: uuid(),
+    round: plan.round,
+    topic: context.topic,
+    anchor: context.anchor,
+  };
+  for (const key of optionalThreadFields) {
+    if (context[key]) fields[key] = context[key];
+  }
+  return fields;
+}
+
 export function startThread(context, text, { attachments = [], saved } = {}) {
   const now = new Date().toISOString();
-  const fields = context.proposal
-    ? { id: uuid(), proposal: context.proposal }
-    : {
-        id: uuid(),
-        round: plan.round,
-        topic: context.topic,
-        anchor: context.anchor,
-        ...(context.quote ? { quote: context.quote } : {}),
-        ...(context.target ? { target: context.target } : {}),
-        ...(context.occurrence ? { occurrence: context.occurrence } : {}),
-        ...(context.diffLine ? { diffLine: context.diffLine } : {}),
-        ...(context.diagramNode ? { diagramNode: context.diagramNode } : {}),
-        ...(context.agreementId ? { agreementId: context.agreementId } : {}),
-      };
+  const fields = threadFields(context);
   sent.set(fields.id, {
     ...fields,
     page: context.proposal ? context.anchor : topicTitle(context.topic),
@@ -296,67 +292,78 @@ function messageRow(thread, message, index) {
   return row;
 }
 
+const simpleStatusText = {
+  unanswered: "You closed the session before the agent replied.",
+  sending: "Sending",
+  held: "Agent paused. Send a message in chat.",
+};
+
+function errorStatusLine(thread) {
+  const line = element("p", "thread-bad", `Could not send: ${thread.error} `);
+  if (editable) {
+    const retry = element("button", "link-btn", "Try again");
+    retry.type = "button";
+    retry.addEventListener("click", () => {
+      const { error: _error, retry: again, ...rest } = thread;
+      sent.set(thread.id, { ...rest });
+      placeThreads();
+      void again();
+    });
+    line.append(retry);
+  }
+  return line;
+}
+
+function sentStatusLine(thread) {
+  const line = element("p", "thread-sent");
+  const info = element("button", "thread-info", "i");
+  info.type = "button";
+  info.setAttribute("aria-label", "About Sent to the agent");
+  const tip = element("span", "thread-tip", messageTiming(remote?.holder));
+  tip.id = `thread-tip-${thread.id}`;
+  tip.setAttribute("role", "tooltip");
+  info.setAttribute("aria-describedby", tip.id);
+  line.append(element("span", "thread-meta", "Sent to the agent"), info, tip);
+  return line;
+}
+
+function appendFailedStatus(box) {
+  box.append(
+    element(
+      "p",
+      "thread-bad",
+      "Could not reach the agent. Give this line to an agent to take the session over:",
+    ),
+  );
+  if (remote?.handoff) {
+    const line = element("pre", "", remote.handoff);
+    line.dataset.language = "text";
+    line.dataset.file = "handoff line";
+    box.append(line);
+    enhance(box);
+  }
+}
+
 function statusLine(thread) {
   const box = element("div", "thread-status");
   if (thread.error) {
-    const line = element("p", "thread-bad", `Could not send: ${thread.error} `);
-    if (editable) {
-      const retry = element("button", "link-btn", "Try again");
-      retry.type = "button";
-      retry.addEventListener("click", () => {
-        const { error: _error, retry: again, ...rest } = thread;
-        sent.set(thread.id, { ...rest });
-        placeThreads();
-        void again();
-      });
-      line.append(retry);
-    }
-    box.append(line);
-  } else if (thread.state === "unanswered") {
-    box.append(
-      element(
-        "p",
-        "thread-meta",
-        "You closed the session before the agent replied.",
-      ),
-    );
-  } else if (thread.state === "sending") {
-    box.append(element("p", "thread-meta", "Sending"));
-  } else if (thread.state === "held") {
-    box.append(
-      element("p", "thread-meta", "Agent paused. Send a message in chat."),
-    );
-  } else if (thread.state === "sent") {
-    const line = element("p", "thread-sent");
-    const info = element("button", "thread-info", "i");
-    info.type = "button";
-    info.setAttribute("aria-label", "About Sent to the agent");
-    const tip = element("span", "thread-tip", messageTiming(remote?.holder));
-    tip.id = `thread-tip-${thread.id}`;
-    tip.setAttribute("role", "tooltip");
-    info.setAttribute("aria-describedby", tip.id);
-    line.append(element("span", "thread-meta", "Sent to the agent"), info, tip);
-    box.append(line);
+    box.append(errorStatusLine(thread));
+    return box;
+  }
+  const simple = simpleStatusText[thread.state];
+  if (simple) {
+    box.append(element("p", "thread-meta", simple));
+    return box;
+  }
+  if (thread.state === "sent") {
+    box.append(sentStatusLine(thread));
   } else if (thread.state === "read") {
     const line = element("p", "thread-working");
     line.dataset.since = thread.readAt;
     line.textContent = `Read · replying for ${lasted(thread.readAt)}`;
     box.append(line);
   } else if (thread.state === "failed") {
-    box.append(
-      element(
-        "p",
-        "thread-bad",
-        "Could not reach the agent. Give this line to an agent to take the session over:",
-      ),
-    );
-    if (remote?.handoff) {
-      const line = element("pre", "", remote.handoff);
-      line.dataset.language = "text";
-      line.dataset.file = "handoff line";
-      box.append(line);
-      enhance(box);
-    }
+    appendFailedStatus(box);
   }
   return box;
 }
@@ -515,7 +522,7 @@ function placeProgress(threads) {
   }
   // The progress cards are above the page's content, so moving one moves the
   // blocks under the note bars.
-  if (moved) placeMarks();
+  if (moved) callHook("placeMarks");
 }
 const cardOf = (id) =>
   [
@@ -550,70 +557,80 @@ function placeEnds(threads) {
     for (const card of [...box.children].slice(listed.length)) card.remove();
   }
 }
-export function placeThreads() {
-  const root = $("page-content");
-  const reading = page && !$("reading").hidden;
+function ensureCard(id) {
+  if (!cards.has(id)) cards.set(id, buildCard(id));
+  return cards.get(id);
+}
+
+function collectVisibleThreads(reading) {
   const groups = new Map();
-  const diffGroups = new Map();
-  const group = (at, thread) =>
-    groups.set(at, [...(groups.get(at) || []), thread]);
-  const groupOnDiff = (at, thread) =>
-    diffGroups.set(at, [...(diffGroups.get(at) || []), thread]);
   const ids = new Set();
   const list = [];
   const ends = [];
-  for (const thread of allThreads().toSorted((a, b) =>
+  const sorted = allThreads().toSorted((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
-  )) {
+  );
+  for (const thread of sorted) {
     const host = thread.proposal && cardOf(thread.proposal);
-    if (host) group(host, thread);
-    else if (thread.proposal) cards.get(thread.id)?.card.remove();
-    else if (endOf(thread)) ends.push(thread);
-    else if (reading && onShownPage(thread)) list.push(thread);
-    if (host || list.at(-1) === thread) ids.add(thread.id);
-  }
-  placeEnds(ends);
-  if (reading) {
-    for (const card of $("reading").querySelectorAll("pair-thread")) {
-      if (!ids.has(card.dataset.thread)) card.remove();
-    }
-    placeProgress(list.filter(onProgress));
-    for (const thread of list.filter((item) => !onProgress(item))) {
-      const diff = thread.diffLine && diffForTarget(thread.target);
-      if (diff) groupOnDiff(diff, thread);
-      else group(blockOf(root, thread), thread);
+    if (host) {
+      groups.set(host, [...(groups.get(host) || []), thread]);
+      ids.add(thread.id);
+    } else if (thread.proposal) {
+      cards.get(thread.id)?.card.remove();
+    } else if (endOf(thread)) {
+      ends.push(thread);
+    } else if (reading && onShownPage(thread)) {
+      list.push(thread);
+      ids.add(thread.id);
     }
   }
-  const placed = new Set();
-  for (const [block, threads] of groups) {
-    threads.forEach((thread, index) => {
-      if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
-      const entry = cards.get(thread.id);
-      drawCard(entry, thread, {
-        part: partOf(block, thread),
-        folded: folds(threads, index),
-      });
-      let after =
-        block ||
-        [...root.children].findLast((node) => node.localName !== "pair-thread");
-      if (after) {
-        while (placed.has(after.nextElementSibling)) {
-          after = after.nextElementSibling;
-        }
-        // Moving a card takes focus from its reply box, so a card the reviewer
-        // is typing in moves at the first poll after they leave it.
-        if (
-          after.nextElementSibling !== entry.card &&
-          !entry.form.contains(document.activeElement)
-        ) {
-          after.after(entry.card);
-        }
-      } else {
-        if (entry.card.parentElement !== root) root.append(entry.card);
-      }
-      placed.add(entry.card);
+  return { groups, ids, list, ends };
+}
+
+function groupReadingThreads(root, list, groups) {
+  const diffGroups = new Map();
+  for (const thread of list.filter((item) => !onProgress(item))) {
+    const diff = thread.diffLine && diffForTarget(thread.target);
+    if (diff) {
+      diffGroups.set(diff, [...(diffGroups.get(diff) || []), thread]);
+    } else {
+      const block = blockOf(root, thread);
+      groups.set(block, [...(groups.get(block) || []), thread]);
+    }
+  }
+  return diffGroups;
+}
+
+function placeBlockGroup(root, { block, threads, placed }) {
+  threads.forEach((thread, index) => {
+    const entry = ensureCard(thread.id);
+    drawCard(entry, thread, {
+      part: partOf(block, thread),
+      folded: folds(threads, index),
     });
-  }
+    let after =
+      block ||
+      [...root.children].findLast((node) => node.localName !== "pair-thread");
+    if (after) {
+      while (placed.has(after.nextElementSibling)) {
+        after = after.nextElementSibling;
+      }
+      // Moving a card takes focus from its reply box, so a card the reviewer
+      // is typing in moves at the first poll after they leave it.
+      if (
+        after.nextElementSibling !== entry.card &&
+        !entry.form.contains(document.activeElement)
+      ) {
+        after.after(entry.card);
+      }
+    } else if (entry.card.parentElement !== root) {
+      root.append(entry.card);
+    }
+    placed.add(entry.card);
+  });
+}
+
+function placeDiffThreads(root, diffGroups) {
   for (const diffView of diffViews(root)) {
     const threads = diffGroups.get(diffView) || [];
     const byLine = new Map();
@@ -623,8 +640,7 @@ export function placeThreads() {
     }
     for (const lineThreads of byLine.values()) {
       lineThreads.forEach((thread, index) => {
-        if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
-        drawCard(cards.get(thread.id), thread, {
+        drawCard(ensureCard(thread.id), thread, {
           part: `line ${thread.diffLine.lineNumber}`,
           folded: folds(lineThreads, index),
         });
@@ -632,18 +648,41 @@ export function placeThreads() {
     }
     setDiffThreads(diffView, threads, cards);
   }
+}
+
+function fitPlacedCards() {
   // A message's ResizeObserver calls fit only at the next frame, after a
   // scroll to a reply has measured each long message at its full height.
   // placeThreads therefore calls fit for each card drawn here as soon as the
   // card is on the page.
   for (const card of unfitted) {
-    if (card.isConnected) {
-      for (const clamp of card.querySelectorAll(".thread-clamp")) {
-        fits.get(clamp)();
-      }
+    if (!card.isConnected) continue;
+    for (const clamp of card.querySelectorAll(".thread-clamp")) {
+      fits.get(clamp)();
     }
   }
   unfitted.clear();
+}
+
+export function placeThreads() {
+  const root = $("page-content");
+  const reading = page && !$("reading").hidden;
+  const { groups, ids, list, ends } = collectVisibleThreads(reading);
+  placeEnds(ends);
+  let diffGroups = new Map();
+  if (reading) {
+    for (const card of $("reading").querySelectorAll("pair-thread")) {
+      if (!ids.has(card.dataset.thread)) card.remove();
+    }
+    placeProgress(list.filter(onProgress));
+    diffGroups = groupReadingThreads(root, list, groups);
+  }
+  const placed = new Set();
+  for (const [block, threads] of groups) {
+    placeBlockGroup(root, { block, threads, placed });
+  }
+  placeDiffThreads(root, diffGroups);
+  fitPlacedCards();
 }
 function tick() {
   for (const { card } of cards.values()) {

@@ -1,6 +1,6 @@
+import { callHook } from "#frame/app/hooks.mjs";
 import { scroller } from "#frame/app/places.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { renderHistory } from "#frame/sync/activity-view.mjs";
 
 /* When the reader moves to another page, the frame updates the header and
    the sidebar at the click, and updates the reading column and the round
@@ -139,7 +139,8 @@ function startBar() {
 // getComputedTiming().progress is null until the delay has passed, so
 // barShown() is true only while the bar is on screen.
 function barShown() {
-  return grow?.effect.getComputedTiming().progress != null;
+  const progress = grow?.effect.getComputedTiming().progress;
+  return progress !== null && progress !== undefined;
 }
 function finishBar(shown) {
   const growing = grow;
@@ -185,7 +186,7 @@ export function arrived() {
   picture = null;
   if (fade) crossfade(leaving);
   else leaving?.remove();
-  renderHistory();
+  callHook("renderHistory");
   finishBar(shown);
 }
 function crossfade(leaving) {

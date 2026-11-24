@@ -1,5 +1,5 @@
 import { normalize, plural } from "#frame/app/util.mjs";
-import { findQuote } from "#frame/notes/notes.mjs";
+import { findQuote } from "#frame/notes/quote.mjs";
 
 /* threadName and partOf read only markup that any component can use, so
    they name the parts of a user's own components the same way. */
@@ -45,42 +45,56 @@ export function threadTitle(thread, part, collapsed) {
   };
 }
 
+function plainCodeLine(block, range) {
+  // Before Shiki replaces a code block's text, or when Shiki cannot load, the
+  // block has no line elements, so partOf counts the lines in its plain text.
+  const code = range.startContainer.parentElement.closest("[data-language]");
+  if (!code || !block.contains(code) || code.querySelector(".shiki")) {
+    return null;
+  }
+  const before = document.createRange();
+  before.selectNodeContents(code);
+  before.setEnd(range.startContainer, range.startOffset);
+  return `line ${before.toString().split("\n").length}`;
+}
+
+function controlPart(at) {
+  // In a checklist, the row contains the checkbox that has data-value. In
+  // a decision, the option itself has data-value.
+  const list = at.parentElement.closest("[data-multiselect]");
+  const values = list ? at.querySelectorAll("[data-value]") : [];
+  const value = at.matches("[data-value]")
+    ? at
+    : values.length === 1 && values[0];
+  if (!value) return null;
+  return `${list ? "item" : "option"} ${value.dataset.label || value.dataset.value}`;
+}
+
+function ancestorPart(at) {
+  const first = at.localName === "tr" && normalize(at.cells[0]?.textContent);
+  if (first) return `row ${first}`;
+  if (at.matches(".shiki code .line")) {
+    const lines = [...at.closest(".shiki").querySelectorAll("code .line")];
+    return `line ${lines.indexOf(at) + 1}`;
+  }
+  return controlPart(at);
+}
+
 export function partOf(block, thread) {
   const range =
     block &&
     thread.quote &&
     findQuote(thread.quote, thread.target, thread.occurrence);
   if (!range || !block.contains(range.startContainer)) return null;
-  // Before Shiki replaces a code block's text, or when Shiki cannot load, the
-  // block has no line elements, so partOf counts the lines in its plain text.
-  const code = range.startContainer.parentElement.closest("[data-language]");
-  if (code && block.contains(code) && !code.querySelector(".shiki")) {
-    const before = document.createRange();
-    before.selectNodeContents(code);
-    before.setEnd(range.startContainer, range.startOffset);
-    return `line ${before.toString().split("\n").length}`;
-  }
+  const plain = plainCodeLine(block, range);
+  if (plain) return plain;
   for (
     let at = range.startContainer.parentElement;
     at !== block;
     at = at.parentElement
   ) {
-    const first = at.localName === "tr" && normalize(at.cells[0]?.textContent);
-    if (first) return `row ${first}`;
-    if (at.matches(".shiki code .line")) {
-      const lines = [...at.closest(".shiki").querySelectorAll("code .line")];
-      return `line ${lines.indexOf(at) + 1}`;
-    }
-    // In a checklist, the row contains the checkbox that has data-value. In
-    // a decision, the option itself has data-value.
-    const list = at.parentElement.closest("[data-multiselect]");
-    const values = list ? at.querySelectorAll("[data-value]") : [];
-    const value = at.matches("[data-value]")
-      ? at
-      : values.length === 1 && values[0];
-    if (value) {
-      return `${list ? "item" : "option"} ${value.dataset.label || value.dataset.value}`;
-    }
+    const part = ancestorPart(at);
+    if (part) return part;
   }
   return null;
 }

@@ -6,16 +6,17 @@ const record = (value) =>
 
 export const emptySynced = (id = null) => ({ id, revision: 0, items: {} });
 
+function compareKey([a], [b]) {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
+
 // digest sorts object keys first, so it returns the same string for two
 // copies of an item whose fields are in a different order.
 export function digest(value) {
   const text = JSON.stringify(value ?? null, (key, item) =>
     record(item)
-      ? Object.fromEntries(
-          Object.entries(item).toSorted(([a], [b]) =>
-            a < b ? -1 : a > b ? 1 : 0,
-          ),
-        )
+      ? Object.fromEntries(Object.entries(item).toSorted(compareKey))
       : item,
   );
   let h1 = 0xdeadbeef,
@@ -103,21 +104,17 @@ function sentHere(draft, kind, id) {
   if (kind in fields) return Boolean(draft[fields[kind]][id]?.sentIn);
   return false;
 }
-// apply returns the page of the item it changed, or null for the switch.
-function apply(draft, { kind, id }, value) {
-  if (kind === "alignUnflagged") {
-    draft.alignUnflagged = value ?? true;
-    return null;
-  }
-  if (kind === "note") {
-    const index = draft.notes.findIndex((note) => note.id === id);
-    const topic = draft.notes[index]?.topic ?? value?.topic;
-    if (value === null) {
-      if (index >= 0) draft.notes.splice(index, 1);
-    } else if (index >= 0) draft.notes[index] = value;
-    else draft.notes.push(value);
-    return topic;
-  }
+function applyNote(draft, id, value) {
+  const index = draft.notes.findIndex((note) => note.id === id);
+  const topic = draft.notes[index]?.topic ?? value?.topic;
+  if (value === null) {
+    if (index >= 0) draft.notes.splice(index, 1);
+  } else if (index >= 0) draft.notes[index] = value;
+  else draft.notes.push(value);
+  return topic;
+}
+
+function applyMappedItem(draft, { kind, id }, value) {
   const map = draft[fields[kind]];
   const topic = map[id]?.topic ?? value?.topic;
   // A question's box shows the typed text before the answer, and the typed
@@ -132,54 +129,69 @@ function apply(draft, { kind, id }, value) {
   return topic;
 }
 
-/* mergeDraft applies the hub's draft to this browser's draft. It returns
-   null when nothing here changed, and otherwise the IDs of the pages whose
-   items changed. For each item the hub changed since the last merge, the
-   hub's value replaces this browser's value, unless the reviewer changed
-   the item here since the last merge. That change has not reached the hub
-   yet, so the hub will receive it later and keep it. The hub refuses every
-   change to a deleted note, so mergeDraft gives a note changed here after
-   its delete a new ID, which keeps the reviewer's words as a new note.
-   mergeDraft never changes an item that this browser sent.
+// apply returns the page of the item it changed, or null for the switch.
+function apply(draft, { kind, id }, value) {
+  if (kind === "alignUnflagged") {
+    draft.alignUnflagged = value ?? true;
+    return null;
+  }
+  if (kind === "note") return applyNote(draft, id, value);
+  return applyMappedItem(draft, { kind, id }, value);
+}
 
-   The tabs of a session in one browser share one saved draft, with its
-   synced record, but each tab reads the hub's draft on its own. A tab can
-   therefore hold a copy of the hub's draft older than the one another tab
-   already merged, so mergeDraft ignores a copy no newer than the last merge.
-   Such a copy can contain an item that was deleted since. */
+function resolveEntryConflict(
+  draft,
+  { parts, item, mine, theirs, dirty, changed },
+) {
+  if (mine === theirs) {
+    // draftItems() counts an untouched checklist as no item, and a
+    // tombstone for its key means that another browser sent that
+    // checklist.
+    if (
+      item.value === null &&
+      parts.kind === "choice" &&
+      draft.choices[parts.id]
+    ) {
+      changed(apply(draft, parts, null));
+    }
+    return true;
+  }
+  if (dirty && parts.kind === "note" && !item.value) {
+    const note = draft.notes.find((entry) => entry.id === parts.id);
+    note.id = uuid();
+    changed(note.topic);
+    return true;
+  }
+  if (dirty) return false;
+  changed(apply(draft, parts, structuredClone(item.value)));
+  return true;
+}
+
+function mergeHubEntry(draft, { key, item, local, changed }) {
+  const synced = draft.synced.items;
+  const known = synced[key];
+  const parts = splitKey(key);
+  if (!parts || (known && item.rev <= known.rev)) return;
+  if (sentHere(draft, parts.kind, parts.id)) return;
+  const theirs = digest(item.value);
+  const mine = digest(local[key]);
+  const dirty = mine !== (known?.digest ?? none);
+  if (
+    !resolveEntryConflict(draft, { parts, item, mine, theirs, dirty, changed })
+  ) {
+    return;
+  }
+  synced[key] = { rev: item.rev, digest: theirs };
+}
+
 export function mergeDraft(draft, hub) {
   if (hub.id !== draft.synced.id) draft.synced = emptySynced(hub.id);
   else if (hub.revision <= draft.synced.revision) return null;
-  const synced = draft.synced.items;
   const local = draftItems(draft);
   let pages = null;
   const changed = (topic) => (pages ||= new Set()).add(topic);
   for (const [key, item] of Object.entries(hub.items)) {
-    const known = synced[key];
-    const parts = splitKey(key);
-    if (!parts || (known && item.rev <= known.rev)) continue;
-    if (sentHere(draft, parts.kind, parts.id)) continue;
-    const theirs = digest(item.value);
-    const mine = digest(local[key]);
-    const dirty = mine !== (known?.digest ?? none);
-    if (mine === theirs) {
-      // draftItems() counts an untouched checklist as no item, and a
-      // tombstone for its key means that another browser sent that
-      // checklist.
-      if (
-        item.value === null &&
-        parts.kind === "choice" &&
-        draft.choices[parts.id]
-      ) {
-        changed(apply(draft, parts, null));
-      }
-    } else if (dirty && parts.kind === "note" && !item.value) {
-      const note = draft.notes.find((entry) => entry.id === parts.id);
-      note.id = uuid();
-      changed(note.topic);
-    } else if (dirty) continue;
-    else changed(apply(draft, parts, structuredClone(item.value)));
-    synced[key] = { rev: item.rev, digest: theirs };
+    mergeHubEntry(draft, { key, item, local, changed });
   }
   draft.synced.revision = hub.revision;
   return pages;

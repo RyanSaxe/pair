@@ -1,3 +1,4 @@
+import { displayedRound } from "#frame/app/state.mjs";
 import { record } from "#frame/app/store.mjs";
 import { $ } from "#frame/app/util.mjs";
 import {
@@ -7,7 +8,6 @@ import {
   placeKey,
   shownPage,
 } from "#frame/app/view.mjs";
-import { displayedRound } from "#frame/pages/pages.mjs";
 import { renders } from "#frame/pages/renderers.mjs";
 
 // The saved value contains, for each round, the last page the reader was on
@@ -243,7 +243,56 @@ function endFlick(box) {
     flickRestore = null;
   };
 }
-export function land(anchor, { focusHeading = true } = {}) {
+function revealTargetElement(element, refocus) {
+  for (let at = element; at; at = at.parentElement) {
+    if (at.tagName === "DETAILS") at.open = true;
+  }
+  // A reply inside a collapsed card has no box, so arrive() clicks the
+  // card's Expand button, .thread-fold.
+  element
+    .closest("pair-thread[collapsed]")
+    ?.querySelector(".thread-fold")
+    .click();
+  if (!embedded) {
+    if (!element.hasAttribute("tabindex")) element.tabIndex = -1;
+    element.focus({ preventScroll: true });
+    element.addEventListener("blur", refocus);
+  }
+}
+
+function pendingImages(view) {
+  return [...view.querySelectorAll("img")]
+    .filter((image) => !image.complete)
+    .map(
+      (image) =>
+        new Promise((resolve) => {
+          image.addEventListener("load", resolve, { once: true });
+          image.addEventListener("error", resolve, { once: true });
+        }),
+    );
+}
+
+function focusHeadingIfNeeded(focusHeading, hasTarget) {
+  if (focusHeading && !embedded && !hasTarget) {
+    heading().focus({ preventScroll: true });
+  }
+}
+
+function waitUntilSettled(view, onSettled) {
+  void Promise.race([
+    Promise.allSettled([...renders, ...pendingImages(view)]),
+    new Promise((resolve) => setTimeout(resolve, WAIT_MS)),
+  ]).then(onSettled);
+}
+
+function attachReaderStops(stop) {
+  for (const type of readerInputs) {
+    addEventListener(type, stop, { capture: true, passive: true });
+  }
+}
+
+export function land(anchor, options) {
+  const focusHeading = options?.focusHeading ?? true;
   held?.stop();
   const box = scroller();
   endFlick(box);
@@ -251,7 +300,7 @@ export function land(anchor, { focusHeading = true } = {}) {
   const id = anchor?.target ?? anchor?.id;
   if (!id) {
     box.scrollTop = 0;
-    if (focusHeading && !embedded) heading().focus({ preventScroll: true });
+    focusHeadingIfNeeded(focusHeading, false);
     notePlace();
     return;
   }
@@ -275,20 +324,7 @@ export function land(anchor, { focusHeading = true } = {}) {
     element?.removeEventListener("blur", refocus);
     element = next;
     if (!target) return;
-    for (let at = element; at; at = at.parentElement) {
-      if (at.tagName === "DETAILS") at.open = true;
-    }
-    // A reply inside a collapsed card has no box, so arrive() clicks the
-    // card's Expand button, .thread-fold.
-    element
-      .closest("pair-thread[collapsed]")
-      ?.querySelector(".thread-fold")
-      .click();
-    if (!embedded) {
-      if (!element.hasAttribute("tabindex")) element.tabIndex = -1;
-      element.focus({ preventScroll: true });
-      element.addEventListener("blur", refocus);
-    }
+    revealTargetElement(element, refocus);
     if (into === null) {
       into = -Math.max(
         0,
@@ -331,28 +367,12 @@ export function land(anchor, { focusHeading = true } = {}) {
     anchor: () => ({ ...anchor, ...(into === null ? {} : { into }) }),
   };
   box.style.overflowAnchor = "none";
-  if (focusHeading && !embedded && !(target && find())) {
-    heading().focus({ preventScroll: true });
-  }
+  focusHeadingIfNeeded(focusHeading, target && Boolean(find()));
   place();
   box.addEventListener("scroll", place, { passive: true });
-  for (const type of readerInputs) {
-    addEventListener(type, stop, { capture: true, passive: true });
-  }
+  attachReaderStops(stop);
   observer.observe(view);
-  const images = [...view.querySelectorAll("img")]
-    .filter((image) => !image.complete)
-    .map(
-      (image) =>
-        new Promise((resolve) => {
-          image.addEventListener("load", resolve, { once: true });
-          image.addEventListener("error", resolve, { once: true });
-        }),
-    );
-  void Promise.race([
-    Promise.allSettled([...renders, ...images]),
-    new Promise((resolve) => setTimeout(resolve, WAIT_MS)),
-  ]).then(() => {
+  waitUntilSettled(view, () => {
     settled = true;
     if (held?.stop === stop) changed();
   });

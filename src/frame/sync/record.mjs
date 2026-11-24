@@ -6,6 +6,10 @@
    of the session list. `name` is the list's name on the hub. load() returns
    null when neither the hub nor this browser has recorded anything yet. */
 const same = (a, b) => a.size === b.size && [...a].every((id) => b.has(id));
+function mergedBase(known, local, adopt) {
+  if (known) return new Set([...known, ...(local ?? [])]);
+  return local ?? adopt();
+}
 export function hubRecord(name, storageKey, changed = () => {}) {
   let fallback = null;
   // listed is true once a session list has come from the hub. kept is true
@@ -73,9 +77,7 @@ export function hubRecord(name, storageKey, changed = () => {}) {
       kept = hub !== undefined;
       const local = load();
       const known = hub && new Set(hub);
-      const base = known
-        ? new Set([...known, ...(local || [])])
-        : local || adopt();
+      const base = mergedBase(known, local, adopt);
       if (!base) return;
       const next = settle(base);
       const missing = [...next].filter((id) => !known?.has(id));

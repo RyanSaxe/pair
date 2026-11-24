@@ -1,9 +1,9 @@
 import { keepPlaceOverReload } from "#frame/app/places.mjs";
+import { selectedTab } from "#frame/app/state.mjs";
 import { state } from "#frame/app/store.mjs";
+import { fieldHasFocus, inUse } from "#frame/app/ui.mjs";
 import { embedded, mode, session } from "#frame/app/view.mjs";
-import { fieldHasFocus, inUse } from "#frame/pages/pages.mjs";
-import { workTab } from "#frame/pages/work.mjs";
-import { selectedTab } from "#frame/sync/rounds.mjs";
+import { workTab } from "#frame/pages/work-model.mjs";
 
 /* A tab keeps the frame code it loaded, and that code can show a broken page
    against a hub that restarted on new code. So the tab reloads once a session's

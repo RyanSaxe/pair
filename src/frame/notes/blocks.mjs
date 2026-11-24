@@ -1,22 +1,13 @@
+import { callHook } from "#frame/app/hooks.mjs";
+import { noteDraftKey, remote } from "#frame/app/state.mjs";
 import { persist, state } from "#frame/app/store.mjs";
 import { $, normalize } from "#frame/app/util.mjs";
-import {
-  agreements,
-  editable,
-  feedbackEditable,
-  noteEditable,
-  page,
-} from "#frame/app/view.mjs";
-import { threadNoteHasWords } from "#frame/notes/note-dialog.mjs";
-import {
-  noteDraftKey,
-  openNote,
-  selectedOccurrence,
-} from "#frame/notes/notes.mjs";
+import { agreements, editable, page } from "#frame/app/view.mjs";
+import { selectedOccurrence } from "#frame/notes/quote.mjs";
 import { diagramBox } from "#frame/pages/diagram.mjs";
-import { cardsEditable } from "#frame/pages/work.mjs";
 import { diffLineForNode, selectionAnchor } from "#frame/pages/renderers.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
+import { cardsEditable } from "#frame/pages/work-model.mjs";
+import { feedbackEditable, noteEditable } from "#frame/review/send-state.mjs";
 
 let selected = "";
 let selectedTarget = null;
@@ -37,7 +28,7 @@ function pageBlock(node) {
   }
   return null;
 }
-function selectionTarget(node, block, diffLine) {
+function ancestorId(node) {
   for (
     let at = node?.nodeType === 1 ? node : node?.parentElement;
     at && at.id !== "page-content";
@@ -45,6 +36,12 @@ function selectionTarget(node, block, diffLine) {
   ) {
     if (at.id) return at.id;
   }
+  return null;
+}
+
+function selectionTarget(node, block, diffLine) {
+  const existing = ancestorId(node);
+  if (existing) return existing;
   if (!diffLine || !block) return block?.id || null;
   if (!block.id) {
     const root = $("page-content");
@@ -113,9 +110,7 @@ function blockHeading(block) {
   );
   return peers.length < 2 ? name : `${name} ${peers.indexOf(block) + 1}`;
 }
-function blockName(block) {
-  /* blockName never uses the block's own text, because that text includes a
-     table's cells, a renderer's injected stylesheet and its buttons. */
+function blockLabel(block) {
   const named = "[data-title], [data-caption], [data-file]";
   const titled = block.matches(named) ? block : block.querySelector(named);
   /* A heading inside a details element names a section of the block, not
@@ -123,18 +118,25 @@ function blockName(block) {
   const heading = [...block.querySelectorAll("h1, h2, h3, h4, h5, h6")].find(
     (node) => !node.closest("details"),
   );
-  const name =
-    readText(heading) ||
-    normalize(titled?.dataset.title) ||
-    normalize(titled?.dataset.file) ||
-    readText(block.querySelector(".figure-head b")) ||
-    normalize(titled?.dataset.caption) ||
-    readText(block.querySelector(".figure-caption")) ||
+  const candidates = [
+    readText(heading),
+    normalize(titled?.dataset.title),
+    normalize(titled?.dataset.file),
+    readText(block.querySelector(".figure-head b")),
+    normalize(titled?.dataset.caption),
+    readText(block.querySelector(".figure-caption")),
     /* The reviewer reads this name on Review and the agent reads it as
        text, and neither sees the block there. A block with no name of its
        own falls back to the heading above it, then to its kind. */
-    readText(headingAbove(block)) ||
-    sentence(blockKind(block));
+    readText(headingAbove(block)),
+  ];
+  return candidates.find(Boolean) || sentence(blockKind(block));
+}
+
+function blockName(block) {
+  /* blockName never uses the block's own text, because that text includes a
+     table's cells, a renderer's injected stylesheet and its buttons. */
+  const name = blockLabel(block);
   return name.length > 60 ? name.slice(0, 57) + "…" : name;
 }
 
@@ -151,14 +153,18 @@ export function blockTargets(root, topic) {
 // choose with a click or the j and k keys.
 const units =
   "#work-cards > [data-proposal-card], #page-content .agreement-card, #page-content > *";
+function choosableNodes() {
+  if (!$("work-view").hidden) {
+    return $("work-cards").querySelectorAll(":scope > [data-proposal-card]");
+  }
+  if (page.id === "agreed") {
+    return $("page-content").querySelectorAll(".agreement-card");
+  }
+  return $("page-content").children;
+}
 export function choosable() {
   if (!$("review-view").hidden) return [];
-  const found = $("work-view").hidden
-    ? page.id === "agreed"
-      ? $("page-content").querySelectorAll(".agreement-card")
-      : $("page-content").children
-    : $("work-cards").querySelectorAll(":scope > [data-proposal-card]");
-  return [...found].filter(
+  return [...choosableNodes()].filter(
     (unit) => !blockSkip.has(unit.tagName) && unit.offsetParent,
   );
 }
@@ -197,6 +203,22 @@ export function chooseBlock(block) {
   chosen = block && block !== chosen ? block : null;
   commentTarget();
 }
+/* The checks test what the block is before what it contains, so a decision
+   whose options are diagrams is still a decision. The figure check comes
+   last because every diagram and chart contains a figure. */
+const blockKindMatchers = [
+  ["[data-choice]", "this decision"],
+  ["[data-question]", "this question"],
+  ["[data-multiselect]", "this checklist"],
+  ["table", "this table"],
+  ["[data-language], .shiki", "this code"],
+  ["[data-diagram]", "this diagram"],
+  ["[data-chart]", "this chart"],
+  ["[data-math]", "this formula"],
+  ["[data-prototype]", "this prototype"],
+  ["figure, .figure, svg, img", "this figure"],
+];
+
 function blockKind(block) {
   const has = (selector) =>
     block.matches(selector) || block.querySelector(selector) !== null;
@@ -205,29 +227,18 @@ function blockKind(block) {
      elements that any component can use. */
   const declared = block.closest("[data-kind]")?.dataset.kind;
   if (declared) return `this ${declared}`;
-  /* The checks test what the block is before what it contains, so a decision
-     whose options are diagrams is still a decision. The figure check comes
-     last because every diagram and chart contains a figure. */
-  if (has("[data-choice]")) return "this decision";
-  if (has("[data-question]")) return "this question";
-  if (has("[data-multiselect]")) return "this checklist";
-  if (has("table")) return "this table";
-  if (has("[data-language], .shiki")) return "this code";
-  if (has("[data-diagram]")) return "this diagram";
-  if (has("[data-chart]")) return "this chart";
-  if (has("[data-math]")) return "this formula";
-  if (has("[data-prototype]")) return "this prototype";
-  if (has("figure, .figure, svg, img")) return "this figure";
-  return "this block";
+  const matched = blockKindMatchers.find(([selector]) => has(selector));
+  return matched ? matched[1] : "this block";
 }
 function target() {
   if (!$("review-view").hidden) return "overall";
   if (!$("work-view").hidden) return chosen ? "block" : "work";
-  return selected.length > 3 ? "selection" : chosen ? "block" : "page";
+  if (selected.length > 3) return "selection";
+  return chosen ? "block" : "page";
 }
 function usable(on) {
   if (!editable || (!$("reading").hidden && page.pending)) return false;
-  if (threadNoteHasWords()) return false;
+  if (callHook("threadNoteHasWords")) return false;
   return on === "block" ? opens(chosen) : noteEditable();
 }
 const names = {
@@ -236,27 +247,34 @@ const names = {
   work: "Comment on Work",
   overall: "Add overall comment",
 };
-export function commentTarget() {
+function reconnectChosen() {
   // The Work page draws its cards again when they change, so commentTarget
   // finds the chosen card again by its ID. The choice ends when the open tab
   // no longer lists the card.
-  if (chosen && !chosen.isConnected) {
-    const id = chosen.dataset.proposalCard;
-    chosen =
-      (!$("work-view").hidden &&
-        id &&
-        $("work-cards").querySelector(
-          `:scope > [data-proposal-card="${CSS.escape(id)}"]`,
-        )) ||
-      null;
+  if (!chosen || chosen.isConnected) return;
+  const id = chosen.dataset.proposalCard;
+  if (!id || $("work-view").hidden) {
+    chosen = null;
+    return;
   }
+  chosen =
+    $("work-cards").querySelector(
+      `:scope > [data-proposal-card="${CSS.escape(id)}"]`,
+    ) || null;
+}
+function commentMode(hidden, on, grows) {
+  if (hidden) return "none";
+  return grows ? on : "page";
+}
+export function commentTarget() {
+  reconnectChosen();
   const button = $("comment-here");
   const on = target();
   /* CSS hides the control while a modal or the phone's note sheet is open, so
      no code that opens one has to hide it. */
   button.hidden = !usable(on);
   const grows = on === "selection" || on === "block";
-  button.dataset.on = button.hidden ? "none" : grows ? on : "page";
+  button.dataset.on = commentMode(button.hidden, on, grows);
   const name = on === "block" ? `Comment on ${blockKind(chosen)}` : names[on];
   button.setAttribute("aria-label", name);
   /* commentTarget leaves the label text as it is when the control shrinks to
@@ -324,15 +342,17 @@ function chosenNote() {
 export function commentOnTarget() {
   const on = target();
   if (!usable(on)) return;
-  if (on === "overall") openNote({ topic: "overall", anchor: "Overall" });
-  else if (on === "work") openNote({ topic: "work", anchor: "Work" });
-  else if (on === "selection" && selectedBox) {
+  if (on === "overall") {
+    callHook("openNote", { topic: "overall", anchor: "Overall" });
+  } else if (on === "work") {
+    callHook("openNote", { topic: "work", anchor: "Work" });
+  } else if (on === "selection" && selectedBox) {
     commentOn(selectedBox.diagram, {
       quote: selectedBox.label,
       diagramNode: selectedBox.id,
     });
   } else if (on === "selection") {
-    openNote({
+    callHook("openNote", {
       topic: page.id,
       anchor: page.title,
       quote: selected,
@@ -340,8 +360,8 @@ export function commentOnTarget() {
       occurrence: selectedOccurrence(getSelection(), selected, selectedTarget),
       diffLine: selectedDiffLine,
     });
-  } else if (on === "block") openNote(chosenNote());
-  else openNote({ topic: page.id, anchor: page.title });
+  } else if (on === "block") callHook("openNote", chosenNote());
+  else callHook("openNote", { topic: page.id, anchor: page.title });
   chooseBlock(null);
 }
 /* A component calls commentOn to open a note on one part of a block, such
@@ -353,7 +373,7 @@ export function partName(element) {
   return block ? blockHeading(block) : page.title;
 }
 export function commentOn(element, fields) {
-  openNote({
+  callHook("openNote", {
     topic: page.id,
     anchor: partName(element),
     target: element?.id || null,

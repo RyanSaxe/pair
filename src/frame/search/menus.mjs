@@ -114,12 +114,14 @@ export function createMenus({
       list[(at + step + list.length) % list.length].focus();
     },
     choose(name, value) {
+      if (!value) {
+        state[name] = [];
+        return;
+      }
       const chosen = state[name];
-      state[name] = value
-        ? chosen.includes(value)
-          ? chosen.filter((item) => item !== value)
-          : [...chosen, value]
-        : [];
+      state[name] = chosen.includes(value)
+        ? chosen.filter((item) => item !== value)
+        : [...chosen, value];
     },
   };
 }

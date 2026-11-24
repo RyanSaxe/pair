@@ -1,8 +1,8 @@
+import { callHook } from "#frame/app/hooks.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
 import { createMenus } from "#frame/search/menus.mjs";
 import { openSearch, sharedWindow } from "#frame/search/modal.mjs";
-import { escapeHtml, HERE } from "#frame/search/rows.mjs";
 import {
   GROUPS,
   KINDS,
@@ -11,15 +11,14 @@ import {
   rowHtml,
 } from "#frame/search/notification-rows.mjs";
 import { matchOf, pageOf, targetOf } from "#frame/search/open.mjs";
+import { escapeHtml, HERE } from "#frame/search/rows.mjs";
 import {
   clear,
   listedSessions,
   loadCleared,
-  openLine,
-  toggleCenter,
-  unreadEventIds,
   unreadCount,
-} from "#frame/sync/center.mjs";
+  unreadEventIds,
+} from "#frame/sync/center-state.mjs";
 import { resultHref } from "#frame/sync/notifications.mjs";
 
 /* Notifications' source for the shared window, and the read rules. A click reads
@@ -220,7 +219,7 @@ export function openPlace(row, query = "") {
   const page = pageOf(shown);
   const target = targetOf(shown);
   const match = matchOf(shown, query);
-  openLine({
+  callHook("openLine", {
     entry: { id: row.session, url: row.url, round: row.sessionRound },
     page,
     round: shown.round ?? undefined,
@@ -243,13 +242,17 @@ function openRow(row) {
 }
 
 const failed = () => searchFailed || linesFailed;
+function blankWords(typed) {
+  if (typed) return `No notifications match “${escapeHtml(typed)}”.`;
+  if (state.states.length === 1 && state.states[0] === "unread") {
+    return "Nothing unread.";
+  }
+  return "No notifications here.";
+}
+
 function blank() {
   const typed = state.query.trim();
-  const words = typed
-    ? `No notifications match “${escapeHtml(typed)}”.`
-    : state.states.length === 1 && state.states[0] === "unread"
-      ? "Nothing unread."
-      : "No notifications here.";
+  const words = blankWords(typed);
   return `<div class="search-blank"><span>${words}</span>${
     typed
       ? `<button class="btn" type="button" data-search-all>Search all of pair for “${escapeHtml(typed)}”</button>`
@@ -391,7 +394,7 @@ function cardChanged() {
 export function openNotifications() {
   const win = sharedWindow();
   if (!win) return;
-  toggleCenter(false);
+  callHook("toggleCenter", false);
   if (!source) {
     source = notificationsSource(win);
     window.addEventListener("pair:reply", repliedInPane);

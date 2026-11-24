@@ -3,11 +3,12 @@ import {
   emptySynced,
   forgetSent,
 } from "#frame/app/draft-merge.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
+import { selectedTab, state } from "#frame/app/state.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { editable, prefsPrefix, storageKey } from "#frame/app/view.mjs";
-import { review } from "#frame/review/review.mjs";
-import { queuePush } from "#frame/sync/draft.mjs";
-import { selectedTab } from "#frame/sync/rounds.mjs";
+
+export { setState, state } from "#frame/app/state.mjs";
 
 export const record = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -158,10 +159,6 @@ export function markSent(draft, id, at) {
   return draft;
 }
 
-export let state;
-export function setState(draft) {
-  state = draft;
-}
 export function savedDraft(round) {
   try {
     return loadDraft(JSON.parse(localStorage.getItem(storageKey)), round);
@@ -170,6 +167,7 @@ export function savedDraft(round) {
     return emptyDraft(round);
   }
 }
+
 // storedDraft() ignores a draft that another tab of the session saved for a
 // different round, so this tab never takes over that draft.
 export function storedDraft(value, round) {
@@ -180,6 +178,7 @@ export function storedDraft(value, round) {
     return null;
   }
 }
+
 export const prefs = {
   get(key) {
     try {
@@ -209,9 +208,10 @@ export function persist() {
     $("storage-status").textContent =
       "Local storage unavailable. Export a copy to keep your draft.";
   }
-  queuePush();
+  callHook("queuePush");
 }
+
 export function save() {
   persist();
-  review();
+  callHook("review");
 }

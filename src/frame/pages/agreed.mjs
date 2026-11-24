@@ -1,5 +1,7 @@
-import { enhance } from "#frame/app/registry.mjs";
+import { enhance } from "#frame/app/components.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
 import { state } from "#frame/app/store.mjs";
+import { linkButton, tag } from "#frame/app/ui.mjs";
 import { $, plural } from "#frame/app/util.mjs";
 import {
   agreedTask,
@@ -9,9 +11,9 @@ import {
   online,
   topicTitle,
 } from "#frame/app/view.mjs";
-import { show } from "#frame/pages/pages.mjs";
-import { metaLine } from "#frame/pages/work.mjs";
-import { openPast } from "#frame/sync/rounds.mjs";
+import { metaLine } from "#frame/pages/work-model.mjs";
+
+export { linkButton, tag } from "#frame/app/ui.mjs";
 
 function agreementLabel(entry) {
   if (entry.state === "reopened") return ["Revisiting", "attention"];
@@ -20,6 +22,7 @@ function agreementLabel(entry) {
   if (entry.change === "updated") return ["Updated", "accent"];
   return null;
 }
+
 function describeRecord(record) {
   const where = topicTitle(record.topic) || record.topic;
   if (record.kind === "note") return `your note on ${where}`;
@@ -30,6 +33,7 @@ function describeRecord(record) {
   if (record.kind === "answer") return `your answer to “${record.label}”`;
   return `your choice “${record.text}” for ${record.label}`;
 }
+
 // A thread on a proposal's card belongs to no round.
 function recordLine(record, separator) {
   const what = describeRecord(record);
@@ -37,9 +41,11 @@ function recordLine(record, separator) {
     ? `Round ${record.round}${separator}${what}`
     : what[0].toUpperCase() + what.slice(1);
 }
+
 // Only a frame on the hub has Work, so a saved round has no link to a card. A
 // source stored with no round and no card has nowhere to open.
 const hasLink = (record) => record.round || (online && record.proposal);
+
 // In the live reader, openInTab() makes a source's Open link load its round
 // into the left tab at the page and block in the link, or show its thread on
 // Work. A modified click still opens the page in a new tab.
@@ -56,15 +62,17 @@ function openInTab(link, record) {
       return;
     }
     event.preventDefault();
-    if (record.proposal) show("work", `thread-${record.threadId}`);
-    else {
-      void openPast(record.round, {
+    if (record.proposal) {
+      callHook("show", "work", `thread-${record.threadId}`);
+    } else {
+      void callHook("openPast", record.round, {
         pageId: record.topic,
         targetId: record.target,
       });
     }
   });
 }
+
 function recordUrl(record, route) {
   if (record.proposal) {
     return `${base}/?target=${encodeURIComponent(`thread-${record.threadId}`)}#work`;
@@ -76,47 +84,29 @@ function recordUrl(record, route) {
   const search = params.toString();
   return `${base}/${route}/${encodeURIComponent(record.round)}${search ? "?" + search : ""}#${encodeURIComponent(record.topic)}`;
 }
-export function tag(text, tone = "") {
-  const element = document.createElement("span");
-  element.className = `tag ${tone}`.trim();
-  element.textContent = text;
-  return element;
-}
-export function linkButton(text, onclick) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "link-btn";
-  button.textContent = text;
-  button.addEventListener("click", onclick);
-  return button;
-}
+
 function dotSeparator() {
   const dot = document.createElement("span");
   dot.textContent = "·";
   return dot;
 }
-function agreementCard(entry) {
-  const card = document.createElement("section");
-  card.className = "agreement-card";
-  card.id = "agreement-" + entry.id;
-  // The comment control uses data-kind to name a chosen card.
-  card.dataset.kind = "alignment";
+
+function sourceSummary(entry, records, first) {
+  if (first) return recordLine(first, ", ");
+  if (records.length) return "From the conversation";
+  if (entry.source) return "Source noted by the agent";
+  return "";
+}
+
+function agreementBody(entry, records, first) {
   const body = document.createElement("div");
   body.className = "agreement-body";
   const title = document.createElement("h2");
   title.textContent = entry.title;
-  const records = entry.sourceRecords || [];
-  const first = records.find((record) => record.kind !== "conversation");
   const noteCount = state.notes.filter(
     (note) => note.agreementId === entry.id,
   ).length;
-  const source = first
-    ? recordLine(first, ", ")
-    : records.length
-      ? "From the conversation"
-      : entry.source
-        ? "Source noted by the agent"
-        : "";
+  const source = sourceSummary(entry, records, first);
   const rest = document.createElement("span");
   rest.textContent = [noteCount ? plural(noteCount, "note") : "", source]
     .filter(Boolean)
@@ -130,14 +120,81 @@ function agreementCard(entry) {
     body.append(metaLine(label, tone, rest.textContent ? rest : null));
   }
   body.append(content);
-  card.append(body);
-  const strip = document.createElement("div");
-  strip.className = "agreement-source";
-  const actions = document.createElement("div");
-  actions.className = "actions";
-  const preview = document.createElement("div");
-  preview.className = "agreement-preview";
-  preview.append(document.createElement("div"));
+  return body;
+}
+
+function openRecordLink(record, { text, className, inTab }) {
+  const open = document.createElement("a");
+  if (className) open.className = className;
+  open.textContent = text;
+  if (online) {
+    open.href = recordUrl(record, "r");
+    if (inTab) openInTab(open, record);
+  } else {
+    open.href = record.href;
+    open.target = "_blank";
+    open.rel = "noopener";
+  }
+  return open;
+}
+
+function extraRecordBox(record) {
+  const box = document.createElement("div");
+  box.className = "record";
+  const meta = document.createElement("span");
+  meta.className = "small";
+  meta.textContent =
+    record.kind === "conversation"
+      ? "Conversation · agent-provided context"
+      : recordLine(record, " · ");
+  box.append(meta);
+  if (record.quote) {
+    const quote = document.createElement("blockquote");
+    quote.textContent = record.quote;
+    box.append(quote);
+  }
+  const line = document.createElement("span");
+  line.textContent = record.text;
+  box.append(line);
+  if (record.kind !== "conversation" && hasLink(record)) {
+    box.append(
+      openRecordLink(record, {
+        text: " Open",
+        className: "context-link",
+        inTab: false,
+      }),
+    );
+  }
+  return box;
+}
+
+function agreementDetails(entry, extra) {
+  const details = document.createElement("div");
+  details.className = "agreement-sources";
+  details.hidden = true;
+  if (entry.source) {
+    const legacy = document.createElement("p");
+    legacy.textContent = entry.source;
+    details.append(legacy);
+  }
+  for (const record of extra) details.append(extraRecordBox(record));
+  if (entry.href) {
+    const link = document.createElement("a");
+    link.href = entry.href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Open source ↗";
+    details.append(link);
+  }
+  return details;
+}
+
+function moreLabel(first, count) {
+  if (first) return `${count} more`;
+  return count > 1 ? `${count} sources` : "Details";
+}
+
+function appendPrimaryActions(actions, first, preview) {
   // A preview shows one round's page, and a thread on a card is on Work.
   if (first?.round && online) {
     const toggle = linkButton("Preview", () => {
@@ -153,83 +210,50 @@ function agreementCard(entry) {
     actions.append(toggle, dotSeparator());
   }
   if (first && hasLink(first)) {
-    const open = document.createElement("a");
-    open.textContent = "Open";
-    if (online) {
-      open.href = recordUrl(first, "r");
-      openInTab(open, first);
-    } else {
-      open.href = first.href;
-      open.target = "_blank";
-      open.rel = "noopener";
-    }
-    actions.append(open);
+    actions.append(openRecordLink(first, { text: "Open", inTab: true }));
   }
-  const details = document.createElement("div");
-  details.className = "agreement-sources";
-  details.hidden = true;
+}
+
+function agreementCard(entry) {
+  const card = document.createElement("section");
+  card.className = "agreement-card";
+  card.id = "agreement-" + entry.id;
+  // The comment control uses data-kind to name a chosen card.
+  card.dataset.kind = "alignment";
+  const records = entry.sourceRecords || [];
+  const first = records.find((record) => record.kind !== "conversation");
+  card.append(agreementBody(entry, records, first));
+  const strip = document.createElement("div");
+  strip.className = "agreement-source";
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const preview = document.createElement("div");
+  preview.className = "agreement-preview";
+  preview.append(document.createElement("div"));
+  appendPrimaryActions(actions, first, preview);
   const extra = records.filter((record) => record !== first);
-  if (entry.source) {
-    const legacy = document.createElement("p");
-    legacy.textContent = entry.source;
-    details.append(legacy);
-  }
-  for (const record of extra) {
-    const box = document.createElement("div");
-    box.className = "record";
-    const meta = document.createElement("span");
-    meta.className = "small";
-    meta.textContent =
-      record.kind === "conversation"
-        ? "Conversation · agent-provided context"
-        : recordLine(record, " · ");
-    box.append(meta);
-    if (record.quote) {
-      const quote = document.createElement("blockquote");
-      quote.textContent = record.quote;
-      box.append(quote);
-    }
-    const line = document.createElement("span");
-    line.textContent = record.text;
-    box.append(line);
-    if (record.kind !== "conversation" && hasLink(record)) {
-      const open = document.createElement("a");
-      open.className = "context-link";
-      open.textContent = " Open";
-      if (online) open.href = recordUrl(record, "r");
-      else {
-        open.href = record.href;
-        open.target = "_blank";
-        open.rel = "noopener";
-      }
-      box.append(open);
-    }
-    details.append(box);
-  }
-  if (entry.href) {
-    const link = document.createElement("a");
-    link.href = entry.href;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.textContent = "Open source ↗";
-    details.append(link);
-  }
+  const details = agreementDetails(entry, extra);
   if (details.children.length) {
     if (actions.children.length) actions.append(dotSeparator());
     const count = extra.length + (entry.source ? 1 : 0) + (entry.href ? 1 : 0);
-    const more = linkButton(
-      first ? `${count} more` : count > 1 ? `${count} sources` : "Details",
-      () => {
+    actions.append(
+      linkButton(moreLabel(first, count), () => {
         details.hidden = !details.hidden;
-      },
+      }),
     );
-    actions.append(more);
   }
   strip.append(actions);
   strip.hidden = !actions.children.length;
   card.append(strip, details, preview);
   return card;
 }
+
+function taskChangeText(change) {
+  if (change === "new") return "New in this round";
+  if (change === "updated") return "Updated in this round";
+  return "";
+}
+
 // The task card is a statement, never a checklist, and has nothing for the
 // reviewer to approve.
 function taskCard() {
@@ -251,23 +275,20 @@ function taskCard() {
   const strip = document.createElement("div");
   strip.className = "agreement-source";
   const text = document.createElement("span");
-  text.textContent =
-    agreedTask.change === "new"
-      ? "New in this round"
-      : agreedTask.change === "updated"
-        ? "Updated in this round"
-        : "";
+  text.textContent = taskChangeText(agreedTask.change);
   strip.append(text);
   strip.hidden = !text.textContent;
   card.append(body, strip);
   return card;
 }
+
 function agreedLabel(text) {
   const label = document.createElement("p");
   label.className = "agreed-label";
   label.textContent = text;
   return label;
 }
+
 export function renderAgreements() {
   const root = $("page-content");
   root.replaceChildren();

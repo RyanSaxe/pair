@@ -1,13 +1,14 @@
+import { remote } from "#frame/app/state.mjs";
 import { ago, since } from "#frame/app/time.mjs";
+import { lineButton, redraw } from "#frame/app/ui.mjs";
 import { $, copyText, installPanel, plural } from "#frame/app/util.mjs";
 import { embedded, mode, online, session } from "#frame/app/view.mjs";
+import { installCenter, renderCenter } from "#frame/sync/center.mjs";
 import {
   clearRound,
-  installCenter,
   isClearedChange,
   loadCleared,
-  renderCenter,
-} from "#frame/sync/center.mjs";
+} from "#frame/sync/center-state.mjs";
 import { announced, createReviewAlerts } from "#frame/sync/notifications.mjs";
 import {
   countUnopened,
@@ -15,16 +16,18 @@ import {
   openedPages,
   syncOpened,
 } from "#frame/sync/opened.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
 import { syncSeen } from "#frame/sync/seen.mjs";
 import { fetchPolled } from "#frame/sync/status.mjs";
 import { isClosed } from "#shared/lifecycle.mjs";
+
+export { lineButton, redraw } from "#frame/app/ui.mjs";
 
 let sessions = [];
 let grouped = [];
 export let sessionOrder = [];
 export let numbered = [];
 let reviewAlerts;
+
 export function installSessions() {
   reviewAlerts = createReviewAlerts({
     window,
@@ -43,6 +46,7 @@ export function installSessions() {
     if (isOpenedChange(event) || isClearedChange(event)) renderSessions();
   });
 }
+
 export function status() {
   $("connection-status").textContent = online
     ? ""
@@ -56,6 +60,7 @@ export function status() {
     location.reload();
   }
 }
+
 // byStart sorts sessions by start time, so a number key opens the same
 // session from every tab until a session closes.
 export const byStart = (list) =>
@@ -64,6 +69,7 @@ export const byStart = (list) =>
       (a.startedAt || "").localeCompare(b.startedAt || "") ||
       a.id.localeCompare(b.id),
   );
+
 /* The hub lists a closed session only while a session linked to it is
    open, and the frame shows the closed session's row as the heading of
    those sessions. */
@@ -87,6 +93,7 @@ export function groupSessions(list) {
   for (const entry of roots) visit(entry, 0);
   return rows;
 }
+
 export async function pollSessions() {
   let fromHub = false;
   let listed = [];
@@ -114,6 +121,7 @@ export async function pollSessions() {
   renderCenter(listed, fromHub, seen.cleared);
   void reviewAlerts.update(sessions);
 }
+
 export function stateWords(entry) {
   if (entry.needsYou) return "Waiting for you";
   if (entry.wakeFailed) return "Could not wake the agent";
@@ -127,6 +135,7 @@ export function stateWords(entry) {
   }
   return "Live";
 }
+
 // A row shows its unopened pages beside this status, so a session that waits
 // still says which pages are new.
 export function rowStatus(entry) {
@@ -142,6 +151,7 @@ export function rowStatus(entry) {
   }
   return null;
 }
+
 /* A waiting round counts only while the bell still lists its line, and
    clearRound clears that line once the reviewer opens the session, one of the
    round's pages or a note. A round that the reviewer started on therefore stops
@@ -164,62 +174,28 @@ export function sessionsBadge(list, { thisId, unopened, cleared }) {
     tone: unseen.some(waits) ? "need" : "news",
   };
 }
+
 // Opening another session, from its row or with w or a number key, starts its
 // waiting round.
 export function openSession(entry) {
   clearRound(entry);
   location.assign(entry.url);
 }
+
 export function nextWaiting(order, thisId) {
   const at = order.findIndex((entry) => entry.id === thisId);
   return [...order.slice(at + 1), ...order.slice(0, at + 1)].find(
     (entry) => entry.needsYou && entry.id !== thisId,
   );
 }
+
 const copyIcon =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-// lineButton puts the tooltip inside the button, so hover and focus show it
-// and the pointer can rest on it.
-export function lineButton({ key, label, content, onClick, tip = null }) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "icon-btn";
-  button.dataset.key = key;
-  button.setAttribute("aria-label", label);
-  button.innerHTML = content;
-  if (tip) {
-    const text = document.createElement("span");
-    text.className = "line-tip";
-    text.setAttribute("aria-hidden", "true");
-    text.textContent = tip;
-    button.append(text);
-  }
-  button.addEventListener("click", () => onClick(button));
-  return button;
-}
-/* redraw replaces a list only when its HTML changed, and it keeps focus on
-   the same row or button, so Tab and Enter work in a list that the poll
-   refreshes every few seconds. When the focused button is gone, such as a
-   cleared event's, focus moves to the element at the same place. */
-export function redraw(list, lines) {
-  const next = document.createElement("div");
-  next.append(...lines);
-  if (next.innerHTML === list.innerHTML) return;
-  const keyed = () => [...list.querySelectorAll("[data-key]")];
-  const focused = keyed().indexOf(document.activeElement);
-  const key = document.activeElement?.dataset.key;
-  list.replaceChildren(...next.childNodes);
-  if (focused < 0) return;
-  const now = keyed();
-  (
-    now.find((element) => element.dataset.key === key) ||
-    now.at(focused) ||
-    now.at(-1)
-  )?.focus();
-}
+
 // closing contains the status text of each closing session's row, until the
 // hub drops the session or refuses to close it.
 const closing = new Map();
+
 function rowTitle(entry, depth) {
   const title = document.createElement("span");
   title.className = "t";
@@ -233,6 +209,56 @@ function rowTitle(entry, depth) {
   title.append(entry.title);
   return title;
 }
+
+function shownRowStatus(entry, current) {
+  if (closing.has(entry.id)) {
+    return { text: closing.get(entry.id), tone: "quiet" };
+  }
+  return current ? null : rowStatus(entry);
+}
+
+function sessionMarks(entry, { unopened, current }) {
+  const shown = shownRowStatus(entry, current);
+  const marks = document.createElement("span");
+  marks.className = "marks";
+  const addPill = (text, tone) => {
+    const pill = document.createElement("span");
+    pill.className = `pill ${tone}`;
+    pill.textContent = text;
+    marks.append(pill);
+  };
+  if (unopened && !current && !closing.has(entry.id)) {
+    addPill(`${unopened} new`, "news");
+  }
+  if (shown?.tone === "working") {
+    const dot = document.createElement("span");
+    dot.className = "working";
+    dot.setAttribute("aria-label", "Working");
+    marks.append(dot);
+  } else if (shown) addPill(shown.text, shown.tone);
+  return marks;
+}
+
+function copyHandoffButton(entry) {
+  return lineButton({
+    key: `copy:${entry.id}`,
+    label: `Copy handoff line for ${entry.title}`,
+    content: copyIcon,
+    onClick: async (button) => {
+      const tip = button.querySelector(".line-tip");
+      tip.textContent = (await copyText(entry.handoff))
+        ? "Copied"
+        : "Copy failed";
+      button.classList.add("tipped");
+      setTimeout(() => {
+        button.classList.remove("tipped");
+        tip.textContent = "Copy handoff line";
+      }, 1500);
+    },
+    tip: "Copy handoff line",
+  });
+}
+
 function sessionRow(entry, unopened, depth) {
   const current = entry.id === session.sessionId;
   const line = document.createElement("div");
@@ -253,54 +279,18 @@ function sessionRow(entry, unopened, depth) {
   const number = document.createElement("span");
   number.className = "n";
   if (!depth) number.textContent = numbered.indexOf(entry) + 1;
-  row.append(number, rowTitle(entry, depth));
-  const shown = closing.has(entry.id)
-    ? { text: closing.get(entry.id), tone: "quiet" }
-    : current
-      ? null
-      : rowStatus(entry);
-  const marks = document.createElement("span");
-  marks.className = "marks";
-  const addPill = (text, tone) => {
-    const pill = document.createElement("span");
-    pill.className = `pill ${tone}`;
-    pill.textContent = text;
-    marks.append(pill);
-  };
-  if (unopened && !current && !closing.has(entry.id)) {
-    addPill(`${unopened} new`, "news");
-  }
-  if (shown?.tone === "working") {
-    const dot = document.createElement("span");
-    dot.className = "working";
-    dot.setAttribute("aria-label", "Working");
-    marks.append(dot);
-  } else if (shown) addPill(shown.text, shown.tone);
-  row.append(marks);
+  row.append(
+    number,
+    rowTitle(entry, depth),
+    sessionMarks(entry, { unopened, current }),
+  );
   row.addEventListener("click", () => {
     if (current) toggleSessions(false);
     else openSession(entry);
   });
-  const copy = lineButton({
-    key: `copy:${entry.id}`,
-    label: `Copy handoff line for ${entry.title}`,
-    content: copyIcon,
-    onClick: async (button) => {
-      const tip = button.querySelector(".line-tip");
-      tip.textContent = (await copyText(entry.handoff))
-        ? "Copied"
-        : "Copy failed";
-      button.classList.add("tipped");
-      setTimeout(() => {
-        button.classList.remove("tipped");
-        tip.textContent = "Copy handoff line";
-      }, 1500);
-    },
-    tip: "Copy handoff line",
-  });
   line.append(
     row,
-    copy,
+    copyHandoffButton(entry),
     lineButton({
       key: `close:${entry.id}`,
       label: `Close ${entry.title}`,
@@ -310,8 +300,10 @@ function sessionRow(entry, unopened, depth) {
   );
   return line;
 }
+
 const closedIcon =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+
 function closedHeading(entry, depth) {
   const line = document.createElement("div");
   line.className = "sess-line sess-closed";
@@ -328,6 +320,15 @@ function closedHeading(entry, depth) {
   line.append(row);
   return line;
 }
+
+function sessionsAriaLabel(count, tone) {
+  if (!count) return "Sessions";
+  if (tone) {
+    return `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`;
+  }
+  return `Sessions, ${plural(count, "other session")}`;
+}
+
 function renderSessions() {
   const waiting = sessionOrder.filter(
     (entry) => entry.needsYou && entry.id !== session.sessionId,
@@ -357,16 +358,11 @@ function renderSessions() {
   // so the frame hides the button.
   menu.hidden = !sessionOrder.length;
   if (!sessionOrder.length) toggleSessions(false);
-  menu.setAttribute(
-    "aria-label",
-    count
-      ? tone
-        ? `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`
-        : `Sessions, ${plural(count, "other session")}`
-      : "Sessions",
-  );
+  menu.setAttribute("aria-label", sessionsAriaLabel(count, tone));
 }
+
 const isOpen = () => $("sessions-pop").matches(":popover-open");
+
 /* With focus set, as when a key opens the list, toggleSessions moves focus
    to this tab's row, so Tab and Enter work through the list. */
 export function toggleSessions(open = !isOpen(), focus = false) {
@@ -382,8 +378,10 @@ export function toggleSessions(open = !isOpen(), focus = false) {
       ?.focus();
   }
 }
+
 let pendingCloseEntry = null;
 const wiredCloseConfirm = new WeakSet();
+
 function confirmClose(entry) {
   pendingCloseEntry = entry;
   $("close-name").textContent = entry.title;
@@ -397,6 +395,7 @@ function confirmClose(entry) {
   }
   $("close-dialog").showModal();
 }
+
 /* Closing takes two round trips, a close and a poll, so closeSession shows
    Closing… on the row before either starts. Without it, a slow hub makes
    the control look broken. This tab's own session reloads as a read-only

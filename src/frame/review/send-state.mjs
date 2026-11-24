@@ -1,12 +1,13 @@
-import { $ } from "#frame/app/util.mjs";
-import { editable, waiting } from "#frame/app/view.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
 import {
-  closeSentSend,
+  connected,
+  remote,
+  selectedTab,
   submissionError,
   submissionInFlight,
-} from "#frame/review/send.mjs";
-import { refreshSend } from "#frame/review/send-popup.mjs";
-import { connected, remote, selectedTab } from "#frame/sync/rounds.mjs";
+} from "#frame/app/state.mjs";
+import { $ } from "#frame/app/util.mjs";
+import { editable, online, plan, waiting } from "#frame/app/view.mjs";
 import { isClosed } from "#shared/lifecycle.mjs";
 
 // The fields that say where the send of Current's round stands. connected is
@@ -65,6 +66,20 @@ export const sendAccepts = (action, state = sendState()) =>
 export const onCurrent = (action) =>
   selectedTab === "current" && sendAccepts(action);
 
+export const feedbackEditable = () => onCurrent("edit");
+
+// A note on a round whose feedback was sent can still start a thread,
+// because the agent answers threads while it prepares the next round or
+// builds. The hub accepts threads only on its current round, until the
+// session is complete.
+export const noteEditable = () =>
+  feedbackEditable() ||
+  (editable &&
+    online &&
+    !isClosed(remote) &&
+    remote?.current?.name === plan.name &&
+    remote?.current?.round === plan.round);
+
 // review() runs after every poll and every action, and calls settleSend. When
 // the state changes while the Send drawer is open, the drawer closes if
 // another tab or device sent the round, and otherwise its Send follows the
@@ -75,6 +90,6 @@ export function settleSend() {
   if (now === last) return;
   last = now;
   if (!$("send-dialog").open) return;
-  if (now === "waiting") closeSentSend();
-  else refreshSend();
+  if (now === "waiting") callHook("closeSentSend");
+  else callHook("refreshSend");
 }

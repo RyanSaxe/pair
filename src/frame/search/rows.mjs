@@ -1,15 +1,8 @@
 /* The modal's text: a row of the result list and its words. Nothing here touches
    the document, so a test can import it. */
+const htmlEntities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const escapeHtml = (text) =>
-  String(text).replace(/[&<>"]/g, (char) =>
-    char === "&"
-      ? "&amp;"
-      : char === "<"
-        ? "&lt;"
-        : char === ">"
-          ? "&gt;"
-          : "&quot;",
-  );
+  String(text).replace(/[&<>"]/g, (char) => htmlEntities[char]);
 export { escapeHtml };
 
 // The sessions menus' choice for the session in this tab.
@@ -90,14 +83,19 @@ export const titleHtml = (row) =>
 export const hasOwnText = (row) =>
   Boolean(row.text) && row.text.trim() !== titleText(row).trim();
 
-// The line ends with the session, the part an ellipsis can lose: a list of
-// all sessions often repeats one name, and the round and page tell its rows apart.
-export function whereLine(row, { allSessions }) {
+function whereLeadParts(row) {
   const parts = [];
   if (row.partial) parts.push(row.partial);
   if (row.draft) parts.push("Draft");
   if (row.from) parts.push(row.from === "reviewer" ? "You" : "Agent");
   if (row.round) parts.push(`Round ${row.round}`);
+  return parts;
+}
+
+// The line ends with the session, the part an ellipsis can lose: a list of
+// all sessions often repeats one name, and the round and page tell its rows apart.
+export function whereLine(row, { allSessions }) {
+  const parts = whereLeadParts(row);
   if (row.pageTitle && row.pageTitle !== titleText(row)) {
     parts.push(row.pageTitle);
   }
@@ -128,20 +126,22 @@ function looser({ query, kinds, rounds, sessions }, { wider, counts }) {
   if (sessions.length) return { filter: "sessions" };
   return null;
 }
+function sessionScopeLabel(sessions) {
+  if (!sessions.length) return "any session";
+  if (sessions.length === 1 && sessions[0] === "here") return "this session";
+  return "the chosen sessions";
+}
+
+function roundScopeLabel(rounds) {
+  if (!rounds.length) return "";
+  if (rounds.length === 1 && rounds[0] === "latest") return "’s latest round";
+  return "’s chosen rounds";
+}
+
 function blankMessage({ query, kinds, rounds, sessions }) {
   const words = query.trim();
   if (words) return `No matches for “${escapeHtml(words)}” here.`;
-  const where = sessions.length
-    ? sessions.length === 1 && sessions[0] === "here"
-      ? "this session"
-      : "the chosen sessions"
-    : "any session";
-  const when = rounds.length
-    ? rounds.length === 1 && rounds[0] === "latest"
-      ? "’s latest round"
-      : "’s chosen rounds"
-    : "";
-  const scope = `${where}${when}`;
+  const scope = `${sessionScopeLabel(sessions)}${roundScopeLabel(rounds)}`;
   const chosen = KINDS.filter(([id]) => kinds.includes(id))
     .map(([, label]) => label.toLowerCase())
     .join(" or ");

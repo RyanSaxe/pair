@@ -1,4 +1,16 @@
+import { callHook } from "#frame/app/hooks.mjs";
 import { places } from "#frame/app/places.mjs";
+import {
+  clearSubmissionError,
+  connected,
+  progressThread,
+  refusedMessage,
+  selectedTab,
+  setRefusedMessage,
+  setRemote,
+  setSubmissionError,
+  setSubmissionInFlight,
+} from "#frame/app/state.mjs";
 import {
   markSent,
   persist,
@@ -21,66 +33,57 @@ import {
   submittedRound,
 } from "#frame/app/view.mjs";
 import { initializeChecklists } from "#frame/notes/controls.mjs";
-import { progressThread } from "#frame/notes/notes.mjs";
 import { startThread } from "#frame/notes/threads.mjs";
-import { show } from "#frame/pages/pages.mjs";
 import { itemSummary, review } from "#frame/review/review.mjs";
 import {
   choiceLabel,
   nothingToSend,
-  openSend,
   startingChoice,
-} from "#frame/review/send-popup.mjs";
+} from "#frame/review/send-choices.mjs";
+import { openSend } from "#frame/review/send-popup.mjs";
 import { onCurrent } from "#frame/review/send-state.mjs";
-import {
-  connected,
-  loadPageRecord,
-  loadSubmission,
-  openPast,
-  selectedTab,
-  setRemote,
-  switchTab,
-} from "#frame/sync/rounds.mjs";
 
-export let submissionError = "";
-export let submissionInFlight = false;
-// refusedMessage is the typed message of a send that the hub refused because
-// the round already has feedback.
-export let refusedMessage = "";
-export function clearSubmissionError() {
-  submissionError = "";
-  refusedMessage = "";
-}
+export {
+  clearSubmissionError,
+  refusedMessage,
+  submissionError,
+  submissionInFlight,
+} from "#frame/app/state.mjs";
+export { submitButton } from "#frame/review/send-choices.mjs";
+
 // When another tab or device sends this round while the Send popup is open,
 // settleSend calls closeSentSend, which closes the popup and shows the banner
 // of the hub's refusal, so the typed message can still go as a message.
 export function closeSentSend() {
   $("send-dialog").close();
-  submissionError = `Round ${plan.round} was sent from another tab or device. Your draft and message stay for the next round.`;
-  refusedMessage = state.message?.trim() || "";
+  setSubmissionError(
+    `Round ${plan.round} was sent from another tab or device. Your draft and message stay for the next round.`,
+  );
+  setRefusedMessage(state.message?.trim() || "");
 }
-export function submitButton({
-  inFlight,
-  opensFeedback,
-  onSentFeedback,
-  waitingForPages,
-  sendable,
-  pending,
-}) {
-  return {
-    disabled:
-      inFlight ||
-      (opensFeedback ? onSentFeedback : waitingForPages || !sendable),
-    text: inFlight
-      ? "Sending"
-      : opensFeedback
-        ? "What you sent"
-        : pending
-          ? `Send (${pending})`
-          : "Send",
-    primary: !opensFeedback && !waitingForPages,
-  };
+
+function appendNoteLines(lines, notes) {
+  for (const note of notes) {
+    const { label, text } = itemSummary("note", note, {
+      label: pages.find((item) => item.id === note.topic)?.title || "Overall",
+    });
+    const attachmentLines = [];
+    for (const item of note.attachments || []) {
+      attachmentLines.push(`Image: ${item.path}`);
+      if (item.scene) attachmentLines.push(`Sketch scene: ${item.scene.path}`);
+    }
+    lines.push(
+      "",
+      label,
+      ...(note.quote ? ["Selected passage: " + note.quote] : []),
+      text,
+      /* The hub stores each image in the session directory, so the text
+         gives the file's path instead of the image. */
+      ...attachmentLines,
+    );
+  }
 }
+
 function feedbackText(next, message) {
   const lines = [
     `Feedback: ${plan.title}`,
@@ -106,27 +109,10 @@ function feedbackText(next, message) {
     });
     lines.push("", `${label}`, text);
   }
-  for (const note of notes) {
-    const { label, text } = itemSummary("note", note, {
-      label: pages.find((item) => item.id === note.topic)?.title || "Overall",
-    });
-    const attachmentLines = [];
-    for (const item of note.attachments || []) {
-      attachmentLines.push(`Image: ${item.path}`);
-      if (item.scene) attachmentLines.push(`Sketch scene: ${item.scene.path}`);
-    }
-    lines.push(
-      "",
-      label,
-      ...(note.quote ? ["Selected passage: " + note.quote] : []),
-      text,
-      /* The hub stores each image in the session directory, so the text
-         gives the file's path instead of the image. */
-      ...attachmentLines,
-    );
-  }
+  appendNoteLines(lines, notes);
   return lines.join("\n");
 }
+
 // submission reuses state.pending while the draft, the choice and the
 // message are unchanged, so a retry after a failed send sends the same ID
 // again. A change to any of them makes a new submission with a new ID.
@@ -152,6 +138,7 @@ function submission(next) {
   }
   return state.pending.event;
 }
+
 async function send(event) {
   if (!connected) throw Error(hubUnreachable);
   const response = await fetch(`${base}/api/feedback`, {
@@ -169,48 +156,51 @@ async function send(event) {
   setRemote(result.status);
   return result;
 }
+
 export async function sendFeedback(next) {
   if (!onCurrent("send")) return;
   if (nothingToSend(state, next, isPlanRound())) return;
   clearSubmissionError();
   const origin = shownPage();
-  submissionInFlight = true;
+  setSubmissionInFlight(true);
   review();
   try {
     await Promise.all(
       pages
         .filter((item) => item.id !== "agreed" && item.pending)
-        .map((item) => loadPageRecord(plan.round, item.id)),
+        .map((item) => callHook("loadPageRecord", plan.round, item.id)),
     );
     initializeChecklists();
     const event = submission(next);
     persist();
-    switchTab("current");
+    callHook("switchTab", "current");
     const result = await send(event);
     markSent(state, result.id, new Date().toISOString());
-    submissionInFlight = false;
+    setSubmissionInFlight(false);
     setSubmittedRound(plan.round);
     setPastRound(plan.round);
     save();
-    void loadSubmission().catch(() => {});
+    void callHook("loadSubmission").catch(() => {});
   } catch (error) {
-    submissionInFlight = false;
+    setSubmissionInFlight(false);
     // A status poll during the send can already have recorded this send as
     // saved. A poll that shows another browser's send does not record it, so
     // the reviewer still sees why the hub refused this one.
-    submissionError =
+    setSubmissionError(
       state.submitted?.round === plan.round
         ? ""
         : unreachable(
             error,
             "Could not reach the hub. Your draft is saved here. Try Send again.",
-          );
-    refusedMessage = error.roundSent ? state.pending.event.message || "" : "";
-    switchTab("current", null, { showPage: false });
-    show(origin);
+          ),
+    );
+    setRefusedMessage(error.roundSent ? state.pending.event.message || "" : "");
+    callHook("switchTab", "current", null, { showPage: false });
+    callHook("show", origin);
     review();
   }
 }
+
 // sendAsMessage starts the thread that Message the agent starts, so the agent
 // gets the refused message now and the round's submission stays as it is. Once
 // the hub has the thread, the message leaves the draft, so it does not go again
@@ -220,9 +210,9 @@ function sendAsMessage() {
   const text = refusedMessage;
   clearSubmissionError();
   if (selectedTab !== "current") {
-    switchTab("current", null, { showPage: false });
+    callHook("switchTab", "current", null, { showPage: false });
   }
-  show("agreed");
+  callHook("show", "agreed");
   startThread(progressThread, text, {
     saved: () => {
       if (selectedTab !== "current" || state.message?.trim() !== text) return;
@@ -231,6 +221,7 @@ function sendAsMessage() {
     },
   });
 }
+
 export function installSend() {
   $("submit").addEventListener("click", () => {
     if (selectedTab === "past") {
@@ -238,10 +229,10 @@ export function installSend() {
       // round's What you sent.
       if (!currentAvailable()) {
         places[submittedRound] = { page: "feedback", at: {} };
-        void openPast(submittedRound);
+        void callHook("openPast", submittedRound);
         return;
       }
-      switchTab("current");
+      callHook("switchTab", "current");
     }
     openSend();
   });

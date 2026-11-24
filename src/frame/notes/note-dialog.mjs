@@ -1,17 +1,8 @@
+import { callHook } from "#frame/app/hooks.mjs";
+import { editing, noteContext, noteDraftKey } from "#frame/app/state.mjs";
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, fitText, uuid } from "#frame/app/util.mjs";
-import {
-  feedbackEditable,
-  noteEditable,
-  page,
-  plan,
-} from "#frame/app/view.mjs";
-import {
-  editing,
-  noteContext,
-  noteDraftKey,
-  openAgentMessage,
-} from "#frame/notes/notes.mjs";
+import { page, plan } from "#frame/app/view.mjs";
 import { editSketch } from "#frame/notes/drawing.mjs";
 import {
   acceptImages,
@@ -19,9 +10,10 @@ import {
   imageFigure,
   uploadImages,
 } from "#frame/notes/images.mjs";
-import { sendKey, sendKeyName, startThread } from "#frame/notes/threads.mjs";
-import { show } from "#frame/pages/pages.mjs";
-import { cardsEditable } from "#frame/pages/work.mjs";
+import { sendKey, sendKeyName } from "#frame/notes/send-key.mjs";
+import { startThread } from "#frame/notes/threads.mjs";
+import { cardsEditable } from "#frame/pages/work-model.mjs";
+import { feedbackEditable, noteEditable } from "#frame/review/send-state.mjs";
 
 let noteImages = [];
 let noteImagesAtOpen = [];
@@ -129,31 +121,35 @@ export function settleNoteImages() {
   drawUploading();
 }
 
-/* saveNote adds the note to the draft, or saves the edit, as Add to draft
-   does. It returns false when the dialog cannot add to the draft: the round is
-   sent, the note only starts a thread, the box is empty or an image is still
-   uploading. */
-export function saveNote({ close }) {
-  if (!feedbackEditable() || $("note-save").hidden) return false;
-  // Shift+Enter submits the form even while its button is disabled.
-  if ($("note-save").disabled) return false;
-  const text = $("note-text").value.trim();
-  if (!text) return false;
+function buildSavedNote(text, kept) {
   // Another device can delete the note while this dialog edits it. The
   // edit then becomes a new note, so the reviewer's words are kept. Remove
   // deleted the images the note had, so the new note has only the images
   // added in this dialog.
-  const kept = state.notes.some((item) => item.id === editing);
   const images = kept
     ? noteImages
     : noteImages.filter((item) => !noteImagesAtOpen.includes(item.id));
-  const note = {
+  return {
     ...noteContext,
     id: kept ? editing : uuid(),
     text,
     round: plan.round,
     ...(images.length ? { attachments: images } : {}),
   };
+}
+
+/* saveNote adds the note to the draft, or saves the edit, as Add to draft
+   does. It returns false when the dialog cannot add to the draft: the round is
+   sent, the note only starts a thread, the box is empty or an image is still
+   uploading. */
+export function saveNote({ close }) {
+  if (!feedbackEditable() || $("note-save").hidden || $("note-save").disabled) {
+    return false;
+  }
+  const text = $("note-text").value.trim();
+  if (!text) return false;
+  const kept = state.notes.some((item) => item.id === editing);
+  const note = buildSavedNote(text, kept);
   if (kept) {
     state.notes = state.notes.map((item) =>
       item.id === editing ? note : item,
@@ -165,7 +161,7 @@ export function saveNote({ close }) {
   save();
   if (close) $("note-dialog").close();
   if (note.topic === page.id && !$("reading").hidden) {
-    show(page.id, null, { keepScroll: true });
+    callHook("show", page.id, null, { keepScroll: true });
   }
   return true;
 }
@@ -226,7 +222,9 @@ export function installNoteDialog() {
     event.preventDefault();
     $("note-thread").click();
   });
-  $("activity-message").addEventListener("click", openAgentMessage);
+  $("activity-message").addEventListener("click", () =>
+    callHook("openAgentMessage"),
+  );
   // Shift+Enter also submits the form, so saveNote adds nothing to the draft
   // while the Add to draft button is hidden.
   $("note-form").addEventListener("submit", (event) => {

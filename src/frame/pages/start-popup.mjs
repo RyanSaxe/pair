@@ -1,9 +1,11 @@
 import { openDrawer } from "#frame/app/drawer.mjs";
+import { remote } from "#frame/app/state.mjs";
 import { persist, state } from "#frame/app/store.mjs";
+import { arrowKeys, checkRow } from "#frame/app/ui.mjs";
 import { $, copyText, shiftEnter, unreachable } from "#frame/app/util.mjs";
 import { base } from "#frame/app/view.mjs";
 import { yieldNote } from "#frame/notes/note-dialog.mjs";
-import { sendKey, sendKeyName } from "#frame/notes/threads.mjs";
+import { sendKey, sendKeyName } from "#frame/notes/send-key.mjs";
 import {
   clearItem,
   drawItem,
@@ -14,7 +16,6 @@ import {
   itemReady,
   lockItem,
 } from "#frame/pages/new-item.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
 
 // card is null while the dialog writes a new card, until the hub has it.
 let card = null;
@@ -31,27 +32,6 @@ const showSave = (shown) => {
   }
 };
 
-export function checkRow(items, chosen) {
-  for (const row of items) {
-    row.setAttribute("aria-checked", String(row === chosen));
-    row.classList.toggle("current", row === chosen);
-    row.tabIndex = row === chosen ? 0 : -1;
-  }
-}
-export function arrowKeys(group, { rows: getRows, chosen, choose }) {
-  group.addEventListener("keydown", (event) => {
-    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[
-      event.key
-    ];
-    if (!step) return;
-    event.preventDefault();
-    const open = getRows().filter((row) => !row.disabled);
-    const index = open.indexOf(chosen());
-    const next = open[(index + step + open.length) % open.length];
-    choose(next);
-    next.focus();
-  });
-}
 function select(choice) {
   where = choice;
   checkRow(
