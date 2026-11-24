@@ -1,8 +1,8 @@
 # Commands
 
-`pair --help` lists every command with what it does, and
-`pair COMMAND --help` prints that command's usage and flags without running
-it. `pair --version` prints the version.
+`pair --help` lists every command with what it does, and `pair COMMAND --help`
+prints that command's usage and flags without running it. `pair --version`
+prints the version.
 
 | Command                                                | What it does                                                                                                                                                                                                                                                                                                           |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,22 +43,21 @@ creates a session. A session command prints these, in order:
 The result of `pair read` starts with the round, whether it is a plan, and the
 latest submission's ID, which `--submission` takes.
 
-While a page or a proposal has had no update for 10 minutes, the next step
-ends with a line about it, as
-[Quiet work](../concepts/architecture.md#quiet-work) describes.
+While a page or a proposal has had no update for 10 minutes, the next step ends
+with a line about it, as [Quiet work](../concepts/architecture.md#quiet-work)
+describes.
 
 When the output is long, it prints the next step again at the end. `--json`
-prints the result as one JSON object instead. When the output of `pair read`
-or `pair status` is over 10,000 bytes, the command writes its result to a
-file in the session's `output/` directory and prints the file's path.
+prints the result as one JSON object instead. When the output of `pair read` or
+`pair status` is over 10,000 bytes, the command writes its result to a file in
+the session's `output/` directory and prints the file's path.
 
 ## pair propose
 
-`pair propose` with `--id`, `--title`, `--delivers` and `--recommend`
-records a new proposal. `--recommend` takes `here`, `sub-session` or
-`new-agent`. Add `--page ROUND/PAGE` or `--thread ID` for where the work came
-up. With one of the flags below, the command changes the proposal that has
-the ID instead.
+`pair propose` with `--id`, `--title`, `--delivers` and `--recommend` records a
+new proposal. `--recommend` takes `here`, `sub-session` or `new-agent`. Add
+`--page ROUND/PAGE` or `--thread ID` for where the work came up. With one of the
+flags below, the command changes the proposal that has the ID instead.
 
 | Flag                         | What it does                                                                                                                                                                                                                                                     |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,18 +71,17 @@ the ID instead.
 | `--status-done TEXT`         | Marks the part with that text done, and refuses text that matches none of the proposal's parts.                                                                                                                                                                  |
 | `--status-drop TEXT`         | Marks the part with that text dropped. The part stays in the proposal's parts, and no flag removes one.                                                                                                                                                          |
 
-The hub refuses `--done` for a proposal whose work runs in a sub-session or
-with a new agent. When you close that session, the hub marks the proposal
-done.
+The hub refuses `--done` for a proposal whose work runs in a sub-session or with
+a new agent. When you close that session, the hub marks the proposal done.
 
-The three `--status` flags repeat, once for each part, and one command can
-mix them. Each flag changes only the part with its text. The hub accepts
-them only for work that you approved and that is not finished, in a command
-with no other flag from this section. It refuses `--status-done` and
-`--status-drop` for text that matches no part, with an error that lists the
-proposal's parts. The hub applies the `--status-left` parts first, so one
-command can add a part and mark it done. A proposal has at most 20 parts,
-each at most 80 characters, and `--reopen` clears them.
+The three `--status` flags repeat, once for each part, and one command can mix
+them. Each flag changes only the part with its text. The hub accepts them only
+for work that you approved and that is not finished, in a command with no other
+flag from this section. It refuses `--status-done` and `--status-drop` for text
+that matches no part, with an error that lists the proposal's parts. The hub
+applies the `--status-left` parts first, so one command can add a part and mark
+it done. A proposal has at most 20 parts, each at most 80 characters, and
+`--reopen` clears them.
 
 ## pair register and pair agents
 
@@ -100,20 +98,20 @@ fix-login-54  Claude Code  ~/src/app-worktrees/fix-login  fix-login  claude-code
 api-d3        Codex        ~/src/api                      main       codex:0199c1d4
 ```
 
-A session is named for its folder and two hex characters from its ID, keeps
-that name when its CLI restarts, and `--name NAME` sets another. `pair agents`
-prints the start of each ID, `--json` prints whole IDs, and a session leaves
-the list when its CLI exits. `pair start`, `pair message` and `pair spawn`
-register the agent that runs them, and pair's pi extension and opencode
-plugin register each session when it starts.
+A session is named for its folder and two hex characters from its ID, keeps that
+name when its CLI restarts, and `--name NAME` sets another. `pair agents` prints
+the start of each ID, `--json` prints whole IDs, and a session leaves the list
+when its CLI exits. `pair start`, `pair message` and `pair spawn` register the
+agent that runs them, and pair's pi extension and opencode plugin register each
+session when it starts.
 
 An agent CLI's start hook runs `pair register --hook`. With `--hook`,
 `pair register` reads the session ID from the hook's JSON on stdin when the
-environment has none, `session_id` from Codex and `sessionId` from Copilot
-CLI, prints one line, and exits 0 even when it cannot register. Codex 0.169
-and Copilot CLI 1.0.105 run the start hook when the session's first turn
-starts, so a session registers then. Antigravity CLI leaves its language
-server address and token out of hook environments. In a `PreInvocation` hook,
+environment has none, `session_id` from Codex and `sessionId` from Copilot CLI,
+prints one line, and exits 0 even when it cannot register. Codex 0.169 and
+Copilot CLI 1.0.105 run the start hook when the session's first turn starts, so
+a session registers then. Antigravity CLI leaves its language server address and
+token out of hook environments. In a `PreInvocation` hook,
 `pair register --hook` prints a `PreInvocation` JSON message instructing the
 agent to run `pair register` when that interactive `agy` process is not yet
 listed. Once that `agy` process is listed, later turns and its subagents print
@@ -121,8 +119,8 @@ nothing, and headless `-p` runs always print nothing.
 
 ## pair message
 
-`pair message` sends a message to a running agent session through its agent
-CLI, without the hub, and prints when the session's agent reads it.
+`pair message` sends a message to a running agent session through its agent CLI,
+without the hub, and prints when the session's agent reads it.
 
 ```console
 $ pair message --to fix-login-54 --text "The session table now has a revoked_at column."
@@ -151,26 +149,26 @@ whole.
 | A plain terminal         | `pair message from your user:`         | `This message has no answer command. Answer in your own chat, if at all.` |
 | `--from LABEL`, anywhere | `pair message from LABEL:`             | The same line as from a plain terminal                                    |
 
-Inside an agent session, `pair message` registers that session first, and
-sends nothing when it cannot. A subagent of Codex, opencode or Antigravity CLI
-has no entry, so its message names it through its parent, as `api-d3/Goodall`,
-and a Copilot CLI subagent sends only with `--from`. `--ack`, in place of
-`--text`, sends one line and no command to answer it, and works only inside an
-agent session:
+Inside an agent session, `pair message` registers that session first, and sends
+nothing when it cannot. A subagent of Codex, opencode or Antigravity CLI has no
+entry, so its message names it through its parent, as `api-d3/Goodall`, and a
+Copilot CLI subagent sends only with `--from`. `--ack`, in place of `--text`,
+sends one line and no command to answer it, and works only inside an agent
+session:
 
 ```text
 pair message from fix-login-54 (Claude Code in ~/src/app-worktrees/fix-login) acknowledges your message. Don't answer it.
 ```
 
-`--to NAME/SUBAGENT` sends the message to a subagent of the session. In
-Claude Code, Codex, Copilot CLI and Antigravity CLI the parent receives it,
-with a first line that asks the parent's agent to pass it on unchanged: with
+`--to NAME/SUBAGENT` sends the message to a subagent of the session. In Claude
+Code, Codex, Copilot CLI and Antigravity CLI the parent receives it, with a
+first line that asks the parent's agent to pass it on unchanged: with
 `SendMessage` in Claude Code, `followup_task` and the subagent's agent path in
-Codex, `write_agent` in Copilot CLI, and `send_message` in Antigravity CLI.
-pair finds a Codex subagent by the name the parent gave it or by its nickname.
-In opencode, pair's plugin prompts the subagent's session, found by its task
-or its agent. pi has no subagents of its own, and a pi that an extension runs
-with pair's extension registers as a session of its own.
+Codex, `write_agent` in Copilot CLI, and `send_message` in Antigravity CLI. pair
+finds a Codex subagent by the name the parent gave it or by its nickname. In
+opencode, pair's plugin prompts the subagent's session, found by its task or its
+agent. pi has no subagents of its own, and a pi that an extension runs with
+pair's extension registers as a session of its own.
 
 ## pair spawn
 
@@ -191,9 +189,9 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 | `-- ARG…`                        | Options for the CLI, such as `-- --model sonnet`, but not the prompt.      |
 
 `pair spawn` runs your launch script, `~/.config/pair/spawn DIR COMMAND ARG…`,
-or `spawn.ps1` on Windows, which is the script the hub runs when you press
-Start agent on a proposal with no message. `COMMAND ARG…` starts the CLI with
-the arguments after `--`, then the first prompt
+or `spawn.ps1` on Windows, which is the script the hub runs when you press Start
+agent on a proposal with no message. `COMMAND ARG…` starts the CLI with the
+arguments after `--`, then the first prompt
 `In your own shell, run pair register first.`, followed by your prompt. With
 `--name NAME`, the first prompt starts with
 `In your own shell, run pair register --name NAME first. If another running session has that name, run pair register without --name.`
@@ -211,20 +209,20 @@ Without `--name`, `pair spawn` finds the new session by its folder. Give
 `--name` with an argument that makes the CLI run in another folder, such as
 Codex's `-C` or `--worktree`.
 
-Inside an agent session, `pair spawn` registers that session first, so the
-new session can message it. When that fails, `pair spawn` prints why and
-starts the new session anyway.
+Inside an agent session, `pair spawn` registers that session first, so the new
+session can message it. When that fails, `pair spawn` prints why and starts the
+new session anyway.
 
 `pair spawn` waits up to 30 seconds for the new session to register. When it
-does not, as while the CLI waits at its folder-trust prompt, `pair spawn`
-prints this and exits 0:
+does not, as while the CLI waits at its folder-trust prompt, `pair spawn` prints
+this and exits 0:
 
 ```console
 Started Codex in ~/code/shop. It appears in pair agents once it runs pair register.
 ```
 
-pair adds no flag that skips a CLI's folder-trust prompt. Your launch script
-can add one, or you can give it after `--`.
+pair adds no flag that skips a CLI's folder-trust prompt. Your launch script can
+add one, or you can give it after `--`.
 
 A Codex session started with a `-c` override, `--profile` or `--search` runs
 without Codex's shared app-server daemon, unlike one started with `-m`, so
@@ -244,12 +242,12 @@ All six are optional.
 | `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files, moment files and launch script from its `pair/` folder.                                                                                  |
 
 The hub's browser routes need no token, so the hub listens on an extra address
-only when you set `PAIR_HUB_HOST`. Anyone who can reach that address can
-read your sessions and send rounds that your agent acts on as yours, so set
-it only to an address on a network you trust, such as your own Tailscale IP.
-pair refuses `0.0.0.0` and `::`, which would make the hub reachable from every
-network the machine is on. The routes that agents use need the session's
-bearer token on every address.
+only when you set `PAIR_HUB_HOST`. Anyone who can reach that address can read
+your sessions and send rounds that your agent acts on as yours, so set it only
+to an address on a network you trust, such as your own Tailscale IP. pair
+refuses `0.0.0.0` and `::`, which would make the hub reachable from every
+network the machine is on. The routes that agents use need the session's bearer
+token on every address.
 
 While a hub runs, `pair start` refuses to use its port for another state
 directory, so give each state directory its own `PAIR_HUB_PORT`.
@@ -264,8 +262,8 @@ the variables in front of `pair start` with `env`:
 env XDG_STATE_HOME=/tmp/pair-state PAIR_HUB_PORT=4800 pair start --title "Try pair"
 ```
 
-`pair start` writes the address of its hub to the session's
-`connection.json`, and every other command with `--session-dir` sends its
-request to that address. A `pair start` that resumes the session, and a
-command that finds no hub at that address, use the hub that the variables in
-their own environment give, so they need the variables in front of them too.
+`pair start` writes the address of its hub to the session's `connection.json`,
+and every other command with `--session-dir` sends its request to that address.
+A `pair start` that resumes the session, and a command that finds no hub at that
+address, use the hub that the variables in their own environment give, so they
+need the variables in front of them too.

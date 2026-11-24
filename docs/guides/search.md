@@ -13,8 +13,8 @@ Agreed, in live sessions, and in closed ones when you ask.
 
 Select the magnifying glass in the header, or press <kbd>⌘K</kbd> on macOS,
 <kbd>Ctrl+K</kbd> elsewhere, or <kbd>/</kbd>. Type a few words, and the list
-filters on every keystroke. Typos and partial words still match.
-To search only what the bell has told you, type in the field in
+filters on every keystroke. Typos and partial words still match. To search only
+what the bell has told you, type in the field in
 [Notifications](../concepts/sessions-and-rounds.md#notifications).
 
 | Key                                                            | What it does                                         |
@@ -45,29 +45,29 @@ several things, and its label shows a name, or a count once there are several.
 - **Kinds** offers the six kinds, with how many results each has.
 
 When a search finds nothing, a button offers to loosen one filter and keeps your
-words. The last filter it offers is closed sessions. A result in a closed session
-says Closed on its row.
+words. The last filter it offers is closed sessions. A result in a closed
+session says Closed on its row.
 
 ## The preview
 
 The preview is the result's real page, from the session's own frame, scrolled to
 your words with them highlighted. You can scroll it for context, and results on
 one page just scroll. When your words are in an option or a fold that's closed,
-the preview opens the part that shows the most of them. A note or answer you sent
-pins a card with your words above its page, scrolled to the block it's on.
+the preview opens the part that shows the most of them. A note or answer you
+sent pins a card with your words above its page, scrolled to the block it's on.
 
 Everything the page allows works in the preview: comments, threads, replies,
 choices, answers and proposals. Each goes to the result's own session and round,
-and a comment names them. An older round or a closed session allows what its page
-allows.
+and a comment names them. An older round or a closed session allows what its
+page allows.
 
 A click on a result shows it, and the arrow keys show each result as you move.
 On a phone, only the results show while the keyboard is up for the search field.
 The keyboard drops when you press its Search key, scroll the results or tap a
-result. The preview then shows under the results, at the result you tapped or else
-the best result, and a tap shows another. With a hardware keyboard, which raises
-no keyboard on the screen, the preview stays under the results as you type. With
-nothing typed, the newest results wait for a tap.
+result. The preview then shows under the results, at the result you tapped or
+else the best result, and a tap shows another. With a hardware keyboard, which
+raises no keyboard on the screen, the preview stays under the results as you
+type. With nothing typed, the newest results wait for a tap.
 
 While you write in the preview on a phone, such as in a note or a reply, the
 preview fills the window. It goes back under the results when you leave the text

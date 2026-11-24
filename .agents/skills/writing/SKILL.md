@@ -9,10 +9,10 @@ metadata:
 
 # Writing for pair
 
-pair's text has two kinds of reader. An agent reads the guide and every line
-the hub and the `pair` command print, and acts on each sentence in the middle
-of a session. People read the README and `docs/`. Both read each sentence
-literally, so each sentence states what a thing is or does.
+pair's text has two kinds of reader. An agent reads the guide and every line the
+hub and the `pair` command print, and acts on each sentence in the middle of a
+session. People read the README and `docs/`. Both read each sentence literally,
+so each sentence states what a thing is or does.
 
 ## The text and its reader
 
@@ -41,22 +41,22 @@ Personification is writing a thing as the actor of an action it does not
 perform, or as having a thought, a wish or an intention that only a person has:
 a line of text that runs a command, a submission that wakes someone, a field
 that knows a value. pair's text avoids it because the reader of a personified
-sentence cannot tell who acts, and in pair the actor is what the reader needs
-to know.
+sentence cannot tell who acts, and in pair the actor is what the reader needs to
+know.
 
 - An agent acts on the guide and the prompts one sentence at a time. When a
-  sentence makes a file, a line of text or a page the actor, the agent does
-  not learn that the step is its own to do, or which program does it.
-- A person debugging pair looks for the code that performs each action. After
-  a sentence with the wrong actor, they search the wrong module, or look for a
+  sentence makes a file, a line of text or a page the actor, the agent does not
+  learn that the step is its own to do, or which program does it.
+- A person debugging pair looks for the code that performs each action. After a
+  sentence with the wrong actor, they search the wrong module, or look for a
   component that does not exist.
 - A sentence with a figurative verb has no mechanism in it. "The hub knows the
   session" does not say how. "The hub identifies the session by its inbox
   socket" names the socket, which is what to check when a wake fails.
-- Some ordinary words are also pair's terms. The holder is the agent that runs
-  a session, and a proposal is a card of work. A reader takes a sentence in
-  which a field "holds" data, or a page "proposes" a change, as a statement
-  about those terms.
+- Some ordinary words are also pair's terms. The holder is the agent that runs a
+  session, and a proposal is a card of work. A reader takes a sentence in which
+  a field "holds" data, or a page "proposes" a change, as a statement about
+  those terms.
 
 A verb whose subject performs it is not personification: `pair build` refuses a
 page, the hub wakes the holder, the frame stores the draft, a page renders. The
@@ -108,21 +108,19 @@ does next.
   `pair guide` command that prints it, written literally, such as
   ``run `pair guide writing.md` ``, and never with a Markdown link, as
   `AGENTS.md` says. A prompt names any other file by its absolute path.
-- Put a condition before the action it controls: "When `pair start` refuses,
-  run `pair check`."
-- State each rule in one file, and name that file by its command in the
-  others.
-- Leave out what the agent does not need in order to act, as the rule for
-  guide text in `AGENTS.md` says: how the frame shows something to the
-  reviewer, why the reviewer does something, how the hub stores state, why a
-  design was chosen, or how pair got here. The last three go in `docs/`.
+- Put a condition before the action it controls: "When `pair start` refuses, run
+  `pair check`."
+- State each rule in one file, and name that file by its command in the others.
+- Leave out what the agent does not need in order to act, as the rule for guide
+  text in `AGENTS.md` says: how the frame shows something to the reviewer, why
+  the reviewer does something, how the hub stores state, why a design was
+  chosen, or how pair got here. The last three go in `docs/`.
 
 ## README and docs
 
 - `README.md` says what pair is and does and that it is named for pair
-  programming, shows one or two screenshots, and gives the install. It links
-  to `docs/` for everything else, names no particular agent CLI, and has no
-  FAQ.
+  programming, shows one or two screenshots, and gives the install. It links to
+  `docs/` for everything else, names no particular agent CLI, and has no FAQ.
 - Describe the current behavior, and check it before you write it. Do not
   document a feature that has not shipped.
 

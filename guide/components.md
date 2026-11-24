@@ -1,20 +1,20 @@
 # Components
 
-A component is a directory that `pair build` bundles into every page. Copy
-its `markup.html` into a page and replace the content and IDs. pair adds
-its styles and behavior to every page, so do not copy them into the page's
-`css` or `js`. Component CSS outranks page CSS, so do not restyle a
-component. A component is as wide as the reading column.
+A component is a directory that `pair build` bundles into every page. Copy its
+`markup.html` into a page and replace the content and IDs. pair adds its styles
+and behavior to every page, so do not copy them into the page's `css` or `js`.
+Component CSS outranks page CSS, so do not restyle a component. A component is
+as wide as the reading column.
 
 `pair components` lists every component, pair's and the reviewer's, with its use
 and the `pair guide` command that prints its markup. Before you choose a
 component, print the markup of each one you might use. The reviewer's own
 components are in `$XDG_CONFIG_HOME/pair/components/`, or in
-`~/.config/pair/components/` when `XDG_CONFIG_HOME` is not set, and one with
-the same name as one of pair's components replaces it.
+`~/.config/pair/components/` when `XDG_CONFIG_HOME` is not set, and one with the
+same name as one of pair's components replaces it.
 
-When a page needs a shape no component has, build it in the page's own `css`
-and `js`. When the reviewer asks to keep it for later plans, run
+When a page needs a shape no component has, build it in the page's own `css` and
+`js`. When the reviewer asks to keep it for later plans, run
 `pair guide components/README.md`, move the shape into
 `$XDG_CONFIG_HOME/pair/components/<name>/` as it describes, and say the path.
 Never suggest this to the reviewer.
@@ -22,21 +22,20 @@ Never suggest this to the reviewer.
 ## Escaping
 
 A code block, a diagram's Mermaid text and before-after JSON pasted into
-`textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and
-`&amp;` for each `&` in them. The browser reads a `<` before a letter, `/`,
-`!` or `?` as the start of a tag, and `pair build` refuses a code block or a
-diagram that has one. It does not catch a missed `&`.
-Leave `>` as it is, so `-->` and `->>` stay as written. In a formula inside
-a JSON string, write each backslash twice.
+`textarea[data-diff-input]` are HTML text. Write `&lt;` for each `<` and `&amp;`
+for each `&` in them. The browser reads a `<` before a letter, `/`, `!` or `?`
+as the start of a tag, and `pair build` refuses a code block or a diagram that
+has one. It does not catch a missed `&`. Leave `>` as it is, so `-->` and `->>`
+stay as written. In a formula inside a JSON string, write each backslash twice.
 
 ## Code and figures
 
 `data-language` is the language's name in Shiki, the highlighter: `ts`,
-`python`, `shell`, `json`, or `text` for plain text. `pair build` refuses a
-name that is not a Shiki language ID and suggests the nearest one.
+`python`, `shell`, `json`, or `text` for plain text. `pair build` refuses a name
+that is not a Shiki language ID and suggests the nearest one.
 
-`data-file` on a code block puts the file's name above the code. `data-caption` on
-code, a diagram or a chart adds a caption line, and `data-title` on a chart
+`data-file` on a code block puts the file's name above the code. `data-caption`
+on code, a diagram or a chart adds a caption line, and `data-title` on a chart
 adds a header.
 
 | Attribute    | On                | What it does                                                                                                                         |
@@ -46,61 +45,60 @@ adds a header.
 | data-notes   | `[data-language]` | `[{"line": 3, "text": "…"}]`. Attaches the note to each named line. Needs no range.                                                  |
 | data-terms   | `[data-math]`     | `[{"symbol": "t", "meaning": "…", "value": "8 s"}]`. Names the formula's coloured terms under it, entry N for the Nth literal below. |
 
-Line numbers count from the block's first line, so name a quoted excerpt's
-real range in `data-caption`, such as `Lines 611-621`.
+Line numbers count from the block's first line, so name a quoted excerpt's real
+range in `data-caption`, such as `Lines 611-621`.
 
-Only use `data-lines` when the selected range is the subject of the
-review, and only use `data-notes` when the exact line needs an explanation.
-Leave both off routine code examples.
+Only use `data-lines` when the selected range is the subject of the review, and
+only use `data-notes` when the exact line needs an explanation. Leave both off
+routine code examples.
 
-Write a multi-line code block as a `<pre>`, which keeps its line breaks. Use
-the code component for source code, never a bare block.
+Write a multi-line code block as a `<pre>`, which keeps its line breaks. Use the
+code component for source code, never a bare block.
 
 A formula term takes its colour from a literal in the source, because KaTeX
 refuses `\htmlClass`: write `\textcolor{#1d4ed8}`, `\textcolor{#a16207}`,
-`\textcolor{#047857}` or `\textcolor{#9333ea}`. Only these four colors
-change with the light and dark themes.
+`\textcolor{#047857}` or `\textcolor{#9333ea}`. Only these four colors change
+with the light and dark themes.
 
 A prototype's markup names an entry in the page's `prototypes`. Run
 `pair guide prototypes.md` for that entry's fields.
 
 ## Decisions
 
-Use the visual decision whenever the options differ in something the
-reviewer could see: a layout, a flow, a structure, code, a chart or a
-prototype. Put that figure in each option: a diagram, code, a chart, an
-image, a prototype, or a mock drawn in the page's own HTML and CSS with the
-frame's tokens. Only use the plain decision when a title and one line are
-enough to judge each option. Put the recommended option first, with the
-Recommended tag.
-Give each option one line of consequence that is specific to it.
+Use the visual decision whenever the options differ in something the reviewer
+could see: a layout, a flow, a structure, code, a chart or a prototype. Put that
+figure in each option: a diagram, code, a chart, an image, a prototype, or a
+mock drawn in the page's own HTML and CSS with the frame's tokens. Only use the
+plain decision when a title and one line are enough to judge each option. Put
+the recommended option first, with the Recommended tag. Give each option one
+line of consequence that is specific to it.
 
 ## Questions and checklists
 
 Use a question when the answer is prose, not a selection. Keep it to one
-sentence, and say what you will decide with the answer. Use a drawing
-question when the reviewer needs to sketch a boundary, flow or layout.
+sentence, and say what you will decide with the answer. Use a drawing question
+when the reviewer needs to sketch a boundary, flow or layout.
 
-Start each checklist with no boxes checked, because you cannot tell a box
-the reviewer checked from one that started checked. Mark the items you
-recommend with the `Recommended` tag. Keep the count line above the rows.
-The component updates it.
+Start each checklist with no boxes checked, because you cannot tell a box the
+reviewer checked from one that started checked. Mark the items you recommend
+with the `Recommended` tag. Keep the count line above the rows. The component
+updates it.
 
 ## Matched sections
 
-The comparison aligns matching sections across options. Set
-`--comparison-rows` to the number of direct children per option, including
-the header and the footer, or use `data-layout="independent"` when the
-options have different structures. Every option needs the same number of
-children for the rows to line up, so include an empty section when an option
-has nothing for it: `class="comparison-content empty"` with one line that
-says so. Keep the selection button separate from links, charts and other
-interactive content inside an option.
+The comparison aligns matching sections across options. Set `--comparison-rows`
+to the number of direct children per option, including the header and the
+footer, or use `data-layout="independent"` when the options have different
+structures. Every option needs the same number of children for the rows to line
+up, so include an empty section when an option has nothing for it:
+`class="comparison-content empty"` with one line that says so. Keep the
+selection button separate from links, charts and other interactive content
+inside an option.
 
 ## Before and after
 
-For text or code, generate the input with Git, and write it beside the
-page's JSON source:
+For text or code, generate the input with Git, and write it beside the page's
+JSON source:
 
 ```sh
 pair diff BEFORE AFTER SRC/policy/retry.json
@@ -110,43 +108,42 @@ Give it the whole files, not excerpts, so the patch numbers each line as the
 file does. Show each file's change as its own diff.
 
 Name the output in the markup's textarea, as
-`<textarea data-diff-input="retry.json" hidden></textarea>`, and put the
-changed file's name in `data-file` on the section. `pair build` reads that
-file from the page source's directory and writes its JSON into the textarea.
-The patch names the file by AFTER's base name, so give the proposed copy the
-file's real name, or a name that says what it is. `pair diff` requires Git
-and refuses to overwrite an existing output.
+`<textarea data-diff-input="retry.json" hidden></textarea>`, and put the changed
+file's name in `data-file` on the section. `pair build` reads that file from the
+page source's directory and writes its JSON into the textarea. The patch names
+the file by AFTER's base name, so give the proposed copy the file's real name,
+or a name that says what it is. `pair diff` requires Git and refuses to
+overwrite an existing output.
 
-For visual changes, fill the before and proposed slots and explain the
-change in the legend. Put the `added`, `removed` or `changed` class on
-changed content or Mermaid nodes. The component colors them for both themes,
-so do not set fixed colors in Mermaid `classDef` declarations.
+For visual changes, fill the before and proposed slots and explain the change in
+the legend. Put the `added`, `removed` or `changed` class on changed content or
+Mermaid nodes. The component colors them for both themes, so do not set fixed
+colors in Mermaid `classDef` declarations.
 
 ## Diagrams
 
-Use Mermaid source in `data-diagram` for flows, structures and simple
-charts. Choose any built-in diagram type supported by Pele 1.12.0. Draw a
-loop as a flowchart when the loop is the structure, a sequence diagram when
-the order of waits is the point, and a state diagram for modes.
+Use Mermaid source in `data-diagram` for flows, structures and simple charts.
+Choose any built-in diagram type supported by Pele 1.12.0. Draw a loop as a
+flowchart when the loop is the structure, a sequence diagram when the order of
+waits is the point, and a state diagram for modes.
 
-For custom rendering or interactions, call `await planUI.pele()` and use
-Pele's native API on your own element. Run `pair guide pages.md` for the
-loader and mount cleanup example. Use page CSS for Pele's public theme
-variables, SVG classes and source IDs. When Mermaid cannot draw the idea
-cleanly, draw SVG with the frame's tokens. Run `pair guide flow.svg` for an
-example.
+For custom rendering or interactions, call `await planUI.pele()` and use Pele's
+native API on your own element. Run `pair guide pages.md` for the loader and
+mount cleanup example. Use page CSS for Pele's public theme variables, SVG
+classes and source IDs. When Mermaid cannot draw the idea cleanly, draw SVG with
+the frame's tokens. Run `pair guide flow.svg` for an example.
 
-Write one Mermaid statement per line in `data-diagram` and escape it as
-HTML text, so a line break in a label is `&lt;br/&gt;`. Use supported text
-formatting rather than arbitrary HTML labels. To link a node to a page,
-give it that page's ID. Use an explicit source URL link to override that
-page link. Open the built page to check the source, because `pair build`
-does not validate Mermaid syntax. Click a drawn diagram to inspect it
-at full size, and scroll the modal when the diagram is larger than the window.
+Write one Mermaid statement per line in `data-diagram` and escape it as HTML
+text, so a line break in a label is `&lt;br/&gt;`. Use supported text formatting
+rather than arbitrary HTML labels. To link a node to a page, give it that page's
+ID. Use an explicit source URL link to override that page link. Open the built
+page to check the source, because `pair build` does not validate Mermaid syntax.
+Click a drawn diagram to inspect it at full size, and scroll the modal when the
+diagram is larger than the window.
 
 1. Point an edge at the group when the relation concerns the group.
-2. Keep a chain when the order is the point. Group related steps when the
-   groups help explain the flow, and label each group.
+2. Keep a chain when the order is the point. Group related steps when the groups
+   help explain the flow, and label each group.
 3. Put one to three words in a node and the sentence in the caption.
 
 In these examples, `·` stands for a line break.
@@ -169,9 +166,9 @@ In these examples, `·` stands for a line break.
 
 ## Charts and mathematical demonstrations
 
-Use Mermaid charts in `data-diagram` for explanatory figures. Use
-`data-chart` or `planUI.chart()` for ECharts features such as exact-value
-inspection, selectable series, data-range zoom and specialized numerical
-plots. For a mathematical demonstration, calculate samples in page
-JavaScript and update the returned ECharts instance with `setOption`.
-Use the formula component for equations.
+Use Mermaid charts in `data-diagram` for explanatory figures. Use `data-chart`
+or `planUI.chart()` for ECharts features such as exact-value inspection,
+selectable series, data-range zoom and specialized numerical plots. For a
+mathematical demonstration, calculate samples in page JavaScript and update the
+returned ECharts instance with `setOption`. Use the formula component for
+equations.

@@ -211,7 +211,7 @@ const readerInputs = ["wheel", "touchstart", "pointerdown", "keydown"];
 let held = null;
 const heading = () =>
   (
-    ({ work: $("work-view"), feedback: $("review-view") })[shownPage()] ||
+    { work: $("work-view"), feedback: $("review-view") }[shownPage()] ||
     $("reading")
   ).querySelector("h1");
 /* Hiding a pane's overflow ends its flick. It would also hide a scroll bar

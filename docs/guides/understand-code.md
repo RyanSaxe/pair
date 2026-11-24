@@ -1,8 +1,7 @@
 # Understand code
 
-Use a session to learn a codebase, a module, a pull request, or a topic
-around the code. You can keep the session going for as many rounds as you
-want.
+Use a session to learn a codebase, a module, a pull request, or a topic around
+the code. You can keep the session going for as many rounds as you want.
 
 ## Ask
 
@@ -10,14 +9,14 @@ want.
 /pair help me understand how this service handles retries
 ```
 
-Name the subject as exactly as you can, such as the module, the pull
-request or the behavior.
+Name the subject as exactly as you can, such as the module, the pull request or
+the behavior.
 
 ## Reading the pages
 
 - Each page is about one topic.
-- The agent quotes code with its file and line numbers, and shows changes
-  as diffs.
+- The agent quotes code with its file and line numbers, and shows changes as
+  diffs.
 - Click a diagram to open it full size.
 
 ## Asking
@@ -29,10 +28,10 @@ request or the behavior.
 
 ## When you understand enough
 
-Send the round with **Write a plan**, or ask for a plan in a comment or in
-chat. You can [plan the change](plan-a-change.md) and then build it in the
-same session.
+Send the round with **Write a plan**, or ask for a plan in a comment or in chat.
+You can [plan the change](plan-a-change.md) and then build it in the same
+session.
 
-To stop, tell the agent in chat, and it pauses the session. When you ask it
-to continue, it reads anything you sent in the meantime. Close the
-session from the session list when you are done with it.
+To stop, tell the agent in chat, and it pauses the session. When you ask it to
+continue, it reads anything you sent in the meantime. Close the session from the
+session list when you are done with it.
