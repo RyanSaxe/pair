@@ -10,6 +10,8 @@ import { exec } from "../support/hub.mjs";
 const shown = (name) => path.join("~", name);
 const ids = (entries) => entries.map((entry) => entry.id);
 const failed = ({ status, stderr }) => status === 1 && stderr.length > 0;
+const named = async (cli, ...args) =>
+  JSON.parse((await cli.run(["register", "--json", ...args])).stdout).name;
 
 test("pair register names a session for its folder, and gives it the same name after its CLI restarts", async (t) => {
   const { list, folder, agent, agents } = await agentsScratch(t);
@@ -58,8 +60,6 @@ test("a session whose name a running session has gets the next one, and --name r
   const second = await agent(shop, {
     env: { CLAUDE_CODE_SESSION_ID: "second-30" },
   });
-  const named = async (agent, ...args) =>
-    JSON.parse((await agent.run(["register", "--json", ...args])).stdout).name;
   assert.equal(await named(first), "shop-72");
   assert.equal(await named(second), "shop-73");
   assert.ok(failed(await second.run(["register", "--name", "shop-72"])));

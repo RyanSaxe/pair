@@ -95,6 +95,8 @@ test("the reviewer's choice for the next round decides whether Agreed may mark i
   );
 });
 
+const notes = (...items) => ({ groups: { notes: items } });
+
 // pair read prints every note the hub saves, so the hub refuses a note that
 // pair read could not print before it saves anything.
 test("the hub refuses a next round it does not know, a message over 4,000 characters and a malformed note", async (t) => {
@@ -102,7 +104,6 @@ test("the hub refuses a next round it does not know, a message over 4,000 charac
   const a = await h.session();
   await a.publish(planData());
   const note = { id: "n", topic: "overview", anchor: "Overview", text: "Hi" };
-  const notes = (...items) => ({ groups: { notes: items } });
   const malformed = "Notes require id, topic, anchor and text";
   for (const [extra, error] of [
     [{ next: "later" }, "next is one of iterate, plan, build"],

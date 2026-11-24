@@ -20,16 +20,28 @@ const levels = {
   },
   agreement: {
     fields: [
-      ...["id", "title", "html", "file", "state", "change"],
-      ...["sourceRefs", "source", "href"],
+      "id",
+      "title",
+      "html",
+      "file",
+      "state",
+      "change",
+      "sourceRefs",
+      "source",
+      "href",
     ],
     takes:
       "An agreement takes id, title, html or file, state, change, sourceRefs or source, and href.",
   },
   sourceRef: {
     fields: [
-      ...["kind", "submissionId", "noteId", "choiceId", "answerId"],
-      ...["threadId", "text"],
+      "kind",
+      "submissionId",
+      "noteId",
+      "choiceId",
+      "answerId",
+      "threadId",
+      "text",
     ],
     takes:
       "A source reference takes kind, submissionId with noteId, choiceId or answerId, threadId, and text.",

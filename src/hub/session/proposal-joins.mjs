@@ -7,9 +7,10 @@ import { refuse } from "./proposal-fields.mjs";
 // Start in pair read or in pair start --from, so OTHER cannot already run in
 // a linked session. No card joins itself or a joined card. joinable refuses
 // any other pair of cards before the hub changes either one.
+const cannot = (reason) =>
+  `${reason}, so you cannot join it into another proposal.`;
+
 export function joinable(card, task) {
-  const cannot = (reason) =>
-    `${reason}, so you cannot join it into another proposal.`;
   refuse(card, "join", {
     declined: `The reviewer declined proposal ${card.id}. Drop its work and do not suggest it again.`,
     withdrawn: cannot(`Proposal ${card.id} is withdrawn`),

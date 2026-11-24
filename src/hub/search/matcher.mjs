@@ -107,7 +107,7 @@ function prepare(query) {
 
 function shortWindow(hits) {
   if (hits.length < 2) return 0;
-  const idx = new Array(hits.length).fill(0);
+  const idx = Array.from({ length: hits.length }, () => 0);
   let bestSpan = Infinity;
   for (;;) {
     let lo = Infinity;
@@ -203,11 +203,20 @@ function scoreDoc(prepared, doc) {
   const textHits = [];
   for (let k = 0; k < words.length; k++) {
     const word = words[k];
-    let inHead = strictInField(word, lh, origH, true);
-    let inText = word.n === 1 ? null : strictInField(word, lt, orig, false);
+    let inHead = strictInField(word, {
+      lower: lh,
+      orig: origH,
+      inHeading: true,
+    });
+    let inText =
+      word.n === 1
+        ? null
+        : strictInField(word, { lower: lt, orig, inHeading: false });
     if (!inHead && !inText) {
       const attrHit =
-        word.n === 1 ? null : strictInField(word, la, origA, false);
+        word.n === 1
+          ? null
+          : strictInField(word, { lower: la, orig: origA, inHeading: false });
       if (attrHit) {
         inAttrs = true;
         attrLists.push(rangesFrom(attrHit));
@@ -216,8 +225,9 @@ function scoreDoc(prepared, doc) {
         continue;
       }
       if (!fuzzyOn || !word.fuzzy) return null;
-      inHead = fuzzyInField(word, lh, origH, true);
-      if (!inHead) inText = fuzzyInField(word, lt, orig, false);
+      inHead = fuzzyInField(word, { lower: lh, orig: origH, inHeading: true });
+      if (!inHead)
+        inText = fuzzyInField(word, { lower: lt, orig, inHeading: false });
       if (!inHead && !inText) return null;
       usedFuzzy = true;
       const hit = inHead ?? inText;

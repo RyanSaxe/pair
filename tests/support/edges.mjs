@@ -75,18 +75,17 @@ export const box = (page, selector) =>
       return { left, right, width, top };
     });
 export const saved = (page, key) =>
-  page.evaluate((key) => localStorage.getItem(key), key);
+  page.evaluate((name) => localStorage.getItem(name), key);
 // The browser fires resize at its next frame, so this waits for the attribute.
 export const fullIs = (page, expected) =>
   page.waitForFunction(
-    (expected) =>
-      document.documentElement.hasAttribute("data-page-full") === expected,
+    (want) => document.documentElement.hasAttribute("data-page-full") === want,
     expected,
     { timeout: 3000 },
   );
 export const save = (page, values) =>
-  page.evaluate((values) => {
-    for (const [key, value] of Object.entries(values))
+  page.evaluate((entries) => {
+    for (const [key, value] of Object.entries(entries))
       localStorage.setItem(key, value);
   }, values);
 

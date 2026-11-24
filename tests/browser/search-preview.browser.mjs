@@ -92,7 +92,7 @@ const type = async (page, query) => {
 const shown = (page) => page.frameLocator(".search-frame.is-shown");
 // The frame's words on screen, once its highlight has the word.
 const previewShows = (page, word) =>
-  page.waitForFunction((word) => {
+  page.waitForFunction((target) => {
     const win = document.querySelector(".search-frame.is-shown")?.contentWindow;
     const marks = win?.CSS.highlights?.get("plan-search");
     return (
@@ -100,7 +100,7 @@ const previewShows = (page, word) =>
       [...marks].some((range) => {
         const box = range.getBoundingClientRect();
         return (
-          range.toString().toLowerCase() === word &&
+          range.toString().toLowerCase() === target &&
           box.width > 0 &&
           box.top >= 0 &&
           box.bottom <= win.innerHeight
@@ -111,10 +111,10 @@ const previewShows = (page, word) =>
 // The same, on the page that Open went to.
 const pageShows = (page, word) =>
   page.waitForFunction(
-    (word) =>
+    (target) =>
       [...(CSS.highlights?.get("plan-search") ?? [])].some(
         (range) =>
-          range.toString().toLowerCase() === word &&
+          range.toString().toLowerCase() === target &&
           range.getBoundingClientRect().width > 0,
       ),
     word,
@@ -221,18 +221,18 @@ test("a block shows the part with the most of the reader's words, and a tie stay
   // At this width the options are tabs, and only one shows.
   const { page } = await setUp(t, { viewport: { width: 1000, height: 800 } });
   if (!page) return;
-  const open = () =>
+  const selectedTab = () =>
     shown(page)
       .locator('#page-content [role="tab"][aria-selected="true"]')
       .textContent();
   // "one breaker" is on the open option and on another, which is a tie.
   await type(page, "one breaker");
   await previewShows(page, "one breaker");
-  assert.equal(await open(), "Near");
+  assert.equal(await selectedTab(), "Near");
   // "envoy" is only on another option, which with the heading shows both words.
   await type(page, "breaker envoy");
   await previewShows(page, "envoy");
-  assert.equal(await open(), "Far");
+  assert.equal(await selectedTab(), "Far");
 });
 
 test("a tie stays on the open option when the frame is new", async (t) => {
@@ -713,7 +713,7 @@ test("a preview shows at its full width from its first frame", async (t) => {
   await page.waitForTimeout(400);
   const widths = await page.evaluate(() => window.widths);
   assert.ok(widths.length > 0);
-  assert.deepEqual([...new Set(widths)].length, 1, String(new Set(widths)));
+  assert.deepEqual(new Set(widths).size, 1, String(new Set(widths)));
 });
 
 test("a preview shows once its words have landed, with the line while it waits", async (t) => {
@@ -744,8 +744,8 @@ test("a preview shows once its words have landed, with the line while it waits",
   await previewShows(page, "pangolin");
   await page.waitForTimeout(500);
   const seen = await page.evaluate(() => window.seen);
-  assert.ok(seen.some(({ loading, shown }) => loading && !shown));
-  const onScreen = seen.filter(({ shown }) => shown);
+  assert.ok(seen.some(({ loading, shown: isShown }) => loading && !isShown));
+  const onScreen = seen.filter(({ shown: isShown }) => isShown);
   assert.ok(onScreen.length > 0);
   assert.equal(
     onScreen.some(({ loading }) => loading),
@@ -766,10 +766,10 @@ test("the result on screen stays until the next is ready", async (t) => {
     await route.fallback();
   });
   await page.evaluate(() => {
-    window.frames_ = [];
+    window.recordedFrames = [];
     const sample = () => {
       const frame = document.querySelector(".search-frame.is-shown");
-      window.frames_.push({
+      window.recordedFrames.push({
         shown: Boolean(frame),
         opacity: frame ? getComputedStyle(frame).opacity : null,
         loading: document
@@ -786,12 +786,12 @@ test("the result on screen stays until the next is ready", async (t) => {
   // before the line ends, so previewShows can't stand in for this.
   await page.waitForFunction(
     () =>
-      window.frames_.some(({ loading }) => loading) &&
-      !window.frames_.at(-1).loading,
+      window.recordedFrames.some(({ loading }) => loading) &&
+      !window.recordedFrames.at(-1).loading,
   );
   await previewShows(page, "pangolin");
-  const frames = await page.evaluate(() => window.frames_);
-  assert.ok(frames.every(({ shown }) => shown));
+  const frames = await page.evaluate(() => window.recordedFrames);
+  assert.ok(frames.every(({ shown: isShown }) => isShown));
   assert.ok(
     frames.some(({ loading, opacity }) => loading && opacity === "0.35"),
   );
@@ -813,9 +813,8 @@ test("another result on the page on screen just moves the page", async (t) => {
   const moves = await page.evaluate(async () => {
     const frame = document.querySelector(".search-frame.is-shown");
     const first = frame.contentDocument.querySelector("#page-content > p");
-    const row = () =>
-      document.querySelector('.search-row[aria-selected="true"]');
-    const before = row().dataset.i;
+    const before = document.querySelector('.search-row[aria-selected="true"]')
+      .dataset.i;
     const dims = [];
     const sample = () => {
       dims.push(getComputedStyle(frame).opacity);
@@ -833,7 +832,9 @@ test("another result on the page on screen just moves the page", async (t) => {
     await new Promise((done) => setTimeout(done, 600));
     window.sampling = false;
     return {
-      moved: row().dataset.i !== before,
+      moved:
+        document.querySelector('.search-row[aria-selected="true"]').dataset
+          .i !== before,
       same: first.isConnected,
       dimmed: dims.includes("0.35"),
     };

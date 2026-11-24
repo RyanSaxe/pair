@@ -13,27 +13,30 @@ import { renders } from "#frame/pages/renderers.mjs";
 // The saved value contains, for each round, the last page the reader was on
 // and, for each page they read, the block they were reading and how far into
 // it. It also contains the past round the left tab shows.
+const readSpot = (value) =>
+  record(value) &&
+  typeof value.id === "string" &&
+  value.id &&
+  Number.isFinite(value.into)
+    ? { id: value.id, into: Math.round(value.into) }
+    : null;
+const readPlace = (value) => {
+  const at = {};
+  if (record(value.at))
+    for (const [id, entry] of Object.entries(value.at)) {
+      const parsed = readSpot(entry);
+      if (parsed) at[id] = parsed;
+    }
+  return { page: value.page, at };
+};
+
 export function readPlaces(saved) {
   const places = {};
-  const spot = (value) =>
-    record(value) &&
-    typeof value.id === "string" &&
-    value.id &&
-    Number.isFinite(value.into)
-      ? { id: value.id, into: Math.round(value.into) }
-      : null;
-  const place = (value) => {
-    const at = {};
-    if (record(value.at))
-      for (const [id, saved] of Object.entries(value.at))
-        if (spot(saved)) at[id] = spot(saved);
-    return { page: value.page, at };
-  };
   if (!record(saved)) return { past: null, places };
   if (record(saved.places))
     for (const [round, value] of Object.entries(saved.places))
       if (record(value) && typeof value.page === "string")
-        places[round] = place(value);
+        places[round] = readPlace(value);
   return {
     past: typeof saved.past === "string" ? saved.past : null,
     places,

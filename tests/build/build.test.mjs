@@ -90,10 +90,12 @@ test("every component's styles and behavior reach the page", async () => {
     "@layer components",
   );
   const text = carried(html);
-  const root = new URL("../../src/components/", import.meta.url);
-  for (const name of await fs.readdir(root)) {
+  const componentsRoot = new URL("../../src/components/", import.meta.url);
+  for (const name of await fs.readdir(componentsRoot)) {
     const read = (file) =>
-      fs.readFile(new URL(`${name}/${file}`, root), "utf8").catch(() => "");
+      fs
+        .readFile(new URL(`${name}/${file}`, componentsRoot), "utf8")
+        .catch(() => "");
     const [styles, behavior] = await Promise.all([
       read("styles.css"),
       read("behavior.mjs"),
@@ -397,30 +399,36 @@ test("the build accepts well-formed controls, anchors and blocks", () => {
     assert.deepEqual(problems(plan), [], what);
 });
 
+const buildAgreedPage = (overrides) =>
+  buildPage(path.join(os.tmpdir(), "agreed.json"), {
+    name: "t",
+    round: "1",
+    title: "T",
+    page: {
+      id: "agreed",
+      title: "Agreed so far",
+      agreements: [],
+      ...overrides,
+    },
+  });
+
 test("an Agreed page opens with a task, and the plan data carries it", async () => {
-  const agreed = (page) =>
-    buildPage(path.join(os.tmpdir(), "agreed.json"), {
-      name: "t",
-      round: "1",
-      title: "T",
-      page: { id: "agreed", title: "Agreed so far", agreements: [], ...page },
-    });
   await assert.rejects(
-    agreed({}),
+    buildAgreedPage({}),
     /page "agreed": Agreed has no task\. State what the plan is building towards\./,
   );
   await assert.rejects(
-    agreed({ task: { title: " ", html: "<p>x</p>" } }),
+    buildAgreedPage({ task: { title: " ", html: "<p>x</p>" } }),
     /page "agreed": the task has no title/,
   );
   const task = { title: "Retries", html: "<p>Checkout retries once.</p>" };
-  const html = await agreed({ task });
-  const data = JSON.parse(
+  const html = await buildAgreedPage({ task });
+  const planData = JSON.parse(
     html
       .match(/id="plan-data">([\s\S]*?)<\/script>/)[1]
       .replaceAll("\\u003c", "<"),
   );
-  assert.deepEqual(data.task, task);
+  assert.deepEqual(planData.task, task);
 });
 
 test("a page source builds a standalone preview", async (t) => {
@@ -635,7 +643,7 @@ test("preserved prototypes retain exact executable source without escaping into 
   const html =
     '<!doctype html><button id="try">Try</button><script>document.querySelector("button").onclick = () => alert("$&");</script>';
   await fs.writeFile(path.join(directory, "prototype.html"), html);
-  const data = {
+  const sourceData = {
     name: "example",
     round: "1",
     title: "Example work",
@@ -654,7 +662,7 @@ test("preserved prototypes retain exact executable source without escaping into 
     },
   };
   const source = path.join(directory, "source.json");
-  await fs.writeFile(source, JSON.stringify(data));
+  await fs.writeFile(source, JSON.stringify(sourceData));
   const result = await build(source);
   const parsed = pageData(result);
   assert.equal(parsed.page.prototypes[0].html, html);
@@ -674,10 +682,10 @@ test("preserved prototypes retain exact executable source without escaping into 
   await fs.writeFile(
     source,
     JSON.stringify({
-      ...data,
+      ...sourceData,
       page: {
-        ...data.page,
-        prototypes: [{ ...data.page.prototypes[0], html }],
+        ...sourceData.page,
+        prototypes: [{ ...sourceData.page.prototypes[0], html }],
       },
     }),
   );
@@ -687,7 +695,10 @@ test("preserved prototypes retain exact executable source without escaping into 
   );
   await fs.writeFile(
     source,
-    JSON.stringify({ ...data, page: { ...data.page, prototypes: [null] } }),
+    JSON.stringify({
+      ...sourceData,
+      page: { ...sourceData.page, prototypes: [null] },
+    }),
   );
   await assert.rejects(build(source), /Prototype IDs must be valid and unique/);
 });

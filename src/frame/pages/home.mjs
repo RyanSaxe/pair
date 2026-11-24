@@ -42,6 +42,14 @@ async function pollHome() {
   $("agent-activity").hidden = false;
   drawActivity(true);
 }
+function navRow(title) {
+  const button = document.createElement("button");
+  button.type = "button";
+  const text = document.createElement("span");
+  text.textContent = title;
+  button.append(text);
+  return button;
+}
 /* Nothing can open before the agent publishes Agreed, and there is no
    earlier round, so the rows, Last round and Rounds do nothing, and Current
    stays selected. */
@@ -63,21 +71,13 @@ function drawNavigation() {
     button.textContent = label;
     tabs.append(button);
   }
-  const row = (title) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    const text = document.createElement("span");
-    text.textContent = title;
-    button.append(text);
-    return button;
-  };
-  const agreed = row("Agreed so far");
+  const agreed = navRow("Agreed so far");
   agreed.classList.add("pending");
   agreed.setAttribute("aria-label", "Agreed so far, queued");
   agreed.setAttribute("aria-disabled", "true");
   agreed.append(pageIndicator("queued"));
-  const work = row("Work");
-  const review = row("Review");
+  const work = navRow("Work");
+  const review = navRow("Review");
   work.disabled = review.disabled = true;
   const list = document.createElement("div");
   list.id = "page-list";

@@ -51,6 +51,28 @@ async function readBody(req, limit) {
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
+// A session directory can be reached by more than one path, such as
+// /tmp/… and /private/tmp/… on macOS. The hub keys a session by the real
+// path of its parent and its own name, because a new session's directory
+// does not exist yet when pair start registers it.
+const canonical = async (directory) =>
+  path.join(
+    await fs
+      .realpath(path.dirname(directory))
+      .catch(() => path.dirname(directory)),
+    path.basename(directory),
+  );
+
+/* Browser routes take no token, as docs/reference/commands.md says under
+   PAIR_HUB_HOST. sameOrigin is the only check that stops a page in another
+   tab from posting to a session or to the seen lists. */
+const sameOrigin = (req) =>
+  requireValue(
+    req.headers.origin === `http://${req.headers.host}`,
+    "Unauthorized source",
+    403,
+  );
+
 export async function startHub(config = settings()) {
   await fs.mkdir(config.hubDir, { recursive: true, mode: 0o700 });
   await fs.mkdir(config.sessions, { recursive: true, mode: 0o700 });
@@ -64,9 +86,9 @@ export async function startHub(config = settings()) {
   const byDirectory = new Map();
   const register = serializer();
   // inFlight counts the requests the hub has not finished answering, and
-  // shutDown() replaces drained to learn when the count reaches 0.
+  // shutDown() sets drained to learn when the count reaches 0.
   let inFlight = 0;
-  let drained = () => {};
+  let drained = null;
   let origin = null,
     hostOrigin = null,
     allowedHosts = new Set(),
@@ -82,30 +104,17 @@ export async function startHub(config = settings()) {
   const log = (message) =>
     (config.log || console.log)(`${timestamp()} ${message}`);
   const search = searchStore({ log });
-  // A session directory can be reached by more than one path, such as
-  // /tmp/… and /private/tmp/… on macOS. The hub keys a session by the real
-  // path of its parent and its own name, because a new session's directory
-  // does not exist yet when pair start registers it.
-  const canonical = async (directory) =>
-    path.join(
-      await fs
-        .realpath(path.dirname(directory))
-        .catch(() => path.dirname(directory)),
-      path.basename(directory),
-    );
   async function adopt(directory) {
     const known = await canonical(directory);
     let session = byDirectory.get(known);
     if (!session) {
-      session = await loadSession(
-        directory,
-        config,
+      session = await loadSession(directory, config, {
         origin,
         tabOpen,
-        (id) => registry.get(id),
-        search.markChanged,
-        (keys) => seen.addToStarted(keys, listed()),
-      );
+        peer: (id) => registry.get(id),
+        changed: search.markChanged,
+        markSeen: (keys) => seen.addToStarted(keys, listed()),
+      });
       registry.set(session.id, session);
       byDirectory.set(known, session);
       void search.add(session.id, session.directory);
@@ -118,7 +127,7 @@ export async function startHub(config = settings()) {
   const listed = () =>
     withClosedParents(open(), (id) => registry.get(id))
       .map((session) => session.listing())
-      .sort(
+      .toSorted(
         (a, b) =>
           Number(b.needsYou) - Number(a.needsYou) ||
           (a.needsYou
@@ -134,22 +143,14 @@ export async function startHub(config = settings()) {
     const lists = await seen.view(sessions);
     const cleared = new Set(lists.cleared ?? []);
     return {
-      sessions: sessions.map((entry) => ({
-        ...entry,
-        events: registry.get(entry.id).withWords(entry.events, cleared),
-      })),
+      sessions: sessions.map((entry) =>
+        Object.assign({}, entry, {
+          events: registry.get(entry.id).withWords(entry.events, cleared),
+        }),
+      ),
       seen: lists,
     };
   };
-  /* Browser routes take no token, as docs/reference/commands.md says under
-     PAIR_HUB_HOST. sameOrigin is the only check that stops a page in another
-     tab from posting to a session or to the seen lists. */
-  const sameOrigin = (req) =>
-    requireValue(
-      req.headers.origin === `http://${req.headers.host}`,
-      "Unauthorized source",
-      403,
-    );
   // Chrome can paint a page before it parses all of it, so a session the
   // reviewer switched to showed an empty sidebar and reading column before
   // the frame drew into them. A module script in the head with
@@ -159,7 +160,7 @@ export async function startHub(config = settings()) {
   // and the page's modules, so the first paint comes after they have run. The
   // browser never runs a script with no text, so the script contains a comment.
   const renderGate = `<script type="module" blocking="render">/* render gate */</script>`;
-  const framePage = (session, html, flags, head) =>
+  const framePage = (session, html, { flags = {}, head = "" } = {}) =>
     embedConfig(
       html.replace("</head>", () => head + renderGate + "</head>"),
       {
@@ -170,13 +171,13 @@ export async function startHub(config = settings()) {
         ...flags,
       },
     );
-  const roundPage = async (session, entry, flags = {}, head = "") => {
+  const roundPage = async (session, entry, { flags = {}, head = "" } = {}) => {
     requireValue(entry, "Unknown round", 404);
     const readOnly = Boolean(flags.readonly || flags.closed);
     const html =
       (await session.renderRound(entry.round, { readOnly })) ??
       (await fs.readFile(entry.path, "utf8"));
-    return framePage(session, html, flags, head);
+    return framePage(session, html, { flags, head });
   };
   /* The search window loads a session's frame when a result needs it, on a
      phone as well, so the frame is compressed, and a compressed one is kept
@@ -198,12 +199,9 @@ export async function startHub(config = settings()) {
       session.state.parent?.sessionId,
     ].join("|");
     if (!embeds.has(key)) {
-      const page = framePage(
-        session,
-        await session.renderForPreview(round),
-        { embedded: true, ...flags },
-        "",
-      );
+      const page = framePage(session, await session.renderForPreview(round), {
+        flags: { embedded: true, ...flags },
+      });
       embeds.set(key, gzipSync(page));
       if (embeds.size > EMBEDS_KEPT) embeds.delete(embeds.keys().next().value);
     }
@@ -212,9 +210,13 @@ export async function startHub(config = settings()) {
   async function handle(req, res) {
     inFlight++;
     res.once("close", () => {
-      if (--inFlight === 0) drained();
+      if (--inFlight === 0) drained?.();
     });
-    const reply = (code, value, type = "application/json", headers = {}) => {
+    const reply = (
+      code,
+      value,
+      { type = "application/json", headers = {} } = {},
+    ) => {
       const text =
         typeof value === "string" || Buffer.isBuffer(value)
           ? value
@@ -243,7 +245,7 @@ export async function startHub(config = settings()) {
       res.end(large ? gzipSync(text) : text);
     };
     const html = (value, headers) =>
-      reply(200, value, "text/html; charset=utf-8", headers);
+      reply(200, value, { type: "text/html; charset=utf-8", headers });
     // The frame polls the status and the session list, and sends back the tag
     // of its last answer, so a poll that finds no change costs only headers.
     // The tag is weak because a compressed body differs by the byte.
@@ -252,7 +254,7 @@ export async function startHub(config = settings()) {
       const hash = crypto.createHash("sha256").update(text).digest("base64url");
       const tag = `W/"${hash}"`;
       if (req.headers["if-none-match"] !== tag)
-        return reply(200, text, "application/json", { ETag: tag });
+        return reply(200, text, { headers: { ETag: tag } });
       res.writeHead(304, { ETag: tag, "Cache-Control": "no-store" });
       res.end();
     };
@@ -328,7 +330,11 @@ export async function startHub(config = settings()) {
           (remembered && !isClosed(remembered.state) ? last : null) ||
           sessions.find((item) => !item.closed)?.url ||
           last;
-        if (target) return reply(302, "", "text/plain", { Location: target });
+        if (target)
+          return reply(302, "", {
+            type: "text/plain",
+            headers: { Location: target },
+          });
         return html(
           '<!doctype html><title>pair</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
         );
@@ -358,12 +364,16 @@ export async function startHub(config = settings()) {
         );
         const requested = path.resolve(data.sessionDir);
         const { session, created, card, joined } = await register(async () => {
-          const created = !(await exists(path.join(requested, "status.json")));
+          const isNew = !(await exists(path.join(requested, "status.json")));
           if (data.from === undefined)
-            return { created, session: await adopt(requested) };
+            return { created: isNew, session: await adopt(requested) };
           return {
-            created,
-            ...(await startFrom(adopt, requested, created, data)),
+            created: isNew,
+            ...(await startFrom(adopt, {
+              directory: requested,
+              created: isNew,
+              data,
+            })),
           };
         });
         const { directory } = session;
@@ -416,8 +426,9 @@ export async function startHub(config = settings()) {
         const rest = parts.slice(2);
         const round = () => decodeURIComponent(rest[1]);
         if (method === "GET" && parts.length === 2)
-          return reply(302, "", "text/plain", {
-            Location: session.base + "/",
+          return reply(302, "", {
+            type: "text/plain",
+            headers: { Location: session.base + "/" },
           });
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
           // The hub serves a session the reviewer closed as read-only, so a
@@ -432,12 +443,10 @@ export async function startHub(config = settings()) {
               );
           if (!session.state.current)
             return html(
-              framePage(
-                session,
-                await assembleHome(session.listing().title),
-                { home: true, ...flags },
+              framePage(session, await assembleHome(session.listing().title), {
+                flags: { home: true, ...flags },
                 head,
-              ),
+              }),
             );
           // A closed session's frame shows one round, so an older round opens at
           // its own address.
@@ -446,36 +455,39 @@ export async function startHub(config = settings()) {
             const params = new URLSearchParams(url.searchParams);
             params.delete("round");
             const query = params.size ? `?${params}` : "";
-            return reply(302, "", "text/plain", {
-              Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
+            return reply(302, "", {
+              type: "text/plain",
+              headers: {
+                Location: `${session.base}/r/${encodeURIComponent(wanted)}${query}`,
+              },
             });
           }
           const entry = session.roundEntry(session.state.current.round);
-          return html(await roundPage(session, entry, flags, head), {
+          return html(await roundPage(session, entry, { flags, head }), {
             "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
           });
         }
         if (method === "GET" && rest[0] === "r" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {
-              readonly: true,
-              ...(isClosed(session.state) ? { closed: true } : {}),
+              flags: {
+                readonly: true,
+                ...(isClosed(session.state) ? { closed: true } : {}),
+              },
             }),
           );
         if (method === "GET" && rest[0] === "embed" && rest.length === 2) {
           const wanted =
             round() === "latest" ? session.state.current?.round : round();
-          return reply(
-            200,
-            await embedPage(session, wanted),
-            "text/html; charset=utf-8",
-            { "Content-Encoding": "gzip" },
-          );
+          return reply(200, await embedPage(session, wanted), {
+            type: "text/html; charset=utf-8",
+            headers: { "Content-Encoding": "gzip" },
+          });
         }
         if (method === "GET" && rest[0] === "preview" && rest.length === 2)
           return html(
             await roundPage(session, session.roundEntry(round()), {
-              preview: true,
+              flags: { preview: true },
             }),
           );
         if (
@@ -508,8 +520,11 @@ export async function startHub(config = settings()) {
             Number(rest[3]),
             Number(rest[4]),
           );
-          return reply(200, image.bytes, image.type, {
-            "Cache-Control": "private, max-age=31536000, immutable",
+          return reply(200, image.bytes, {
+            type: image.type,
+            headers: {
+              "Cache-Control": "private, max-age=31536000, immutable",
+            },
           });
         }
         // The browser sends no Origin header with a same-origin GET, so only
@@ -610,7 +625,9 @@ export async function startHub(config = settings()) {
           rest.length === 3
         ) {
           const scene = await session.readScene(rest[2]);
-          return reply(200, scene.bytes, "application/vnd.excalidraw+json");
+          return reply(200, scene.bytes, {
+            type: "application/vnd.excalidraw+json",
+          });
         }
         /* The frame loads each uploaded image from this route by its ID,
            also after a reload, because the frame's draft stores only the ID
@@ -622,7 +639,7 @@ export async function startHub(config = settings()) {
           rest.length === 3
         ) {
           const image = await session.readUpload(rest[2]);
-          return reply(200, image.bytes, image.type);
+          return reply(200, image.bytes, { type: image.type });
         }
         if (
           method === "DELETE" &&

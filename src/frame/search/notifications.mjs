@@ -80,24 +80,22 @@ function linesWithReplies() {
           replied.delete(line.thread);
           return line;
         }
-        return {
-          ...line,
+        return Object.assign({}, line, {
           text: sent.text,
           at: sent.at,
           state: "sending",
           waitingSince: sent.at,
-        };
+        });
       }),
     };
   return merged;
 }
 function liveRows() {
-  const rows = notificationRows(
-    liveSessions(),
-    linesWithReplies(),
-    loadCleared(),
-    session.sessionId,
-  );
+  const rows = notificationRows(liveSessions(), {
+    threadLines: linesWithReplies(),
+    cleared: loadCleared(),
+    thisId: session.sessionId,
+  });
   return answered
     ? rows
     : rows.filter((row) => row.state === "unread" || kept.has(row.key));
@@ -130,17 +128,17 @@ function passes(row, skip) {
 }
 const rank = (group) => GROUPS.findIndex(([id]) => id === group);
 const groupName = (group) => GROUPS.find(([id]) => id === group)[1];
+const keptPlace = (row) => kept.get(row.key);
 function snapshot() {
   const rows = liveRows();
   for (const row of rows)
     if (!kept.has(row.key)) kept.set(row.key, { group: row.state, at: row.at });
-  const place = (row) => kept.get(row.key);
   const shown = rows
     .filter((row) => passes(row))
-    .sort(
+    .toSorted(
       (a, b) =>
-        rank(place(a).group) - rank(place(b).group) ||
-        place(b).at.localeCompare(place(a).at),
+        rank(keptPlace(a).group) - rank(keptPlace(b).group) ||
+        keptPlace(b).at.localeCompare(keptPlace(a).at),
     );
   const counts = {};
   for (const [id] of KINDS)
@@ -153,15 +151,14 @@ function snapshot() {
     ).length;
   let group = null;
   const results = shown.map((row) => {
-    const own = place(row).group;
+    const own = keptPlace(row).group;
     const first = own !== group;
     group = own;
-    return {
-      ...row,
+    return Object.assign({}, row, {
       hit: hits.get(row.key),
       head: first ? groupName(own) : "",
       clearAll: first && own === "unread" && unreadCount() > 0,
-    };
+    });
   });
   return { results, counts, total: results.length };
 }

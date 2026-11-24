@@ -202,13 +202,14 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   assert.equal(json.threadsSince, "1");
 });
 
+const standing = (printed) =>
+  printed.split("\n\n").find((part) => part.startsWith("Round "));
+
 // After an interrupted turn, the agent runs pair read to learn where the
 // session stands. pair read prints the submission's ID, which pair read
 // --submission takes to print that feedback again.
 test("pair read prints the round, whether it is a plan, and the latest submission", async (t) => {
   const { a, read } = await session(t);
-  const standing = (printed) =>
-    printed.split("\n\n").find((part) => part.startsWith("Round "));
   assert.equal(
     standing(await read()),
     "Round  1, the reviewer has not sent feedback yet\nPlan   no",
@@ -294,9 +295,15 @@ test("pair propose --start prints the reviewer's words it starts a card on, and 
   const { read, run, record } = await session(t);
   await record("deck", "Build the deck");
   const started = await run(
-    ...["propose", "--id", "deck", "--start", "here"],
-    ...["--quote", "Build the deck now.\nKeep the header."],
-    ...["--page", "1/overview"],
+    "propose",
+    "--id",
+    "deck",
+    "--start",
+    "here",
+    "--quote",
+    "Build the deck now.\nKeep the header.",
+    "--page",
+    "1/overview",
   );
   assert(
     started.includes(
@@ -323,8 +330,12 @@ test("pair propose withdraws a card and marks one done elsewhere", async (t) => 
   await record("notes", "Write the notes");
   assert.match(
     await run(
-      ...["propose", "--id", "export", "--withdraw"],
-      ...["--reason", "The export is no longer used."],
+      "propose",
+      "--id",
+      "export",
+      "--withdraw",
+      "--reason",
+      "The export is no longer used.",
     ),
     /\nProposal export: withdrawn\.\n$/,
   );
@@ -354,8 +365,13 @@ test("pair propose merges a card into a proposed one, and pair read and pair sta
     /\n\nProposals\n {2}deck {3}proposed, joined by notes {2}Build the deck\n {2}notes {2}done, joined into deck {5}Write the notes\n$/,
   );
   const started = await run(
-    ...["propose", "--id", "deck", "--start", "here"],
-    ...["--quote", "Build the deck with its notes."],
+    "propose",
+    "--id",
+    "deck",
+    "--start",
+    "here",
+    "--quote",
+    "Build the deck with its notes.",
   );
   assert(
     started.includes(
@@ -396,13 +412,24 @@ test("pair propose prints a status's count and what is left, and pair status pri
   const { h, cli, a, run, record } = await session(t);
   await record("deck", "Build the deck");
   await run(
-    ...["propose", "--id", "deck", "--start", "here"],
-    ...["--quote", "Build the deck."],
+    "propose",
+    "--id",
+    "deck",
+    "--start",
+    "here",
+    "--quote",
+    "Build the deck.",
   );
   const status = (...parts) => run("propose", "--id", "deck", ...parts);
   const started = await status(
-    ...["--status-done", "Outline", "--status-left", "Outline"],
-    ...["--status-left", "Slides", "--status-left", "Speaker notes"],
+    "--status-done",
+    "Outline",
+    "--status-left",
+    "Outline",
+    "--status-left",
+    "Slides",
+    "--status-left",
+    "Speaker notes",
   );
   assert(
     started.endsWith(
@@ -415,7 +442,10 @@ test("pair propose prints a status's count and what is left, and pair status pri
     /\n {2}deck {2}approved to run here, 1 of 3 parts done {2}Build the deck\n$/,
   );
   const finished = await status(
-    ...["--status-done", "Slides", "--status-drop", "Speaker notes"],
+    "--status-done",
+    "Slides",
+    "--status-drop",
+    "Speaker notes",
   );
   assert(
     finished.endsWith(
@@ -436,8 +466,15 @@ test("pair propose prints a status's count and what is left, and pair status pri
   });
   assert.equal(
     await cli.run(
-      ...["propose", "--session-dir", child.directory, "--id", "notes"],
-      ...["--status-left", "Draft", "--status-done", "Draft"],
+      "propose",
+      "--session-dir",
+      child.directory,
+      "--id",
+      "notes",
+      "--status-left",
+      "Draft",
+      "--status-done",
+      "Draft",
     ),
     "Proposal notes in session \"Example work\": approved to run in a sub-session, 1 of 1 parts done.\nNothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.\n",
   );

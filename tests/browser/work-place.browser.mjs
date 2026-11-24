@@ -5,7 +5,6 @@ import { open } from "../support/browser.mjs";
 import { hub, planData } from "../support/hub.mjs";
 
 const names = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"];
-const scroller = `[document.querySelector("main"), document.querySelector(".app-body")].find((el) => /auto|scroll/.test(getComputedStyle(el).overflowY))`;
 const cardAt = (id) => `#work-cards [data-proposal-card=${id}]`;
 
 // workPage records the six cards, starts them when started is set, and opens
@@ -40,14 +39,17 @@ async function workPage(t, { started = false, ...options } = {}) {
 }
 const placeAt = (page, id, pixels) =>
   page.evaluate(
-    ([card, pixels, scroller]) => {
-      const box = eval(scroller);
+    ([card, offset]) => {
+      const box = [
+        document.querySelector("main"),
+        document.querySelector(".app-body"),
+      ].find((el) => /auto|scroll/.test(getComputedStyle(el).overflowY));
       box.scrollTop +=
         document.querySelector(card).getBoundingClientRect().top -
         box.getBoundingClientRect().top -
-        pixels;
+        offset;
     },
-    [cardAt(id), pixels, scroller],
+    [cardAt(id), pixels],
   );
 // watchCard records the card's top at every frame, so a jump that lasts one
 // frame counts.
@@ -178,10 +180,13 @@ test("the end of the page does not pull the card up when the card under it gets 
     viewport: { width: 1280, height: 620 },
   });
   if (!page) return;
-  await page.evaluate((scroller) => {
-    const box = eval(scroller);
+  await page.evaluate(() => {
+    const box = [
+      document.querySelector("main"),
+      document.querySelector(".app-body"),
+    ].find((el) => /auto|scroll/.test(getComputedStyle(el).overflowY));
     box.scrollTop = box.scrollHeight;
-  }, scroller);
+  });
   await watchCard(page, "echo");
   // A card done elsewhere loses its row of buttons, so the page gets shorter
   // and the reader is at its end.

@@ -58,7 +58,7 @@ export function status() {
 // byStart sorts sessions by start time, so a number key opens the same
 // session from every tab until a session closes.
 export const byStart = (list) =>
-  [...list].sort(
+  list.toSorted(
     (a, b) =>
       (a.startedAt || "").localeCompare(b.startedAt || "") ||
       a.id.localeCompare(b.id),
@@ -142,7 +142,7 @@ export function rowStatus(entry) {
    round's pages or a note. A round that the reviewer started on therefore stops
    counting until its agent publishes again. cleared is the bell's set of cleared
    event IDs. */
-export function sessionsBadge(list, thisId, unopened, cleared) {
+export function sessionsBadge(list, { thisId, unopened, cleared }) {
   const others = list.filter((entry) => entry.id !== thisId);
   const waits = (entry) =>
     entry.wakeFailed ||
@@ -175,7 +175,7 @@ const copyIcon =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 // lineButton puts the tooltip inside the button, so hover and focus show it
 // and the pointer can rest on it.
-export function lineButton(key, label, content, onclick, tip = null) {
+export function lineButton({ key, label, content, onClick, tip = null }) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "icon-btn";
@@ -189,7 +189,7 @@ export function lineButton(key, label, content, onclick, tip = null) {
     text.textContent = tip;
     button.append(text);
   }
-  button.onclick = () => onclick(button);
+  button.addEventListener("click", () => onClick(button));
   return button;
 }
 /* redraw replaces a list only when its HTML changed, and it keeps focus on
@@ -271,15 +271,15 @@ function sessionRow(entry, unopened, depth) {
     marks.append(dot);
   } else if (shown) addPill(shown.text, shown.tone);
   row.append(marks);
-  row.onclick = () => {
+  row.addEventListener("click", () => {
     if (current) toggleSessions(false);
     else openSession(entry);
-  };
-  const copy = lineButton(
-    `copy:${entry.id}`,
-    `Copy handoff line for ${entry.title}`,
-    copyIcon,
-    async (button) => {
+  });
+  const copy = lineButton({
+    key: `copy:${entry.id}`,
+    label: `Copy handoff line for ${entry.title}`,
+    content: copyIcon,
+    onClick: async (button) => {
       const tip = button.querySelector(".line-tip");
       tip.textContent = (await copyText(entry.handoff))
         ? "Copied"
@@ -290,14 +290,17 @@ function sessionRow(entry, unopened, depth) {
         tip.textContent = "Copy handoff line";
       }, 1500);
     },
-    "Copy handoff line",
-  );
+    tip: "Copy handoff line",
+  });
   line.append(
     row,
     copy,
-    lineButton(`close:${entry.id}`, `Close ${entry.title}`, "✕", () =>
-      confirmClose(entry),
-    ),
+    lineButton({
+      key: `close:${entry.id}`,
+      label: `Close ${entry.title}`,
+      content: "✕",
+      onClick: () => confirmClose(entry),
+    }),
   );
   return line;
 }
@@ -335,12 +338,11 @@ function renderSessions() {
     ),
   );
   const menu = $("menu-button");
-  const { count, tone } = sessionsBadge(
-    sessionOrder,
-    session.sessionId,
+  const { count, tone } = sessionsBadge(sessionOrder, {
+    thisId: session.sessionId,
     unopened,
-    loadCleared(),
-  );
+    cleared: loadCleared(),
+  });
   menu.classList.toggle("need", tone === "need");
   menu.classList.toggle("news", tone === "news");
   $("sessions-count").hidden = !count;
@@ -373,12 +375,19 @@ export function toggleSessions(open = !isOpen(), focus = false) {
       .querySelector(`[data-key="open:${session.sessionId}"]`)
       ?.focus();
 }
+let pendingCloseEntry = null;
+const wiredCloseConfirm = new WeakSet();
 function confirmClose(entry) {
+  pendingCloseEntry = entry;
   $("close-name").textContent = entry.title;
-  $("close-confirm").onclick = () => {
-    $("close-dialog").close();
-    void closeSession(entry);
-  };
+  const confirm = $("close-confirm");
+  if (!wiredCloseConfirm.has(confirm)) {
+    wiredCloseConfirm.add(confirm);
+    confirm.addEventListener("click", () => {
+      $("close-dialog").close();
+      if (pendingCloseEntry) void closeSession(pendingCloseEntry);
+    });
+  }
   $("close-dialog").showModal();
 }
 /* Closing takes two round trips, a close and a poll, so closeSession shows

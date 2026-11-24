@@ -60,14 +60,15 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
   assert.equal(pageData(await build(source)).page.agreements[0].html, html);
 });
 
+const planDataHtml = (data) =>
+  `<script type="application/json" id="plan-data">${JSON.stringify(data)}</script>`;
+
 test("plan data parsing refuses a reserved page ID and preserves rich HTML", () => {
-  const html = (data) =>
-    `<script type="application/json" id="plan-data">${JSON.stringify(data)}</script>`;
   assert.equal(
-    readPlanData(html(planData())).pages[0].html,
+    readPlanData(planDataHtml(planData())).pages[0].html,
     "<p>Preserve one result per input.</p>",
   );
   const reserved = planData();
   reserved.pages[0].id = "feedback";
-  assert.throws(() => readPlanData(html(reserved)), /reserved/);
+  assert.throws(() => readPlanData(planDataHtml(reserved)), /reserved/);
 });

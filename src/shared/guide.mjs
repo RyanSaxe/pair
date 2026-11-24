@@ -38,7 +38,7 @@ export async function guideText(name = "pair.md") {
   const file = names.get(name);
   if (!file)
     throw new Error(
-      `No guide file ${name}. The names are: ${[...names.keys()].sort().join(", ")}`,
+      `No guide file ${name}. The names are: ${[...names.keys()].toSorted().join(", ")}`,
     );
   const own = await fs.readFile(file, "utf8");
   if (!name.endsWith(".md")) return own;

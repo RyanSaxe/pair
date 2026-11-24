@@ -31,7 +31,7 @@ test("pair components lists pair's components and yours, and pair guide prints e
   );
   const from = (owner) =>
     components.filter((item) => item.from === owner).map((item) => item.name);
-  assert.deepEqual(from("pair"), shipped.sort());
+  assert.deepEqual(from("pair"), shipped.toSorted());
   assert.deepEqual(from("yours"), ["decision", "timeline", "unnamed"]);
   const listed = (owner, name) =>
     components.find((item) => item.from === owner && item.name === name);

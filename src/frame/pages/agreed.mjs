@@ -84,8 +84,13 @@ export function linkButton(text, onclick) {
   button.type = "button";
   button.className = "link-btn";
   button.textContent = text;
-  button.onclick = onclick;
+  button.addEventListener("click", onclick);
   return button;
+}
+function dotSeparator() {
+  const dot = document.createElement("span");
+  dot.textContent = "·";
+  return dot;
 }
 function agreementCard(entry) {
   const card = document.createElement("section");
@@ -126,11 +131,6 @@ function agreementCard(entry) {
   strip.className = "agreement-source";
   const actions = document.createElement("div");
   actions.className = "actions";
-  const separator = () => {
-    const dot = document.createElement("span");
-    dot.textContent = "·";
-    return dot;
-  };
   const preview = document.createElement("div");
   preview.className = "agreement-preview";
   preview.append(document.createElement("div"));
@@ -146,7 +146,7 @@ function agreementCard(entry) {
         preview.firstElementChild.append(frame);
       }
     });
-    actions.append(toggle, separator());
+    actions.append(toggle, dotSeparator());
   }
   if (first && hasLink(first)) {
     const open = document.createElement("a");
@@ -211,7 +211,7 @@ function agreementCard(entry) {
     details.append(link);
   }
   if (details.children.length) {
-    if (actions.children.length) actions.append(separator());
+    if (actions.children.length) actions.append(dotSeparator());
     const count = extra.length + (entry.source ? 1 : 0) + (entry.href ? 1 : 0);
     const more = linkButton(
       first ? `${count} more` : count > 1 ? `${count} sources` : "Details",

@@ -131,115 +131,115 @@ function bootRound() {
   if (editable) initializeChecklists();
   theme();
   renderRounds();
-  /* start() renders the first page after every component has registered.
-     The page's module script runs the component behaviors after this
-     module, and the plan's script is a separate module. The browser runs
-     both while the document is still loading, so both have run by
-     DOMContentLoaded. */
-  function start() {
-    // The waiting view has the sent round's number, so the place saved under
-    // that number belongs to the sent round, not to the waiting view. The
-    // waiting view opens at Agreed, as switchTab() does.
-    const place = showingWaiting()
-      ? null
-      : placeIn(plan.round, [
-          ...pages.map((item) => item.id),
-          ...(editable ? ["feedback", "work"] : []),
-        ]);
-    const target = query.get("target");
-    const asked = location.hash.slice(1);
-    const match = query.get("match");
-    const askedRound = query.get("round");
-    show(asked || place?.page || "", target, {
-      keepScroll: false,
-      push: false,
-      match,
-    });
-    window.addEventListener("popstate", () => {
-      const url = new URL(location.href);
-      const params = url.searchParams;
-      const round = params.get("round");
-      const pageId = url.hash.slice(1) || pages[0].id;
-      const options = { push: false, match: params.get("match") };
-      if (editable && round && round !== plan.round) {
-        void openPast(round, {
-          ...options,
-          pageId,
-          targetId: params.get("target"),
-        });
-        return;
-      }
-      if (editable && !round && selectedTab === "past")
-        switchTab("current", null, { showPage: false });
-      show(pageId, params.get("target"), options);
-    });
-    if (mode === "preview" && query.get("quote")) {
-      const range = findQuote(
-        query.get("quote"),
-        query.get("target"),
-        Number(query.get("occurrence")) || 1,
-      );
-      if (range) {
-        highlight("plan-preview", [range]);
-        range.startContainer.parentElement?.scrollIntoView({ block: "center" });
-      }
-    }
-    if (online && mode !== "preview") {
-      poll().then(() => {
-        void syncDraft();
-        // Only the address opens an older round, so a reload and Back return to
-        // it and any other address opens Current. The waiting view has the sent
-        // round's number, so an address that names that round asks for the left
-        // tab. A notification's link puts its target in the address. While
-        // Current waits, the frame shows the sent round's pages only under
-        // Previous, so the target opens there, unless it is on Work, which every
-        // round has, or on Current's progress card.
-        const olderAsked =
-          askedRound &&
-          (askedRound !== plan.round || (!target && showingWaiting()));
-        if (editable && olderAsked)
-          void openPast(askedRound, {
-            pageId: asked || "agreed",
-            targetId: target,
-            match,
-            push: false,
-          });
-        else if (
-          target &&
-          showingWaiting() &&
-          asked !== "work" &&
-          !onCurrentAgreed(target)
-        )
-          void openPast(plan.round, {
-            pageId: asked || "agreed",
-            targetId: target,
-          });
-        // pollSessions() runs after the first status poll has placed the
-        // thread cards, so the bell's first count includes a reply that is
-        // already on screen.
-        // The search window waits for this, because going to a result needs
-        // the session's status.
-        if (embedded) {
-          installEmbed();
-          return;
-        }
-        pollSessions();
-        setInterval(pollSessions, 5000);
-      });
-      // A session's status can be large, and a preview needs it only now and
-      // then, so the search window's frame asks less often, and only on screen.
-      if (embedded)
-        setInterval(() => {
-          if (embedShowing()) void poll().then(syncDraft);
-        }, EMBED_POLL_MS);
-      else setInterval(() => poll().then(syncDraft), 1500);
-    } else review();
-  }
   /* The browser runs a module after it parses the document, so readyState is
      "interactive" here and DOMContentLoaded has not fired yet. The browser
      fires DOMContentLoaded after every deferred script has run, including
      the page's module script with its component blocks and the plan's
      module. */
-  if (document.readyState === "complete") start();
-  else window.addEventListener("DOMContentLoaded", start, { once: true });
+  if (document.readyState === "complete") startRound();
+  else window.addEventListener("DOMContentLoaded", startRound, { once: true });
+}
+/* startRound() renders the first page after every component has registered.
+   The page's module script runs the component behaviors after this
+   module, and the plan's script is a separate module. The browser runs
+   both while the document is still loading, so both have run by
+   DOMContentLoaded. */
+function startRound() {
+  // The waiting view has the sent round's number, so the place saved under
+  // that number belongs to the sent round, not to the waiting view. The
+  // waiting view opens at Agreed, as switchTab() does.
+  const place = showingWaiting()
+    ? null
+    : placeIn(plan.round, [
+        ...pages.map((item) => item.id),
+        ...(editable ? ["feedback", "work"] : []),
+      ]);
+  const target = query.get("target");
+  const asked = location.hash.slice(1);
+  const match = query.get("match");
+  const askedRound = query.get("round");
+  show(asked || place?.page || "", target, {
+    keepScroll: false,
+    push: false,
+    match,
+  });
+  window.addEventListener("popstate", () => {
+    const url = new URL(location.href);
+    const params = url.searchParams;
+    const round = params.get("round");
+    const pageId = url.hash.slice(1) || pages[0].id;
+    const options = { push: false, match: params.get("match") };
+    if (editable && round && round !== plan.round) {
+      void openPast(round, {
+        ...options,
+        pageId,
+        targetId: params.get("target"),
+      });
+      return;
+    }
+    if (editable && !round && selectedTab === "past")
+      switchTab("current", null, { showPage: false });
+    show(pageId, params.get("target"), options);
+  });
+  if (mode === "preview" && query.get("quote")) {
+    const range = findQuote(
+      query.get("quote"),
+      query.get("target"),
+      Number(query.get("occurrence")) || 1,
+    );
+    if (range) {
+      highlight("plan-preview", [range]);
+      range.startContainer.parentElement?.scrollIntoView({ block: "center" });
+    }
+  }
+  if (online && mode !== "preview") {
+    poll().then(() => {
+      void syncDraft();
+      // Only the address opens an older round, so a reload and Back return to
+      // it and any other address opens Current. The waiting view has the sent
+      // round's number, so an address that names that round asks for the left
+      // tab. A notification's link puts its target in the address. While
+      // Current waits, the frame shows the sent round's pages only under
+      // Previous, so the target opens there, unless it is on Work, which every
+      // round has, or on Current's progress card.
+      const olderAsked =
+        askedRound &&
+        (askedRound !== plan.round || (!target && showingWaiting()));
+      if (editable && olderAsked)
+        void openPast(askedRound, {
+          pageId: asked || "agreed",
+          targetId: target,
+          match,
+          push: false,
+        });
+      else if (
+        target &&
+        showingWaiting() &&
+        asked !== "work" &&
+        !onCurrentAgreed(target)
+      )
+        void openPast(plan.round, {
+          pageId: asked || "agreed",
+          targetId: target,
+        });
+      // pollSessions() runs after the first status poll has placed the
+      // thread cards, so the bell's first count includes a reply that is
+      // already on screen.
+      // The search window waits for this, because going to a result needs
+      // the session's status.
+      if (embedded) {
+        installEmbed();
+        return;
+      }
+      pollSessions();
+      setInterval(pollSessions, 5000);
+    });
+    // A session's status can be large, and a preview needs it only now and
+    // then, so the search window's frame asks less often, and only on screen.
+    if (embedded)
+      setInterval(() => {
+        if (embedShowing()) void poll().then(syncDraft);
+      }, EMBED_POLL_MS);
+    else setInterval(() => poll().then(syncDraft), 1500);
+  } else review();
 }

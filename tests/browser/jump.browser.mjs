@@ -73,14 +73,14 @@ async function openResult(
 }
 
 const highlighted = (page, word) =>
-  page.waitForFunction((word) => {
+  page.waitForFunction((target) => {
     const marks = CSS.highlights?.get("plan-search");
     return (
       marks &&
       [...marks].some((range) => {
         const box = range.getBoundingClientRect();
         return (
-          range.toString().toLowerCase() === word &&
+          range.toString().toLowerCase() === target &&
           box.width > 0 &&
           box.top >= 0 &&
           box.bottom <= innerHeight
@@ -248,8 +248,8 @@ test("another live session opens live at its round, and the draft stays", async 
     a,
     page,
     extra: b,
-  } = await setUp(t, async (h) => {
-    const other = await h.session();
+  } = await setUp(t, async (hubInstance) => {
+    const other = await hubInstance.session();
     const published = await other.publish({
       ...planData(),
       pages: [

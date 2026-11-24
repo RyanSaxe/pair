@@ -5,7 +5,7 @@
 </picture>
 </h1>
 
-## Pair programming, now that your agent writes the code.
+## Pair programming, now that your agent writes the code
 
 In pair programming, one person drives and the other navigates. Agents write
 most of the code now, so `pair` helps you navigate. You read what the agent
@@ -29,9 +29,8 @@ npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 
 Then, in your project, invoke the `pair` skill with what you want to work on:
 
-> plan retrying a charge when the payment gateway times out
-
-> help me understand how this service handles retries
+- "plan retrying a charge when the payment gateway times out"
+- "help me understand how this service handles retries"
 
 The agent starts a session and opens it in your browser. When a pair tab is
 already open, the agent gives you the link instead.

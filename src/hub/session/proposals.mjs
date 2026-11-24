@@ -25,6 +25,13 @@ import {
   statusChange,
 } from "./proposal-status.mjs";
 
+const notWritten = (card, verb) =>
+  requireValue(
+    !card.source?.reviewer,
+    `The reviewer wrote proposal ${card.id}, so you cannot ${verb} it. Record any other work as a new proposal.`,
+    409,
+  );
+
 // The hub stores each proposal card as a file in proposals/, because a card
 // changes after the round that showed it is published. The fields started,
 // declined, withdrawn and done are each null until that event happens, and
@@ -36,7 +43,7 @@ export async function proposals(session) {
   const folder = path.join(directory, "proposals");
   const cards = new Map();
   try {
-    for (const name of (await fs.readdir(folder)).sort())
+    for (const name of (await fs.readdir(folder)).toSorted())
       if (name.endsWith(".json")) {
         const card = await read(path.join(folder, name));
         if (card.status) card.status = loadedStatus(card.status);
@@ -46,7 +53,7 @@ export async function proposals(session) {
     if (error.code !== "ENOENT") throw error;
   }
   const proposalItems = () =>
-    [...cards.values()].sort((a, b) =>
+    [...cards.values()].toSorted((a, b) =>
       a.recordedAt.localeCompare(b.recordedAt),
     );
   async function save(card, patch = {}) {
@@ -124,12 +131,6 @@ export async function proposals(session) {
     });
     return card;
   }
-  const notWritten = (card, verb) =>
-    requireValue(
-      !card.source?.reviewer,
-      `The reviewer wrote proposal ${card.id}, so you cannot ${verb} it. Record any other work as a new proposal.`,
-      409,
-    );
   async function revise(card, data) {
     notWritten(card, "revise");
     const approved = `The reviewer approved proposal ${card.id} as it stands, so you cannot revise it. Record any further work as a new proposal.`;
@@ -194,14 +195,14 @@ export async function proposals(session) {
     const note = text
       ? `\n\nYour user's words, which pair read also prints:\n${text}`
       : "";
-    const place =
+    const targetPlace =
       started.where === "here"
         ? `in session ${directory}`
         : `in a sub-session of session ${directory}`;
     const verb = card.source?.reviewer ? "wrote" : "approved";
     const what = fromWords
-      ? `your user asked for proposal ${id}, "${card.title}", in their own words, in pair, to run ${place}`
-      : `your user ${verb} proposal ${id}, "${card.title}", in pair, to run ${place}`;
+      ? `your user asked for proposal ${id}, "${card.title}", in their own words, in pair, to run ${targetPlace}`
+      : `your user ${verb} proposal ${id}, "${card.title}", in pair, to run ${targetPlace}`;
     return session.wakeForSend(
       `pair: ${what}. Run pair read --session-dir ${directory} first, which prints what your user approved and your next step.${note}`,
     );

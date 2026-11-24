@@ -49,6 +49,8 @@ export async function waitUntil(check, ms = 5000) {
   return false;
 }
 
+const powershell = (text) => `'${text.replaceAll("'", "''")}'`;
+
 // launchConfig creates a config folder for a hub, with a launch script at the
 // path settings() gives it. The script appends the folder it runs in and its
 // arguments to a file as one JSON line, and with error, then writes error to
@@ -61,7 +63,6 @@ export async function launchConfig(t, { error } = {}) {
   t.after(() => fs.rm(config, { recursive: true, force: true }));
   const file = settings({ XDG_CONFIG_HOME: config }).launchScript;
   const record = `${file}.runs`;
-  const powershell = (text) => `'${text.replaceAll("'", "''")}'`;
   const lines =
     process.platform === "win32"
       ? [
@@ -211,14 +212,14 @@ export async function hub(t, extra = {}, options = {}) {
     await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
   });
   const record = JSON.parse(await fs.readFile(config.hubFile, "utf8"));
-  const register = async (sessionDir, wake, options = {}) => {
+  const register = async (sessionDir, wake, registerOptions = {}) => {
     const response = await fetch(server.origin + "/agent/register", {
       method: "POST",
       headers: {
         authorization: `Bearer ${record.secret}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ sessionDir, wake, ...options }),
+      body: JSON.stringify({ sessionDir, wake, ...registerOptions }),
     });
     return { code: response.status, body: await response.json() };
   };
@@ -272,10 +273,10 @@ export async function hub(t, extra = {}, options = {}) {
       }
       return { code: response.status, body, headers: response.headers };
     };
-    const action = (action, data = {}, headers) =>
+    const action = (name, data = {}, headers) =>
       request(
         `/agent/${id}/action`,
-        { action, sessionId: id, agent, ...data },
+        { action: name, sessionId: id, agent, ...data },
         headers,
       );
     // publish() sends a round the way the agent does, Agreed with the page list
@@ -300,7 +301,10 @@ export async function hub(t, extra = {}, options = {}) {
           task,
           agreements: data.agreements || [],
         }),
-        pages: data.pages.map(({ id, title }) => ({ id, title })),
+        pages: data.pages.map(({ id: pageId, title }) => ({
+          id: pageId,
+          title,
+        })),
         ...next(0),
       });
       // With data.stopAfter, the rest of the round's pages never publish.
@@ -321,7 +325,7 @@ export async function hub(t, extra = {}, options = {}) {
       assert.equal(code, 200, body.error);
       return body;
     };
-    const event = (intent = "feedback-only", round = "1", extra = {}) => ({
+    const event = (intent = "feedback-only", round = "1", overrides = {}) => ({
       sessionId: id,
       name: "example",
       round,
@@ -329,7 +333,7 @@ export async function hub(t, extra = {}, options = {}) {
       id: crypto.randomUUID(),
       groups: {},
       text: "Keep the interface.",
-      ...extra,
+      ...overrides,
     });
     return {
       id,

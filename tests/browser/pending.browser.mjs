@@ -10,12 +10,14 @@ import { hub, planData, task } from "../support/hub.mjs";
 // hidden.
 const reads = (page, label, age) =>
   page.waitForFunction(
-    ([label, age]) => {
-      const text = (name) => {
-        const line = document.querySelector(`#page-content .${name}`);
-        return line?.checkVisibility() ? line.textContent : "";
-      };
-      return text("pending-label") === label && text("pending-age") === age;
+    ([expectedLabel, expectedAge]) => {
+      const labelLine = document.querySelector("#page-content .pending-label");
+      const ageLine = document.querySelector("#page-content .pending-age");
+      return (
+        (labelLine?.checkVisibility() ? labelLine.textContent : "") ===
+          expectedLabel &&
+        (ageLine?.checkVisibility() ? ageLine.textContent : "") === expectedAge
+      );
     },
     [label, age],
     { timeout: 5000 },

@@ -73,7 +73,7 @@ function isWordEnd(lower, orig, end) {
   );
 }
 
-export function strictInField(word, lower, orig, inHeading) {
+export function strictInField(word, { lower, orig, inHeading }) {
   const { w, n } = word;
   let pos = lower.indexOf(w);
   if (pos === -1) return null;
@@ -107,7 +107,8 @@ const rowA = new Int32Array(64);
 const rowB = new Int32Array(64);
 const rowC = new Int32Array(64);
 
-function typoDistance(q, n, s, from, len, limit) {
+function typoDistance(word, s, { from, len }) {
+  const { w: q, n, typos: limit } = word;
   if (Math.abs(len - n) > limit) return limit + 1;
   let prev2 = rowA;
   let prev = rowB;
@@ -144,7 +145,8 @@ function typoDistance(q, n, s, from, len, limit) {
 
 // Initials walk the word starts after pos. One skipped word is allowed, as in "wsl" for
 // "windows subsystem for linux". Returns the skipped count, or -1.
-function tryInitials(w, n, lower, orig, pos) {
+function tryInitials(word, { lower, orig }, pos) {
+  const { w, n } = word;
   const limit = Math.min(lower.length, pos + n * 14);
   let qi = 1;
   let skipped = 0;
@@ -162,7 +164,8 @@ function tryInitials(w, n, lower, orig, pos) {
   return -1;
 }
 
-function initialsRuns(w, n, lower, orig, pos) {
+function initialsRuns(word, { lower, orig }, pos) {
+  const { w, n } = word;
   const runs = [[pos, pos + 1]];
   let qi = 1;
   for (let i = pos + 1; qi < n; i++) {
@@ -220,7 +223,7 @@ function lettersRuns(word, lower, pos) {
   return runs;
 }
 
-export function fuzzyInField(word, lower, orig, inHeading) {
+export function fuzzyInField(word, { lower, orig, inHeading }) {
   const { w, n, typos } = word;
   const first = w[0];
   const initialsAllowed = inHeading && n <= 5;
@@ -243,7 +246,7 @@ export function fuzzyInField(word, lower, orig, inHeading) {
       }
     }
     if (initialsAllowed && best < TIER_INITIALS) {
-      const skipped = tryInitials(w, n, lower, orig, pos);
+      const skipped = tryInitials(word, { lower, orig }, pos);
       if (skipped !== -1 && TIER_INITIALS - skipped * 8 > best) {
         best = TIER_INITIALS - skipped * 8;
         bestPos = pos;
@@ -257,7 +260,7 @@ export function fuzzyInField(word, lower, orig, inHeading) {
       const whole =
         stop === lower.length || !isWordChar(lower.charCodeAt(stop));
       if (whole && stop - pos >= n - typos) {
-        const d = typoDistance(w, n, lower, pos, stop - pos, typos);
+        const d = typoDistance(word, lower, { from: pos, len: stop - pos });
         if (d <= typos) {
           const score = d === 1 ? TIER_TYPO_ONE : TIER_TYPO_TWO;
           if (score > best) {
@@ -273,7 +276,7 @@ export function fuzzyInField(word, lower, orig, inHeading) {
   if (best === 0) return null;
   let runs;
   if (bestKind === 1) runs = lettersRuns(word, lower, bestPos);
-  else if (bestKind === 2) runs = initialsRuns(w, n, lower, orig, bestPos);
+  else if (bestKind === 2) runs = initialsRuns(word, { lower, orig }, bestPos);
   else runs = [[bestPos, bestEnd]];
   return { score: best, starts: [bestPos], runs, n, typo: bestKind === 3 };
 }

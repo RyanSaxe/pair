@@ -3,6 +3,8 @@ import test from "node:test";
 import { bellLines, settleCleared } from "../../../src/frame/sync/center.mjs";
 
 const event = (id, kind, at) => ({ id, kind, at });
+const lines = (list, cleared = new Set()) =>
+  bellLines(list, cleared, "a").map(({ id }) => id);
 
 test("the bell lists every session's waiting rounds and replies, newest first, without starts, page events, removed lines or this tab's own round", () => {
   const sessions = [
@@ -31,8 +33,6 @@ test("the bell lists every session's waiting rounds and replies, newest first, w
       ],
     },
   ];
-  const lines = (list, cleared = new Set()) =>
-    bellLines(list, cleared, "a").map(({ id }) => id);
   assert.deepEqual(lines(sessions), ["b2", "r2", "r1"]);
   assert.deepEqual(lines(sessions, new Set(["r2"])), ["b2", "r1"]);
   // After the reviewer sends round 2, the hub lists needsYou false, and

@@ -82,15 +82,15 @@ test("session, round and kinds each narrow a search, and counts ignore kinds", a
   const all = await find("kestrel");
   assert.equal(all.code, 200);
   assert.equal(all.body.total, 4);
-  assert.deepEqual(where(all.body).sort(), ["a1", "a2", "a2", "b1"]);
+  assert.deepEqual(where(all.body).toSorted(), ["a1", "a2", "a2", "b1"]);
   const here = await find("kestrel", { session: a.id });
-  assert.deepEqual(where(here.body).sort(), ["a1", "a2", "a2"]);
+  assert.deepEqual(where(here.body).toSorted(), ["a1", "a2", "a2"]);
   const other = await find("kestrel", { session: b.id });
   assert.deepEqual(where(other.body), ["b1"]);
   const round = await find("kestrel", { session: a.id, round: "1" });
   assert.deepEqual(where(round.body), ["a1"]);
   const latest = await find("kestrel", { round: "latest" });
-  assert.deepEqual(where(latest.body).sort(), ["a2", "a2", "b1"]);
+  assert.deepEqual(where(latest.body).toSorted(), ["a2", "a2", "b1"]);
   const threads = await find("kestrel", { kinds: "threads" });
   assert.deepEqual(where(threads.body), ["a2"]);
   assert.equal(threads.body.counts.pages, 3);
@@ -100,7 +100,7 @@ test("session, round and kinds each narrow a search, and counts ignore kinds", a
   const sessions = await find("kestrel", { session: `${a.id},${b.id}` });
   assert.equal(sessions.body.total, 4);
   const rounds = await find("kestrel", { session: a.id, round: "1,2" });
-  assert.deepEqual(where(rounds.body).sort(), ["a1", "a2", "a2"]);
+  assert.deepEqual(where(rounds.body).toSorted(), ["a1", "a2", "a2"]);
   const oneAndLatest = await find("kestrel", { round: "1,latest" });
   assert.equal(oneAndLatest.body.total, 4);
 });

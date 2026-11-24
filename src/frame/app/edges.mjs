@@ -72,7 +72,7 @@ function keepPlace() {
   };
 }
 
-function installGrip(grip, kind, edge, widthAt, setWidth) {
+function installGrip(grip, { kind, edge, widthAt, setWidth }) {
   const root = document.documentElement;
   grip.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
@@ -132,19 +132,17 @@ export function installEdges() {
   syncFull();
   addEventListener("resize", syncFull);
   for (const side of ["left", "right"])
-    installGrip(
-      document.querySelector(`.grip.${side}`),
-      "page",
-      pageEdge,
-      (x) => pageWidthAt(x, innerWidth),
-      setPageWidth,
-    );
+    installGrip(document.querySelector(`.grip.${side}`), {
+      kind: "page",
+      edge: pageEdge,
+      widthAt: (x) => pageWidthAt(x, innerWidth),
+      setWidth: setPageWidth,
+    });
   const body = document.querySelector(".app-body");
-  installGrip(
-    document.querySelector(".grip.side"),
-    "side",
-    sidebarEdge,
-    (x) => sidebarWidthAt(x, body.getBoundingClientRect().left),
-    (width) => apply(sidebarEdge, width),
-  );
+  installGrip(document.querySelector(".grip.side"), {
+    kind: "side",
+    edge: sidebarEdge,
+    widthAt: (x) => sidebarWidthAt(x, body.getBoundingClientRect().left),
+    setWidth: (width) => apply(sidebarEdge, width),
+  });
 }

@@ -160,7 +160,7 @@ test("pair start under Copilot CLI finds the port that Copilot's server listens 
   await fs.mkdir(path.dirname(sdk), { recursive: true });
   await fs.writeFile(sdk, "");
   const port = await freePort();
-  const copilot = await agent(await folder("app"), {
+  const cli = await agent(await folder("app"), {
     harness: "copilot",
     env: {
       COPILOT_AGENT_SESSION_ID: "s-1",
@@ -178,7 +178,7 @@ test("pair start under Copilot CLI finds the port that Copilot's server listens 
         .on("error", () => resolve(false)),
     );
   assert.ok(await waitUntil(listening));
-  const started = await copilot.run(["start", "--title", "Test"]);
+  const started = await cli.run(["start", "--title", "Test"]);
   assert.equal(started.status, 0, started.stderr);
   assert.equal(started.stderr, "");
   const [file] = await fs.readdir(list);

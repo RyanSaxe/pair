@@ -57,9 +57,10 @@ test("ranges point at the words that matched", () => {
   );
 });
 
+const doc = (type) => ({ heading: "Retries", text: "", type, at: 0 });
+
 test("one letter matches only titles", () => {
   const prepared = prepare("r");
-  const doc = (type) => ({ heading: "Retries", text: "", type, at: 0 });
   assert.ok(scoreDoc(prepared, doc("page title")));
   assert.equal(scoreDoc(prepared, doc("page block")), null);
 });

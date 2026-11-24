@@ -1,5 +1,12 @@
 import { prepare, scoreDoc } from "./matcher.mjs";
 
+const tidy = (ranges) => {
+  const sorted = ranges.toSorted((a, b) => a[0] - b[0]);
+  return sorted.filter(
+    (range, index) => index === 0 || range[0] >= sorted[index - 1][1],
+  );
+};
+
 // When few blocks have every word, a block with all but one word counts, and so
 // does a page whose blocks have every word between them.
 export function partialRows(query, docs) {
@@ -32,12 +39,6 @@ export function partialRows(query, docs) {
       entry.attrRanges.push(...hit.attrRanges);
     }
   });
-  const tidy = (ranges) => {
-    const sorted = ranges.sort((a, b) => a[0] - b[0]);
-    return sorted.filter(
-      (range, index) => index === 0 || range[0] >= sorted[index - 1][1],
-    );
-  };
   const pages = new Map();
   const rows = [];
   for (const entry of found.values()) {

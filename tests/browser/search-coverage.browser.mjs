@@ -17,17 +17,19 @@ async function fixturePages() {
     await fs.readFile(path.join(fixture, "fixture.json"), "utf8"),
   );
   const prototypes = await Promise.all(
-    source.prototypes.map(async ({ file, ...prototype }) => ({
-      ...prototype,
-      html: await fs.readFile(path.join(fixture, file), "utf8"),
-    })),
+    source.prototypes.map(async ({ file, ...prototype }) =>
+      Object.assign({}, prototype, {
+        html: await fs.readFile(path.join(fixture, file), "utf8"),
+      }),
+    ),
   );
   return Promise.all(
-    source.pages.map(async ({ file, ...page }) => ({
-      ...page,
-      prototypes,
-      html: await fs.readFile(path.join(fixture, file), "utf8"),
-    })),
+    source.pages.map(async ({ file, ...page }) =>
+      Object.assign({}, page, {
+        prototypes,
+        html: await fs.readFile(path.join(fixture, file), "utf8"),
+      }),
+    ),
   );
 }
 
@@ -69,7 +71,7 @@ test("the index holds the words on every fixture page, at the frame's block numb
   });
   if (!page) return;
   for (const source of pages) {
-    const docs = pageDocs(source, "1", 0);
+    const docs = pageDocs(source, { round: "1", at: 0 });
     const indexed = new Set();
     for (const doc of docs)
       for (const word of words(`${doc.heading} ${doc.text}`)) indexed.add(word);

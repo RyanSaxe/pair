@@ -271,6 +271,7 @@ function showTip(event) {
   tip.style.left = `${Math.min(event.pageX + 14, innerWidth - width - 12)}px`;
   tip.style.top = `${event.pageY + 18}px`;
 }
+const isShown = (element) => element?.isConnected && element.checkVisibility();
 export function installNotes() {
   rebuildKnown();
   // A diff and a diagram render their content again after the page renders,
@@ -320,15 +321,13 @@ export function installNotes() {
      the note's place, focus stays in that drawer. */
   $("note-dialog").addEventListener("close", () => {
     if (document.querySelector("dialog[data-drawer][open]")) return;
-    const shown = (element) =>
-      element?.isConnected && element.checkVisibility();
-    if (shown(opener)) {
+    if (isShown(opener)) {
       opener.focus({ preventScroll: true });
       return;
     }
     const home = opener?.closest("[id]");
     const block = home && $(home.id);
-    if (!shown(block)) return;
+    if (!isShown(block)) return;
     if (!block.hasAttribute("tabindex")) block.tabIndex = -1;
     block.focus({ preventScroll: true });
   });

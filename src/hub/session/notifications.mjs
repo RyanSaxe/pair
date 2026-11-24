@@ -11,6 +11,21 @@ const clipped = (message) =>
     : textOf(parse(message.html ?? ""))
   ).slice(0, lineLength);
 
+// A card's fields hold more than the frame shows on a row, such as a reason, so
+// this sends only what the frame's cardState reads.
+const cardFields = ({ id, declined, withdrawn, done, started }) => ({
+  id,
+  declined: Boolean(declined),
+  withdrawn: Boolean(withdrawn),
+  done: Boolean(done),
+  started: started && {
+    where: started.where,
+    session: started.session ? { id: started.session.id } : null,
+    planFirst: started.planFirst,
+    built: started.built,
+  },
+});
+
 export function notifications(session) {
   const { threadRecords: records } = session;
   // A line has the start of the thread's newest message with words, which an
@@ -23,34 +38,25 @@ export function notifications(session) {
       const waiting = waitingMessage(thread);
       const newest = messages.at(-1);
       const worded = messages.findLast((message) => message.kind !== "ack");
-      return {
+      const line = {
         thread: thread.id,
         name: thread.page,
         text: worded ? clipped(worded) : (thread.anchor ?? ""),
         message: messages.length - 1,
         at: newest?.at ?? thread.createdAt,
-        ...(thread.proposal
-          ? { page: "work", proposal: thread.proposal }
-          : { round: thread.round, page: thread.topic }),
-        ...(thread.target ? { target: thread.target } : {}),
         state: threadState(thread),
-        ...(waiting ? { waitingSince: waiting.at } : {}),
       };
+      if (thread.proposal) {
+        line.page = "work";
+        line.proposal = thread.proposal;
+      } else {
+        line.round = thread.round;
+        line.page = thread.topic;
+      }
+      if (thread.target) line.target = thread.target;
+      if (waiting) line.waitingSince = waiting.at;
+      return line;
     });
-  // A card's fields hold more than the frame shows on a row, such as a reason, so
-  // this sends only what the frame's cardState reads.
-  const cardFields = ({ id, declined, withdrawn, done, started }) => ({
-    id,
-    declined: Boolean(declined),
-    withdrawn: Boolean(withdrawn),
-    done: Boolean(done),
-    started: started && {
-      where: started.where,
-      session: started.session ? { id: started.session.id } : null,
-      planFirst: started.planFirst,
-      built: started.built,
-    },
-  });
   const notificationView = () => ({
     threads: threadLines(),
     proposals: session.proposalItems().map(cardFields),
@@ -68,11 +74,12 @@ export function notifications(session) {
       const message = messages?.[event.message];
       if (!message) return event;
       const question = messages.find((item) => item.from === "reviewer");
-      return {
-        ...event,
-        ...(message.kind === "ack" ? {} : { words: clipped(message) }),
-        ...(question ? { question: clipped(question) } : {}),
-      };
+      return Object.assign(
+        {},
+        event,
+        message.kind === "ack" ? null : { words: clipped(message) },
+        question ? { question: clipped(question) } : null,
+      );
     });
   return { notificationView, withWords };
 }

@@ -337,7 +337,8 @@ main::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb { background: g
     const away = 100;
     const grabs = (x, y) =>
       page.evaluate(
-        ([x, y]) => document.elementFromPoint(x, y)?.closest(".grip") !== null,
+        ([px, py]) =>
+          document.elementFromPoint(px, py)?.closest(".grip") !== null,
         [x, y],
       );
     const app = await box(page, "#app");

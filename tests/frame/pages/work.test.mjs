@@ -39,10 +39,11 @@ test("a card goes to the tab of its own state", () => {
   );
 });
 
+const opens = (...cards) => openingTab(workGroups(cards));
+
 test("Work opens on Proposed while a proposal waits for Start, and otherwise on the first tab with a card", () => {
   const running = card("running", { started: here });
   const done = card("done", { done: { at, by: "agent" } });
-  const opens = (...cards) => openingTab(workGroups(cards));
   assert.equal(opens(running, card("proposed"), done), "proposed");
   assert.equal(opens(running, done), "running");
   assert.equal(opens(done), "done");

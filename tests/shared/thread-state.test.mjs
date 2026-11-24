@@ -11,6 +11,7 @@ const reply = (answers) => ({
   from: "agent",
   ...(answers === undefined ? {} : { answers }),
 });
+const ack = (answers) => ({ ...reply(answers), kind: "ack" });
 
 // The hub tests in tests/hub/session/threads.test.mjs reach the sent, read and
 // replied states and their wakes. No hub test adds a message while a wake
@@ -36,7 +37,6 @@ test("a thread whose wake waits to go out takes no other wake, and a thread whos
 // pair reply --ack answers the messages that a reply in its place would. The
 // reviewer's next message waits again, and a reply after an ack is replied.
 test("an ack answers the waiting messages, takes none once nothing waits, and gives way to a later message or reply", () => {
-  const ack = (answers) => ({ ...reply(answers), kind: "ack" });
   const sent = { ok: true, through: 3 };
   for (const [thread, expected, acks] of [
     [{ messages: [asks], readCount: 1 }, "read", true],

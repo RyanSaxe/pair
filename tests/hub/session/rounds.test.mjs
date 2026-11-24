@@ -14,7 +14,7 @@ async function session(t) {
   const h = await testHub(t);
   const a = await h.session();
   const status = async () => (await a.status()).body;
-  const page = async (round, id, title, html, extra = {}) =>
+  const page = async ({ round, id, title, html, ...extra }) =>
     buildPage(path.join(a.directory, "source.json"), {
       name: "page-test",
       round,
@@ -26,18 +26,19 @@ async function session(t) {
         ...extra,
       },
     });
-  const publish = async (round, id, title, html, extra, options = {}) =>
+  const publish = async (spec, options = {}) =>
     a.action("publish", {
-      html: await page(round, id, title, html, extra),
+      html: await page(spec),
       ...options,
     });
   const firstAgreed = () =>
     publish(
-      "1",
-      "agreed",
-      "Agreed so far",
-      undefined,
-      { agreements: firstAgreements },
+      {
+        round: "1",
+        id: "agreed",
+        title: "Agreed so far",
+        agreements: firstAgreements,
+      },
       { pages: firstPages, start: ["detail"] },
     );
   return { a, status, page, publish, firstAgreed };
@@ -53,16 +54,15 @@ const firstAgreements = [
 
 test("Agreed and all page names become visible in one publication", async (t) => {
   const { a, status, publish } = await session(t);
-  assert.equal((await publish("1", "agreed", "Agreed so far")).code, 400);
+  assert.equal(
+    (await publish({ round: "1", id: "agreed", title: "Agreed so far" })).code,
+    400,
+  );
   assert.equal((await status()).current, null);
   assert.equal(
     (
       await publish(
-        "1",
-        "agreed",
-        "Agreed so far",
-        undefined,
-        {},
+        { round: "1", id: "agreed", title: "Agreed so far" },
         {
           pages: [firstPages[0], firstPages[0]],
           start: ["overview"],
@@ -74,11 +74,12 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal((await status()).current, null);
   // An Agreed that would leave no page started publishes nothing.
   const unstarted = await publish(
-    "1",
-    "agreed",
-    "Agreed so far",
-    undefined,
-    { agreements: firstAgreements },
+    {
+      round: "1",
+      id: "agreed",
+      title: "Agreed so far",
+      agreements: firstAgreements,
+    },
     { pages: firstPages },
   );
   assert.equal(unstarted.code, 409);
@@ -89,11 +90,12 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal((await status()).current, null);
   assert.deepEqual(await fs.readdir(path.join(a.directory, "pages", "1")), []);
   const result = await publish(
-    "1",
-    "agreed",
-    "Agreed so far",
-    undefined,
-    { agreements: firstAgreements },
+    {
+      round: "1",
+      id: "agreed",
+      title: "Agreed so far",
+      agreements: firstAgreements,
+    },
     { pages: firstPages, start: ["detail"], note: " Measuring " },
   );
   assert.equal(result.code, 200, result.body.error);
@@ -123,11 +125,7 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   assert.equal(
     (
       await publish(
-        "1",
-        "detail",
-        "Detail",
-        "<p>x</p>",
-        {},
+        { round: "1", id: "detail", title: "Detail", html: "<p>x</p>" },
         {
           pages: firstPages,
         },
@@ -137,7 +135,14 @@ test("Agreed and all page names become visible in one publication", async (t) =>
   );
   assert.equal((await a.action("progress", { start: ["missing"] })).code, 409);
   assert.equal(
-    (await publish("1", "unlisted", "Unlisted", "<p>x</p>")).code,
+    (
+      await publish({
+        round: "1",
+        id: "unlisted",
+        title: "Unlisted",
+        html: "<p>x</p>",
+      })
+    ).code,
     409,
   );
 });
@@ -159,22 +164,23 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.equal(early.code, 409);
   // A page that would leave no page started publishes nothing and starts
   // nothing, and the same publish with --start does both.
-  const unstarted = await publish(
-    "1",
-    "detail",
-    "Detail",
-    "<p>Finished detail</p>",
-  );
+  const unstarted = await publish({
+    round: "1",
+    id: "detail",
+    title: "Detail",
+    html: "<p>Finished detail</p>",
+  });
   assert.equal(unstarted.code, 409);
   assert.match(unstarted.body.error, /has started: overview\. Run the same/);
   assert.deepEqual((await status()).openRound, before.openRound);
   assert.deepEqual(await readyPages(), { round: "1", ids: ["agreed"] });
   const detail = await publish(
-    "1",
-    "detail",
-    "Detail",
-    "<p>Finished detail</p>",
-    {},
+    {
+      round: "1",
+      id: "detail",
+      title: "Detail",
+      html: "<p>Finished detail</p>",
+    },
     { start: ["overview"] },
   );
   assert.equal(detail.code, 200, detail.body.error);
@@ -197,12 +203,12 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.equal(recorded.code, 200);
   assert.match(recorded.body.page.html, /Finished detail/);
   assert.equal((await record("detail", "0".repeat(64))).code, 404);
-  const valid = await page(
-    "1",
-    "overview",
-    "Overview",
-    "<p>Finished overview</p>",
-  );
+  const valid = await page({
+    round: "1",
+    id: "overview",
+    title: "Overview",
+    html: "<p>Finished overview</p>",
+  });
   const tampered = pageData(valid);
   tampered.page.html = "<h1>Duplicate heading</h1>";
   const failed = await a.action("publish", {
@@ -224,12 +230,12 @@ test("listed pages arrive independently and only the last completes the round", 
   await fs.rename(stateFile, held);
   await fs.mkdir(stateFile);
   try {
-    const writeFailure = await publish(
-      "1",
-      "overview",
-      "Overview",
-      "<p>Finished overview</p>",
-    );
+    const writeFailure = await publish({
+      round: "1",
+      id: "overview",
+      title: "Overview",
+      html: "<p>Finished overview</p>",
+    });
     assert.equal(writeFailure.code, 500);
     assert.deepEqual((await status()).current, detail.body.status.current);
     assert.deepEqual(await fs.readdir(records), recordsBefore);
@@ -237,12 +243,12 @@ test("listed pages arrive independently and only the last completes the round", 
     await fs.rmdir(stateFile);
     await fs.rename(held, stateFile);
   }
-  const overview = await publish(
-    "1",
-    "overview",
-    "Overview",
-    "<p>Finished overview</p>",
-  );
+  const overview = await publish({
+    round: "1",
+    id: "overview",
+    title: "Overview",
+    html: "<p>Finished overview</p>",
+  });
   assert.equal(overview.code, 200, overview.body.error);
   assert.equal(overview.body.roundComplete, true);
   assert.deepEqual(await readyPages(), {
@@ -265,7 +271,14 @@ test("listed pages arrive independently and only the last completes the round", 
     immutable,
   );
   assert.equal(
-    (await publish("1", "detail", "Detail", "<p>again</p>")).code,
+    (
+      await publish({
+        round: "1",
+        id: "detail",
+        title: "Detail",
+        html: "<p>again</p>",
+      })
+    ).code,
     409,
   );
 });
@@ -274,16 +287,22 @@ test("the next round may choose unrelated pages without changing history", async
   const { a, status, publish, firstAgreed } = await session(t);
   await firstAgreed();
   await publish(
-    "1",
-    "detail",
-    "Detail",
-    "<p>Finished detail</p>",
-    {},
+    {
+      round: "1",
+      id: "detail",
+      title: "Detail",
+      html: "<p>Finished detail</p>",
+    },
     {
       start: ["overview"],
     },
   );
-  await publish("1", "overview", "Overview", "<p>Finished overview</p>");
+  await publish({
+    round: "1",
+    id: "overview",
+    title: "Overview",
+    html: "<p>Finished overview</p>",
+  });
   const feedback = a.event("feedback-only", "1", {
     name: "page-test",
     groups: {
@@ -301,11 +320,10 @@ test("the next round may choose unrelated pages without changing history", async
   assert.equal(response.code, 200, response.body.error);
   assert.equal((await a.action("read")).code, 200);
   const agreed = await publish(
-    "2",
-    "agreed",
-    "Agreed so far",
-    undefined,
     {
+      round: "2",
+      id: "agreed",
+      title: "Agreed so far",
       agreements: [
         { ...firstAgreements[1], html: "<p>After</p>" },
         {
@@ -345,8 +363,18 @@ test("the next round may choose unrelated pages without changing history", async
   ).page.agreements.map((entry) => entry.id);
   assert.deepEqual(ordered, ["beta", "gamma", "from-detail", "alpha"]);
   const [one, two] = await Promise.all([
-    publish("2", "new-topic", "New topic", "<p>Fresh topic</p>"),
-    publish("2", "overview", "Overview", "<p>New overview</p>"),
+    publish({
+      round: "2",
+      id: "new-topic",
+      title: "New topic",
+      html: "<p>Fresh topic</p>",
+    }),
+    publish({
+      round: "2",
+      id: "overview",
+      title: "Overview",
+      html: "<p>New overview</p>",
+    }),
   ]);
   assert.equal(one.code, 200, one.body.error);
   assert.equal(two.code, 200, two.body.error);
@@ -363,11 +391,7 @@ test("a page note sits on its slot until the page publishes", async (t) => {
   const { a, publish, status } = await session(t);
   const pages = [...firstPages, { id: "steps", title: "Steps" }];
   const agreed = await publish(
-    "1",
-    "agreed",
-    "Agreed so far",
-    undefined,
-    {},
+    { round: "1", id: "agreed", title: "Agreed so far" },
     { pages, start: ["steps"] },
   );
   assert.equal(agreed.code, 200, agreed.body.error);
@@ -387,9 +411,19 @@ test("a page note sits on its slot until the page publishes", async (t) => {
   assert.equal(after.note, "Reading");
   assert.equal(after.noteAt, before.noteAt);
   assert.ok(Date.parse(after.at) >= Date.parse(before.at));
-  await publish("1", "overview", "Overview", "<p>x</p>");
+  await publish({
+    round: "1",
+    id: "overview",
+    title: "Overview",
+    html: "<p>x</p>",
+  });
   assert.equal((await slot()).note.text, "Drafting");
-  await publish("1", "detail", "Detail", "<p>x</p>");
+  await publish({
+    round: "1",
+    id: "detail",
+    title: "Detail",
+    html: "<p>x</p>",
+  });
   const published = await slot();
   assert.equal(published.state, "ready");
   assert.equal(published.note, undefined);
@@ -403,11 +437,7 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
     "Publish Agreed before a page note",
   );
   await publish(
-    "1",
-    "agreed",
-    "Agreed so far",
-    undefined,
-    {},
+    { round: "1", id: "agreed", title: "Agreed so far" },
     {
       pages: firstPages,
       start: ["detail"],
@@ -421,7 +451,12 @@ test("a page note is refused before Agreed, on an unknown page and on a publishe
     await refusal({ note: "Reading", page: "nope" }),
     "Unknown page nope in round 1",
   );
-  await publish("1", "overview", "Overview", "<p>x</p>");
+  await publish({
+    round: "1",
+    id: "overview",
+    title: "Overview",
+    html: "<p>x</p>",
+  });
   assert.equal(
     await refusal({ note: "Reading", page: "overview" }),
     "Page overview is already published",
@@ -496,11 +531,16 @@ test("a page built before the bare < check was added still completes its round",
   const { a, page, publish, firstAgreed } = await session(t);
   const bare = '<pre data-language="ts">first<T>()</pre>';
   await assert.rejects(
-    page("1", "overview", "Overview", bare),
+    page({ round: "1", id: "overview", title: "Overview", html: bare }),
     /the ts code block has a < that the browser reads as a tag on line 1/,
   );
   // older is the file that an older pair build wrote for the same source.
-  const built = await page("1", "overview", "Overview", "<p>x</p>");
+  const built = await page({
+    round: "1",
+    id: "overview",
+    title: "Overview",
+    html: "<p>x</p>",
+  });
   const record = pageData(built);
   record.page.html = bare;
   const older = built.replace(
@@ -511,7 +551,12 @@ test("a page built before the bare < check was added still completes its round",
   assert.equal((await firstAgreed()).code, 200);
   const stored = await a.action("publish", { html: older });
   assert.equal(stored.code, 200, stored.body.error);
-  const last = await publish("1", "detail", "Detail", "<p>Detail</p>");
+  const last = await publish({
+    round: "1",
+    id: "detail",
+    title: "Detail",
+    html: "<p>Detail</p>",
+  });
   assert.equal(last.code, 200, last.body.error);
   assert.equal(last.body.roundComplete, true);
 });

@@ -28,13 +28,14 @@ async function frameModules() {
   for await (const file of files(root))
     if (file.endsWith(".mjs"))
       names.push(path.relative(root, file).split(path.sep).join("/"));
-  for (const name of names.sort()) modules[`#frame/${name}`] = await read(name);
+  for (const name of names.toSorted())
+    modules[`#frame/${name}`] = await read(name);
   const shared = new Set(
     Object.values(modules).flatMap((text) =>
       [...text.matchAll(/from "(#shared\/[^"]+)"/g)].map((match) => match[1]),
     ),
   );
-  for (const name of [...shared].sort())
+  for (const name of [...shared].toSorted())
     modules[name] = await read(`../shared/${name.slice("#shared/".length)}`);
   return modules;
 }
@@ -148,18 +149,18 @@ export async function assemble(
   // older pair build checked from failing its round.
   const found = problems(data, "", { allowUnknownPages, authoring: false });
   if (found.length) throw new Error(found.join("\n"));
-  const html = join(await frameBundle(), data, css, js);
+  const html = join(await frameBundle(), data, { css, js });
   readPlanData(html);
   return html;
 }
 // pair build measures a page's built file before it reports the page's problems,
 // so joinPage() joins a page that assemble() would refuse.
 export const joinPage = async (data, css, js) =>
-  join(await frameBundle(), data, css, js);
+  join(await frameBundle(), data, { css, js });
 export async function assembleHome(title) {
-  return join(await frameBundle(), { title, pages: [] }, "", "");
+  return join(await frameBundle(), { title, pages: [] });
 }
-function join(bundle, data, css, js) {
+function join(bundle, data, { css = "", js = "" } = {}) {
   const { shell, style, drawingEditor, componentCss } = bundle;
   return (
     shell

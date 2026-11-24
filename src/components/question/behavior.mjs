@@ -29,21 +29,21 @@ planUI.define("question", {
     area.addEventListener("input", () => {
       save.disabled = !area.value.trim();
     });
-    save.onclick = () => {
-      planUI.answer(
-        card.dataset.question,
-        area.value,
-        card.dataset.label,
-        card.id,
-      );
+    save.addEventListener("click", () => {
+      planUI.answer({
+        id: card.dataset.question,
+        text: area.value,
+        label: card.dataset.label,
+        target: card.id,
+      });
       planUI.prefs.set(key, "1");
       show(true);
-    };
-    edit.onclick = () => {
+    });
+    edit.addEventListener("click", () => {
       planUI.prefs.set(key, "");
       show(false);
       area.focus();
-    };
+    });
     // The card shows as answered while the draft's answer for the question
     // has the text in the box, so every browser that shares the draft shows
     // the same state. Edit keeps the card open in the browser that pressed

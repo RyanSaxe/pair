@@ -48,14 +48,14 @@ export function createPreview({
   // open in it. Any other key is the search window's.
   function listen(win) {
     win.addEventListener("keydown", (event) => {
-      const writing = event.target.closest?.(
+      const editingField = event.target.closest?.(
         "input, textarea, select, [contenteditable]",
       );
-      const open = win.document.querySelector(
+      const openDialog = win.document.querySelector(
         "dialog[open], [popover]:popover-open",
       );
       // A closed dialog's field can hold focus for a moment after it closes.
-      if (!writing?.checkVisibility() && !open) onKey(event);
+      if (!editingField?.checkVisibility() && !openDialog) onKey(event);
     });
     win.addEventListener("focusin", () => {
       if (fieldIn(win.document)) onFocus();

@@ -25,7 +25,7 @@ function files(directory) {
 export const version = ["src", "adapters"]
   .flatMap((folder) => files(path.join(packageRoot, folder)))
   .map((file) => path.relative(packageRoot, file).split(path.sep).join("/"))
-  .sort()
+  .toSorted()
   .reduce(
     (hash, file) =>
       hash

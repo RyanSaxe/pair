@@ -120,7 +120,7 @@ function ready(doc, id) {
   return {
     ...doc,
     session: id,
-    also: [...new Set(doc.also)].sort(
+    also: [...new Set(doc.also)].toSorted(
       (a, b) => roundNumber(a) - roundNumber(b),
     ),
     at: doc.at / RECENCY_UNIT_MS,
@@ -150,6 +150,18 @@ const shown = (doc, { textRanges = [], attrRanges = [] }) =>
   doc.text
     ? clip(doc, textRanges)
     : clip({ ...doc, text: doc.attrs ?? "" }, attrRanges);
+
+const inRound = (doc, rounds, entry) =>
+  !rounds ||
+  rounds.some((round) => {
+    const wanted = round === "latest" ? entry.latest : round;
+    return doc.round === wanted || doc.also.includes(wanted);
+  });
+
+const titleOf = (doc, entry) =>
+  PLACE_NAMES[doc.page] ??
+  entry.pageTitles.get(`${doc.round}/${doc.page}`) ??
+  null;
 
 export function searchStore({ log = () => {} } = {}) {
   const sessions = new Map();
@@ -184,7 +196,7 @@ export function searchStore({ log = () => {} } = {}) {
     entry.files = files;
     entry.title = status.title || status.current?.title || "New session";
     entry.closed = isClosed(status);
-    entry.rounds = Object.keys(status.roundPages ?? {}).sort(
+    entry.rounds = Object.keys(status.roundPages ?? {}).toSorted(
       (a, b) => roundNumber(b) - roundNumber(a),
     );
     entry.latest = entry.rounds[0] ?? "0";
@@ -250,7 +262,8 @@ export function searchStore({ log = () => {} } = {}) {
   function refresh(entry) {
     entry.reading ||= (async () => {
       try {
-        while (entry.changed && !closed) {
+        while (entry.changed) {
+          if (closed) break;
           entry.changed = false;
           await readFiles(entry);
         }
@@ -310,14 +323,15 @@ export function searchStore({ log = () => {} } = {}) {
         .map(refresh),
     );
 
-  const inRound = (doc, rounds, entry) =>
-    !rounds ||
-    rounds.some((round) => {
-      const wanted = round === "latest" ? entry.latest : round;
-      return doc.round === wanted || doc.also.includes(wanted);
-    });
-
-  function scan({ query, session, round, kinds, closed, here, limit }) {
+  function scan({
+    query,
+    session,
+    round,
+    kinds,
+    closed: includeClosed,
+    here,
+    limit,
+  }) {
     const prepared = prepare(query);
     const counts = Object.fromEntries(KINDS.map((kind) => [kind, 0]));
     const hits = [];
@@ -327,7 +341,7 @@ export function searchStore({ log = () => {} } = {}) {
     for (const entry of sessions.values()) {
       if (session && !session.has(entry.id)) continue;
       // A closed session counts when the search asks for closed ones or names it.
-      if (entry.closed && !closed && !session) continue;
+      if (entry.closed && !includeClosed && !session) continue;
       for (const doc of entry.docs) {
         if (!inRound(doc, round, entry)) continue;
         // With nothing typed, the list shows the newest things that have words.
@@ -345,13 +359,13 @@ export function searchStore({ log = () => {} } = {}) {
     }
     if (prepared && onBlocks < FEW_RESULTS) {
       const already = new Set(hits.map((hit) => hit.doc));
-      for (const row of partialRows(
+      for (const partialHit of partialRows(
         query,
         inScope.filter((doc) => !already.has(doc)),
       )) {
-        counts[row.doc.kind]++;
+        counts[partialHit.doc.kind]++;
         total++;
-        hits.push(row);
+        hits.push(partialHit);
       }
     }
     hits.sort((a, b) => b.score - a.score);
@@ -362,11 +376,6 @@ export function searchStore({ log = () => {} } = {}) {
       counts,
     };
   }
-
-  const titleOf = (doc, entry) =>
-    PLACE_NAMES[doc.page] ??
-    entry.pageTitles.get(`${doc.round}/${doc.page}`) ??
-    null;
 
   function row(hit) {
     const { doc } = hit;
@@ -423,7 +432,7 @@ export function searchStore({ log = () => {} } = {}) {
     session = null,
     round = null,
     kinds = [],
-    closed = false,
+    closed: includeClosed = false,
     here = null,
     limit = DEFAULT_LIMIT,
   }) {
@@ -434,7 +443,7 @@ export function searchStore({ log = () => {} } = {}) {
       session: session ? new Set(session.split(",")) : null,
       round: round ? round.split(",") : null,
       kinds: new Set(kinds),
-      closed,
+      closed: includeClosed,
       here,
       limit,
     };
@@ -456,8 +465,13 @@ export function searchStore({ log = () => {} } = {}) {
     await refreshChanged();
     return [...sessions.values()]
       .filter((entry) => entry.loaded)
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .map(({ id, title, rounds, closed }) => ({ id, title, rounds, closed }));
+      .toSorted((a, b) => b.updatedAt - a.updatedAt)
+      .map(({ id, title, rounds, closed: entryClosed }) => ({
+        id,
+        title,
+        rounds,
+        closed: entryClosed,
+      }));
   }
 
   async function close() {

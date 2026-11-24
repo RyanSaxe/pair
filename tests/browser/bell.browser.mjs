@@ -161,10 +161,10 @@ test("a line on a card opens Work on the card's tab at the reply or the card it 
   const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
   await bellReady(page);
-  const reply = await cardReply(session, "export");
+  const replyId = await cardReply(session, "export");
   await count(page, "1");
   await openLine(page);
-  await landed(page, "proposed", reply);
+  await landed(page, "proposed", replyId);
   // The card the line opened at stays on the tab when it finishes.
   const finished = await session.action("propose", {
     id: "export",
@@ -198,11 +198,11 @@ test("a line on a card in another session opens Work there at the reply, while t
   const page = await open(t, `${h.server.origin}${session.base}/#overview`);
   if (!page) return;
   await bellReady(page);
-  const reply = await cardReply(other, "export");
+  const replyId = await cardReply(other, "export");
   await count(page, "1");
   await openLine(page);
   await page.waitForURL((url) => url.pathname === `${other.base}/`);
-  await landed(page, "proposed", reply);
+  await landed(page, "proposed", replyId);
 });
 
 test("another session's finished round adds a waiting line, and sending that round removes it", async (t) => {

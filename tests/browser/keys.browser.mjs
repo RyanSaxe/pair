@@ -43,11 +43,11 @@ async function selectQuote(page) {
     .waitFor();
 }
 
-const popoverOpen = (page, id, open) =>
+const popoverOpen = (page, id, isOpen) =>
   page.waitForFunction(
-    ([id, open]) =>
-      document.getElementById(id).matches(":popover-open") === open,
-    [id, open],
+    ([elementId, wantOpen]) =>
+      document.getElementById(elementId).matches(":popover-open") === wantOpen,
+    [id, isOpen],
   );
 
 test(`the frame's keys open sessions, pages and dialogs, and send answers, notes and threads`, async (t) => {
@@ -228,7 +228,7 @@ test("the page's keys act behind the open Keys list, which stays open, and no ro
   const rows = await page.locator("#keys-dialog").evaluate((dialog) =>
     [...dialog.querySelectorAll(".key-list")]
       .filter((list) => !list.closest("details"))
-      .flatMap((list) => [...list.querySelectorAll("dt")])
+      .flatMap((list) => Array.from(list.querySelectorAll("dt")))
       .map((key) => {
         const text = key.nextElementSibling;
         const line = parseFloat(getComputedStyle(text).lineHeight);

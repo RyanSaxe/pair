@@ -84,7 +84,7 @@ function textareaWords(node) {
   }
 }
 
-function collect(node, page, words, inSvg = false) {
+function collect(node, { page, words, inSvg = false }) {
   if (node.text !== undefined) {
     words.text.push(node.text);
     return words;
@@ -101,7 +101,7 @@ function collect(node, page, words, inSvg = false) {
       const prototype = (page.prototypes ?? []).find((p) => p.id === value);
       if (prototype) {
         words.text.push(prototype.title ?? "", prototype.description ?? "");
-        collect(parse(prototypeText(prototype.html ?? "")), page, words);
+        collect(parse(prototypeText(prototype.html ?? "")), { page, words });
       }
     } else if (DRAWN.has(name) || drawnLabel(node, name, value))
       words.text.push(attributeWords(value));
@@ -118,7 +118,8 @@ function collect(node, page, words, inSvg = false) {
   }
   // Only a script is left with raw text, and a reader never sees it.
   if (node.raw) words.attrs.push(node.raw);
-  for (const child of node.children ?? []) collect(child, page, words, svg);
+  for (const child of node.children ?? [])
+    collect(child, { page, words, inSvg: svg });
   return words;
 }
 
@@ -143,7 +144,7 @@ function holdsCode(node) {
 
 // The frame numbers a page's top-level elements, so a document's block is its
 // position among them. Top-level text belongs to no block.
-export function pageDocs(page, round, at, tree = parse(page.html ?? "")) {
+export function pageDocs(page, { round, at, tree = parse(page.html ?? "") }) {
   const docs = [];
   const base = {
     kind: "pages",
@@ -163,7 +164,7 @@ export function pageDocs(page, round, at, tree = parse(page.html ?? "")) {
     }
     index++;
     if (child.tag === "style") continue;
-    const words = collect(child, page, { text: [], attrs: [] });
+    const words = collect(child, { page, words: { text: [], attrs: [] } });
     const text = clean(words.text.join(" "));
     const attrs = clean(words.attrs.join(" "));
     if (isHeading(child.tag)) heading = text;
@@ -212,7 +213,7 @@ function pageBlocks(page, round, tree) {
 export function readPage(page, round, at) {
   const tree = parse(page.html ?? "");
   return {
-    docs: pageDocs(page, round, at, tree),
+    docs: pageDocs(page, { round, at, tree }),
     blocks: pageBlocks(page, round, tree),
   };
 }
@@ -294,7 +295,7 @@ export function feedbackDocs(event) {
   const groups = payload.groups ?? {};
   const at = Date.parse(event.receivedAt) || 0;
   const docs = [];
-  const add = (kind, type, round, page, item, heading, text) => {
+  const add = ({ kind, type, round, page, item, heading, text }) => {
     const words = clean(text);
     if (words)
       docs.push({
@@ -313,55 +314,55 @@ export function feedbackDocs(event) {
   // A Start's message shows on its card, which proposalDocs() reads, and never
   // on the round's Review page.
   if (payload.intent !== "start")
-    add(
-      "notes",
-      "send message",
-      payload.round,
-      "feedback",
-      payload.id,
-      `Round ${payload.round} message`,
-      payload.message,
-    );
+    add({
+      kind: "notes",
+      type: "send message",
+      round: payload.round,
+      page: "feedback",
+      item: payload.id,
+      heading: `Round ${payload.round} message`,
+      text: payload.message,
+    });
   if (payload.intent && payload.intent !== "feedback-only")
-    add(
-      "notes",
-      "send message",
-      payload.round,
-      "work",
-      payload.proposal ?? payload.id,
-      payload.proposal ?? "",
-      payload.guidance,
-    );
+    add({
+      kind: "notes",
+      type: "send message",
+      round: payload.round,
+      page: "work",
+      item: payload.proposal ?? payload.id,
+      heading: payload.proposal ?? "",
+      text: payload.guidance,
+    });
   for (const note of groups.notes ?? [])
-    add(
-      "notes",
-      "note",
-      note?.round,
-      note?.topic,
-      note?.id,
-      note?.anchor ?? "",
-      note?.text,
-    );
+    add({
+      kind: "notes",
+      type: "note",
+      round: note?.round,
+      page: note?.topic,
+      item: note?.id,
+      heading: note?.anchor ?? "",
+      text: note?.text,
+    });
   for (const [key, answer] of Object.entries(groups.answers ?? {}))
-    add(
-      "answers",
-      "typed answer",
-      answer?.round,
-      answer?.topic,
-      key,
-      answer?.label ?? "",
-      answer?.kind === "drawing" ? answer.label : answer?.text,
-    );
+    add({
+      kind: "answers",
+      type: "typed answer",
+      round: answer?.round,
+      page: answer?.topic,
+      item: key,
+      heading: answer?.label ?? "",
+      text: answer?.kind === "drawing" ? answer.label : answer?.text,
+    });
   for (const [key, choice] of Object.entries(groups.choices ?? {}))
-    add(
-      "answers",
-      "chosen option",
-      choice?.round,
-      choice?.topic,
-      key,
-      choice?.label ?? "",
-      chosen(choice),
-    );
+    add({
+      kind: "answers",
+      type: "chosen option",
+      round: choice?.round,
+      page: choice?.topic,
+      item: key,
+      heading: choice?.label ?? "",
+      text: chosen(choice),
+    });
   return docs;
 }
 

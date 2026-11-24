@@ -35,10 +35,10 @@ planUI.define("prototype", {
     open.rel = "noopener";
     open.href = online ? prototypeUrl(prototype) : "#";
     if (!online)
-      open.onclick = (event) => {
+      open.addEventListener("click", (event) => {
         event.preventDefault();
         window.open(prototypeUrl(prototype), "_blank", "noopener");
-      };
+      });
     const source = linkButton("Source", () => {
       details.open = !details.open;
     });

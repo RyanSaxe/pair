@@ -203,15 +203,16 @@ export async function pause(options) {
 
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 
-function stageText(status) {
-  const state = lifecycle(status);
+function stageText(sessionStatus) {
+  const state = lifecycle(sessionStatus);
   if (state === "closed") return "closed by the reviewer";
-  if (state === "paused") return `paused: ${status.paused.reason}`;
-  if (status.openRound) return "the agent publishes its pages";
-  if (status.stage === "submitted")
+  if (state === "paused") return `paused: ${sessionStatus.paused.reason}`;
+  if (sessionStatus.openRound) return "the agent publishes its pages";
+  if (sessionStatus.stage === "submitted")
     return "the reviewer sent something that pair read has not printed yet";
-  if (status.stage === "working") return "the agent works on the next round";
-  return status.current
+  if (sessionStatus.stage === "working")
+    return "the agent works on the next round";
+  return sessionStatus.current
     ? "the reviewer has not sent feedback yet"
     : "the agent publishes Agreed";
 }
@@ -224,14 +225,14 @@ const pageStates = {
 
 // A wake that the holder answered with a command, or that has not gone out,
 // gets no line.
-function holderText(status) {
-  const { holder, wake } = status;
+function holderText(sessionStatus) {
+  const { holder, wake } = sessionStatus;
   if (!holder) return "none";
   const last = wake?.last;
   const sent = {
     sent: () => ` Last wake ${clock(last.at)}, sent.`,
     failed: () => ` Last wake ${clock(last.at)}, failed: ${last.reason}`,
-  }[wakeState(status)];
+  }[wakeState(sessionStatus)];
   return `${adapters[holder.harness]?.name || holder.harness} since ${clock(holder.at)}.${sent ? sent() : ""}`;
 }
 
@@ -241,8 +242,8 @@ const places = {
   "new-agent": "with a new agent",
 };
 function cardText(card, cards) {
-  const { status } = card;
-  const counted = status?.parts.filter((part) => part.state !== "dropped");
+  const { status: cardStatus } = card;
+  const counted = cardStatus?.parts.filter((part) => part.state !== "dropped");
   const parts = counted
     ? `, ${counted.filter((part) => part.state === "done").length} of ${counted.length} parts done`
     : "";
@@ -260,12 +261,13 @@ function cardText(card, cards) {
   return `${state}${joins}`;
 }
 
+const maxWidth = (values) => Math.max(...values.map((value) => value.length));
+
 function proposalsText(cards) {
   if (!cards?.length) return "";
   const states = cards.map((card) => cardText(card, cards));
-  const width = (values) => Math.max(...values.map((value) => value.length));
-  const idWidth = width(cards.map((card) => card.id));
-  const stateWidth = width(states);
+  const idWidth = maxWidth(cards.map((card) => card.id));
+  const stateWidth = maxWidth(states);
   return [
     "Proposals",
     ...cards.map((card, index) =>
@@ -291,8 +293,19 @@ export async function propose(options) {
   // action.
   const flags = [
     "id",
-    ...["title", "delivers", "recommend", "page", "thread", "revise"],
-    ...["start", "quote", "withdraw", "reason", "done", "where", "join"],
+    "title",
+    "delivers",
+    "recommend",
+    "page",
+    "thread",
+    "revise",
+    "start",
+    "quote",
+    "withdraw",
+    "reason",
+    "done",
+    "where",
+    "join",
     "reopen",
   ];
   const result = await session.request({
@@ -313,14 +326,14 @@ export async function propose(options) {
       json: result,
     };
   const where = result.parent ? ` in session "${result.parent.title}"` : "";
-  const status = ["done", "left", "drop"].some(
+  const hasStatusUpdate = ["done", "left", "drop"].some(
     (name) => options[`status-${name}`],
   );
   return {
     next: result.next,
     data: [
       `Proposal ${card.id}${where}: ${cardText(card)}.`,
-      status && leftText(card, session.directory),
+      hasStatusUpdate && leftText(card, session.directory),
     ]
       .filter(Boolean)
       .join("\n"),

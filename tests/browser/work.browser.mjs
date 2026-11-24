@@ -45,6 +45,7 @@ const workRow = (page) =>
       number: mark.hidden ? null : mark.textContent,
     };
   });
+const listed = (box) => box.locator(":is(p, li)").allTextContents();
 
 test("Start sends where the work runs and the message, and the running card quotes the message", async (t) => {
   const { session, page, tab, cards } = await work(t);
@@ -160,15 +161,15 @@ test("a proposed card keeps its meta line and its buttons to one row each on a p
   const deck = page.locator("[data-proposal-card=deck]");
   await deck.locator(".proposal-title", { hasText: title }).waitFor();
   const rows = await deck.evaluate((root) => {
-    const box = (node) => node.getBoundingClientRect();
     const line = (selector) =>
-      [...root.querySelectorAll(selector)].map((node) => [
-        node.textContent,
-        box(node).top + box(node).height / 2,
-      ]);
+      [...root.querySelectorAll(selector)].map((node) => {
+        const rect = node.getBoundingClientRect();
+        return [node.textContent, rect.top + rect.height / 2];
+      });
     return {
-      title: box(root.querySelector(".proposal-title")).bottom,
-      metaTop: box(root.querySelector(".card-meta")).top,
+      title: root.querySelector(".proposal-title").getBoundingClientRect()
+        .bottom,
+      metaTop: root.querySelector(".card-meta").getBoundingClientRect().top,
       meta: line(".card-meta > :not(.state-dot)"),
       foot: line(".proposal-foot :not(:has(*))"),
     };
@@ -212,15 +213,17 @@ test("Start and New work item keep one size, with the main button on its own row
       const shown = [...actions.querySelectorAll(".btn")].filter((button) =>
         button.checkVisibility(),
       );
-      const box = (element) => element.getBoundingClientRect();
       return {
         mainFirst: shown[0].classList.contains("primary"),
-        width: box(actions).width,
-        buttons: shown.map((button) => ({
-          width: box(button).width,
-          top: box(button).top,
-          height: box(button).height,
-        })),
+        width: actions.getBoundingClientRect().width,
+        buttons: shown.map((button) => {
+          const rect = button.getBoundingClientRect();
+          return {
+            width: rect.width,
+            top: rect.top,
+            height: rect.height,
+          };
+        }),
       };
     });
   async function check(form, width) {
@@ -464,20 +467,23 @@ test("a card started on the reviewer's words quotes them and links to where they
   assert.equal(started.code, 200, started.body.error);
   await tab("running").locator(".work-count", { hasText: "1" }).waitFor();
   await tab("running").click();
-  const card = page.locator("[data-proposal-card=deck]");
-  await card.waitFor();
-  assert.equal(await card.locator(".card-meta").textContent(), "Working here");
-  const lead = card.locator(".proposal-lead");
+  const deckCard = page.locator("[data-proposal-card=deck]");
+  await deckCard.waitFor();
+  assert.equal(
+    await deckCard.locator(".card-meta").textContent(),
+    "Working here",
+  );
+  const lead = deckCard.locator(".proposal-lead");
   assert.equal(
     await lead.textContent(),
     "Started from your words on the Overview page",
   );
   assert.equal(await lead.locator("a").getAttribute("href"), "#overview");
   assert.equal(
-    await card.locator(".proposal-message").innerText(),
+    await deckCard.locator(".proposal-message").innerText(),
     "“Build the deck now.\nKeep the header height.”",
   );
-  assert.equal(await card.locator(".proposal-foot").count(), 0);
+  assert.equal(await deckCard.locator(".proposal-foot").count(), 0);
 });
 
 // The frame lists each card the agent joined into a proposed card, on the card
@@ -494,7 +500,6 @@ test("a proposed card and its Start popup list the cards joined into it", async 
   });
   assert.equal(joined.code, 200, joined.body.error);
   const deck = page.locator("[data-proposal-card=deck]");
-  const listed = (box) => box.locator(":is(p, li)").allTextContents();
   await deck.locator(".proposal-joined").waitFor();
   assert.deepEqual(await listed(deck.locator(".proposal-joined")), [
     "Joined into this proposal",
@@ -732,8 +737,8 @@ test("a card's reply box keeps focus and every key while the cards change, and W
   // once its answer has arrived and the frame has drawn the next frames. A 304
   // has no body, and its finished() never resolves.
   const polled = async () => {
-    const request = await page.waitForEvent("request", (request) =>
-      new URL(request.url()).pathname.endsWith("/api/status"),
+    const request = await page.waitForEvent("request", (req) =>
+      new URL(req.url()).pathname.endsWith("/api/status"),
     );
     const response = await request.response();
     if (response.status() !== 304) await response.finished();

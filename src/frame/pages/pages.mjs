@@ -167,7 +167,7 @@ export function show(
     );
     // Figure renderers can change a block's height after the page renders,
     // so placeMarks() runs again once they settle.
-    Promise.allSettled([...renders]).then(placeMarks);
+    Promise.allSettled(renders).then(placeMarks);
   }
   for (const button of document.querySelectorAll("#page-list [data-page]")) {
     if (button.dataset.page === visiblePageId())
@@ -199,7 +199,7 @@ export function show(
     if (!loading) arrived();
     markMatch();
   });
-  Promise.allSettled([...renders]).then(markMatch);
+  Promise.allSettled(renders).then(markMatch);
 }
 /* showChanges shows the draft after it changed outside this tab's own
    controls, from the hub or from another tab. pages names the pages whose
@@ -211,9 +211,9 @@ export function show(
    waits while the reviewer uses one of them or has a modal open. The frame
    calls redrawPage again after each status poll. */
 let redrawHeld = false;
-export function showChanges(pages = null) {
+export function showChanges(changed = null) {
   review();
-  if ($("reading").hidden || page.pending || (pages && !pages.has(page.id)))
+  if ($("reading").hidden || page.pending || (changed && !changed.has(page.id)))
     return;
   restoreChoices();
   restoreAnswers();
@@ -255,6 +255,13 @@ export const pageOrder = () => [
     ? [{ id: "feedback", title: "What you sent" }]
     : []),
 ];
+function setFooterLink(element, item, text) {
+  element.hidden = !item;
+  if (!item) return;
+  element.textContent = text;
+  element.dataset.page = item.id;
+  element.href = "#" + item.id;
+}
 export function renderFooter(feedback) {
   const order = pageOrder();
   const index = order.findIndex(
@@ -262,20 +269,13 @@ export function renderFooter(feedback) {
   );
   const previous = order[index - 1];
   const next = order[index + 1];
-  const link = (element, item, text) => {
-    element.hidden = !item;
-    if (!item) return;
-    element.textContent = text;
-    element.dataset.page = item.id;
-    element.href = "#" + item.id;
-  };
   if (feedback) return;
-  link(
+  setFooterLink(
     $("footer-previous"),
     previous,
     previous ? `← Previous: ${previous.title}` : "",
   );
-  link(
+  setFooterLink(
     $("footer-next"),
     next,
     !next
@@ -379,18 +379,18 @@ export function updateNavigation(force = false) {
       pageList.append(separator(), work);
     }
     if (hasFeedbackPage && !listed.waiting) {
-      const review = document.createElement("button");
-      review.type = "button";
-      review.id = "review-row";
-      review.dataset.page = "feedback";
+      const reviewButton = document.createElement("button");
+      reviewButton.type = "button";
+      reviewButton.id = "review-row";
+      reviewButton.dataset.page = "feedback";
       const label = document.createElement("span");
       label.textContent =
         editable && listed.tab === "current" ? "Review" : "What you sent";
       const total = document.createElement("b");
       total.className = "count";
       total.hidden = true;
-      review.append(label, total);
-      pageList.append(separator(), review);
+      reviewButton.append(label, total);
+      pageList.append(separator(), reviewButton);
     }
     pageList.dataset.round = listed.round;
     pageList.dataset.tab = listed.tab;

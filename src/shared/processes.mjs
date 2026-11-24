@@ -58,10 +58,9 @@ $rows = @(Get-CimInstance Win32_Process | ForEach-Object {
 })
 ConvertTo-Json -InputObject $rows -Compress
 `);
-  return JSON.parse(stdout).map(({ name, ...row }) => ({
-    ...row,
-    command: name.replace(/\.exe$/i, ""),
-  }));
+  return JSON.parse(stdout).map(({ name, ...row }) =>
+    Object.assign(row, { command: name.replace(/\.exe$/i, "") }),
+  );
 }
 
 // processTable returns every running process by its ID, as { pid, parent,
@@ -77,6 +76,7 @@ export function processTable() {
   } catch (error) {
     throw new Error(
       `pair could not read which processes run: ${error.message}`,
+      { cause: error },
     );
   }
 }

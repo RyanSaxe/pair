@@ -99,7 +99,10 @@ test("pair guide prints guide/pair.md and every guide file, with no relative lin
   const markup = (await fs.readdir(path.join(root, "src/components")))
     .filter((name) => name !== "README.md")
     .map((name) => `components/${name}/markup.html`);
-  assert.deepEqual(names, [...files, "components/README.md", ...markup].sort());
+  assert.deepEqual(
+    names,
+    [...files, "components/README.md", ...markup].toSorted(),
+  );
   const reached = new Set();
   for (const name of names)
     if (!reached.has(name)) {

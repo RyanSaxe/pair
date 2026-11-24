@@ -43,16 +43,16 @@ export function fixedIds(rows) {
     text.replace(/\b[0-9a-f]{8}(?=…)|(?<=…\/)[0-9a-f]{8}\b/g, standIn);
   return rows.map(({ cmd, out }) => ({ cmd: swap(cmd), out: out.map(swap) }));
 }
+const pick = (entry, pattern) => {
+  const match = entry.text.match(pattern);
+  if (!match) throw new Error(`pair ${entry.args[0]} printed no ${pattern}`);
+  return match[0];
+};
 function terminal(transcript) {
   const last = (what, test) => {
     const entry = transcript.findLast(test);
     if (!entry) throw new Error(`The staging ran no ${what}`);
     return entry;
-  };
-  const pick = (entry, pattern) => {
-    const match = entry.text.match(pattern);
-    if (!match) throw new Error(`pair ${entry.args[0]} printed no ${pattern}`);
-    return match[0];
   };
   const publish = last("publish of where-to-retry", ({ args }) =>
     args.includes("out/2/where-to-retry.html"),
@@ -185,7 +185,7 @@ async function render(browser, html, check) {
   return png;
 }
 
-export function composeIllustration(browser, theme, shot, transcript) {
+export function composeIllustration(browser, { theme, shot, transcript }) {
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>${tokens(theme)}
 .canvas{grid-template-columns:448px 144px 592px}
 .term{grid-column:1;grid-row:1;background:#16181c;display:flex;flex-direction:column;contain:size}

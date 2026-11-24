@@ -82,14 +82,16 @@ for (const colorScheme of ["light", "dark"]) {
         // .renderer-error.
         const result = await page
           .waitForFunction(
-            ([source, drawn]) => {
-              const box = source.closest(".change-review") || source;
-              const error = source.matches("[data-diff-input]")
+            ([sourceElement, drawnSelector]) => {
+              const box =
+                sourceElement.closest(".change-review") || sourceElement;
+              const error = sourceElement.matches("[data-diff-input]")
                 ? box.querySelector("[data-diff-error]")
-                : source.nextElementSibling?.matches(".renderer-error") &&
-                  source.nextElementSibling;
+                : sourceElement.nextElementSibling?.matches(
+                    ".renderer-error",
+                  ) && sourceElement.nextElementSibling;
               if (error && !error.hidden) return `error: ${error.textContent}`;
-              return Boolean(box.querySelector(drawn)) && "rendered";
+              return Boolean(box.querySelector(drawnSelector)) && "rendered";
             },
             [await source.elementHandle(), drawn],
             { timeout: 30_000 },
@@ -214,13 +216,14 @@ test("a complex diagram opens at readable size and scrolls within its modal on d
   }
 });
 
+const prose = (end) =>
+  `The client retries a failed charge with a delay between attempts, logs each attempt with its request ID, and ${end}.`.repeat(
+    4,
+  );
+
 // The frame loads the diff library from esm.sh, so this test is in the figures
 // suite, which CI runs in its own job.
 test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's choice over data-wrap, and keeps split rows level", async (t) => {
-  const prose = (end) =>
-    `The client retries a failed charge with a delay between attempts, logs each attempt with its request ID, and ${end}.`.repeat(
-      4,
-    );
   const [before, after] = [prose("gives up"), prose("returns the last error")];
   const input = {
     before: `# Retry\n\n${before}\n`,

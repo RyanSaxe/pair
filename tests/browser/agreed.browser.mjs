@@ -45,15 +45,14 @@ test("an alignment keeps its meta line and its buttons to one row each on a phon
   const card = page.locator("#agreement-results");
   await card.locator(".agreement-source button").first().waitFor();
   const rows = await card.evaluate((root) => {
-    const box = (node) => node.getBoundingClientRect();
     const line = (selector) =>
-      [...root.querySelectorAll(selector)].map((node) => [
-        node.textContent,
-        box(node).top + box(node).height / 2,
-      ]);
+      [...root.querySelectorAll(selector)].map((node) => {
+        const rect = node.getBoundingClientRect();
+        return [node.textContent, rect.top + rect.height / 2];
+      });
     return {
       foot: line(".agreement-source :not(:has(*))"),
-      title: box(root.querySelector("h2")).bottom,
+      title: root.querySelector("h2").getBoundingClientRect().bottom,
       metaTop: root.querySelector(".card-meta")?.getBoundingClientRect().top,
       meta: line(".card-meta > :not(.state-dot)"),
     };

@@ -59,6 +59,12 @@ async function send(page) {
   await refused(await response, "the feedback");
 }
 
+const field = (text, name) => {
+  const value = text.match(new RegExp(`^${name}\\s+(\\S+)$`, "m"))?.[1];
+  if (!value) throw new Error(`pair start printed no ${name} line`);
+  return value;
+};
+
 // illustrate() stages a session by running the pair command as an agent does.
 // The illustration's terminal shows what those commands printed in this run.
 export async function illustrate(t, scratch) {
@@ -91,11 +97,6 @@ export async function illustrate(t, scratch) {
     const text = `${result.stdout}${result.stderr}`;
     transcript.push({ args, text });
     return text;
-  };
-  const field = (text, name) => {
-    const value = text.match(new RegExp(`^${name}\\s+(\\S+)$`, "m"))?.[1];
-    if (!value) throw new Error(`pair start printed no ${name} line`);
-    return value;
   };
   const round = async (dir, n, pages) => {
     await fs.mkdir(path.join(work, "out", n), { recursive: true });
@@ -284,13 +285,11 @@ export async function illustrate(t, scratch) {
     // A click on a page's row on the progress card opens the agent's note for
     // that page.
     const rows = page.locator("#agent-activity button.activity-page");
-    await until(
-      page,
-      "Listing the pages in progress",
-      () =>
+    await until(page, "Listing the pages in progress", {
+      predicate: () =>
         document.querySelectorAll("#agent-activity button.activity-page")
           .length === 2,
-    );
+    });
     for (const row of await rows.all()) await row.click();
     shots.phoneSub = await inThemes(page);
 
@@ -302,7 +301,7 @@ export async function illustrate(t, scratch) {
       );
       images.set(
         `assets/illustration-${theme}.png`,
-        await composeIllustration(browser, theme, shot, transcript),
+        await composeIllustration(browser, { theme, shot, transcript }),
       );
       images.set(
         `assets/work-${theme}.png`,

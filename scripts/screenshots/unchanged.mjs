@@ -8,22 +8,30 @@ const noise = 2;
 const strong = 32;
 const faintShare = 0.001;
 
+const uri = (png) => `data:image/png;base64,${png.toString("base64")}`;
+
 export async function samePicture(page, before, after) {
-  const uri = (png) => `data:image/png;base64,${png.toString("base64")}`;
   return page.evaluate(
-    async ({ before, after, noise, strong, faintShare }) => {
-      const pixels = async (source) => {
-        const image = new Image();
-        image.src = source;
-        await image.decode();
-        const canvas = document.createElement("canvas");
-        canvas.width = image.naturalWidth;
-        canvas.height = image.naturalHeight;
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        context.drawImage(image, 0, 0);
-        return context.getImageData(0, 0, canvas.width, canvas.height);
-      };
-      const [a, b] = await Promise.all([pixels(before), pixels(after)]);
+    async ({
+      beforeUri,
+      afterUri,
+      noiseLimit,
+      strongLimit,
+      faintShareLimit,
+    }) => {
+      const [a, b] = await Promise.all(
+        [beforeUri, afterUri].map(async (source) => {
+          const image = new Image();
+          image.src = source;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          context.drawImage(image, 0, 0);
+          return context.getImageData(0, 0, canvas.width, canvas.height);
+        }),
+      );
       if (a.width !== b.width || a.height !== b.height) return false;
       let faint = 0;
       for (let i = 0; i < a.data.length; i += 4) {
@@ -33,11 +41,17 @@ export async function samePicture(page, before, after) {
           Math.abs(a.data[i + 2] - b.data[i + 2]),
           Math.abs(a.data[i + 3] - b.data[i + 3]),
         );
-        if (difference > strong) return false;
-        if (difference > noise) faint++;
+        if (difference > strongLimit) return false;
+        if (difference > noiseLimit) faint++;
       }
-      return faint <= a.width * a.height * faintShare;
+      return faint <= a.width * a.height * faintShareLimit;
     },
-    { before: uri(before), after: uri(after), noise, strong, faintShare },
+    {
+      beforeUri: uri(before),
+      afterUri: uri(after),
+      noiseLimit: noise,
+      strongLimit: strong,
+      faintShareLimit: faintShare,
+    },
   );
 }

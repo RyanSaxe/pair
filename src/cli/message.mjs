@@ -72,6 +72,7 @@ async function identifySender(label, table) {
   } catch (error) {
     throw new Error(
       `pair sent nothing, because it could not register this session, and the receiver can answer only a registered session. ${error.message}`,
+      { cause: error },
     );
   }
 }
@@ -105,7 +106,7 @@ async function route(entry, subagent) {
     : { way: "relayed", target: entry.target, tool };
 }
 
-function sentText(entry, subagent, way, { steerable }) {
+function sentText(entry, { subagent, way, steerable }) {
   const session = `${entry.name} (${adapters[entry.cli].name})`;
   const when = `at once if it is idle, and otherwise ${steerable ? "between the steps of its current turn" : "when its current turn ends"}`;
   return {
@@ -150,7 +151,7 @@ export async function message(options) {
   const delivery = await wakeRunner(target, line, { wake, log: console.error });
   return {
     data: wake
-      ? sentText(entry, subagent, way, delivery)
+      ? sentText(entry, { subagent, way, steerable: delivery.steerable })
       : `PAIR_WAKE is off, so pair wrote the message to stderr instead of sending it to ${entry.name} (${adapters[entry.cli].name}).`,
   };
 }

@@ -397,7 +397,7 @@ test("a result names its page's title even when another page shares that title",
     titles.results
       .filter((result) => result.type === "page title")
       .map((result) => result.page)
-      .sort(),
+      .toSorted(),
     ["overview", "renamed"],
   );
 });

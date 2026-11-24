@@ -78,6 +78,14 @@ test("an image upload is decided by its bytes, capped, and named by the hub", as
   );
 });
 
+const noteWithAttachments = (attachments) => ({
+  id: crypto.randomUUID(),
+  topic: "overview",
+  anchor: "The strip under the header",
+  text: "This is what I mean.",
+  attachments,
+});
+
 test("a note carries its images by path, and removing one deletes the file", async (t) => {
   const h = await hub(t);
   const a = await h.session();
@@ -88,18 +96,11 @@ test("a note carries its images by path, and removing one deletes the file", asy
     body: png,
   }).then((r) => r.json());
 
-  const note = (attachments) => ({
-    id: crypto.randomUUID(),
-    topic: "overview",
-    anchor: "The strip under the header",
-    text: "This is what I mean.",
-    attachments,
-  });
   const rejected = await a.feedback(
     a.event("feedback-only", "1", {
       groups: {
         notes: [
-          note([
+          noteWithAttachments([
             {
               id: "0".repeat(16),
               path: "/tmp/x.png",
@@ -115,7 +116,11 @@ test("a note carries its images by path, and removing one deletes the file", asy
   assert.match(rejected.body.error, /not in this session/);
   const sceneless = await a.feedback(
     a.event("feedback-only", "1", {
-      groups: { notes: [note([{ ...stored, scene: { id: "0".repeat(16) } }])] },
+      groups: {
+        notes: [
+          noteWithAttachments([{ ...stored, scene: { id: "0".repeat(16) } }]),
+        ],
+      },
     }),
   );
   assert.equal(sceneless.code, 400);
@@ -130,7 +135,7 @@ test("a note carries its images by path, and removing one deletes the file", asy
     bytes: 1,
   };
   const event = a.event("feedback-only", "1", {
-    groups: { notes: [note([forged])] },
+    groups: { notes: [noteWithAttachments([forged])] },
   });
   assert.equal((await a.feedback(event)).code, 200);
   const delivered = (await a.action("read", { id: event.id })).body.event;

@@ -232,15 +232,15 @@ test("a phone's sidebar keeps the previous page's picture, when it closes for a 
 // strip shows and below the header when it doesn't.
 const pictureFitsColumn = (page) =>
   page.evaluate(() => {
-    const picture = [...document.body.children]
+    const snapshot = [...document.body.children]
       .find((element) => element.inert && element.style.position === "fixed")
       .getBoundingClientRect();
     const header = document.querySelector(".frame-header");
     const strip = document.getElementById("history-strip");
     const above = strip.hidden ? header : strip;
     return {
-      top: picture.top - above.getBoundingClientRect().bottom,
-      bottom: picture.bottom - innerHeight,
+      top: snapshot.top - above.getBoundingClientRect().bottom,
+      bottom: snapshot.bottom - innerHeight,
     };
   });
 const fits = { top: 0, bottom: 0 };

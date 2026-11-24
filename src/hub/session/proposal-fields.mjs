@@ -5,7 +5,7 @@ const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // here runs the work in this session's rounds. sub-session and new-agent run
 // it in a linked session, which this session's holder or a separate agent
 // creates with pair start --from.
-const places = ["here", "sub-session", "new-agent"];
+const places = new Set(["here", "sub-session", "new-agent"]);
 // --quote has the same 4,000-character limit as the reviewer's overall
 // comment.
 const limits = {
@@ -38,7 +38,7 @@ export function words(data, name) {
 }
 export function place(value, name) {
   requireValue(
-    places.includes(value),
+    places.has(value),
     `${name} takes here, sub-session or new-agent`,
   );
   return value;
@@ -56,7 +56,7 @@ export function message(data) {
 // the same 4,000-character limit as Start's message, because no message goes
 // with it. The frame chooses the ID, because Copy command copies it before the
 // hub answers.
-const reviewerActions = ["save", "start", "open-agent"];
+const reviewerActions = new Set(["save", "start", "open-agent"]);
 export async function writtenCard(session, data) {
   const id = typeof data?.id === "string" ? data.id : "";
   requireValue(
@@ -64,7 +64,7 @@ export async function writtenCard(session, data) {
     "A work item's ID is a slug of at most 60 characters",
   );
   requireValue(
-    reviewerActions.includes(data.action),
+    reviewerActions.has(data.action),
     "A work item's action is save, start or open-agent",
   );
   const delivers =

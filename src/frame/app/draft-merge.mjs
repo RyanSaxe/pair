@@ -12,7 +12,9 @@ export function digest(value) {
   const text = JSON.stringify(value ?? null, (key, item) =>
     record(item)
       ? Object.fromEntries(
-          Object.entries(item).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+          Object.entries(item).toSorted(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
         )
       : item,
   );
@@ -93,7 +95,7 @@ function sentHere(draft, kind, id) {
   return false;
 }
 // apply returns the page of the item it changed, or null for the switch.
-function apply(draft, kind, id, value) {
+function apply(draft, { kind, id }, value) {
   if (kind === "alignUnflagged") {
     draft.alignUnflagged = value ?? true;
     return null;
@@ -159,14 +161,13 @@ export function mergeDraft(draft, hub) {
         parts.kind === "choice" &&
         draft.choices[parts.id]
       )
-        changed(apply(draft, parts.kind, parts.id, null));
+        changed(apply(draft, parts, null));
     } else if (dirty && parts.kind === "note" && !item.value) {
       const note = draft.notes.find((entry) => entry.id === parts.id);
       note.id = uuid();
       changed(note.topic);
     } else if (dirty) continue;
-    else
-      changed(apply(draft, parts.kind, parts.id, structuredClone(item.value)));
+    else changed(apply(draft, parts, structuredClone(item.value)));
     synced[key] = { rev: item.rev, digest: theirs };
   }
   draft.synced.revision = hub.revision;

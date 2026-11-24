@@ -115,7 +115,7 @@ test("the next-step line and the wake line name the quiet work and the commands 
     },
   ];
   assert.equal(
-    quietStep(both, now, tenMinutes, directory),
+    quietStep(both, { now, ms: tenMinutes, directory }),
     `No update in 10 minutes: page ci-flakes (last note 14 minutes ago), proposal node20-hang (parts last changed 12 minutes ago). Post a note on each page you are still working on with pair progress --session-dir ${directory} --page ID --note "…", and mark each finished part with pair propose --session-dir ${directory} --id ID --status-done "…".`,
   );
   assert.equal(
@@ -131,7 +131,7 @@ test("the next-step line and the wake line name the quiet work and the commands 
     },
   ];
   assert.equal(
-    quietStep(card, now, tenMinutes, directory),
+    quietStep(card, { now, ms: tenMinutes, directory }),
     `No update in 10 minutes: proposal node20-hang (started 11 minutes ago). For each proposal with no parts yet, record its parts with pair propose --session-dir ${directory} --id ID --status-left "…", with one flag for each part.`,
   );
   const mixed = [{ ...both[1] }, { ...card[0], id: "docs-pass" }];

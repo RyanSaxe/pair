@@ -71,7 +71,7 @@ test("a reply on its page and a card on Work stay unread however long they show,
   const id = await replied(here, "The answer on the page");
   await propose(here, "deck", "Build the deck");
   await here.request("/api/seen", { cleared: [] });
-  const away = await openOn(t, h, here, {}, false);
+  const away = await openOn(t, h, { session: here, focused: false });
   if (!away) return;
   await badge(away, 3);
   // The window reads its row on a timer set once it opens, so the clock
@@ -106,7 +106,7 @@ test("a card's Agent replied and its row in the bell leave together when the row
   const h = await hub(t);
   const { here } = await sessions(t, h);
   await propose(here, "deck", "Build the deck");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await page.locator('[data-page="work"]').first().click();
   await page.locator("#work-tab-proposed").click();
@@ -140,7 +140,7 @@ test("a thread on the overall comment shows in the pane without waiting", async 
     target: undefined,
   });
   await reply(here, id, "An answer on the whole round.");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   const started = Date.now();
   await openAll(page);

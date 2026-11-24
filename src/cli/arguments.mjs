@@ -158,13 +158,13 @@ export function overview(commands) {
     "An agent starts with pair guide and follows what it prints.",
     "",
     "Usage: pair COMMAND [ARGUMENTS] [FLAGS]",
-    ...Object.entries(groups).flatMap(([group, title]) => [
-      "",
-      title,
-      ...listed
-        .filter(([, entry]) => entry.group === group)
-        .map(([name, entry]) => `  ${name.padEnd(width)}${entry.purpose}`),
-    ]),
+    ...Object.entries(groups).flatMap(([group, title]) =>
+      ["", title].concat(
+        listed
+          .filter(([, entry]) => entry.group === group)
+          .map(([name, entry]) => `  ${name.padEnd(width)}${entry.purpose}`),
+      ),
+    ),
     "",
     "Every command takes --help. Every command that prints a result takes --json.",
     "pair --version prints the version.",

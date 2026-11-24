@@ -10,15 +10,15 @@ test("samePicture ignores rendering noise and sees a real change", async (t) => 
   const png = (patch, colour, width = 200) =>
     page
       .evaluate(
-        ({ patch, colour, width }) => {
+        ({ patch: size, colour: fill, width: w }) => {
           const canvas = document.createElement("canvas");
-          canvas.width = width;
+          canvas.width = w;
           canvas.height = 200;
           const context = canvas.getContext("2d");
           context.fillStyle = "rgb(100, 100, 100)";
-          context.fillRect(0, 0, width, 200);
-          context.fillStyle = colour;
-          context.fillRect(0, 0, patch, patch);
+          context.fillRect(0, 0, w, 200);
+          context.fillStyle = fill;
+          context.fillRect(0, 0, size, size);
           return canvas.toDataURL("image/png").split(",")[1];
         },
         { patch, colour, width },

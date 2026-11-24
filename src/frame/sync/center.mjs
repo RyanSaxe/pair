@@ -59,13 +59,13 @@ export function clear(ids) {
 // has focus, or moves to the round as it arrives, clears nothing.
 export function clearRound(entry) {
   const known = loadCleared() ?? new Set();
-  const waiting = (entry?.events || []).filter(
+  const waitingEvents = (entry?.events || []).filter(
     (event) =>
       event.kind === "waiting" &&
       event.round === entry.round &&
       !known.has(event.id),
   );
-  if (waiting.length) clear(waiting.map(({ id }) => id));
+  if (waitingEvents.length) clear(waitingEvents.map(({ id }) => id));
 }
 export function clearOwnRound() {
   if (selectedTab !== "current") return;
@@ -89,12 +89,12 @@ export function acknowledgeReply(threadId, message, acknowledged) {
         event.acknowledged = acknowledged;
   renderCenter(latest, false);
 }
-export const settleCleared = (listed, cleared) =>
-  new Set([...cleared].filter((id) => listed.includes(id)));
+export const settleCleared = (listed, clearedIds) =>
+  new Set([...clearedIds].filter((id) => listed.includes(id)));
 
 // The bell lists what needs the reviewer now, so it leaves out every session's
 // start, and a tab already shows its own session's waiting round.
-export function bellLines(sessions, cleared, thisId) {
+export function bellLines(sessions, clearedIds, thisId) {
   return sessions
     .filter((entry) => !entry.closed)
     .flatMap((entry) =>
@@ -105,10 +105,10 @@ export function bellLines(sessions, cleared, thisId) {
             announced(entry, event) &&
             !(entry.id === thisId && event.kind === "waiting"),
         )
-        .map((event) => ({ ...event, entry })),
+        .map((event) => Object.assign({}, event, { entry })),
     )
-    .filter((event) => !cleared?.has(event.id))
-    .sort((a, b) => b.at.localeCompare(a.at));
+    .filter((event) => !clearedIds?.has(event.id))
+    .toSorted((a, b) => b.at.localeCompare(a.at));
 }
 
 // latest contains every session from the last session list, closed ones
@@ -178,6 +178,12 @@ export function renderCenter(sessions, fromHub, hub) {
   }
 }
 
+function glancePart(className, text) {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
 function glanceLine(row) {
   const line = document.createElement("div");
   line.className = "session-line";
@@ -185,23 +191,24 @@ function glanceLine(row) {
   open.type = "button";
   open.className = "session-row";
   open.dataset.key = `open:${row.key}`;
-  const part = (className, text) => {
-    const span = document.createElement("span");
-    span.className = className;
-    span.textContent = text;
-    return span;
-  };
-  const glyph = part("glance-glyph");
+  const glyph = glancePart("glance-glyph");
   glyph.innerHTML = glyphOf(row);
-  open.append(glyph, part("title", row.words), part("when", since(row.at)));
-  open.append(part("where", glanceText(row)));
-  open.onclick = () => {
+  open.append(
+    glyph,
+    glancePart("title", row.words),
+    glancePart("when", since(row.at)),
+  );
+  open.append(glancePart("where", glanceText(row)));
+  open.addEventListener("click", () => {
     clear(row.events);
     openPlace(row);
-  };
-  const close = lineButton(`clear:${row.key}`, "Clear", "✕", () =>
-    clear(row.events),
-  );
+  });
+  const close = lineButton({
+    key: `clear:${row.key}`,
+    label: "Clear",
+    content: "✕",
+    onClick: () => clear(row.events),
+  });
   close.title = "Clear";
   line.append(open, close);
   return line;
@@ -257,8 +264,10 @@ export function toggleCenter(open = !isOpen()) {
 export function installCenter() {
   installPanel($("center-pop"), $("bell"));
   $("center-pop").addEventListener("toggle", drawCenter);
-  $("center-clear-all").onclick = () => clear(unreadEventIds());
-  $("center-all").onclick = () => openNotifications();
+  $("center-clear-all").addEventListener("click", () =>
+    clear(unreadEventIds()),
+  );
+  $("center-all").addEventListener("click", () => openNotifications());
   // The storage event fires when another tab in this browser clears a line.
   window.addEventListener("storage", (event) => {
     if (cleared.isChange(event)) renderCenter(latest, false);

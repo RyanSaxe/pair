@@ -32,7 +32,7 @@ test("the popup lists the newest 5 rows with one row per thread, a link that say
     await replied(here, `Reply number ${index}`);
   const twice = await replied(other, "First new reply");
   await reply(other, twice, "Second new reply");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   // 7 threads here, 1 elsewhere with two replies, and the round waiting elsewhere.
   await badge(page, 9);
@@ -77,7 +77,7 @@ test("a row in the popup goes straight to its place and reads it, and a row from
   const there = await replied(other, "An answer from elsewhere");
   const id = await replied(here, "An answer from here");
   // A reply on screen in a tab with no focus stays unread, so only the click reads it.
-  const page = await openOn(t, h, here, {}, false);
+  const page = await openOn(t, h, { session: here, focused: false });
   if (!page) return;
   await badge(page, 3);
   await page.locator("#bell").click();
@@ -110,7 +110,7 @@ test("a row in the window reads it at once, and the real page shows it with a wo
   const { here, other } = await sessions(t, h);
   const id = await replied(other, "An answer from elsewhere");
   await replied(here, "An answer from here");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await badge(page, 3);
   await openAll(page);
@@ -156,12 +156,12 @@ test("a row in the window reads it at once, and the real page shows it with a wo
   await agree(page, 2);
   assert.equal(await selected(page).locator(".nt-act").count(), 0);
   await page.waitForFunction(
-    async ([origin, session, thread]) => {
-      const reply = await fetch(`${origin}/api/notifications`);
-      const { sessions } = await reply.json();
+    async ([origin, session, threadId]) => {
+      const response = await fetch(`${origin}/api/notifications`);
+      const { sessions: list } = await response.json();
       return (
-        sessions[session].threads.find((line) => line.thread === thread)
-          ?.text === "Thanks, and on refunds?"
+        list[session].threads.find((line) => line.thread === threadId)?.text ===
+        "Thanks, and on refunds?"
       );
     },
     [h.server.origin, other.id, id],
@@ -185,7 +185,7 @@ test("the window shows its first row and reads it once its page stays 3 seconds,
   await replied(here, "The first answer");
   const second = await replied(here, "The second answer");
   await thread(here, "A question no one answered");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   // The first page the pane loads arrives 3.5 seconds late, and the row's 3
   // seconds start only once its page has drawn.
@@ -236,7 +236,7 @@ test("a click on the row the window shows by itself opens its page", async (t) =
   const h = await hub(t);
   const { here } = await sessions(t, h);
   await replied(here, "The answer");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await badge(page, 2);
   await openAll(page);
@@ -252,7 +252,7 @@ test("with Unread chosen, a row read by its 3 seconds stays in the list, selecte
   const { here } = await sessions(t, h);
   await replied(here, "The first answer");
   await replied(here, "The second answer");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await badge(page, 3);
   await openAll(page);
@@ -279,7 +279,7 @@ test("the menus combine and count, a menu that hides the selected row selects th
   await thread(other, "A question elsewhere");
   await propose(other, "deck", "Build the deck");
   // With no focus, only a click reads a row, however long the window stays open.
-  const page = await openOn(t, h, here, {}, false);
+  const page = await openOn(t, h, { session: here, focused: false });
   if (!page) return;
   await badge(page, 3);
   await openAll(page);
@@ -376,7 +376,7 @@ test("✕ in the popup and in the window clears a row, a read row offers nothing
   const { here } = await sessions(t, h);
   await replied(here, "The first answer");
   await replied(here, "The second answer");
-  const page = await openOn(t, h, here, {}, false);
+  const page = await openOn(t, h, { session: here, focused: false });
   if (!page) return;
   await badge(page, 3);
   await page.locator("#bell").click();
@@ -420,7 +420,7 @@ test("the field searches every message, a typo too, and a row keeps its group an
   );
   await reply(here, deep, "The newest answer here.");
   await replied(other, "Nothing about birds.");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await badge(page, 3);
   await openAll(page);
@@ -491,7 +491,7 @@ test("the field searches every message, a typo too, and a row keeps its group an
 test("⌘K in Notifications opens Search with the typed words, and with none it opens Search as it was", async (t) => {
   const h = await hub(t);
   const { here } = await sessions(t, h);
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await openAll(page);
   await page.keyboard.type("walrus");
@@ -528,7 +528,7 @@ test("a card's row opens the card on its Work tab, says Waiting for Start until 
   );
   assert.equal(started.code, 200, started.body.error);
   await propose(here, "deck", "Build the deck");
-  const page = await openOn(t, h, here);
+  const page = await openOn(t, h, { session: here });
   if (!page) return;
   await badge(page, 2);
   await openAll(page);
@@ -569,7 +569,7 @@ test("an agent's ack reads Acknowledged by the agent in the bell and its thread,
   const id = await thread(here, "Looks right to me.");
   const acked = await here.action("reply", { note: id, ack: true });
   assert.equal(acked.code, 200, acked.body.error);
-  const page = await openOn(t, h, here, {}, false);
+  const page = await openOn(t, h, { session: here, focused: false });
   if (!page) return;
   await badge(page, 1);
   await page.locator("#bell").click();

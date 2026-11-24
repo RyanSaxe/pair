@@ -60,7 +60,7 @@ export async function propose(session, id, title) {
   });
   assert.equal(added.code, 200, added.body.error);
 }
-export async function openOn(t, h, session, options = {}, focused = true) {
+export async function openOn(t, h, { session, focused = true, ...options }) {
   const page = await open(t, "about:blank", options);
   if (!page) return null;
   await stubPele(page);

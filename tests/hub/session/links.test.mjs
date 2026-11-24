@@ -142,9 +142,9 @@ test("reopening a linked session takes its card out of done, and a later close m
     reopen: true,
   });
   assert.equal(started.code, 200, started.body.error);
-  const card = await cardOf("deck");
-  assert.equal(card.done, null);
-  assert.equal(card.started.session.id, deck.sessionId);
+  const reopenedCard = await cardOf("deck");
+  assert.equal(reopenedCard.done, null);
+  assert.equal(reopenedCard.started.session.id, deck.sessionId);
   assert.equal((await close()).code, 200);
   assert.equal((await cardOf("deck")).done.by, "close");
   assert.deepEqual(
@@ -196,8 +196,8 @@ test("closing a linked session marks its card done once with no wake, and a clos
   assert.deepEqual((await a.action("read")).body.closed, []);
   assert.equal((await close(a)).code, 200);
   assert.deepEqual(
-    Object.keys(await listing()).sort(),
-    [a.id, notes.sessionId].sort(),
+    Object.keys(await listing()).toSorted(),
+    [a.id, notes.sessionId].toSorted(),
   );
   assert.equal((await listing())[a.id].closed, true);
   assert.equal((await close(notes)).code, 200);

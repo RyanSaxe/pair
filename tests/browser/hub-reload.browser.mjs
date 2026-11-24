@@ -25,16 +25,18 @@ const choices = Array.from(
     `<div data-choice="pick-${index}" data-label="Pick ${index}"><button type="button" data-value="a">A</button><button type="button" data-value="b">B</button></div>`,
 ).join("");
 
+const round = (number, id, html) => ({
+  ...planData(number),
+  pages: [{ id, title: `Page ${id}`, html }],
+});
+const shows = (selector) => (tab) => tab.locator(selector).waitFor();
+
 // session publishes round 1, its feedback and round 2, so a tab can read round 1
 // as an older round or at its read-only address. A thread on each round has a
 // reply box.
 async function session(t) {
   const h = await hub(t);
   const a = await h.session();
-  const round = (number, id, html) => ({
-    ...planData(number),
-    pages: [{ id, title: `Page ${id}`, html }],
-  });
   const ask = (id, number, topic) =>
     a.request(`${a.base}/api/threads`, {
       id,
@@ -417,7 +419,6 @@ test("a reload keeps the place on an older round, a read-only page, Work's tab, 
     assert.equal(tab.url(), url.href, `${what} changed its address`);
     await tab.close();
   };
-  const shows = (selector) => (tab) => tab.locator(selector).waitFor();
   await check({
     what: "an older round",
     address: "/?round=1#older",

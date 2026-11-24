@@ -60,10 +60,19 @@ test("imageSize reads PNG, JPEG, WebP and GIF headers", () => {
   assert.equal(imageSize(Buffer.from("not an image")), null);
 });
 
+const svg = (text) => `data:image/svg+xml,${encodeURIComponent(text)}`;
+
+const buildImagePage = (page) =>
+  buildPage(path.join(os.tmpdir(), "images.json"), {
+    name: "images",
+    round: "1",
+    title: "Images",
+    page,
+  });
+
 test("sizeImages adds dimensions only to unsized data images", () => {
   const source = `data:image/gif;base64,${gif().toString("base64")}`;
   // An SVG's size is its viewBox's width and height.
-  const svg = (text) => `data:image/svg+xml,${encodeURIComponent(text)}`;
   const offset = svg('<svg viewBox="10 20 3 2"></svg>');
   const commas = svg("<svg viewBox='0, 0, 3, 2'></svg>");
   const unsized = svg("<svg></svg>");
@@ -99,18 +108,15 @@ test("sizeImages adds dimensions only to unsized data images", () => {
 
 test("pair build sizes the images in a page, Agreed's task and an agreement", async () => {
   const image = `<img src="data:image/gif;base64,${gif().toString("base64")}">`;
-  const build = (page) =>
-    buildPage(path.join(os.tmpdir(), "images.json"), {
-      name: "images",
-      round: "1",
-      title: "Images",
-      page,
-    });
   const sized = /width="3" height="2"/;
-  const plain = await build({ id: "overview", title: "Overview", html: image });
+  const plain = await buildImagePage({
+    id: "overview",
+    title: "Overview",
+    html: image,
+  });
   assert.match(pageData(plain).page.html, sized);
   const agreed = pageData(
-    await build({
+    await buildImagePage({
       id: "agreed",
       title: "Agreed so far",
       task: { title: "Images", html: image },

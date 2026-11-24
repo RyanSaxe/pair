@@ -34,6 +34,25 @@ const git = async (cwd, ...args) =>
     )
   ).stdout;
 
+async function files(directory) {
+  const found = {};
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) Object.assign(found, await files(file));
+    else found[file] = await fs.readFile(file, "utf8");
+  }
+  return found;
+}
+
+const agreedOnly = ({ code, body }) => {
+  assert.equal(code, 200, body.error);
+  const data = readPlanData(body);
+  assert.equal(data.round, "1");
+  assert.equal(data.task.title, "The task");
+  assert.deepEqual(data.pages, []);
+  return sessionConfig(body);
+};
+
 // The hub deletes no file when the reviewer closes a session. The agent removes
 // the worktrees and directories it made in the session's directory once the
 // reviewer agrees, and the hub leaves the user's repository as it was.
@@ -77,15 +96,6 @@ test("closing a session deletes nothing inside its directory or in the user's re
   await fs.writeFile(path.join(dirty, "file.txt"), "tried\n");
   await fs.writeFile(path.join(dirty, "tried.txt"), "new\n");
 
-  async function files(directory) {
-    const found = {};
-    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-      const file = path.join(directory, entry.name);
-      if (entry.isDirectory()) Object.assign(found, await files(file));
-      else found[file] = await fs.readFile(file, "utf8");
-    }
-    return found;
-  }
   const snapshot = async () => ({
     branches: await git(
       checkout,
@@ -247,14 +257,6 @@ test("a round with no published page opens read-only with its Agreed, at its rou
   const h = await hub(t);
   const a = await h.session();
   assert.equal((await a.publish({ ...planData(), stopAfter: 0 })).code, 200);
-  const agreedOnly = ({ code, body }) => {
-    assert.equal(code, 200, body.error);
-    const data = readPlanData(body);
-    assert.equal(data.round, "1");
-    assert.equal(data.task.title, "The task");
-    assert.deepEqual(data.pages, []);
-    return sessionConfig(body);
-  };
   assert.equal(agreedOnly(await a.request(`${a.base}/r/1`)).readonly, true);
   assert.equal((await close(a)).code, 200);
   assert.equal(agreedOnly(await a.request(`${a.base}/`)).closed, true);

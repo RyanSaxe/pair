@@ -48,7 +48,10 @@ export function changedParts(card, change) {
       const part = parts.find((item) => item.text === text);
       if (part) part.state = state;
       else if (!part) {
-        requireValue(state === "left", unknown(card.id, text, before, state));
+        requireValue(
+          state === "left",
+          unknown(card.id, text, { parts: before, state }),
+        );
         parts.push({ text, state });
       }
     }
@@ -59,7 +62,7 @@ export function changedParts(card, change) {
   return parts;
 }
 
-function unknown(id, text, parts, state) {
+function unknown(id, text, { parts, state }) {
   const quoted = parts.map((part) => `"${part.text}"`);
   if (state === "dropped")
     return parts.length

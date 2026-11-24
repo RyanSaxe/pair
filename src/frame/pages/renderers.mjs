@@ -129,10 +129,10 @@ export function theme() {
       "aria-checked",
       String(button.dataset.theme === (preferredTheme || "system")),
     );
-  for (const chart of charts.values())
-    chart.setOption({
+  for (const instance of charts.values())
+    instance.setOption({
       color: chartPalette(),
-      ...chartTheme(chart.getOption()),
+      ...chartTheme(instance.getOption()),
     });
   for (const viewer of diffs.values()) {
     viewer.setOptions({ ...viewer.options, theme: syntaxThemes[activeTheme] });
@@ -148,7 +148,7 @@ export function theme() {
 export function disposeRenderers() {
   for (const diagram of diagrams.values()) diagram.destroy();
   diagrams.clear();
-  for (const chart of charts.values()) chart.dispose();
+  for (const instance of charts.values()) instance.dispose();
   charts.clear();
   clearDiffs();
 }
@@ -188,9 +188,10 @@ export function script(url, integrity, css = false) {
     } else element.src = url;
     element.integrity = integrity;
     element.crossOrigin = "anonymous";
-    element.onload = resolve;
-    element.onerror = () =>
-      reject(Error("Renderer unavailable; source preserved."));
+    element.addEventListener("load", resolve);
+    element.addEventListener("error", () =>
+      reject(Error("Renderer unavailable; source preserved.")),
+    );
     document.head.append(element);
   });
   scripts.set(url, task);
@@ -247,10 +248,10 @@ export function copyButton(read) {
   button.type = "button";
   button.className = "btn";
   button.textContent = "Copy";
-  button.onclick = async () => {
+  button.addEventListener("click", async () => {
     button.textContent = (await copyText(read())) ? "Copied" : "Copy failed";
     setTimeout(() => (button.textContent = "Copy"), 1500);
-  };
+  });
   return button;
 }
 export function handoffLine(line) {
@@ -414,7 +415,7 @@ export function setDiffThreads(element, threads, cards) {
     cardsByLine.set(slot, [...(cardsByLine.get(slot) || []), card]);
   }
   const annotations = [...lines.values()];
-  const signature = [...lines.keys()].sort().join("|");
+  const signature = [...lines.keys()].toSorted().join("|");
   if (diffLineSets.get(element) !== signature) {
     viewer.setLineAnnotations(annotations);
     viewer.rerender();

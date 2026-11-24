@@ -19,7 +19,7 @@ async function componentNames(root) {
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort();
+    .toSorted();
 }
 /** A name in a later root replaces the same name in an earlier one, so a
     user can change a shipped component without forking pair. */
@@ -28,7 +28,7 @@ export async function componentDirectories(roots = componentRoots()) {
   for (const [index, root] of roots.entries())
     for (const name of await componentNames(root))
       found.set(name, { name, directory: path.join(root, name), root: index });
-  return [...found.values()].sort((a, b) => (a.name < b.name ? -1 : 1));
+  return [...found.values()].toSorted((a, b) => (a.name < b.name ? -1 : 1));
 }
 async function componentParts(roots, file, wrap) {
   const found = await componentDirectories(roots);

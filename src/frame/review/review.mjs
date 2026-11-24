@@ -64,10 +64,10 @@ function contextLink(topic, target, text = "View") {
   link.className = "context-link";
   link.href = `${target ? "?target=" + encodeURIComponent(target) : ""}#${encodeURIComponent(topic)}`;
   link.textContent = text;
-  link.onclick = (event) => {
+  link.addEventListener("click", (event) => {
     event.preventDefault();
     show(topic, target);
-  };
+  });
   return link;
 }
 // itemSummary uses the caller's label only when the item has none, and the
@@ -151,7 +151,7 @@ function itemCard({ kind, key, item }) {
     button.type = "button";
     button.className = "btn quiet";
     button.textContent = label;
-    button.onclick = onclick;
+    button.addEventListener("click", onclick);
     actions.append(button);
   };
   if (!item.sentIn) {
@@ -259,27 +259,37 @@ export function sentEntries(submission) {
   if (!submission) return [];
   const groups = submission.groups || {};
   return [
-    ...(groups.notes || []).map((note) => ({
-      topic: note.topic,
-      ...itemSummary("note", note, { label: "Comment" }),
-      id: note.id,
-      quote: note.quote,
-      images: (note.attachments || []).map((item) => item.id),
-    })),
-    ...Object.entries(groups.choices || {}).map(([id, choice]) => ({
-      topic: choice.topic,
-      ...itemSummary("choice", choice, { label: "Choice" }),
-      id,
-    })),
-    ...Object.entries(groups.answers || {}).map(([id, answer]) => ({
-      topic: answer.topic,
-      ...itemSummary("answer", answer, {
-        label: "Answer",
-        drawing: () => "Drawing attached",
-      }),
-      images: answer.kind === "drawing" ? [answer.previewId] : [],
-      id,
-    })),
+    ...(groups.notes || []).map((note) =>
+      Object.assign(
+        { topic: note.topic },
+        itemSummary("note", note, { label: "Comment" }),
+        {
+          id: note.id,
+          quote: note.quote,
+          images: (note.attachments || []).map((item) => item.id),
+        },
+      ),
+    ),
+    ...Object.entries(groups.choices || {}).map(([id, choice]) =>
+      Object.assign(
+        { topic: choice.topic },
+        itemSummary("choice", choice, { label: "Choice" }),
+        { id },
+      ),
+    ),
+    ...Object.entries(groups.answers || {}).map(([id, answer]) =>
+      Object.assign(
+        { topic: answer.topic },
+        itemSummary("answer", answer, {
+          label: "Answer",
+          drawing: () => "Drawing attached",
+        }),
+        {
+          images: answer.kind === "drawing" ? [answer.previewId] : [],
+          id,
+        },
+      ),
+    ),
   ];
 }
 // A submission from before the Send popup has neither next nor message.

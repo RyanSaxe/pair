@@ -100,6 +100,9 @@ function spotFor({ words, block, home }) {
    leaves their first line in view. It stays in the frame's column and above the
    window's bottom. Scrolling and a resize place it again on the same side, so
    it moves with its words. */
+const clamp = (value, low, high) => Math.max(low, Math.min(value, high));
+const eventControl = (event) => event.target.closest?.("button, a") ?? null;
+
 let placed = null;
 function place(dialog, spot, side) {
   const rect = spot.rect();
@@ -132,7 +135,6 @@ function place(dialog, spot, side) {
             : "above"
           : "over";
   const least = Math.min(height, LEAST_PX);
-  const clamp = (value, low, high) => Math.max(low, Math.min(value, high));
   const style = dialog.style;
   if (side === "above") {
     const edge = clamp(rect.top - spot.gap, ceiling + least, floor);
@@ -398,16 +400,17 @@ export function installDrawer() {
   document.querySelector("main")?.addEventListener("scroll", placeAgain, {
     passive: true,
   });
-  const control = (event) => event.target.closest?.("button, a") ?? null;
   document.addEventListener(
     "pointerdown",
-    (event) => press(control(event)),
+    (event) => press(eventControl(event)),
     true,
   );
   document.addEventListener(
     "keydown",
     (event) =>
-      press(event.key === "Enter" || event.key === " " ? control(event) : null),
+      press(
+        event.key === "Enter" || event.key === " " ? eventControl(event) : null,
+      ),
     true,
   );
   for (const body of document.querySelectorAll(".dialog .dialog-body"))

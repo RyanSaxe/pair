@@ -59,7 +59,7 @@ export async function readAgents(
   );
   return entries
     .filter(Boolean)
-    .sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
+    .toSorted((a, b) => b.registeredAt.localeCompare(a.registeredAt));
 }
 
 // A default name is the folder's name and two hex characters from a hash of
@@ -203,7 +203,7 @@ export function shortPath(directory) {
 
 // The wake target contains Claude Code's inbox token, so pair prints every
 // field of an entry but the target.
-const shown = ({ target, ...entry }) => entry;
+const shown = ({ target: _target, ...entry }) => entry;
 
 // requireFreeName refuses name when one of running, the running sessions'
 // entries, has it.
@@ -228,7 +228,7 @@ export function requireName(command, name) {
 // environment, so pair register --hook cannot write the entry itself. An
 // adapter's hookResponse returns the JSON the hook prints (or null to print
 // nothing), or undefined when register should continue as usual.
-async function hookResponse(env, table, chain, input, name) {
+async function hookResponse({ env, table, chain, input, name }) {
   for (const ancestor of chain) {
     const adapter = adapterFor(ancestor, env);
     if (!adapter) continue;
@@ -261,13 +261,13 @@ export async function register(options) {
     const chain = ancestors(table);
     const tools = { ancestors: () => chain };
     if (options.hook) {
-      const reply = await hookResponse(
-        process.env,
+      const reply = await hookResponse({
+        env: process.env,
         table,
         chain,
         input,
-        options.name,
-      );
+        name: options.name,
+      });
       if (reply !== undefined) return reply;
     }
     const { entry, running } = await registerAgent(

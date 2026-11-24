@@ -5,7 +5,7 @@ import { exists, requireValue } from "../shared/util.mjs";
 // data.from and links the two both ways. The new session's status contains
 // the parent, and the parent's card contains the new session. adopt is the
 // hub's function that loads a session by its directory.
-export async function startFrom(adopt, directory, created, data) {
+export async function startFrom(adopt, { directory, created, data }) {
   requireValue(
     typeof data.from === "string" && path.isAbsolute(data.from),
     "from must be an absolute path",

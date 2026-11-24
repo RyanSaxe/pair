@@ -42,10 +42,12 @@ function stored(key, value) {
   }
   return null;
 }
+function recordInput() {
+  lastInput = Date.now();
+}
 export function installProgress() {
-  const input = () => (lastInput = Date.now());
-  document.addEventListener("click", input, true);
-  document.addEventListener("keydown", input, true);
+  document.addEventListener("click", recordInput, true);
+  document.addEventListener("keydown", recordInput, true);
   window.addEventListener("pagehide", () =>
     stored(
       CLICK_KEY,

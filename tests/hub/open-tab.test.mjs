@@ -4,41 +4,45 @@ import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
 import { hub, planData, sleep, task } from "../support/hub.mjs";
 
+const build = (session, round, page) => {
+  const { name, title } = planData(round);
+  return buildPage(path.join(session.directory, "source.json"), {
+    name,
+    round,
+    title,
+    page,
+  });
+};
+
+const publish = async (session, html, pages) => {
+  const result = await session.action("publish", {
+    html,
+    ...(pages
+      ? {
+          pages: [{ id: "overview", title: "Overview" }],
+          start: ["overview"],
+        }
+      : {}),
+  });
+  assert.equal(result.code, 200, result.body.error);
+  return result.body.next;
+};
+
+const agreed = (session, round = "1") =>
+  build(session, round, {
+    id: "agreed",
+    title: "Agreed so far",
+    task,
+    agreements: [],
+  });
+
+// For a session's first Agreed, the hub's next step contains the session's
+// URL. The next step begins with "Open URL" only when no tab polled the
+// session list within tabWindowMs.
+const opens = (session, next) => next.startsWith(`Open ${session.info.url} `);
+
 test("a new session's first Agreed says to open the URL only when no tab polled the session list within the window", async (t) => {
   const h = await hub(t, {}, { tabWindowMs: 1000 });
-  const build = (session, round, page) => {
-    const { name, title } = planData(round);
-    return buildPage(path.join(session.directory, "source.json"), {
-      name,
-      round,
-      title,
-      page,
-    });
-  };
-  const publish = async (session, html, pages) => {
-    const result = await session.action("publish", {
-      html,
-      ...(pages
-        ? {
-            pages: [{ id: "overview", title: "Overview" }],
-            start: ["overview"],
-          }
-        : {}),
-    });
-    assert.equal(result.code, 200, result.body.error);
-    return result.body.next;
-  };
-  const agreed = (session, round = "1") =>
-    build(session, round, {
-      id: "agreed",
-      title: "Agreed so far",
-      task,
-      agreements: [],
-    });
-  // For a session's first Agreed, the hub's next step contains the session's
-  // URL. The next step begins with "Open URL" only when no tab polled the
-  // session list within tabWindowMs.
-  const opens = (session, next) => next.startsWith(`Open ${session.info.url} `);
   const a = await h.session(),
     b = await h.session(),
     c = await h.session();

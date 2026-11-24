@@ -22,6 +22,12 @@ const currentSet = {
 const read = { latestSubmissionId: "s2", lastAcknowledgedId: "s2" };
 const run = (remote, extra = {}) =>
   activityModel({ remote, currentSet, submittedRound, now, ...extra });
+const firstRound = (report) =>
+  run(
+    { current: null, report },
+    { currentSet: undefined, submittedRound: null },
+  );
+const clockAt = (clock) => Date.parse(`2026-01-01T00:${clock}Z`);
 
 test("feedback waits without inventing page names", () => {
   // activityModel compares submission IDs and ignores the report's time, so a
@@ -78,7 +84,9 @@ test("published page names keep their order while readiness changes", () => {
     },
     {
       currentSet: {
-        pages: currentSet.pages.map((item) => ({ ...item, state: "ready" })),
+        pages: currentSet.pages.map((item) =>
+          Object.assign({}, item, { state: "ready" }),
+        ),
       },
     },
   );
@@ -222,17 +230,12 @@ test("between pages, the unstarted segments sweep and the summary says when the 
 });
 
 test("a session with nothing published prepares its first round, with the note in place of where the pages appear", () => {
-  const first = (report) =>
-    run(
-      { current: null, report },
-      { currentSet: undefined, submittedRound: null },
-    );
-  const home = first({ at: "2026-01-01T00:00:00Z", note: null });
+  const home = firstRound({ at: "2026-01-01T00:00:00Z", note: null });
   assert.equal(home.title, "Preparing the first round");
   assert.ok(home.summary);
   assert.equal(home.track, "moving");
   assert.deepEqual(home.slots, []);
-  const noted = first({
+  const noted = firstRound({
     at: "2026-01-01T00:09:00Z",
     note: "Reading the scroll code",
     noteAt: "2026-01-01T00:09:00Z",
@@ -243,35 +246,34 @@ test("a session with nothing published prepares its first round, with the note i
 
 test("a working page's label and the top of its page count from its note, or from its start, and turn late at five minutes", () => {
   const working = { stopped: false, failed: false };
-  const at = (clock) => Date.parse(`2026-01-01T00:${clock}Z`);
   const noted = {
     state: "active",
     startedAt: "2026-01-01T00:00:00Z",
     note: { text: "Drafting", at: "2026-01-01T00:05:00Z" },
   };
-  assert.deepEqual(rowLabel(noted, working, at("09:59")), {
+  assert.deepEqual(rowLabel(noted, working, clockAt("09:59")), {
     text: "5 min ago",
     late: false,
     note: "Drafting",
   });
-  assert.equal(rowLabel(noted, working, at("10:00")).late, true);
+  assert.equal(rowLabel(noted, working, clockAt("10:00")).late, true);
   const silent = { state: "active", startedAt: "2026-01-01T00:05:00Z" };
-  assert.deepEqual(rowLabel(silent, working, at("09:59")), {
+  assert.deepEqual(rowLabel(silent, working, clockAt("09:59")), {
     text: "5 min ago",
     late: false,
     note: null,
   });
-  assert.equal(rowLabel(silent, working, at("10:00")).late, true);
+  assert.equal(rowLabel(silent, working, clockAt("10:00")).late, true);
   assert.deepEqual(rowLabel({ state: "active" }, working), { text: "Working" });
   assert.deepEqual(rowLabel({ state: "ready" }, working), { text: "Ready" });
   assert.deepEqual(rowLabel({ state: "queued" }, working), { text: "Queued" });
-  assert.deepEqual(pendingLabel(noted, working, at("09:59")), {
+  assert.deepEqual(pendingLabel(noted, working, clockAt("09:59")), {
     mark: "active",
     text: "Drafting",
     age: "Noted 5 min ago",
     late: false,
   });
-  assert.deepEqual(pendingLabel(silent, working, at("10:00")), {
+  assert.deepEqual(pendingLabel(silent, working, clockAt("10:00")), {
     mark: "active",
     text: "Preparing this page",
     age: "Started 5 min ago",
@@ -309,7 +311,9 @@ test("the round status counts pages until the last one and names a silent agent"
     late: true,
   });
   const done = {
-    pages: openRound.pages.map((item) => ({ ...item, state: "ready" })),
+    pages: openRound.pages.map((item) =>
+      Object.assign({}, item, { state: "ready" }),
+    ),
   };
   assert.equal(roundModel({ remote: { openRound: done }, now }), null);
   assert.equal(roundModel({ remote: {}, now }), null);
@@ -384,7 +388,9 @@ test("the card shows outside a running round what the reviewer must know", () =>
     {
       submittedRound: null,
       currentSet: {
-        pages: currentSet.pages.map((item) => ({ ...item, state: "ready" })),
+        pages: currentSet.pages.map((item) =>
+          Object.assign({}, item, { state: "ready" }),
+        ),
       },
     },
   );

@@ -4,6 +4,11 @@ import test from "node:test";
 import { buildPage } from "../../../src/cli/build.mjs";
 import { hub, planData, sleep, task, waitUntil } from "../../support/hub.mjs";
 
+const clock = (iso) =>
+  [new Date(iso).getHours(), new Date(iso).getMinutes()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
+
 test("start hands the session to its agent, and only the holder works on it and is woken", async (t) => {
   const h = await hub(t);
   const [one, two, three] = [await h.inbox(), await h.inbox(), await h.inbox()];
@@ -11,10 +16,6 @@ test("start hands the session to its agent, and only the holder works on it and 
   await a.publish(planData());
   const register = (box, start) =>
     h.register(a.directory, box.target, start ? { start } : {});
-  const clock = (iso) =>
-    [new Date(iso).getHours(), new Date(iso).getMinutes()]
-      .map((part) => String(part).padStart(2, "0"))
-      .join(":");
   // The holder may run start again, as after an interrupted turn, and stays the
   // holder.
   const first = (await a.status()).body.holder;

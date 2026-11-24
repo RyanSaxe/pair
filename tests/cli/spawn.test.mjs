@@ -32,6 +32,8 @@ async function scratch(t) {
   return { ...context, env, runs, spawn };
 }
 
+const quoted = (text) => `'${text.replaceAll("'", "''")}'`;
+
 // terminal writes a launch script that plays a terminal: it records the folder
 // it runs in, its arguments and the process it starts, then starts the CLI's
 // arguments under a stand-in for Claude Code or Codex in the background and
@@ -87,7 +89,6 @@ require("node:fs").appendFileSync(${JSON.stringify(path.join(home, "runs"))}, JS
 `,
   );
   const script = settings(env).launchScript;
-  const quoted = (text) => `'${text.replaceAll("'", "''")}'`;
   const text =
     process.platform === "win32"
       ? `$words = @($args | ForEach-Object { [string]$_ })\n& ${quoted(process.execPath)} ${quoted(start)} @words\nexit $LASTEXITCODE\n`

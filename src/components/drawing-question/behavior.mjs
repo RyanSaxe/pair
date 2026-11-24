@@ -17,15 +17,20 @@ planUI.define("drawing-question", {
     show(planUI.drawing(id));
     card.addEventListener("plan:draft", () => show(planUI.drawing(id)));
     button.disabled = planUI.mode !== "live" || !online;
-    button.onclick = async () => {
+    button.addEventListener("click", async () => {
       error.hidden = true;
       try {
-        await planUI.draw(id, card.dataset.label, card.id, show);
+        await planUI.draw({
+          id,
+          label: card.dataset.label,
+          target: card.id,
+          onSaved: show,
+        });
       } catch (cause) {
         error.textContent =
           cause.message || "Could not open the drawing editor.";
         error.hidden = false;
       }
-    };
+    });
   },
 });

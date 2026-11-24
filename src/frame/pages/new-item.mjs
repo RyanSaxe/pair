@@ -126,7 +126,7 @@ export function itemReady() {
 export function installItem() {
   const title = $("start-write-title");
   const text = $("start-write-text");
-  title.oninput = () => keep({ title: title.value });
+  title.addEventListener("input", () => keep({ title: title.value }));
   text.addEventListener("input", () => {
     keep({ text: text.value });
     fitItem();
@@ -137,10 +137,12 @@ export function installItem() {
   $("start-write-pick").append(
     $("note-image-pick").querySelector("svg").cloneNode(true),
   );
-  $("start-write-pick").onclick = () => $("start-write-images").click();
-  $("start-write-images").onchange = (event) => {
+  $("start-write-pick").addEventListener("click", () =>
+    $("start-write-images").click(),
+  );
+  $("start-write-images").addEventListener("change", (event) => {
     attach(event.target.files);
     event.target.value = "";
-  };
+  });
   acceptImages($("start-write"), attach);
 }

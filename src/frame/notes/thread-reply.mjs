@@ -41,12 +41,14 @@ export function replyForm(id, send) {
   field.placeholder = "Reply";
   field.setAttribute("aria-label", "Reply in this thread");
   field.value = draftOf(id).text;
-  field.oninput = () => keep(id, { ...draftOf(id), text: field.value });
-  field.onkeydown = (event) => {
+  field.addEventListener("input", () =>
+    keep(id, { ...draftOf(id), text: field.value }),
+  );
+  field.addEventListener("keydown", (event) => {
     if (!sendKey(event)) return;
     event.preventDefault();
     form.requestSubmit();
-  };
+  });
   const pick = element("button", "btn thread-image-pick");
   pick.type = "button";
   pick.setAttribute("aria-label", "Add an image");
@@ -98,13 +100,13 @@ export function replyForm(id, send) {
       },
       error,
     );
-  pick.onclick = () => input.click();
-  input.onchange = () => {
+  pick.addEventListener("click", () => input.click());
+  input.addEventListener("change", () => {
     attach(input.files);
     input.value = "";
-  };
+  });
   acceptImages(form, attach);
-  form.onsubmit = (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
     const text = field.value.trim();
     if (!text || send(text, draftOf(id).attachments) === false) return;
@@ -112,7 +114,7 @@ export function replyForm(id, send) {
     keep(id, { text: "", attachments: [] });
     error("");
     draw();
-  };
+  });
   form.append(field, pick, submit, input, strip, problem);
   error("");
   draw();

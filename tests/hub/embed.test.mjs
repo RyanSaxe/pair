@@ -42,6 +42,9 @@ test("an older round is read-only there, a closed session is closed, and an unkn
   assert.match(await (await embed(h, a, "latest")).text(), /"closed": true/);
 });
 
+const encoding = async (url, headers) =>
+  (await fetch(url, { headers })).headers.get("content-encoding");
+
 test("a large reply is compressed for a browser on another machine, and not for one on this machine", async (t) => {
   const address = Object.values(os.networkInterfaces())
     .flat()
@@ -53,8 +56,6 @@ test("a large reply is compressed for a browser on another machine, and not for 
   await a.publish({ ...planData(), pages: [overview("<p>The kestrel.</p>")] });
   const phone = `http://${address}:${h.record.port}`;
   const local = h.server.origin;
-  const encoding = async (url, headers) =>
-    (await fetch(url, { headers })).headers.get("content-encoding");
 
   const page = await fetch(`${phone}${a.base}/`);
   assert.equal(page.headers.get("content-encoding"), "gzip");

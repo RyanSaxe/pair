@@ -10,9 +10,9 @@ import { inbox } from "../support/hub.mjs";
 // A receiving Claude Code session, with an inbox that records each message,
 // and senders inside a stand-in agent CLI or outside any agent CLI.
 async function scratch(t) {
-  const scratch = await agentsScratch(t);
-  const receiver = await inbox(t, scratch.home);
-  const web = await scratch.agent(await scratch.folder("web"), {
+  const context = await agentsScratch(t);
+  const receiver = await inbox(t, context.home);
+  const web = await context.agent(await context.folder("web"), {
     env: {
       CLAUDE_CODE_SESSION_ID: "receiver",
       CLAUDE_CODE_MESSAGING_SOCKET: receiver.socket,
@@ -25,7 +25,7 @@ async function scratch(t) {
       assert.equal(auth.token, receiver.token);
       return message.message.content;
     });
-  return { ...scratch, web, name, received };
+  return { ...context, web, name, received };
 }
 
 const answers = (to) =>
@@ -104,6 +104,10 @@ test("a message over 100 KB is refused and sends nothing", async (t) => {
   assert.deepEqual(received(), []);
 });
 
+const asOpencodeSession = (session) => ({
+  env: { PAIR_OPENCODE_SESSION: session },
+});
+
 // opencode gives a subagent's commands the subagent's own session ID, and
 // pair's plugin, which this process runs as opencode does, answers with the
 // session's parent and title. A task has spaces, so the answer is quoted. A
@@ -128,15 +132,20 @@ test("an opencode subagent's register refuses, and its message names it through 
     harness: "opencode",
     env,
   });
-  const as = (session) => ({ env: { PAIR_OPENCODE_SESSION: session } });
-  const registered = await opencode.run(["register", "--json"], as("ses_root"));
+  const registered = await opencode.run(
+    ["register", "--json"],
+    asOpencodeSession("ses_root"),
+  );
   const { name: api } = JSON.parse(registered.stdout);
-  const refused = await opencode.run(["register"], as("ses_child"));
+  const refused = await opencode.run(
+    ["register"],
+    asOpencodeSession("ses_child"),
+  );
   assert.equal(refused.status, 1);
   assert.ok(refused.stderr.includes(`${api}/Find the tests`), refused.stderr);
   const sent = await opencode.run(
     ["message", "--to", name, "--text", "Done."],
-    as("ses_child"),
+    asOpencodeSession("ses_child"),
   );
   assert.equal(sent.status, 0, sent.stderr);
   assert.deepEqual(received(), [

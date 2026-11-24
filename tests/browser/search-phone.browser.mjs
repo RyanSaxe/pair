@@ -41,7 +41,8 @@ const stubKeyboard = (page) =>
   });
 const keyboard = (page, height = null, pan = 0) =>
   page.evaluate(
-    ([height, pan]) => window.setKeyboard(height, pan),
+    ([keyboardHeight, keyboardPan]) =>
+      window.setKeyboard(keyboardHeight, keyboardPan),
     [height, pan],
   );
 
@@ -88,13 +89,13 @@ const shownFrame = (page) => page.frameLocator(".search-frame.is-shown");
 // it a fraction of a pixel. A frame that just changed height fires its resize event
 // in its next rendering.
 async function wholeOnScreen(page, selector) {
-  const { shown, whole } = await page.evaluate(async (selector) => {
+  const { shown, whole } = await page.evaluate(async (partSelector) => {
     for (const _ of [1, 2]) await new Promise(requestAnimationFrame);
     const frame = document.querySelector(".search-frame.is-shown");
-    const part = frame.contentDocument.querySelector(selector);
-    const whole = part.getBoundingClientRect().height;
+    const part = frame.contentDocument.querySelector(partSelector);
+    const fullHeight = part.getBoundingClientRect().height;
     if (!frame.checkVisibility({ visibilityProperty: true }))
-      return { shown: 0, whole };
+      return { shown: 0, whole: fullHeight };
     const outer = frame.getBoundingClientRect();
     const { offsetTop, height } = visualViewport;
     let from = Math.max(outer.top, offsetTop);
@@ -106,19 +107,19 @@ async function wholeOnScreen(page, selector) {
       from = Math.max(from, top + outer.top);
       to = Math.min(to, bottom + outer.top);
     }
-    return { shown: Math.max(0, to - from), whole };
+    return { shown: Math.max(0, to - from), whole: fullHeight };
   }, selector);
   assert.ok(shown >= whole - 1, `${selector} shows ${shown}px of ${whole}px`);
 }
 const previewCovers = (page, { top, bottom }) =>
   page.waitForFunction(
-    ({ top, bottom }) => {
+    ({ top: wantTop, bottom: wantBottom }) => {
       const preview = document.querySelector(".search-preview");
       const box = preview.getBoundingClientRect();
       return (
         preview.checkVisibility({ visibilityProperty: true }) &&
-        box.top === top &&
-        box.bottom === bottom
+        box.top === wantTop &&
+        box.bottom === wantBottom
       );
     },
     { top, bottom },
@@ -437,9 +438,9 @@ test("on a phone, the row a tap chose stays in the results when the split shrink
     const { bottom } = document
       .querySelector(".search-list")
       .getBoundingClientRect();
-    return [...document.querySelectorAll(".search-row")]
-      .filter((row) => row.getBoundingClientRect().bottom <= bottom)
-      .at(-1).dataset.i;
+    return [...document.querySelectorAll(".search-row")].findLast(
+      (row) => row.getBoundingClientRect().bottom <= bottom,
+    ).dataset.i;
   });
   await page.locator(`.search-row[data-i="${lowest}"]`).tap();
   await keyboard(page);

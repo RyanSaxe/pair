@@ -23,6 +23,32 @@ import { answersRound } from "./agent.mjs";
 import { requireStarted, startPages } from "./page-notes.mjs";
 import { nextOf } from "./submissions.mjs";
 
+function threadRecord(thread) {
+  // A thread on a proposal's card has no round or page. It opens on Work.
+  if (thread.proposal)
+    return {
+      kind: "thread",
+      threadId: thread.id,
+      text: thread.messages[0].text,
+      label: thread.page,
+      proposal: thread.proposal,
+    };
+  const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
+  return {
+    kind: "thread",
+    threadId: thread.id,
+    text: thread.messages[0].text,
+    label: thread.anchor,
+    topic: thread.topic,
+    name: thread.name,
+    round: thread.round,
+    href,
+    ...(thread.target ? { target: thread.target } : {}),
+    ...(thread.quote ? { quote: thread.quote } : {}),
+    ...(thread.occurrence ? { occurrence: thread.occurrence } : {}),
+  };
+}
+
 export function rounds(session) {
   const { directory, origin, base, transition, events, pending, view } =
     session;
@@ -87,31 +113,6 @@ export function rounds(session) {
         });
       }
     }
-  }
-  function threadRecord(thread) {
-    // A thread on a proposal's card has no round or page. It opens on Work.
-    if (thread.proposal)
-      return {
-        kind: "thread",
-        threadId: thread.id,
-        text: thread.messages[0].text,
-        label: thread.page,
-        proposal: thread.proposal,
-      };
-    const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
-    return {
-      kind: "thread",
-      threadId: thread.id,
-      text: thread.messages[0].text,
-      label: thread.anchor,
-      topic: thread.topic,
-      name: thread.name,
-      round: thread.round,
-      href,
-      ...(thread.target ? { target: thread.target } : {}),
-      ...(thread.quote ? { quote: thread.quote } : {}),
-      ...(thread.occurrence ? { occurrence: thread.occurrence } : {}),
-    };
   }
   // A round published before threadRecord knew about cards stores such a source
   // with only threadId, text and a broken href, so the hub finds its card here
@@ -205,7 +206,7 @@ export function rounds(session) {
         source,
       };
     }
-    const rounds = complete
+    const nextRounds = complete
       ? [
           ...(session.state.rounds || []),
           {
@@ -221,11 +222,11 @@ export function rounds(session) {
     await transition({
       ...session.report(),
       openRound: complete ? null : set,
-      roundPages: { ...(session.state.roundPages || {}), [set.round]: set },
+      roundPages: { ...session.state.roundPages, [set.round]: set },
       pageSetGeneration: set.generation,
       current,
       title: set.title,
-      rounds,
+      rounds: nextRounds,
     });
     // The waiting event puts the round in every pair tab's bell.
     if (complete)
@@ -248,7 +249,7 @@ export function rounds(session) {
       .filter(
         (item) => answersRound(item) && item.payload.round === before.round,
       )
-      .sort((a, b) => b.sequence - a.sequence);
+      .toSorted((a, b) => b.sequence - a.sequence);
     const next = feedback && nextOf(feedback.payload);
     requireValue(
       plan || next !== "plan",

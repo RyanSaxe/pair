@@ -24,9 +24,16 @@ test("with a launch script, Open a new agent session runs it in the folder where
   const directory = started.sessionDir;
   await cli.run(
     "propose",
-    ...["--session-dir", directory, "--id", "churn-export"],
-    ...["--title", "Refresh the export", "--delivers", "The new schema."],
-    ...["--recommend", "new-agent"],
+    "--session-dir",
+    directory,
+    "--id",
+    "churn-export",
+    "--title",
+    "Refresh the export",
+    "--delivers",
+    "The new schema.",
+    "--recommend",
+    "new-agent",
   );
   const browser = (route, body) =>
     fetch(`${h.server.origin}/s/${started.sessionId}${route}`, {

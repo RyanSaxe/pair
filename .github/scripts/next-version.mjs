@@ -6,12 +6,12 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-export function nextVersion(published, labels) {
-  if (labels.includes("skip-release")) return null;
-  if (!published) return "0.1.0";
-  const [major, minor, patch] = published.split(".").map(Number);
-  if (labels.includes("major")) return `${major + 1}.0.0`;
-  if (labels.includes("minor")) return `${major}.${minor + 1}.0`;
+export function nextVersion(current, prLabels) {
+  if (prLabels.includes("skip-release")) return null;
+  if (!current) return "0.1.0";
+  const [major, minor, patch] = current.split(".").map(Number);
+  if (prLabels.includes("major")) return `${major + 1}.0.0`;
+  if (prLabels.includes("minor")) return `${major}.${minor + 1}.0`;
   return `${major}.${minor}.${patch + 1}`;
 }
 

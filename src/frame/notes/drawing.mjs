@@ -72,7 +72,7 @@ function openEditor({
     .replace("__DRAWING_THEME__", JSON.stringify(theme()));
   $("drawing-dialog").showModal();
 }
-export async function openDrawing(id, label, target, onSaved) {
+export async function openDrawing({ id, label, target, onSaved }) {
   if (!feedbackEditable() || !online) return;
   const key = controlKey(page.id, id);
   const topic = page.id;
@@ -158,14 +158,14 @@ export function installDrawing() {
         "*",
       );
   });
-  $("drawing-save").onclick = () => {
+  $("drawing-save").addEventListener("click", () => {
     if (!activeDrawing) return;
     $("drawing-save").disabled = true;
     $("drawing-frame").contentWindow.postMessage(
       { type: "save", nonce: activeDrawing.nonce },
       "*",
     );
-  };
+  });
   addEventListener("message", async (event) => {
     const drawing = activeDrawing;
     if (

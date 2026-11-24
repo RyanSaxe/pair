@@ -66,7 +66,8 @@ export const decode = (s) =>
         }
         return ENT[e] ?? ENT[e.toLowerCase()] ?? m;
       });
-function parseAttrs(s, i, end, attrs) {
+function parseAttrs(s, { from, end }, attrs) {
+  let i = from;
   while (i < end) {
     while (i < end && /[\s/]/.test(s[i])) i++;
     if (i >= end) break;
@@ -160,7 +161,7 @@ export function parse(s) {
     while (n < e && !/[\s/>]/.test(s[n])) n++;
     const tag = s.slice(lt + 1, n).toLowerCase();
     const attrs = {};
-    parseAttrs(s, n, e, attrs);
+    parseAttrs(s, { from: n, end: e }, attrs);
     const closes = CLOSES[tag];
     if (closes) {
       for (let k = stack.length - 1; k > 0; k--) {

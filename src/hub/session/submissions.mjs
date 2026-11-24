@@ -185,8 +185,7 @@ export function submissions(session) {
     requireValue(
       session.state.latestSubmissionRound !== data.round,
       `Round ${data.round} was already sent, so the hub did not save what you just sent. Your draft and message stay for the next round.`,
-      409,
-      { roundSent: true },
+      { code: 409, details: { roundSent: true } },
     );
     const event = await session.saveEvent(data);
     await session.draftSent(sent);
