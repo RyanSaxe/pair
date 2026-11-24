@@ -64,10 +64,12 @@ function nameTerms(element) {
   const show = (term) => {
     if (term) formula.dataset.focus = term;
     else delete formula.dataset.focus;
-    for (const span of element.querySelectorAll(".term"))
+    for (const span of element.querySelectorAll(".term")) {
       span.dataset.on = String(!term || span.dataset.term === term);
-    for (const row of list.querySelectorAll(".formula-term"))
+    }
+    for (const row of list.querySelectorAll(".formula-term")) {
       row.dataset.active = String(Boolean(term) && row.dataset.term === term);
+    }
   };
   terms.forEach((term, index) => list.append(termRow(term, index, show)));
   formula.append(list);

@@ -44,6 +44,7 @@ test("samePicture ignores rendering noise and sees a real change", async (t) => 
       false,
     ],
     ["a different size", await png(0, "black", 300), false],
-  ])
+  ]) {
     assert.equal(await samePicture(page, picture, other), same, name);
+  }
 });

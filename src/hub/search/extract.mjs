@@ -50,12 +50,13 @@ const prototypeText = (html) =>
       script.length > SCRIPT_LIMIT ? " " : script,
     );
 
-const strings = (value) =>
-  typeof value === "string"
-    ? [value]
-    : value && typeof value === "object"
-      ? Object.values(value).flatMap(strings)
-      : [];
+function strings(value) {
+  if (typeof value === "string") return [value];
+  if (value && typeof value === "object") {
+    return Object.values(value).flatMap(strings);
+  }
+  return [];
+}
 
 // A component can keep words in an attribute as JSON, such as a code block's
 // line notes. Its strings are the words, and its keys and syntax are not.
@@ -84,42 +85,62 @@ function textareaWords(node) {
   }
 }
 
+function skipAttr(name, value) {
+  if (!value || value.startsWith("data:") || NOT_TEXT.has(name)) return true;
+  return name.startsWith("aria-") && name !== "aria-label";
+}
+
+function collectPrototype(page, id, words) {
+  const prototype = (page.prototypes ?? []).find((p) => p.id === id);
+  if (!prototype) return;
+  words.text.push(prototype.title ?? "", prototype.description ?? "");
+  collect(parse(prototypeText(prototype.html ?? "")), { page, words });
+}
+
+function collectAttrs(node, { page, words, diff }) {
+  for (const [name, value] of Object.entries(node.attrs ?? {})) {
+    if (skipAttr(name, value)) continue;
+    if (name === "data-prototype") {
+      collectPrototype(page, value, words);
+    } else if (DRAWN.has(name) || drawnLabel(node, name, value)) {
+      words.text.push(attributeWords(value));
+    } else if (!diff) {
+      words.attrs.push(attributeWords(value));
+    }
+  }
+}
+
+const findDiff = (node) =>
+  (node.children ?? []).find(
+    (child) => child.tag === "textarea" && "data-diff-input" in child.attrs,
+  );
+
+function collectChildren(node, { page, words, svg }) {
+  if (node.tag === "style" || node.tag === "template") return;
+  if (node.tag === "textarea") {
+    words.text.push(textareaWords(node));
+    return;
+  }
+  // Only a script is left with raw text, and a reader never sees it.
+  if (node.raw) words.attrs.push(node.raw);
+  for (const child of node.children ?? []) {
+    collect(child, { page, words, inSvg: svg });
+  }
+}
+
 function collect(node, { page, words, inSvg = false }) {
   if (node.text !== undefined) {
     words.text.push(node.text);
     return words;
   }
   const svg = inSvg || node.tag === "svg";
-  const diff = (node.children ?? []).find(
-    (child) => child.tag === "textarea" && "data-diff-input" in child.attrs,
-  );
-  for (const [name, value] of Object.entries(node.attrs ?? {})) {
-    if (svg || !value || value.startsWith("data:") || NOT_TEXT.has(name))
-      continue;
-    if (name.startsWith("aria-") && name !== "aria-label") continue;
-    if (name === "data-prototype") {
-      const prototype = (page.prototypes ?? []).find((p) => p.id === value);
-      if (prototype) {
-        words.text.push(prototype.title ?? "", prototype.description ?? "");
-        collect(parse(prototypeText(prototype.html ?? "")), { page, words });
-      }
-    } else if (DRAWN.has(name) || drawnLabel(node, name, value))
-      words.text.push(attributeWords(value));
-    else if (!diff) words.attrs.push(attributeWords(value));
-  }
+  const diff = findDiff(node);
+  if (!svg) collectAttrs(node, { page, words, diff });
   if (diff) {
     words.text.push(textareaWords(diff));
     return words;
   }
-  if (node.tag === "style" || node.tag === "template") return words;
-  if (node.tag === "textarea") {
-    words.text.push(textareaWords(node));
-    return words;
-  }
-  // Only a script is left with raw text, and a reader never sees it.
-  if (node.raw) words.attrs.push(node.raw);
-  for (const child of node.children ?? [])
-    collect(child, { page, words, inSvg: svg });
+  collectChildren(node, { page, words, svg });
   return words;
 }
 
@@ -135,11 +156,32 @@ function holdsCode(node) {
     "data-language" in attrs ||
     "data-diff-input" in attrs ||
     "data-diagram" in attrs
-  )
+  ) {
     return true;
+  }
   return (node.children ?? []).some(
     (child) => child.text === undefined && holdsCode(child),
   );
+}
+
+function blockDoc(child, { page, base, index, heading }) {
+  const words = collect(child, { page, words: { text: [], attrs: [] } });
+  const text = clean(words.text.join(" "));
+  const attrs = clean(words.attrs.join(" "));
+  const nextHeading = isHeading(child.tag) ? text : heading;
+  if (!text && !attrs) return { doc: null, heading: nextHeading };
+  return {
+    heading: nextHeading,
+    doc: {
+      ...base,
+      block: index,
+      blockId: blockId(child, page.id, index),
+      heading: nextHeading,
+      text,
+      ...(attrs ? { attrs } : {}),
+      ...(holdsCode(child) ? { code: true } : {}),
+    },
+  };
 }
 
 // The frame numbers a page's top-level elements, so a document's block is its
@@ -164,22 +206,22 @@ export function pageDocs(page, { round, at, tree = parse(page.html ?? "") }) {
     }
     index++;
     if (child.tag === "style") continue;
-    const words = collect(child, { page, words: { text: [], attrs: [] } });
-    const text = clean(words.text.join(" "));
-    const attrs = clean(words.attrs.join(" "));
-    if (isHeading(child.tag)) heading = text;
-    if (text || attrs)
-      docs.push({
-        ...base,
-        block: index,
-        blockId: blockId(child, page.id, index),
-        heading,
-        text,
-        ...(attrs ? { attrs } : {}),
-        ...(holdsCode(child) ? { code: true } : {}),
-      });
+    const built = blockDoc(child, { page, base, index, heading });
+    heading = built.heading;
+    if (built.doc) docs.push(built.doc);
   }
   return docs;
+}
+
+function recordControlIds(attrs, { pageId, block, controls, inner }) {
+  const { id } = attrs;
+  if (id) inner[id] ??= block;
+  for (const type of Object.keys(controls)) {
+    if (`data-${type}` in attrs) {
+      const count = controls[type]++;
+      if (!id) inner[`${type}-${pageId}-${count}`] ??= block;
+    }
+  }
 }
 
 /* A thread names the element it was written on, which can be a block or anything
@@ -193,13 +235,7 @@ function pageBlocks(page, round, tree) {
   const controls = { choice: 0, multiselect: 0, question: 0 };
   const visit = (node, block) => {
     if (node.text !== undefined || node.tag === "template") return;
-    const { id } = node.attrs;
-    if (id) inner[id] ??= block;
-    for (const type of Object.keys(controls))
-      if (`data-${type}` in node.attrs) {
-        const count = controls[type]++;
-        if (!id) inner[`${type}-${page.id}-${count}`] ??= block;
-      }
+    recordControlIds(node.attrs, { pageId: page.id, block, controls, inner });
     for (const child of node.children ?? []) visit(child, block);
   };
   for (const child of tree.children) {
@@ -218,6 +254,12 @@ export function readPage(page, round, at) {
   };
 }
 
+function targetBlock({ tops, inner }, target) {
+  const top = tops.indexOf(target);
+  if (top >= 0) return top;
+  return Object.hasOwn(inner, target) ? inner[target] : null;
+}
+
 // A page title draws the first block of its page, and a thread draws the block
 // that holds its target. Only the page's own file says which block that is, so
 // the store places these two once it has every file.
@@ -225,22 +267,16 @@ export function placed(doc, pages) {
   if (doc.kind !== "threads" && doc.type !== "page title") return doc;
   const blocks = pages.get(`${doc.round}/${doc.page}`);
   if (!blocks) return doc;
-  const { tops, inner } = blocks;
+  const { tops } = blocks;
   if (doc.type === "page title") return { ...doc, blockId: tops[0] ?? null };
-  const top = tops.indexOf(doc.target);
-  const block =
-    top >= 0
-      ? top
-      : Object.hasOwn(inner, doc.target)
-        ? inner[doc.target]
-        : null;
+  const block = targetBlock(blocks, doc.target);
   return block === null ? doc : { ...doc, block, blockId: tops[block] };
 }
 
 export function agreedDocs(page, round, at) {
   const base = { kind: "agreed", round, page: "agreed", block: null, at };
   const docs = [];
-  if (page.task)
+  if (page.task) {
     docs.push({
       ...base,
       type: "task",
@@ -248,7 +284,8 @@ export function agreedDocs(page, round, at) {
       heading: page.task.title || "",
       text: clean(textOf(parse(page.task.html || ""))),
     });
-  for (const entry of page.agreements ?? [])
+  }
+  for (const entry of page.agreements ?? []) {
     docs.push({
       ...base,
       type: "alignment",
@@ -256,38 +293,115 @@ export function agreedDocs(page, round, at) {
       heading: entry.title || "",
       text: clean(textOf(parse(entry.html || ""))),
     });
+  }
   return docs;
 }
 
+const threadMessageText = (message) =>
+  clean(
+    typeof message.text === "string"
+      ? message.text
+      : textOf(parse(message.html ?? "")),
+  );
+
+// Every thread on Agreed has the same page, so its anchor names its card.
+const threadHeading = (thread) =>
+  (thread.topic === "agreed" && thread.anchor) ||
+  thread.page ||
+  thread.anchor ||
+  "";
+
 export function threadDocs(thread) {
   const docs = [];
+  const heading = threadHeading(thread);
+  const page = thread.proposal ? "work" : (thread.topic ?? null);
   (thread.messages ?? []).forEach((message, index) => {
-    const text = clean(
-      typeof message.text === "string"
-        ? message.text
-        : textOf(parse(message.html ?? "")),
-    );
+    const text = threadMessageText(message);
     if (!text) return;
     docs.push({
       kind: "threads",
       type: "thread message",
       round: thread.round ?? null,
-      page: thread.proposal ? "work" : (thread.topic ?? null),
+      page,
       block: null,
       target: thread.target ?? null,
       item: `${thread.id}/${index}`,
-      // Every thread on Agreed has the same page, so its anchor names its card.
-      heading:
-        (thread.topic === "agreed" && thread.anchor) ||
-        thread.page ||
-        thread.anchor ||
-        "",
+      heading,
       text,
       from: message.from,
       at: Date.parse(message.at) || 0,
     });
   });
   return docs;
+}
+
+function addFeedbackMessages(add, payload) {
+  // A Start's message shows on its card, which proposalDocs() reads, and never
+  // on the round's Review page.
+  if (payload.intent !== "start") {
+    add({
+      kind: "notes",
+      type: "send message",
+      round: payload.round,
+      page: "feedback",
+      item: payload.id,
+      heading: `Round ${payload.round} message`,
+      text: payload.message,
+    });
+  }
+  if (payload.intent && payload.intent !== "feedback-only") {
+    add({
+      kind: "notes",
+      type: "send message",
+      round: payload.round,
+      page: "work",
+      item: payload.proposal ?? payload.id,
+      heading: payload.proposal ?? "",
+      text: payload.guidance,
+    });
+  }
+}
+
+function addFeedbackNotes(add, notes) {
+  for (const note of notes ?? []) {
+    add({
+      kind: "notes",
+      type: "note",
+      round: note?.round,
+      page: note?.topic,
+      item: note?.id,
+      heading: note?.anchor ?? "",
+      text: note?.text,
+    });
+  }
+}
+
+function addFeedbackAnswers(add, answers) {
+  for (const [key, answer] of Object.entries(answers ?? {})) {
+    add({
+      kind: "answers",
+      type: "typed answer",
+      round: answer?.round,
+      page: answer?.topic,
+      item: key,
+      heading: answer?.label ?? "",
+      text: answer?.kind === "drawing" ? answer.label : answer?.text,
+    });
+  }
+}
+
+function addFeedbackChoices(add, choices) {
+  for (const [key, choice] of Object.entries(choices ?? {})) {
+    add({
+      kind: "answers",
+      type: "chosen option",
+      round: choice?.round,
+      page: choice?.topic,
+      item: key,
+      heading: choice?.label ?? "",
+      text: chosen(choice),
+    });
+  }
 }
 
 export function feedbackDocs(event) {
@@ -297,7 +411,7 @@ export function feedbackDocs(event) {
   const docs = [];
   const add = ({ kind, type, round, page, item, heading, text }) => {
     const words = clean(text);
-    if (words)
+    if (words) {
       docs.push({
         kind,
         type,
@@ -310,81 +424,31 @@ export function feedbackDocs(event) {
         from: "reviewer",
         at,
       });
+    }
   };
-  // A Start's message shows on its card, which proposalDocs() reads, and never
-  // on the round's Review page.
-  if (payload.intent !== "start")
-    add({
-      kind: "notes",
-      type: "send message",
-      round: payload.round,
-      page: "feedback",
-      item: payload.id,
-      heading: `Round ${payload.round} message`,
-      text: payload.message,
-    });
-  if (payload.intent && payload.intent !== "feedback-only")
-    add({
-      kind: "notes",
-      type: "send message",
-      round: payload.round,
-      page: "work",
-      item: payload.proposal ?? payload.id,
-      heading: payload.proposal ?? "",
-      text: payload.guidance,
-    });
-  for (const note of groups.notes ?? [])
-    add({
-      kind: "notes",
-      type: "note",
-      round: note?.round,
-      page: note?.topic,
-      item: note?.id,
-      heading: note?.anchor ?? "",
-      text: note?.text,
-    });
-  for (const [key, answer] of Object.entries(groups.answers ?? {}))
-    add({
-      kind: "answers",
-      type: "typed answer",
-      round: answer?.round,
-      page: answer?.topic,
-      item: key,
-      heading: answer?.label ?? "",
-      text: answer?.kind === "drawing" ? answer.label : answer?.text,
-    });
-  for (const [key, choice] of Object.entries(groups.choices ?? {}))
-    add({
-      kind: "answers",
-      type: "chosen option",
-      round: choice?.round,
-      page: choice?.topic,
-      item: key,
-      heading: choice?.label ?? "",
-      text: chosen(choice),
-    });
+  addFeedbackMessages(add, payload);
+  addFeedbackNotes(add, groups.notes);
+  addFeedbackAnswers(add, groups.answers);
+  addFeedbackChoices(add, groups.choices);
   return docs;
 }
 
 function chosen(choice) {
-  if (choice?.kind === "multiple")
+  if (choice?.kind === "multiple") {
     return (choice.options ?? [])
       .filter((option) => option?.checked)
       .map((option) => option.label)
       .join(", ");
+  }
   return String(choice?.valueLabel ?? choice?.value ?? "");
 }
 
-/* A card's text is the words the frame's cardElement() draws from this record.
-   It leaves out the links that name a page or another card, because a search on
-   that name finds the page or card under its own title, and every card from a
-   page would otherwise rank above that page's own blocks. */
-export function proposalDocs(proposal) {
+function proposalText(proposal) {
   const { started, status, withdrawn, done } = proposal;
   const parts = status
     ? loadedStatus(status).parts.map(({ text }) => text)
     : [];
-  const text = clean(
+  return clean(
     [
       proposal.title,
       proposal.delivers,
@@ -398,6 +462,14 @@ export function proposalDocs(proposal) {
       // A field can end in its own mark, and a row shouldn't show "swim.. Can".
       .replace(/([.!?])\. /g, "$1 "),
   );
+}
+
+/* A card's text is the words the frame's cardElement() draws from this record.
+   It leaves out the links that name a page or another card, because a search on
+   that name finds the page or card under its own title, and every card from a
+   page would otherwise rank above that page's own blocks. */
+export function proposalDocs(proposal) {
+  const text = proposalText(proposal);
   if (!text) return [];
   return [
     {
@@ -414,6 +486,51 @@ export function proposalDocs(proposal) {
   ];
 }
 
+const DRAFT_TEXT_GROUPS = {
+  note: { kind: "notes", type: "note", headingKey: "anchor" },
+  answer: { kind: "answers", type: "typed answer", headingKey: "label" },
+};
+
+function draftEntryFields(group, value) {
+  const spec = DRAFT_TEXT_GROUPS[group];
+  if (spec) {
+    if (!value.text) return null;
+    return {
+      kind: spec.kind,
+      type: spec.type,
+      heading: value[spec.headingKey] ?? "",
+      text: clean(value.text),
+    };
+  }
+  if (group === "choice") {
+    const text = clean(chosen(value));
+    return text
+      ? {
+          kind: "answers",
+          type: "chosen option",
+          heading: value.label ?? "",
+          text,
+        }
+      : null;
+  }
+  return null;
+}
+
+function draftItemDoc(key, value, at) {
+  const fields = draftEntryFields(key.split("/")[0], value);
+  if (!fields) return null;
+  return {
+    round: value.round ?? null,
+    page: value.topic ?? null,
+    block: null,
+    item: key,
+    draft: true,
+    from: "reviewer",
+    at,
+    ...fields,
+  };
+}
+
 // A draft with no id predates completed-only drafts, and the hub discards it.
 export function draftDocs(draft, at) {
   if (typeof draft?.id !== "string") return [];
@@ -421,42 +538,30 @@ export function draftDocs(draft, at) {
   for (const [key, entry] of Object.entries(draft.items ?? {})) {
     const value = entry?.value;
     if (!value || typeof value !== "object") continue;
-    const [group] = key.split("/");
-    const base = {
-      round: value.round ?? null,
-      page: value.topic ?? null,
-      block: null,
-      item: key,
-      draft: true,
-      from: "reviewer",
-      at,
-    };
-    if (group === "note" && value.text)
+    const doc = draftItemDoc(key, value, at);
+    if (doc) docs.push(doc);
+  }
+  return docs;
+}
+
+function roundTitleDocs(status, base, started) {
+  const published = new Map(
+    (status.rounds ?? []).map((entry) => [entry.round, entry.publishedAt]),
+  );
+  const docs = [];
+  for (const [round, set] of Object.entries(status.roundPages ?? {})) {
+    const at = Date.parse(published.get(round)) || started;
+    for (const slot of set.pages ?? []) {
       docs.push({
         ...base,
-        kind: "notes",
-        type: "note",
-        heading: value.anchor ?? "",
-        text: clean(value.text),
+        type: "page title",
+        round,
+        page: slot.id,
+        block: 0,
+        heading: slot.title,
+        text: "",
+        at,
       });
-    if (group === "answer" && value.text)
-      docs.push({
-        ...base,
-        kind: "answers",
-        type: "typed answer",
-        heading: value.label ?? "",
-        text: clean(value.text),
-      });
-    if (group === "choice") {
-      const text = clean(chosen(value));
-      if (text)
-        docs.push({
-          ...base,
-          kind: "answers",
-          type: "chosen option",
-          heading: value.label ?? "",
-          text,
-        });
     }
   }
   return docs;
@@ -469,7 +574,7 @@ export function titleDocs(status) {
   const started = Date.parse(status.startedAt) || 0;
   const docs = [];
   const title = status.title || status.current?.title;
-  if (title)
+  if (title) {
     docs.push({
       ...base,
       type: "session title",
@@ -480,20 +585,7 @@ export function titleDocs(status) {
       text: title,
       at: started,
     });
-  const published = new Map(
-    (status.rounds ?? []).map((entry) => [entry.round, entry.publishedAt]),
-  );
-  for (const [round, set] of Object.entries(status.roundPages ?? {}))
-    for (const slot of set.pages ?? [])
-      docs.push({
-        ...base,
-        type: "page title",
-        round,
-        page: slot.id,
-        block: 0,
-        heading: slot.title,
-        text: "",
-        at: Date.parse(published.get(round)) || started,
-      });
+  }
+  docs.push(...roundTitleDocs(status, base, started));
   return docs;
 }

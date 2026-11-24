@@ -92,16 +92,18 @@ function initialize(section, { page, planUI }) {
     const mode = section.dataset.mode;
     const picked = chosen();
     if (mode === "tabs" && picked && !viewed) active = picked;
-    for (const article of options)
+    for (const article of options) {
       article.hidden = mode === "tabs" && article.dataset.option !== active;
+    }
     for (const [value, tab] of tabFor) {
       const selected = value === active;
       tab.setAttribute("aria-selected", String(selected));
       tab.tabIndex = selected ? 0 : -1;
       tab.classList.toggle("chosen", value === picked);
     }
-    for (const button of layout.querySelectorAll("[data-vd-layout]"))
+    for (const button of layout.querySelectorAll("[data-vd-layout]")) {
       button.classList.toggle("current", button.dataset.vdLayout === mode);
+    }
   }
   // applyLayout() shows tabs unless the reviewer chose side by side and every
   // column would be at least minimumColumn wide. A narrow window falls back to
@@ -111,8 +113,9 @@ function initialize(section, { page, planUI }) {
     if (
       mode !== "columns" ||
       section.clientWidth / options.length < minimumColumn
-    )
+    ) {
       mode = "tabs";
+    }
     section.dataset.mode = mode;
     sync();
   }
@@ -128,8 +131,9 @@ function initialize(section, { page, planUI }) {
     const index = list.indexOf(event.target);
     if (index < 0) return;
     let next;
-    if (event.key === "ArrowLeft")
+    if (event.key === "ArrowLeft") {
       next = (index - 1 + list.length) % list.length;
+    }
     if (event.key === "ArrowRight") next = (index + 1) % list.length;
     if (event.key === "Home") next = 0;
     if (event.key === "End") next = list.length - 1;

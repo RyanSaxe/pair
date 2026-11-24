@@ -22,18 +22,31 @@ import {
 // A hub of the previous release answers the reply action with text, and
 // readThread() and reply() print that text as it is.
 
+const nonEmpty = (items) => (items?.length ? items : null);
+
+function eventText(result, cards) {
+  if (result.event) {
+    return result.event.payload.intent === "start"
+      ? startText(result.event, result.proposal, cards)
+      : feedbackText(result.event);
+  }
+  if (result.declined?.length || result.closed?.length) return "";
+  return "You have read everything the reviewer sent.";
+}
+
 export async function read(options) {
   const { submission } = options;
-  if (options.thread !== undefined && submission !== undefined)
+  if (options.thread !== undefined && submission !== undefined) {
     throw usageError(
       "read",
       "pair read takes --submission or --thread, not both.",
     );
+  }
   const session = await openSession(options);
   if (options.thread !== undefined) return readThread(session, options.thread);
   const result = await session.request({ action: "read", id: submission });
-  const declined = result.declined?.length ? result.declined : null;
-  const closed = result.closed?.length ? result.closed : null;
+  const declined = nonEmpty(result.declined);
+  const closed = nonEmpty(result.closed);
   const cards = result.status?.proposals;
   return {
     next: result.next,
@@ -44,13 +57,7 @@ export async function read(options) {
     ].filter(Boolean),
     data: [
       standingText(result.status),
-      result.event
-        ? result.event.payload.intent === "start"
-          ? startText(result.event, result.proposal, cards)
-          : feedbackText(result.event)
-        : declined || closed
-          ? ""
-          : "You have read everything the reviewer sent.",
+      eventText(result, cards),
       runningText(result.running, cards),
       declinedText(declined),
       closedText(closed),
@@ -86,23 +93,26 @@ export async function reply(options) {
   const given = ["text", "file", "ack"].filter(
     (name) => options[name] !== undefined,
   );
-  if (given.length > 1)
+  if (given.length > 1) {
     throw usageError(
       "reply",
       "pair reply takes one of --text, --file and --ack.",
     );
-  if (!given.length)
+  }
+  if (!given.length) {
     throw usageError(
       "reply",
       "pair reply requires --text TEXT, --file HTML or --ack.",
     );
+  }
   if (options.ack) return postAck(options);
   const text = options.text !== undefined;
-  if (text && MARKDOWN.test(options.text))
+  if (text && MARKDOWN.test(options.text)) {
     throw usageError(
       "reply",
       "--text posts plain text, so the reviewer would see this Markdown as typed. Write the reply as an HTML fragment and post it with --file.",
     );
+  }
   const session = await openSession(options);
   const result = await session.request({
     action: "reply",
@@ -129,10 +139,11 @@ async function postAck(options) {
   });
   // A hub on code from before --ack takes the request as pair read --thread,
   // which returns the thread, or the thread's text on the previous release.
-  if (result.thread || result.text !== undefined)
+  if (result.thread || result.text !== undefined) {
     throw new Error(
       `The hub runs code from before pair reply --ack, so it marked thread ${id} read and recorded no acknowledgement. Answer the thread with pair reply --text or --file.`,
     );
+  }
   return {
     next: result.next,
     data: `Acknowledged thread ${id}.`,
@@ -145,22 +156,24 @@ async function postAck(options) {
 function noteText(options) {
   if (options.note === undefined) return undefined;
   const note = options.note.trim();
-  if (!note || note.length > 80)
+  if (!note || note.length > 80) {
     throw usageError(
       "progress",
       `--note takes text of 1 to 80 characters, and this note has ${note.length}.`,
     );
+  }
   return note;
 }
 
 export async function progress(options) {
   const pages = options.page;
   const note = noteText(options);
-  if (!pages && note === undefined)
+  if (!pages && note === undefined) {
     throw usageError(
       "progress",
       "pair progress requires --page ID or --note TEXT.",
     );
+  }
   const session = await openSession(options);
   if (!pages) {
     const result = await session.request({ action: "ack", note });
@@ -173,9 +186,11 @@ export async function progress(options) {
   // The hub's progress action refuses an unknown or published page before it
   // changes anything, and ack then adds the note to each page.
   let result = await session.request({ action: "progress", start: pages });
-  if (note !== undefined)
-    for (const page of pages)
+  if (note !== undefined) {
+    for (const page of pages) {
       result = await session.request({ action: "ack", note, page });
+    }
+  }
   return {
     next: result.next,
     data:
@@ -208,10 +223,12 @@ function stageText(sessionStatus) {
   if (state === "closed") return "closed by the reviewer";
   if (state === "paused") return `paused: ${sessionStatus.paused.reason}`;
   if (sessionStatus.openRound) return "the agent publishes its pages";
-  if (sessionStatus.stage === "submitted")
+  if (sessionStatus.stage === "submitted") {
     return "the reviewer sent something that pair read has not printed yet";
-  if (sessionStatus.stage === "working")
+  }
+  if (sessionStatus.stage === "working") {
     return "the agent works on the next round";
+  }
   return sessionStatus.current
     ? "the reviewer has not sent feedback yet"
     : "the agent publishes Agreed";
@@ -241,22 +258,27 @@ const places = {
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
-function cardText(card, cards) {
-  const { status: cardStatus } = card;
+const activeStates = new Set(["running", "opening", "linked"]);
+
+function partsText(cardStatus) {
   const counted = cardStatus?.parts.filter((part) => part.state !== "dropped");
-  const parts = counted
-    ? `, ${counted.filter((part) => part.state === "done").length} of ${counted.length} parts done`
-    : "";
+  if (!counted) return "";
+  const done = counted.filter((part) => part.state === "done").length;
+  return `, ${done} of ${counted.length} parts done`;
+}
+
+function cardText(card, cards) {
   const joined = joinedInto(card, cards).map((item) => item.id);
   const joins = joined.length ? `, joined by ${listing(joined)}` : "";
   const state = proposalState(card);
   if (state === "joined") return `done, joined into ${card.done.joined}`;
-  if (state === "done" || state === "closed")
+  if (state === "done" || state === "closed") {
     return `done ${card.done.where ?? places[card.started.where]}${joins}`;
-  if (state === "running" || state === "opening" || state === "linked") {
+  }
+  if (activeStates.has(state)) {
     const { where, planFirst, built } = card.started;
     const planning = planFirst && !built ? ", planning first" : "";
-    return `approved to run ${places[where]}${planning}${parts}${joins}`;
+    return `approved to run ${places[where]}${planning}${partsText(card.status)}${joins}`;
   }
   return `${state}${joins}`;
 }
@@ -318,13 +340,14 @@ export async function propose(options) {
   const card = result.proposal;
   // When the holder starts a proposal itself, propose() prints the start as
   // pair read prints any other start.
-  if (result.moment)
+  if (result.moment) {
     return {
       next: result.next,
       moment: result.moment,
       data: proposalText(card, result.joined),
       json: result,
     };
+  }
   const where = result.parent ? ` in session "${result.parent.title}"` : "";
   const hasStatusUpdate = ["done", "left", "drop"].some(
     (name) => options[`status-${name}`],
@@ -345,10 +368,12 @@ function leftText(card, directory) {
   const left = card.status.parts
     .filter((part) => part.state === "left")
     .map((part) => part.text);
-  if (left.length)
+  if (left.length) {
     return `Left: ${sentence(left.join("; "))}\nBuild the next part. When you finish a part, run pair propose --session-dir ${directory} --id ${card.id} --status-done "PART". Add a part with --status-left, and drop a part the work no longer needs with --status-drop.`;
-  if (proposalState(card) === "running")
+  }
+  if (proposalState(card) === "running") {
     return `Nothing is left. After you publish the work's last page, run pair propose --session-dir ${directory} --id ${card.id} --done.`;
+  }
   return "Nothing is left. Publish the work's last page. The hub marks the work done when the reviewer closes the work's linked session.";
 }
 

@@ -69,7 +69,7 @@ test("the sessions badge counts the other sessions with something unseen, and ot
     // sessionsBadge never counts the session this tab shows, session 1.
     [[waiting("1"), entry("2")], newIn(["1"]), [], 1, ""],
   ];
-  for (const [list, unopened, cleared, count, tone] of cases)
+  for (const [list, unopened, cleared, count, tone] of cases) {
     assert.deepEqual(
       sessionsBadge(list, {
         thisId: "1",
@@ -81,6 +81,7 @@ test("the sessions badge counts the other sessions with something unseen, and ot
         tone,
       },
     );
+  }
 });
 
 test("sessions keep the order they started in, and w reaches the next waiting one after this tab, wrapping", () => {
@@ -113,8 +114,9 @@ test("a row shows the first status that applies", () => {
     [{ round: null, stage: "ready" }, "Working"],
     [{ stage: "updated" }, undefined],
   ];
-  for (const [fields, text] of cases)
+  for (const [fields, text] of cases) {
     assert.equal(rowStatus(entry("2", fields))?.text, text);
+  }
 });
 
 // groupSessions orders sibling sub-sessions by start time, so session 2 comes

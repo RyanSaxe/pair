@@ -1,5 +1,5 @@
+import { callHook } from "#frame/app/hooks.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { dropPictures } from "#frame/pages/progress.mjs";
 
 /* Above 720px the frame saves whether the sidebar is open under one key for
    every session on the hub. At 720px and below the sidebar starts closed
@@ -22,10 +22,11 @@ export function setSidebar(open) {
   $("sidebar-toggle").setAttribute("aria-expanded", String(open));
   // Focus left inside a hidden sidebar would be lost, so setSidebar() moves
   // it to the toggle.
-  if (!open && $("sidebar").contains(document.activeElement))
+  if (!open && $("sidebar").contains(document.activeElement)) {
     $("sidebar-toggle").focus();
+  }
   if (narrow.matches) return;
-  dropPictures();
+  callHook("dropPictures");
   try {
     if (open) localStorage.removeItem(storageKey);
     else localStorage.setItem(storageKey, "closed");

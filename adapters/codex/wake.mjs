@@ -93,6 +93,14 @@ export async function parentSession(target) {
 // subagentTool finds the subagent among the threads the parent spawned, by
 // either name, and names its agent path, or its thread ID when it has none.
 const agentPath = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
+const childNames = (child) =>
+  [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
+
+function describeSubagents(known) {
+  if (known.length > 1) return `Its subagents are ${known.join(", ")}.`;
+  if (known.length === 1) return `Its subagent is ${known[0]}.`;
+  return "It has no subagents.";
+}
 
 export async function subagentTool({ thread, socket }, targetName) {
   const daemon = await openDaemon(socket);
@@ -110,21 +118,20 @@ export async function subagentTool({ thread, socket }, targetName) {
   } finally {
     daemon.close();
   }
-  const names = (child) =>
-    [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
   const subagent = spawned.find((child) =>
-    names(child).some(
+    childNames(child).some(
       (each) => each.toLowerCase() === targetName.toLowerCase(),
     ),
   );
-  if (subagent)
+  if (subagent) {
     return `followup_task and target ${agentPath(subagent) ?? subagent.id}`;
+  }
   const known = spawned.map((child) => {
-    const [first, ...others] = names(child);
+    const [first, ...others] = childNames(child);
     return others.length ? `${first} (${others.join(", ")})` : first;
   });
   throw new Error(
-    `The Codex session has no subagent named ${targetName}. ${known.length > 1 ? `Its subagents are ${known.join(", ")}.` : known.length ? `Its subagent is ${known[0]}.` : "It has no subagents."}`,
+    `The Codex session has no subagent named ${targetName}. ${describeSubagents(known)}`,
   );
 }
 
@@ -159,10 +166,11 @@ export async function running(target, cli) {
 export async function wake(target, line, run) {
   const { thread, text, relayed, sent, steered, steerable, waiting } =
     await deliver(target, line);
-  if (waiting)
+  if (waiting) {
     throw new Error(
       `Codex added the line to the queue of thread ${thread} and started no turn with it: ${waiting}`,
     );
+  }
   if (!sent) await queue(thread, text, run);
   if (relayed) return { via: "parent", steerable: false };
   return { via: steered ? "steer" : "queue", steerable };
@@ -218,6 +226,34 @@ async function start(daemon, threadId, queuedSubmissionId) {
   }
 }
 
+async function steerActiveTurn(daemon, delivery) {
+  const [turn] = (
+    await daemon.request("thread/turns/list", {
+      threadId: delivery.thread,
+      limit: 1,
+      itemsView: "notLoaded",
+    })
+  ).data;
+  if (turn?.status !== "inProgress") return;
+  await daemon.request("turn/steer", {
+    threadId: delivery.thread,
+    expectedTurnId: turn.id,
+    input: [{ type: "text", text: delivery.text }],
+  });
+  delivery.sent = true;
+  delivery.steered = true;
+}
+
+async function queueOnIdle(daemon, delivery) {
+  const { queuedSubmission } = await daemon.request("thread/queue/add", {
+    threadId: delivery.thread,
+    input: [{ type: "text", text: delivery.text }],
+    clientUserMessageId: crypto.randomUUID(),
+  });
+  delivery.sent = true;
+  delivery.waiting = await start(daemon, delivery.thread, queuedSubmission.id);
+}
+
 // A target that an older pair recorded has no socket, so deliver() looks for
 // the socket under the hub's CODEX_HOME. The result contains the thread, and
 // the text for codex queue to send when the daemon accepted no line.
@@ -237,7 +273,8 @@ async function deliver({ thread, socket = controlSocket(process.env) }, line) {
     const read = async () =>
       (await daemon.request("thread/read", { threadId: delivery.thread }))
         .thread;
-    let { status, source } = await read();
+    const { status: initialStatus, source } = await read();
+    let status = initialStatus;
     const spawn = source?.subAgent?.thread_spawn;
     if (spawn) {
       delivery.thread = spawn.parent_thread_id;
@@ -246,35 +283,8 @@ async function deliver({ thread, socket = controlSocket(process.env) }, line) {
       ({ status } = await read());
     }
     delivery.steerable = status.type === "idle" || status.type === "active";
-    if (status.type === "active") {
-      const [turn] = (
-        await daemon.request("thread/turns/list", {
-          threadId: delivery.thread,
-          limit: 1,
-          itemsView: "notLoaded",
-        })
-      ).data;
-      if (turn?.status !== "inProgress") return delivery;
-      await daemon.request("turn/steer", {
-        threadId: delivery.thread,
-        expectedTurnId: turn.id,
-        input: [{ type: "text", text: delivery.text }],
-      });
-      delivery.sent = delivery.steered = true;
-      return delivery;
-    }
-    if (status.type !== "idle") return delivery;
-    const { queuedSubmission } = await daemon.request("thread/queue/add", {
-      threadId: delivery.thread,
-      input: [{ type: "text", text: delivery.text }],
-      clientUserMessageId: crypto.randomUUID(),
-    });
-    delivery.sent = true;
-    delivery.waiting = await start(
-      daemon,
-      delivery.thread,
-      queuedSubmission.id,
-    );
+    if (status.type === "active") await steerActiveTurn(daemon, delivery);
+    else if (status.type === "idle") await queueOnIdle(daemon, delivery);
     return delivery;
   } catch {
     return delivery;

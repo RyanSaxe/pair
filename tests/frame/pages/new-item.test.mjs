@@ -12,8 +12,9 @@ test("itemId turns any title into a slug the session does not have", () => {
     ["夜間テーマ", [], "item"],
     ["Fix it", ["fix-it"], "fix-it-2"],
     ["Fix it", ["fix-it", "fix-it-2"], "fix-it-3"],
-  ])
+  ]) {
     assert.equal(itemId(title, taken), id);
+  }
   const long = itemId(`${"long words here ".repeat(8)}`, []);
   assert.match(long, slug);
   assert.ok(long.length <= 60);

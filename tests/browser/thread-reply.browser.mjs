@@ -107,10 +107,11 @@ test("a reply box keeps focus when a page's script adds an element after its car
       .getElementById("page-content")
       .append(document.createElement("dialog")),
   );
-  for (let polls = 0; polls < 2; polls++)
+  for (let polls = 0; polls < 2; polls++) {
     await page.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
   assert.equal(
     await field.evaluate((box) => box === document.activeElement),
     true,

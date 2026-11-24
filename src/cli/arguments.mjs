@@ -25,11 +25,86 @@ export function ownWords({ entry, rest }) {
   return end === -1 ? rest : rest.slice(0, end);
 }
 
-export function parse({ name, entry, rest }) {
-  const refuse = (text) => {
-    throw usageError(name, text);
-  };
+function unknownFlagMessage({ name, entry, word, key, forwardHint }) {
   const flags = entry.flags || {};
+  const takes = flagsOf(entry).map(([known]) => `--${known}`);
+  // pair takes a flag's value only as the next word, so --prompt=TEXT
+  // is pair's --prompt misspelled, not a flag for the program.
+  const pairFlag = Object.hasOwn(flags, key.split("=")[0]);
+  return `${word} is not a flag of pair ${name}, which takes ${takes.length ? listing(takes) : "only --help"}.${pairFlag ? "" : forwardHint}`;
+}
+
+function recordFlagValue({ name, word, key, flag, value, options }) {
+  if (flag.repeats) {
+    (options[key] ||= []).push(value);
+    return;
+  }
+  if (Object.hasOwn(options, key)) {
+    throw usageError(
+      name,
+      `${word} is given twice, and pair ${name} takes it once.`,
+    );
+  }
+  options[key] = value;
+}
+
+function readFlag({ name, entry, own, index, options, forwardHint }) {
+  const flags = entry.flags || {};
+  const word = own[index];
+  const key = word.slice(2);
+  const flag = Object.hasOwn(flags, key) ? flags[key] : null;
+  if (!flag) {
+    throw usageError(
+      name,
+      unknownFlagMessage({ name, entry, word, key, forwardHint }),
+    );
+  }
+  let next = index;
+  let value = true;
+  if (flag.value) {
+    value = own[++next];
+    if (value === undefined || value.startsWith("--")) {
+      throw usageError(
+        name,
+        `${word} takes a value, as ${word} ${flag.value}.`,
+      );
+    }
+  }
+  recordFlagValue({ name, word, key, flag, value, options });
+  return next;
+}
+
+function validateRequiredFlags(name, flags, options) {
+  for (const [key, flag] of Object.entries(flags)) {
+    if (flag.required && options[key] === undefined) {
+      throw usageError(name, `pair ${name} requires ${flagName([key, flag])}.`);
+    }
+  }
+}
+
+function validateParsed({ name, entry, options, forwardHint }) {
+  const slots = entry.args || [];
+  const extra = options.args[slots.length];
+  if (extra !== undefined) {
+    const refusal = slots.length
+      ? `${extra} is an extra argument, and pair ${name} takes ${listing(slots.map((slot) => slot.name))}.`
+      : `pair ${name} takes no argument ${extra}.`;
+    throw usageError(
+      name,
+      `${refusal}${extra.startsWith("-") ? forwardHint : ""}`,
+    );
+  }
+  const missing = slots.slice(options.args.length).filter((s) => !s.optional);
+  if (missing.length) {
+    throw usageError(
+      name,
+      `pair ${name} requires ${listing(slots.filter((s) => !s.optional).map((s) => s.name))}.`,
+    );
+  }
+  validateRequiredFlags(name, entry.flags || {}, options);
+}
+
+export function parse({ name, entry, rest }) {
   const own = ownWords({ entry, rest });
   const options = { args: [] };
   const forwardHint = entry.forwards
@@ -37,49 +112,13 @@ export function parse({ name, entry, rest }) {
     : "";
   if (entry.forwards) options.forwarded = rest.slice(own.length + 1);
   for (let i = 0; i < own.length; i++) {
-    const word = own[i];
-    if (!word.startsWith("--")) {
-      options.args.push(word);
-      continue;
+    if (own[i].startsWith("--")) {
+      i = readFlag({ name, entry, own, index: i, options, forwardHint });
+    } else {
+      options.args.push(own[i]);
     }
-    const key = word.slice(2);
-    const flag = Object.hasOwn(flags, key) ? flags[key] : null;
-    if (!flag) {
-      const takes = flagsOf(entry).map(([known]) => `--${known}`);
-      // pair takes a flag's value only as the next word, so --prompt=TEXT
-      // is pair's --prompt misspelled, not a flag for the program.
-      const pairFlag = Object.hasOwn(flags, key.split("=")[0]);
-      refuse(
-        `${word} is not a flag of pair ${name}, which takes ${takes.length ? listing(takes) : "only --help"}.${pairFlag ? "" : forwardHint}`,
-      );
-    }
-    let value = true;
-    if (flag.value) {
-      value = own[++i];
-      if (value === undefined || value.startsWith("--"))
-        refuse(`${word} takes a value, as ${word} ${flag.value}.`);
-    }
-    if (flag.repeats) (options[key] ||= []).push(value);
-    else if (Object.hasOwn(options, key))
-      refuse(`${word} is given twice, and pair ${name} takes it once.`);
-    else options[key] = value;
   }
-  const slots = entry.args || [];
-  const extra = options.args[slots.length];
-  if (extra !== undefined) {
-    const refusal = slots.length
-      ? `${extra} is an extra argument, and pair ${name} takes ${listing(slots.map((slot) => slot.name))}.`
-      : `pair ${name} takes no argument ${extra}.`;
-    refuse(`${refusal}${extra.startsWith("-") ? forwardHint : ""}`);
-  }
-  const missing = slots.slice(options.args.length).filter((s) => !s.optional);
-  if (missing.length)
-    refuse(
-      `pair ${name} requires ${listing(slots.filter((s) => !s.optional).map((s) => s.name))}.`,
-    );
-  for (const [key, flag] of Object.entries(flags))
-    if (flag.required && options[key] === undefined)
-      refuse(`pair ${name} requires ${flagName([key, flag])}.`);
+  validateParsed({ name, entry, options, forwardHint });
   return options;
 }
 

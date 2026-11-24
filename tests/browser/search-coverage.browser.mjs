@@ -54,8 +54,9 @@ const onScreen = (chrome) => {
     if (
       node.nodeType !== Node.ELEMENT_NODE &&
       node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE
-    )
+    ) {
       return;
+    }
     if (node.nodeType === Node.ELEMENT_NODE && node.matches(chrome)) return;
     if (node.shadowRoot) walk(node.shadowRoot);
     for (const child of node.childNodes) walk(child);
@@ -73,8 +74,9 @@ test("the index holds the words on every fixture page, at the frame's block numb
   for (const source of pages) {
     const docs = pageDocs(source, { round: "1", at: 0 });
     const indexed = new Set();
-    for (const doc of docs)
+    for (const doc of docs) {
       for (const word of words(`${doc.heading} ${doc.text}`)) indexed.add(word);
+    }
     await page.evaluate((id) => {
       document.querySelector(`#page-list [data-page="${id}"]`).click();
     }, source.id);
@@ -98,11 +100,12 @@ test("the index holds the words on every fixture page, at the frame's block numb
     for (const doc of docs) {
       if (!Number.isInteger(doc.block)) continue;
       const [word] = words(doc.text);
-      if (word)
+      if (word) {
         assert.ok(
           blocks[doc.block]?.includes(word),
           `block ${doc.block} of ${source.id} should hold "${word}"`,
         );
+      }
     }
   }
 });

@@ -8,8 +8,9 @@ function wideWindow() {
   if (wide) return wide;
   wide = matchMedia("(min-width: 721px)");
   wide.addEventListener("change", () => {
-    for (const box of document.querySelectorAll("details.proposal-status"))
+    for (const box of document.querySelectorAll("details.proposal-status")) {
       if (!toggled.has(box.dataset.status)) box.open = wide.matches;
+    }
   });
   return wide;
 }
@@ -46,12 +47,13 @@ function part({ text, state }) {
 }
 
 export function statusBox(card) {
-  if (!card.status)
+  if (!card.status) {
     return element(
       "p",
       "proposal-status empty",
       "No status from the agent yet",
     );
+  }
   const { parts } = card.status;
   const counted = parts.filter((item) => item.state !== "dropped");
   const done = counted.filter((item) => item.state === "done");
@@ -61,11 +63,12 @@ export function statusBox(card) {
   box.open = toggled.get(card.id) ?? wideWindow().matches;
   const summary = element("summary");
   summary.append(element("b", "", `${done.length} of ${counted.length} done`));
-  if (next)
+  if (next) {
     summary.append(
       element("span", "status-sep", "·"),
       element("span", "status-next", `Next: ${next.text}`),
     );
+  }
   summary.append(mark("fold"));
   // The browser toggles the details element after this handler runs, so
   // !box.open is the state after the click.

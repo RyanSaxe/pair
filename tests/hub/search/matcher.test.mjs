@@ -16,8 +16,9 @@ test("each way of matching a word finds the document", () => {
     ["letters in order", "rtry", "", "We retry the request."],
     ["one typo", "reqest", "", "We retry the request."],
     ["two typos in a long word", "backofffs", "", "exponential backoff"],
-  ])
+  ]) {
     assert.ok(score(query, heading, text), why);
+  }
 });
 
 test("a word that is nowhere fails the document", () => {
@@ -44,8 +45,9 @@ test("better matches score higher", () => {
       ["use backoff", "", "backoff, as you use it"],
     ],
   ];
-  for (const [why, a, b] of better)
+  for (const [why, a, b] of better) {
     assert.ok(score(...a).score > score(...b).score, why);
+  }
 });
 
 test("ranges point at the words that matched", () => {

@@ -97,7 +97,7 @@ for (const { width, height, engine } of [
   { width: 1280, height: 800 },
   { width: 375, height: 812 },
   { width: 375, height: 812, engine: "webkit" },
-])
+]) {
   test(`the card on screen holds still while other cards change, and stays when it changes tab, at ${width}px in ${engine === "webkit" ? "WebKit" : "Chrome"}`, async (t) => {
     const { session, page, send } = await workPage(t, {
       started: true,
@@ -159,6 +159,7 @@ for (const { width, height, engine } of [
       "foxtrot",
     ]);
   });
+}
 
 test("the card under a card that grows holds still", async (t) => {
   const { page, send } = await workPage(t, {

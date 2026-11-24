@@ -247,8 +247,9 @@ test("an answer to an older search never replaces a newer one", async (t) => {
   answer();
   await late;
   // An answer that arrived is drawn, if at all, by the next frames.
-  for (const _ of [1, 2])
+  for (const _ of [1, 2]) {
     await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
   assert.match(
     await page.locator(".search-snippet").first().textContent(),
     /lemur/,
@@ -315,7 +316,7 @@ const blockText = () =>
     .map((element) => element.textContent)
     .join(" ");
 
-for (const engine of ["chrome", "webkit"])
+for (const engine of ["chrome", "webkit"]) {
   test(`on a phone in ${engine}, the best result shows under the results, and the next is one tap`, async (t) => {
     const { page } = await searchPage(t, {
       engine,
@@ -364,6 +365,7 @@ for (const engine of ["chrome", "webkit"])
     await page.locator(".search-close").tap();
     assert.equal(await page.locator("#search-dialog[open]").count(), 0);
   });
+}
 
 test("round numbers show for one session, and a label stays short however much is chosen", async (t) => {
   const { h, page } = await searchPage(t, {

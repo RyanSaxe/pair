@@ -1,15 +1,10 @@
 import { revealAdded } from "#frame/app/drawer.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, controlKey, uuid } from "#frame/app/util.mjs";
-import {
-  base,
-  feedbackEditable,
-  online,
-  page,
-  plan,
-} from "#frame/app/view.mjs";
+import { base, online, page, plan } from "#frame/app/view.mjs";
 import { canComment, commentOn, partName } from "#frame/notes/blocks.mjs";
-import { addNoteImage } from "#frame/notes/note-dialog.mjs";
+import { feedbackEditable } from "#frame/review/send-state.mjs";
 
 let activeDrawing = null;
 let draftTimer = null;
@@ -56,10 +51,11 @@ function openEditor({
   const nonce = uuid();
   activeDrawing = { key, nonce, scene, source, fit, onSaved };
   activeDrawing.loadingTimer = setTimeout(() => {
-    if (activeDrawing?.nonce === nonce)
+    if (activeDrawing?.nonce === nonce) {
       drawingError(
         "The drawing editor did not load. Check your connection and try again.",
       );
+    }
   }, 20000);
   $("drawing-title").textContent = title;
   $("drawing-detail").textContent = detail || "";
@@ -72,21 +68,27 @@ function openEditor({
     .replace("__DRAWING_THEME__", JSON.stringify(theme()));
   $("drawing-dialog").showModal();
 }
+function drawingMeta(target, fallbackLabel) {
+  const card = target && document.getElementById(target);
+  const question = card?.querySelector(":scope > h3")?.textContent.trim();
+  const reason = card?.querySelector(":scope > h3 + p")?.textContent.trim();
+  return { title: question || fallbackLabel, detail: reason };
+}
+
 export async function openDrawing({ id, label, target, onSaved }) {
   if (!feedbackEditable() || !online) return;
   const key = controlKey(page.id, id);
   const topic = page.id;
   const previous = state.answers[key];
   let scene = state.drafts[key] ?? null;
-  if (!scene && previous?.kind === "drawing")
+  if (!scene && previous?.kind === "drawing") {
     scene = await savedScene(previous.sceneId);
-  const card = target && document.getElementById(target);
-  const question = card?.querySelector(":scope > h3")?.textContent.trim();
-  const reason = card?.querySelector(":scope > h3 + p")?.textContent.trim();
+  }
+  const { title, detail } = drawingMeta(target, label);
   openEditor({
     key,
-    title: question || label,
-    detail: reason,
+    title,
+    detail,
     saveLabel: "Save drawing",
     scene,
     onSaved(saved, preview) {
@@ -129,8 +131,9 @@ export function openSketch(diagram) {
       persist();
       commentOn(document.getElementById(id) || diagram, {});
       // The note took its place before the sketch was in it.
-      if ($("note-dialog").open)
-        revealAdded(addNoteImage(sketchImage(saved, preview)));
+      if ($("note-dialog").open) {
+        revealAdded(callHook("addNoteImage", sketchImage(saved, preview)));
+      }
     },
   });
 }
@@ -149,14 +152,71 @@ export async function editSketch(image, onSaved) {
     },
   });
 }
+function handleReadyMessage(drawing, source) {
+  clearTimeout(drawing.loadingTimer);
+  drawing.loadingTimer = null;
+  $("drawing-save").disabled = false;
+  source.postMessage(
+    {
+      type: "init",
+      nonce: drawing.nonce,
+      scene: drawing.scene,
+      source: drawing.source,
+      fit: drawing.fit,
+    },
+    "*",
+  );
+}
+
+function handleChangeMessage(drawing, scene) {
+  /* The frame keeps an unsaved drawing in state.drafts, so closing the
+     editor without saving keeps it. An empty drawing removes the draft,
+     so the editor next opens on the saved drawing. persist() runs 300ms
+     after the last change, or in resetDrawing if the editor closes
+     first. */
+  if (scene.elements.length) state.drafts[drawing.key] = scene;
+  else delete state.drafts[drawing.key];
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    draftTimer = null;
+    persist();
+  }, 300);
+}
+
+async function handleSavedMessage(drawing, data) {
+  try {
+    const [sceneResponse, previewResponse] = await Promise.all([
+      fetch(`${base}/api/drawing-scene`, {
+        method: "POST",
+        body: JSON.stringify(data.scene),
+      }),
+      fetch(`${base}/api/upload`, { method: "POST", body: data.png }),
+    ]);
+    if (!sceneResponse.ok || !previewResponse.ok) {
+      throw new Error("Could not upload the drawing. Please try again.");
+    }
+    const [scene, preview] = await Promise.all([
+      sceneResponse.json(),
+      previewResponse.json(),
+    ]);
+    if (activeDrawing !== drawing) return;
+    delete state.drafts[drawing.key];
+    closeDrawing();
+    drawing.onSaved(scene, preview);
+  } catch (error) {
+    drawingError(error.message || "Could not save the drawing.");
+  }
+}
+
 export function installDrawing() {
   $("drawing-dialog").addEventListener("close", resetDrawing);
   addEventListener("plan:theme", () => {
-    if (activeDrawing)
+    if (activeDrawing) {
       $("drawing-frame").contentWindow?.postMessage(
         { type: "theme", nonce: activeDrawing.nonce, theme: theme() },
         "*",
       );
+    }
   });
   $("drawing-save").addEventListener("click", () => {
     if (!activeDrawing) return;
@@ -172,60 +232,17 @@ export function installDrawing() {
       !drawing ||
       event.source !== $("drawing-frame").contentWindow ||
       event.data?.nonce !== drawing.nonce
-    )
+    ) {
       return;
+    }
     if (event.data.type === "ready") {
-      clearTimeout(drawing.loadingTimer);
-      drawing.loadingTimer = null;
-      $("drawing-save").disabled = false;
-      event.source.postMessage(
-        {
-          type: "init",
-          nonce: drawing.nonce,
-          scene: drawing.scene,
-          source: drawing.source,
-          fit: drawing.fit,
-        },
-        "*",
-      );
+      handleReadyMessage(drawing, event.source);
     } else if (event.data.type === "change") {
-      /* The frame keeps an unsaved drawing in state.drafts, so closing the
-         editor without saving keeps it. An empty drawing removes the draft,
-         so the editor next opens on the saved drawing. persist() runs 300ms
-         after the last change, or in resetDrawing if the editor closes
-         first. */
-      const { scene } = event.data;
-      if (scene.elements.length) state.drafts[drawing.key] = scene;
-      else delete state.drafts[drawing.key];
-      clearTimeout(draftTimer);
-      draftTimer = setTimeout(() => {
-        draftTimer = null;
-        persist();
-      }, 300);
+      handleChangeMessage(drawing, event.data.scene);
     } else if (event.data.type === "error") {
       drawingError(event.data.message || "Could not save the drawing.");
     } else if (event.data.type === "saved") {
-      try {
-        const [sceneResponse, previewResponse] = await Promise.all([
-          fetch(`${base}/api/drawing-scene`, {
-            method: "POST",
-            body: JSON.stringify(event.data.scene),
-          }),
-          fetch(`${base}/api/upload`, { method: "POST", body: event.data.png }),
-        ]);
-        if (!sceneResponse.ok || !previewResponse.ok)
-          throw new Error("Could not upload the drawing. Please try again.");
-        const [scene, preview] = await Promise.all([
-          sceneResponse.json(),
-          previewResponse.json(),
-        ]);
-        if (activeDrawing !== drawing) return;
-        delete state.drafts[drawing.key];
-        closeDrawing();
-        drawing.onSaved(scene, preview);
-      } catch (error) {
-        drawingError(error.message || "Could not save the drawing.");
-      }
+      await handleSavedMessage(drawing, event.data);
     }
   });
 }

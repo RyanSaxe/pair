@@ -64,18 +64,20 @@ export const exportToBlob = async () =>
   files: {},
 });`,
 };
+function stubModuleName(url) {
+  if (url.includes("mermaid-to-excalidraw")) return "converter";
+  if (url.includes("excalidraw")) return "excalidraw";
+  if (url.includes("react-dom")) return "react-dom";
+  return "react";
+}
+
 const stubExcalidraw = (page) =>
   page.route(/^https:\/\/esm\.sh\//, (route) => {
     const url = route.request().url();
-    if (url.endsWith(".css"))
+    if (url.endsWith(".css")) {
       return route.fulfill({ body: "", contentType: "text/css" });
-    const name = url.includes("mermaid-to-excalidraw")
-      ? "converter"
-      : url.includes("excalidraw")
-        ? "excalidraw"
-        : url.includes("react-dom")
-          ? "react-dom"
-          : "react";
+    }
+    const name = stubModuleName(url);
     // The editor's iframe is sandboxed, so its origin is null and its module
     // imports are cross-origin.
     return route.fulfill({

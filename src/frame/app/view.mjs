@@ -1,36 +1,37 @@
-import { state } from "#frame/app/store.mjs";
+import { remote, selectedTab, state } from "#frame/app/state.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { onCurrent } from "#frame/review/send-state.mjs";
-import { remote, selectedTab } from "#frame/sync/rounds.mjs";
-import { isClosed } from "#shared/lifecycle.mjs";
 
 export let session, base, online, mode, editable, hasFeedbackPage, query;
 // In the search window, the frame shows one result and leaves the reader's
 // place, history and what they've opened as they were.
 export let embedded = false;
 export let storageKey, placeKey, prefsPrefix;
+
+function sessionMode(config) {
+  /* The frame treats a closed session like an older round, from which
+     nothing can be sent. */
+  if (config.home) return "home";
+  if (config.preview) return "preview";
+  if (config.readonly || config.closed) return "readonly";
+  return "live";
+}
+
 export function useSession(config, name, url) {
   session = config;
   base = typeof session.base === "string" ? session.base : "";
   embedded = Boolean(session.embedded);
   online = Boolean(session.sessionId) && /^https?:$/.test(url.protocol);
-  /* The frame treats a closed session like an older round, from which
-     nothing can be sent. */
-  mode = session.home
-    ? "home"
-    : session.preview
-      ? "preview"
-      : session.readonly || session.closed
-        ? "readonly"
-        : "live";
+  mode = sessionMode(session);
   editable = mode === "live";
   // A read-only round has a What you sent page that lists what was sent on it.
   hasFeedbackPage = editable || mode === "readonly";
   query = url.searchParams;
-  storageKey = `pair:${session.sessionId || "offline"}:${name}`;
-  placeKey = `pair:place:${session.sessionId || "offline"}`;
-  prefsPrefix = `pair:prefs:${session.sessionId || "offline"}:`;
+  const scope = session.sessionId || "offline";
+  storageKey = `pair:${scope}:${name}`;
+  placeKey = `pair:place:${scope}`;
+  prefsPrefix = `pair:prefs:${scope}:`;
 }
+
 export let plan, agreements, agreedTask, pages;
 export function useView(view) {
   plan = view.plan;
@@ -38,12 +39,14 @@ export function useView(view) {
   agreedTask = view.task || null;
   pages = view.pages;
 }
+
 // Agreed's source marks a plan round with "plan": true, and the hub copies
 // that field into the round's data.
 export const isPlanRound = (data = plan) => data?.plan === true;
 const placeTitles = { overall: "Overall", work: "Work" };
 export const topicTitle = (topic) =>
   pages.find((item) => item.id === topic)?.title ?? placeTitles[topic];
+
 export let submittedRound = null;
 export let pastRound = null;
 export function setSubmittedRound(round) {
@@ -58,30 +61,24 @@ export let page;
 export function setPage(next) {
   page = next;
 }
-export const shownPage = () =>
-  !$("work-view").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
+
+export function shownPage() {
+  if (!$("work-view").hidden) return "work";
+  return $("reading").hidden ? "feedback" : page.id;
+}
+
 export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&
   remote?.current?.round === plan.round;
-export const feedbackEditable = () => onCurrent("edit");
-// A note on a round whose feedback was sent can still start a thread,
-// because the agent answers threads while it prepares the next round or
-// builds. The hub accepts threads only on its current round, until the
-// session is complete.
-export const noteEditable = () =>
-  feedbackEditable() ||
-  (editable &&
-    online &&
-    !isClosed(remote) &&
-    remote?.current?.name === plan.name &&
-    remote?.current?.round === plan.round);
+
 export const currentAvailable = () =>
   Boolean(
     remote?.current &&
     remote.current.round !== submittedRound &&
     views.has(remote.current.round),
   );
+
 // waiting() is true when Current's round was sent, from this browser or
 // another, and the agent has not published the next round. Before the first
 // poll, waiting() reads this from the draft.
@@ -90,7 +87,9 @@ export const waiting = () =>
   (remote?.current
     ? remote.latestSubmissionRound === remote.current.round
     : state.submitted?.round === plan.round);
+
 export const currentShown = () => currentAvailable() || waiting();
+
 export function waitingView(round) {
   const sent = views.get(round).plan;
   return {
@@ -110,17 +109,21 @@ export function waitingView(round) {
     waiting: true,
   };
 }
+
 // The waiting view has the sent round's number, as the left tab's view does,
 // so code that finds the view on screen by its round must check
 // showingWaiting() first.
 export const showingWaiting = () =>
   selectedTab === "current" && Boolean(pages[0]?.waiting);
+
 // viewKey() identifies the view that show() puts on screen, for the checks
 // that compare it with the tabs' views. The waiting view has its own key
 // because it has the sent round's number.
 export const viewKey = () =>
   showingWaiting() ? `${plan.round} waiting` : plan.round;
+
 export const pastAvailable = () => Boolean(pastRound && views.has(pastRound));
+
 // olderPast() is true when the left tab shows a round older than the last
 // one, such as a round opened from the Rounds panel. The last round is the
 // newest one before Current's, or Current's own round once its feedback is

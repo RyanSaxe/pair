@@ -20,6 +20,24 @@ function answered(messages) {
 export const waitingMessage = ({ messages }) =>
   messages.slice(answered(messages)).find((item) => item.from === "reviewer");
 
+function answeredState(messages) {
+  const answer = messages.findLast((message) => message.from === "agent");
+  return answer.kind === "ack" ? "agentAcknowledged" : "replied";
+}
+
+function waitingState(thread, lifecycleState) {
+  if (lifecycleState === "closed") return "unanswered";
+  const { messages, readCount = 0, wake } = thread;
+  const asked = messages.findLastIndex(
+    (message) => message.from === "reviewer",
+  );
+  if (readCount > asked) return "read";
+  if ((wake?.through ?? 0) <= asked) {
+    return lifecycleState === "paused" ? "held" : "sending";
+  }
+  return wake.ok ? "sent" : "failed";
+}
+
 // A thread waits for the agent until a reply or an ack answers every message
 // of the reviewer's, and is then replied or agentAcknowledged after the
 // agent's newest message. Until then its state follows the reviewer's newest
@@ -29,21 +47,8 @@ export const waitingMessage = ({ messages }) =>
 // unanswered. The hub sends no wake in a paused session, so a thread whose
 // wake has not gone out there is held.
 export function threadState(thread, lifecycleState = "live") {
-  if (!waitingMessage(thread)) {
-    const answer = thread.messages.findLast(
-      (message) => message.from === "agent",
-    );
-    return answer.kind === "ack" ? "agentAcknowledged" : "replied";
-  }
-  if (lifecycleState === "closed") return "unanswered";
-  const { messages, readCount = 0, wake } = thread;
-  const asked = messages.findLastIndex(
-    (message) => message.from === "reviewer",
-  );
-  if (readCount > asked) return "read";
-  if ((wake?.through ?? 0) <= asked)
-    return lifecycleState === "paused" ? "held" : "sending";
-  return wake.ok ? "sent" : "failed";
+  if (!waitingMessage(thread)) return answeredState(thread.messages);
+  return waitingState(thread, lifecycleState);
 }
 
 // The actions each state accepts. A wake is the hub waking the holder for a
@@ -80,16 +85,18 @@ export function upgradeThread(thread) {
   if (state === undefined) return thread;
   const { messages } = rest;
   if (state === "read") rest.readCount ??= messages.length;
-  if (state === "sent" || state === "failed")
+  if (state === "sent" || state === "failed") {
     rest.wake = {
       ...rest.wake,
       ok: state === "sent",
       through: messages.length,
     };
-  if (state === "sending" && rest.wake)
+  }
+  if (state === "sending" && rest.wake) {
     rest.wake = {
       ...rest.wake,
       through: messages.findLastIndex((item) => item.from === "reviewer"),
     };
+  }
   return rest;
 }

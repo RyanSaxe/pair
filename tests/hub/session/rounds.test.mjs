@@ -260,8 +260,9 @@ test("listed pages arrive independently and only the last completes the round", 
   assert.equal((await status()).needsYou, true);
   const { body: completeSet } = await pageSet("1");
   assert.equal(completeSet.complete, true);
-  for (const round of ["missing", "constructor"])
+  for (const round of ["missing", "constructor"]) {
     assert.equal((await pageSet(round)).code, 404);
+  }
   assert.equal(
     (await record("missing", completeSet.pages[0].version)).code,
     404,
@@ -483,8 +484,9 @@ test("the ack action says the agent has a submission without reading it, and car
   // the next publish.
   assert.deepEqual(ack.body.status.acknowledged, []);
   assert.equal((await a.publish(planData("2"))).code, 409);
-  for (const note of ["x".repeat(81), 3])
+  for (const note of ["x".repeat(81), 3]) {
     assert.equal((await a.action("ack", { note })).code, 400);
+  }
   const read = await a.action("read");
   assert.equal(read.body.event.id, event.id);
   // The hub clears the note on any other report, so the progress card never

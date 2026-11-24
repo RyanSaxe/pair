@@ -215,7 +215,7 @@ const stored = async (a) => {
   );
   return { stage, closedAt, dismissedAt };
 };
-for (const { name, setup, stage, next, step } of beforeClose)
+for (const { name, setup, stage, next, step } of beforeClose) {
   test(`pair start --reopen makes a session closed with ${name} live again`, async (t) => {
     const h = await hub(t);
     const a = await h.session();
@@ -250,6 +250,7 @@ for (const { name, setup, stage, next, step } of beforeClose)
     const taken = await step(a);
     assert.equal(taken.code, 200, taken.body.error);
   });
+}
 
 // Every round has a time between its Agreed and its first page, and the
 // reviewer can close the session then. The closed page carries Reopen.

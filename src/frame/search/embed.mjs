@@ -50,12 +50,20 @@ async function whenArrived(row, { page: id, target }) {
     await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
   }
 }
+function isSentRow(row) {
+  return (
+    (row.kind === "notes" || row.kind === "answers") &&
+    !row.draft &&
+    Boolean(row.round) &&
+    Boolean(row.page)
+  );
+}
+
 /* A note or answer's words are the reader's own, so its block doesn't hold them.
    Its page shows at the block, under the card that holds them. A note on a whole
    page has no block, and shows its card on the What you sent page. */
 async function sentPlace(row) {
-  const sent = row.kind === "notes" || row.kind === "answers";
-  if (!sent || row.draft || !row.round || !row.page) return null;
+  if (!isSentRow(row)) return null;
   const response = await fetch(
     `${base}/api/submission?round=${encodeURIComponent(row.round)}`,
   );
@@ -79,8 +87,9 @@ function holdPicture() {
     copy.style.maxWidth = "none";
     for (const part of copy.querySelectorAll(
       "#agent-activity, #finished-line, .note-count, .page-footer, .history-strip",
-    ))
+    )) {
       part.remove();
+    }
   });
 }
 function dropPicture() {
@@ -93,8 +102,9 @@ async function whenReady() {
   while (
     performance.now() < limit &&
     (renders.size || "drawing" in $("page-content").dataset)
-  )
+  ) {
     await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
+  }
 }
 function placeSent(entry) {
   document.getElementById("embed-sent")?.remove();
@@ -106,8 +116,9 @@ function placeSent(entry) {
 // A fold around the result opens, as it does when Open lands on it.
 function openFolds(target) {
   const element = target && targetElement(target);
-  for (let at = element; at; at = at.parentElement)
+  for (let at = element; at; at = at.parentElement) {
     if (at.tagName === "DETAILS") at.open = true;
+  }
 }
 // Another result on the page on screen moves the page, and draws nothing again.
 function moveToResult(target, match) {
@@ -127,6 +138,35 @@ function showUnderCard(target) {
 function pause() {
   for (const media of document.querySelectorAll("video, audio")) media.pause();
 }
+function canReuseOpenPage(row, id) {
+  return (
+    onScreen &&
+    id !== "work" &&
+    id !== "feedback" &&
+    !picture &&
+    arrived(row, id)
+  );
+}
+
+async function navigateEmbed({ asked, row, query, place, id, match, sent }) {
+  if (canReuseOpenPage(row, id)) {
+    placeSent(sent?.entry);
+    openFolds(place.target);
+    moveToResult(place.target, match);
+    return true;
+  }
+  holdPicture();
+  await ensurePageSet();
+  if (asked !== opens) return false;
+  // A read-only frame has one round, so it never has to change round.
+  if (row.round && editable) openResult(row, query, place);
+  else show(id, place.target, { match });
+  await whenArrived(row, place);
+  if (asked !== opens) return false;
+  placeSent(sent?.entry);
+  return true;
+}
+
 export function installEmbed() {
   document.documentElement.dataset.embed = "";
   // The copy keeps the frame's box in pixels, so it is wrong at a new size.
@@ -160,27 +200,16 @@ export function installEmbed() {
       wanted = place.target;
       const match = matchOf(row, query);
       const id = place.page || "agreed";
-      if (
-        onScreen &&
-        id !== "work" &&
-        id !== "feedback" &&
-        !picture &&
-        arrived(row, id)
-      ) {
-        placeSent(sent?.entry);
-        openFolds(place.target);
-        moveToResult(place.target, match);
-      } else {
-        holdPicture();
-        await ensurePageSet();
-        if (asked !== opens) return;
-        // A read-only frame has one round, so it never has to change round.
-        if (row.round && editable) openResult(row, query, place);
-        else show(id, place.target, { match });
-        await whenArrived(row, place);
-        if (asked !== opens) return;
-        placeSent(sent?.entry);
-      }
+      const ok = await navigateEmbed({
+        asked,
+        row,
+        query,
+        place,
+        id,
+        match,
+        sent,
+      });
+      if (!ok) return;
       await whenReady();
       if (asked !== opens) return;
       // A page can draw again after it arrives, so this comes last.

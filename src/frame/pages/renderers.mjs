@@ -27,8 +27,9 @@ export function installRenderers() {
       button.dataset.theme === "system" ? null : button.dataset.theme;
     activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
     try {
-      if (/^https?:$/.test(location.protocol))
+      if (/^https?:$/.test(location.protocol)) {
         document.cookie = `pair-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
+      }
     } catch {
       /* When the browser blocks cookies, the frame keeps the reader's
          choice in memory only. */
@@ -80,68 +81,83 @@ const DIFF_ROW_PX = 22;
 const DIFF_SEPARATOR_PX = 32;
 const DIFF_SPACE_PX = 8;
 const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+function flushDiffRun(state, diffStyle) {
+  const { marked } = state.run;
+  state.rows +=
+    diffStyle === "split"
+      ? Math.max(state.run["-"], state.run["+"]) + Math.min(marked.size, 1)
+      : state.run["-"] + state.run["+"] + marked.size;
+  state.run = { "-": 0, "+": 0, marked: new Set() };
+}
+
+function applyHunkHeader(state, hunk, diffStyle) {
+  flushDiffRun(state, diffStyle);
+  const start = Number(hunk[1]);
+  const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
+  // A hunk with no new lines begins after its start line.
+  const first = count ? start : start + 1;
+  if (first > (state.next ?? 1)) {
+    state.space +=
+      DIFF_SEPARATOR_PX + DIFF_SPACE_PX * (state.next === null ? 1 : 2);
+  }
+  state.next = first + count;
+}
+
+function applyPatchLine(state, line, diffStyle) {
+  const marker = line[0];
+  if (marker === "-" || marker === "+") state.run[marker] += 1;
+  else if (marker === " ") {
+    flushDiffRun(state, diffStyle);
+    state.rows += 1;
+  } else if (marker === "\\") {
+    if (state.previous === " ") state.rows += 1;
+    else if (state.previous) state.run.marked.add(state.previous);
+  }
+}
+
 export function diffHeight(patch, diffStyle = "split") {
-  let rows = 0;
-  let space = 0;
-  let run = { "-": 0, "+": 0, marked: new Set() };
-  let previous = null;
-  // next is the new file's line after the previous hunk, or null before the
-  // first hunk.
-  let next = null;
-  const endRun = () => {
-    const { marked } = run;
-    rows +=
-      diffStyle === "split"
-        ? Math.max(run["-"], run["+"]) + Math.min(marked.size, 1)
-        : run["-"] + run["+"] + marked.size;
-    run = { "-": 0, "+": 0, marked: new Set() };
+  const state = {
+    rows: 0,
+    space: 0,
+    run: { "-": 0, "+": 0, marked: new Set() },
+    previous: null,
+    // next is the new file's line after the previous hunk, or null before the
+    // first hunk.
+    next: null,
   };
   for (const line of patch.split("\n")) {
     const hunk = HUNK_HEADER.exec(line);
-    if (hunk) {
-      endRun();
-      const start = Number(hunk[1]);
-      const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
-      // A hunk with no new lines begins after its start line.
-      const first = count ? start : start + 1;
-      if (first > (next ?? 1))
-        space += DIFF_SEPARATOR_PX + DIFF_SPACE_PX * (next === null ? 1 : 2);
-      next = first + count;
-    } else if (next === null) continue;
-    else if (line[0] === "-" || line[0] === "+") run[line[0]] += 1;
-    else if (line[0] === " ") {
-      endRun();
-      rows += 1;
-    } else if (line[0] === "\\") {
-      if (previous === " ") rows += 1;
-      else if (previous) run.marked.add(previous);
-    }
-    previous = line[0];
+    if (hunk) applyHunkHeader(state, hunk, diffStyle);
+    else if (state.next !== null) applyPatchLine(state, line, diffStyle);
+    state.previous = line[0];
   }
-  endRun();
-  if (next !== null) space += 2 * DIFF_SPACE_PX;
-  return rows * DIFF_ROW_PX + space;
+  flushDiffRun(state, diffStyle);
+  if (state.next !== null) state.space += 2 * DIFF_SPACE_PX;
+  return state.rows * DIFF_ROW_PX + state.space;
 }
 export function theme() {
   document.documentElement.dataset.theme = activeTheme;
-  for (const button of $("theme").querySelectorAll("[data-theme]"))
+  for (const button of $("theme").querySelectorAll("[data-theme]")) {
     button.setAttribute(
       "aria-checked",
       String(button.dataset.theme === (preferredTheme || "system")),
     );
-  for (const instance of charts.values())
+  }
+  for (const instance of charts.values()) {
     instance.setOption({
       color: chartPalette(),
       ...chartTheme(instance.getOption()),
     });
+  }
   for (const viewer of diffs.values()) {
     viewer.setOptions({ ...viewer.options, theme: syntaxThemes[activeTheme] });
     viewer.rerender();
   }
   // A preview page reads the theme cookie when it loads, so theme() reloads
   // each preview.
-  for (const frame of document.querySelectorAll(".agreement-preview iframe"))
+  for (const frame of document.querySelectorAll(".agreement-preview iframe")) {
     frame.contentWindow?.location.reload();
+  }
   // Page scripts can refresh values they computed from the previous theme.
   window.dispatchEvent(new CustomEvent("plan:theme", { detail: activeTheme }));
 }
@@ -201,8 +217,9 @@ export function failed(element, error) {
   if (
     !element.isConnected ||
     element.nextElementSibling?.classList.contains("renderer-error")
-  )
+  ) {
     return;
+  }
   const message = error.message || "Renderer unavailable; source preserved.";
   // A parser's message can quote the source line and put a caret under the
   // column, which is readable only with its line breaks in fixed-width text.
@@ -211,24 +228,29 @@ export function failed(element, error) {
   note.textContent = message;
   element.after(note);
 }
+function buildFigureHead({ title, meta, actions }) {
+  const head = document.createElement("figcaption");
+  head.className = "figure-head";
+  const name = document.createElement("b");
+  name.textContent = title || "";
+  const side = document.createElement("span");
+  if (meta) side.append(meta);
+  side.append(...actions);
+  head.append(name, side);
+  return head;
+}
+
 export function figure(
   element,
   { title, meta, actions = [], caption, kind = "" },
 ) {
-  if (element.parentElement?.classList.contains("figure-body"))
+  if (element.parentElement?.classList.contains("figure-body")) {
     return element.parentElement.parentElement;
+  }
   const wrapper = document.createElement("figure");
   wrapper.className = `figure ${kind}`.trim();
   if (title || meta || actions.length) {
-    const head = document.createElement("figcaption");
-    head.className = "figure-head";
-    const name = document.createElement("b");
-    name.textContent = title || "";
-    const side = document.createElement("span");
-    if (meta) side.append(meta);
-    side.append(...actions);
-    head.append(name, side);
-    wrapper.append(head);
+    wrapper.append(buildFigureHead({ title, meta, actions }));
   }
   const body = document.createElement("div");
   body.className = "figure-body";
@@ -340,11 +362,17 @@ function viewerForNode(node) {
   }
   return null;
 }
+function findDiffLineElement(node) {
+  let line = node?.nodeType === 1 ? node : node?.parentElement;
+  for (; line; line = composedParent(line)) {
+    if (line.matches?.("[data-line][data-line-type]")) return line;
+  }
+  return null;
+}
+
 export function diffLineForNode(node) {
   if (!viewerForNode(node)) return null;
-  let line = node?.nodeType === 1 ? node : node?.parentElement;
-  for (; line; line = composedParent(line))
-    if (line.matches?.("[data-line][data-line-type]")) break;
+  const line = findDiffLineElement(node);
   if (!line) return null;
   const side =
     line.dataset.lineType === "change-deletion" ? "deletions" : "additions";
@@ -354,10 +382,7 @@ export function diffLineForNode(node) {
       : line.dataset.line,
   );
   if (!Number.isInteger(lineNumber) || lineNumber < 1) return null;
-  return {
-    side,
-    lineNumber,
-  };
+  return { side, lineNumber };
 }
 /* Chrome reports a selection made inside a diff's shadow root as anchored
    at the element around the shadow host, so diffSelectionRange() takes the
@@ -365,8 +390,9 @@ export function diffLineForNode(node) {
    selection outside a diff. */
 export function diffSelectionRange(selection) {
   const anchor = selection?.anchorNode;
-  if (!anchor || !selection.getComposedRanges || !viewerForNode(anchor))
+  if (!anchor || !selection.getComposedRanges || !viewerForNode(anchor)) {
     return null;
+  }
   const element = anchor.nodeType === 1 ? anchor : anchor.parentElement;
   const shadowRoots = [...element.querySelectorAll("*")]
     .map((node) => node.shadowRoot)
@@ -392,21 +418,21 @@ export function diffViews(root) {
 function threadSlot({ side, lineNumber }) {
   return `pair-line-${side}-${lineNumber}`;
 }
-export function setDiffThreads(element, threads, cards) {
-  const viewer = diffs.get(element);
-  const container = element.querySelector(":scope > diffs-container");
-  if (!viewer?.setLineAnnotations || !container) return false;
+function isValidDiffLine(line) {
+  return (
+    Boolean(line) &&
+    ["additions", "deletions"].includes(line.side) &&
+    Number.isInteger(line.lineNumber) &&
+    line.lineNumber >= 1
+  );
+}
+
+function groupDiffCards(threads, cards) {
   const lines = new Map();
   const cardsByLine = new Map();
   for (const thread of threads) {
     const line = thread.diffLine;
-    if (
-      !line ||
-      !["additions", "deletions"].includes(line.side) ||
-      !Number.isInteger(line.lineNumber) ||
-      line.lineNumber < 1
-    )
-      continue;
+    if (!isValidDiffLine(line)) continue;
     const slot = threadSlot(line);
     lines.set(slot, line);
     const card = cards.get(thread.id)?.card;
@@ -414,13 +440,10 @@ export function setDiffThreads(element, threads, cards) {
     card.removeAttribute("slot");
     cardsByLine.set(slot, [...(cardsByLine.get(slot) || []), card]);
   }
-  const annotations = [...lines.values()];
-  const signature = [...lines.keys()].toSorted().join("|");
-  if (diffLineSets.get(element) !== signature) {
-    viewer.setLineAnnotations(annotations);
-    viewer.rerender();
-    diffLineSets.set(element, signature);
-  }
+  return { lines, cardsByLine };
+}
+
+function placeAnnotationCards(viewer, container, { lines, cardsByLine }) {
   for (const [key, lineCards] of cardsByLine) {
     const name = viewer.getAnnotationSlotName(lines.get(key));
     const wrapper = [...container.children].find(
@@ -434,8 +457,36 @@ export function setDiffThreads(element, threads, cards) {
       if (shown !== card) wrapper.insertBefore(card, shown);
     });
   }
+}
+
+export function setDiffThreads(element, threads, cards) {
+  const viewer = diffs.get(element);
+  const container = element.querySelector(":scope > diffs-container");
+  if (!viewer?.setLineAnnotations || !container) return false;
+  const grouped = groupDiffCards(threads, cards);
+  const signature = [...grouped.lines.keys()].toSorted().join("|");
+  if (diffLineSets.get(element) !== signature) {
+    viewer.setLineAnnotations([...grouped.lines.values()]);
+    viewer.rerender();
+    diffLineSets.set(element, signature);
+  }
+  placeAnnotationCards(viewer, container, grouped);
   return true;
 }
+
+async function loadDiffLibrary() {
+  // A browser can keep a failed import and never ask again, so a retry has an
+  // address of its own. A fragment changes nothing on the server, and this
+  // library has no integrity hash to match.
+  const retry = diffsFailures ? `#${diffsFailures}` : "";
+  diffsTask ||= import(`${libraries.diffs}${retry}`).catch((error) => {
+    diffsTask = undefined;
+    diffsFailures++;
+    throw error;
+  });
+  return diffsTask;
+}
+
 async function renderDiff(
   element,
   input,
@@ -451,34 +502,26 @@ async function renderDiff(
   // without moving anything. A wrapped line is taller than one row, so a
   // wrapped diff can only grow past this minimum.
   element.style.minHeight = `${diffHeight(input.patch, diffStyle)}px`;
-  // A browser can keep a failed import and never ask again, so a retry has an
-  // address of its own. A fragment changes nothing on the server, and this
-  // library has no integrity hash to match.
-  const retry = diffsFailures ? `#${diffsFailures}` : "";
-  diffsTask ||= import(`${libraries.diffs}${retry}`).catch((error) => {
-    diffsTask = undefined;
-    diffsFailures++;
-    throw error;
-  });
-  const { FileDiff, parsePatchFiles } = await diffsTask;
+  const { FileDiff, parsePatchFiles } = await loadDiffLibrary();
   // Once the library has loaded, the await above resumes in a microtask,
   // and the browser paints only after every microtask has run. Waiting for
   // a task gives each diff a task of its own, so the page paints first.
   await new Promise((resolve) => setTimeout(resolve));
   if (!element.isConnected) return null;
   const overflow = wrap ? "wrap" : "scroll";
-  let viewer = diffs.get(element);
-  if (viewer) {
-    viewer.setOptions({ ...viewer.options, diffStyle, overflow });
-    viewer.rerender();
-    return viewer;
+  const existing = diffs.get(element);
+  if (existing) {
+    existing.setOptions({ ...existing.options, diffStyle, overflow });
+    existing.rerender();
+    return existing;
   }
   const files = parsePatchFiles(input.patch).flatMap((patch) => patch.files);
-  if (files.length !== 1)
+  if (files.length !== 1) {
     throw Error("Each diff component requires one file pair.");
+  }
   // The bar above the viewer shows the file name, and the viewer's own header
   // would repeat it with the path the patch was made from.
-  viewer = new FileDiff({
+  const viewer = new FileDiff({
     theme: syntaxThemes[activeTheme],
     diffStyle,
     lineDiffType: "word-alt",
@@ -489,8 +532,9 @@ async function renderDiff(
     disableFileHeader: true,
     unsafeCSS: noteHighlightCSS,
     onPostRender(_node, _viewer, phase) {
-      if (phase !== "unmount")
+      if (phase !== "unmount") {
         queueMicrotask(() => window.dispatchEvent(new Event("plan:diff")));
+      }
     },
     renderAnnotation(annotation) {
       const placeholder = document.createElement("span");

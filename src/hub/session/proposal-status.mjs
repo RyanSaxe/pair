@@ -43,7 +43,7 @@ export function statusChange(data) {
 export function changedParts(card, change) {
   const before = card.status?.parts ?? [];
   const parts = before.map((part) => ({ ...part }));
-  for (const { state, texts } of change)
+  for (const { state, texts } of change) {
     for (const text of texts) {
       const part = parts.find((item) => item.text === text);
       if (part) part.state = state;
@@ -55,6 +55,7 @@ export function changedParts(card, change) {
         parts.push({ text, state });
       }
     }
+  }
   requireValue(
     parts.length <= most.parts,
     `A status has at most ${most.parts} parts, and proposal ${card.id} would have ${parts.length}.`,
@@ -64,10 +65,11 @@ export function changedParts(card, change) {
 
 function unknown(id, text, { parts, state }) {
   const quoted = parts.map((part) => `"${part.text}"`);
-  if (state === "dropped")
+  if (state === "dropped") {
     return parts.length
       ? `Proposal ${id} has no part "${text}" to drop. Its parts are ${quoted.join(", ")}.`
       : `Proposal ${id} has no parts yet, so it has no part "${text}" to drop.`;
+  }
   const listed =
     quoted.length > 1
       ? `${quoted.slice(0, -1).join(", ")} and ${quoted.at(-1)}`

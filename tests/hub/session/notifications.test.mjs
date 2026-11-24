@@ -136,8 +136,9 @@ test("a proposal's event counts as acknowledged once the card is started, declin
   };
   const acknowledged = async (id) =>
     (await events()).find(({ proposal }) => proposal === id).acknowledged;
-  for (const id of ["waits", "started", "declined", "withdrawn", "done"])
+  for (const id of ["waits", "started", "declined", "withdrawn", "done"]) {
     await propose(id);
+  }
   const act = (id, verb, data) =>
     a.request(`${a.base}/api/proposals/${id}/${verb}`, data ?? {});
   assert.equal((await act("started", "start", { where: "here" })).code, 200);
@@ -156,8 +157,9 @@ test("a proposal's event counts as acknowledged once the card is started, declin
   assert.equal(done.code, 200, done.body.error);
 
   assert.equal(await acknowledged("waits"), undefined);
-  for (const id of ["started", "declined", "withdrawn", "done"])
+  for (const id of ["started", "declined", "withdrawn", "done"]) {
     assert.equal(await acknowledged(id), true, id);
+  }
 });
 
 test("the notifications route gives each card the fields its state word reads, and no more", async (t) => {

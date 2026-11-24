@@ -151,8 +151,9 @@ test("each top bar panel opens under its button inside the window, one at a time
         box.x + box.width <= viewport.width - 7.5,
         `${at} right ${box.x + box.width}`,
       );
-      if (anchor.x + box.width <= viewport.width - 8)
+      if (anchor.x + box.width <= viewport.width - 8) {
         assert.ok(near(box.x, anchor.x), `${at} left ${box.x}`);
+      }
     }
     for (const [button, panel] of panels) {
       await page.locator(`#${button}`).click();

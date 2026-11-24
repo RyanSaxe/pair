@@ -3,6 +3,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { exists, requireValue } from "../../shared/util.mjs";
 
+const isPlainObject = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const validScene = (scene) =>
+  scene?.type === "excalidraw" &&
+  Array.isArray(scene.elements) &&
+  scene.elements.length > 0 &&
+  isPlainObject(scene.appState) &&
+  isPlainObject(scene.files);
+
 export function uploads(session) {
   const { directory } = session;
   async function uploadName(id) {
@@ -61,15 +71,7 @@ export function uploads(session) {
       requireValue(false, "Drawing scene must be JSON");
     }
     requireValue(
-      scene?.type === "excalidraw" &&
-        Array.isArray(scene.elements) &&
-        scene.elements.length > 0 &&
-        scene.appState &&
-        typeof scene.appState === "object" &&
-        !Array.isArray(scene.appState) &&
-        scene.files &&
-        typeof scene.files === "object" &&
-        !Array.isArray(scene.files),
+      validScene(scene),
       "Drawing scene must contain Excalidraw elements, appState and files",
     );
     const id = crypto.randomBytes(8).toString("hex");
@@ -117,15 +119,17 @@ const signatures = [
   { type: "image/gif", ext: "gif", magic: [0x47, 0x49, 0x46, 0x38] },
 ];
 function imageKind(bytes) {
-  for (const entry of signatures)
+  for (const entry of signatures) {
     if (entry.magic.every((byte, at) => bytes[at] === byte)) return entry;
+  }
   // A WebP file starts with RIFF, a four-byte size and WEBP.
   if (
     bytes.length >= 12 &&
     bytes.subarray(0, 4).toString("latin1") === "RIFF" &&
     bytes.subarray(8, 12).toString("latin1") === "WEBP"
-  )
+  ) {
     return { type: "image/webp", ext: "webp" };
+  }
   return null;
 }
 /* The hub limits each upload to 10MB and sets no limit for the session, as

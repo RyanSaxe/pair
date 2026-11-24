@@ -162,13 +162,15 @@ function copySvg(svg) {
       if (
         ["href", "xlink:href"].includes(attribute.name) &&
         value.startsWith("#")
-      )
+      ) {
         value = "#" + (ids.get(value.slice(1)) ?? value.slice(1));
-      if (["aria-labelledby", "aria-describedby"].includes(attribute.name))
+      }
+      if (["aria-labelledby", "aria-describedby"].includes(attribute.name)) {
         value = value
           .split(/\s+/)
           .map((id) => ids.get(id) ?? id)
           .join(" ");
+      }
       if (value !== attribute.value) node.setAttribute(attribute.name, value);
     }
   }
@@ -207,8 +209,9 @@ planUI.define("diagram", {
         .indexOf(element);
       if (index >= 0) element.id = `pair-diagram-${page.id}-${index}`;
     }
-    if (element.dataset.caption)
+    if (element.dataset.caption) {
       figure(element, { caption: element.dataset.caption, kind: "diagram" });
+    }
     return renderDiagram(element);
   },
 });

@@ -26,9 +26,10 @@ export function diagramBoxes(target, id) {
     ? [host]
     : host.querySelectorAll("[data-diagram]");
   const boxes = [];
-  for (const diagram of hosts)
+  for (const diagram of hosts) {
     boxes.push(
       ...diagram.querySelectorAll(`.pele-node[data-id="${CSS.escape(id)}"]`),
     );
+  }
   return boxes;
 }

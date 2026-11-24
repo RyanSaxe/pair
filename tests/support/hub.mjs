@@ -1,4 +1,4 @@
-import "./env.mjs";
+import { isolateConfig } from "./env.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import crypto from "node:crypto";
@@ -11,6 +11,8 @@ import { promisify } from "node:util";
 import { buildPage } from "../../src/cli/build.mjs";
 import { startHub } from "../../src/hub/server.mjs";
 import { settings } from "../../src/shared/settings.mjs";
+
+isolateConfig();
 
 export const exec = promisify(execFile);
 

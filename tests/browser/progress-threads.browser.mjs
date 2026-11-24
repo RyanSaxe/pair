@@ -132,10 +132,11 @@ test("a progress thread's reply box keeps focus and its card stays open when the
   // The card stays open through two status polls after the reviewer leaves
   // the box.
   await page.locator("#page-title").click();
-  for (let polled = 0; polled < 2; polled++)
+  for (let polled = 0; polled < 2; polled++) {
     await page.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
   assert.equal(await card.getAttribute("collapsed"), null);
 });
 

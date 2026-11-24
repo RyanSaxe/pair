@@ -63,7 +63,8 @@ function docMask(doc) {
   return doc.mask;
 }
 
-function popcount(v) {
+function popcount(value) {
+  let v = value;
   let n = 0;
   while (v !== 0) {
     v &= v - 1;
@@ -163,121 +164,205 @@ function mergeRanges(lists) {
   return out;
 }
 
-function scoreDoc(prepared, doc) {
+function docFields(doc) {
   const orig = doc.text ?? "";
   const origH = doc.heading ?? "";
+  const origA = doc.attrs ?? "";
   const lh = doc.lowerHeading ?? (doc.lowerHeading = lowerKeepingLength(origH));
   const lt = doc.lowerText ?? (doc.lowerText = lowerKeepingLength(orig));
-  const origA = doc.attrs ?? "";
   const la = doc.lowerAttrs ?? (doc.lowerAttrs = lowerKeepingLength(origA));
-  const mask = docMask(doc);
-  const words = prepared.words;
-  const fuzzyOn = prepared.fuzzyOn;
-  if (words.length === 1 && words[0].n === 1 && doc.type !== undefined) {
-    if (doc.type !== "session title" && doc.type !== "page title") return null;
-  }
+  return { orig, origH, origA, lh, lt, la, mask: docMask(doc) };
+}
 
-  // Leave without allocating when a word cannot match, because most documents fail here.
+function isSingleCharNonTitle(words, doc) {
+  return (
+    words.length === 1 &&
+    words[0].n === 1 &&
+    doc.type !== undefined &&
+    doc.type !== "session title" &&
+    doc.type !== "page title"
+  );
+}
+
+function hasStrictSubstring(word, fields) {
+  const hasLetters = (word.mask & ~fields.mask) === 0;
+  if (
+    hasLetters &&
+    (fields.lh.indexOf(word.w) !== -1 || fields.lt.indexOf(word.w) !== -1)
+  ) {
+    return true;
+  }
+  return fields.la.indexOf(word.w) !== -1;
+}
+
+// Leave without allocating when a word cannot match, because most documents fail here.
+function canMatchWord(word, fields, fuzzyOn) {
+  if (hasStrictSubstring(word, fields)) return "strict";
+  if (!fuzzyOn || !word.fuzzy) return null;
+  if (
+    fields.lt.indexOf(word.w[0]) === -1 &&
+    fields.lh.indexOf(word.w[0]) === -1
+  ) {
+    return null;
+  }
+  if (popcount(word.mask & ~fields.mask) > word.typos) return null;
+  return "fuzzy";
+}
+
+function prefilter(prepared, fields) {
   let allStrict = true;
-  for (let k = 0; k < words.length; k++) {
-    const word = words[k];
-    const hasLetters = (word.mask & ~mask) === 0;
-    if (hasLetters && (lh.indexOf(word.w) !== -1 || lt.indexOf(word.w) !== -1))
-      continue;
-    if (la.indexOf(word.w) !== -1) continue;
-    if (!fuzzyOn || !word.fuzzy) return null;
-    if (lt.indexOf(word.w[0]) === -1 && lh.indexOf(word.w[0]) === -1)
-      return null;
-    if (popcount(word.mask & ~mask) > word.typos) return null;
-    allStrict = false;
+  for (let k = 0; k < prepared.words.length; k++) {
+    const mode = canMatchWord(prepared.words[k], fields, prepared.fuzzyOn);
+    if (!mode) return null;
+    if (mode === "fuzzy") allStrict = false;
   }
+  return allStrict;
+}
 
-  let total = 0;
-  let wholeHeading = true;
-  let usedFuzzy = false;
-  let usedTypo = false;
-  let inAttrs = false;
-  const headingLists = [];
-  const textLists = [];
-  const attrLists = [];
-  const textHits = [];
-  for (let k = 0; k < words.length; k++) {
-    const word = words[k];
-    let inHead = strictInField(word, {
-      lower: lh,
-      orig: origH,
-      inHeading: true,
-    });
-    let inText =
-      word.n === 1
-        ? null
-        : strictInField(word, { lower: lt, orig, inHeading: false });
-    if (!inHead && !inText) {
-      const attrHit =
-        word.n === 1
-          ? null
-          : strictInField(word, { lower: la, orig: origA, inHeading: false });
-      if (attrHit) {
-        inAttrs = true;
-        attrLists.push(rangesFrom(attrHit));
-        wholeHeading = false;
-        total += attrHit.score;
-        continue;
-      }
-      if (!fuzzyOn || !word.fuzzy) return null;
-      inHead = fuzzyInField(word, { lower: lh, orig: origH, inHeading: true });
-      if (!inHead)
-        inText = fuzzyInField(word, { lower: lt, orig, inHeading: false });
-      if (!inHead && !inText) return null;
-      usedFuzzy = true;
-      const hit = inHead ?? inText;
-      if (hit.typo) usedTypo = true;
-    }
-    const headScore = inHead ? inHead.score + HEADING_BONUS : 0;
-    const textScore = inText ? inText.score : 0;
-    total += headScore > textScore ? headScore : textScore;
-    if (!inHead) wholeHeading = false;
-    if (inHead) headingLists.push(rangesFrom(inHead));
-    if (inText) {
-      textLists.push(rangesFrom(inText));
-      textHits.push(inText);
-    }
+function matchWordFuzzy(word, fields) {
+  const inHead = fuzzyInField(word, {
+    lower: fields.lh,
+    orig: fields.origH,
+    inHeading: true,
+  });
+  const inText = inHead
+    ? null
+    : fuzzyInField(word, {
+        lower: fields.lt,
+        orig: fields.orig,
+        inHeading: false,
+      });
+  if (!inHead && !inText) return null;
+  const hit = inHead ?? inText;
+  return { inHead, inText, fuzzy: true, typo: Boolean(hit.typo) };
+}
+
+function matchWord(word, fields, fuzzyOn) {
+  const inHead = strictInField(word, {
+    lower: fields.lh,
+    orig: fields.origH,
+    inHeading: true,
+  });
+  const inText =
+    word.n === 1
+      ? null
+      : strictInField(word, {
+          lower: fields.lt,
+          orig: fields.orig,
+          inHeading: false,
+        });
+  if (inHead || inText) return { inHead, inText };
+  const attrHit =
+    word.n === 1
+      ? null
+      : strictInField(word, {
+          lower: fields.la,
+          orig: fields.origA,
+          inHeading: false,
+        });
+  if (attrHit) return { attrHit };
+  if (!fuzzyOn || !word.fuzzy) return null;
+  return matchWordFuzzy(word, fields);
+}
+
+function recordWordMatch(state, matched) {
+  if (matched.attrHit) {
+    state.inAttrs = true;
+    state.attrLists.push(rangesFrom(matched.attrHit));
+    state.wholeHeading = false;
+    state.total += matched.attrHit.score;
+    return;
   }
-  let score = total / words.length;
-
-  if (prepared.phrase) {
-    if (lh.indexOf(prepared.phrase) !== -1) {
-      score += PHRASE_HEADING_BONUS;
-      headingLists.push(occurrences(lh, prepared.phrase));
-    } else if (lt.indexOf(prepared.phrase) !== -1) {
-      score += PHRASE_TEXT_BONUS;
-      textLists.push(occurrences(lt, prepared.phrase));
-    } else if (textHits.length === words.length) {
-      const wordsLength = words.reduce((sum, word) => sum + word.n, 0);
-      score += proximityScore(shortWindow(textHits), wordsLength);
-    }
-    if (wholeHeading) score += WHOLE_HEADING_BONUS;
+  const { inHead, inText } = matched;
+  if (matched.fuzzy) state.usedFuzzy = true;
+  if (matched.typo) state.usedTypo = true;
+  const headScore = inHead ? inHead.score + HEADING_BONUS : 0;
+  const textScore = inText ? inText.score : 0;
+  state.total += Math.max(headScore, textScore);
+  if (inHead) state.headingLists.push(rangesFrom(inHead));
+  else state.wholeHeading = false;
+  if (inText) {
+    state.textLists.push(rangesFrom(inText));
+    state.textHits.push(inText);
   }
+}
 
-  score += RECENCY_WEIGHT * (doc.at ?? 0);
-  if (doc.type !== undefined) score += KIND_BOOST[doc.type] ?? 0;
-  if (doc.here) score += THIS_SESSION_BONUS;
-  if (inAttrs) score -= ATTRS_PENALTY;
+function matchAllWords(prepared, fields) {
+  const state = {
+    total: 0,
+    wholeHeading: true,
+    usedFuzzy: false,
+    usedTypo: false,
+    inAttrs: false,
+    headingLists: [],
+    textLists: [],
+    attrLists: [],
+    textHits: [],
+  };
+  for (const word of prepared.words) {
+    const matched = matchWord(word, fields, prepared.fuzzyOn);
+    if (!matched) return null;
+    recordWordMatch(state, matched);
+  }
+  return state;
+}
 
-  if (allStrict && !inAttrs) {
+function phraseBonus(prepared, fields, state) {
+  if (!prepared.phrase) return 0;
+  let bonus = 0;
+  if (fields.lh.indexOf(prepared.phrase) !== -1) {
+    bonus += PHRASE_HEADING_BONUS;
+    state.headingLists.push(occurrences(fields.lh, prepared.phrase));
+  } else if (fields.lt.indexOf(prepared.phrase) !== -1) {
+    bonus += PHRASE_TEXT_BONUS;
+    state.textLists.push(occurrences(fields.lt, prepared.phrase));
+  } else if (state.textHits.length === prepared.words.length) {
+    const wordsLength = prepared.words.reduce((sum, word) => sum + word.n, 0);
+    bonus += proximityScore(shortWindow(state.textHits), wordsLength);
+  }
+  if (state.wholeHeading) bonus += WHOLE_HEADING_BONUS;
+  return bonus;
+}
+
+function docBoost(doc, inAttrs) {
+  let boost = RECENCY_WEIGHT * (doc.at ?? 0);
+  if (doc.type !== undefined) boost += KIND_BOOST[doc.type] ?? 0;
+  if (doc.here) boost += THIS_SESSION_BONUS;
+  if (inAttrs) boost -= ATTRS_PENALTY;
+  return boost;
+}
+
+function buildResult(score, state) {
+  const result = {
+    score,
+    headingRanges: mergeRanges(state.headingLists),
+    textRanges: mergeRanges(state.textLists),
+    attrRanges: mergeRanges(state.attrLists),
+  };
+  if (state.usedFuzzy) result.fuzzy = true;
+  if (state.usedTypo) result.typo = true;
+  if (state.inAttrs) result.inAttrs = true;
+  return result;
+}
+
+function scoreDoc(prepared, doc) {
+  const fields = docFields(doc);
+  if (isSingleCharNonTitle(prepared.words, doc)) return null;
+  const allStrict = prefilter(prepared, fields);
+  if (allStrict === null) return null;
+  const state = matchAllWords(prepared, fields);
+  if (!state) return null;
+
+  const score =
+    state.total / prepared.words.length +
+    phraseBonus(prepared, fields, state) +
+    docBoost(doc, state.inAttrs);
+
+  if (allStrict && !state.inAttrs) {
     prepared.strictHits++;
     if (prepared.strictHits >= FUZZY_CUTOFF) prepared.fuzzyOn = false;
   }
-  const result = {
-    score,
-    headingRanges: mergeRanges(headingLists),
-    textRanges: mergeRanges(textLists),
-    attrRanges: mergeRanges(attrLists),
-  };
-  if (usedFuzzy) result.fuzzy = true;
-  if (usedTypo) result.typo = true;
-  if (inAttrs) result.inAttrs = true;
-  return result;
+  return buildResult(score, state);
 }
 
 function occurrences(lower, needle) {

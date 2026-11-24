@@ -43,8 +43,9 @@ function besideText(range) {
     gap: 8,
     rect() {
       const lines = [...range.getClientRects()].filter((box) => box.width > 1);
-      if (!lines.length || !shown(range.startContainer.parentElement))
+      if (!lines.length || !shown(range.startContainer.parentElement)) {
         return null;
+      }
       const box = range.getBoundingClientRect();
       return {
         top: box.top,
@@ -89,8 +90,9 @@ function press(control) {
 function spotFor({ words, block, home }) {
   if (words) return besideText(words);
   const control = pressedControl();
-  if (control && !(block && control === $("comment-here")))
+  if (control && !(block && control === $("comment-here"))) {
     return besideControl(control);
+  }
   if (shown(block)) return besideElement(block);
   return home === "header" ? underHeader() : besideControl(home);
 }
@@ -103,8 +105,47 @@ function spotFor({ words, block, home }) {
 const clamp = (value, low, high) => Math.max(low, Math.min(value, high));
 const eventControl = (event) => event.target.closest?.("button, a") ?? null;
 
+function pickDrawerSide({ height, below, above, spot }) {
+  // A button stays in view, so with room on neither side its drawer takes the
+  // larger side and its form scrolls.
+  if (height <= below) return "below";
+  if (height <= above) return "above";
+  if (spot.end) return below >= above ? "below" : "above";
+  return "over";
+}
+
+function applyVerticalPlacement(
+  style,
+  { side, rect, spot, ceiling, floor, height },
+) {
+  const least = Math.min(height, LEAST_PX);
+  if (side === "above") {
+    const edge = clamp(rect.top - spot.gap, ceiling + least, floor);
+    style.top = "auto";
+    style.bottom = `${innerHeight - edge}px`;
+    style.maxHeight = `${edge - ceiling}px`;
+    return;
+  }
+  const top =
+    side === "below"
+      ? clamp(rect.bottom + spot.gap, ceiling, floor - least)
+      : clamp(
+          Math.max(floor - height, rect.top + FIRST_LINE_PX),
+          ceiling,
+          floor - least,
+        );
+  style.bottom = "auto";
+  style.top = `${top}px`;
+  style.maxHeight = `${floor - top}px`;
+}
+
+function desiredLeft({ spot, rect, side, width }) {
+  if (spot.end) return rect.right - width;
+  return side === "below" ? rect.lastLeft : rect.firstLeft;
+}
+
 let placed = null;
-function place(dialog, spot, side) {
+function place(dialog, spot, preferredSide) {
   const rect = spot.rect();
   if (!rect) return;
   const header = document
@@ -122,38 +163,15 @@ function place(dialog, spot, side) {
   const width = dialog.offsetWidth;
   const below = floor - rect.bottom - spot.gap;
   const above = rect.top - spot.gap - ceiling;
-  // A button stays in view, so with room on neither side its drawer takes the
-  // larger side and its form scrolls.
-  side ??=
-    height <= below
-      ? "below"
-      : height <= above
-        ? "above"
-        : spot.end
-          ? below >= above
-            ? "below"
-            : "above"
-          : "over";
-  const least = Math.min(height, LEAST_PX);
-  const style = dialog.style;
-  if (side === "above") {
-    const edge = clamp(rect.top - spot.gap, ceiling + least, floor);
-    style.top = "auto";
-    style.bottom = `${innerHeight - edge}px`;
-    style.maxHeight = `${edge - ceiling}px`;
-  } else {
-    const top =
-      side === "below"
-        ? clamp(rect.bottom + spot.gap, ceiling, floor - least)
-        : clamp(
-            Math.max(floor - height, rect.top + FIRST_LINE_PX),
-            ceiling,
-            floor - least,
-          );
-    style.bottom = "auto";
-    style.top = `${top}px`;
-    style.maxHeight = `${floor - top}px`;
-  }
+  const side = preferredSide ?? pickDrawerSide({ height, below, above, spot });
+  applyVerticalPlacement(dialog.style, {
+    side,
+    rect,
+    spot,
+    ceiling,
+    floor,
+    height,
+  });
   // A spot at the end, a button, keeps the drawer inside the frame. Words and
   // blocks keep it inside the column the text is in.
   const padding = spot.end
@@ -161,17 +179,36 @@ function place(dialog, spot, side) {
     : parseFloat(getComputedStyle($("content")).paddingLeft);
   const low = frame.left + padding;
   const high = frame.right - padding - width;
-  const want = spot.end
-    ? rect.right - width
-    : side === "below"
-      ? rect.lastLeft
-      : rect.firstLeft;
-  style.left = `${clamp(want, low, Math.max(low, high))}px`;
+  const want = desiredLeft({ spot, rect, side, width });
+  dialog.style.left = `${clamp(want, low, Math.max(low, high))}px`;
   placed = { dialog, spot, side };
 }
 function placeAgain() {
-  if (placed?.dialog.open && !placed.dialog.matches(":modal"))
+  if (placed?.dialog.open && !placed.dialog.matches(":modal")) {
     place(placed.dialog, placed.spot, placed.side);
+  }
+}
+
+function focusOpenedDrawer(dialog, field) {
+  // WebKit's show() leaves focus where it was. The field takes focus after the
+  // modal has its place, because iOS finds where to pan when it does.
+  if (field) field.focus();
+  else if (!dialog.contains(document.activeElement)) {
+    dialog.querySelector("[autofocus]")?.focus();
+  }
+}
+
+function closeOtherDrawers(dialog, modal) {
+  const others = [
+    ...document.querySelectorAll("dialog[data-drawer][open]"),
+  ].filter((other) => !other.matches(":modal"));
+  // A modal opens where it stays, so it has no motion until it has shown.
+  const swapped = others.length || modal ? [dialog, ...others] : [];
+  holdStill(swapped);
+  for (const other of others) other.close();
+  for (const name of ["top", "bottom", "left", "maxHeight"]) {
+    dialog.style[name] = "";
+  }
 }
 
 /* Only one drawer is open at a time, so a drawer that opens replaces the open
@@ -186,16 +223,8 @@ export function openDrawer(dialog, about = {}) {
     about.field?.focus();
     return;
   }
-  const others = [
-    ...document.querySelectorAll("dialog[data-drawer][open]"),
-  ].filter((other) => !other.matches(":modal"));
   const modal = asModal();
-  // A modal opens where it stays, so it has no motion until it has shown.
-  const swapped = others.length || modal ? [dialog, ...others] : [];
-  holdStill(swapped);
-  for (const other of others) other.close();
-  for (const name of ["top", "bottom", "left", "maxHeight"])
-    dialog.style[name] = "";
+  closeOtherDrawers(dialog, modal);
   // The drawer is placed while it is still hidden, so it rises from its spot.
   if (!modal) place(dialog, spot);
   // showModal can focus the field itself, so the modal has its place first.
@@ -204,11 +233,7 @@ export function openDrawer(dialog, about = {}) {
   if (modal) dialog.showModal();
   else dialog.show();
   follow();
-  // WebKit's show() leaves focus where it was. The field takes focus after the
-  // modal has its place, because iOS finds where to pan when it does.
-  if (about.field) about.field.focus();
-  else if (!dialog.contains(document.activeElement))
-    dialog.querySelector("[autofocus]")?.focus();
+  focusOpenedDrawer(dialog, about.field);
 }
 // The drawers show their next place with no motion.
 function holdStill(drawers) {
@@ -367,8 +392,9 @@ function glided(event) {
   if (
     event.target === event.currentTarget &&
     event.propertyName === "max-height"
-  )
+  ) {
     revealField("smooth");
+  }
 }
 
 /* Where a dialog's body scrolls under its title, a line separates the two while
@@ -413,8 +439,10 @@ export function installDrawer() {
       ),
     true,
   );
-  for (const body of document.querySelectorAll(".dialog .dialog-body"))
+  for (const body of document.querySelectorAll(".dialog .dialog-body")) {
     watchScroll(body);
-  for (const dialog of document.querySelectorAll("dialog[data-drawer]"))
+  }
+  for (const dialog of document.querySelectorAll("dialog[data-drawer]")) {
     dialog.addEventListener("transitionend", glided);
+  }
 }

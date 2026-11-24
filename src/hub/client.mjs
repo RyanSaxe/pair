@@ -149,10 +149,11 @@ function keptLine(info) {
   if (info.live === 0) return null;
   const rule = (code) =>
     `While a session is live on the hub, pair replaces the hub only with ${code}, so the hub stays on version ${info.version}.`;
-  if (info.root === packageRoot)
+  if (info.root === packageRoot) {
     return committed()
       ? null
       : `pair: The hub runs code version ${info.version} from ${packageRoot}, and the code there is now version ${version}, with uncommitted changes under src/ or adapters/. ${rule("committed code")} The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live.`;
+  }
   return `pair: The hub runs code version ${info.version}${info.root ? ` from ${info.root}` : ""}, and this command runs code version ${version} from ${packageRoot}. ${rule("code from the hub's own folder")} The next pair command that reaches the hub while no session is live replaces the hub with one on its own code.`;
 }
 // Several commands can find at once that the hub needs replacing, or that no
@@ -211,8 +212,9 @@ async function findHub(config) {
     return info && (info.stateDir ?? stateDir) === stateDir ? info : null;
   };
   let info = port ? await ownHub(port) : null;
-  if (!info && record && processAlive(record.pid))
+  if (!info && record && processAlive(record.pid)) {
     info = await waitFor(() => ownHub(record.port), 5000);
+  }
   // A hub of this state directory that answers before the record exists can
   // still be loading its sessions, so findHub waits for the record.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);
@@ -226,6 +228,28 @@ function keep(info) {
   if (line) console.error(line);
   return Boolean(line);
 }
+function ensureHubNotStuck(record) {
+  // A running hub may not answer this command, as when the command runs in
+  // a sandbox with no sockets. replaceHub then leaves the hub record in place
+  // for the commands that can reach the hub.
+  if (!record || !hubRunning(record.pid)) return;
+  const message = process.env.CODEX_SANDBOX
+    ? `The hub (pid ${record.pid}) is running but does not answer on port ${record.port} inside the sandbox. ${sandboxAdvice}`
+    : `The hub (pid ${record.pid}) is running but does not answer on port ${record.port}. Run pair guide setup.md and follow it.`;
+  throw new Error(message);
+}
+
+async function ensurePortFree(port) {
+  if (!port || !(await portOpen(port))) return;
+  const other = await hubInfo(port);
+  const occupant = other
+    ? `A pair hub that this state directory has no record of (pid ${other.pid})`
+    : "Another program";
+  throw new Error(
+    `${occupant} is using port ${port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
+  );
+}
+
 // replaceHub stops the hub that runs other code, if there is one, and starts
 // a hub on this command's code.
 async function replaceHub(config, { record, info }) {
@@ -235,25 +259,9 @@ async function replaceHub(config, { record, info }) {
     process.kill(info.pid, "SIGTERM");
     await waitFor(async () => !processAlive(info.pid), 10_000);
   }
-  // A running hub may not answer this command, as when the command runs in
-  // a sandbox with no sockets. replaceHub then leaves the hub record in place
-  // for the commands that can reach the hub.
-  requireValue(
-    !(record && hubRunning(record.pid)),
-    process.env.CODEX_SANDBOX
-      ? `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port} inside the sandbox. ${sandboxAdvice}`
-      : `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
-  );
+  ensureHubNotStuck(record);
   if (record) await fs.rm(config.hubFile, { force: true });
-  if (config.port && (await portOpen(config.port))) {
-    const other = await hubInfo(config.port);
-    const occupant = other
-      ? `A pair hub that this state directory has no record of (pid ${other.pid})`
-      : "Another program";
-    throw new Error(
-      `${occupant} is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
-    );
-  }
+  await ensurePortFree(config.port);
   return spawnHub(config);
 }
 const withOrigin = (info) => ({

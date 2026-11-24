@@ -46,18 +46,20 @@ export function acceptImages(zone, attach) {
     event.preventDefault();
     attach(files);
   });
-  for (const type of ["dragover", "dragenter"])
+  for (const type of ["dragover", "dragenter"]) {
     zone.addEventListener(type, (event) => {
       event.preventDefault();
       zone.classList.add("dropping");
     });
-  for (const type of ["dragleave", "drop"])
+  }
+  for (const type of ["dragleave", "drop"]) {
     zone.addEventListener(type, (event) => {
       event.preventDefault();
       if (type === "dragleave" && zone.contains(event.relatedTarget)) return;
       zone.classList.remove("dropping");
       if (type === "drop") attach(event.dataTransfer.files);
     });
+  }
 }
 export function imageFigure(item, remove) {
   const figure = document.createElement("figure");
@@ -77,6 +79,7 @@ export function imageFigure(item, remove) {
 /* The frame deletes the uploads of a note the reviewer discarded, so the
    session keeps no image that nothing refers to. */
 export function forgetImages(items) {
-  for (const item of items || [])
+  for (const item of items || []) {
     fetch(source(item), { method: "DELETE" }).catch(() => {});
+  }
 }

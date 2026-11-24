@@ -79,8 +79,9 @@ function agreement({ source, ...entry }, sent) {
 
 async function act(session, action, data) {
   const { code, body } = await session.action(action, data);
-  if (code !== 200)
+  if (code !== 200) {
     throw new Error(`pair ${action}: ${body.error || `HTTP ${code}`}`);
+  }
   return body;
 }
 
@@ -100,11 +101,12 @@ async function publish(session, round, { sent, count = round.pages.length }) {
     pages: round.pages.map(({ id, title }) => ({ id, title })),
     ...next(0),
   });
-  for (const [index, page] of round.pages.slice(0, count).entries())
+  for (const [index, page] of round.pages.slice(0, count).entries()) {
     await act(session, "publish", {
       html: await build(round, page),
       ...next(index + 1),
     });
+  }
 }
 
 export async function until(page, step, { predicate, arg } = {}) {
@@ -131,8 +133,9 @@ export async function ready(page) {
   const errors = await page
     .locator(".renderer-error:visible")
     .allTextContents();
-  if (errors.length)
+  if (errors.length) {
     throw new Error(`A figure failed to render: ${errors.join("; ")}`);
+  }
 }
 
 // visit() opens about:blank first, because the frame reads the page ID from the
@@ -296,10 +299,11 @@ async function send(page, session) {
   await page.locator("#submit").click();
   await page.locator("#send-dialog[open]").waitFor();
   await page.locator("#send-button").click();
-  if (!(await response).ok())
+  if (!(await response).ok()) {
     throw new Error(
       `The hub refused the feedback: ${await (await response).text()}`,
     );
+  }
   return (await act(session, "read")).event;
 }
 
@@ -340,8 +344,9 @@ export async function stage(t, scratch) {
   const sent = {};
   const images = new Map();
   const save = (name, shots) => {
-    for (const theme of themes)
+    for (const theme of themes) {
       images.set(`${name}-${theme}.png`, shots[theme]);
+    }
   };
 
   await publish(session, await loadRound(1), { sent });
@@ -471,7 +476,7 @@ export async function stage(t, scratch) {
   await page.locator(".search-preview-main:not(.is-loading)").waitFor();
   save("docs/assets/notifications", await inThemes(page));
 
-  for (const theme of themes)
+  for (const theme of themes) {
     images.set(
       `assets/pair-${theme}.png`,
       await compose(page.context().browser(), {
@@ -480,5 +485,6 @@ export async function stage(t, scratch) {
         theme,
       }),
     );
+  }
   return images;
 }

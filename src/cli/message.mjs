@@ -17,13 +17,14 @@ async function messageText(options) {
   const given = ["text", "file", "ack"].filter(
     (key) => options[key] !== undefined,
   );
-  if (given.length !== 1)
+  if (given.length !== 1) {
     throw usageError(
       "message",
       given.length
         ? "pair message takes only one of --text, --file and --ack."
         : "pair message requires --text TEXT, --file PATH or --ack.",
     );
+  }
   if (options.ack) return null;
   const text =
     options.text ?? (await fs.readFile(path.resolve(options.file), "utf8"));
@@ -42,11 +43,12 @@ function receiver(to) {
   const slash = to.indexOf("/");
   const [session, subagent] =
     slash < 0 ? [to, null] : [to.slice(0, slash), to.slice(slash + 1)];
-  if (!session || subagent === "")
+  if (!session || subagent === "") {
     throw usageError(
       "message",
       "--to takes a session's name or ID, or NAME/SUBAGENT for one of its subagents.",
     );
+  }
   return { session, subagent };
 }
 
@@ -83,8 +85,9 @@ async function identifySender(label, table) {
 // An opencode subagent's name is its task, which may have spaces, so the
 // address is quoted when the shell would split it.
 function ending(answer) {
-  if (!answer)
+  if (!answer) {
     return "This message has no answer command. Answer in your own chat, if at all.";
+  }
   const to = /^[\w.:/-]+$/.test(answer) ? answer : JSON.stringify(answer);
   return `To answer, run: pair message --to ${to} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${to} --ack`;
 }
@@ -116,13 +119,31 @@ function sentText(entry, { subagent, way, steerable }) {
   }[way];
 }
 
+function senderLabel(from) {
+  if (from === undefined) return undefined;
+  const label = from.trim();
+  if (!label || /[\r\n]/.test(label)) {
+    throw usageError("message", "--from takes a label of one line.");
+  }
+  return label;
+}
+
+function messageLine({ way, sender, subagent, tool, ack, text }) {
+  const from = `pair message from ${sender.name}`;
+  const body = ack
+    ? `${from} acknowledges your message. Don't answer it.`
+    : `${text}\n\n${ending(sender.answer)}`;
+  if (way === "relayed") {
+    return `${from}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:\n\n${body}`;
+  }
+  return ack ? body : `${from}:\n\n${body}`;
+}
+
 export async function message(options) {
   requireNode();
   const text = await messageText(options);
   const { session, subagent } = receiver(options.to);
-  const label = options.from?.trim();
-  if (options.from !== undefined && (!label || /[\r\n]/.test(label)))
-    throw usageError("message", "--from takes a label of one line.");
+  const label = senderLabel(options.from);
   const table = processTable();
   const sender = await identifySender(label, table);
   requireValue(
@@ -135,16 +156,14 @@ export async function message(options) {
     `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start, pair message or pair spawn, or after a start hook in its CLI runs pair register --hook.`,
   );
   const { way, target, tool } = await route(entry, subagent);
-  const from = `pair message from ${sender.name}`;
-  const body = options.ack
-    ? `${from} acknowledges your message. Don't answer it.`
-    : `${text}\n\n${ending(sender.answer)}`;
-  const line =
-    way === "relayed"
-      ? `${from}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:\n\n${body}`
-      : options.ack
-        ? body
-        : `${from}:\n\n${body}`;
+  const line = messageLine({
+    way,
+    sender,
+    subagent,
+    tool,
+    ack: options.ack,
+    text,
+  });
   // With PAIR_WAKE=off, wakeRunner writes the line to stderr instead of
   // sending it, as the hub writes it to its log.
   const { wake } = settings();

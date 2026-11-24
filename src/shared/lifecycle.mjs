@@ -3,8 +3,11 @@
 // it. Close leaves paused as it was, so lifecycle checks closedAt first. Both
 // fields are in the hub's state and in the status it sends, so the hub, the
 // commands and the frame call lifecycle on whichever they have.
-export const lifecycle = (state) =>
-  state?.closedAt ? "closed" : state?.paused ? "paused" : "live";
+export function lifecycle(state) {
+  if (state?.closedAt) return "closed";
+  if (state?.paused) return "paused";
+  return "live";
+}
 
 export const isClosed = (state) => lifecycle(state) === "closed";
 
@@ -29,8 +32,9 @@ export const accepts = (state, action) =>
 export function roundStage(state, unread = false) {
   if (unread) return "submitted";
   if (!state.current) return "ready";
-  if (state.openRound || state.latestSubmissionRound === state.current.round)
+  if (state.openRound || state.latestSubmissionRound === state.current.round) {
     return "working";
+  }
   return "updated";
 }
 
@@ -41,8 +45,8 @@ export function roundStage(state, unread = false) {
 // that the older hub closed or reopened loads as that hub left it.
 export function upgrade(state) {
   const { stage, dismissedAt, ...rest } = state;
-  if (stage === "complete")
+  if (stage === "complete") {
     rest.closedAt = dismissedAt || rest.closedAt || rest.updatedAt;
-  else if (stage) rest.closedAt = null;
+  } else if (stage) rest.closedAt = null;
   return rest;
 }

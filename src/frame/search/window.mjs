@@ -103,12 +103,12 @@ export function createWindow() {
       results.map((row, index) => source.rowHtml(row, index, state)).join("") +
         source.end(current),
     );
-    if (selectedRow())
+    if (selectedRow()) {
       input.setAttribute(
         "aria-activedescendant",
         `search-row-${state.selected}`,
       );
-    else input.removeAttribute("aria-activedescendant");
+    } else input.removeAttribute("aria-activedescendant");
   }
 
   function drawHead() {
@@ -126,14 +126,21 @@ export function createWindow() {
       .join("");
   }
 
+  function recordPreviewShown(row, shown, how) {
+    if (!shown || !how) return;
+    if (how === "click") source.onShow?.(row, how);
+    else waiting = { row, shown, how };
+  }
+
   function drawPreview(how) {
     const row = selectedRow();
     drawHead();
     if (!row) closeSheet();
     // On a phone, a search's best result shows under the results with no tap.
     // With nothing typed, the newest rows wait for a tap.
-    if (innerWidth <= PHONE && row && state.query.trim())
+    if (innerWidth <= PHONE && row && state.query.trim()) {
       dialog.classList.add("is-sheet");
+    }
     const showing = innerWidth > PHONE || dialog.classList.contains("is-sheet");
     const shown = showing && row ? source.preview(row) : null;
     if (showing) {
@@ -142,9 +149,7 @@ export function createWindow() {
     }
     state.row = source.rowKey(row);
     source.remember?.();
-    if (!shown || !how) return;
-    if (how === "click") source.onShow?.(row, how);
-    else waiting = { row, shown, how };
+    recordPreviewShown(row, shown, how);
   }
 
   // After a list changes, the selection goes back to the first row, unless it was
@@ -166,8 +171,9 @@ export function createWindow() {
     clearTimeout(searching);
     searching = setTimeout(() => {
       part(".search-count").textContent = "";
-      if (!current.results.length)
+      if (!current.results.length) {
         setList(`<div class="search-blank"><span>Searching…</span></div>`);
+      }
     }, SEARCHING_AFTER_MS);
     // A source draws what it has while it waits for the hub.
     const early = (reply) => {
@@ -201,11 +207,11 @@ export function createWindow() {
     drawControls();
     drawList();
     drawPreview("auto");
-    if (keep)
+    if (keep) {
       list
         .querySelector('[aria-selected="true"]')
         ?.scrollIntoView({ block: "nearest" });
-    else list.scrollTop = 0;
+    } else list.scrollTop = 0;
   }
 
   // refresh draws the source's rows again and leaves the page in the pane alone,
@@ -314,42 +320,69 @@ export function createWindow() {
     "mouseup",
     "pointerdown",
     "pointerup",
-  ])
+  ]) {
     dialog.addEventListener(type, (event) => event.stopPropagation());
+  }
 
   // A click counts as outside only when the press landed outside too, so a drag
   // that selects the preview's text and ends on the backdrop leaves it open.
   dialog.addEventListener("pointerdown", (event) => {
     pressedOutside = event.target === dialog;
   });
-  dialog.addEventListener("click", (event) => {
+  function handleMenuClick(target) {
     // A click outside the menu only closes the menu.
     if (
       menus.opened() &&
-      !event.target.closest(".search-menu, .search-menu-button")
-    )
-      return closeMenu();
-    if (event.target === dialog) return pressedOutside && dialog.close();
-    const menu = event.target.closest("[data-menu]")?.dataset.menu;
-    if (event.target.closest(".search-menu-button"))
-      return menus.opened() === menu ? closeMenu() : menus.show(menu);
-    const item = event.target.closest(".search-menu-item");
-    if (item) {
-      menus.choose(menu, item.dataset.value);
-      source.onFilter?.();
-      return void run();
+      !target.closest(".search-menu, .search-menu-button")
+    ) {
+      closeMenu();
+      return true;
     }
-    const wider = event.target.closest("[data-wider]");
+    const menu = target.closest("[data-menu]")?.dataset.menu;
+    if (target.closest(".search-menu-button")) {
+      if (menus.opened() === menu) closeMenu();
+      else menus.show(menu);
+      return true;
+    }
+    const item = target.closest(".search-menu-item");
+    if (!item) return false;
+    menus.choose(menu, item.dataset.value);
+    source.onFilter?.();
+    void run();
+    return true;
+  }
+
+  function handleDialogActionClick(target) {
+    const wider = target.closest("[data-wider]");
     if (wider) {
       source.widen(wider.dataset.wider);
       void run();
-      return focusField();
+      focusField();
+      return true;
     }
-    if (event.target.closest(".search-close")) return dialog.close();
-    if (event.target.closest(".search-open")) return openSelected();
-    if (source.act?.(event.target)) return;
+    if (target.closest(".search-close")) {
+      dialog.close();
+      return true;
+    }
+    if (target.closest(".search-open")) {
+      openSelected();
+      return true;
+    }
+    return Boolean(source.act?.(target));
+  }
+
+  dialog.addEventListener("click", (event) => {
+    if (handleMenuClick(event.target)) return;
+    if (event.target === dialog) {
+      if (pressedOutside) dialog.close();
+      return;
+    }
+    if (handleDialogActionClick(event.target)) return;
     const row = event.target.closest(".search-row");
-    if (row) return chooseRow(Number(row.dataset.i));
+    if (row) {
+      chooseRow(Number(row.dataset.i));
+      return;
+    }
     // A click on nothing leaves the next key with the field, unless the click
     // ended a selection of the preview's text.
     if (getSelection().isCollapsed) focusField();
@@ -372,69 +405,89 @@ export function createWindow() {
     source.returnFocus()?.focus({ preventScroll: true });
   });
 
-  function onKey(event) {
-    if (!dialog.open || event.isComposing) return;
-    event.stopPropagation();
+  function handleEnterKey(event) {
+    // Enter presses a control that has focus.
+    if (event.target.closest("button")) return;
+    event.preventDefault();
+    if (menus.opened()) closeMenu();
+    // With nothing selected, Enter selects the first row.
+    else if (state.selected < 0) moveSelection(0);
+    // A phone keyboard's Search key drops the keyboard over the results.
+    else if (innerWidth <= PHONE && event.target === input) input.blur();
+    else if (current.results.length) openSelected();
+    else part("[data-wider]")?.click();
+  }
+
+  function isTypeaheadKey(event) {
     const key = event.key;
+    if (key.length !== 1 && key !== "Backspace") return false;
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
+    if (event.target === input) return false;
+    return !(key === " " && event.target.closest("button"));
+  }
+
+  function forwardTypedKey(event) {
+    // A key typed anywhere in the modal goes to the field. One typed in a
+    // preview's frame has gone by the time the field has focus, so it's typed
+    // here.
+    menus.show(null);
+    input.focus();
+    if (event.view !== window && event.key.length === 1) {
+      event.preventDefault();
+      input.setRangeText(
+        event.key,
+        input.selectionStart,
+        input.selectionEnd,
+        "end",
+      );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  function handleStepKey(event) {
     const step = stepOf(event);
-    // A search field clears its text on Esc and keeps the dialog open, so the
-    // modal handles Esc itself and keeps the query for the next time.
+    if (!step) return false;
+    event.preventDefault();
+    if (menus.opened()) menus.move(step);
+    // With nothing selected, ↓ selects the first row and ↑ the last.
+    else {
+      moveSelection(
+        (state.selected < 0 && step < 0 ? 0 : state.selected) + step,
+      );
+    }
+    return true;
+  }
+
+  function handleNavigationKey(event) {
+    const key = event.key;
     if (key === "Escape") {
       event.preventDefault();
       if (menus.opened()) closeMenu();
       else dialog.close();
-    } else if (event.metaKey && !event.shiftKey && key.toLowerCase() === "k") {
+      return true;
+    }
+    if (event.metaKey && !event.shiftKey && key.toLowerCase() === "k") {
       event.preventDefault();
       if (source.commandK) source.commandK();
       else dialog.close();
-    } else if (step) {
-      event.preventDefault();
-      if (menus.opened()) menus.move(step);
-      // With nothing selected, ↓ selects the first row and ↑ the last.
-      else
-        moveSelection(
-          (state.selected < 0 && step < 0 ? 0 : state.selected) + step,
-        );
-    } else if (key === "Enter") {
-      // Enter presses a control that has focus.
-      if (event.target.closest("button")) return;
-      event.preventDefault();
-      if (menus.opened()) closeMenu();
-      // With nothing selected, Enter selects the first row.
-      else if (state.selected < 0) moveSelection(0);
-      // A phone keyboard's Search key drops the keyboard over the results.
-      else if (innerWidth <= PHONE && event.target === input) input.blur();
-      else if (current.results.length) openSelected();
-      else part("[data-wider]")?.click();
-    } else if (event.altKey && source.keys[event.code]) {
+      return true;
+    }
+    return handleStepKey(event);
+  }
+
+  function onKey(event) {
+    if (!dialog.open || event.isComposing) return;
+    event.stopPropagation();
+    if (handleNavigationKey(event)) return;
+    if (event.key === "Enter") handleEnterKey(event);
+    else if (event.altKey && source.keys[event.code]) {
       event.preventDefault();
       source.keys[event.code]();
-    } else if (key === "Tab") {
+    } else if (event.key === "Tab") {
       // Tab moves through the controls, as in the frame's dialogs.
       menus.leave();
-    } else if (
-      (key.length === 1 || key === "Backspace") &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey &&
-      event.target !== input &&
-      !(key === " " && event.target.closest("button"))
-    ) {
-      // A key typed anywhere in the modal goes to the field. One typed in a
-      // preview's frame has gone by the time the field has focus, so it's typed
-      // here.
-      menus.show(null);
-      input.focus();
-      if (event.view !== window && key.length === 1) {
-        event.preventDefault();
-        input.setRangeText(
-          key,
-          input.selectionStart,
-          input.selectionEnd,
-          "end",
-        );
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+    } else if (isTypeaheadKey(event)) {
+      forwardTypedKey(event);
     }
   }
   // While the modal is open, every key comes here first, wherever focus is,

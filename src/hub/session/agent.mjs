@@ -12,6 +12,39 @@ import { nextOf } from "./submissions.mjs";
 export const answersRound = (event) => event.payload.intent !== "start";
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
+
+function openRoundStep(openRound) {
+  const slots = openRound.pages.filter((slot) => !slot.recordPath);
+  const left = slots.map((slot) =>
+    slot.state === "active" ? `${slot.id} (started)` : slot.id,
+  );
+  // pair publish leaves a page started while pages are left, and reopen
+  // marks every page not started.
+  const none = slots.some((slot) => slot.state === "active")
+    ? ""
+    : " None of them has started, so run pair progress --page ID for the page you work on next.";
+  return `You still have to publish these pages: ${left.join(", ")}.${none} When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it, with --start ID for the page you work on next while other pages are left.`;
+}
+
+function approvedWorkStep(round, ids) {
+  const named =
+    ids.length === 1
+      ? `proposal ${ids[0]}`
+      : `proposals ${ids.slice(0, -1).join(", ")} and ${ids.at(-1)}`;
+  const its = ids.length === 1 ? "its" : "their";
+  return `You published round ${round}, and the reviewer has not sent feedback on it yet. If you have not told the reviewer in the chat what changed, tell them now. Then build ${named}, which the reviewer approved for this session, and end your turn when you have done what you can. Update ${its} status each time you finish a part. When the reviewer sends feedback, the hub wakes you, and you publish the pages about this work in the next round.`;
+}
+
+function buildHolderRecord({ held, caller, same, start, folder, at }) {
+  // folder is where the agent ran pair start, and Start agent starts a new
+  // agent there.
+  return {
+    ...(same ? held : { ...caller, at }),
+    commandAt: at,
+    ...(start && folder ? { folder } : {}),
+  };
+}
+
 export function agent(session) {
   const { directory, transition, pending, view } = session;
   const command = (name) => `pair ${name} --session-dir ${directory}`;
@@ -49,40 +82,23 @@ export function agent(session) {
     if (isClosed(session.state)) return closed;
     const [event] = await pending();
     if (event) return `Run ${command("read")} to see what your user sent.`;
-    if (lifecycle(session.state) === "paused")
+    if (lifecycle(session.state) === "paused") {
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
-    if (!session.state.current)
-      return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
-    if (session.state.openRound) {
-      const slots = session.state.openRound.pages.filter(
-        (slot) => !slot.recordPath,
-      );
-      const left = slots.map((slot) =>
-        slot.state === "active" ? `${slot.id} (started)` : slot.id,
-      );
-      // pair publish leaves a page started while pages are left, and reopen
-      // marks every page not started.
-      const none = slots.some((slot) => slot.state === "active")
-        ? ""
-        : " None of them has started, so run pair progress --page ID for the page you work on next.";
-      return `You still have to publish these pages: ${left.join(", ")}.${none} When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it, with --start ID for the page you work on next while other pages are left.`;
     }
-    if (session.stage() === "working")
+    if (!session.state.current) {
+      return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
+    }
+    if (session.state.openRound) return openRoundStep(session.state.openRound);
+    if (session.stage() === "working") {
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";
+    }
     const { round } = session.state.current;
     // Work started here after the agent published this round's page list has
     // no page in the round, so the agent builds it now for the next round.
     const ids = startedHere()
       .filter((card) => card.started.round === round)
       .map((card) => card.id);
-    if (session.needsYou() && ids.length) {
-      const named =
-        ids.length === 1
-          ? `proposal ${ids[0]}`
-          : `proposals ${ids.slice(0, -1).join(", ")} and ${ids.at(-1)}`;
-      const its = ids.length === 1 ? "its" : "their";
-      return `You published round ${round}, and the reviewer has not sent feedback on it yet. If you have not told the reviewer in the chat what changed, tell them now. Then build ${named}, which the reviewer approved for this session, and end your turn when you have done what you can. Update ${its} status each time you finish a part. When the reviewer sends feedback, the hub wakes you, and you publish the pages about this work in the next round.`;
-    }
+    if (session.needsYou() && ids.length) return approvedWorkStep(round, ids);
     return `You published round ${round}. If you have not told the reviewer in the chat what changed, tell them, then end your turn. The hub wakes you when the reviewer sends feedback.`;
   }
   // publishPage prints browserLine with a session's first Agreed. A pair tab
@@ -103,10 +119,11 @@ export function agent(session) {
     } catch (error) {
       return { at: timestamp(), ok: false, reason: error.message };
     }
-    if (result.steerable !== undefined && session.state.holder)
+    if (result.steerable !== undefined && session.state.holder) {
       await transition({
         holder: { ...session.state.holder, steerable: result.steerable },
       });
+    }
     return {
       at: timestamp(),
       ok: true,
@@ -210,12 +227,13 @@ export function agent(session) {
       !start &&
       session.state.holder &&
       !sameAgent(session.state.holder, caller)
-    )
+    ) {
       requireValue(
         false,
         `Another agent has run this session since ${clock(session.state.holder.at)}, so stop working on it. If the reviewer asks you to take it over, run ${command("start")}.`,
         409,
       );
+    }
   }
   // act and hold record the time of each command from the holder, which
   // wakeState and the quiet check read. A closed session has no wake to
@@ -250,11 +268,12 @@ export function agent(session) {
   // here that is not done, so the agent keeps building that work in the round
   // the feedback begins.
   function eventRead(event) {
-    if (event.payload.intent !== "start")
+    if (event.payload.intent !== "start") {
       return {
         moment: ["read-feedback", choiceMoment(event.payload)].filter(Boolean),
         running: startedHere(),
       };
+    }
     return {
       moment: `read-start-${event.payload.where}`,
       proposal: session
@@ -288,7 +307,7 @@ export function agent(session) {
     const [event] = await pending();
     const declined = await session.reportDeclined();
     const closedCards = await session.reportClosed();
-    if (!event)
+    if (!event) {
       return {
         status: view(),
         ...readAnswer(null, submissionBefore()),
@@ -296,6 +315,7 @@ export function agent(session) {
         closed: closedCards,
         next: await nextStep(),
       };
+    }
     const patch = {
       ...report(),
       ...receive(event),
@@ -410,8 +430,9 @@ export function agent(session) {
       !Object.hasOwn(adapters, target.harness) ||
       !sameAgent(identify(target), session.state.holder) ||
       isDeepStrictEqual(target, session.wake)
-    )
+    ) {
       return;
+    }
     await atomic(session.wakeFile, target);
     session.wake = target;
   }
@@ -433,51 +454,28 @@ export function agent(session) {
     if (sameAgent(session.state.holder, data.agent)) await commandRan();
     return actions[data.action](data);
   }
-  // pair start makes its agent the holder, the one agent the hub wakes. Any
-  // other registration, such as a command that reattaches to a new hub,
-  // changes nothing when it comes from an agent other than the holder, and
-  // it leaves a paused session paused, because only pair start resumes one.
-  async function hold(target, options = {}) {
-    const start = options.start === true;
-    const { created } = options;
+  function buildHoldPatch({
+    target,
+    holder,
+    held,
+    caller,
+    same,
+    start,
+    options,
+    at,
+  }) {
     const title = typeof options.title === "string" && options.title.trim();
-    const caller = identify(target);
-    const held = session.state.holder;
-    const same = sameAgent(held, caller);
-    // act then runs or refuses the command. Without this return, a former
-    // holder's pair status would make requireHolder use up its takeover
-    // notice.
-    if (!start && held && !same) return {};
-    const at = timestamp();
-    // folder is where the agent ran pair start, and Start agent starts a new
-    // agent there.
-    const holder = {
-      ...(same ? held : { ...caller, at }),
-      commandAt: at,
-      ...(start && options.folder ? { folder: options.folder } : {}),
-    };
-    // The next step of a pair start that makes a paused or closed session live
-    // names every thread the agent has not answered, so heldSent records it
-    // as the wake of each thread whose wake the hub held.
-    const live = () => lifecycle(session.state) === "live";
-    const wasLive = live();
-    const reopening =
-      start && options.reopen === true && accepts(session.state, "reopen");
-    if (reopening) await reopen(caller, holder);
-    await requireHolder(caller, start);
-    await atomic(session.wakeFile, target);
-    session.wake = target;
     const patch = {
       wake: { harness: target.harness, last: session.state.wake?.last || null },
       holder,
       ...(start ? { paused: null } : {}),
       // title() returns this title until the first Agreed publishes, and
       // then returns Agreed's title.
-      ...(created && title ? { title } : {}),
+      ...(options.created && title ? { title } : {}),
     };
     // The frame shows takeover on the reviewer's progress card until submit
     // clears it.
-    if (!same && held)
+    if (!same && held) {
       Object.assign(patch, report(), {
         takeover: { name: adapters[caller.harness].name, at },
         formerHolders: [
@@ -485,24 +483,10 @@ export function agent(session) {
           { harness: held.harness, id: held.id, until: at },
         ],
       });
-    await transition(patch);
-    if (!wasLive && live()) await session.heldSent();
-    if (start && !held && !session.state.current)
-      await session.addActivity({
-        kind: "session",
-        agent: adapters[target.harness].name,
-      });
-    if (start && created)
-      return {
-        moment: session.state.parent
-          ? ["start", session.plansFirst() ? "start-from-plan" : "start-from"]
-          : "start",
-        next: await nextStep(),
-      };
-    const next = start && (await nextStep());
-    if (!next) return {};
-    const moment = reopening ? { moment: "start-reopen" } : {};
-    if (same) return { next, ...moment };
+    }
+    return patch;
+  }
+  function takeoverNext(next) {
     // An agent that takes the session over may never have run pair guide,
     // and it has not read the feedback that the previous holder read. An open
     // round answers that feedback. With stage "working" and no open round, the
@@ -515,10 +499,85 @@ export function agent(session) {
     const feedback = answered
       ? ` ${answers} the reviewer's feedback in submission ${answered}, which the previous agent read. Run ${command("read")} --submission ${answered} to read it.`
       : "";
-    return {
-      next: `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`,
-      ...moment,
-    };
+    return `If you have not run pair guide in this conversation, run it first.${feedback} ${next}`;
+  }
+  async function holdOutcome({ start, created, same, reopening }) {
+    if (!start) return {};
+    if (created) {
+      return {
+        moment: session.state.parent
+          ? ["start", session.plansFirst() ? "start-from-plan" : "start-from"]
+          : "start",
+        next: await nextStep(),
+      };
+    }
+    const next = await nextStep();
+    const moment = reopening ? { moment: "start-reopen" } : {};
+    if (same) return { next, ...moment };
+    return { next: takeoverNext(next), ...moment };
+  }
+  async function recordHoldActivity({ wasLive, start, held, target }) {
+    if (!wasLive && lifecycle(session.state) === "live") {
+      await session.heldSent();
+    }
+    if (start && !held && !session.state.current) {
+      await session.addActivity({
+        kind: "session",
+        agent: adapters[target.harness].name,
+      });
+    }
+  }
+  // pair start makes its agent the holder, the one agent the hub wakes. Any
+  // other registration, such as a command that reattaches to a new hub,
+  // changes nothing when it comes from an agent other than the holder, and
+  // it leaves a paused session paused, because only pair start resumes one.
+  async function hold(target, options = {}) {
+    const start = options.start === true;
+    const caller = identify(target);
+    const held = session.state.holder;
+    const same = sameAgent(held, caller);
+    // act then runs or refuses the command. Without this return, a former
+    // holder's pair status would make requireHolder use up its takeover
+    // notice.
+    if (!start && held && !same) return {};
+    const at = timestamp();
+    const holder = buildHolderRecord({
+      held,
+      caller,
+      same,
+      start,
+      folder: options.folder,
+      at,
+    });
+    // The next step of a pair start that makes a paused or closed session live
+    // names every thread the agent has not answered, so heldSent records it
+    // as the wake of each thread whose wake the hub held.
+    const wasLive = lifecycle(session.state) === "live";
+    const reopening =
+      start && options.reopen === true && accepts(session.state, "reopen");
+    if (reopening) await reopen(caller, holder);
+    await requireHolder(caller, start);
+    await atomic(session.wakeFile, target);
+    session.wake = target;
+    await transition(
+      buildHoldPatch({
+        target,
+        holder,
+        held,
+        caller,
+        same,
+        start,
+        options,
+        at,
+      }),
+    );
+    await recordHoldActivity({ wasLive, start, held, target });
+    return holdOutcome({
+      start,
+      created: options.created,
+      same,
+      reopening,
+    });
   }
   return {
     handoff,

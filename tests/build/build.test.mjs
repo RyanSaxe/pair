@@ -1,4 +1,4 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fs from "node:fs/promises";
@@ -9,6 +9,8 @@ import { problems } from "../../src/build/lint.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
 import { exec, pair, root } from "../support/hub.mjs";
+
+isolateConfig();
 
 const data = {
   name: "t",
@@ -45,7 +47,8 @@ const block = (css, prelude) => {
   const open = css.indexOf(`${prelude} {`) + prelude.length + 1;
   assert.ok(open > prelude.length, `no ${prelude} block`);
   for (let i = open + 1, depth = 1; i < css.length; i++) {
-    depth += css[i] === "{" ? 1 : css[i] === "}" ? -1 : 0;
+    if (css[i] === "{") depth += 1;
+    else if (css[i] === "}") depth -= 1;
     if (depth === 0) return css.slice(open + 1, i);
   }
   assert.fail(`${prelude} never closes`);
@@ -164,8 +167,9 @@ test("page JavaScript must parse and export setup, and the build never runs it",
   for (const jsText of [
     "throw new Error('ran');\nexport const setup = (root) => {};",
     "function setup(root) {}\nexport { setup };",
-  ])
+  ]) {
     await assert.doesNotReject(pageSource({ jsText }), jsText);
+  }
   await assert.rejects(
     pageSource({ jsText: "// export function setup(root) {}\nlet a = 1;" }),
     /Page JavaScript must export setup\(root, planUI\)/,
@@ -287,7 +291,7 @@ test("the build refuses each structural problem and names it", async () => {
     "./a/shot.png",
     "/tmp/shot.png",
     "file:///tmp/shot.png",
-  ])
+  ]) {
     await refused(
       page(`<img src="${src}" alt="">`),
       new RegExp(
@@ -295,7 +299,8 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
-  for (const value of ["3;7", "9-3", "0", "abc", ""])
+  }
+  for (const value of ["3;7", "9-3", "0", "abc", ""]) {
     await refused(
       page(`<pre data-language="ts" data-lines="${value}">a\nb</pre>`),
       new RegExp(
@@ -303,6 +308,7 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
+  }
   // The hub assembles every stored page again at each publish, so assemble()
   // must accept a page that an older pair build accepted.
   await assert.doesNotReject(assemble(page(`<img src="shot.png" alt="">`)));
@@ -395,8 +401,9 @@ test("the build accepts well-formed controls, anchors and blocks", () => {
       page(`<p>x</p><!-- ${decision(option())} -->`),
     ],
   ];
-  for (const [what, plan] of accepted)
+  for (const [what, plan] of accepted) {
     assert.deepEqual(problems(plan), [], what);
+  }
 });
 
 const buildAgreedPage = (overrides) =>
@@ -674,11 +681,12 @@ test("preserved prototypes retain exact executable source without escaping into 
     [[{ ...demo, height: 0 }], /Prototype height must be positive/],
     [[{ ...demo, html: "" }], /Prototypes require title and HTML/],
     [[demo, demo], /Prototype IDs must be valid and unique/],
-  ])
+  ]) {
     await assert.rejects(
       buildPage(source, { ...parsed, page: { ...parsed.page, prototypes } }),
       message,
     );
+  }
   await fs.writeFile(
     source,
     JSON.stringify({

@@ -132,8 +132,9 @@ function joinedText(card, cards, { indent = "", delivers = false } = {}) {
   ];
   for (const item of joined) {
     lines.push(`${indent}  ${item.id.padEnd(width)}  ${item.title}`);
-    if (delivers)
+    if (delivers) {
       lines.push(`${indent}  ${" ".repeat(width)}  Delivers: ${item.delivers}`);
+    }
   }
   return lines;
 }

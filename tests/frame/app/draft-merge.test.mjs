@@ -259,7 +259,7 @@ test("a send in one browser clears the sent items in the other and keeps the res
   computer.drafts["overview/why"] = "Retries.";
   // Each browser builds an untouched checklist from the page, and the send
   // carries the phone's copy.
-  for (const draft of [phone, computer])
+  for (const draft of [phone, computer]) {
     draft.choices["overview/scope"] = {
       kind: "multiple",
       topic: "overview",
@@ -267,6 +267,7 @@ test("a send in one browser clears the sent items in the other and keeps the res
       touched: false,
       options: [{ value: "a", label: "A", checked: true }],
     };
+  }
   // The computer adds a note that the phone has not merged when it sends.
   computer.notes.push(note("n2", "Written on the computer during the send."));
   w.push(computer);
@@ -339,7 +340,7 @@ test("edits made while the hub was unreachable reach it on the next sync", () =>
   w.sync(computer);
   w.sync(phone);
   w.pull(computer);
-  for (const draft of [phone, computer])
+  for (const draft of [phone, computer]) {
     assert.deepEqual(
       new Set(texts(draft)),
       new Set([
@@ -348,6 +349,7 @@ test("edits made while the hub was unreachable reach it on the next sync", () =>
         "Written on the computer.",
       ]),
     );
+  }
   assert.equal(computer.choices["overview/approach"].value, "queue");
 });
 

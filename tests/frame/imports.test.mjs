@@ -19,7 +19,8 @@ async function* modules(directory) {
 
 for await (const file of modules(frame)) {
   const name = path.relative(frame, file).split(path.sep).join("/");
-  if (name !== "app/boot.mjs")
+  if (name !== "app/boot.mjs") {
     test(`frame/${name} loads without a browser`, () =>
       import(pathToFileURL(file).href));
+  }
 }

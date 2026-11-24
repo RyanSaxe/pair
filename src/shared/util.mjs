@@ -30,8 +30,9 @@ async function replaceFile(temporary, file) {
         process.platform !== "win32" ||
         tries === RENAME_TRIES ||
         !["EPERM", "EACCES", "EBUSY"].includes(error.code)
-      )
+      ) {
         throw error;
+      }
       await new Promise((done) => setTimeout(done, RENAME_WAIT_MS));
     }
   }

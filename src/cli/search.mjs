@@ -45,21 +45,53 @@ function kindsOf(option) {
   if (option === undefined) return [];
   const kinds = option.split(",").filter(Boolean);
   const unknown = kinds.filter((kind) => !KINDS.includes(kind));
-  if (unknown.length || !kinds.length)
+  if (unknown.length || !kinds.length) {
     throw usageError(
       "search",
       `--kind takes ${listing(KINDS)}, separated by commas.`,
     );
+  }
   return kinds;
+}
+
+function limitOf(option) {
+  const limit = option === undefined ? DEFAULT_LIMIT : Number(option);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+    throw usageError("search", "--limit takes a number from 1 to 500.");
+  }
+  return limit;
+}
+
+function scopeText(options) {
+  if (options["this-session"]) return "this session";
+  if (options.closed) return "all sessions";
+  return "live sessions";
+}
+
+function searchHeading(result, scope) {
+  if (result.total) {
+    const count = `${result.total} result${result.total === 1 ? "" : "s"} in ${scope}`;
+    return `${count}, showing ${result.results.length}. ${WARNING}`;
+  }
+  if (result.wider?.filter === "closed") {
+    return `No results in ${scope}. ${result.wider.total} in closed sessions, which --closed includes.`;
+  }
+  return `No results in ${scope}. Try fewer words, or other words.`;
+}
+
+async function runSearch(session, params) {
+  let result = await session.search(params);
+  for (let tries = 0; result.loading && tries < LOAD_TRIES; tries++) {
+    await new Promise((done) => setTimeout(done, LOAD_WAIT_MS));
+    result = await session.search(params);
+  }
+  return result;
 }
 
 export async function search(options) {
   const [query] = options.args;
   const kinds = kindsOf(options.kind);
-  const limit =
-    options.limit === undefined ? DEFAULT_LIMIT : Number(options.limit);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 500)
-    throw usageError("search", "--limit takes a number from 1 to 500.");
+  const limit = limitOf(options.limit);
   const session = await openSession(options, { anyAgent: true });
   const params = {
     q: query,
@@ -68,22 +100,8 @@ export async function search(options) {
     ...(options["this-session"] ? { session: session.sessionId() } : {}),
     ...(options.closed ? { closed: "1" } : {}),
   };
-  let result = await session.search(params);
-  for (let tries = 0; result.loading && tries < LOAD_TRIES; tries++) {
-    await new Promise((done) => setTimeout(done, LOAD_WAIT_MS));
-    result = await session.search(params);
-  }
-  const scope = options["this-session"]
-    ? "this session"
-    : options.closed
-      ? "all sessions"
-      : "live sessions";
-  const count = `${result.total} result${result.total === 1 ? "" : "s"} in ${scope}`;
-  const head = result.total
-    ? `${count}, showing ${result.results.length}. ${WARNING}`
-    : result.wider?.filter === "closed"
-      ? `No results in ${scope}. ${result.wider.total} in closed sessions, which --closed includes.`
-      : `No results in ${scope}. Try fewer words, or other words.`;
+  const result = await runSearch(session, params);
+  const head = searchHeading(result, scopeText(options));
   return {
     data: [
       head,

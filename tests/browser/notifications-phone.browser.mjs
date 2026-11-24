@@ -14,19 +14,20 @@ import {
 
 /* The window on a phone's screen, in Chrome and in WebKit. */
 
-for (const engine of ["chrome", "webkit"])
+for (const engine of ["chrome", "webkit"]) {
   for (const [width, height, bars] of [
     [390, 844, 180],
     [320, 568, 114],
-  ])
+  ]) {
     test(`in ${engine} at ${width} by ${height}, the window fits the visible screen with and without browser bars, the list fills it, a tap splits it, and the keyboard stays down`, async (t) => {
       const h = await hub(t);
       const { here, other } = await sessions(t, h);
-      for (let index = 1; index <= 13; index++)
+      for (let index = 1; index <= 13; index++) {
         await replied(
           other,
           `An answer from elsewhere, number ${index}, long enough to clip`,
         );
+      }
       await thread(here, "A question no one answered");
       const options = {
         engine,
@@ -100,8 +101,9 @@ for (const engine of ["chrome", "webkit"])
 
       // A phone shows no ✕, where a touch has no hover to show it.
       const first = page.locator(".nt-row.is-unread").first();
-      if (await page.evaluate(() => matchMedia("(hover: none)").matches))
+      if (await page.evaluate(() => matchMedia("(hover: none)").matches)) {
         assert.equal(await first.locator(".nt-act").isVisible(), false);
+      }
 
       // A tap splits the window, with the list above and the page below.
       await first.tap();
@@ -138,6 +140,8 @@ for (const engine of ["chrome", "webkit"])
       await page.evaluate((shown) => window.setBars(shown), height);
       await fits(height);
     });
+  }
+}
 
 // The page's comment button floats at the bottom of the pane, where a thread's
 // reply row can be, so it hides while the reader writes a reply there.
@@ -154,7 +158,7 @@ const buttonWhileReplying = (frame) =>
       field.blur();
       return { before, writing, after: shown() };
     });
-for (const engine of ["chrome", "webkit"])
+for (const engine of ["chrome", "webkit"]) {
   test(`in ${engine} at 375, the page's comment button hides while a reply box in the pane of Notifications or of Search has focus`, async (t) => {
     const h = await hub(t);
     const { here } = await sessions(t, h);
@@ -187,3 +191,4 @@ for (const engine of ["chrome", "webkit"])
     await shownFrame(page).locator(".thread-reply textarea:visible").waitFor();
     assert.deepEqual(await buttonWhileReplying(shownFrame(page)), expected);
   });
+}

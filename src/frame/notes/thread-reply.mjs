@@ -7,7 +7,7 @@ import {
   imageTypes,
   uploadImages,
 } from "#frame/notes/images.mjs";
-import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/threads.mjs";
+import { sendKey, sendKeyLabel, sendKeyName } from "#frame/notes/send-key.mjs";
 
 /* replyForm keeps the reply's text and images in state.replyDrafts until
    Send, so a reload keeps them. */
@@ -16,8 +16,9 @@ const redraws = new WeakMap();
 // refreshReplies shows the reply drafts that another tab changed in the
 // forms on screen, and leaves the box the reviewer is typing in as it is.
 export function refreshReplies() {
-  for (const form of document.querySelectorAll("form.thread-reply"))
+  for (const form of document.querySelectorAll("form.thread-reply")) {
     redraws.get(form)?.();
+  }
 }
 const draftOf = (id) =>
   state.replyDrafts?.[id] ?? { text: "", attachments: [] };

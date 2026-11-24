@@ -1,9 +1,9 @@
 import { keepPlaceOverReload } from "#frame/app/places.mjs";
+import { selectedTab } from "#frame/app/state.mjs";
 import { state } from "#frame/app/store.mjs";
+import { fieldHasFocus, inUse } from "#frame/app/ui.mjs";
 import { embedded, mode, session } from "#frame/app/view.mjs";
-import { fieldHasFocus, inUse } from "#frame/pages/pages.mjs";
-import { workTab } from "#frame/pages/work.mjs";
-import { selectedTab } from "#frame/sync/rounds.mjs";
+import { workTab } from "#frame/pages/work-model.mjs";
 
 /* A tab keeps the frame code it loaded, and that code can show a broken page
    against a hub that restarted on new code. So the tab reloads once a session's
@@ -26,13 +26,15 @@ export function installHubWatch() {
   if (embedded) return;
   const send = window.fetch;
   window.fetch = (input, options) => {
-    if (!options?.method || options.method === "GET")
+    if (!options?.method || options.method === "GET") {
       return send(input, options);
+    }
     writes++;
     return send(input, options).finally(() => writes--);
   };
-  for (const type of ["input", "close"])
+  for (const type of ["input", "close"]) {
     addEventListener(type, () => (usedAt = Date.now()), true);
+  }
 }
 // The frame saves a draft only on Current, so a reply typed on an older round
 // exists only in this tab, and so does every draft when saving failed.
@@ -63,8 +65,9 @@ export function noticeHub(version) {
     !session.hubVersion ||
     version === session.hubVersion ||
     readerBusy()
-  )
+  ) {
     return;
+  }
   try {
     if (sessionStorage.getItem(TRIED) === version) return;
     sessionStorage.setItem(TRIED, version);

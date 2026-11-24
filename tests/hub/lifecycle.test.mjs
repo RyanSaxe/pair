@@ -260,11 +260,12 @@ test("start waits for a new hub to load the saved sessions", async (t) => {
     ),
     true,
   );
-  for (const session of await Promise.all([first, start()]))
+  for (const session of await Promise.all([first, start()])) {
     assert.equal(
       session.url,
       `http://127.0.0.1:${port}/s/${session.sessionId}/`,
     );
+  }
 });
 
 test("start replaces a stale hub record, and session commands reattach after a crash without losing the queue", async (t) => {

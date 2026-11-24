@@ -28,6 +28,69 @@ function frame(message) {
   return Buffer.concat([header, payload]);
 }
 
+function upgradeWebSocket(client, bytes) {
+  const end = bytes.indexOf("\r\n\r\n");
+  if (end < 0) return null;
+  const key = /^Sec-WebSocket-Key: (\S+)/im.exec(
+    bytes.subarray(0, end).toString(),
+  )[1];
+  const accept = crypto
+    .createHash("sha1")
+    .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+    .digest("base64");
+  client.write(
+    `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+  );
+  // The real daemon sends a notification as soon as a client connects,
+  // before any reply.
+  client.write(frame({ jsonrpc: "2.0", method: "account/updated" }));
+  return bytes.subarray(end + 4);
+}
+
+function clientFrameHeader(bytes) {
+  const short = bytes[1] & 0x7f;
+  if (short === 126) {
+    if (bytes.length < 4) return null;
+    return { start: 4, length: bytes.readUInt16BE(2) };
+  }
+  if (short === 127) {
+    if (bytes.length < 10) return null;
+    return { start: 10, length: Number(bytes.readBigUInt64BE(2)) };
+  }
+  return { start: 2, length: short };
+}
+
+function readClientFrame(bytes) {
+  if (bytes[0] !== 0x81 || !(bytes[1] & 0x80)) return { invalid: true };
+  const header = clientFrameHeader(bytes);
+  if (!header) return { incomplete: true };
+  const { start, length } = header;
+  if (bytes.length < start + 4 + length) return { incomplete: true };
+  const mask = bytes.subarray(start, start + 4);
+  const payload = bytes
+    .subarray(start + 4, start + 4 + length)
+    .map((byte, index) => byte ^ mask[index % 4]);
+  return { payload, rest: bytes.subarray(start + 4 + length) };
+}
+
+function resolveAnswer({ table, message, experimental }) {
+  if (message.method.startsWith("thread/queue/") && !experimental) {
+    return {
+      error: {
+        code: -32600,
+        message: `${message.method} requires experimentalApi capability`,
+      },
+    };
+  }
+  const entry = table[message.method];
+  const resolved = typeof entry === "function" ? entry(message.params) : entry;
+  return (
+    resolved ?? {
+      error: { code: -32601, message: `no method ${message.method}` },
+    }
+  );
+}
+
 // codexDaemon stands in for the app-server daemon of Codex 0.160, a WebSocket
 // server on a Unix socket. On Windows it listens on a named pipe, which the
 // stand-in codex stdio-to-uds of codexCommand connects to. It replies to each
@@ -63,60 +126,23 @@ export async function codexDaemon(t, answers) {
     client.on("data", (chunk) => {
       bytes = Buffer.concat([bytes, chunk]);
       if (!upgraded) {
-        const end = bytes.indexOf("\r\n\r\n");
-        if (end < 0) return;
-        const key = /^Sec-WebSocket-Key: (\S+)/im.exec(
-          bytes.subarray(0, end).toString(),
-        )[1];
-        const accept = crypto
-          .createHash("sha1")
-          .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
-          .digest("base64");
-        client.write(
-          `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
-        );
-        // The real daemon sends a notification as soon as a client connects,
-        // before any reply.
-        client.write(frame({ jsonrpc: "2.0", method: "account/updated" }));
-        bytes = bytes.subarray(end + 4);
+        const rest = upgradeWebSocket(client, bytes);
+        if (!rest) return;
+        bytes = rest;
         upgraded = true;
       }
       while (bytes.length >= 2) {
-        if (bytes[0] !== 0x81 || !(bytes[1] & 0x80)) return client.destroy();
-        const short = bytes[1] & 0x7f;
-        const start = short === 126 ? 4 : short === 127 ? 10 : 2;
-        if (bytes.length < start) return;
-        const length =
-          short === 126
-            ? bytes.readUInt16BE(2)
-            : short === 127
-              ? Number(bytes.readBigUInt64BE(2))
-              : short;
-        if (bytes.length < start + 4 + length) return;
-        const mask = bytes.subarray(start, start + 4);
-        const payload = bytes
-          .subarray(start + 4, start + 4 + length)
-          .map((byte, index) => byte ^ mask[index % 4]);
-        bytes = bytes.subarray(start + 4 + length);
-        const message = JSON.parse(payload);
+        const next = readClientFrame(bytes);
+        if (next.invalid) return client.destroy();
+        if (next.incomplete) return;
+        bytes = next.rest;
+        const message = JSON.parse(next.payload);
         received.push(message);
         if (message.id === undefined) continue;
-        if (message.method === "initialize")
+        if (message.method === "initialize") {
           experimental = message.params.capabilities?.experimentalApi === true;
-        const entry = table[message.method];
-        const answer =
-          message.method.startsWith("thread/queue/") && !experimental
-            ? {
-                error: {
-                  code: -32600,
-                  message: `${message.method} requires experimentalApi capability`,
-                },
-              }
-            : ((typeof entry === "function"
-                ? entry(message.params)
-                : entry) ?? {
-                error: { code: -32601, message: `no method ${message.method}` },
-              });
+        }
+        const answer = resolveAnswer({ table, message, experimental });
         client.write(
           frame({
             jsonrpc: "2.0",

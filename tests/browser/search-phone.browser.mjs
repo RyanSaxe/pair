@@ -94,15 +94,17 @@ async function wholeOnScreen(page, selector) {
     const frame = document.querySelector(".search-frame.is-shown");
     const part = frame.contentDocument.querySelector(partSelector);
     const fullHeight = part.getBoundingClientRect().height;
-    if (!frame.checkVisibility({ visibilityProperty: true }))
+    if (!frame.checkVisibility({ visibilityProperty: true })) {
       return { shown: 0, whole: fullHeight };
+    }
     const outer = frame.getBoundingClientRect();
     const { offsetTop, height } = visualViewport;
     let from = Math.max(outer.top, offsetTop);
     let to = Math.min(outer.bottom, offsetTop + height);
     for (let box = part; box; box = box.parentElement) {
-      if (box !== part && getComputedStyle(box).overflowY === "visible")
+      if (box !== part && getComputedStyle(box).overflowY === "visible") {
         continue;
+      }
       const { top, bottom } = box.getBoundingClientRect();
       from = Math.max(from, top + outer.top);
       to = Math.min(to, bottom + outer.top);
@@ -296,8 +298,9 @@ for (const engine of ["chrome", "webkit"]) {
       const page = await showNote(t, engine);
       if (!page) return;
       await previewCovers(page, await up(page));
-      for (const part of ["#note-title", "#note-text", "#note-save"])
+      for (const part of ["#note-title", "#note-text", "#note-save"]) {
         await wholeOnScreen(page, part);
+      }
 
       const text = shownFrame(page).locator("#note-text");
       await text.pressSequentially("A narwhal note");

@@ -55,10 +55,11 @@ export const packageVersion = packageJson.version;
 // every later line.
 const floors = packageJson.engines.node.split("||").map((range) => {
   const match = /^\s*(\^|>=)((\d+)\.\d+\.\d+)\s*$/.exec(range);
-  if (!match)
+  if (!match) {
     throw new Error(
       `engines.node in package.json has a range pair cannot read: ${range.trim()}`,
     );
+  }
   return {
     release: match[2],
     line: Number(match[3]),

@@ -4,6 +4,12 @@ import {
   recordPushed,
 } from "#frame/app/draft-merge.mjs";
 import {
+  connected,
+  remote,
+  selectedTab,
+  submissionInFlight,
+} from "#frame/app/state.mjs";
+import {
   changedPages,
   persist,
   setState,
@@ -13,8 +19,6 @@ import {
 import { base, editable, storageKey, views } from "#frame/app/view.mjs";
 import { refreshReplies } from "#frame/notes/thread-reply.mjs";
 import { showChanges } from "#frame/pages/pages.mjs";
-import { submissionInFlight } from "#frame/review/send.mjs";
-import { connected, remote, selectedTab } from "#frame/sync/rounds.mjs";
 
 /* The hub keeps the items of the reviewer's draft that the reviewer
    completed, so a phone and a computer show the same notes, choices and

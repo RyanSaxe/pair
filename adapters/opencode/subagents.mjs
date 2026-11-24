@@ -14,10 +14,11 @@ export function newestSubagent(children, name) {
       (each) => each?.toLowerCase() === wanted,
     ),
   );
-  if (!named.length)
+  if (!named.length) {
     throw new Error(
       `The opencode session has no subagent named ${name}. ${children.length ? `Its subagents are ${children.map((child) => parseTitle(child.title).task).join(", ")}.` : "It has no subagents."}`,
     );
+  }
   return named.reduce((newest, child) =>
     child.time.created > newest.time.created ? child : newest,
   );

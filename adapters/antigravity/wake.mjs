@@ -13,8 +13,9 @@ function isNonInteractive(line) {
     if (word === "--") return false;
     const flag = word.split("=", 1)[0];
     if (flag === "-i" || flag === "--prompt-interactive") return false;
-    if (["-p", "--print", "--prompt", "--input-format"].includes(flag))
+    if (["-p", "--print", "--prompt", "--input-format"].includes(flag)) {
       return true;
+    }
   }
   return false;
 }

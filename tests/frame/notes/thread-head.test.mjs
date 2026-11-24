@@ -87,11 +87,12 @@ const rules = [
   ],
   ["the page", { anchor: "Tonight" }, null, "On this page", "On this page"],
 ];
-for (const [kind, fields, part, open, collapsed] of rules)
+for (const [kind, fields, part, open, collapsed] of rules) {
   test(`a card on ${kind} is headed ${open}`, () => {
     assert.equal(threadTitle(thread(fields), part, false).name, open);
     assert.equal(threadTitle(thread(fields), part, true).name, collapsed);
   });
+}
 
 test("a collapsed card names the words it hides as one line cut at 40 characters", () => {
   const words = thread({

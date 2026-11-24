@@ -123,11 +123,12 @@ test("Start here leaves the waiting round open with its drafts, so a second card
   }
   await tab("running").locator(".work-count", { hasText: "2" }).waitFor();
   await tab("running").click();
-  for (const id of ["deck", "export"])
+  for (const id of ["deck", "export"]) {
     assert.equal(
       await page.locator(`[data-proposal-card=${id}] .card-meta`).textContent(),
       "Working here",
     );
+  }
   await page.locator("#review-row").click();
   await page
     .locator("#feedback-groups", { hasText: "Keep the header height." })
@@ -247,8 +248,9 @@ test("Start and New work item keep one size, with the main button on its own row
         assert.ok(other.top >= main.top + main.height, label);
       }
     }
-    for (const box of boxes)
+    for (const box of boxes) {
       assert.deepEqual(box, boxes[0], `${form} ${width}px`);
+    }
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "hidden" });
   }
@@ -742,8 +744,9 @@ test("a card's reply box keeps focus and every key while the cards change, and W
     );
     const response = await request.response();
     if (response.status() !== 304) await response.finished();
-    for (const _ of [1, 2])
+    for (const _ of [1, 2]) {
       await page.evaluate(() => new Promise(requestAnimationFrame));
+    }
   };
   await field.click();
   // Each of these letters is one of the frame's single-key shortcuts when no

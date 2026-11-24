@@ -39,10 +39,11 @@ async function copyPair(directory) {
   const { files } = JSON.parse(
     await fs.readFile(path.join(root, "package.json"), "utf8"),
   );
-  for (const entry of ["package.json", ...files])
+  for (const entry of ["package.json", ...files]) {
     await fs.cp(path.join(root, entry), path.join(directory, entry), {
       recursive: true,
     });
+  }
   return path.join(directory, "src/cli.mjs");
 }
 
@@ -142,8 +143,9 @@ test("commands from the hub's folder replace a hub with live sessions only on co
     sessionDir,
     ...started.map(({ stdout }) => JSON.parse(stdout).sessionDir),
   ];
-  for (const directory of sessions)
+  for (const directory of sessions) {
     await a.run("pause", "--session-dir", directory, "--reason", "idle");
+  }
   const fourth = await record(a.config);
   assert.notEqual(fourth.version, third.version);
   assert.equal(alive(third.pid), false);

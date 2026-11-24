@@ -63,8 +63,9 @@ test("the draft refuses another site's page, text typed before its button, and a
     { "draft/overview/why": "Typed before Answer." },
     { message: "Typed in the Send popup." },
     { alignUnflagged: "no" },
-  ])
+  ]) {
     assert.equal((await a.request(route, { changes })).code, 400);
+  }
   assert.equal((await a.request(route)).body.revision, 0);
 });
 

@@ -3,11 +3,12 @@ import {
   emptySynced,
   forgetSent,
 } from "#frame/app/draft-merge.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
+import { selectedTab, state } from "#frame/app/state.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { editable, prefsPrefix, storageKey } from "#frame/app/view.mjs";
-import { review } from "#frame/review/review.mjs";
-import { queuePush } from "#frame/sync/draft.mjs";
-import { selectedTab } from "#frame/sync/rounds.mjs";
+
+export { setState, state } from "#frame/app/state.mjs";
 
 export const record = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -49,11 +50,13 @@ export function emptyDraft(round) {
 // round arrives, loadDraft() drops the items that were already sent and keeps
 // the unsent ones.
 export function loadDraft(saved, round) {
-  if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
+  if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices)) {
     return emptyDraft(round);
+  }
   const draft = { ...emptyDraft(round), ...saved };
-  if (!record(draft.synced) || !record(draft.synced.items))
+  if (!record(draft.synced) || !record(draft.synced.items)) {
     draft.synced = emptySynced();
+  }
   if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
@@ -119,16 +122,21 @@ export function submissionGroups(draft) {
 export function changedPages(before, after) {
   const pages = new Set();
   const [old, next] = [notesById(before), notesById(after)];
-  for (const id of new Set([...old.keys(), ...next.keys()]))
-    if (itemsDiffer(old.get(id), next.get(id)))
+  for (const id of new Set([...old.keys(), ...next.keys()])) {
+    if (itemsDiffer(old.get(id), next.get(id))) {
       pages.add((old.get(id) ?? next.get(id)).topic);
-  for (const field of ["choices", "answers", "drafts"])
+    }
+  }
+  for (const field of ["choices", "answers", "drafts"]) {
     for (const key of new Set([
       ...Object.keys(before[field]),
       ...Object.keys(after[field]),
-    ]))
-      if (itemsDiffer(before[field][key], after[field][key]))
+    ])) {
+      if (itemsDiffer(before[field][key], after[field][key])) {
         pages.add(key.split("/")[0]);
+      }
+    }
+  }
   return pages;
 }
 
@@ -151,10 +159,6 @@ export function markSent(draft, id, at) {
   return draft;
 }
 
-export let state;
-export function setState(draft) {
-  state = draft;
-}
 export function savedDraft(round) {
   try {
     return loadDraft(JSON.parse(localStorage.getItem(storageKey)), round);
@@ -163,6 +167,7 @@ export function savedDraft(round) {
     return emptyDraft(round);
   }
 }
+
 // storedDraft() ignores a draft that another tab of the session saved for a
 // different round, so this tab never takes over that draft.
 export function storedDraft(value, round) {
@@ -173,6 +178,7 @@ export function storedDraft(value, round) {
     return null;
   }
 }
+
 export const prefs = {
   get(key) {
     try {
@@ -183,9 +189,9 @@ export const prefs = {
   },
   set(key, value) {
     try {
-      if (value === null || value === undefined)
+      if (value === null || value === undefined) {
         localStorage.removeItem(prefsPrefix + key);
-      else localStorage.setItem(prefsPrefix + key, String(value));
+      } else localStorage.setItem(prefsPrefix + key, String(value));
     } catch {
       /* When localStorage throws, the preference is not saved, and no code
          depends on it. */
@@ -202,9 +208,10 @@ export function persist() {
     $("storage-status").textContent =
       "Local storage unavailable. Export a copy to keep your draft.";
   }
-  queuePush();
+  callHook("queuePush");
 }
+
 export function save() {
   persist();
-  review();
+  callHook("review");
 }

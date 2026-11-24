@@ -24,8 +24,9 @@ async function removeCopy(copy) {
     const entries = await fs
       .readdir(copy, { withFileTypes: true })
       .catch(() => []);
-    for (const entry of entries)
+    for (const entry of entries) {
       if (entry.isDirectory()) await removeCopy(path.join(copy, entry.name));
+    }
   }
   await fs.rm(copy, { recursive: true, force: true });
 }
@@ -137,8 +138,9 @@ const heard = (response, origin) =>
 // followHub runs ensureHub only when the hub that answered is that
 // environment's hub. A hub too old to send its version stays as it is.
 export async function followHub() {
-  if (hubChecked() || !answered?.version || answered.version === version)
+  if (hubChecked() || !answered?.version || answered.version === version) {
     return;
+  }
   const config = settings();
   const record = await readRecord(config);
   if (`http://127.0.0.1:${record?.port}` !== answered.origin) return;
@@ -148,6 +150,38 @@ export async function followHub() {
     console.error(`pair: ${error.message}`);
   }
 }
+function buildActionRequest(connection, data, wake) {
+  return {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${connection.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...data,
+      sessionId: connection.sessionId,
+      // The hub accepts every command except status only from the
+      // session's holder, and wakes the holder at the target its
+      // latest command sent.
+      agent: wake && identify(wake),
+      wake,
+    }),
+    signal: AbortSignal.timeout(15000),
+  };
+}
+
+function checkSessionMatch(result, connection, directory) {
+  const answeredId = result.status?.sessionId || result.sessionId;
+  requireValue(
+    answeredId === connection.sessionId,
+    `The hub answered for a different session than the one in ${directory}. Run pair start --session-dir ${directory} to resume it.`,
+    409,
+  );
+}
+
+const isUnknownSession = (response, result) =>
+  response.status === 404 && result.error === "Unknown session";
+
 // With anyAgent, as for status and propose, the command may come from an agent
 // that cannot be woken, such as one the holder briefed, unless the session has
 // to register with a new hub. request() still sends the agent's identity when
@@ -197,6 +231,27 @@ export async function openSession(options, { anyAgent = false } = {}) {
     "EHOSTUNREACH",
     "EADDRNOTAVAIL",
   ]);
+  async function sendAction(data) {
+    try {
+      const response = await fetch(
+        `${connection.origin}/agent/${connection.sessionId}/action`,
+        buildActionRequest(connection, data, wake),
+      );
+      heard(response, connection.origin);
+      return response;
+    } catch (error) {
+      if (!unreached.has(error.cause?.code)) mayHaveActed = true;
+      throw error;
+    }
+  }
+  async function readJson(response) {
+    try {
+      return await response.json();
+    } catch (error) {
+      mayHaveActed = true;
+      throw error;
+    }
+  }
   async function request(data, retry = true) {
     const reattach = async () => {
       await register();
@@ -206,41 +261,13 @@ export async function openSession(options, { anyAgent = false } = {}) {
     };
     let response;
     try {
-      response = await fetch(
-        `${connection.origin}/agent/${connection.sessionId}/action`,
-        {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${connection.token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...data,
-            sessionId: connection.sessionId,
-            // The hub accepts every command except status only from the
-            // session's holder, and wakes the holder at the target its
-            // latest command sent.
-            agent: wake && identify(wake),
-            wake,
-          }),
-          signal: AbortSignal.timeout(15000),
-        },
-      );
-      heard(response, connection.origin);
+      response = await sendAction(data);
     } catch (error) {
-      if (!unreached.has(error.cause?.code)) mayHaveActed = true;
       if (retry && error.name === "TypeError") return reattach();
       throw error;
     }
-    let result;
-    try {
-      result = await response.json();
-    } catch (error) {
-      mayHaveActed = true;
-      throw error;
-    }
-    if (retry && response.status === 404 && result.error === "Unknown session")
-      return reattach();
+    const result = await readJson(response);
+    if (retry && isUnknownSession(response, result)) return reattach();
     if (response.status >= 500) mayHaveActed = true;
     requireValue(
       response.ok,
@@ -248,11 +275,7 @@ export async function openSession(options, { anyAgent = false } = {}) {
       response.status,
     );
     mayHaveActed = true;
-    requireValue(
-      (result.status?.sessionId || result.sessionId) === connection.sessionId,
-      `The hub answered for a different session than the one in ${directory}. Run pair start --session-dir ${directory} to resume it.`,
-      409,
-    );
+    checkSessionMatch(result, connection, directory);
     return result;
   }
   // Search reads what every session holds, so it has no session token and takes
@@ -291,68 +314,57 @@ export async function openSession(options, { anyAgent = false } = {}) {
 const codexRefusal = (file) =>
   `pair start refuses under Codex until ${file} exists, because without it Codex asks for approval of every pair command. Ask the user whether pair may write that file. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts. Run pair start again after the restart.`;
 
-export async function start(options) {
-  requireNode();
+function validateResumeOrNew(options, { from, resuming }) {
+  if (resuming && options.title !== undefined) {
+    throw usageError(
+      "start",
+      "pair start takes --title only when it creates a session, not with --session-dir.",
+    );
+  }
+  if (options.reopen && !resuming) {
+    throw usageError(
+      "start",
+      "pair start takes --reopen only with --session-dir, the session to reopen.",
+    );
+  }
+  if (!resuming && !from && !options.title?.trim()) {
+    throw usageError(
+      "start",
+      "pair start requires --title TEXT when it creates a session.",
+    );
+  }
+}
+
+function validateStartOptions(options) {
   const resuming = options["session-dir"] !== undefined;
   const from = options.from !== undefined;
-  if (from && (resuming || options.title !== undefined))
+  if (from && (resuming || options.title !== undefined)) {
     throw usageError(
       "start",
       "pair start --from takes no --title and no --session-dir. It creates a session with the proposal's title.",
     );
-  if (from !== (options.proposal !== undefined))
+  }
+  if (from !== (options.proposal !== undefined)) {
     throw usageError(
       "start",
       from
         ? "pair start --from takes --proposal ID, the proposal the new session runs."
         : "pair start takes --proposal only with --from.",
     );
-  if (resuming && options.title !== undefined)
-    throw usageError(
-      "start",
-      "pair start takes --title only when it creates a session, not with --session-dir.",
-    );
-  if (options.reopen && !resuming)
-    throw usageError(
-      "start",
-      "pair start takes --reopen only with --session-dir, the session to reopen.",
-    );
-  if (!resuming && !from && !options.title?.trim())
-    throw usageError(
-      "start",
-      "pair start requires --title TEXT when it creates a session.",
-    );
-  const config = settings();
-  const wake = detectWake();
-  if (wake.harness === "codex" && !(await rulesExist()))
-    throw new Error(codexRefusal(rulesFile));
-  const directory = resuming
-    ? path.resolve(options["session-dir"])
-    : path.join(config.sessions, crypto.randomUUID());
-  // The hub creates a session in any directory it is given, so a mistyped
-  // --session-dir would start a new session there, outside sessions/.
-  if (resuming)
-    requireValue(
-      await exists(path.join(directory, "status.json")),
-      `No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.`,
-    );
-  const started = await attach(directory, config, {
-    wake,
-    start: true,
-    folder: process.cwd(),
-    ...(from
-      ? { from: path.resolve(options.from), proposal: options.proposal }
-      : resuming
-        ? { reopen: options.reopen }
-        : { title: options.title.trim() }),
-  });
-  // The session works without its agent in pair agents, so pair start prints a
-  // registration error and goes on.
-  await registerAgent(wake).catch((error) =>
-    console.error(
-      `pair: This agent is not registered, so pair agents does not list it. ${error.message}`,
-    ),
-  );
+  }
+  validateResumeOrNew(options, { from, resuming });
+  return { from, resuming };
+}
+
+function startModeOptions(options, { from, resuming }) {
+  if (from) {
+    return { from: path.resolve(options.from), proposal: options.proposal };
+  }
+  if (resuming) return { reopen: options.reopen };
+  return { title: options.title.trim() };
+}
+
+function startOutput(started, resuming) {
   const card = started.proposal;
   return {
     next: started.next,
@@ -375,43 +387,97 @@ export async function start(options) {
   };
 }
 
-export async function publish(options) {
-  const session = await openSession(options);
-  const file = path.resolve(options.file);
-  const html = await fs.readFile(file, "utf8").catch((error) => {
+export async function start(options) {
+  requireNode();
+  const { from, resuming } = validateStartOptions(options);
+  const config = settings();
+  const wake = detectWake();
+  if (wake.harness === "codex" && !(await rulesExist())) {
+    throw new Error(codexRefusal(rulesFile));
+  }
+  const directory = resuming
+    ? path.resolve(options["session-dir"])
+    : path.join(config.sessions, crypto.randomUUID());
+  // The hub creates a session in any directory it is given, so a mistyped
+  // --session-dir would start a new session there, outside sessions/.
+  if (resuming) {
+    requireValue(
+      await exists(path.join(directory, "status.json")),
+      `No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.`,
+    );
+  }
+  const started = await attach(directory, config, {
+    wake,
+    start: true,
+    folder: process.cwd(),
+    ...startModeOptions(options, { from, resuming }),
+  });
+  // The session works without its agent in pair agents, so pair start prints a
+  // registration error and goes on.
+  await registerAgent(wake).catch((error) =>
+    console.error(
+      `pair: This agent is not registered, so pair agents does not list it. ${error.message}`,
+    ),
+  );
+  return startOutput(started, resuming);
+}
+
+async function readBuiltPage(file) {
+  return fs.readFile(file, "utf8").catch((error) => {
     if (error.code !== "ENOENT") throw error;
     throw new Error(
       `No built page at ${file}. Build it with pair build SOURCE OUTPUT, or check the path.`,
       { cause: error },
     );
   });
+}
+
+async function buildPublishAction(options, file) {
+  const html = await readBuiltPage(file);
   const action = { action: "publish", html };
-  if (options.pages)
+  if (options.pages) {
     action.pages = (await read(path.resolve(options.pages))).pages;
+  }
   if (options.start) action.start = options.start;
   if (options.note !== undefined) action.note = options.note;
   const [tooBig] = tooBigToPublish(file, action);
   requireValue(!tooBig, tooBig);
-  if (options.source)
-    action.source = await keepSource(session.directory, options.source, html);
+  return action;
+}
+
+async function handlePublishError(error, session, source) {
+  if (!source) throw error;
+  // A source kept for a publish that the hub refused would block the retry,
+  // so publish removes it. The next round starts from a published page's
+  // source, so the copy stays while the hub may have published this page.
+  if (!session.mayHaveActed()) {
+    await removeCopy(source);
+    throw error;
+  }
+  // The message of a timeout's error is read-only, so publish throws a new
+  // error with the longer message.
+  throw new Error(
+    `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${source}. Run pair status. If the page is not published, delete that directory and publish again.`,
+    { cause: error },
+  );
+}
+
+export async function publish(options) {
+  const session = await openSession(options);
+  const file = path.resolve(options.file);
+  const action = await buildPublishAction(options, file);
+  if (options.source) {
+    action.source = await keepSource(
+      session.directory,
+      options.source,
+      action.html,
+    );
+  }
   let result;
   try {
     result = await session.request(action);
   } catch (error) {
-    if (!action.source) throw error;
-    // A source kept for a publish that the hub refused would block the retry,
-    // so publish removes it. The next round starts from a published page's
-    // source, so the copy stays while the hub may have published this page.
-    if (!session.mayHaveActed()) {
-      await removeCopy(action.source);
-      throw error;
-    }
-    // The message of a timeout's error is read-only, so publish throws a new
-    // error with the longer message.
-    throw new Error(
-      `${error.message.replace(/(?<![.?!])$/, ".")} The hub may have published this page, so its source stays at ${action.source}. Run pair status. If the page is not published, delete that directory and publish again.`,
-      { cause: error },
-    );
+    await handlePublishError(error, session, action.source);
   }
   const { page } = result;
   // publish prints the component list after every Agreed, because the agent
@@ -438,8 +504,9 @@ export async function publish(options) {
 export async function runHub() {
   requireNode();
   const hub = await startHub(settings());
-  for (const signal of ["SIGTERM", "SIGINT"])
+  for (const signal of ["SIGTERM", "SIGINT"]) {
     process.once(signal, () => hub.close());
+  }
   await hub.closed;
   process.exit(0);
 }

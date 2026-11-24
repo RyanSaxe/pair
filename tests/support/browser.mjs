@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { release } from "node:os";
 import { chromium, webkit } from "playwright-core";
 import { libraries, moduleIntegrity } from "../../src/shared/libraries.mjs";
-import "./env.mjs";
+import { isolateConfig } from "./env.mjs";
+
+isolateConfig();
 
 // launch() throws one of these messages when the browser is not installed.
 // open() skips the test on that message, and fails it when CI is set, so a CI
@@ -31,8 +33,9 @@ export async function launch({
       /Chromium distribution ['"]chromium['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
         message,
       )
-    )
+    ) {
       throw Error(missing[engine], { cause: error });
+    }
     throw error;
   }
 }
@@ -64,10 +67,11 @@ export async function open(
   }
   t.after(() => browser.close());
   const page = await browser.newPage(pageOptions);
-  if (html !== undefined)
+  if (html !== undefined) {
     await page.route("http://pair.localhost/", (route) =>
       route.fulfill({ body: html, contentType: "text/html" }),
     );
+  }
   await page.goto(url);
   return page;
 }

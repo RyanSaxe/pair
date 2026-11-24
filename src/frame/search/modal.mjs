@@ -89,14 +89,16 @@ function searchSource(win) {
     blank: (reply) => blankHtml(state, reply),
     end({ results, total, loading }) {
       let html = "";
-      if (total > results.length)
+      if (total > results.length) {
         html += `<div class="search-end">${
           state.query.trim()
             ? `Showing the best ${results.length} of ${total}. Keep typing to narrow them.`
             : `Showing the newest ${results.length} of ${total}.`
         }</div>`;
-      if (loading)
+      }
+      if (loading) {
         html += `<div class="search-end">Still reading older sessions, so more may appear.</div>`;
+      }
       return html;
     },
     count: ({ total }) =>
@@ -133,10 +135,12 @@ export function installSearch() {
   // The keys dialog names this system's keys, and the home view has no threads
   // to set them.
   const [command, alt] = apple() ? ["⌘", "Option"] : ["Ctrl", "Alt"];
-  for (const key of document.querySelectorAll("[data-send-modifier]"))
+  for (const key of document.querySelectorAll("[data-send-modifier]")) {
     key.textContent = command;
-  for (const key of document.querySelectorAll("[data-alt-modifier]"))
+  }
+  for (const key of document.querySelectorAll("[data-alt-modifier]")) {
     key.textContent = alt;
+  }
   shared = createWindow();
   source = searchSource(shared);
   button.addEventListener("click", () => shared.open(source));

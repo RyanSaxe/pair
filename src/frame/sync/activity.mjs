@@ -4,8 +4,9 @@ import { deliveryState, wakeAccepts } from "#shared/wake-state.mjs";
 
 export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
   const finished = Date.parse(publishedAt);
-  if (!Number.isFinite(finished) || !Number.isFinite(Date.parse(receivedAt)))
+  if (!Number.isFinite(finished) || !Number.isFinite(Date.parse(receivedAt))) {
     return null;
+  }
   return `Finished ${ago(publishedAt, now)} · took ${since(receivedAt, finished)}`;
 }
 
@@ -46,16 +47,19 @@ export function rowLabel(slot, { stopped, failed }, now = Date.now()) {
 // While the agent is stopped, its last note no longer says what it is doing,
 // so pendingLabel shows that the agent stopped instead.
 export function pendingLabel(slot, { stopped, failed }, now = Date.now()) {
-  if (slot.state === "ready")
+  if (slot.state === "ready") {
     return { mark: "active", text: "Loading this page" };
-  if (slot.state !== "active")
+  }
+  if (slot.state !== "active") {
     return { mark: "queued", text: "Waiting to start" };
-  if (stopped)
+  }
+  if (stopped) {
     return {
       mark: "active",
       stopped: true,
       text: failed ? "Agent stopped" : "Agent paused",
     };
+  }
   const report = lastReport(slot, now);
   return {
     mark: "active",
@@ -65,6 +69,103 @@ export function pendingLabel(slot, { stopped, failed }, now = Date.now()) {
       late: report.late,
     }),
   };
+}
+
+function activitySlots(remote, currentSet, submittedRound) {
+  if (remote?.openRound) {
+    return [
+      { id: "agreed", title: "Agreed so far", state: "ready" },
+      ...remote.openRound.pages,
+    ];
+  }
+  if (remote?.current?.round === submittedRound) return [];
+  return currentSet?.pages || [];
+}
+
+function activityTitle({
+  inFlight,
+  stopped,
+  finished,
+  hasSlots,
+  home,
+  received,
+}) {
+  if (inFlight) return "Sending";
+  if (stopped) return "Agent needs attention";
+  if (finished) return "All pages ready";
+  if (hasSlots) return "Pages in progress";
+  if (home) return "Preparing the first round";
+  return received ? "Preparing the next round" : "Waiting for the agent";
+}
+
+function activityNote({
+  inFlight,
+  latest,
+  received,
+  finished,
+  stopped,
+  remote,
+  now,
+}) {
+  if (inFlight || (latest && !received) || finished || stopped) return null;
+  if (!remote?.report?.note) return null;
+  return {
+    text: remote.report.note,
+    at: remote.report.noteAt,
+    late: now - Date.parse(remote.report.noteAt) >= LATE,
+  };
+}
+
+function stoppedReason(failed, paused, remote) {
+  if (failed) return "Could not wake the agent. Send a message in chat.";
+  if (!paused) return null;
+  const suffix = remote.paused.reason ? `: ${remote.paused.reason}.` : ".";
+  return `Agent paused${suffix} Send a message in chat.`;
+}
+
+function baseSummary({ slots, ready, home, note, received, read }) {
+  if (slots.length) return `${ready} of ${slots.length} pages ready`;
+  if (home) {
+    return (
+      !note && "The first pages appear here when the agent publishes Agreed."
+    );
+  }
+  if (!received) return "Saved for the agent";
+  return read ? "Agent read what you sent" : "Agent received what you sent";
+}
+
+function activitySummary(context) {
+  if (context.inFlight) return "Saving what you sent";
+  const reason = stoppedReason(context.failed, context.paused, context.remote);
+  if (reason) return reason;
+  const takeover =
+    context.remote?.takeover &&
+    `${context.remote.takeover.name} took over at ${new Date(context.remote.takeover.at).toTimeString().slice(0, 5)}`;
+  return [baseSummary(context), takeover].filter(Boolean).join(" · ");
+}
+
+function activityReportLine({ between, note, remote, quiet, now }) {
+  if (!between || note || !remote?.report?.at) return null;
+  if (quiet) return { text: quiet, late: true };
+  return { text: `Last report ${ago(remote.report.at, now)}`, late: false };
+}
+
+function activityTrack({ hasSlots, inFlight, latest, home, stopped }) {
+  if (hasSlots) return null;
+  // The line moves from Send, whether or not the agent has received the
+  // feedback, because a slow wake must not look like a frozen page. It stops
+  // only when the card says that the agent stopped.
+  return inFlight || ((latest || home) && !stopped) ? "moving" : "still";
+}
+
+function isBetweenPages({ slots, finished, stopped, inFlight }) {
+  return (
+    slots.length > 0 &&
+    !finished &&
+    !stopped &&
+    !inFlight &&
+    !slots.some((item) => item.state === "active")
+  );
 }
 
 export function activityModel({
@@ -80,108 +181,60 @@ export function activityModel({
   const received = read || delivery === "received";
   const { failed, stopped } = agentStopped(remote);
   const paused = lifecycle(remote) === "paused";
-  const slots = remote?.openRound
-    ? [
-        { id: "agreed", title: "Agreed so far", state: "ready" },
-        ...remote.openRound.pages,
-      ]
-    : remote?.current?.round !== submittedRound
-      ? currentSet?.pages || []
-      : [];
+  const slots = activitySlots(remote, currentSet, submittedRound);
   const ready = slots.filter((item) => item.state === "ready").length;
   const finished = slots.length > 0 && ready === slots.length;
   // Between pages, after Agreed or a page publishes and before the agent
   // starts the next page, no row is at work. The card then shows the agent's
   // reports, with a sweep over the unstarted segments that stops when the
   // reports stop.
-  const between =
-    slots.length > 0 &&
-    !finished &&
-    !stopped &&
-    !inFlight &&
-    !slots.some((item) => item.state === "active");
+  const between = isBetweenPages({ slots, finished, stopped, inFlight });
   const quiet = between ? silence(remote?.report, now) : null;
   const home = Boolean(remote) && !remote.current;
-  const title = inFlight
-    ? "Sending"
-    : stopped
-      ? "Agent needs attention"
-      : finished
-        ? "All pages ready"
-        : slots.length
-          ? "Pages in progress"
-          : home
-            ? "Preparing the first round"
-            : received
-              ? "Preparing the next round"
-              : "Waiting for the agent";
-  const takeover =
-    remote?.takeover &&
-    `${remote.takeover.name} took over at ${new Date(remote.takeover.at).toTimeString().slice(0, 5)}`;
-  // The report's note shows after the summary while the agent works on a
-  // round it has received. The hub clears the note on every report that has
-  // none.
-  const note =
-    inFlight ||
-    (latest && !received) ||
-    finished ||
-    stopped ||
-    !remote?.report?.note
-      ? null
-      : {
-          text: remote.report.note,
-          at: remote.report.noteAt,
-          late: now - Date.parse(remote.report.noteAt) >= LATE,
-        };
-  const reason = failed
-    ? "Could not wake the agent. Send a message in chat."
-    : paused
-      ? `Agent paused${remote.paused.reason ? `: ${remote.paused.reason}.` : "."} Send a message in chat.`
-      : null;
-  const summary = inFlight
-    ? "Saving what you sent"
-    : reason ||
-      [
-        slots.length
-          ? `${ready} of ${slots.length} pages ready`
-          : home
-            ? !note &&
-              "The first pages appear here when the agent publishes Agreed."
-            : received
-              ? read
-                ? "Agent read what you sent"
-                : "Agent received what you sent"
-              : "Saved for the agent",
-        takeover,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-  const reportLine =
-    between && !note && remote?.report?.at
-      ? quiet
-        ? { text: quiet, late: true }
-        : { text: `Last report ${ago(remote.report.at, now)}`, late: false }
-      : null;
-  // The line moves from Send, whether or not the agent has received the
-  // feedback, because a slow wake must not look like a frozen page. It stops
-  // only when the card says that the agent stopped.
-  const track = slots.length
-    ? null
-    : inFlight || ((latest || home) && !stopped)
-      ? "moving"
-      : "still";
-  const sweep = between && !quiet;
+  const note = activityNote({
+    inFlight,
+    latest,
+    received,
+    finished,
+    stopped,
+    remote,
+    now,
+  });
   return {
     slots,
     ready,
     failed,
     stopped,
-    title,
-    summary,
+    title: activityTitle({
+      inFlight,
+      stopped,
+      finished,
+      hasSlots: Boolean(slots.length),
+      home,
+      received,
+    }),
+    summary: activitySummary({
+      inFlight,
+      failed,
+      paused,
+      remote,
+      slots,
+      ready,
+      home,
+      note,
+      received,
+      read,
+    }),
     note,
-    reportLine,
-    track,
-    sweep,
+    reportLine: activityReportLine({ between, note, remote, quiet, now }),
+    track: activityTrack({
+      hasSlots: Boolean(slots.length),
+      inFlight,
+      latest,
+      home,
+      stopped,
+    }),
+    sweep: between && !quiet,
   };
 }
 
@@ -205,8 +258,9 @@ export function roundModel({ remote, now = Date.now() }) {
   const total = round.pages.length + 1;
   const ready = 1 + round.pages.filter((item) => item.state === "ready").length;
   if (ready === total) return null;
-  if (lifecycle(remote) === "paused")
+  if (lifecycle(remote) === "paused") {
     return { text: "Agent paused", late: true };
+  }
   const quiet = silence(remote.report, now);
   if (quiet) return { text: quiet, late: true };
   return { text: `${ready} of ${total} ready`, late: false };

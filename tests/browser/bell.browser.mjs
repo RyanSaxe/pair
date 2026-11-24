@@ -70,8 +70,9 @@ test("a reply in a thread clears that thread's row from the bell and keeps the o
   await reply(session, other);
   await count(page, "2");
   const card = page.locator(`pair-thread[data-thread="${answered}"]`);
-  if ((await card.getAttribute("collapsed")) !== null)
+  if ((await card.getAttribute("collapsed")) !== null) {
     await card.locator(".thread-fold").click();
+  }
   await card.locator(".thread-reply textarea").fill("Thanks.");
   await card.locator(".thread-reply button[type=submit]").click();
   await count(page, "1");

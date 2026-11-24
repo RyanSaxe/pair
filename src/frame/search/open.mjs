@@ -1,13 +1,10 @@
+import { callHook } from "#frame/app/hooks.mjs";
+import { remote } from "#frame/app/state.mjs";
 import { base, session } from "#frame/app/view.mjs";
 import { isLetter } from "#frame/notes/match.mjs";
-import { openLine } from "#frame/sync/center.mjs";
 import { resultHref } from "#frame/sync/notifications.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
 
-// The element on the result's page that holds it.
-export function targetOf(row) {
-  // A page title's result is the page itself, from its title down.
-  if (row.type === "page title") return null;
+function directTarget(row) {
   if (row.kind === "threads") {
     const [thread, message] = row.item.split("/");
     return `thread-${thread}-${message}`;
@@ -15,6 +12,15 @@ export function targetOf(row) {
   if (row.type === "alignment") return `agreement-${row.item}`;
   if (row.type === "task") return "agreement-task";
   if (row.kind === "proposals") return `proposal-${row.item}`;
+  return null;
+}
+
+// The element on the result's page that holds it.
+export function targetOf(row) {
+  // A page title's result is the page itself, from its title down.
+  if (row.type === "page title") return null;
+  const direct = directTarget(row);
+  if (direct) return direct;
   if (row.draft) return null;
   if (row.kind === "notes" || row.kind === "answers") return `sent-${row.item}`;
   // A block with its own id keeps it, so the hub says which id it has.
@@ -31,9 +37,11 @@ export const pageOf = (row) =>
     : row.page;
 
 function wordAround(text, from, to) {
-  while (isLetter(text[from - 1])) from--;
-  while (isLetter(text[to])) to++;
-  return text.slice(from, to);
+  let start = from;
+  let end = to;
+  while (isLetter(text[start - 1])) start--;
+  while (isLetter(text[end])) end++;
+  return text.slice(start, end);
 }
 
 /* The words to mark on the result's page: what the reader typed, and the word
@@ -49,10 +57,13 @@ export function matchOf(row, query) {
   for (const [text, ranges] of [
     [row.text, row.ranges],
     [row.heading, row.headingRanges],
-  ])
-    for (const [from, to] of ranges)
-      if (!spelled.has(text.slice(from, to).toLowerCase()))
+  ]) {
+    for (const [from, to] of ranges) {
+      if (!spelled.has(text.slice(from, to).toLowerCase())) {
         found.add(wordAround(text, from, to));
+      }
+    }
+  }
   return [typed, ...found].join(" ");
 }
 
@@ -63,7 +74,7 @@ export function openResult(row, query, place = {}) {
   const href = resultHref({ ...row, page }, { target, match });
   if (!row.round) return location.assign(href);
   const own = row.session === session.sessionId;
-  openLine({
+  callHook("openLine", {
     entry: own
       ? {
           id: session.sessionId,

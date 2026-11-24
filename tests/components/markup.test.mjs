@@ -1,10 +1,12 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
+
+isolateConfig();
 
 const root = new URL("../../src/components/", import.meta.url);
 
@@ -26,11 +28,12 @@ test("every component's markup.html builds as it is written", async (t) => {
     const prototypes = [...html.matchAll(/data-prototype="([^"]+)"/g)].map(
       ([, id]) => ({ id, title: id, html: "<p>x</p>", height: 100 }),
     );
-    for (const [, file] of html.matchAll(/data-diff-input="([^"]+)"/g))
+    for (const [, file] of html.matchAll(/data-diff-input="([^"]+)"/g)) {
       await fs.writeFile(
         path.join(directory, file),
         '{"before":"","after":"","patch":""}',
       );
+    }
     await assert.doesNotReject(
       buildPage(path.join(directory, "markup.json"), {
         name: "markup",

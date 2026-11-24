@@ -19,12 +19,15 @@ const dataImage = /^data:(image\/(?:png|jpeg|webp|gif));base64,/i;
 const pixels = (value) => /^\d+$/.test(value);
 function missingSize({ width, height }, natural) {
   if (width === undefined && height === undefined) return natural;
-  if (![width, height].every((side) => side === undefined || pixels(side)))
+  if (![width, height].every((side) => side === undefined || pixels(side))) {
     return null;
-  if (width === undefined)
+  }
+  if (width === undefined) {
     return { width: Math.round((height * natural.width) / natural.height) };
-  if (height === undefined)
+  }
+  if (height === undefined) {
     return { height: Math.round((width * natural.height) / natural.width) };
+  }
   return {};
 }
 function separate(html, addressOf) {
@@ -56,7 +59,7 @@ export function replyImages(base) {
   const separated = new WeakMap();
   const parts = (thread, index) => {
     const message = thread.messages[index];
-    if (!separated.has(message))
+    if (!separated.has(message)) {
       separated.set(
         message,
         separate(
@@ -65,6 +68,7 @@ export function replyImages(base) {
             `${base}/api/thread-image/${encodeURIComponent(thread.id)}/${index}/${image}`,
         ),
       );
+    }
     return separated.get(message);
   };
   return {

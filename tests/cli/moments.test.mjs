@@ -9,11 +9,12 @@ import { hub, pairCli, root, task } from "../support/hub.mjs";
 // momentTexts maps each moment's name to its text as guideText returns it, which is
 // the text a command prints.
 const momentTexts = new Map();
-for (const file of await fs.readdir(path.join(root, "guide/moments")))
+for (const file of await fs.readdir(path.join(root, "guide/moments"))) {
   momentTexts.set(
     path.basename(file, ".md"),
     (await guideText(`moments/${file}`)).trim(),
   );
+}
 
 // holder runs the CLI as the holder of a session on an in-process hub. Its
 // publish builds a page and runs pair publish, as an agent does.
@@ -42,11 +43,12 @@ async function holder(t) {
     });
     await fs.writeFile(file, html);
     const list = path.join(home, `pages-${count}.json`);
-    if (pages)
+    if (pages) {
       await fs.writeFile(
         list,
         JSON.stringify({ pages: pages.map((id) => ({ id, title: id })) }),
       );
+    }
     return cli.run(
       "publish",
       ...dir,
@@ -98,11 +100,14 @@ async function holder(t) {
 // moment and of no other moment.
 function printsMoment(output, names, printed) {
   const named = [names].flat();
-  for (const name of named)
+  for (const name of named) {
     assert.ok(output.includes(printed.get(name)), `${name} in:\n${output}`);
-  for (const [other, text] of printed)
-    if (!named.includes(other))
+  }
+  for (const [other, text] of printed) {
+    if (!named.includes(other)) {
       assert.ok(!output.includes(text), `${other} in:\n${output}`);
+    }
+  }
 }
 
 test("each command prints the moment it is run at", async (t) => {

@@ -84,8 +84,9 @@ test("the record refuses another site's page and a body that is not lists of IDs
     { Origin: "http://evil" },
   );
   assert.equal(refused.code, 403);
-  for (const body of [{ opened: page }, { opened: [1] }, { places: [page] }])
+  for (const body of [{ opened: page }, { opened: [1] }, { places: [page] }]) {
     assert.equal((await a.request("/api/seen", body)).code, 400);
+  }
   assert.equal((await a.request("/api/sessions")).body.seen.opened, null);
 });
 

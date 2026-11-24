@@ -10,8 +10,9 @@ async function searcher(t) {
   const find = async (query, params = {}) => {
     const address = new URL("/api/search", h.server.origin);
     address.searchParams.set("q", query);
-    for (const [key, value] of Object.entries(params))
+    for (const [key, value] of Object.entries(params)) {
       address.searchParams.set(key, value);
+    }
     const response = await fetch(address);
     return { code: response.status, body: await response.json() };
   };

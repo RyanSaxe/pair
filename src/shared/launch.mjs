@@ -22,6 +22,17 @@ const invocation = (script, args) =>
       ]
     : [script, args];
 
+function launchError(script, error, stderr) {
+  if (error.killed) {
+    return `The launch script ${script} did not exit within 10 seconds. It must open the command in a new terminal and exit.`;
+  }
+  if (typeof error.code === "number") {
+    const said = stderr.trim();
+    return `The launch script ${script} exited with status ${error.code}${said ? `: ${said}` : "."}`;
+  }
+  return `pair could not run the launch script ${script}: ${error.message}`;
+}
+
 // runLaunch runs `script DIR COMMAND ARG…` in DIR with no shell, so no
 // character in the prompt changes the command. It resolves when the script
 // exits with status 0, and rejects with the script's error output otherwise.
@@ -34,16 +45,7 @@ export function runLaunch(script, directory, command) {
       { cwd: directory, timeout: 10_000, windowsHide: true },
       (error, stdout, stderr) => {
         if (!error) return resolve();
-        const said = stderr.trim();
-        reject(
-          new Error(
-            error.killed
-              ? `The launch script ${script} did not exit within 10 seconds. It must open the command in a new terminal and exit.`
-              : typeof error.code === "number"
-                ? `The launch script ${script} exited with status ${error.code}${said ? `: ${said}` : "."}`
-                : `pair could not run the launch script ${script}: ${error.message}`,
-          ),
-        );
+        reject(new Error(launchError(script, error, stderr)));
       },
     ),
   );

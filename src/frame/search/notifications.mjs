@@ -1,8 +1,8 @@
+import { callHook } from "#frame/app/hooks.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { session } from "#frame/app/view.mjs";
 import { createMenus } from "#frame/search/menus.mjs";
 import { openSearch, sharedWindow } from "#frame/search/modal.mjs";
-import { escapeHtml, HERE } from "#frame/search/rows.mjs";
 import {
   GROUPS,
   KINDS,
@@ -11,15 +11,14 @@ import {
   rowHtml,
 } from "#frame/search/notification-rows.mjs";
 import { matchOf, pageOf, targetOf } from "#frame/search/open.mjs";
+import { escapeHtml, HERE } from "#frame/search/rows.mjs";
 import {
   clear,
   listedSessions,
   loadCleared,
-  openLine,
-  toggleCenter,
-  unreadEventIds,
   unreadCount,
-} from "#frame/sync/center.mjs";
+  unreadEventIds,
+} from "#frame/sync/center-state.mjs";
 import { resultHref } from "#frame/sync/notifications.mjs";
 
 /* Notifications' source for the shared window, and the read rules. A click reads
@@ -70,7 +69,7 @@ const terms = () => state.query.toLowerCase().split(/\s+/).filter(Boolean);
 function linesWithReplies() {
   if (!replied.size) return threadLines;
   const merged = {};
-  for (const [id, { threads, proposals }] of Object.entries(threadLines))
+  for (const [id, { threads, proposals }] of Object.entries(threadLines)) {
     merged[id] = {
       proposals,
       threads: threads.map((line) => {
@@ -88,6 +87,7 @@ function linesWithReplies() {
         });
       }),
     };
+  }
   return merged;
 }
 function liveRows() {
@@ -114,16 +114,23 @@ function matches(row) {
 }
 function passes(row, skip) {
   const chosen = state.sessions.map(hereIs);
-  if (skip !== "sessions" && chosen.length && !chosen.includes(row.session))
+  if (skip !== "sessions" && chosen.length && !chosen.includes(row.session)) {
     return false;
-  if (skip !== "kinds" && state.kinds.length && !state.kinds.includes(row.kind))
+  }
+  if (
+    skip !== "kinds" &&
+    state.kinds.length &&
+    !state.kinds.includes(row.kind)
+  ) {
     return false;
+  }
   if (
     skip !== "states" &&
     state.states.length &&
     !state.states.includes(kept.get(row.key).group)
-  )
+  ) {
     return false;
+  }
   return matches(row);
 }
 const rank = (group) => GROUPS.findIndex(([id]) => id === group);
@@ -131,8 +138,9 @@ const groupName = (group) => GROUPS.find(([id]) => id === group)[1];
 const keptPlace = (row) => kept.get(row.key);
 function snapshot() {
   const rows = liveRows();
-  for (const row of rows)
+  for (const row of rows) {
     if (!kept.has(row.key)) kept.set(row.key, { group: row.state, at: row.at });
+  }
   const shown = rows
     .filter((row) => passes(row))
     .toSorted(
@@ -141,14 +149,16 @@ function snapshot() {
         keptPlace(b).at.localeCompare(keptPlace(a).at),
     );
   const counts = {};
-  for (const [id] of KINDS)
+  for (const [id] of KINDS) {
     counts[id] = rows.filter(
       (row) => passes(row, "kinds") && row.kind === id,
     ).length;
-  for (const [id] of GROUPS)
+  }
+  for (const [id] of GROUPS) {
     counts[id] = rows.filter(
       (row) => passes(row, "states") && row.state === id,
     ).length;
+  }
   let group = null;
   const results = shown.map((row) => {
     const own = keptPlace(row).group;
@@ -183,8 +193,9 @@ async function readHits(signal) {
     kinds: "threads,proposals",
     limit: String(SEARCH_LIMIT),
   });
-  if (state.sessions.length)
+  if (state.sessions.length) {
     params.set("session", state.sessions.map(hereIs).join(","));
+  }
   const reply = await fetch(`/api/search?${params}`, { signal });
   if (!reply.ok) throw Error("Search failed.");
   const found = new Map();
@@ -208,7 +219,7 @@ export function openPlace(row, query = "") {
   const page = pageOf(shown);
   const target = targetOf(shown);
   const match = matchOf(shown, query);
-  openLine({
+  callHook("openLine", {
     entry: { id: row.session, url: row.url, round: row.sessionRound },
     page,
     round: shown.round ?? undefined,
@@ -231,13 +242,17 @@ function openRow(row) {
 }
 
 const failed = () => searchFailed || linesFailed;
+function blankWords(typed) {
+  if (typed) return `No notifications match “${escapeHtml(typed)}”.`;
+  if (state.states.length === 1 && state.states[0] === "unread") {
+    return "Nothing unread.";
+  }
+  return "No notifications here.";
+}
+
 function blank() {
   const typed = state.query.trim();
-  const words = typed
-    ? `No notifications match “${escapeHtml(typed)}”.`
-    : state.states.length === 1 && state.states[0] === "unread"
-      ? "Nothing unread."
-      : "No notifications here.";
+  const words = blankWords(typed);
   return `<div class="search-blank"><span>${words}</span>${
     typed
       ? `<button class="btn" type="button" data-search-all>Search all of pair for “${escapeHtml(typed)}”</button>`
@@ -294,13 +309,14 @@ function notificationsSource(win) {
         await readLines(signal);
         early(snapshot());
       }
-      if (searching)
+      if (searching) {
         try {
           hits = await readHits(signal);
         } catch (error) {
           if (error.name === "AbortError") throw error;
           searchFailed = true;
         }
+      }
       searching = false;
       return snapshot();
     },
@@ -378,7 +394,7 @@ function cardChanged() {
 export function openNotifications() {
   const win = sharedWindow();
   if (!win) return;
-  toggleCenter(false);
+  callHook("toggleCenter", false);
   if (!source) {
     source = notificationsSource(win);
     window.addEventListener("pair:reply", repliedInPane);
@@ -409,8 +425,9 @@ export function refreshNotifications(fromHub) {
   const win = sharedWindow();
   if (!win || !source || win.showing() !== source) return;
   win.refresh();
-  if (fromHub && answered)
+  if (fromHub && answered) {
     void readLines().then(() => {
       if (win.showing() === source) win.refresh();
     });
+  }
 }

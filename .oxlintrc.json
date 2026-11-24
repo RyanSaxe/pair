@@ -1,15 +1,33 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   // Vanilla JS/MJS repository (no React or JSX).
-  "plugins": ["typescript", "unicorn", "oxc"],
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
     "perf": "error"
   },
   "rules": {
+    // eslint/complexity counts `&&`, `||`, `??`, and `?:` as +1, so <= 10 is
+    // roughly equivalent to Python C901 <= 8 (6 is human-ideal, >10 is
+    // tangled, and 8 is the agent benchmark).
+    "complexity": ["error", 10],
+    "max-depth": ["error", 4],
+    "max-nested-callbacks": ["error", 3],
     // Pass an options object when a function needs more than three inputs.
     "max-params": ["error", { "max": 3 }],
+    "curly": ["error", "multi-line"],
+    "import/no-cycle": "error",
+    "eqeqeq": ["error", "always"],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-param-reassign": "error",
+    "no-nested-ternary": "error",
+    "no-else-return": "error",
+    "no-lonely-if": "error",
+    "unicorn/no-negated-condition": "error",
+    // CLI commands, hub startup/logging, and scripts write directly to stdout/stderr.
+    "no-console": "off",
     // CLI commands, hub polling, screenshot capture, and Playwright browser
     // tests intentionally await sequential steps inside loops.
     "no-await-in-loop": "off",

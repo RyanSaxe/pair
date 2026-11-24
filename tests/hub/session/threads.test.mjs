@@ -132,7 +132,7 @@ for (const { name, field, value, malformed } of [
     value: "W",
     malformed: "  ",
   },
-])
+]) {
   test(`${name} in status and storage`, async (t) => {
     const { a, start, thread, settled } = await published(t);
     const started = await start({ quote: "selected code", [field]: value });
@@ -153,6 +153,7 @@ for (const { name, field, value, malformed } of [
     const refused = await start({ quote: "selected code", [field]: malformed });
     assert.equal(refused.code, 400);
   });
+}
 
 test("a repeated reply ID returns the saved thread without another message or wake", async (t) => {
   const { a, start, send, thread, settled } = await published(t);
@@ -413,8 +414,9 @@ test("a thumbs up on a reply is recorded without a wake, drops its bell line and
   for (const refused of [
     { message: 0, acknowledged: true },
     { message: 1, acknowledged: "yes" },
-  ])
+  ]) {
     assert.equal((await acknowledge(refused)).code, 400);
+  }
   const taken = await acknowledge({ message: 1, acknowledged: false });
   assert.equal(taken.code, 200, taken.body.error);
   assert.equal((await thread(id)).messages[1].acknowledgedAt, undefined);

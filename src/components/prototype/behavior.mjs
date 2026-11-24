@@ -1,6 +1,7 @@
 function prototypeUrl(prototype) {
-  if (online)
+  if (online) {
     return `${base}/r/${encodeURIComponent(plan.round)}/prototype/${encodeURIComponent(prototype.id)}`;
+  }
   return URL.createObjectURL(new Blob([prototype.html], { type: "text/html" }));
 }
 planUI.define("prototype", {
@@ -34,11 +35,12 @@ planUI.define("prototype", {
     open.target = "_blank";
     open.rel = "noopener";
     open.href = online ? prototypeUrl(prototype) : "#";
-    if (!online)
+    if (!online) {
       open.addEventListener("click", (event) => {
         event.preventDefault();
         window.open(prototypeUrl(prototype), "_blank", "noopener");
       });
+    }
     const source = linkButton("Source", () => {
       details.open = !details.open;
     });

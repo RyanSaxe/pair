@@ -25,7 +25,7 @@ import { nextOf } from "./submissions.mjs";
 
 function threadRecord(thread) {
   // A thread on a proposal's card has no round or page. It opens on Work.
-  if (thread.proposal)
+  if (thread.proposal) {
     return {
       kind: "thread",
       threadId: thread.id,
@@ -33,6 +33,7 @@ function threadRecord(thread) {
       label: thread.page,
       proposal: thread.proposal,
     };
+  }
   const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
   return {
     kind: "thread",
@@ -49,69 +50,120 @@ function threadRecord(thread) {
   };
 }
 
+function extractSourceDetails(event, ref) {
+  const item = sourceItem(event.payload, ref);
+  requireValue(
+    item && typeof item.topic === "string",
+    `Agreed cites ${ref.kind} ${{ note: ref.noteId, choice: ref.choiceId, answer: ref.answerId }[ref.kind]}, which submission ${ref.submissionId} does not contain.`,
+  );
+  const text = ref.kind === "choice" ? choiceText(item) : item.text;
+  const label = ref.kind === "note" ? item.anchor : item.label;
+  requireValue(
+    typeof text === "string" && typeof label === "string",
+    "Source item has invalid content",
+  );
+  const { payload } = event;
+  requireValue(
+    idPattern.test(payload.name || "") &&
+      roundPattern.test(payload.round || ""),
+    "Invalid source round",
+  );
+  return { item, text, label, payload };
+}
+
+function buildSubmissionSourceRecord(event, ref) {
+  const { item, text, label, payload } = extractSourceDetails(event, ref);
+  const target =
+    typeof item.target === "string" && idPattern.test(item.target)
+      ? item.target
+      : null;
+  const href = `./${payload.name}.${payload.round}.html${target ? "?target=" + encodeURIComponent(target) : ""}#${encodeURIComponent(item.topic)}`;
+  return {
+    kind: ref.kind,
+    submissionId: ref.submissionId,
+    text,
+    label,
+    topic: item.topic,
+    name: payload.name,
+    round: payload.round,
+    href,
+    ...(target ? { target } : {}),
+    ...(ref.kind === "choice" ? { choice: item } : {}),
+    ...(typeof item.quote === "string" ? { quote: item.quote } : {}),
+    ...(Number.isInteger(item.occurrence) && item.occurrence > 1
+      ? { occurrence: item.occurrence }
+      : {}),
+  };
+}
+
+function validateStartAndNote(start, note) {
+  requireValue(
+    Array.isArray(start) && start.every((id) => typeof id === "string"),
+    "Give --start once for each page you start.",
+  );
+  requireValue(
+    note === undefined ||
+      (typeof note === "string" &&
+        note.trim() &&
+        note.trim().length <= 80 &&
+        start.length),
+    "--note on pair publish is text of at most 80 characters about the pages you name with --start.",
+  );
+}
+
+function roundMeta(set) {
+  return {
+    name: set.name,
+    round: set.round,
+    title: set.title,
+    ...(set.plan ? { plan: true } : {}),
+  };
+}
+
+function publishMoment(pageId, roundComplete) {
+  if (pageId === "agreed") return "publish-agreed";
+  return roundComplete ? "publish-last-page" : "publish-page";
+}
+
+function applyPublishedRecord({ set, pageId, recordPath, version }) {
+  if (pageId === "agreed") {
+    set.agreed = recordPath;
+    set.agreedVersion = version;
+    set.agreedAt = timestamp();
+    return;
+  }
+  const slot = set.pages.find((item) => item.id === pageId);
+  slot.recordPath = recordPath;
+  slot.state = "ready";
+  delete slot.note;
+  slot.version = version;
+  set.generation++;
+}
+
 export function rounds(session) {
   const { directory, origin, base, transition, events, pending, view } =
     session;
+  function resolveSourceRef(ref) {
+    if (ref.kind === "conversation") {
+      return { kind: ref.kind, text: ref.text };
+    }
+    if (ref.kind === "thread") {
+      return threadRecord(session.threadSource(ref.threadId));
+    }
+    const event = events.find((item) => item.id === ref.submissionId);
+    requireValue(
+      event,
+      `Agreed cites submission ${ref.submissionId}, which this session does not have.`,
+    );
+    return buildSubmissionSourceRecord(event, ref);
+  }
   async function resolvePageAgreements(entries) {
     for (const entry of entries) {
       delete entry.sourceRecords;
       if (!entry.sourceRefs) continue;
-      entry.sourceRecords = [];
-      for (const ref of entry.sourceRefs) {
-        if (ref.kind === "conversation") {
-          entry.sourceRecords.push({ kind: ref.kind, text: ref.text });
-          continue;
-        }
-        if (ref.kind === "thread") {
-          entry.sourceRecords.push(
-            threadRecord(session.threadSource(ref.threadId)),
-          );
-          continue;
-        }
-        const event = events.find((item) => item.id === ref.submissionId);
-        requireValue(
-          event,
-          `Agreed cites submission ${ref.submissionId}, which this session does not have.`,
-        );
-        const item = sourceItem(event.payload, ref);
-        requireValue(
-          item && typeof item.topic === "string",
-          `Agreed cites ${ref.kind} ${{ note: ref.noteId, choice: ref.choiceId, answer: ref.answerId }[ref.kind]}, which submission ${ref.submissionId} does not contain.`,
-        );
-        const text = ref.kind === "choice" ? choiceText(item) : item.text;
-        const label = ref.kind === "note" ? item.anchor : item.label;
-        requireValue(
-          typeof text === "string" && typeof label === "string",
-          "Source item has invalid content",
-        );
-        const target =
-          typeof item.target === "string" && idPattern.test(item.target)
-            ? item.target
-            : null;
-        const payload = event.payload;
-        requireValue(
-          idPattern.test(payload.name || "") &&
-            roundPattern.test(payload.round || ""),
-          "Invalid source round",
-        );
-        const href = `./${payload.name}.${payload.round}.html${target ? "?target=" + encodeURIComponent(target) : ""}#${encodeURIComponent(item.topic)}`;
-        entry.sourceRecords.push({
-          kind: ref.kind,
-          submissionId: ref.submissionId,
-          text,
-          label,
-          topic: item.topic,
-          name: payload.name,
-          round: payload.round,
-          href,
-          ...(target ? { target } : {}),
-          ...(ref.kind === "choice" ? { choice: item } : {}),
-          ...(typeof item.quote === "string" ? { quote: item.quote } : {}),
-          ...(Number.isInteger(item.occurrence) && item.occurrence > 1
-            ? { occurrence: item.occurrence }
-            : {}),
-        });
-      }
+      entry.sourceRecords = entry.sourceRefs.map((ref) =>
+        resolveSourceRef(ref),
+      );
     }
   }
   // A round published before threadRecord knew about cards stores such a source
@@ -134,13 +186,13 @@ export function rounds(session) {
     const agreed = withCardSources(await read(storedPagePath(set, set.agreed)));
     // The search window's frame fetches each page it shows, so it doesn't carry
     // a round's images.
-    const records = !withPages
-      ? []
-      : await Promise.all(
+    const records = withPages
+      ? await Promise.all(
           set.pages
             .filter((slot) => slot.recordPath)
             .map((slot) => read(storedPagePath(set, slot.recordPath))),
-        );
+        )
+      : [];
     const ready = new Map(
       records.map((record) => [record.page.id, record.page]),
     );
@@ -185,40 +237,37 @@ export function rounds(session) {
       finished,
     );
   }
+  async function nextCurrentRound(set, complete, source) {
+    const { current } = session.state;
+    if (current && current.round === set.round && !complete) return current;
+    // Drawing it now refuses a round that can't be drawn.
+    try {
+      await renderPageRound(set, complete);
+    } catch (error) {
+      error.statusCode ||= 400;
+      throw error;
+    }
+    return {
+      ...roundMeta(set),
+      url: base + "/",
+      publishedAt: timestamp(),
+      source,
+    };
+  }
   async function commitPageRound(set, source = null) {
     const complete = set.pages.every((slot) => slot.recordPath);
-    let current = session.state.current;
-    if (!current || current.round !== set.round || complete) {
-      // Drawing it now refuses a round that can't be drawn.
-      try {
-        await renderPageRound(set, complete);
-      } catch (error) {
-        error.statusCode ||= 400;
-        throw error;
-      }
-      current = {
-        name: set.name,
-        round: set.round,
-        title: set.title,
-        ...(set.plan ? { plan: true } : {}),
-        url: base + "/",
-        publishedAt: timestamp(),
-        source,
-      };
-    }
+    const current = await nextCurrentRound(set, complete, source);
+    const previousRounds = session.state.rounds || [];
     const nextRounds = complete
       ? [
-          ...(session.state.rounds || []),
+          ...previousRounds,
           {
-            name: set.name,
-            round: set.round,
-            title: set.title,
-            ...(set.plan ? { plan: true } : {}),
+            ...roundMeta(set),
             publishedAt: current.publishedAt,
             url: `${base}/r/${encodeURIComponent(set.round)}`,
           },
         ]
-      : session.state.rounds || [];
+      : previousRounds;
     await transition({
       ...session.report(),
       openRound: complete ? null : set,
@@ -229,8 +278,9 @@ export function rounds(session) {
       rounds: nextRounds,
     });
     // The waiting event puts the round in every pair tab's bell.
-    if (complete)
+    if (complete) {
       await session.addActivity({ kind: "waiting", round: set.round });
+    }
     return {
       status: view(),
       url: origin + current.url,
@@ -269,19 +319,7 @@ export function rounds(session) {
     (await fs.realpath(source).catch(() => "")).startsWith(
       (await fs.realpath(directory)) + path.sep,
     );
-  async function publishPage({ html, source, pages, start = [], note }) {
-    requireValue(
-      Array.isArray(start) && start.every((id) => typeof id === "string"),
-      "Give --start once for each page you start.",
-    );
-    requireValue(
-      note === undefined ||
-        (typeof note === "string" &&
-          note.trim() &&
-          note.trim().length <= 80 &&
-          start.length),
-      "--note on pair publish is text of at most 80 characters about the pages you name with --start.",
-    );
+  async function validatePublishPreconditions({ html, source }) {
     requireValue(
       !(await pending()).length,
       `The reviewer sent something you have not read. Run pair read --session-dir ${directory} first, then publish.`,
@@ -305,102 +343,111 @@ export function rounds(session) {
       jsonScript("page-data").test(html),
       "--file is not a page that pair build wrote. Build the page with pair build, then publish the file it writes.",
     );
+  }
+  async function prepareAgreedRound(record, pages) {
+    const slots = pageList(pages);
+    requireValue(
+      !session.state.openRound,
+      "Agreed is already published for this round",
+      409,
+    );
+    requireValue(
+      !(session.state.rounds || []).some((item) => item.round === record.round),
+      `This session already has a round ${record.round}. Set "round" in Agreed's source to a new round number.`,
+      409,
+    );
+    // guide/pages.md defines the name as a stable ID for the whole
+    // session.
+    requireValue(
+      !session.state.current || record.name === session.state.current.name,
+      `Every round of this session has the name "${session.state.current?.name}". Set "name" in the page source to "${session.state.current?.name}".`,
+      409,
+    );
+    requirePlanMark(record.plan === true);
+    await resolvePageAgreements(record.page.agreements);
+    const previous = session.state.roundPages?.[session.state.current?.round];
+    orderAgreements(
+      record.page.agreements,
+      previous?.agreed
+        ? (await read(storedPagePath(previous, previous.agreed))).page
+            .agreements
+        : [],
+    );
+    return {
+      ...roundMeta(record),
+      agreed: null,
+      pages: slots,
+      generation: 1,
+    };
+  }
+  async function ensureUniquePrototypes(set, page) {
+    const used = new Set();
+    const files = [
+      set.agreed,
+      ...set.pages
+        .filter((item) => item.recordPath)
+        .map((item) => item.recordPath),
+    ];
+    for (const file of files) {
+      const stored = await read(storedPagePath(set, file));
+      for (const item of stored.page.prototypes || []) used.add(item.id);
+    }
+    requireValue(
+      !(page.prototypes || []).some((item) => used.has(item.id)),
+      "Prototype ID is already used in this round",
+      409,
+    );
+  }
+  async function preparePageRound(record) {
+    const { page } = record;
+    requireValue(
+      session.state.openRound,
+      `Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --start ID --session-dir ${directory}.`,
+      409,
+    );
+    const set = structuredClone(session.state.openRound);
+    requireValue(
+      ["name", "round", "title"].every((key) => record[key] === set[key]),
+      `Page ${page.id} has a different name, round or title from this round's Agreed. Build it with name "${set.name}", round "${set.round}" and title "${set.title}".`,
+      409,
+    );
+    const slot = set.pages?.find((item) => item.id === page.id);
+    requireValue(
+      slot && slot.title === page.title,
+      `Page ${page.id}, "${page.title}", is not in the page list you published with Agreed. Use an ID and title from that list.`,
+      409,
+    );
+    requireValue(
+      !slot.recordPath,
+      `You already published page ${page.id} in this round.`,
+      409,
+    );
+    // Agreed's page list contains every page of the round, so publishPage
+    // can check a page's links when it publishes. A bad link found only
+    // when the round completes would be in a page that can no longer
+    // change.
+    const badLinks = linkProblems(
+      page.html || "",
+      `page "${page.id}"`,
+      new Set([...set.pages.map((item) => item.id), "agreed", "feedback"]),
+    );
+    requireValue(!badLinks.length, badLinks.join("\n"));
+    await ensureUniquePrototypes(set, page);
+    return set;
+  }
+  async function publishPage({ html, source, pages, start = [], note }) {
+    validateStartAndNote(start, note);
+    await validatePublishPreconditions({ html, source });
     const record = pageData(html);
     const { page } = record;
     requireValue(
       page.id === "agreed" || pages === undefined,
       "Give --pages only when you publish Agreed.",
     );
-    let set;
-    if (page.id === "agreed") {
-      const slots = pageList(pages);
-      requireValue(
-        !session.state.openRound,
-        "Agreed is already published for this round",
-        409,
-      );
-      requireValue(
-        !(session.state.rounds || []).some(
-          (item) => item.round === record.round,
-        ),
-        `This session already has a round ${record.round}. Set "round" in Agreed's source to a new round number.`,
-        409,
-      );
-      // guide/pages.md defines the name as a stable ID for the whole
-      // session.
-      requireValue(
-        !session.state.current || record.name === session.state.current.name,
-        `Every round of this session has the name "${session.state.current?.name}". Set "name" in the page source to "${session.state.current?.name}".`,
-        409,
-      );
-      requirePlanMark(record.plan === true);
-      await resolvePageAgreements(page.agreements);
-      const previous = session.state.roundPages?.[session.state.current?.round];
-      orderAgreements(
-        page.agreements,
-        previous?.agreed
-          ? (await read(storedPagePath(previous, previous.agreed))).page
-              .agreements
-          : [],
-      );
-      set = {
-        name: record.name,
-        round: record.round,
-        title: record.title,
-        ...(record.plan ? { plan: true } : {}),
-        agreed: null,
-        pages: slots,
-        generation: 1,
-      };
-    } else {
-      requireValue(
-        session.state.openRound,
-        `Publish Agreed with this round's page list before any other page: pair publish --file OUT/agreed.html --pages SRC/pages.json --source SRC/agreed --start ID --session-dir ${directory}.`,
-        409,
-      );
-      set = structuredClone(session.state.openRound);
-      requireValue(
-        ["name", "round", "title"].every((key) => record[key] === set[key]),
-        `Page ${page.id} has a different name, round or title from this round's Agreed. Build it with name "${set.name}", round "${set.round}" and title "${set.title}".`,
-        409,
-      );
-      const slot = set.pages?.find((item) => item.id === page.id);
-      requireValue(
-        slot && slot.title === page.title,
-        `Page ${page.id}, "${page.title}", is not in the page list you published with Agreed. Use an ID and title from that list.`,
-        409,
-      );
-      requireValue(
-        !slot.recordPath,
-        `You already published page ${page.id} in this round.`,
-        409,
-      );
-      // Agreed's page list contains every page of the round, so publishPage
-      // can check a page's links when it publishes. A bad link found only
-      // when the round completes would be in a page that can no longer
-      // change.
-      const badLinks = linkProblems(
-        page.html || "",
-        `page "${page.id}"`,
-        new Set([...set.pages.map((item) => item.id), "agreed", "feedback"]),
-      );
-      requireValue(!badLinks.length, badLinks.join("\n"));
-      const used = new Set();
-      for (const file of [
-        set.agreed,
-        ...set.pages
-          .filter((item) => item.recordPath)
-          .map((item) => item.recordPath),
-      ])
-        for (const item of (await read(storedPagePath(set, file))).page
-          .prototypes || [])
-          used.add(item.id);
-      requireValue(
-        !(page.prototypes || []).some((item) => used.has(item.id)),
-        "Prototype ID is already used in this round",
-        409,
-      );
-    }
+    const set =
+      page.id === "agreed"
+        ? await prepareAgreedRound(record, pages)
+        : await preparePageRound(record);
     const opening = page.id === "agreed" && !session.state.current;
     const recordDir = path.join(directory, "pages", record.round);
     await fs.mkdir(recordDir, { recursive: true, mode: 0o700 });
@@ -416,25 +463,15 @@ export function rounds(session) {
       .digest("hex");
     let result;
     try {
-      if (page.id === "agreed") {
-        set.agreed = recordPath;
-        set.agreedVersion = version;
-        set.agreedAt = timestamp();
-      } else {
-        const slot = set.pages.find((item) => item.id === page.id);
-        slot.recordPath = recordPath;
-        slot.state = "ready";
-        delete slot.note;
-        slot.version = version;
-        set.generation++;
-      }
+      applyPublishedRecord({ set, pageId: page.id, recordPath, version });
       // The pages start in the commit that publishes this page, so a refused
       // publish starts none of them.
       startPages(set, start, note?.trim());
       requireStarted(set);
       result = await commitPageRound(set, source);
-      if (opening)
+      if (opening) {
         result.next = `${session.browserLine(result.url)} Then: ${result.next}`;
+      }
     } catch (error) {
       // When a publish fails, publishPage removes the record it wrote, so no
       // file of a page that never published stays.
@@ -443,12 +480,7 @@ export function rounds(session) {
     }
     return {
       ...result,
-      moment:
-        page.id === "agreed"
-          ? "publish-agreed"
-          : result.roundComplete
-            ? "publish-last-page"
-            : "publish-page",
+      moment: publishMoment(page.id, result.roundComplete),
       page: {
         id: page.id,
         round: record.round,
@@ -461,12 +493,13 @@ export function rounds(session) {
     // Between rounds, the stage is "working" only after the agent read the
     // feedback on the last round, and then the next round's Agreed comes next.
     const { current } = session.state;
-    if (current && !session.state.openRound && session.stage() !== "working")
+    if (current && !session.state.openRound && session.stage() !== "working") {
       requireValue(
         false,
         `Every page of round ${current.round} is published, so the round has no page to start. ${await session.nextStep()}`,
         409,
       );
+    }
     requireValue(
       session.state.openRound && session.stage() === "working",
       "Publish Agreed first",
@@ -496,7 +529,7 @@ export function rounds(session) {
     const entry = (session.state.rounds || []).find(
       (item) => item.round === round,
     );
-    if (entry)
+    if (entry) {
       return {
         ...entry,
         path: path.join(
@@ -505,6 +538,7 @@ export function rounds(session) {
           `${entry.name}.${entry.round}.html`,
         ),
       };
+    }
     if (session.state.current?.round === round) return session.state.current;
     return null;
   }

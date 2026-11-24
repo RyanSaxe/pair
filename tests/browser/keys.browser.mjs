@@ -240,8 +240,9 @@ test("the page's keys act behind the open Keys list, which stays open, and no ro
       }),
   );
   assert.ok(rows.length > 0, "the first view lists keys");
-  for (const row of rows)
+  for (const row of rows) {
     assert.deepEqual(row, { ...row, wraps: false, overflows: false });
+  }
 
   await page.keyboard.press("]");
   await page.getByRole("heading", { name: "Page with controls" }).waitFor();

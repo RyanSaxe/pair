@@ -1,6 +1,6 @@
 import { stopLanding } from "#frame/app/places.mjs";
 import { $ } from "#frame/app/util.mjs";
-import { clearHighlight, highlight, pageText } from "#frame/notes/notes.mjs";
+import { clearHighlight, highlight, pageText } from "#frame/notes/quote.mjs";
 import { renders } from "#frame/pages/renderers.mjs";
 
 /* An opened result shows the reader's words in the page. This code reads a
@@ -39,8 +39,9 @@ export function findWords(roots, words) {
         if (
           word.length <= SHORT_WORD &&
           (isLetter(lower[at - 1]) || isLetter(lower[at + word.length]))
-        )
+        ) {
           continue;
+        }
         const start = map[at];
         const end = map[at + word.length - 1];
         if (!start || !end) continue;
@@ -94,10 +95,11 @@ function hiderOf(range) {
 function reveal(hider) {
   for (let at = hider; at; at = composedParent(at)) {
     if (at.tagName === "DETAILS") at.open = true;
-    if (at.hidden || at === hider)
+    if (at.hidden || at === hider) {
       at.dispatchEvent(
         new CustomEvent("plan:reveal", { bubbles: true, composed: true }),
       );
+    }
   }
 }
 
@@ -108,7 +110,7 @@ function reveal(hider) {
    visibleRange() returns the range to scroll to, or null when no word can show.
    With open set, it opens what hides the best part. A block still drawing may
    yet show the words, so its caller opens nothing until the block has drawn. */
-export function visibleRange(ranges, { open = false } = {}) {
+function groupRangesByVisibility(ranges) {
   const shown = [];
   const hidden = new Map();
   for (const range of ranges) {
@@ -122,6 +124,10 @@ export function visibleRange(ranges, { open = false } = {}) {
     if (!hidden.has(hider)) hidden.set(hider, { words: new Set(), range });
     hidden.get(hider).words.add(range.word);
   }
+  return { shown, hidden };
+}
+
+function bestHiddenPart(shown, hidden) {
   let best = null;
   let most = new Set(shown.map(({ word }) => word)).size;
   for (const [hider, part] of hidden) {
@@ -137,11 +143,52 @@ export function visibleRange(ranges, { open = false } = {}) {
       best = { ...part, hider };
     }
   }
+  return best;
+}
+
+export function visibleRange(ranges, { open = false } = {}) {
+  const { shown, hidden } = groupRangesByVisibility(ranges);
+  const best = bestHiddenPart(shown, hidden);
   if (best && open) {
     reveal(best.hider);
     if (onScreen(best.range)) return best.range;
   }
   return ranges.find(onScreen) ?? ranges.find(inTab) ?? null;
+}
+
+function scrollHorizontal(at, { box, own, allow }) {
+  if (
+    allow &&
+    at.scrollWidth > at.clientWidth + 1 &&
+    (box.left < own.left || box.right > own.right)
+  ) {
+    at.scrollLeft += box.left + box.width / 2 - (own.left + own.right) / 2;
+  }
+}
+
+function scrollVertical(at, { box, own, allow }) {
+  if (
+    allow &&
+    at.scrollHeight > at.clientHeight + 1 &&
+    (box.top < own.top || box.bottom > own.bottom)
+  ) {
+    at.scrollTop += box.top + box.height / 2 - (own.top + own.bottom) / 2;
+  }
+}
+
+function scrollAxisIfNeeded(at, box, own) {
+  const style = getComputedStyle(at);
+  const isPage = at === document.documentElement;
+  scrollHorizontal(at, {
+    box,
+    own,
+    allow: isPage || /auto|scroll/.test(style.overflowX),
+  });
+  scrollVertical(at, {
+    box,
+    own,
+    allow: isPage || /auto|scroll/.test(style.overflowY),
+  });
 }
 
 // Every scrolling box around the words moves them into view, and one that
@@ -150,23 +197,11 @@ export function scrollToRange(range) {
   const parent = range.startContainer.parentElement;
   for (let at = parent; at; at = composedParent(at)) {
     const box = range.getBoundingClientRect();
-    const style = getComputedStyle(at);
-    const page = at === document.documentElement;
-    const own = page
+    const isPage = at === document.documentElement;
+    const own = isPage
       ? { left: 0, top: 0, right: innerWidth, bottom: innerHeight }
       : at.getBoundingClientRect();
-    if (
-      (page || /auto|scroll/.test(style.overflowX)) &&
-      at.scrollWidth > at.clientWidth + 1 &&
-      (box.left < own.left || box.right > own.right)
-    )
-      at.scrollLeft += box.left + box.width / 2 - (own.left + own.right) / 2;
-    if (
-      (page || /auto|scroll/.test(style.overflowY)) &&
-      at.scrollHeight > at.clientHeight + 1 &&
-      (box.top < own.top || box.bottom > own.bottom)
-    )
-      at.scrollTop += box.top + box.height / 2 - (own.top + own.bottom) / 2;
+    scrollAxisIfNeeded(at, box, own);
   }
 }
 
@@ -188,8 +223,11 @@ let timer = 0;
 let changedAt = 0;
 
 function clearMarked() {
-  for (const element of document.querySelectorAll(".search-matched, .matched"))
+  for (const element of document.querySelectorAll(
+    ".search-matched, .matched",
+  )) {
     element.classList.remove("search-matched", "matched");
+  }
 }
 // Most targets have an id, and a proposal or a control has its own attribute. A
 // page can draw a copy of a card, and that copy stays in the page while Work
@@ -212,10 +250,11 @@ export function targetElement(target) {
   return document.getElementById(target);
 }
 function matchRoots({ target }) {
-  if (!target)
+  if (!target) {
     return $("review-view").hidden
       ? [$("page-title"), $("page-content")]
       : [$("review-view")];
+  }
   // A figure's title and caption sit outside the element that has the id. A sent
   // note's words sit in the card the search window draws above its block.
   const element = targetElement(target);
@@ -230,6 +269,17 @@ function openMessage(root) {
   clamp?.nextElementSibling?.click();
 }
 
+function markFallbackElement(roots, target) {
+  const figure = target?.startContainer.parentElement?.closest("svg");
+  if (figure) {
+    (
+      target.startContainer.parentElement.closest(".pele-node") ?? figure
+    ).classList.add("matched");
+  } else if (!target && active.drawn) {
+    roots.at(-1).classList.add("search-matched");
+  }
+}
+
 export function markMatch() {
   if (!active) return;
   const roots = matchRoots(active);
@@ -239,13 +289,7 @@ export function markMatch() {
   const ranges = whole.length ? whole : findWords(roots, active.words);
   const target = visibleRange(ranges, { open: active.drawn });
   clearMarked();
-  const figure = target?.startContainer.parentElement?.closest("svg");
-  if (figure)
-    (
-      target.startContainer.parentElement.closest(".pele-node") ?? figure
-    ).classList.add("matched");
-  else if (!target && active.drawn)
-    roots.at(-1).classList.add("search-matched");
+  markFallbackElement(roots, target);
   highlight(
     "plan-search",
     ranges.filter((range) => inTab(range) || onScreen(range)),
@@ -272,8 +316,9 @@ function outsideFolds(root) {
     let fold = root.closest("details:not([open])");
     fold;
     fold = fold.parentElement?.closest("details:not([open])")
-  )
+  ) {
     outer = fold;
+  }
   return outer;
 }
 const showing = (match) => {
@@ -323,8 +368,9 @@ export function setMatch(words, target, text = "") {
   });
   window.addEventListener("plan:diff", changed);
   document.addEventListener("toggle", changed, true);
-  for (const type of readerInputs)
+  for (const type of readerInputs) {
     addEventListener(type, moved, { capture: true, passive: true });
+  }
   active.landed = whenDrawn(active);
 }
 // Resolves once the block has drawn, the words have been marked and the page has

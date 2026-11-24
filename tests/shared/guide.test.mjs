@@ -42,17 +42,19 @@ async function followGuide(print, name, printed = new Set([name])) {
       `${name} has a relative link`,
     );
     const prose = text.replaceAll(guideRun, "");
-    for (const guide of guideNames)
+    for (const guide of guideNames) {
       assert(
         !prose.includes(guide),
         `${name} names ${guide} without its command`,
       );
+    }
   }
-  for (const [, next] of text.matchAll(guideRun))
+  for (const [, next] of text.matchAll(guideRun)) {
     if (!printed.has(next)) {
       printed.add(next);
       await followGuide(print, next, printed);
     }
+  }
   return printed;
 }
 
@@ -104,11 +106,12 @@ test("pair guide prints guide/pair.md and every guide file, with no relative lin
     [...files, "components/README.md", ...markup].toSorted(),
   );
   const reached = new Set();
-  for (const name of names)
+  for (const name of names) {
     if (!reached.has(name)) {
       reached.add(name);
       await followGuide(print, name, reached);
     }
+  }
   assert.deepEqual(await fs.readdir(state), []);
 });
 

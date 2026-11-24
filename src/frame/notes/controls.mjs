@@ -1,13 +1,8 @@
 import { persist, save, state } from "#frame/app/store.mjs";
 import { $, controlKey, typingIn } from "#frame/app/util.mjs";
-import {
-  editable,
-  feedbackEditable,
-  page,
-  pages,
-  plan,
-} from "#frame/app/view.mjs";
+import { editable, page, pages, plan } from "#frame/app/view.mjs";
 import { blockTargets } from "#frame/notes/blocks.mjs";
+import { feedbackEditable } from "#frame/review/send-state.mjs";
 
 let answerTimer;
 // pageTargets gives the same IDs to the live page and to a template of its
@@ -15,10 +10,11 @@ let answerTimer;
 // that is a top-level block keeps its block's ID.
 export function pageTargets(root, topic) {
   blockTargets(root, topic);
-  for (const type of ["choice", "multiselect", "question"])
+  for (const type of ["choice", "multiselect", "question"]) {
     root.querySelectorAll(`[data-${type}]`).forEach((group, index) => {
       group.id ||= `${type}-${topic}-${index}`;
     });
+  }
 }
 function checklist(group, topic, previous) {
   return {
@@ -104,16 +100,18 @@ export function notAddedAnswers() {
     const template = document.createElement("template");
     template.innerHTML = topic.html;
     pageTargets(template.content, topic.id);
-    for (const group of template.content.querySelectorAll("[data-question]"))
+    for (const group of template.content.querySelectorAll("[data-question]")) {
       if (
         group.querySelector("textarea") &&
         notAdded(controlKey(topic.id, group.dataset.question))
-      )
+      ) {
         found.push({
           topic: topic.id,
           target: group.id,
           label: group.dataset.label || group.dataset.question,
         });
+      }
+    }
   }
   return found;
 }
@@ -126,8 +124,9 @@ export function restoreAnswers() {
   document.querySelectorAll("[data-question] textarea").forEach((area) => {
     const group = area.closest("[data-question]");
     const key = controlKey(page.id, group.dataset.question);
-    if (!typingIn(area))
+    if (!typingIn(area)) {
       area.value = state.drafts[key] ?? state.answers[key]?.text ?? "";
+    }
     area.readOnly = !editable;
   });
 }
@@ -160,7 +159,7 @@ export function installControls() {
 export function recordAnswer({ id, text, label, target }) {
   if (!feedbackEditable()) return;
   const key = controlKey(page.id, id);
-  if (text.trim())
+  if (text.trim()) {
     state.answers[key] = {
       topic: page.id,
       label: label || id,
@@ -168,7 +167,7 @@ export function recordAnswer({ id, text, label, target }) {
       target,
       round: plan.round,
     };
-  else delete state.answers[key];
+  } else delete state.answers[key];
   save();
 }
 export function drawingAnswer(id) {

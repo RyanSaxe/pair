@@ -1,11 +1,11 @@
+import { remote, setRemote } from "#frame/app/state.mjs";
 import { ago } from "#frame/app/time.mjs";
+import { pageIndicator, separator } from "#frame/app/ui.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { base, plan, session } from "#frame/app/view.mjs";
-import { pageIndicator, separator } from "#frame/pages/pages.mjs";
 import { arrived, beginMove } from "#frame/pages/progress.mjs";
 import { drawActivity, renderHistory } from "#frame/sync/activity-view.mjs";
 import { noticeHub } from "#frame/sync/hub-version.mjs";
-import { remote, setRemote } from "#frame/sync/rounds.mjs";
 import { pollSessions } from "#frame/sync/sessions.mjs";
 import { isClosed } from "#shared/lifecycle.mjs";
 

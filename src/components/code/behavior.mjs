@@ -113,8 +113,9 @@ function decorateCode(element) {
       ranges.some(([from, to]) => index + 1 >= from && index + 1 <= to),
     ),
   );
-  for (const note of readData(element.dataset.notes))
+  for (const note of readData(element.dataset.notes)) {
     addNote(element, lines, note);
+  }
   watchCodeScroll(element);
 }
 async function renderCode(element) {

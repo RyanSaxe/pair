@@ -25,9 +25,11 @@ async function componentNames(root) {
     user can change a shipped component without forking pair. */
 export async function componentDirectories(roots = componentRoots()) {
   const found = new Map();
-  for (const [index, root] of roots.entries())
-    for (const name of await componentNames(root))
+  for (const [index, root] of roots.entries()) {
+    for (const name of await componentNames(root)) {
       found.set(name, { name, directory: path.join(root, name), root: index });
+    }
+  }
   return [...found.values()].toSorted((a, b) => (a.name < b.name ? -1 : 1));
 }
 async function componentParts(roots, file, wrap) {

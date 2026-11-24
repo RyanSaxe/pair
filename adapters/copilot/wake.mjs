@@ -131,15 +131,17 @@ export function detect(
   const sessionId = env.COPILOT_AGENT_SESSION_ID;
   const cli = ancestor ?? windowsCopilot();
   const port = cli ? portOf(cli.pid) : null;
-  if (!port)
+  if (!port) {
     throw new Error(
       `Ask the user to restart Copilot with \`copilot --ui-server --resume ${sessionId}\`, then run this pair command again. This Copilot session was started without \`--ui-server\`, so the hub cannot wake it.`,
     );
+  }
   const { sdk, tried } = findSdk(env, cli);
-  if (!sdk)
+  if (!sdk) {
     throw new Error(
       `Tell the user that the Copilot SDK was not found at ${tried.join(", ")}, so the hub cannot wake this session, and stop.`,
     );
+  }
   return { harness: "copilot", sessionId, port, sdk };
 }
 

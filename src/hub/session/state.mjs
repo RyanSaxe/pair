@@ -32,24 +32,8 @@ import { nextOf, submissions } from "./submissions.mjs";
 import { readThreads, threads } from "./threads.mjs";
 import { uploads } from "./uploads.mjs";
 
-// tabOpen returns whether a pair tab on this machine polled the hub
-// recently. peer returns another session on the hub by its ID, which a
-// linked session uses to reach its parent. markSeen adds keys to the seen lists
-// that every browser shares.
-export async function loadSession(
-  directory,
-  config,
-  {
-    origin,
-    tabOpen,
-    peer = () => null,
-    changed = () => {},
-    markSeen = () => {},
-  } = {},
-) {
-  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  const stateFile = path.join(directory, "status.json");
-  let state = (await exists(stateFile))
+async function loadInitialState(directory, stateFile) {
+  const state = (await exists(stateFile))
     ? upgrade(await read(stateFile))
     : {
         sessionId: crypto.randomUUID(),
@@ -75,24 +59,90 @@ export async function loadSession(
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
   // Before the hub recorded holder.commandAt, every report came from a command
   // of the holder, so the last report's time stands in for the last command's.
-  if (state.holder && !state.holder.commandAt && state.report?.at)
+  if (state.holder && !state.holder.commandAt && state.report?.at) {
     state.holder = { ...state.holder, commandAt: state.report.at };
-  for (const child of ["feedback", "uploads", "scenes", "threads"])
+  }
+  return state;
+}
+
+async function loadConnectionToken(directory, sessionId) {
+  const connectionFile = path.join(directory, "connection.json");
+  if (await exists(connectionFile)) {
+    const connection = await read(connectionFile);
+    if (
+      connection.sessionId === sessionId &&
+      /^[0-9a-f]{64}$/.test(connection.token || "")
+    ) {
+      return connection.token;
+    }
+  }
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function schedulePendingWake({ session, state, wakeFacts, latestSend }) {
+  if (
+    !session.wake ||
+    !accepts(state, "wake") ||
+    !wakeAccepts(wakeFacts(), "send")
+  ) {
+    return;
+  }
+  const { payload } = latestSend();
+  const wake =
+    payload.intent === "start"
+      ? () => session.wakeForStart(payload.proposal)
+      : () => session.wakeAgent(payload.round);
+  setTimeout(() => session.exclusive(wake), 0);
+}
+
+function openRoundSummary(openRound) {
+  if (!openRound) return {};
+  return {
+    openRound: {
+      ready:
+        1 + (openRound.pages || []).filter((item) => item.recordPath).length,
+    },
+  };
+}
+
+function readyPagesSummary(state, round, set) {
+  const ready = set && state.latestSubmissionRound !== round;
+  return {
+    round,
+    ids: ready
+      ? [
+          "agreed",
+          ...set.pages.filter((slot) => slot.recordPath).map(({ id }) => id),
+        ]
+      : [],
+  };
+}
+
+// tabOpen returns whether a pair tab on this machine polled the hub
+// recently. peer returns another session on the hub by its ID, which a
+// linked session uses to reach its parent. markSeen adds keys to the seen lists
+// that every browser shares.
+export async function loadSession(
+  directory,
+  config,
+  {
+    origin,
+    tabOpen,
+    peer = () => null,
+    changed = () => {},
+    markSeen = () => {},
+  } = {},
+) {
+  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+  const stateFile = path.join(directory, "status.json");
+  let state = await loadInitialState(directory, stateFile);
+  for (const child of ["feedback", "uploads", "scenes", "threads"]) {
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
       mode: 0o700,
     });
-  const connectionFile = path.join(directory, "connection.json");
-  let token = null;
-  if (await exists(connectionFile)) {
-    const connection = await read(connectionFile);
-    if (
-      connection.sessionId === state.sessionId &&
-      /^[0-9a-f]{64}$/.test(connection.token || "")
-    )
-      token = connection.token;
   }
-  token ||= crypto.randomBytes(32).toString("hex");
+  const token = await loadConnectionToken(directory, state.sessionId);
   const base = `/s/${state.sessionId}`;
   const serial = serializer();
   // Every route that changes a session runs through exclusive, so this one call
@@ -231,18 +281,7 @@ export async function loadSession(
   // send's. The wakes run after loadSession returns, once every module has
   // added its functions to session.
   session.resendWakes();
-  if (
-    session.wake &&
-    accepts(state, "wake") &&
-    wakeAccepts(wakeFacts(), "send")
-  ) {
-    const { payload } = latestSend();
-    const wake =
-      payload.intent === "start"
-        ? () => session.wakeForStart(payload.proposal)
-        : () => session.wakeAgent(payload.round);
-    setTimeout(() => exclusive(wake), 0);
-  }
+  schedulePendingWake({ session, state, wakeFacts, latestSend });
   function view() {
     const {
       roundPages: _roundPages,
@@ -318,27 +357,27 @@ export async function loadSession(
       draftRevision: session.draftView().revision,
     };
   }
+  async function findFeedbackEvent(requestedRound) {
+    if (requestedRound) {
+      return events
+        .filter(
+          (item) => answersRound(item) && item.payload.round === requestedRound,
+        )
+        .toSorted((a, b) => b.sequence - a.sequence)[0];
+    }
+    if (state.latestSubmissionId && idPattern.test(state.latestSubmissionId)) {
+      return read(
+        path.join(directory, "feedback", `${state.latestSubmissionId}.json`),
+      );
+    }
+    return null;
+  }
   async function latestFeedback(requestedRound) {
     requireValue(
       requestedRound === null || roundPattern.test(requestedRound),
       "Invalid round",
     );
-    const event = requestedRound
-      ? events
-          .filter(
-            (item) =>
-              answersRound(item) && item.payload.round === requestedRound,
-          )
-          .toSorted((a, b) => b.sequence - a.sequence)[0]
-      : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
-        ? await read(
-            path.join(
-              directory,
-              "feedback",
-              `${state.latestSubmissionId}.json`,
-            ),
-          )
-        : null;
+    const event = await findFeedbackEvent(requestedRound);
     if (!event) return null;
     const { groups, round, message } = event.payload;
     return {
@@ -379,31 +418,11 @@ export async function loadSession(
       round,
       stage: stage(),
       needsYou: needsYou(),
-      ...(state.openRound
-        ? {
-            openRound: {
-              ready:
-                1 +
-                (state.openRound.pages || []).filter((item) => item.recordPath)
-                  .length,
-            },
-          }
-        : {}),
+      ...openRoundSummary(state.openRound),
       // readyPages lists the current round's published pages until the
       // reviewer sends feedback on it, so the frame can count the pages that
       // this browser has not opened.
-      readyPages: {
-        round,
-        ids:
-          set && state.latestSubmissionRound !== round
-            ? [
-                "agreed",
-                ...set.pages
-                  .filter((slot) => slot.recordPath)
-                  .map(({ id }) => id),
-              ]
-            : [],
-      },
+      readyPages: readyPagesSummary(state, round, set),
       wakeFailed: wakeAccepts(wakeFacts(), "alert"),
       paused: lifecycle(state) === "paused",
       startedAt: state.startedAt,

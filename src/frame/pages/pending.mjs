@@ -1,14 +1,19 @@
+import { remote } from "#frame/app/state.mjs";
+import { pageIndicator } from "#frame/app/ui.mjs";
 import { $ } from "#frame/app/util.mjs";
 import { page, plan } from "#frame/app/view.mjs";
-import { pageIndicator } from "#frame/pages/pages.mjs";
 import { agentStopped, pendingLabel } from "#frame/sync/activity.mjs";
-import { remote } from "#frame/sync/rounds.mjs";
 
 // show() draws the grey bars of a page the agent has not published once, and
 // each poll updates the line above them in place, because a newer agent note
 // does not change the round's page list.
 export const pendingPage =
   '<div class="pending-page"><div class="pending-state"><span class="page-activity"></span><span><span class="pending-label"></span><small class="pending-age"></small></span></div><div class="pending-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>';
+
+function pagePendingState() {
+  if (page.status === "ready") return "ready";
+  return page.working ? "active" : "queued";
+}
 
 export function updatePending() {
   const top = $("page-content").querySelector(":scope > .pending-page");
@@ -21,8 +26,7 @@ export function updatePending() {
   const label = pendingLabel(
     {
       ...slot,
-      state:
-        page.status === "ready" ? "ready" : page.working ? "active" : "queued",
+      state: pagePendingState(),
     },
     agentStopped(remote),
   );

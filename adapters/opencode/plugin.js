@@ -15,10 +15,11 @@ export const PairWake = async ({ client }) => {
       const { data, error } = await client.session.get({
         path: { id: session },
       });
-      if (error)
+      if (error) {
         throw new Error(
           `opencode did not find the session: ${JSON.stringify(error)}`,
         );
+      }
       return { parentID: data.parentID, title: data.title, open: true };
     }
     let child = null;
@@ -26,10 +27,11 @@ export const PairWake = async ({ client }) => {
       const { data, error } = await client.session.children({
         path: { id: session },
       });
-      if (error)
+      if (error) {
         throw new Error(
           `opencode did not list the subagents: ${JSON.stringify(error)}`,
         );
+      }
       child = newestSubagent(data, subagent);
     }
     const { error } = await client.session.promptAsync({
@@ -39,8 +41,9 @@ export const PairWake = async ({ client }) => {
         parts: [{ type: "text", text }],
       },
     });
-    if (error)
+    if (error) {
       throw new Error(`opencode refused the prompt: ${JSON.stringify(error)}`);
+    }
   });
   const variables = (sessionID) => ({
     PAIR_OPENCODE_SOCKET: listener.socket,

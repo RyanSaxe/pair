@@ -485,12 +485,13 @@ test("the search window's frame and a preview have no grips, and a read-only rou
       undefined,
       { timeout: 5000 },
     );
-    for (const side of ["left", "right", "side"])
+    for (const side of ["left", "right", "side"]) {
       assert.equal(
         await page.locator(`.grip.${side}`).isVisible(),
         false,
         `${address} ${side}`,
       );
+    }
   }
   await page.goto(url("r/1#blocks"));
   await page.locator('#page-content[data-page-id="blocks"]').waitFor();

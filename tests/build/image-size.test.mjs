@@ -1,4 +1,4 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import os from "node:os";
@@ -6,6 +6,8 @@ import path from "node:path";
 import { imageSize, sizeImages } from "../../src/build/image-size.mjs";
 import { buildPage } from "../../src/cli/build.mjs";
 import { pageData } from "../../src/shared/records.mjs";
+
+isolateConfig();
 
 const png = () => {
   const bytes = Buffer.alloc(24);
@@ -52,8 +54,9 @@ test("imageSize reads PNG, JPEG, WebP and GIF headers", () => {
     lossless,
     extended,
     gif(),
-  ])
+  ]) {
     assert.deepEqual(imageSize(bytes), { width: 3, height: 2 });
+  }
 
   assert.equal(imageSize(png().subarray(0, 20)), null);
   assert.equal(imageSize(jpeg(0xc0).subarray(0, 8)), null);

@@ -17,6 +17,15 @@ import { listing, usageError } from "./arguments.mjs";
 // 600. Windows refuses a colon in a file name.
 export const agentsDir = () => path.join(settings().root, "agents");
 
+function hasSessionFields(entry) {
+  return (
+    Boolean(entry) &&
+    typeof entry.name === "string" &&
+    typeof entry.processStart === "string" &&
+    typeof entry.registeredAt === "string"
+  );
+}
+
 // A session runs while a process with the entry's process ID and start time
 // runs, so a process that a restart gives the same ID does not count. An
 // adapter whose process outlives its sessions, such as Codex's daemon, also
@@ -25,9 +34,7 @@ export const agentsDir = () => path.join(settings().root, "agents");
 // for, is "unknown", and pair skips and keeps it.
 async function sessionState(entry, table) {
   const adapter = adapters[entry?.cli];
-  const fields = [entry?.name, entry?.processStart, entry?.registeredAt];
-  if (!adapter || !fields.every((field) => typeof field === "string"))
-    return "unknown";
+  if (!adapter || !hasSessionFields(entry)) return "unknown";
   const cli = table.get(entry.pid);
   if (cli?.start !== entry.processStart) return "ended";
   const running = adapter.running?.(entry.target, cli).catch(() => true);
@@ -89,6 +96,44 @@ function currentBranch(cwd) {
   return (status === 0 && stdout.trim()) || null;
 }
 
+function resolveSessionIdentity(target, adapter) {
+  const sessionId = (adapter.sessionId ?? adapter.identity)(target);
+  requireValue(
+    sessionId,
+    `${adapter.name} set no session ID for this command, so pair has no ID to list the session under.`,
+  );
+  requireValue(
+    /^[\w.-]+$/.test(sessionId),
+    `${adapter.name}'s session ID ${sessionId} has characters that pair cannot use in a file name.`,
+  );
+  return `${target.harness}:${sessionId}`;
+}
+
+function findCliProcess(adapter, table) {
+  const chain = ancestors(table);
+  const cli =
+    chain.find(({ pid }) => pid === Number(process.env[adapter.pidVariable])) ??
+    chain.find((ancestor) => recognizes(adapter, ancestor));
+  requireValue(
+    cli?.start,
+    `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
+  );
+  return cli;
+}
+
+async function resolveSubagent({ target, adapter, parent, table, sender }) {
+  const parentId = `${target.harness}:${parent.sessionId}`;
+  const running = await readAgents(table);
+  const listed = running.find((each) => each.id === parentId);
+  if (sender && listed && parent.nickname) {
+    return { entry: listed, subagent: parent.nickname, running };
+  }
+  const via = listed?.name ?? parentId;
+  throw new Error(
+    `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${via}/${parent.nickname ?? `SUBAGENT, with the name ${via} gave it`}.`,
+  );
+}
+
 // registerAgent writes the entry of the session that target names, and
 // returns it with every running entry, itself first. The session runs in the
 // ancestor in the adapter's pidVariable, or else in the nearest ancestor that
@@ -103,35 +148,11 @@ export async function registerAgent(
   { name, table = processTable(), sender = false } = {},
 ) {
   const adapter = adapters[target.harness];
-  const sessionId = (adapter.sessionId ?? adapter.identity)(target);
-  requireValue(
-    sessionId,
-    `${adapter.name} set no session ID for this command, so pair has no ID to list the session under.`,
-  );
-  requireValue(
-    /^[\w.-]+$/.test(sessionId),
-    `${adapter.name}'s session ID ${sessionId} has characters that pair cannot use in a file name.`,
-  );
-  const chain = ancestors(table);
-  const cli =
-    chain.find(({ pid }) => pid === Number(process.env[adapter.pidVariable])) ??
-    chain.find((ancestor) => recognizes(adapter, ancestor));
-  requireValue(
-    cli?.start,
-    `pair found no ${adapter.name} process among the parents of this command, so it cannot tell when the session ends.`,
-  );
-  const id = `${target.harness}:${sessionId}`;
+  const id = resolveSessionIdentity(target, adapter);
+  const cli = findCliProcess(adapter, table);
   const parent = await adapter.parentSession?.(target).catch(() => null);
   if (parent) {
-    const parentId = `${target.harness}:${parent.sessionId}`;
-    const running = await readAgents(table);
-    const listed = running.find((each) => each.id === parentId);
-    if (sender && listed && parent.nickname)
-      return { entry: listed, subagent: parent.nickname, running };
-    const via = listed?.name ?? parentId;
-    throw new Error(
-      `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${via}/${parent.nickname ?? `SUBAGENT, with the name ${via} gave it`}.`,
-    );
+    return resolveSubagent({ target, adapter, parent, table, sender });
   }
   // Claude Code's /clear and pi's /new start a new session in the same
   // process, so the new session's entry replaces that process's other entries,
@@ -148,11 +169,12 @@ export async function registerAgent(
   const others = running.filter((entry) => entry.id !== id);
   requireFreeName(others, name);
   const directory = process.cwd();
+  const existing = running.find((each) => each.id === id);
   const entry = {
     id,
     name:
       name ??
-      running.find((each) => each.id === id)?.name ??
+      existing?.name ??
       defaultName(directory, id, new Set(others.map((each) => each.name))),
     cli: target.harness,
     directory,
@@ -186,11 +208,13 @@ export function findAgent(entries, to) {
 // of the session ID, that no other ID in ids has, because Codex's thread IDs
 // start with the time.
 function shortId(id, ids) {
-  for (let end = id.indexOf(":") + 9; end < id.length; end++)
+  for (let end = id.indexOf(":") + 9; end < id.length; end++) {
     if (
       !ids.some((other) => other !== id && other.startsWith(id.slice(0, end)))
-    )
+    ) {
       return id.slice(0, end);
+    }
+  }
   return id;
 }
 
@@ -217,11 +241,12 @@ export function requireFreeName(running, name) {
 }
 
 export function requireName(command, name) {
-  if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name))
+  if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name)) {
     throw usageError(
       command,
       "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
     );
+  }
 }
 
 // Some CLIs, such as Antigravity CLI, leave wake variables out of a hook's

@@ -32,12 +32,13 @@ async function reveal(page, source) {
       }
     );
   });
-  if (tab)
+  if (tab) {
     await page
       .locator(
         `#page-content .visual-decision[data-choice="${tab.choice}"] [data-vd-tab="${tab.value}"]`,
       )
       .click();
+  }
   const box = (await source.getAttribute("data-diff-input")) !== null;
   await (box ? source.locator("xpath=..") : source).scrollIntoViewIfNeeded();
 }
@@ -221,6 +222,23 @@ const prose = (end) =>
     4,
   );
 
+function readDiffRowMetrics(box) {
+  const sides = [];
+  for (const side of ["deletions", "additions"]) {
+    const children = [
+      ...box.shadowRoot.querySelector(`code[data-${side}] [data-content]`)
+        .children,
+    ];
+    sides.push(
+      children.map((row) => {
+        const { top, height } = row.getBoundingClientRect();
+        return { top, height };
+      }),
+    );
+  }
+  return sides;
+}
+
 // The frame loads the diff library from esm.sh, so this test is in the figures
 // suite, which CI runs in its own job.
 test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's choice over data-wrap, and keeps split rows level", async (t) => {
@@ -289,17 +307,9 @@ test("a diff wraps long lines from Wrap or data-wrap, remembers the reviewer's c
     .locator("#scroll diffs-container")
     .locator("pre[data-diff-type=split]")
     .waitFor();
-  const rows = await page.locator("#scroll diffs-container").evaluate((box) =>
-    ["deletions", "additions"].map((side) =>
-      [
-        ...box.shadowRoot.querySelector(`code[data-${side}] [data-content]`)
-          .children,
-      ].map((row) => {
-        const { top, height } = row.getBoundingClientRect();
-        return { top, height };
-      }),
-    ),
-  );
+  const rows = await page
+    .locator("#scroll diffs-container")
+    .evaluate(readDiffRowMetrics);
   assert.ok(
     rows[0].some(({ height }) => height > 22),
     "no row wrapped onto a second line",

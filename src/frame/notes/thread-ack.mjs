@@ -1,5 +1,5 @@
 import { base, editable } from "#frame/app/view.mjs";
-import { acknowledgeReply } from "#frame/sync/center.mjs";
+import { acknowledgeReply } from "#frame/sync/center-state.mjs";
 
 /* The hub sends no wake event for a thumbs up. The frame leaves a reply
    that has a thumbs up out of the bell's list. */
@@ -43,8 +43,9 @@ export function syncAcks(card, thread) {
   for (const button of card.querySelectorAll(".thread-ack")) {
     const index = Number(button.dataset.index);
     const key = `${thread.id}/${index}`;
-    if (wanted.get(key) === Boolean(thread.messages[index]?.acknowledgedAt))
+    if (wanted.get(key) === Boolean(thread.messages[index]?.acknowledgedAt)) {
       wanted.delete(key);
+    }
     show(button, pressed(thread, index));
   }
 }

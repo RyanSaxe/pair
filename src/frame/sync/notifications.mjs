@@ -5,8 +5,9 @@ export const announced = (entry, event) =>
   (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
 export function eventTitle(event) {
   if (event.kind === "session") return `${event.agent} started a session`;
-  if (event.kind === "waiting")
+  if (event.kind === "waiting") {
     return `Round ${event.round} is waiting for you`;
+  }
   if (event.kind === "proposal") return `Agent proposed ${event.name}`;
   if (event.agentAck) return `Agent acknowledged your message on ${event.name}`;
   return `Agent replied on ${event.name}`;
@@ -120,24 +121,29 @@ export function createReviewAlerts({
     if (host.document.hasFocus()) write("focused", sessionId);
     else if (read("focused") === sessionId) write("focused", "");
   };
+  function buttonText(state) {
+    if (state === "unavailable" || failed) return "Notifications unavailable";
+    if (state === "denied") return "Notifications blocked";
+    if (read("enabled") === "yes" && state === "granted") {
+      return "Disable notifications";
+    }
+    return "Enable notifications";
+  }
+  function buttonTitle(state) {
+    if (state === "denied") {
+      return "Allow notifications in your browser's site settings.";
+    }
+    if (failed) {
+      return "Notification delivery failed. Check browser and OS settings.";
+    }
+    return "Alerts when a session starts, a round waits for you, an agent cannot be woken, replies or proposes work, in any session.";
+  }
   function controls() {
     const state = permission();
     button.disabled =
       requesting || ["unavailable", "denied"].includes(state) || failed;
-    button.textContent =
-      state === "unavailable" || failed
-        ? "Notifications unavailable"
-        : state === "denied"
-          ? "Notifications blocked"
-          : read("enabled") === "yes" && state === "granted"
-            ? "Disable notifications"
-            : "Enable notifications";
-    button.title =
-      state === "denied"
-        ? "Allow notifications in your browser's site settings."
-        : failed
-          ? "Notification delivery failed. Check browser and OS settings."
-          : "Alerts when a session starts, a round waits for you, an agent cannot be woken, replies or proposes work, in any session.";
+    button.textContent = buttonText(state);
+    button.title = buttonTitle(state);
   }
   const alerts = () => latest.flatMap((entry) => alertsFor(entry, cleared()));
   function enable() {
@@ -145,47 +151,56 @@ export function createReviewAlerts({
     for (const alert of alerts()) write(alert.id, "handled");
     write("enabled", "yes");
   }
+  function shouldSkipAlert(alert) {
+    if (read("focused") === alert.sessionId) return true;
+    return Boolean(
+      alert.createdAt &&
+      Date.parse(alert.createdAt) <= Number(read("enabledAt")),
+    );
+  }
+  function deliverAlert(alert) {
+    try {
+      const item = new host.Notification(alert.title, {
+        body: alert.body,
+        tag: prefix + alert.id,
+      });
+      write(alert.id, "handled");
+      item.addEventListener("click", () => {
+        item.close();
+        host.focus();
+        open(alert.url);
+      });
+      item.addEventListener("error", () => {
+        failed = true;
+        controls();
+      });
+    } catch {
+      failed = true;
+    }
+  }
+  function processAlerts() {
+    if (
+      permission() === "granted" &&
+      read("enabled") !== "no" &&
+      !read("enabledAt")
+    ) {
+      enable();
+    }
+    if (permission() !== "granted" || read("enabled") !== "yes" || failed) {
+      return;
+    }
+    for (const alert of alerts()) {
+      if (read(alert.id)) continue;
+      if (shouldSkipAlert(alert)) {
+        write(alert.id, "handled");
+        continue;
+      }
+      deliverAlert(alert);
+    }
+  }
   async function update(entries = latest) {
     latest = Array.isArray(entries) ? entries : [];
-    await serialize(() => {
-      if (
-        permission() === "granted" &&
-        read("enabled") !== "no" &&
-        !read("enabledAt")
-      )
-        enable();
-      if (permission() !== "granted" || read("enabled") !== "yes" || failed)
-        return;
-      for (const alert of alerts()) {
-        if (read(alert.id)) continue;
-        if (
-          read("focused") === alert.sessionId ||
-          (alert.createdAt &&
-            Date.parse(alert.createdAt) <= Number(read("enabledAt")))
-        ) {
-          write(alert.id, "handled");
-          continue;
-        }
-        try {
-          const item = new host.Notification(alert.title, {
-            body: alert.body,
-            tag: prefix + alert.id,
-          });
-          write(alert.id, "handled");
-          item.addEventListener("click", () => {
-            item.close();
-            host.focus();
-            open(alert.url);
-          });
-          item.addEventListener("error", () => {
-            failed = true;
-            controls();
-          });
-        } catch {
-          failed = true;
-        }
-      }
-    });
+    await serialize(processAlerts);
     controls();
   }
   button.addEventListener("click", async () => {

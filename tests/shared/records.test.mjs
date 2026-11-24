@@ -28,8 +28,9 @@ test("agreement authoring preserves rich content and rejects ambiguous records",
     [{ ...entry, href: "javascript:alert(1)" }],
     [{ ...entry, href: "data:text/html,test" }],
     null,
-  ])
+  ]) {
     await assert.rejects(assemble({ ...data, agreements }));
+  }
   const duplicateAgreed = {
     ...data,
     pages: [

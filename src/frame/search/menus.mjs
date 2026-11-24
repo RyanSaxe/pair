@@ -60,10 +60,11 @@ export function createMenus({
       )
       .join("");
     menu.scrollTop = top;
-    if (typeof focused === "string")
+    if (typeof focused === "string") {
       menu
         .querySelector(`[data-value="${CSS.escape(focused)}"]`)
         ?.focus({ preventScroll: true });
+    }
   }
   function draw(counts = {}) {
     for (const name of names) {
@@ -113,12 +114,14 @@ export function createMenus({
       list[(at + step + list.length) % list.length].focus();
     },
     choose(name, value) {
+      if (!value) {
+        state[name] = [];
+        return;
+      }
       const chosen = state[name];
-      state[name] = !value
-        ? []
-        : chosen.includes(value)
-          ? chosen.filter((item) => item !== value)
-          : [...chosen, value];
+      state[name] = chosen.includes(value)
+        ? chosen.filter((item) => item !== value)
+        : [...chosen, value];
     },
   };
 }
@@ -192,10 +195,11 @@ export function searchMenus({ host, state }) {
   function switchClosed() {
     state.closed = !state.closed;
     if (state.closed && onlyHere()) state.sessions = [];
-    if (!state.closed)
+    if (!state.closed) {
       state.sessions = state.sessions.filter(
         (id) => !sessions.find((item) => item.id === id)?.closed,
       );
+    }
     keepLatest();
   }
   const choose = menus.choose;

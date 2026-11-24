@@ -60,18 +60,19 @@ async function compareFiles(beforePath, afterPath) {
   const [before, after] = await Promise.all(
     paths.map((file) => fs.readFile(file, "utf8")),
   );
-  if (before.includes("\0") || after.includes("\0"))
+  if (before.includes("\0") || after.includes("\0")) {
     throw Error(
       "pair diff compares text files, and BEFORE or AFTER is a binary file.",
     );
+  }
   let patch;
   try {
     patch = await gitDiff(paths);
   } catch (error) {
     if (error.code === 1) patch = error.stdout;
-    else if (error.code === "ENOENT")
+    else if (error.code === "ENOENT") {
       throw Error("Git is required to generate a diff.", { cause: error });
-    else throw Error(error.stderr?.trim() || error.message, { cause: error });
+    } else throw Error(error.stderr?.trim() || error.message, { cause: error });
   }
   return { before, after, patch: named(patch, path.basename(paths[1])) };
 }
@@ -83,9 +84,9 @@ async function compareFiles(beforePath, afterPath) {
 function named(patch, name) {
   const lines = patch.split("\n");
   for (let i = 0; i < lines.length && !lines[i].startsWith("@@"); i++) {
-    if (lines[i].startsWith("diff --git "))
+    if (lines[i].startsWith("diff --git ")) {
       lines[i] = `diff --git a/${name} b/${name}`;
-    else if (lines[i].startsWith("--- ")) lines[i] = `--- a/${name}`;
+    } else if (lines[i].startsWith("--- ")) lines[i] = `--- a/${name}`;
     else if (lines[i].startsWith("+++ ")) lines[i] = `+++ b/${name}`;
   }
   return lines.join("\n");

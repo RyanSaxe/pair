@@ -27,8 +27,9 @@ async function linking(t) {
   for (const [id, title] of [
     ["deck", "Build the deck"],
     ["notes", "Write the speaker notes"],
-  ])
+  ]) {
     assert.equal((await a.action("propose", card(id, title))).code, 200);
+  }
   const reviewer = (id, action, body = {}) =>
     a.request(`${a.base}/api/proposals/${id}/${action}`, body);
   const cardOf = async (id) =>
@@ -155,11 +156,12 @@ test("reopening a linked session takes its card out of done, and a later close m
 
 test("closing a linked session marks its card done once with no wake, and a closed parent stays listed while one is open", async (t) => {
   const { a, reviewer, cardOf, link } = await linking(t);
-  for (const id of ["deck", "notes"])
+  for (const id of ["deck", "notes"]) {
     assert.equal(
       (await reviewer(id, "start", { where: "new-agent" })).code,
       200,
     );
+  }
   const deck = await link("deck");
   const notes = await link("notes");
   const listing = async () =>

@@ -19,6 +19,50 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 // directory.
 const failures = "screenshots-failure";
 
+async function captureChanged(t, scratch) {
+  const images = await stage(t, scratch);
+  const pictures = await illustrate(t, path.join(scratch, "illustration"));
+  for (const [file, png] of pictures) images.set(file, png);
+  // A PNG that shows the same picture stays as it is, so the screenshots job
+  // commits only when a picture changes.
+  const page = await open(t, "about:blank");
+  for (const [file, png] of images) {
+    const before = await fs.readFile(path.join(root, file)).catch(() => null);
+    if (before && (await samePicture(page, before, png))) images.delete(file);
+  }
+  return images;
+}
+
+async function annotateFailure(error) {
+  // The cleanups close Chrome, so saveFailure() runs before them.
+  try {
+    if (await saveFailure(path.join(root, failures))) {
+      return new Error(
+        `${error.message}\nSaved a screenshot and the console log of each browser window in ${failures}/.`,
+        { cause: error },
+      );
+    }
+    return error;
+  } catch (saving) {
+    return new Error(
+      `${error.message}\nSaving the browser windows failed: ${saving.message}`,
+      { cause: error },
+    );
+  }
+}
+
+async function runCleanups(cleanups, initialFailure) {
+  let failure = initialFailure;
+  for (const cleanup of cleanups.toReversed()) {
+    try {
+      await cleanup();
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+  return failure;
+}
+
 async function main() {
   if (process.platform !== "darwin") {
     console.error(
@@ -39,45 +83,19 @@ async function main() {
       throw new Error(reason);
     },
   };
-  let images, failure;
+  let images;
+  let failure;
   try {
-    images = await stage(t, scratch);
-    const pictures = await illustrate(t, path.join(scratch, "illustration"));
-    for (const [file, png] of pictures) images.set(file, png);
-    // A PNG that shows the same picture stays as it is, so the screenshots job
-    // commits only when a picture changes.
-    const page = await open(t, "about:blank");
-    for (const [file, png] of images) {
-      const before = await fs.readFile(path.join(root, file)).catch(() => null);
-      if (before && (await samePicture(page, before, png))) images.delete(file);
-    }
+    images = await captureChanged(t, scratch);
   } catch (error) {
-    failure = error;
-    // The cleanups close Chrome, so saveFailure() runs before them.
-    try {
-      if (await saveFailure(path.join(root, failures)))
-        failure = new Error(
-          `${error.message}\nSaved a screenshot and the console log of each browser window in ${failures}/.`,
-          { cause: error },
-        );
-    } catch (saving) {
-      failure = new Error(
-        `${error.message}\nSaving the browser windows failed: ${saving.message}`,
-        { cause: error },
-      );
-    }
+    failure = await annotateFailure(error);
   }
-  for (const cleanup of cleanups.toReversed()) {
-    try {
-      await cleanup();
-    } catch (error) {
-      failure ??= error;
-    }
-  }
+  failure = await runCleanups(cleanups, failure);
   await fs.rm(scratch, { recursive: true, force: true });
   if (failure) throw failure;
-  for (const [file, png] of images)
+  for (const [file, png] of images) {
     await fs.writeFile(path.join(root, file), png);
+  }
   console.log(`Rewrote ${images.size} screenshots whose pictures changed.`);
 }
 

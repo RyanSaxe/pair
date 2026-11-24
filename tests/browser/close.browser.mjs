@@ -42,7 +42,7 @@ const copies = [
     result: "Copy failed",
   },
 ];
-for (const { name, options, record, result } of copies)
+for (const { name, options, record, result } of copies) {
   test(`Reopen ${name} gives the reviewer the command, and the tab comes back live when an agent runs it`, async (t) => {
     const h = await hub(t);
     const session = await h.session();
@@ -69,10 +69,11 @@ for (const { name, options, record, result } of copies)
     } else assert.equal(await shown.locator("code").textContent(), command);
     // The strip redraws on every poll and keeps what the click showed, and
     // nothing changes until an agent runs the command.
-    for (let polled = 0; polled < 2; polled++)
+    for (let polled = 0; polled < 2; polled++) {
       await page.waitForResponse((response) =>
         response.url().endsWith("/api/status"),
       );
+    }
     assert.equal(await button.textContent(), result);
     assert.equal(typeof (await session.status()).body.closedAt, "string");
 
@@ -95,6 +96,7 @@ for (const { name, options, record, result } of copies)
     );
     assert.equal((await session.action("read")).code, 200);
   });
+}
 
 test("a closed session with no round comes back live in its open tab", async (t) => {
   const h = await hub(t);
@@ -175,10 +177,11 @@ test("closing a session before its first round turns its tabs read-only and name
   // the closed page must not reload on that status, or it reloads on every poll.
   let loads = 0;
   own.on("load", () => loads++);
-  for (let polled = 0; polled < 2; polled++)
+  for (let polled = 0; polled < 2; polled++) {
     await own.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
   assert.equal(loads, 0);
 });
 

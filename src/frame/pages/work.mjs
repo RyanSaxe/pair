@@ -1,9 +1,10 @@
-import { $, unreachable } from "#frame/app/util.mjs";
+import { callHook } from "#frame/app/hooks.mjs";
 import { land, resumedWorkTab } from "#frame/app/places.mjs";
-import { base, editable, embedded, online, session } from "#frame/app/view.mjs";
+import { remote } from "#frame/app/state.mjs";
+import { $, unreachable } from "#frame/app/util.mjs";
+import { base, embedded, session } from "#frame/app/view.mjs";
 import { commentTarget } from "#frame/notes/blocks.mjs";
 import { images, placeThreads } from "#frame/notes/threads.mjs";
-import { readPlace } from "#frame/pages/card-place.mjs";
 import {
   fromPage,
   pageLink,
@@ -11,143 +12,110 @@ import {
   threadLink,
   wordsPlace,
 } from "#frame/pages/card-links.mjs";
+import { readPlace } from "#frame/pages/card-place.mjs";
 import { statusBox } from "#frame/pages/card-status.mjs";
 import { openNewItem, openStart } from "#frame/pages/start-popup.mjs";
-import { listedSession, unreadCards } from "#frame/sync/center.mjs";
-import { poll, remote } from "#frame/sync/rounds.mjs";
+import {
+  cards,
+  cardsEditable,
+  cardState,
+  cardTab,
+  element,
+  joinedInto,
+  metaLine,
+  openingTab,
+  ownSession,
+  setWorkTab,
+  workGroups,
+  workTab,
+  workTabs,
+} from "#frame/pages/work-model.mjs";
+import { listedSession, unreadCards } from "#frame/sync/center-state.mjs";
 import { adoptCards, cardKey, markSeen, seenCards } from "#frame/sync/seen.mjs";
-import { isClosed } from "#shared/lifecycle.mjs";
 import { allows, proposalState } from "#shared/proposal-state.mjs";
 
-/* cardTab() derives a card's tab from proposalState(). A proposed card is in
-   Proposed and a running card is in Running. Work started in a sub-session or
-   with a new agent has its own session's rounds, so its card goes to Done as
-   it starts. The card stays there as the link to that session and the words
-   that started it. Every other card is finished, and is in Done. */
+export {
+  cardsEditable,
+  cardState,
+  cardTab,
+  metaLine,
+  openingTab,
+  proposedCount,
+  workGroups,
+  workTab,
+  workTabs,
+} from "#frame/pages/work-model.mjs";
 
-export const workTabs = [
-  {
-    id: "running",
-    label: "Running",
-    empty: "No work is running in this session.",
-  },
-  { id: "proposed", label: "Proposed", empty: "No proposed work." },
-  { id: "done", label: "Done", empty: "No work is done yet." },
-];
-// Only work started elsewhere can wait for the reviewer. Work started here
-// stays running until the agent marks it done, whatever the state of this
-// session's round, because the reviewer answers that round with this
-// session's own Send.
-const waits = (card, { linked = () => null } = {}) =>
-  card.started.where !== "here" &&
-  Boolean(linked(card.started.session?.id)?.needsYou);
-const tabs = { proposed: "proposed", running: "running" };
-export const cardTab = (card) => tabs[proposalState(card)] ?? "done";
-export function workGroups(cards) {
-  const groups = Object.fromEntries(workTabs.map(({ id }) => [id, []]));
-  for (const card of cards) groups[cardTab(card)].push(card);
-  return groups;
-}
-export const openingTab = (groups) =>
-  groups.proposed.length
-    ? "proposed"
-    : workTabs.find(({ id }) => groups[id].length)?.id || workTabs[0].id;
-
-const cards = () => remote?.proposals || [];
-const joinedInto = (card) =>
-  cards().filter((item) => item.done?.joined === card.id);
 const context = () => ({
   unread: unreadCards(),
   linked: listedSession,
 });
+
 // linkedWaits() is part of the draw key in refreshWork(), so a card redraws
 // when its linked session starts or stops waiting.
 const linkedWaits = () =>
   cards().map((card) =>
     Boolean(listedSession(card.started?.session?.id)?.needsYou),
   );
-// Start, Decline and Restore work only in the live session.
-export const cardsEditable = () =>
-  editable && online && Boolean(remote) && !isClosed(remote);
-export const proposedCount = () => workGroups(cards()).proposed.length;
 
-const element = (tag, className, text) => {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-};
-const ownSession = "In its own session";
-const finishedWords = {
-  declined: "Declined",
-  withdrawn: "Withdrawn",
-  done: "Done",
-  joined: "Done",
-  closed: "Done",
-};
-export function cardState(card, shown) {
-  const state = proposalState(card);
-  if (finishedWords[state]) return [finishedWords[state], "muted"];
-  if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
-  if (state === "proposed") return ["Proposed", "hollow"];
-  if (state === "running") return ["Working here", "accent"];
-  if (state === "opening")
-    return card.started.where === "new-agent"
-      ? ["Opening a new agent session", "accent"]
-      : ["Opening a sub-session", "accent"];
-  if (waits(card, shown)) return ["Waiting for you", "ok"];
-  // Work started with Plan it first is in planning until the reviewer of its
-  // session chooses Build it.
-  if (card.started.planFirst && !card.started.built)
-    return card.started.where === "new-agent"
-      ? ["Planning with a new agent", "accent"]
-      : ["Planning in a sub-session", "accent"];
-  return [ownSession, "accent"];
-}
-export function metaLine(state, tone, rest) {
-  const line = element("div", "card-meta");
-  if (state) {
-    const dot = element("span", "state-dot");
-    dot.dataset.tone = tone;
-    line.append(dot, element("span", "card-state", state));
+function sourceWhere(box, source) {
+  if (source.page) {
+    box.append(
+      pageLink(fromPage(source.page), source.page.round, source.page.id),
+    );
+    return box;
   }
-  if (state && rest) line.append(element("span", "", "·"));
-  if (rest) {
-    rest.classList.add("card-rest");
-    line.append(rest);
+  if (source.thread) {
+    box.append(threadLink("From a thread", source.thread));
+    return box;
   }
-  return line;
+  if (source.reviewer) {
+    box.textContent = "You wrote this";
+    return box;
+  }
+  return null;
 }
+
+function linkedWhere(box, { state, label, linked }) {
+  if (state === "closed") {
+    box.append(sessionLink("Done in its own session", linked));
+    return box;
+  }
+  if (state === "linked") {
+    if (label !== ownSession) box.append(`${ownSession} · `);
+    box.append(sessionLink("Open", linked));
+    return box;
+  }
+  if (state === "opening") {
+    box.textContent = "Waiting for its session to start";
+    return box;
+  }
+  return null;
+}
+
 // Running work started here has no line, because its state says where it
 // runs. label is the word cardState() gives the card.
 function cardWhere(card, label) {
   const state = proposalState(card);
   if (state === "running") return null;
   const box = element("span", "proposal-where");
-  const linked = card.started?.session;
   if (state === "joined") {
     const task = cards().find((item) => item.id === card.done.joined);
     box.textContent = `Joined ${task?.title ?? card.done.joined}`;
     box.title = box.textContent;
-  } else if (card.done?.where) {
+    return box;
+  }
+  if (card.done?.where) {
     box.textContent = card.done.where;
     box.title = `Done ${card.done.where}`;
-  } else if (state === "closed")
-    box.append(sessionLink("Done in its own session", linked));
-  else if (state === "linked") {
-    if (label !== ownSession) box.append(`${ownSession} · `);
-    box.append(sessionLink("Open", linked));
-  } else if (state === "opening")
-    box.textContent = "Waiting for its session to start";
-  else {
-    const { page, thread, reviewer } = card.source;
-    if (page) box.append(pageLink(fromPage(page), page.round, page.id));
-    else if (thread) box.append(threadLink("From a thread", thread));
-    else if (reviewer) box.textContent = "You wrote this";
-    else return null;
+    return box;
   }
-  return box;
+  return (
+    linkedWhere(box, { state, label, linked: card.started?.session }) ??
+    sourceWhere(box, card.source)
+  );
 }
+
 function joinedList(joined) {
   const box = element("div", "proposal-joined");
   const list = element("ul");
@@ -158,10 +126,12 @@ function joinedList(joined) {
   );
   return box;
 }
+
 let failure = "";
 // actedOn is the card the reader last pressed a button on. readPlace() keeps that
 // card's top in place when the card changes height.
 let actedOn = null;
+
 async function act(card, action) {
   actedOn = card.id;
   try {
@@ -178,6 +148,7 @@ async function act(card, action) {
     refreshWork(true);
   }
 }
+
 // The hub answers each action with every card, and changed() replaces the
 // cards from the last poll with them. A card the reviewer pressed a button on
 // is on screen already, and a card the reviewer just wrote is not, so Work shows
@@ -188,47 +159,89 @@ function changed(result, written = null) {
   openedAt = null;
   const card = written && cards().find((item) => item.id === written);
   const shown = card && !$("work-view").hidden;
-  if (shown) selected = cardTab(card);
+  if (shown) setWorkTab(cardTab(card));
   refreshWork(true);
   if (shown) land({ target: `proposal-${card.id}` });
   // In the search window's frame, the window's own list shows the card's state.
   if (embedded) window.parent.dispatchEvent(new Event("pair:card"));
   // poll() fetches the rest of what the action changed, such as the thread
   // that Open a new agent session starts.
-  void poll();
+  void callHook("poll");
 }
+
+function actionButton(className, label, run) {
+  const node = element("button", className, label);
+  node.type = "button";
+  node.addEventListener("click", run);
+  return node;
+}
+
 function actions(card) {
-  const button = (className, label, run) => {
-    const node = element("button", className, label);
-    node.type = "button";
-    node.addEventListener("click", run);
-    return node;
-  };
   const left = element("span", "proposal-foot-start");
-  if (allows(card, "restore"))
-    left.append(button("link-btn", "Restore", () => act(card, "restore")));
-  else if (allows(card, "decline"))
-    left.append(button("link-btn", "Decline", () => act(card, "decline")));
+  if (allows(card, "restore")) {
+    left.append(
+      actionButton("link-btn", "Restore", () => act(card, "restore")),
+    );
+  } else if (allows(card, "decline")) {
+    left.append(
+      actionButton("link-btn", "Decline", () => act(card, "decline")),
+    );
+  }
   const right = element("span", "proposal-actions");
-  if (allows(card, "start"))
+  if (allows(card, "start")) {
     right.append(
-      button("btn primary proposal-start", "Start", () =>
+      actionButton("btn primary proposal-start", "Start", () =>
         openStart(card, joinedInto(card), (result) => {
           actedOn = card.id;
           changed(result);
         }),
       ),
     );
+  }
   return [left, right];
 }
-export function cardElement(
-  card,
-  { shown = context(), fresh = false, stays = false } = {},
-) {
-  const root = element("article", "proposal-card");
-  root.dataset.proposalCard = card.id;
-  // The comment control uses data-kind to name a chosen card.
-  root.dataset.kind = "proposal";
+
+function appendStartedQuote(body, started) {
+  if (!started) return;
+  if (started.by === "words") {
+    const lead = element("p", "proposal-lead", "Started from your words");
+    const place = wordsPlace(started);
+    if (place) lead.append(" ", place);
+    body.append(lead);
+  }
+  const quoted = started.quote ?? started.message;
+  if (quoted) body.append(element("p", "proposal-message", `“${quoted}”`));
+}
+
+function appendCardDetails(body, card) {
+  if (card.attachments?.length) body.append(images(card));
+  // cardElement() quotes the reviewer's words that started the card, or the
+  // reviewer's message with Start, so the card shows everything the reviewer
+  // approved.
+  appendStartedQuote(body, card.started);
+  if (card.withdrawn) {
+    body.append(
+      element(
+        "p",
+        "proposal-reason",
+        `The agent's reason: ${card.withdrawn.reason}`,
+      ),
+    );
+  }
+  const joined = joinedInto(card);
+  if (joined.length) body.append(joinedList(joined));
+}
+
+function cardFooter(card) {
+  if (!cardsEditable()) return null;
+  const buttons = actions(card);
+  if (!buttons.some((side) => side.children.length)) return null;
+  const foot = element("div", "proposal-foot");
+  foot.append(...buttons);
+  return foot;
+}
+
+function cardBody(card, { shown, fresh, stays }) {
   const head = element("p", "proposal-title");
   head.append(element("b", "", card.title));
   if (fresh) head.append(element("span", "page-new", "New"));
@@ -236,39 +249,23 @@ export function cardElement(
   const body = element("div", "proposal-body");
   body.append(head, metaLine(state, tone, cardWhere(card, state)));
   // A finished card that stays on screen keeps its status box, and so its height.
-  if (allows(card, "status") || (stays && card.started))
+  if (allows(card, "status") || (stays && card.started)) {
     body.append(statusBox(card));
+  }
   body.append(element("p", "proposal-delivers", card.delivers));
-  if (card.attachments?.length) body.append(images(card));
-  // cardElement() quotes the reviewer's words that started the card, or the
-  // reviewer's message with Start, so the card shows everything the reviewer
-  // approved.
-  const { started, withdrawn } = card;
-  if (started?.by === "words") {
-    const lead = element("p", "proposal-lead", "Started from your words");
-    const place = wordsPlace(started);
-    if (place) lead.append(" ", place);
-    body.append(lead);
-  }
-  const quoted = started?.quote ?? started?.message;
-  if (quoted) body.append(element("p", "proposal-message", `“${quoted}”`));
-  if (withdrawn)
-    body.append(
-      element(
-        "p",
-        "proposal-reason",
-        `The agent's reason: ${withdrawn.reason}`,
-      ),
-    );
-  const joined = joinedInto(card);
-  if (joined.length) body.append(joinedList(joined));
-  root.append(body);
-  const buttons = cardsEditable() ? actions(card) : [];
-  if (buttons.some((side) => side.children.length)) {
-    const foot = element("div", "proposal-foot");
-    foot.append(...buttons);
-    root.append(foot);
-  }
+  appendCardDetails(body, card);
+  return body;
+}
+
+export function cardElement(card, options = {}) {
+  const { shown = context(), fresh = false, stays = false } = options;
+  const root = element("article", "proposal-card");
+  root.dataset.proposalCard = card.id;
+  // The comment control uses data-kind to name a chosen card.
+  root.dataset.kind = "proposal";
+  root.append(cardBody(card, { shown, fresh, stays }));
+  const foot = cardFooter(card);
+  if (foot) root.append(foot);
   return root;
 }
 
@@ -284,26 +281,27 @@ const unseen = (card, seen) =>
   !seen.has(cardKey(session.sessionId, card.id));
 let marked = new Set();
 let watcher = null;
+
 function watchCards(list) {
   watcher?.disconnect();
   watcher = new IntersectionObserver(
     (entries, observer) => {
       const shown = entries.filter((entry) => entry.isIntersecting);
       for (const entry of shown) observer.unobserve(entry.target);
-      if (shown.length && !embedded)
+      if (shown.length && !embedded) {
         markSeen(
           session.sessionId,
           shown.map((entry) => entry.target.dataset.proposalCard),
         );
+      }
     },
     { threshold: 0.5 },
   );
-  for (const node of list.querySelectorAll("[data-proposal-card]"))
+  for (const node of list.querySelectorAll("[data-proposal-card]")) {
     watcher.observe(node);
+  }
 }
 
-let selected = workTabs[0].id;
-export const workTab = () => selected;
 // opening stays true from openWork() until the hub has listed the cards, and
 // then refreshWork() selects the tab that Work opens on.
 let opening = false;
@@ -318,6 +316,7 @@ let drawnTab = null;
 // screen. The list keeps them until the reader changes tab, so the card being
 // read does not vanish, and the tab's count can be short of the list until then.
 const staying = new Set();
+
 function cardAt(target) {
   if (!target) return null;
   const thread = (remote?.threads || []).find(
@@ -330,6 +329,7 @@ function cardAt(target) {
     (target.startsWith("proposal-") ? target.slice("proposal-".length) : null);
   return cards().find((card) => card.id === id) || null;
 }
+
 // When Work is already on screen, openWork() keeps its tab unless a target
 // names a card.
 export function openWork(target, stayed) {
@@ -344,20 +344,25 @@ export function openWork(target, stayed) {
   // arrives, so only opening Work or a target forces a redraw.
   refreshWork(!stayed || Boolean(target));
 }
+
 function selectTab(id) {
   openedAt = null;
-  selected = id;
+  setWorkTab(id);
   refreshWork(true);
   $(`work-tab-${id}`)?.focus();
 }
+
 // The reviewer has already seen a card they wrote, so it gets no New label.
 const openForm = () =>
   openNewItem((result, id) => {
     markSeen(session.sessionId, [id]);
     changed(result, id);
   });
+
 const wiredWorkControls = new WeakSet();
+
 function renderWork(groups, shown, seen) {
+  const selected = workTab();
   const newButton = $("work-new");
   newButton.hidden = !cardsEditable();
   if (!wiredWorkControls.has(newButton)) {
@@ -387,7 +392,7 @@ function renderWork(groups, shown, seen) {
     tabBar.addEventListener("keydown", (event) => {
       const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
       if (!step) return;
-      const index = workTabs.findIndex(({ id }) => id === selected);
+      const index = workTabs.findIndex(({ id }) => id === workTab());
       selectTab(
         workTabs[(index + step + workTabs.length) % workTabs.length].id,
       );
@@ -428,6 +433,7 @@ function renderWork(groups, shown, seen) {
   // finds it again by its ID or ends the choice.
   commentTarget();
 }
+
 /* On a page, drawProposal() shows the card that the hub has under the ID, or
    the text the author wrote when no hub has the card. */
 const mounted = new Map();
@@ -435,6 +441,7 @@ export function drawProposal(root) {
   mounted.set(root, "");
   paintProposal(root);
 }
+
 function paintProposal(root, seen = seenCards()) {
   const card = cards().find((item) => item.id === root.dataset.proposal);
   if (!card) return;
@@ -454,30 +461,39 @@ function paintProposal(root, seen = seenCards()) {
   root.dataset.proposalCard = card.id;
   root.replaceChildren(cardElement(card, { shown, fresh }));
 }
-export function refreshWork(force = false) {
-  if (remote && !embedded) adoptCards(session.sessionId, cards());
-  const seen = seenCards();
-  for (const root of mounted.keys())
-    if (root.isConnected) paintProposal(root, seen);
-    else mounted.delete(root);
-  if ($("work-view").hidden) return placeThreads();
-  const shown = context();
-  const groups = workGroups(cards());
+
+function settleSelectedTab(groups) {
   const named = cardAt(openedAt);
   if (named) {
-    selected = cardTab(named);
+    setWorkTab(cardTab(named));
     openedAt = null;
     opening = false;
   } else if (opening && remote) {
     const kept = resumedWorkTab();
-    selected = groups[kept] ? kept : openingTab(groups);
+    setWorkTab(groups[kept] ? kept : openingTab(groups));
     opening = false;
   }
-  const key = JSON.stringify([
+}
+
+function updateStayingCards(groups, place) {
+  if (!place) staying.clear();
+  for (const id of place?.cards ?? []) staying.add(id);
+  for (const card of groups[workTab()]) staying.delete(card.id);
+}
+
+function syncMountedProposals(seen) {
+  for (const root of mounted.keys()) {
+    if (root.isConnected) paintProposal(root, seen);
+    else mounted.delete(root);
+  }
+}
+
+function workDrawKey(shown, seen) {
+  return JSON.stringify([
     cards(),
     linkedWaits(),
     [...shown.unread],
-    selected,
+    workTab(),
     failure,
     cardsEditable(),
     remote?.current?.round,
@@ -485,17 +501,30 @@ export function refreshWork(force = false) {
     // labels then.
     Boolean(seen),
   ]);
+}
+
+function shouldRedrawWork(force, key) {
   // A redraw takes the thread cards out of the list, so the reply box the
   // reviewer is typing in would lose focus and the next keys would reach the
   // frame's shortcuts. The first poll after the reviewer leaves the box draws
   // the change.
   const typing = document.activeElement?.matches("#work-cards textarea");
-  const place = selected === drawnTab ? readPlace(actedOn) : null;
-  if (force || (key !== drawnKey && !typing)) {
+  return force || (key !== drawnKey && !typing);
+}
+
+export function refreshWork(force = false) {
+  if (remote && !embedded) adoptCards(session.sessionId, cards());
+  const seen = seenCards();
+  syncMountedProposals(seen);
+  if ($("work-view").hidden) return placeThreads();
+  const shown = context();
+  const groups = workGroups(cards());
+  settleSelectedTab(groups);
+  const key = workDrawKey(shown, seen);
+  const place = workTab() === drawnTab ? readPlace(actedOn) : null;
+  if (shouldRedrawWork(force, key)) {
     drawnKey = key;
-    if (!place) staying.clear();
-    for (const id of place?.cards ?? []) staying.add(id);
-    for (const card of groups[selected]) staying.delete(card.id);
+    updateStayingCards(groups, place);
     renderWork(groups, shown, seen);
   }
   placeThreads();

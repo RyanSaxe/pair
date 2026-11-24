@@ -77,8 +77,9 @@ test("a session keeps its last 50 events", async (t) => {
     anchor: "Overview",
     text: "Why?",
   });
-  for (let index = 1; index <= 50; index++)
+  for (let index = 1; index <= 50; index++) {
     await a.action("reply", { note: thread, text: `Reply ${index}` });
+  }
   const events = await listedEvents(h.server.origin, a.id);
   assert.equal(events.length, 50);
   assert.deepEqual(
