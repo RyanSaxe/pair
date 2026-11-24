@@ -21,7 +21,7 @@ jobs:
   screenshots:
     # GitHub creates pull_request runs for the job's own push and holds them
     # until someone with write access approves them. In the approved runs,
-    # ci.yml checks the new commit and GitHub skips this job, so the job's
+    # check.yml checks the new commit and GitHub skips this job, so the job's
     # commit leads to no further commit.
     if: github.actor != 'github-actions[bot]'
     # npm run screenshots runs only on macOS, because the frame's text is the

@@ -79,16 +79,6 @@ or its job changes.
 
 ## Rules for the code
 
-Keep a file to 600 lines or fewer where you can, and never above 1000. ESLint
-checks the length of each JavaScript file with its `max-lines` rule.
-`eslint.config.mjs` sets the rule to fail a file over 1000 lines, and CI runs
-ESLint a second time with the rule at 600 as a warning, which lists each file
-over 600 lines without failing:
-
-```sh
-npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 600]}' .
-```
-
 Frame modules import each other by `#frame/…` and `#shared/…` names. The browser
 loads each module of a built page from a `data:` URL behind an import map, where
 a relative name such as `./store.mjs` cannot resolve, so a relative import
@@ -125,15 +115,23 @@ written literally, such as ``run `pair guide writing.md` ``, and never by a
 Markdown link, because `pair guide` prints a file as it is and the agent cannot
 resolve a relative path.
 
+## Branches and commits
+
+Pull requests land on `develop`, the default branch. A pull request from
+`develop` into `main` is a release, and merging into `main` publishes to npm
+through `.github/workflows/release.yml`. Write commit messages in Conventional
+Commits format, such as `fix(frame): keep drawers still on blur`.
+
 ## Checks
 
-CI runs these four on every push and pull request, and a change passes when all
-four pass. Use a Node version that `engines.node` in `package.json` allows.
+CI runs `prek`, the unit tests and the browser tests on every push and pull
+request in `.github/workflows/check.yml`. Use a Node version that `engines.node`
+in `package.json` allows. Run `npm ci` and `prek install` once in a checkout so
+`oxfmt`, `oxlint`, `rumdl` and `playwright-core` are installed locally.
 
 ```sh
+prek run --all-files
 node --test
-npx --yes prettier@3.9.6 --check .
-npx --yes eslint@10.11.0 .
 npm run test:browser
 ```
 
@@ -165,9 +163,9 @@ whose library loads from esm.sh or jsDelivr fails the test while that CDN is
 down.
 
 Run one file with `node --test tests/hub/server.test.mjs`, and format a file
-with `npx --yes prettier@3.9.6 --write PATH`. Prettier skips
-`tests/fixture/*.html`, which `.prettierignore` lists, because reflowing breaks
-the Mermaid and JSON text in those pages.
+with `npx --no-install oxfmt PATH`. `.oxfmtrc.json` skips `tests/fixture/*.html`
+and `scripts/demo/**/*.html`, because reflowing breaks the Mermaid text, JSON
+text and screenshot selectors in those pages.
 
 ## Skills
 

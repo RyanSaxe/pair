@@ -153,10 +153,8 @@ increase deletion counts.
 2. For removed source greps or copied inventories, run the command whose output
    is the real contract, such as `node src/cli.mjs build` or
    `node tests/fixture/build.mjs`.
-3. Run `npx --yes prettier@3.9.6 --write` on the changed files, then
-   `git diff --check`.
-4. Run the three CI checks: `node --test`, `npx --yes prettier@3.9.6 --check .`
-   and `npx --yes eslint@10.11.0 .`.
+3. Run `prek run --all-files`, then `git diff --check`.
+4. Run `node --test` and, when browser behavior changed, `npm run test:browser`.
 5. Inspect `git diff --numstat`, and report production and tooling separately
    from tests and test support.
 

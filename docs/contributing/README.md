@@ -52,15 +52,14 @@ an agent that changes them.
 ## Checks
 
 ```sh
+prek run --all-files
 node --test
-npx --yes prettier@3.9.6 --check .
-npx --yes eslint@10.11.0 .
 npm run test:browser
 ```
 
-CI runs all four on every push and pull request. ESLint reports an error for a
-JavaScript file over 1000 lines, and CI also lists each file over 500 lines, the
-size a file should stay under where it can.
+CI runs all three on every push and pull request in
+`.github/workflows/check.yml`. Run `npm ci` and `prek install` once in a
+checkout to install `oxfmt`, `oxlint` and `playwright-core`.
 
 The fixture under `tests/fixture/` is a page with every component, and its
 [README](../../tests/fixture/README.md) describes how to build it and what to
@@ -128,7 +127,7 @@ After every merge into `main`, the release workflow publishes a new version of
   request into `main` only when its checks pass.
 - Before you open that pull request, raise each floor in `engines.node` to the
   latest security release of its Node line, and change the same versions in
-  `package-lock.json`, the `test` matrix in `.github/workflows/ci.yml`, the
+  `package-lock.json`, the `test` matrix in `.github/workflows/check.yml`, the
   required checks of the `main` and `develop` rulesets, the README, `docs/` and
   `guide/setup.md`.
 - When such a pull request merges, the release workflow runs the tests,

@@ -128,6 +128,5 @@ does next.
 
 1. Read each changed sentence again against this skill and `guide/writing.md`.
    Where the subject is a thing, check that the thing performs the verb.
-2. Wrap Markdown prose at 80 columns. Prettier keeps line breaks where you put
-   them, because `.prettierrc` sets `proseWrap` to `preserve`.
-3. Run `npx --yes prettier@3.9.6 --check .`.
+2. Run `prek run --all-files`, which reflows Markdown prose to 80 columns with
+   `rumdl` and checks formatting and lint across the repository.

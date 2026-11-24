@@ -1,7 +1,7 @@
 name: sync develop
 
 # A release merges develop into main with a merge commit that develop does
-# not have. Once ci finishes on main, this job fast-forwards develop to main,
+# not have. Once check finishes on main, this job fast-forwards develop to main,
 # which adds no commit and leaves the two branches identical. develop's
 # ruleset accepts the push only when main's commit passed the checks that
 # develop requires. When a pull request merged into develop after the
@@ -9,7 +9,7 @@ name: sync develop
 # which contains develop, is the next one this job fast-forwards to.
 on:
   workflow_run:
-    workflows: [ci]
+    workflows: [check]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   sync:
-    # A pull request from a fork's branch named main also runs ci with the
+    # A pull request from a fork's branch named main also runs check with the
     # head branch main, so only a push to main starts a sync.
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
