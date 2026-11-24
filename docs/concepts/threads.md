@@ -1,18 +1,16 @@
 # Threads
 
-Start a **thread** when you want the agent to answer a comment right away,
-before the next round.
+Start a **thread** when you want an answer right away, before the next round.
 
 ## Starting a thread
 
-Write a comment, then press **Start a thread** instead of **Add to draft**. The
-shortcut is <kbd>⌘</kbd> <kbd>Enter</kbd> on a Mac, and <kbd>Ctrl</kbd>
-<kbd>Enter</kbd> elsewhere. The hub sends the comment to the agent at once, and
-pair shows the agent's reply in a card under the block you commented on, or
-under the line when you selected words in a diff.
+Write a comment and press **Start a thread** instead of **Add to draft**
+(<kbd>⌘</kbd> <kbd>Enter</kbd> on macOS, <kbd>Ctrl</kbd> <kbd>Enter</kbd>
+elsewhere). The hub sends the comment to the agent immediately, and pair shows
+the reply under the block you commented on, or under the line in a diff.
 
-Pressing **Comment** on a [proposal](proposals-and-work.md) starts a thread on
-it, which pair shows under the proposal's card.
+Pressing **Comment** on a [proposal](proposals-and-work.md) starts a thread
+under that proposal's card.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/note-dialog-dark.png">
@@ -21,63 +19,55 @@ it, which pair shows under the proposal's card.
 
 ## The thread's card
 
-The first line of a thread's card shows what the thread is about. For a comment
-on a block, it shows the block's name. For words you selected, it shows the
-table row, line of code, option or checklist item that contains them, and the
-card shows the words in quotes.
+The card's header names what the thread targets: the block name for a block
+comment, or the table row, code line, option, or checklist item with the quoted
+selection for selected words.
 
 When a block has four or more threads, pair collapses all but the two newest.
-When you expand or collapse a card yourself, pair keeps it that way.
+Manual expand or collapse choices stay as you set them.
 
 ## Replies
 
-- The agent can reply with text, code, diffs, diagrams, charts, formulas or a
-  prototype from this round. When an answer is too long for a thread, or you
-  need to decide something, the agent puts it on a page in the next round.
-- The round's pages stay as they are when you start a thread. When you settle a
-  decision in a thread, the agent adds it to Agreed in the next round, with a
-  link to the thread.
-- When you ask in a thread for a change to the work the agent is doing, the
-  agent makes the change. When you ask for other work, the agent records a
-  proposal and starts it, quoting you, as
-  [When you ask in your own words](proposals-and-work.md#when-you-ask-in-your-own-words)
-  describes.
-- When your message asks for nothing and the agent has nothing to add, the agent
-  acknowledges it with `pair reply --ack` instead of writing a reply. pair then
-  shows "Acknowledged by the agent" with the time in the thread's card, and the
-  bell lists the acknowledgement as it lists a reply. Your next message in the
-  thread waits for an answer again.
-- To agree with a reply without writing anything, press the thumbs up beside the
-  agent's name. The agent then treats what it suggested in that reply as
-  settled, as if you had settled it in words, and does not reply to the thumbs
-  up. The hub sends no wake for a thumbs up, so the agent sees it the next time
-  it runs `pair read` or reads the thread. pair removes the reply's line from
-  the bell. Press the thumbs up again to take it back.
+- The agent can reply with text, code, diffs, diagrams, charts, formulas, or a
+  prototype from this round. Longer answers and new decisions go on a page in
+  the next round.
+- Starting a thread does not change the current round's pages. Decisions settled
+  in a thread appear on Agreed in the next round with a link to the thread.
+- If you ask to change work in progress, the agent applies the change. If you
+  ask for other work, the agent records and starts a proposal quoting you (see
+  [When you ask in your own words](proposals-and-work.md#when-you-ask-in-your-own-words)).
+- If your message needs no reply, the agent runs `pair reply --ack`. The card
+  shows "Acknowledged by the agent" with a timestamp, and the bell lists it like
+  a reply. Your next message in the thread expects a reply again.
+- Press the thumbs up beside the agent's name to accept its suggestion without
+  typing. The hub sends no wake; the agent sees it on its next `pair read` or
+  thread read and does not reply. pair clears the reply from the bell. Press
+  thumbs up again to undo.
 
 ## When the agent reads a thread
 
-How soon the agent reads a thread depends on its agent CLI.
+Timing depends on the agent CLI:
 
-| Agent CLI                                                                         | The agent reads a thread                                                         |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Claude Code, pi, opencode, Antigravity CLI                                        | Between the steps of its turn, after the tool call it is running                 |
-| Codex whose app-server daemon runs the thread, as a plain `codex` from 0.160 does | Between the steps of its turn                                                    |
-| Copilot CLI                                                                       | At once. Copilot moves a running shell command to the background                 |
-| Any other Codex                                                                   | When its turn ends, so while it writes a round, after it publishes the last page |
-| A Codex subagent that another Codex thread spawned                                | After its parent passes the message on                                           |
+| Agent CLI                                               | When the agent reads the thread                                       |
+| ------------------------------------------------------- | --------------------------------------------------------------------- |
+| Claude Code, pi, opencode, Antigravity CLI              | Between turn steps, after the current tool call                       |
+| Codex on its app-server daemon (plain `codex` ≥ 0.160)  | Between turn steps                                                    |
+| Copilot CLI                                             | Immediately (moves a running shell command to the background)         |
+| Any other Codex                                         | When its turn ends (for a round, after publishing the last page)      |
+| Codex subagent spawned by another Codex thread          | After its parent forwards the message                                 |
 
-A reply can take a minute while the agent finishes a long step. The tooltip on
-the ⓘ beside "Sent to the agent", and on **Message the agent** on the progress
-card, shows which of these applies.
+A reply can wait a minute during a long step. The tooltip on ⓘ beside "Sent to
+the agent", and on **Message the agent** in the progress card, shows which rule
+applies.
 
 ## Thread status
 
-The line under your message shows the thread's status.
+The line under your message reports delivery status:
 
-| Line                                  | Meaning                                                                                                                                                              |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent paused. Send a message in chat. | The agent paused the session, so the hub sends it no wake. When you ask the agent in chat to continue, it runs `pair start`, which prints the thread's ID.           |
-| Sent to the agent                     | The hub woke the agent to read the thread, or the agent's `pair start` after a pause, or `pair start --reopen` after a Close, printed the thread's ID.               |
-| Read · replying                       | The agent read the thread and is writing its reply.                                                                                                                  |
-| Acknowledged by the agent             | The agent acknowledged your message with `pair reply --ack` and wrote no reply.                                                                                      |
-| Could not reach the agent             | The hub could not wake the agent. The card shows the session's handoff line, which you can give to another agent to [take the session over](holders-and-handoff.md). |
+| Line                                  | Meaning                                                                                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent paused. Send a message in chat. | The session is paused, so the hub sent no wake. Ask the agent in chat to continue; its `pair start` prints the thread ID.                          |
+| Sent to the agent                     | The hub woke the agent, or `pair start` (after a pause) / `pair start --reopen` (after Close) printed the thread ID.                               |
+| Read · replying                       | The agent read the thread and is writing a reply.                                                                                                  |
+| Acknowledged by the agent             | The agent acknowledged your message with `pair reply --ack`.                                                                                       |
+| Could not reach the agent             | The wake failed. The card shows the handoff line so another agent can [take the session over](holders-and-handoff.md).                             |

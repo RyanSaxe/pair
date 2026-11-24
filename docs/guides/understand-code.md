@@ -1,7 +1,7 @@
 # Understand code
 
-Use a session to learn a codebase, a module, a pull request, or a topic around
-the code. You can keep the session going for as many rounds as you want.
+Use a session to learn a codebase, module, pull request, or subsystem across as
+many rounds as you need.
 
 ## Ask
 
@@ -9,29 +9,26 @@ the code. You can keep the session going for as many rounds as you want.
 /pair help me understand how this service handles retries
 ```
 
-Name the subject as exactly as you can, such as the module, the pull request or
-the behavior.
+Name the module, pull request, or behavior as specifically as you can.
 
 ## Reading the pages
 
-- Each page is about one topic.
-- The agent quotes code with its file and line numbers, and shows changes as
+- Each page covers one topic.
+- The agent quotes code with file paths and line numbers, and shows changes as
   diffs.
 - Click a diagram to open it full size.
 
 ## Asking
 
-| When you want the answer | Do this                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------- |
-| Now                      | Comment and press **Start a thread**. pair shows the agent's reply under the block.                |
-| In the next round        | Comment and press **Add to draft**, then send the round. Also say what you want to go deeper into. |
+| When you want the answer | Action                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| Now                      | Comment and press **Start a thread**. pair shows the reply under the block.                       |
+| In the next round        | Comment and press **Add to draft**, then send the round. Say what you want to inspect next.       |
 
 ## When you understand enough
 
-Send the round with **Write a plan**, or ask for a plan in a comment or in chat.
-You can [plan the change](plan-a-change.md) and then build it in the same
-session.
+Send the round with **Write a plan**, or ask for a plan in a comment or chat.
+You can [plan the change](plan-a-change.md) and build it in the same session.
 
-To stop, tell the agent in chat, and it pauses the session. When you ask it to
-continue, it reads anything you sent in the meantime. Close the session from the
-session list when you are done with it.
+To pause, tell the agent in chat; when you ask it to resume, it reads anything
+you sent meanwhile. Close the session from the session list when you are done.

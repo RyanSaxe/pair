@@ -1,15 +1,14 @@
 # Build the work
 
-The agent builds work when you choose **Build it** as you send a round, or when
-you start a [proposal](../concepts/proposals-and-work.md).
+The agent starts building when you send a round with **Build it** or start a
+[proposal](../concepts/proposals-and-work.md).
 
-- When you choose **Build it**, the agent builds what Agreed describes,
-  following the last plan if there is one, in this session's rounds.
-- A proposal you start **Here** runs in the same session and tab. One you start
-  in a sub-session or with a new agent runs in its own session, which you open
-  from the card. When you check **Plan it first** in the Start drawer, the agent
-  in that session plans the work in its rounds and builds nothing until you
-  choose Build it there.
+- **Build it** builds what Agreed describes in this session's rounds, following
+  the latest plan if one exists.
+- A proposal started **Here** runs in this session. One started in a sub-session
+  or with a new agent runs in its own linked session, opened from the card. If
+  you checked **Plan it first**, that session plans first and builds nothing
+  until you choose **Build it** there.
 
 ## Follow the build
 
@@ -18,35 +17,31 @@ you start a [proposal](../concepts/proposals-and-work.md).
   <img alt="The progress card: 2 of 4 pages ready, the page in progress with when it last changed, the agent's note under the title, and Message the agent" src="../assets/progress-card-light.png" width="390">
 </picture>
 
-- The agent builds the work on a new branch, and names the branch on the first
-  page about the work.
-- Agreed shows the task and a progress card. The card lists each page as Ready
-  or Queued, or, for a page the agent is working on, how long ago the agent last
-  reported on it, with the agent's note.
-- The agent publishes each part as soon as you can judge it, so you can redirect
-  the agent while it builds the rest.
-- When the plan does not cover something, the agent decides it, keeps building,
-  and explains the decision on the next page.
-- When the agent fixes a problem it found along the way, it says so on the
-  work's pages. It records unrelated work as a new proposal.
+- The agent works on a new branch and names it on the first build page.
+- Agreed shows the task and a progress card listing each page as Ready, Queued,
+  or in progress with its last update time and note.
+- The agent publishes each part as soon as it is reviewable so you can redirect
+  it while it builds the rest.
+- For details the plan left open, the agent decides, keeps building, and
+  explains the choice on the next page.
+- Inline fixes appear on the work's pages; unrelated work becomes a new
+  proposal.
 
 ## Steer it
 
-| To                                  | Do this                                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------------------ |
-| Change the work while it runs       | Ask for the change in a thread or a comment. The agent makes the change you ask for. |
-| Add work the agent found on the way | Start the proposal the agent records for it.                                         |
-| Stop                                | Tell the agent in chat. It pauses the session, and continues when you ask it to.     |
+| Goal                            | Action                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| Change work in progress         | Ask in a thread or comment. The agent applies the change.                |
+| Approve work found along the way | Start the proposal the agent recorded for it.                            |
+| Stop                            | Tell the agent in chat. It pauses the session until you ask to continue. |
 
 ## Review the work
 
-On the last page about the work, the agent explains it well enough for you to
-review and maintain it. When the work is a proposal that runs here, the agent
-marks it done after it publishes that page, and pair moves the card to Done.
-When you send a round that asks for changes to the work, the agent reopens the
-proposal, pair moves the card back to Running, and the agent publishes the
-changes in the next round.
+On the final page, the agent explains the change so you can review and maintain
+it. For a proposal running here, the agent marks it done after publishing that
+page and pair moves the card to Done. Sending a round requesting changes reopens
+the proposal, moves it back to Running, and publishes updates next round.
 
-Work in a sub-session or a new agent session is finished when you close that
-session. When all the work is finished, tell the agent anything left to do, such
-as opening the pull request, and then close the session.
+Work in a sub-session or new agent session finishes when you close that session.
+Ask the agent for any final steps, such as opening a pull request, before
+closing.

@@ -2,276 +2,215 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
-  <img alt="What runs where: your agent CLI, the pair hub on your machine, and your browser" src="../assets/architecture-light.svg">
+  <img alt="pair architecture: your agent CLI runs pair commands to publish pages and replies to the local pair hub, the hub serves the round UI to your browser and saves state under ~/.local/state/pair/, and when you send feedback or start a thread the hub wakes the holding agent through its CLI adapter." src="../assets/architecture-light.svg">
 </picture>
 
 Your agent runs `pair` commands in its own shell. Each session command sends a
-request to the **hub**, one process on your machine that serves every live
-session to your browser and wakes the agent when you respond.
+request to the **hub**, one local process that serves every live session to your
+browser and wakes the agent when you respond.
 
 ## The hub
 
 ### When the hub runs
 
-- A session command, such as `pair start`, starts the hub when none is running.
-- A session is live from `pair start` until you close it or its agent pauses it.
-  The hub exits once no session has been live for `PAIR_HUB_IDLE_SECONDS`, and
-  the next `pair start` starts a new hub on the same port.
-- A new hub loads every session from disk, so a session's URL stays the same.
-- The hub reads the frame's files once and keeps them until it exits. It draws a
-  round from those files and the round's records in `pages/<round>/` each time a
-  browser asks for the round, so a new hub shows every round of every session
-  with the frame from its own code.
-- Every answer from the hub has its code version in the `X-Pair-Version` header.
-  When a session command finds a hub that runs a different version of pair, it
-  stops the old hub and starts one that runs its own version. `pair start` does
-  this before its request, and every other session command after its request
-  finishes, so the next command reaches the new hub.
-- While a session is live on the old hub, a command replaces the hub only when
-  it runs pair from the hub's folder and git status shows no uncommitted change
-  under `src/` or `adapters/` there. A folder that is not a git clone, such as
-  an npm install, counts as committed. Otherwise the command keeps the old hub
-  and prints why the hub stays on its version.
-- When several commands find at once that the hub needs replacing, or that no
-  hub runs, the command that creates `hub/start.lock` stops or starts the hub,
-  and the others wait for that hub and use it.
-- The old hub stops accepting connections and lets the requests in progress
-  finish, for up to 3 seconds, before it exits. The new hub loads the live
-  sessions from disk, and they stay live.
+- Any session command (such as `pair start`) starts the hub if none is running.
+- A session is live from `pair start` until you close it or the agent pauses it.
+  After `PAIR_HUB_IDLE_SECONDS` with no live sessions, the hub exits; the next
+  `pair start` starts a fresh hub on the same port and reloads sessions from
+  disk, keeping every session URL unchanged.
+- The hub caches frame assets at startup and renders each round from those files
+  plus `pages/<round>/`, so a new hub serves all rounds with its updated frame.
+- Every hub response carries `X-Pair-Version`. When a session command sees a
+  version mismatch, it replaces the hub (`pair start` before its request; other
+  session commands after theirs).
+- While a session is live, replacement happens only when the command runs from
+  the hub's folder with no uncommitted changes under `src/` or `adapters/`
+  (non-git installs such as npm count as clean). Otherwise the old hub stays up
+  and the command explains why.
+- Concurrent starts or replacements synchronize via `hub/start.lock`: the winner
+  restarts the hub while others wait and connect to it.
+- Before exiting, the old hub stops accepting connections and drains in-flight
+  requests for up to 3 seconds; live sessions remain live on the new hub.
 
 ### The hub and your browser
 
-- Every pair tab asks the hub for the session list every 5 seconds, with each
-  session's latest events for the bell. While Notifications is open, the tab
-  also asks for every thread line of the open sessions on each of those polls.
-- A tab keeps the frame code it loaded. When the hub restarts on a new version,
-  the tab reloads itself once, at the same round, page and place. It waits while
-  you type, while a dialog or menu is open, or while text is selected or a video
-  has started. A hub that is down, or too old to send its version, causes no
-  reload.
-- The hub records which bell lines you cleared, which pages you opened and which
-  proposal cards you saw on Work, and sends those records with the session list.
-  A phone on the `PAIR_HUB_HOST` address and a computer then show the same bell,
-  sessions badge and **New** marks, within one poll of each other. Layout
-  preferences, such as the sidebar and the page's width, stay in each browser.
-- The hub keeps each session's completed draft items and numbers each change it
-  receives. Every pair tab sends what you complete and reads the hub's copy when
-  a status poll shows a newer revision. When two devices change the same item,
-  the change the hub receives later wins, and a removed note stays removed. Text
-  you typed but did not complete stays in the browser you typed it in.
-- When the hub or another tab changes the draft, the frame updates the choices,
-  answers, drawings and note marks on the page at once. It draws the whole page
-  again only while you are not typing, using a modal window or a prototype, or
-  part way through a video, so none of those is replaced. An open drawer does
-  not stop the redraw.
-- The hub records when a pair tab on this machine last asked for the session
-  list. When the agent publishes the first Agreed of a new session,
-  `pair publish` prints an instruction to open the URL in your browser if no tab
-  asked in the last 90 seconds, and otherwise to give you the link in chat.
-- The hub redirects the root URL, `http://127.0.0.1:4747/` by default, to the
-  session whose waiting round was published earliest, or else to the session you
-  opened last. When you have closed that session and another session is open,
-  the hub redirects to the open one. You can bookmark the root URL.
+- Every pair tab polls the session list and bell events every 5 seconds (plus
+  open-session thread lines while Notifications is open).
+- When the hub restarts on a new version, each tab reloads once at the same
+  round, page, and scroll position, deferring while you type, use a dialog or
+  menu, select text, or play a video. Down or older hubs without versions do not
+  trigger reloads.
+- The hub stores cleared bell lines, opened pages, and seen Work cards, syncing
+  the bell, Sessions badge, and **New** labels across desktop and phone
+  (`PAIR_HUB_HOST`) within one poll. Layout preferences (sidebar and page width)
+  stay local to each browser.
+- The hub stores completed draft items with monotonic revision numbers. Tabs
+  push completions and pull newer revisions on poll. On conflict across devices,
+  the last write to reach the hub wins and deletions persist; unsubmitted typing
+  stays in the local browser.
+- Draft sync updates choices, answers, drawings, and note marks inline, and
+  redraws the full page only when you are not typing, using a modal or
+  prototype, or mid-video (an open drawer does not block redraws).
+- The hub tracks when a local tab last polled. When the agent publishes a new
+  session's first Agreed, `pair publish` tells it to open the URL if no tab
+  polled in the last 90 seconds, or to share the link in chat otherwise.
+- The root URL (`http://127.0.0.1:4747/` by default) redirects to the session
+  with the oldest waiting round, or else the session you opened last (falling
+  back to another open session if closed), so you can bookmark it.
 
 ## When the hub wakes the agent
 
-The hub wakes the holder at these moments:
+Unless the session is paused, the hub wakes the holder when:
 
-- When you send a round, unless the session is paused.
-- When you send a message in a [thread](threads.md), unless the session is
-  paused. The wake message contains your message, or its first 500 characters
-  cut at a space when it is longer, the number of images you attached, and the
-  `pair read --thread` command that prints the whole thread with the images'
-  paths.
-- When you start a [proposal](proposals-and-work.md) here or in a sub-session,
-  unless the session is paused. The wake message contains the message you sent
-  with Start.
-- When another agent starts a proposal on your words with
-  `pair propose --start`, here or in a sub-session, unless the session is
-  paused. When the holder runs that command itself, `pair propose` prints the
-  started work, so the hub sends no wake and `pair read` does not print the
-  start again.
-- When you press Open a new agent session, or Start agent with a message, which
-  starts a thread on the card, unless the session is paused.
-- When a page or a proposal has had no update for 10 minutes and no `pair`
-  command has run on the session for 10 minutes, unless the session is paused,
-  as [Quiet work](#quiet-work) describes.
+- You send a round.
+- You post in a [thread](threads.md). The wake includes your text (truncated at
+  a space to 500 characters), attached image count, and the `pair read --thread`
+  command for the full thread and image paths.
+- You start a [proposal](proposals-and-work.md) here or in a sub-session
+  (including your Start message).
+- Another agent starts a proposal from your words with `pair propose --start`.
+  (When the holder runs it itself, `pair propose` prints the started work
+  directly, with no wake or duplicate `pair read` entry.)
+- You press **Open a new agent session**, or **Start agent** with a message
+  (which starts a thread on the card).
+- A started page or proposal has gone quiet for 10 minutes with no `pair`
+  command for 10 minutes (see [Quiet work](#quiet-work)).
 
-The hub sends no wake when you decline a proposal, give a reply a thumbs up, or
-close a linked session. The holder's next `pair read` prints the proposals you
-declined and the linked sessions you closed.
+Declining a proposal, giving a thumbs up, or closing a linked session sends no
+wake; the holder sees declines and closed linked sessions on its next
+`pair read`.
 
 ### Quiet work
 
-A page of the open round that the agent started is quiet when its last note, or
-its start when it has no note, is more than 10 minutes old. A proposal started
-here is quiet when it is not done, has no parts or a part left, and has had no
-change to its parts for more than 10 minutes, counted from its start when it has
-no parts. Agents often post no note and mark no part while a subagent does the
-work, and the progress card and Work then show you no progress.
+A started page is quiet when its last note (or its start) is over 10 minutes
+old. A proposal running here is quiet when it is unfinished, has no parts or
+remaining parts, and has had no part updates for over 10 minutes. (This catches
+silent stalls while a subagent works.)
 
-- While a page or a proposal is quiet, the next step that every session command
-  prints ends with a line that gives its ID, how many minutes ago it last
-  changed, and the `pair progress` or `pair propose` command that updates it.
-- The hub checks the live sessions once a minute. When a page or a proposal is
-  quiet and no `pair` command has run on the session for 10 minutes, the hub
-  wakes the holder with a line that lists the quiet work. A subagent's commands
-  count, because a subagent runs them in its parent's environment.
-- The hub sends no second wake for a page or a proposal until the agent updates
-  it with a new note on the page or a change to the proposal's parts. Any other
-  command is not an update. When another page or proposal becomes quiet, the hub
-  sends a new wake that lists all the quiet work.
-- The hub keeps the time of the last command in memory, so after a restart it
-  counts from its own start.
+- While work is quiet, every session command's next step appends its ID, idle
+  minutes, and the `pair progress` or `pair propose` command to update it.
+- Once per minute, if work is quiet and no `pair` command (including a
+  subagent's) ran on the session in 10 minutes, the hub wakes the holder listing
+  all quiet work.
+- The hub does not re-wake for the same item until it receives a new page note
+  or part update, or another item goes quiet. Last-command timestamps live in
+  memory and reset on hub restart.
 
-The quiet check counts only started pages, so `pair publish` refuses a publish
-that would leave pages of the open round unpublished and none of them started,
-unless `--start` names the page the agent works on next. A proposal started here
-with every part done or dropped is not quiet, and the next step names it until
-the agent marks it done.
+Because only started pages count, `pair publish` refuses to leave unpublished
+pages with none started unless `--start` names the next page. A proposal with
+all parts done or dropped is not quiet; the next step still prompts the agent to
+mark it done.
 
 ## How the hub wakes each agent CLI
 
-`pair start` records how to wake the agent that ran it. When it finds no way to
-wake the agent, it refuses and prints what to do.
+`pair start` records the wake target for its CLI, or refuses with setup
+instructions if unwakeable.
 
-| Agent CLI       | What `pair start` records                                                                                        | How the hub wakes the agent                                                                                                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code     | `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN`                                                 | It sends a message over the inbox socket.                                                                                                                                                     |
-| Codex           | `CODEX_THREAD_ID`, and the socket of Codex's app-server daemon                                                   | It sends `turn/steer` over the daemon's socket into the turn in progress, queues the line and starts a turn with it on an idle thread, or else runs `codex queue --thread ID --message TEXT`. |
-| Copilot CLI     | `COPILOT_AGENT_SESSION_ID` and the port Copilot listens on                                                       | It sends the message through the SDK inside Copilot CLI with mode `immediate`, or with `enqueue` when Copilot refuses that.                                                                   |
-| pi              | `PAIR_PI_SOCKET` and `PAIR_PI_SESSION`, from pair's extension                                                    | It sends a JSON line over the extension's socket, and the extension gives pi the message as a steering message.                                                                               |
-| opencode        | `PAIR_OPENCODE_SOCKET` and `PAIR_OPENCODE_SESSION`, from pair's plugin                                           | It sends a JSON line over the plugin's socket, and the plugin sends the message at once with `promptAsync`.                                                                                   |
-| Antigravity CLI | `ANTIGRAVITY_CONVERSATION_ID`, `ANTIGRAVITY_LS_ADDRESS`, `ANTIGRAVITY_CSRF_TOKEN` and `ANTIGRAVITY_AGENTAPI_EXE` | It runs `agy agentapi send-message` with the conversation ID and the line, at the address of agy's language server.                                                                           |
+| Agent CLI       | Recorded by `pair start`                                                                                         | Delivery mechanism                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code     | `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`                                                    | Sends a message over the inbox socket.                                                                                              |
+| Codex           | `CODEX_THREAD_ID`, app-server daemon socket                                                                      | Sends `turn/steer` into an active turn, queues + starts a turn on an idle daemon thread, or runs `codex queue --thread ID --message TEXT`. |
+| Copilot CLI     | `COPILOT_AGENT_SESSION_ID`, Copilot port                                                                         | Sends via Copilot CLI's SDK with mode `immediate`, falling back to `enqueue`.                                                       |
+| pi              | `PAIR_PI_SOCKET`, `PAIR_PI_SESSION` (from extension)                                                             | Sends a JSON line over the extension's socket; extension delivers a steering message.                                               |
+| opencode        | `PAIR_OPENCODE_SOCKET`, `PAIR_OPENCODE_SESSION` (from plugin)                                                    | Sends a JSON line over the plugin's socket; plugin calls `promptAsync`.                                                             |
+| Antigravity CLI | `ANTIGRAVITY_CONVERSATION_ID`, `ANTIGRAVITY_LS_ADDRESS`, `ANTIGRAVITY_CSRF_TOKEN`, `ANTIGRAVITY_AGENTAPI_EXE`   | Runs `agy agentapi send-message` with the conversation ID and line against agy's language server.                                   |
 
-Most agent CLIs read a wake message in the middle of a turn. A Codex whose
-daemon does not run the thread, and a Copilot CLI that refuses `immediate`, read
-it when the turn ends.
-[Adapters](../contributing/adapters.md#when-the-cli-reads-the-line) has a table
-of when each one reads it.
+Most CLIs read wakes mid-turn; non-daemon Codex and Copilot `enqueue` read them
+at turn end. See
+[Adapters](../contributing/adapters.md#when-the-cli-reads-the-line).
 
 ### Codex
 
-A plain `codex` from version 0.160 runs each of its conversations, which Codex
-calls threads, on a shared app-server daemon. The daemon listens on
-`app-server-control/app-server-control.sock` under `CODEX_HOME`, or under
-`~/.codex`.
+Plain `codex` (0.160+) runs threads on a shared app-server daemon at
+`$CODEX_HOME/app-server-control/app-server-control.sock` (default `~/.codex`).
 
-- When a turn of the agent's thread is in progress, the hub connects to that
-  socket and sends the line with `turn/steer`, and Codex reads it between the
-  steps of the turn.
-- When the daemon runs the thread and no turn is in progress, the hub adds the
-  line to the thread's queue with `thread/queue/add`, then starts a turn with
-  the line through `thread/queue/start`. Codex leaves a queued line in the queue
-  after you interrupt a turn, until you send a message, so the hub starts the
-  turn itself.
-- In every other case the hub runs `codex queue`. When Codex is idle, it then
-  starts a turn with the line at once. When the daemon does not run the thread,
-  as with a Codex older than 0.160, Codex reads the line when its turn ends.
+- Active turn on daemon: sends `turn/steer` over the socket (read between
+  steps).
+- Idle thread on daemon: calls `thread/queue/add` then `thread/queue/start` (so
+  a turn starts even after an interrupted turn).
+- Otherwise (including Codex < 0.160): runs `codex queue`, which starts a turn
+  immediately if idle or delivers at turn end if busy.
 
-Codex asks you to approve each command its sandbox blocks, every `pair` command
-included, unless an allow rule matches the command. `pair start` refuses under
-Codex until `~/.codex/rules/pair.rules` exists, and `pair setup-codex` writes
-that file.
+`pair start` refuses under Codex until `~/.codex/rules/pair.rules` exists
+(`pair setup-codex` writes it) so Codex's sandbox does not prompt on every
+command.
 
 ### Copilot CLI
 
-Copilot CLI accepts messages from the hub only when you start it with
-`--ui-server`. Without that flag, `pair start` refuses and prints
+Copilot CLI requires `--ui-server`. Without it, `pair start` refuses and prints
 `copilot --ui-server --resume <session id>`.
 
 ### pi and opencode
 
-The hub can send a message to pi only through pair's extension, and to opencode
-only through pair's plugin. You register each one once. When pi runs without the
-extension, or opencode without the plugin, `pair start` refuses and prints the
-`pi install` command, or the plugin's path and the opencode config file to add
-it to.
-
-The hub records a wake as sent, with `wake.last.ok` set to `true`, once the
-extension or the plugin replies that it has received the message, which happens
-before the agent reads it.
-
-When pi or opencode has exited, the wake fails with
-`the agent CLI has exited (ENOENT …)` after a clean exit, or with
-`(ECONNREFUSED …)` after the CLI was killed.
+Both require registering pair's extension/plugin once; otherwise `pair start`
+prints the `pi install` command or opencode plugin path and config file. The hub
+marks `wake.last.ok` true once the listener acknowledges receipt (before the
+agent reads it). Exited CLIs fail with `the agent CLI has exited (ENOENT …)` on
+clean exit or `(ECONNREFUSED …)` if killed.
 
 ### Antigravity CLI
 
-agy gives each command its agent runs the address and CSRF token of agy's
-language server, the conversation's ID and the path of agy itself. `pair start`
-records all four, and the hub wakes the agent by running
-`agy agentapi send-message` with the conversation ID and the line, with that
-address and token in the environment. While a turn runs, agy adds the line to
-the turn after the tool call in progress, and when agy is idle it starts a turn
-with the line. agy's window shows the agent's answer, not the line.
+`agy` injects its language server address, CSRF token, conversation ID, and
+executable path into child commands. `pair start` saves all four, and the hub
+runs `agy agentapi send-message`, delivering after the current tool call or
+starting a new turn when idle (agy shows the agent's reply, not the wake line).
 
-The address and the token change each time agy starts, and the conversation ID
-stays the same when `agy --conversation ID` or `agy --continue` resumes the
-conversation. After a restart, the hub cannot wake the agent until it runs a
-`pair` command, which sends the new address and token. While agy is not running,
-the wake fails with agy's error, such as `… connect: connection refused`.
+Because the address and token rotate on restart while the conversation ID stays
+constant across `--conversation` / `--continue`, wakes fail with agy's error
+(such as `connect: connection refused`) until the resumed agent runs a `pair`
+command. To keep subagents out of `pair agents`, `pair` checks
+`agy agentapi get-conversation-metadata` and routes subagents through their root
+conversation.
 
-To keep a subagent from replacing its parent in `pair agents`, `pair` runs
-`agy agentapi get-conversation-metadata` with the conversation ID. When the
-metadata names a parent conversation, `pair` refuses to register the subagent on
-its own and routes its messages through the root conversation.
-
-agy's own documentation describes `agentapi send-message` and
-`agentapi get-conversation-metadata` only for the sidecars of the Antigravity
-app. It describes neither `ANTIGRAVITY_LS_ADDRESS` nor `ANTIGRAVITY_CSRF_TOKEN`,
-and `agy --help` does not list `agentapi`. pair relies on what Antigravity CLI
-1.5.6 and 1.5.13 do. When a later agy stops setting one of the four variables,
-`pair start` refuses with a message that names them. When it drops `agentapi`, a
-wake fails with agy's error, and `pair` cannot tell a subagent from its parent.
+These `agentapi` commands and env vars are undocumented for CLI use (verified on
+Antigravity CLI 1.5.6 and 1.5.13). If a future release drops any env var,
+`pair start` names the missing variable; if it drops `agentapi`, wakes fail with
+agy's error and subagent detection stops working.
 
 ## The result of a wake
 
-`pair status` shows the holder and the result of the hub's last wake for what
-you sent or a Start.
+`pair status` reports the holder and last wake result:
 
-- The result of each wake has `via`, the delivery path the hub used, such as
-  `steer` or `queue` for Codex, or `parent` when the hub sent it to the parent
-  of a Codex subagent.
-- Each wake also sets `holder.steerable` in `status.json`, which is `true` when
-  the agent CLI reads a message in the middle of a turn.
-- When a wake fails, the progress card shows "Could not wake the agent. Send a
-  message in chat." and the [handoff line](holders-and-handoff.md), and the
-  session list shows "Can't wake", until the holder runs a `pair` command.
-- When the hub stops before a wake goes out, the next hub that loads the session
-  sends it.
+- `via` names the delivery path (such as `steer`, `queue`, or `parent` for a
+  Codex subagent).
+- `holder.steerable` in `status.json` is `true` when the CLI reads messages
+  mid-turn.
+- On wake failure, the progress card displays "Could not wake the agent. Send a
+  message in chat." with the [handoff line](holders-and-handoff.md), and the
+  session list shows "Can't wake" until the holder runs a `pair` command.
+- Pending wakes interrupted by a hub stop are sent by the next hub that loads
+  the session.
 
 ## Storage
 
-pair stores everything under `$XDG_STATE_HOME/pair/`, or `~/.local/state/pair/`.
+pair stores all state under `$XDG_STATE_HOME/pair/` (default
+`~/.local/state/pair/`):
 
 ```text
 hub/
   hub.json           pid, port, hosts, code version, registration secret
   hub.log
-  start.lock         the pid of the command that is starting or replacing the hub
-  seen.json          bell lines you cleared, pages you opened, proposal cards you saw on Work
-sessions/<dir>/      the directory name is not the session ID
-  status.json        title, holder, pause, close time, last wake, open round, linked parent; pair status prints it
-  connection.json    session ID, hub origin, agent token, the agent CLI's name
-  wake.json          how to wake the holder, such as its inbox socket or thread ID
+  start.lock         pid of the command starting or replacing the hub
+  seen.json          cleared bell lines, opened pages, seen Work cards
+sessions/<dir>/      directory name is not the session ID
+  status.json        title, holder, pause, close time, last wake, open round, linked parent
+  connection.json    session ID, hub origin, agent token, agent CLI name
+  wake.json          holder wake target (socket, thread ID, etc.)
   pages/<round>/     published page records
-  src/<round>/<id>/  each page's source
-  rounds/            only from an older pair: built rounds, read for a round with no records in pages/
-  draft.json         your completed notes, choices and answers, until you send
+  src/<round>/<id>/  page source files
+  rounds/            legacy built rounds (fallback when pages/ has no records)
+  draft.json         completed notes, choices, and answers until sent
   feedback/          your submissions
-  uploads/           images on your comments: PNG, JPEG, GIF or WebP, up to 10 MB
-  scenes/            editable shapes of drawing answers and diagram sketches
+  uploads/           comment images (PNG, JPEG, GIF, WebP up to 10 MB)
+  scenes/            editable drawing answers and diagram sketches
   threads/           one file per thread
   proposals/         one file per proposal
-  activity.json      the last 50 events since the last reopen, for the bell and Notifications
-  output/            command output too long to print
+  activity.json      last 50 events since last reopen (bell and Notifications)
+  output/            command output exceeding 10,000 bytes
 ```
 
-The git worktrees where the agent tries ideas are inside the session's directory
-too. The hub deletes nothing when a session closes, and the agent asks you
-before it deletes a worktree it made.
+Trial git worktrees also live inside the session directory. Closing a session
+deletes nothing, and the agent asks before deleting worktrees.
 
-Sessions from interactive-plan, the tool that came before `pair`, stay under
-`~/.local/state/interactive-plan/`. `pair` does not open them, so start a new
-session instead.
+Legacy `interactive-plan` sessions remain under
+`~/.local/state/interactive-plan/`; `pair` does not open them.

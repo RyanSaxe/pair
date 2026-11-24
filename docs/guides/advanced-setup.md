@@ -1,33 +1,31 @@
 # Advanced setup
 
-Optional setup for pair beyond installing it: a launch script that opens a new
-agent for you, messaging between agent sessions, your own text in pair's
-instructions, and your own components.
+Optional setup beyond installing pair: a launch script for opening new agents,
+messaging between agent sessions, custom guide text, and custom components.
 
 ## Start agent and pair spawn: the launch script
 
-When you press Start on a proposal and choose With a new agent, pair can open
-that agent for you. Save an executable script at `~/.config/pair/spawn`, or
-`spawn.ps1` on Windows, and the button reads Start agent. Pressing it with no
-message runs:
+To let pair open a new agent when you start a proposal with
+**With a new agent**, save an executable script at `~/.config/pair/spawn` (or
+`spawn.ps1` on Windows). The button then reads **Start agent**. Pressing it with
+no message runs:
 
 ```text
 ~/.config/pair/spawn DIR COMMAND ARG…
 ```
 
-`DIR` is the folder where your agent ran `pair start`. `COMMAND ARG…` starts the
-same agent CLI with a prompt to run `pair guide` and then `pair start --from`
-for the proposal. pair passes each part as its own argument, with no shell
-between, so the script receives the prompt exactly as pair wrote it. The script
-must open the command in a new terminal and exit within 10 seconds. Without a
-script, Start offers Open a new agent session and Copy command.
+`DIR` is the directory where the session's agent ran `pair start`.
+`COMMAND ARG…` starts the same agent CLI with a prompt to run `pair guide` and
+`pair start --from` for the proposal. pair passes arguments directly with no
+shell between, preserving the prompt intact. The script must launch the command
+in a new terminal and exit within 10 seconds. Without a script, Start offers
+**Open a new agent session** and **Copy command**.
 
-With a message, Start agent asks your session's agent to start the new agent
-instead, so a message such as “claude opus, max effort” starts it in that CLI
-with those settings. The agent can start it with `pair spawn`, which runs the
-same script with the CLI's flags for those settings.
+When you include a message with **Start agent** (such as "claude opus, max
+effort"), pair asks the session's agent instead of calling the script directly.
+That agent can still run `pair spawn` with the requested CLI flags.
 
-tmux, in a new window of the tmux server you already run:
+tmux (new window in your running tmux server):
 
 ```sh
 #!/bin/sh
@@ -36,7 +34,7 @@ shift
 exec tmux new-window -c "$dir" "$@"
 ```
 
-macOS Terminal, which runs a `.command` file in a new window:
+macOS Terminal (opens a `.command` file in a new window):
 
 ```sh
 #!/bin/bash
@@ -54,8 +52,7 @@ chmod +x "$file"
 open -a Terminal "$file"
 ```
 
-Windows, in a new console window, as `~/.config/pair/spawn.ps1`. No one has run
-this example on Windows yet:
+Windows (`~/.config/pair/spawn.ps1`, untested on Windows):
 
 ```powershell
 $dir = $args[0]
@@ -67,9 +64,9 @@ $arguments = $args | Select-Object -Skip 2 | ForEach-Object {
 Start-Process -FilePath $command -ArgumentList $arguments -WorkingDirectory $dir
 ```
 
-`pair spawn` runs the same script from a terminal or from an agent, and prints
-the name that `pair message --to` takes. It passes the arguments after `--` to
-the CLI, as [`pair spawn`](../reference/commands.md#pair-spawn) describes:
+`pair spawn` calls the same script from any terminal or agent, prints the target
+name for `pair message --to`, and forwards flags after `--` to the CLI (see
+[`pair spawn`](../reference/commands.md#pair-spawn)):
 
 ```console
 $ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test." -- -m gpt-5.5
@@ -78,10 +75,9 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 
 ## Messaging between agent sessions
 
-`pair message` lets an agent in Claude Code, Codex, Copilot CLI, pi, opencode or
-Antigravity CLI message a running session of any of them.
-[Commands](../reference/commands.md) describes `pair register`, `pair agents`
-and `pair message`.
+`pair message` sends messages between running sessions across Claude Code,
+Codex, Copilot CLI, pi, opencode, and Antigravity CLI (see
+[Commands](../reference/commands.md)).
 
 ```console
 $ pair agents
@@ -93,19 +89,19 @@ $ pair message --to fix-login-3f --text "The session table now has a revoked_at 
 Sent to fix-login-3f (Claude Code). It reads the message at once if it is idle, and otherwise between the steps of its current turn.
 ```
 
-A session appears in `pair agents` once a `pair` command runs inside it. To list
-every session as it starts, add the start hook for each CLI you use:
+A session enters `pair agents` after running any `pair` command. To register
+every session at startup, configure a start hook:
 
-| CLI             | Start hook                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code     | In `~/.claude/settings.json`: `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"pair register --hook"}]}]}}`                                                                                                                                                                                                                                                |
-| Codex           | The same JSON in `$CODEX_HOME/hooks.json`. Codex asks you once to trust it, and runs it when a session's first turn starts.                                                                                                                                                                                                                                                 |
-| Copilot CLI     | In `~/.copilot/hooks/pair.json`: `{"version":1,"hooks":{"sessionStart":[{"type":"command","bash":"pair register --hook","powershell":"pair register --hook","timeoutSec":30}]}}`                                                                                                                                                                                            |
-| pi              | None. pair's extension, which [Install](../getting-started/install.md) sets up, registers each session.                                                                                                                                                                                                                                                                     |
-| opencode        | None. pair's plugin, which [Install](../getting-started/install.md) sets up, registers each session.                                                                                                                                                                                                                                                                        |
-| Antigravity CLI | In `~/.gemini/config/hooks.json`: `{"pair-register":{"PreInvocation":[{"type":"command","command":"pair register --hook"}]}}`. On the first turn of an interactive session, and on the first turn after you resume with `agy -c`, `pair register --hook` prints JSON that instructs the agent to run `pair register`. Once that `agy` process is listed, it prints nothing. |
+| CLI             | Start hook                                                                                                                                                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code     | `~/.claude/settings.json`: `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"pair register --hook"}]}]}}`                                                                                                                                                   |
+| Codex           | Same JSON in `$CODEX_HOME/hooks.json`. Codex asks once to trust it and runs it on the session's first turn.                                                                                                                                                                 |
+| Copilot CLI     | `~/.copilot/hooks/pair.json`: `{"version":1,"hooks":{"sessionStart":[{"type":"command","bash":"pair register --hook","powershell":"pair register --hook","timeoutSec":30}]}}`                                                                                               |
+| pi              | None; pair's extension from [Install](../getting-started/install.md) registers each session.                                                                                                                                                                                |
+| opencode        | None; pair's plugin from [Install](../getting-started/install.md) registers each session.                                                                                                                                                                                   |
+| Antigravity CLI | `~/.gemini/config/hooks.json`: `{"pair-register":{"PreInvocation":[{"type":"command","command":"pair register --hook"}]}}`. On the first turn (and after `agy -c`), `pair register --hook` prints JSON asking the agent to run `pair register`; once listed, it prints nothing. |
 
-Add this to a project's `AGENTS.md` so its agents use pair's messaging:
+Add this snippet to a project's `AGENTS.md` so agents use messaging:
 
 ```md
 Run `pair register` when you start. To tell another agent something, find it
@@ -116,10 +112,9 @@ there if you have nothing to say. Never answer an acknowledgement.
 
 ## Your own text in pair's instructions
 
-pair prints its instructions to the agent from the files in its `guide/` folder:
-`pair guide` prints `guide/pair.md`, and each command prints the file of its
-moment from `guide/moments/`. When `~/.config/pair/` has a file with the same
-path, pair prints yours after its own:
+`pair guide` prints `guide/pair.md`, and session commands print moment files
+from `guide/moments/`. If a matching path exists under `~/.config/pair/`, pair
+appends your file after its own:
 
 ```text
 ~/.config/pair/
@@ -128,13 +123,13 @@ path, pair prints yours after its own:
   moments/read-thread.md   # after the text pair read prints for a thread
 ```
 
-Write what you want every session to do, such as "Use the write-docs skill for
-any change to docs/". [guide/moments/](../../guide/moments/) has every moment's
+Use these files for standing instructions, such as "Use the write-docs skill for
+any change to docs/". [guide/moments/](../../guide/moments/) lists every moment
 file name.
 
 ## Your own components
 
-A component is a block a page can use, such as a decision or a diagram. Put your
-own in `~/.config/pair/components/NAME/`, and every page you build can use it. A
-component with the same name as one of pair's replaces it. `pair components`
-lists both, and `pair guide components/README.md` prints how to write one.
+Place custom page components in `~/.config/pair/components/NAME/` so any page
+can use them. A component matching a built-in name overrides it. Run
+`pair components` to list all components, and `pair guide components/README.md`
+for authoring instructions.

@@ -9,8 +9,8 @@
 
 In pair programming, one person drives and the other navigates. Agents write
 most of the code now, so `pair` helps you navigate. You read what the agent
-shows you, point out what is wrong, choose between the options it lays out, and
-approve each piece of work before the agent edits your project for it.
+publishes, point out mistakes, choose between options, and approve each piece of
+work before the agent edits your project.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/illustration-dark.png">
@@ -27,74 +27,73 @@ npm install -g @ryansaxe/pair             # the application and the pair command
 npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 ```
 
-Then, in your project, invoke the `pair` skill with what you want to work on:
+In your project, invoke the `pair` skill with your task:
 
 - "plan retrying a charge when the payment gateway times out"
 - "help me understand how this service handles retries"
 
-The agent starts a session and opens it in your browser. When a pair tab is
-already open, the agent gives you the link instead.
-[Install](docs/getting-started/install.md) lists what each agent CLI needs
-first, and [Sessions and rounds](docs/concepts/sessions-and-rounds.md) explains
-what happens next.
+The agent starts a session and opens it in your browser, or gives you the link
+when a pair tab is already open. [Install](docs/getting-started/install.md)
+lists per-CLI setup, and
+[Sessions and rounds](docs/concepts/sessions-and-rounds.md) covers the workflow.
 
 ## How it works
 
 <img alt="Working in pair: Explain, Decide, Plan and Build, in any order, each over the loop of every round, in which the agent publishes pages, you review them, and you send your draft. Start leads from that loop to a sub-session beside it, with the same loop of pages and drafts." src="guide/flow.svg">
 
-A session is one task you work on with your agent. In a session, the agent
-explains code, lays out decisions, plans the work and builds it, in whatever
-order the task needs. You and the agent work in rounds. In each round, the agent
-publishes a few pages, you read them and send your notes and choices, and the
-agent starts the next round from what you sent.
+A session covers one task: explaining code, deciding between options, planning a
+change, and building it, in any order. You work in rounds. In each round, the
+agent publishes pages, you review them and send your notes and choices, and the
+agent builds the next round from your feedback.
 
-On each page, you can select any word or line and comment on it, or choose
-between the options the agent lays out. When you want an answer before the next
-round, you start a thread, and the agent replies while it keeps working. The
-agent edits your project only for work you approve.
+Select any word or line to comment, or pick between options. Start a thread when
+you want an answer before the next round; the agent replies while it keeps
+working. The agent edits your project only for work you approve.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/work-dark.png">
   <img alt="Three phone screens, with arrows between them. On the Work page, a proposal to add idempotency keys to charges, with Decline and Start. Then the Start popup, with In a sub-session chosen and a message to the agent. Then the sub-session, with the agent's pages in progress." src="assets/work-light.png">
 </picture>
 
-The agent records each piece of work it suggests as a proposal, and the Work
-page lists them all. You approve a proposal by pressing Start on it, or by
-asking the agent for the work in your own words. In the picture above, you start
-a proposal in a sub-session, a second session beside the one you are in, and
-follow the agent's progress there.
+The agent lists suggested work as proposals on the **Work** page. Approve one
+with **Start** or by asking in your own words. Above, starting a proposal in a
+sub-session opens a linked session beside the current one.
 
-To find anything you read or wrote, press <kbd>⌘K</kbd> or select the search
-icon, and type a few words. [Search](docs/guides/search.md) covers live
-sessions, and closed ones when you ask.
+Press <kbd>⌘K</kbd> or select the search icon to find anything you read or
+wrote. [Search](docs/guides/search.md) covers live sessions and, when enabled,
+closed ones.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/search-dark.png">
   <img alt="The search modal. The field, three filters and the results are on the left, and the block that matched is drawn on the right with the typed words highlighted." src="docs/assets/search-light.png">
 </picture>
 
-Your agent runs `pair` commands in its own shell. A small server on your
-machine, the hub, serves the pages to your browser and wakes the agent when you
-send a round. [Architecture](docs/concepts/architecture.md) shows what runs
-where, and [Concepts](docs/concepts/) explains each part.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
+  <img alt="pair architecture: your agent CLI runs pair commands to publish pages and replies to the local pair hub, the hub serves the round UI to your browser and saves state under ~/.local/state/pair/, and when you send feedback or start a thread the hub wakes the holding agent through its CLI adapter." src="docs/assets/architecture-light.svg">
+</picture>
+
+Your agent runs `pair` commands in its own shell. A local server, the **hub**,
+serves pages to your browser, saves session state on disk, and wakes the agent
+when you send feedback or start a thread. See
+[Architecture](docs/concepts/architecture.md) and [Concepts](docs/concepts/).
 
 ## Documentation
 
-- [Getting started](docs/getting-started/) explains how to install `pair` and
-  its skill.
-- [Concepts](docs/concepts/) explains sessions, rounds, pages, Agreed, proposals
-  and the hub.
-- [Guides](docs/guides/) covers planning a change, understanding code, building
-  the work and search.
-- [Advanced setup](docs/guides/advanced-setup.md) explains Start agent's launch
-  script, messaging between agent sessions, and your own instructions and
-  components.
-- [Reference](docs/reference/) lists every command and setting, and the files
-  the agent reads.
-- [Troubleshooting](docs/troubleshooting.md) explains how to fix known problems.
+- [Getting started](docs/getting-started/): install `pair`, its skill, and CLI
+  setup.
+- [Concepts](docs/concepts/): sessions, rounds, pages, Agreed, proposals, and
+  the hub.
+- [Guides](docs/guides/): plan a change, understand code, build the work, and
+  search.
+- [Advanced setup](docs/guides/advanced-setup.md): launch scripts, inter-agent
+  messaging, custom instructions, and custom components.
+- [Reference](docs/reference/): commands, environment variables, and agent guide
+  files.
+- [Troubleshooting](docs/troubleshooting.md): fixes for known problems.
 
 To change `pair`, start at [Contributing](docs/contributing/README.md).
-[BACKLOG.md](BACKLOG.md) lists work that is planned but not started.
+[BACKLOG.md](BACKLOG.md) lists planned work.
 
 ## License
 

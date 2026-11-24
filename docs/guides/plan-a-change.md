@@ -1,8 +1,8 @@
 # Plan a change
 
-Plan a change in a session when you do not yet know how it should be built.
-Planning ends with a plan round, from which someone who saw none of the rounds
-could build the work, and you build it from there.
+Start a planning session when you do not yet know how to build a change. The
+session ends in a plan round detailed enough for anyone to build from without
+seeing earlier rounds.
 
 ## Ask
 
@@ -10,8 +10,8 @@ could build the work, and you build it from there.
 /pair plan retrying a charge when the payment gateway times out
 ```
 
-Tell the agent what it cannot learn from the code, such as why you need the
-change, and anything you already know you want or do not want.
+Share what the code cannot tell the agent: why you need the change and any
+constraints you already have.
 
 ## Each round
 
@@ -20,41 +20,37 @@ change, and anything you already know you want or do not want.
   <img alt="A plan page on a phone, with a decision's options as tabs and the first option open" src="../assets/plan-phone-light.png" width="390">
 </picture>
 
-- **Read the task first.** It is at the top of Agreed. The agent bases every
-  page on the task, so correct the task as soon as it is wrong.
-- **Choose every option you care about.** The agent does not count an option
-  marked Recommended as your choice until you press it.
-- **Ask to see it.** When a page describes a layout, a flow or an interface in
-  words, comment and ask for a mock or the code.
-- **Ask quick questions in a thread**, so you get the answer before you send the
+- **Read the task first** at the top of Agreed. Every page follows it, so
+  correct it right away if it drifts.
+- **Pick every option you care about.** An option marked **Recommended** counts
+  only after you click it.
+- **Ask to see it.** If a page describes a layout, flow, or interface only in
+  prose, comment to ask for a mock or code.
+- **Use threads for quick questions** so you get answers before sending the
   round.
 
 ## Ask for a plan
 
-When you send a round, choose **Write a plan** in the Send drawer. The agent
-settles every decision that is still open by taking the option it recommended,
-records each one on Agreed, and makes the next round a plan. The agent can also
-make a round a plan without your asking, when it judges that it knows enough to
-write one.
+Choose **Write a plan** in the Send drawer. The agent resolves open decisions
+with its recommended options, records them on Agreed, and publishes a plan
+round. The agent can also write a plan on its own when it has enough context.
 
-pair marks a plan round with a grey **Plan** tag, beside the title of its Agreed
-and beside the round in the Rounds panel.
+Plan rounds show a grey **Plan** tag beside the Agreed title and in the Rounds
+panel.
 
 ## Before you build
 
-Check these points in the plan:
+Verify that the plan:
 
-- The plan shows every mock, wording and interface you approved, exactly as you
-  approved it.
-- The plan states how to check that the work is done.
-- Every alignment on Agreed appears in the plan as you settled it.
+- shows every mock, wording, and interface exactly as you approved it;
+- states how to verify the finished work;
+- matches every alignment on Agreed.
 
-When the plan is wrong, comment on it and send with **Update the plan**, and the
-agent publishes the revised plan in the next round. To explore again instead,
-send with **Back to iterating**.
+If something is wrong, comment and send with **Update the plan**, or choose
+**Back to iterating** to explore again.
 
-When the plan is right, send with **Build it**. The agent applies your comments
-as last changes to the plan, then builds the work in this session.
-[Build the work](build-the-work.md) describes what happens next. To build it in
-another session instead, ask the agent to record a proposal for the work, and
-start that proposal on Work in a sub-session or with a new agent.
+When the plan is ready, send with **Build it**. The agent applies your final
+comments and builds the work in this session (see
+[Build the work](build-the-work.md)). To build in another session instead, ask
+the agent to record a proposal and start it from Work in a sub-session or with a
+new agent.
