@@ -74,6 +74,18 @@ function isWordEnd(lower, orig, end) {
   );
 }
 
+function baseStrictTier(n, start, end) {
+  if (start === 2) return end ? TIER_EXACT : TIER_PREFIX;
+  if (start === 1) return end ? TIER_PART_EXACT : TIER_PART_PREFIX;
+  return n >= 3 ? TIER_SUBSTRING : 0;
+}
+
+function strictTier({ n, start, end, inHeading }) {
+  if (n === 1 && !(inHeading && start === 2)) return 0;
+  if (n === 2 && (start === 0 || (!end && !inHeading))) return 0;
+  return baseStrictTier(n, start, end);
+}
+
 export function strictInField(word, { lower, orig, inHeading }) {
   const { w, n } = word;
   let pos = lower.indexOf(w);
@@ -82,17 +94,15 @@ export function strictInField(word, { lower, orig, inHeading }) {
   let seen = 0;
   let starts = null;
   while (pos !== -1 && seen < MAX_OCCURRENCES) {
-    const start = isWordStart(lower, orig, pos);
-    const end = isWordEnd(lower, orig, pos + n);
-    let tier = 0;
-    if (start === 2) tier = end ? TIER_EXACT : TIER_PREFIX;
-    else if (start === 1) tier = end ? TIER_PART_EXACT : TIER_PART_PREFIX;
-    else if (n >= 3) tier = TIER_SUBSTRING;
-    if (n === 1 && !(inHeading && start === 2)) tier = 0;
-    if (n === 2 && !(end && start > 0) && !(inHeading && start > 0)) tier = 0;
+    const tier = strictTier({
+      n,
+      start: isWordStart(lower, orig, pos),
+      end: isWordEnd(lower, orig, pos + n),
+      inHeading,
+    });
     if (tier > 0) {
       if (tier > best) best = tier;
-      if (starts === null) starts = [];
+      starts ??= [];
       starts.push(pos);
     }
     seen++;
@@ -108,6 +118,35 @@ const rowA = new Int32Array(64);
 const rowB = new Int32Array(64);
 const rowC = new Int32Array(64);
 
+function isTransposition(q, s, { i, j, from }) {
+  return (
+    i > 1 &&
+    j > 1 &&
+    q.charCodeAt(i - 1) === s.charCodeAt(from + j - 2) &&
+    q.charCodeAt(i - 2) === s.charCodeAt(from + j - 1)
+  );
+}
+
+function fillTypoRow({ q, s, from, len }, { prev2, prev, cur }, i) {
+  cur[0] = i;
+  let least = i;
+  const qc = q.charCodeAt(i - 1);
+  for (let j = 1; j <= len; j++) {
+    const sc = s.charCodeAt(from + j - 1);
+    let v = Math.min(
+      prev[j - 1] + (qc === sc ? 0 : 1),
+      prev[j] + 1,
+      cur[j - 1] + 1,
+    );
+    if (isTransposition(q, s, { i, j, from })) {
+      v = Math.min(v, prev2[j - 2] + 1);
+    }
+    cur[j] = v;
+    if (v < least) least = v;
+  }
+  return least;
+}
+
 function typoDistance(word, s, { from, len }) {
   const { w: q, n, typos: limit } = word;
   if (Math.abs(len - n) > limit) return limit + 1;
@@ -116,25 +155,7 @@ function typoDistance(word, s, { from, len }) {
   let cur = rowC;
   for (let j = 0; j <= len; j++) prev[j] = j;
   for (let i = 1; i <= n; i++) {
-    cur[0] = i;
-    let least = i;
-    const qc = q.charCodeAt(i - 1);
-    for (let j = 1; j <= len; j++) {
-      const sc = s.charCodeAt(from + j - 1);
-      let v = prev[j - 1] + (qc === sc ? 0 : 1);
-      if (prev[j] + 1 < v) v = prev[j] + 1;
-      if (cur[j - 1] + 1 < v) v = cur[j - 1] + 1;
-      if (
-        i > 1 &&
-        j > 1 &&
-        qc === s.charCodeAt(from + j - 2) &&
-        q.charCodeAt(i - 2) === sc
-      ) {
-        if (prev2[j - 2] + 1 < v) v = prev2[j - 2] + 1;
-      }
-      cur[j] = v;
-      if (v < least) least = v;
-    }
+    const least = fillTypoRow({ q, s, from, len }, { prev2, prev, cur }, i);
     if (least > limit) return limit + 1;
     const t = prev2;
     prev2 = prev;
@@ -224,60 +245,74 @@ function lettersRuns(word, lower, pos) {
   return runs;
 }
 
-export function fuzzyInField(word, { lower, orig, inHeading }) {
-  const { w, n, typos } = word;
-  const first = w[0];
-  const initialsAllowed = inHeading && n <= 5;
-  let best = 0;
-  let bestPos = -1;
-  let bestKind = 0;
-  let bestEnd = -1;
-  let pos = lower.indexOf(first);
-  for (; pos !== -1; pos = lower.indexOf(first, pos + 1)) {
-    if (isWordStart(lower, orig, pos) === 0) continue;
-    const end = tryLetters(word, lower, pos);
-    if (end !== -1) {
-      const tier =
-        lettersBoundaries === 0 ? TIER_LETTERS_ONE_WORD : TIER_LETTERS_ACROSS;
-      const score = tier - (end - pos - n) * 2;
-      if (score > best) {
-        best = score;
-        bestPos = pos;
-        bestKind = 1;
-      }
-    }
-    if (initialsAllowed && best < TIER_INITIALS) {
-      const skipped = tryInitials(word, { lower, orig }, pos);
-      if (skipped !== -1 && TIER_INITIALS - skipped * 8 > best) {
-        best = TIER_INITIALS - skipped * 8;
-        bestPos = pos;
-        bestKind = 2;
-      }
-    }
-    if (typos > 0 && best < TIER_TYPO_ONE) {
-      let stop = pos + 1;
-      const most = Math.min(lower.length, pos + n + typos + 1);
-      while (stop < most && isWordChar(lower.charCodeAt(stop))) stop++;
-      const whole =
-        stop === lower.length || !isWordChar(lower.charCodeAt(stop));
-      if (whole && stop - pos >= n - typos) {
-        const d = typoDistance(word, lower, { from: pos, len: stop - pos });
-        if (d <= typos) {
-          const score = d === 1 ? TIER_TYPO_ONE : TIER_TYPO_TWO;
-          if (score > best) {
-            best = score;
-            bestPos = pos;
-            bestKind = 3;
-            bestEnd = stop;
-          }
-        }
-      }
+function lettersScore(word, lower, pos) {
+  const end = tryLetters(word, lower, pos);
+  if (end === -1) return 0;
+  const tier =
+    lettersBoundaries === 0 ? TIER_LETTERS_ONE_WORD : TIER_LETTERS_ACROSS;
+  return tier - (end - pos - word.n) * 2;
+}
+
+function initialsScore(word, field, pos) {
+  const skipped = tryInitials(word, field, pos);
+  return skipped === -1 ? 0 : TIER_INITIALS - skipped * 8;
+}
+
+function tryTypoAt(word, lower, pos) {
+  const { n, typos } = word;
+  let stop = pos + 1;
+  const most = Math.min(lower.length, pos + n + typos + 1);
+  while (stop < most && isWordChar(lower.charCodeAt(stop))) stop++;
+  const whole = stop === lower.length || !isWordChar(lower.charCodeAt(stop));
+  if (!whole || stop - pos < n - typos) return null;
+  const d = typoDistance(word, lower, { from: pos, len: stop - pos });
+  if (d > typos) return null;
+  return { score: d === 1 ? TIER_TYPO_ONE : TIER_TYPO_TWO, stop };
+}
+
+function checkFuzzyAt(best, word, { lower, orig, initialsAllowed, pos }) {
+  const lScore = lettersScore(word, lower, pos);
+  if (lScore > best.score) {
+    Object.assign(best, { score: lScore, pos, kind: 1 });
+  }
+  if (initialsAllowed && best.score < TIER_INITIALS) {
+    const iScore = initialsScore(word, { lower, orig }, pos);
+    if (iScore > best.score) {
+      Object.assign(best, { score: iScore, pos, kind: 2 });
     }
   }
-  if (best === 0) return null;
-  let runs;
-  if (bestKind === 1) runs = lettersRuns(word, lower, bestPos);
-  else if (bestKind === 2) runs = initialsRuns(word, { lower, orig }, bestPos);
-  else runs = [[bestPos, bestEnd]];
-  return { score: best, starts: [bestPos], runs, n, typo: bestKind === 3 };
+  if (word.typos > 0 && best.score < TIER_TYPO_ONE) {
+    const hit = tryTypoAt(word, lower, pos);
+    if (hit && hit.score > best.score) {
+      Object.assign(best, { score: hit.score, pos, kind: 3, end: hit.stop });
+    }
+  }
+}
+
+function fuzzyRuns(best, word, { lower, orig }) {
+  if (best.kind === 1) return lettersRuns(word, lower, best.pos);
+  if (best.kind === 2) return initialsRuns(word, { lower, orig }, best.pos);
+  return [[best.pos, best.end]];
+}
+
+export function fuzzyInField(word, { lower, orig, inHeading }) {
+  const first = word.w[0];
+  const initialsAllowed = inHeading && word.n <= 5;
+  const best = { score: 0, pos: -1, kind: 0, end: -1 };
+  for (
+    let pos = lower.indexOf(first);
+    pos !== -1;
+    pos = lower.indexOf(first, pos + 1)
+  ) {
+    if (isWordStart(lower, orig, pos) === 0) continue;
+    checkFuzzyAt(best, word, { lower, orig, initialsAllowed, pos });
+  }
+  if (best.score === 0) return null;
+  return {
+    score: best.score,
+    starts: [best.pos],
+    runs: fuzzyRuns(best, word, { lower, orig }),
+    n: word.n,
+    typo: best.kind === 3,
+  };
 }

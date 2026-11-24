@@ -1,4 +1,4 @@
-import "./env.mjs";
+import { isolateConfig } from "./env.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
@@ -15,6 +15,8 @@ import {
   pair,
   waitUntil,
 } from "./hub.mjs";
+
+isolateConfig();
 
 // outsideAgents is this process's environment without the variables by which
 // pair finds an agent CLI, and without git's, which a test run inside an agent

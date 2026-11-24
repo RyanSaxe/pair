@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { release } from "node:os";
 import { chromium, webkit } from "playwright-core";
 import { libraries, moduleIntegrity } from "../../src/shared/libraries.mjs";
-import "./env.mjs";
+import { isolateConfig } from "./env.mjs";
+
+isolateConfig();
 
 // launch() throws one of these messages when the browser is not installed.
 // open() skips the test on that message, and fails it when CI is set, so a CI

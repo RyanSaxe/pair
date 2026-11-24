@@ -22,6 +22,18 @@ import {
 // A hub of the previous release answers the reply action with text, and
 // readThread() and reply() print that text as it is.
 
+const nonEmpty = (items) => (items?.length ? items : null);
+
+function eventText(result, cards) {
+  if (result.event) {
+    return result.event.payload.intent === "start"
+      ? startText(result.event, result.proposal, cards)
+      : feedbackText(result.event);
+  }
+  if (result.declined?.length || result.closed?.length) return "";
+  return "You have read everything the reviewer sent.";
+}
+
 export async function read(options) {
   const { submission } = options;
   if (options.thread !== undefined && submission !== undefined) {
@@ -33,8 +45,8 @@ export async function read(options) {
   const session = await openSession(options);
   if (options.thread !== undefined) return readThread(session, options.thread);
   const result = await session.request({ action: "read", id: submission });
-  const declined = result.declined?.length ? result.declined : null;
-  const closed = result.closed?.length ? result.closed : null;
+  const declined = nonEmpty(result.declined);
+  const closed = nonEmpty(result.closed);
   const cards = result.status?.proposals;
   return {
     next: result.next,
@@ -45,13 +57,7 @@ export async function read(options) {
     ].filter(Boolean),
     data: [
       standingText(result.status),
-      result.event
-        ? result.event.payload.intent === "start"
-          ? startText(result.event, result.proposal, cards)
-          : feedbackText(result.event)
-        : declined || closed
-          ? ""
-          : "You have read everything the reviewer sent.",
+      eventText(result, cards),
       runningText(result.running, cards),
       declinedText(declined),
       closedText(closed),
@@ -252,12 +258,16 @@ const places = {
   "sub-session": "in a sub-session",
   "new-agent": "with a new agent",
 };
-function cardText(card, cards) {
-  const { status: cardStatus } = card;
+const activeStates = new Set(["running", "opening", "linked"]);
+
+function partsText(cardStatus) {
   const counted = cardStatus?.parts.filter((part) => part.state !== "dropped");
-  const parts = counted
-    ? `, ${counted.filter((part) => part.state === "done").length} of ${counted.length} parts done`
-    : "";
+  if (!counted) return "";
+  const done = counted.filter((part) => part.state === "done").length;
+  return `, ${done} of ${counted.length} parts done`;
+}
+
+function cardText(card, cards) {
   const joined = joinedInto(card, cards).map((item) => item.id);
   const joins = joined.length ? `, joined by ${listing(joined)}` : "";
   const state = proposalState(card);
@@ -265,10 +275,10 @@ function cardText(card, cards) {
   if (state === "done" || state === "closed") {
     return `done ${card.done.where ?? places[card.started.where]}${joins}`;
   }
-  if (state === "running" || state === "opening" || state === "linked") {
+  if (activeStates.has(state)) {
     const { where, planFirst, built } = card.started;
     const planning = planFirst && !built ? ", planning first" : "";
-    return `approved to run ${places[where]}${planning}${parts}${joins}`;
+    return `approved to run ${places[where]}${planning}${partsText(card.status)}${joins}`;
   }
   return `${state}${joins}`;
 }

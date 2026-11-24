@@ -66,17 +66,32 @@ async function registerSender() {
   }
 }
 
-export async function spawn(options) {
-  requireNode();
-  const [cli] = options.args;
-  const [harness, adapter] =
-    Object.entries(adapters).find(([, each]) => each.command === cli) ?? [];
-  if (!adapter) {
+function findAdapter(cli) {
+  const found = Object.entries(adapters).find(
+    ([, each]) => each.command === cli,
+  );
+  if (!found) {
     throw usageError(
       "spawn",
       `pair spawn has no CLI ${cli}. Give claude, codex, copilot, pi, opencode or agy.`,
     );
   }
+  return found;
+}
+
+async function resolveDirectory(dir) {
+  // A registered session's directory is the real path that its CLI runs in.
+  const directory = await fs.realpath(dir ?? ".").catch(() => null);
+  requireValue(
+    directory && (await fs.stat(directory)).isDirectory(),
+    `${dir} is not a folder.`,
+  );
+  return directory;
+}
+
+export async function spawn(options) {
+  requireNode();
+  const [harness, adapter] = findAdapter(options.args[0]);
   requireName("spawn", options.name);
   if (options.prompt !== undefined && options.file !== undefined) {
     throw usageError("spawn", "Give --prompt or --file, not both.");
@@ -86,12 +101,7 @@ export async function spawn(options) {
     existsSync(launchScript),
     `pair spawn needs a launch script at ${shortPath(launchScript)}. pair runs it as ${path.basename(launchScript)} DIR COMMAND ARG…, and the script opens a terminal in DIR that runs the command. Example scripts are at ${examples}.`,
   );
-  // A registered session's directory is the real path that its CLI runs in.
-  const directory = await fs.realpath(options.dir ?? ".").catch(() => null);
-  requireValue(
-    directory && (await fs.stat(directory)).isDirectory(),
-    `${options.dir} is not a folder.`,
-  );
+  const directory = await resolveDirectory(options.dir);
   const asked =
     options.file === undefined
       ? options.prompt

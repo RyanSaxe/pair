@@ -161,16 +161,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue"
 .ln{stroke:var(--ink);stroke-width:1.5;fill:none}.hd{fill:var(--ink)}
 .thr .ln{stroke:var(--accent);stroke-dasharray:5 4}.thr .hd{fill:var(--accent)}.thr .lab{color:var(--accent)}`;
 }
+const arrowPaths = {
+  both: `<path d="M7 6 H113" class="ln"/><path d="M1 6 L9 1.5 L9 10.5 Z" class="hd"/><path d="M119 6 L111 1.5 L111 10.5 Z" class="hd"/>`,
+  right: `<path d="M0 6 H113" class="ln"/><path d="M119 6 L111 1.5 L111 10.5 Z" class="hd"/>`,
+  left: `<path d="M7 6 H120" class="ln"/><path d="M1 6 L9 1.5 L9 10.5 Z" class="hd"/>`,
+};
 const arrow = (
   dir,
 ) => `<svg class="ar" viewBox="0 0 120 12" width="120" height="12" aria-hidden="true">
-  ${
-    dir === "both"
-      ? `<path d="M7 6 H113" class="ln"/><path d="M1 6 L9 1.5 L9 10.5 Z" class="hd"/><path d="M119 6 L111 1.5 L111 10.5 Z" class="hd"/>`
-      : dir === "right"
-        ? `<path d="M0 6 H113" class="ln"/><path d="M119 6 L111 1.5 L111 10.5 Z" class="hd"/>`
-        : `<path d="M7 6 H120" class="ln"/><path d="M1 6 L9 1.5 L9 10.5 Z" class="hd"/>`
-  }</svg>`;
+  ${arrowPaths[dir] ?? arrowPaths.left}</svg>`;
 
 async function render(browser, html, check) {
   const page = await browser.newPage({

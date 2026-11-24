@@ -1,10 +1,12 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { buildPage } from "../../src/cli/build.mjs";
+
+isolateConfig();
 
 const root = new URL("../../src/components/", import.meta.url);
 

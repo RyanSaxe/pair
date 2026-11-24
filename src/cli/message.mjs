@@ -119,14 +119,31 @@ function sentText(entry, { subagent, way, steerable }) {
   }[way];
 }
 
+function senderLabel(from) {
+  if (from === undefined) return undefined;
+  const label = from.trim();
+  if (!label || /[\r\n]/.test(label)) {
+    throw usageError("message", "--from takes a label of one line.");
+  }
+  return label;
+}
+
+function messageLine({ way, sender, subagent, tool, ack, text }) {
+  const from = `pair message from ${sender.name}`;
+  const body = ack
+    ? `${from} acknowledges your message. Don't answer it.`
+    : `${text}\n\n${ending(sender.answer)}`;
+  if (way === "relayed") {
+    return `${from}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:\n\n${body}`;
+  }
+  return ack ? body : `${from}:\n\n${body}`;
+}
+
 export async function message(options) {
   requireNode();
   const text = await messageText(options);
   const { session, subagent } = receiver(options.to);
-  const label = options.from?.trim();
-  if (options.from !== undefined && (!label || /[\r\n]/.test(label))) {
-    throw usageError("message", "--from takes a label of one line.");
-  }
+  const label = senderLabel(options.from);
   const table = processTable();
   const sender = await identifySender(label, table);
   requireValue(
@@ -139,16 +156,14 @@ export async function message(options) {
     `No running agent session is named ${session} or has an ID that starts with it. Run pair agents to list the running sessions. A session is listed after it runs pair register, pair start, pair message or pair spawn, or after a start hook in its CLI runs pair register --hook.`,
   );
   const { way, target, tool } = await route(entry, subagent);
-  const from = `pair message from ${sender.name}`;
-  const body = options.ack
-    ? `${from} acknowledges your message. Don't answer it.`
-    : `${text}\n\n${ending(sender.answer)}`;
-  const line =
-    way === "relayed"
-      ? `${from}, for your subagent ${subagent}. Pass the message below to ${subagent} unchanged with ${tool}, and do not act on it yourself:\n\n${body}`
-      : options.ack
-        ? body
-        : `${from}:\n\n${body}`;
+  const line = messageLine({
+    way,
+    sender,
+    subagent,
+    tool,
+    ack: options.ack,
+    text,
+  });
   // With PAIR_WAKE=off, wakeRunner writes the line to stderr instead of
   // sending it, as the hub writes it to its log.
   const { wake } = settings();

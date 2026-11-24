@@ -66,57 +66,168 @@ export const decode = (s) =>
         }
         return ENT[e] ?? ENT[e.toLowerCase()] ?? m;
       });
+const AUTO_CLOSE_BOUNDARIES = new Set([
+  "ul",
+  "ol",
+  "table",
+  "tbody",
+  "thead",
+  "section",
+  "div",
+  "dl",
+  "figure",
+  "details",
+  "article",
+]);
+const SKIP_TEXT_TAGS = new Set(["script", "style", "textarea", "template"]);
+
+function skipMatching(s, { from, end }, pattern) {
+  let i = from;
+  while (i < end && pattern.test(s[i])) i++;
+  return i;
+}
+
+function readAttrValue(s, from, end) {
+  const start = skipMatching(s, { from, end }, /\s/);
+  const q = s[start];
+  if (q === '"' || q === "'") {
+    const close = s.indexOf(q, start + 1);
+    const stop = close < 0 ? end : close;
+    return { value: s.slice(start + 1, stop), next: stop + 1 };
+  }
+  const stop = skipMatching(s, { from: start, end }, /[^\s>]/);
+  return { value: s.slice(start, stop), next: stop };
+}
+
 function parseAttrs(s, { from, end }, attrs) {
   let i = from;
   while (i < end) {
-    while (i < end && /[\s/]/.test(s[i])) i++;
+    i = skipMatching(s, { from: i, end }, /[\s/]/);
     if (i >= end) break;
     const start = i;
-    while (i < end && !/[\s=/>]/.test(s[i])) i++;
+    i = skipMatching(s, { from: i, end }, /[^\s=/>]/);
     const name = s.slice(start, i).toLowerCase();
-    while (i < end && /\s/.test(s[i])) i++;
+    i = skipMatching(s, { from: i, end }, /\s/);
     let value = "";
     if (s[i] === "=") {
-      i++;
-      while (i < end && /\s/.test(s[i])) i++;
-      const q = s[i];
-      if (q === '"' || q === "'") {
-        const close = s.indexOf(q, i + 1);
-        const stop = close < 0 ? end : close;
-        value = s.slice(i + 1, stop);
-        i = stop + 1;
-      } else {
-        const st = i;
-        while (i < end && !/[\s>]/.test(s[i])) i++;
-        value = s.slice(st, i);
-      }
+      ({ value, next: i } = readAttrValue(s, i + 1, end));
     }
-    if (name) attrs[name] = value.startsWith("data:") ? "data:" : decode(value);
+    if (name) {
+      attrs[name] = value.startsWith("data:") ? "data:" : decode(value);
+    }
   }
 }
+
 // tagEnd finds the > that closes a tag, skipping quoted attribute values, which
 // can be megabytes of base64.
-function tagEnd(s, i) {
+function tagEnd(s, from) {
   let q = null;
-  for (; i < s.length; i++) {
+  for (let i = from; i < s.length; i++) {
     const c = s[i];
     if (q) {
       const next = s.indexOf(q, i);
       if (next < 0) return -1;
       i = next;
       q = null;
-    } else if (c === '"' || c === "'") q = c;
-    else if (c === ">") return i;
+    } else if (c === '"' || c === "'") {
+      q = c;
+    } else if (c === ">") {
+      return i;
+    }
   }
   return -1;
 }
+
+function skipSpecialTag(s, lt) {
+  if (s.startsWith("<!--", lt)) {
+    const e = s.indexOf("-->", lt + 4);
+    return e < 0 ? s.length : e + 3;
+  }
+  if (s[lt + 1] === "!" || s[lt + 1] === "?") {
+    const e = s.indexOf(">", lt);
+    return e < 0 ? s.length : e + 1;
+  }
+  return -1;
+}
+
+function closeTag(stack, name) {
+  for (let k = stack.length - 1; k > 0; k--) {
+    if (stack[k].tag === name) {
+      stack.length = k;
+      return;
+    }
+  }
+}
+
+function parseCloseTag(s, lt, stack) {
+  const e = s.indexOf(">", lt);
+  if (e < 0) return -1;
+  const name = s
+    .slice(lt + 2, e)
+    .trim()
+    .toLowerCase();
+  closeTag(stack, name);
+  return e + 1;
+}
+
+function closeImplicit(stack, tag) {
+  const closes = CLOSES[tag];
+  if (closes) {
+    for (let k = stack.length - 1; k > 0; k--) {
+      const open = stack[k].tag;
+      if (closes.includes(open)) {
+        stack.length = k;
+        break;
+      }
+      if (AUTO_CLOSE_BOUNDARIES.has(open)) break;
+    }
+  }
+  if (stack[stack.length - 1].tag === "p" && BLOCK_STARTS_P.has(tag)) {
+    stack.pop();
+  }
+}
+
+function readRawElement(s, node, afterOpen) {
+  const close = new RegExp(`</${node.tag}\\s*>`, "i");
+  const rest = s.slice(afterOpen);
+  const m = close.exec(rest);
+  const end = m ? m.index : rest.length;
+  node.raw = rest.slice(0, end);
+  return afterOpen + end + (m ? m[0].length : 0);
+}
+
+function parseOpenTag(s, lt, stack) {
+  const e = tagEnd(s, lt + 1);
+  if (e < 0) return -1;
+  const n = skipMatching(s, { from: lt + 1, end: e }, /[^\s/>]/);
+  const tag = s.slice(lt + 1, n).toLowerCase();
+  const attrs = {};
+  parseAttrs(s, { from: n, end: e }, attrs);
+  closeImplicit(stack, tag);
+  const node = { tag, attrs, children: [] };
+  stack[stack.length - 1].children.push(node);
+  if (RAW.has(tag)) return readRawElement(s, node, e + 1);
+  if (!VOID.has(tag) && s[e - 1] !== "/") stack.push(node);
+  return e + 1;
+}
+
+function stepTag(s, lt, stack) {
+  const special = skipSpecialTag(s, lt);
+  if (special >= 0) return special;
+  if (s[lt + 1] === "/") return parseCloseTag(s, lt, stack);
+  if (!/[a-zA-Z]/.test(s[lt + 1] || "")) {
+    stack[stack.length - 1].children.push({ text: "<" });
+    return lt + 1;
+  }
+  return parseOpenTag(s, lt, stack);
+}
+
 export function parse(s) {
   const root = { tag: "#root", attrs: {}, children: [] };
   const stack = [root];
   let i = 0;
-  const top = () => stack[stack.length - 1];
   const addText = (t) => {
-    if (t) top().children.push({ text: decode(t) });
+    if (t) stack[stack.length - 1].children.push({ text: decode(t) });
   };
   while (i < s.length) {
     const lt = s.indexOf("<", i);
@@ -125,84 +236,9 @@ export function parse(s) {
       break;
     }
     addText(s.slice(i, lt));
-    if (s.startsWith("<!--", lt)) {
-      const e = s.indexOf("-->", lt + 4);
-      i = e < 0 ? s.length : e + 3;
-      continue;
-    }
-    if (s[lt + 1] === "!" || s[lt + 1] === "?") {
-      const e = s.indexOf(">", lt);
-      i = e < 0 ? s.length : e + 1;
-      continue;
-    }
-    if (s[lt + 1] === "/") {
-      const e = s.indexOf(">", lt);
-      if (e < 0) break;
-      const name = s
-        .slice(lt + 2, e)
-        .trim()
-        .toLowerCase();
-      for (let k = stack.length - 1; k > 0; k--) {
-        if (stack[k].tag === name) {
-          stack.length = k;
-          break;
-        }
-      }
-      i = e + 1;
-      continue;
-    }
-    if (!/[a-zA-Z]/.test(s[lt + 1] || "")) {
-      addText("<");
-      i = lt + 1;
-      continue;
-    }
-    const e = tagEnd(s, lt + 1);
-    if (e < 0) break;
-    let n = lt + 1;
-    while (n < e && !/[\s/>]/.test(s[n])) n++;
-    const tag = s.slice(lt + 1, n).toLowerCase();
-    const attrs = {};
-    parseAttrs(s, { from: n, end: e }, attrs);
-    const closes = CLOSES[tag];
-    if (closes) {
-      for (let k = stack.length - 1; k > 0; k--) {
-        if (closes.includes(stack[k].tag)) {
-          stack.length = k;
-          break;
-        }
-        if (
-          [
-            "ul",
-            "ol",
-            "table",
-            "tbody",
-            "thead",
-            "section",
-            "div",
-            "dl",
-            "figure",
-            "details",
-            "article",
-          ].includes(stack[k].tag)
-        ) {
-          break;
-        }
-      }
-    }
-    if (top().tag === "p" && BLOCK_STARTS_P.has(tag)) stack.pop();
-    const node = { tag, attrs, children: [] };
-    top().children.push(node);
-    if (RAW.has(tag)) {
-      const close = new RegExp(`</${tag}\\s*>`, "i");
-      const rest = s.slice(e + 1);
-      const m = close.exec(rest);
-      const end = m ? m.index : rest.length;
-      node.raw = rest.slice(0, end);
-      i = e + 1 + end + (m ? m[0].length : 0);
-      continue;
-    }
-    if (!VOID.has(tag) && s[e - 1] !== "/") stack.push(node);
-    i = e + 1;
+    const next = stepTag(s, lt, stack);
+    if (next < 0) break;
+    i = next;
   }
   return root;
 }
@@ -218,15 +254,8 @@ export function textOf(node, skip) {
       out.push(n.text);
       return;
     }
-    if (
-      n.tag === "script" ||
-      n.tag === "style" ||
-      n.tag === "textarea" ||
-      n.tag === "template"
-    ) {
-      return;
-    }
-    if (skip && skip(n)) return;
+    if (SKIP_TEXT_TAGS.has(n.tag)) return;
+    if (skip?.(n)) return;
     const block = !INLINE.has(n.tag);
     if (block) out.push(" ");
     if (n.tag === "br") out.push(" ");

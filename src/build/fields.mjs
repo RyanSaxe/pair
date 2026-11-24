@@ -59,37 +59,45 @@ function belongs(field) {
   return `${field} goes in ${pageFields.includes(field) ? "page" : "Agreed's page"}.`;
 }
 
-export function fieldProblems(source) {
-  const problems = [];
-  const check = (value, level, at) => {
-    if (!isObject(value)) return;
-    for (const field of Object.keys(value)) {
-      if (levels[level].fields.includes(field)) continue;
-      const moved = ["source", "page", "agreed"].includes(level)
-        ? belongs(field)
-        : null;
+function checkLevel(value, level, at) {
+  if (!isObject(value)) return [];
+  const found = [];
+  for (const field of Object.keys(value)) {
+    if (levels[level].fields.includes(field)) continue;
+    const moved = ["source", "page", "agreed"].includes(level)
+      ? belongs(field)
+      : null;
+    found.push(
+      `${at ? `${at}.${field}` : field} is not a field of ${at || "the source"}. ${moved || levels[level].takes}`,
+    );
+  }
+  return found;
+}
+
+function agreedFieldProblems(page) {
+  const problems = [...checkLevel(page.task, "task", "page.task")];
+  for (const [index, entry] of list(page.agreements).entries()) {
+    const at = `page.agreements[${index}]`;
+    problems.push(...checkLevel(entry, "agreement", at));
+    for (const [ref, item] of list(entry?.sourceRefs).entries()) {
       problems.push(
-        `${at ? `${at}.${field}` : field} is not a field of ${at || "the source"}. ${moved || levels[level].takes}`,
+        ...checkLevel(item, "sourceRef", `${at}.sourceRefs[${ref}]`),
       );
     }
-  };
+  }
+  return problems;
+}
+
+export function fieldProblems(source) {
   const page = source?.page;
   const agreed = page?.id === "agreed";
-  check(source, "source", "");
+  const problems = [...checkLevel(source, "source", "")];
   if (isObject(source) && source.plan !== undefined && !agreed) {
     problems.push(
       "plan is a field of Agreed's source only. Leave it out of this page.",
     );
   }
-  check(page, agreed ? "agreed" : "page", "page");
-  if (!agreed) return problems;
-  check(page.task, "task", "page.task");
-  for (const [index, entry] of list(page.agreements).entries()) {
-    const at = `page.agreements[${index}]`;
-    check(entry, "agreement", at);
-    for (const [ref, item] of list(entry?.sourceRefs).entries()) {
-      check(item, "sourceRef", `${at}.sourceRefs[${ref}]`);
-    }
-  }
+  problems.push(...checkLevel(page, agreed ? "agreed" : "page", "page"));
+  if (agreed) problems.push(...agreedFieldProblems(page));
   return problems;
 }

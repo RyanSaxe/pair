@@ -3,8 +3,11 @@
 // it. Close leaves paused as it was, so lifecycle checks closedAt first. Both
 // fields are in the hub's state and in the status it sends, so the hub, the
 // commands and the frame call lifecycle on whichever they have.
-export const lifecycle = (state) =>
-  state?.closedAt ? "closed" : state?.paused ? "paused" : "live";
+export function lifecycle(state) {
+  if (state?.closedAt) return "closed";
+  if (state?.paused) return "paused";
+  return "live";
+}
 
 export const isClosed = (state) => lifecycle(state) === "closed";
 

@@ -56,6 +56,80 @@ function wakeNote(message) {
   return `\n\n${note}`;
 }
 
+const isPlainObject = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+function validateDiffLine(data) {
+  if (data.diffLine === undefined) return;
+  const { diffLine } = data;
+  requireValue(
+    isPlainObject(diffLine) &&
+      ["additions", "deletions"].includes(diffLine.side) &&
+      Number.isInteger(diffLine.lineNumber) &&
+      diffLine.lineNumber > 0 &&
+      text(data.quote) &&
+      text(data.target),
+    "A diff line needs a side, a positive line number, a quote and a target",
+  );
+}
+
+function validateThreadAnchors(data) {
+  requireValue(text(data.anchor), "A thread needs the block it is on");
+  requireValue(
+    [data.quote, data.target, data.agreementId].every(optional),
+    "A thread's quote, target and agreement are text",
+  );
+  // occurrence is the appearance of the quote in its block that the
+  // reviewer selected, counting from 1.
+  requireValue(
+    data.occurrence === undefined ||
+      (Number.isInteger(data.occurrence) && data.occurrence > 0),
+    "A thread's occurrence is a whole number from 1",
+  );
+  validateDiffLine(data);
+  // diagramNode is the ID that Pele assigns to the diagram box the thread
+  // is on.
+  if (data.diagramNode !== undefined) {
+    requireValue(
+      text(data.diagramNode) && text(data.quote) && text(data.target),
+      "A diagram box needs its ID, a quote and a target",
+    );
+  }
+}
+
+function buildPageThread({ data, current, page, message }) {
+  return {
+    id: data.id,
+    name: current.name,
+    round: data.round,
+    topic: data.topic,
+    page,
+    anchor: data.anchor.trim(),
+    ...(text(data.quote) ? { quote: data.quote.trim() } : {}),
+    ...(text(data.target) ? { target: data.target } : {}),
+    ...(data.occurrence > 1 ? { occurrence: data.occurrence } : {}),
+    ...(data.diffLine
+      ? {
+          diffLine: {
+            side: data.diffLine.side,
+            lineNumber: data.diffLine.lineNumber,
+          },
+        }
+      : {}),
+    ...(data.diagramNode ? { diagramNode: data.diagramNode } : {}),
+    ...(text(data.agreementId) ? { agreementId: data.agreementId } : {}),
+    readAt: null,
+    createdAt: message.at,
+    messages: [message],
+  };
+}
+
+function replyContent(data, ack) {
+  if (ack) return { kind: "ack" };
+  if (data.html === undefined) return { text: data.text.trim() };
+  return { html: data.html.trim() };
+}
+
 // shown sends only ok and through of the thread's last wake, which the
 // frame's threadState reads, because its reason can contain the holder's
 // socket path.
@@ -175,79 +249,22 @@ export function threads(session) {
     open();
     requireValue(idPattern.test(data.id || ""), "A thread needs an ID");
     requireValue(!records.has(data.id), "This thread already exists", 409);
-    if (data.proposal !== undefined) {
-      const thread = await cardThread(data);
-      records.set(thread.id, thread);
-      await saveThread(thread);
-      wakeLater(thread);
-      return { thread: shown(thread) };
-    }
-    const current = session.state.current;
-    requireValue(
-      current && data.round === current.round,
-      "Start a thread on the current round",
-      409,
-    );
-    const page = pageTitle(data.round, data.topic);
-    requireValue(page, "A thread starts on one of the round's pages");
-    requireValue(text(data.anchor), "A thread needs the block it is on");
-    requireValue(
-      [data.quote, data.target, data.agreementId].every(optional),
-      "A thread's quote, target and agreement are text",
-    );
-    // occurrence is the appearance of the quote in its block that the
-    // reviewer selected, counting from 1.
-    requireValue(
-      data.occurrence === undefined ||
-        (Number.isInteger(data.occurrence) && data.occurrence > 0),
-      "A thread's occurrence is a whole number from 1",
-    );
-    if (data.diffLine !== undefined) {
+    let thread;
+    if (data.proposal === undefined) {
+      const current = session.state.current;
       requireValue(
-        data.diffLine &&
-          typeof data.diffLine === "object" &&
-          !Array.isArray(data.diffLine) &&
-          ["additions", "deletions"].includes(data.diffLine.side) &&
-          Number.isInteger(data.diffLine.lineNumber) &&
-          data.diffLine.lineNumber > 0 &&
-          text(data.quote) &&
-          text(data.target),
-        "A diff line needs a side, a positive line number, a quote and a target",
+        current && data.round === current.round,
+        "Start a thread on the current round",
+        409,
       );
+      const page = pageTitle(data.round, data.topic);
+      requireValue(page, "A thread starts on one of the round's pages");
+      validateThreadAnchors(data);
+      const message = await reviewerMessage(data);
+      thread = buildPageThread({ data, current, page, message });
+    } else {
+      thread = await cardThread(data);
     }
-    // diagramNode is the ID that Pele assigns to the diagram box the thread
-    // is on.
-    if (data.diagramNode !== undefined) {
-      requireValue(
-        text(data.diagramNode) && text(data.quote) && text(data.target),
-        "A diagram box needs its ID, a quote and a target",
-      );
-    }
-    const message = await reviewerMessage(data);
-    const thread = {
-      id: data.id,
-      name: current.name,
-      round: data.round,
-      topic: data.topic,
-      page,
-      anchor: data.anchor.trim(),
-      ...(text(data.quote) ? { quote: data.quote.trim() } : {}),
-      ...(text(data.target) ? { target: data.target } : {}),
-      ...(data.occurrence > 1 ? { occurrence: data.occurrence } : {}),
-      ...(data.diffLine
-        ? {
-            diffLine: {
-              side: data.diffLine.side,
-              lineNumber: data.diffLine.lineNumber,
-            },
-          }
-        : {}),
-      ...(data.diagramNode ? { diagramNode: data.diagramNode } : {}),
-      ...(text(data.agreementId) ? { agreementId: data.agreementId } : {}),
-      readAt: null,
-      createdAt: message.at,
-      messages: [message],
-    };
     records.set(thread.id, thread);
     await saveThread(thread);
     wakeLater(thread);
@@ -373,6 +390,49 @@ export function threads(session) {
     );
     requireValue(!found.length, found.join("\n"));
   }
+  async function readThread(thread) {
+    // readCount records how many messages this read printed, and the
+    // agent's next reply answers only those, so every read records it.
+    // readAt is when the thread became read, which a read of a thread the
+    // agent has read or answered leaves as it was.
+    if (threadAccepts(thread, "read")) thread.readAt = timestamp();
+    thread.readCount = thread.messages.length;
+    await saveThread(thread);
+    await session.transition(session.report());
+    if (opensAgent(thread)) {
+      return {
+        status: session.view(),
+        thread: shown(thread),
+        next: `Start the new agent in the CLI and with the settings the reviewer named in the thread, and give it pair start --from ${directory} --proposal ${thread.proposal} as its first command. Then post what you started with ${replyCommand(thread.id)} --text "…". If you cannot start one, post that command instead. Then go back to what you were doing.`,
+        moment: "read-open-agent",
+      };
+    }
+    return {
+      status: session.view(),
+      thread: shown(thread),
+      next: thread.messages.at(-1).acknowledgedAt
+        ? "The reviewer agreed with your last message, so do not reply. Go back to what you were doing."
+        : `Post your answer with ${replyCommand(thread.id)} --text "…" for plain text, or with --file reply.html in place of --text for links, bold, code or lists, then go back to what you were doing.`,
+      moment: "read-thread",
+    };
+  }
+  async function validateReplyPayload(thread, data, ack) {
+    if (ack) {
+      requireValue(data.ack === true, "ack must be true");
+      requireValue(
+        threadAccepts(thread, "ack"),
+        `Every message the reviewer wrote in thread ${thread.id} has an answer, so there is nothing to acknowledge.`,
+        409,
+      );
+      return;
+    }
+    if (data.html === undefined) {
+      requireValue(text(data.text), "--text needs the reply's text");
+      return;
+    }
+    requireValue(text(data.html), "The reply file is empty");
+    await checkReply(thread, data.html);
+  }
   // pair read --thread calls reply with no text, HTML or ack, and reply then
   // marks the thread read and returns it. With text or HTML, reply posts the
   // agent's reply. With ack, pair reply --ack, it posts the agent's ack.
@@ -389,46 +449,9 @@ export function threads(session) {
       given.length < 2,
       "pair reply takes one of --text, --file and --ack",
     );
-    if (!given.length) {
-      // readCount records how many messages this read printed, and the
-      // agent's next reply answers only those, so every read records it.
-      // readAt is when the thread became read, which a read of a thread the
-      // agent has read or answered leaves as it was.
-      if (threadAccepts(thread, "read")) thread.readAt = timestamp();
-      thread.readCount = thread.messages.length;
-      await saveThread(thread);
-      await session.transition(session.report());
-      if (opensAgent(thread)) {
-        return {
-          status: session.view(),
-          thread: shown(thread),
-          next: `Start the new agent in the CLI and with the settings the reviewer named in the thread, and give it pair start --from ${directory} --proposal ${thread.proposal} as its first command. Then post what you started with ${replyCommand(thread.id)} --text "…". If you cannot start one, post that command instead. Then go back to what you were doing.`,
-          moment: "read-open-agent",
-        };
-      }
-      return {
-        status: session.view(),
-        thread: shown(thread),
-        next: thread.messages.at(-1).acknowledgedAt
-          ? "The reviewer agreed with your last message, so do not reply. Go back to what you were doing."
-          : `Post your answer with ${replyCommand(thread.id)} --text "…" for plain text, or with --file reply.html in place of --text for links, bold, code or lists, then go back to what you were doing.`,
-        moment: "read-thread",
-      };
-    }
+    if (!given.length) return readThread(thread);
     const ack = data.ack !== undefined;
-    if (ack) {
-      requireValue(data.ack === true, "ack must be true");
-      requireValue(
-        threadAccepts(thread, "ack"),
-        `Every message the reviewer wrote in thread ${thread.id} has an answer, so there is nothing to acknowledge.`,
-        409,
-      );
-    } else if (data.html === undefined) {
-      requireValue(text(data.text), "--text needs the reply's text");
-    } else {
-      requireValue(text(data.html), "The reply file is empty");
-      await checkReply(thread, data.html);
-    }
+    await validateReplyPayload(thread, data, ack);
     // A reply answers every message before it. When the agent ran pair read
     // --thread after its previous reply, the reply answers only the messages
     // that read printed. The reply then records that number in answers, and
@@ -442,11 +465,7 @@ export function threads(session) {
     thread.messages.push({
       from: "agent",
       at: timestamp(),
-      ...(ack
-        ? { kind: "ack" }
-        : data.html === undefined
-          ? { text: data.text.trim() }
-          : { html: data.html.trim() }),
+      ...replyContent(data, ack),
       ...(answers < thread.messages.length ? { answers } : {}),
     });
     const waits = Boolean(waitingMessage(thread));

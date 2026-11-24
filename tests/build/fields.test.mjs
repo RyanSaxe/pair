@@ -1,4 +1,4 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { exec, exists, pair, root, task } from "../support/hub.mjs";
+
+isolateConfig();
 
 async function workDirectory(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "pair-fields-"));

@@ -212,14 +212,11 @@ test("on a phone, Agreed opens at its top again when the reader comes back to it
   await page.locator("#finished-line").waitFor();
   // The frame restores the place after the page's renderers settle, which is by
   // a task and two animation frames after the page shows.
-  await page.evaluate(
-    () =>
-      new Promise((resolve) =>
-        setTimeout(() =>
-          requestAnimationFrame(() => requestAnimationFrame(resolve)),
-        ),
-      ),
-  );
+  await page.evaluate(async () => {
+    await new Promise((resolve) => setTimeout(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
   const tops = await page.evaluate(() =>
     [
       document.scrollingElement,

@@ -10,6 +10,123 @@ import { message } from "./proposal-fields.mjs";
 export const nextChoices = ["iterate", "plan", "build"];
 export const nextOf = (payload) => payload.next ?? "iterate";
 
+const isPlainObject = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+function validateSubmissionHeader(state, data) {
+  // A tab opened before the session closed can still post, and a submission
+  // would reopen the session and wake an agent that has finished.
+  requireValue(accepts(state, "change"), "This session is closed", 409);
+  requireValue(data.sessionId === state.sessionId, "Wrong session", 409);
+  requireValue(
+    idPattern.test(data.id || "") &&
+      typeof data.text === "string" &&
+      data.text.trim(),
+    "Submission requires ID and text",
+  );
+  requireValue(data.intent === "feedback-only", "Invalid submission intent");
+  requireValue(
+    data.next === undefined || nextChoices.includes(data.next),
+    `next is one of ${nextChoices.join(", ")}`,
+  );
+  message(data);
+  requireValue(isPlainObject(data.groups), "groups must be an object");
+  if (data.groups.alignUnflagged !== undefined) {
+    requireValue(
+      typeof data.groups.alignUnflagged === "boolean",
+      "alignUnflagged must be a boolean",
+    );
+  }
+}
+
+async function validateDrawingAnswer(session, answer) {
+  requireValue(
+    ["label", "topic", "round", "sceneId", "previewId"].every(
+      (key) => typeof answer[key] === "string" && answer[key],
+    ),
+    "Drawing answers require label, topic, round and both file IDs",
+  );
+  await session.readScene(answer.sceneId);
+  const preview = await session.readUpload(answer.previewId);
+  requireValue(preview.type === "image/png", "Drawing preview must be PNG");
+}
+
+function validateTextAnswer(answer) {
+  requireValue(
+    answer &&
+      answer.kind === undefined &&
+      ["label", "text", "topic"].every(
+        (key) => typeof answer[key] === "string",
+      ) &&
+      answer.text.trim(),
+    "Answers require label, text, and topic",
+  );
+}
+
+async function validateAnswers(session, answers) {
+  if (answers === undefined) return;
+  requireValue(isPlainObject(answers), "answers must be an object");
+  for (const answer of Object.values(answers)) {
+    if (answer?.kind === "drawing") {
+      await validateDrawingAnswer(session, answer);
+    } else {
+      validateTextAnswer(answer);
+    }
+  }
+}
+
+function validateAttachmentShape(item) {
+  requireValue(
+    item &&
+      typeof item.id === "string" &&
+      typeof item.path === "string" &&
+      typeof item.type === "string" &&
+      Number.isInteger(item.bytes),
+    "An attachment needs id, path, type and bytes",
+  );
+}
+
+async function resolveNoteAttachments(session, attachments) {
+  requireValue(
+    Array.isArray(attachments),
+    "A note's attachments must be an array",
+  );
+  const images = [];
+  for (const item of attachments) {
+    validateAttachmentShape(item);
+    images.push(await session.storedAttachment(item));
+  }
+  return images;
+}
+
+async function validateNotes(session, notes) {
+  /* Each image belongs to the note it illustrates, and storedAttachment
+     accepts only an image the hub stored for this session, so a
+     submission cannot point the agent at a path the hub never wrote. */
+  if (notes === undefined) return;
+  requireValue(Array.isArray(notes), "notes must be an array");
+  for (const note of notes) {
+    requireValue(
+      note &&
+        ["id", "topic", "anchor", "text"].every(
+          (key) => typeof note[key] === "string",
+        ) &&
+        note.text.trim(),
+      "Notes require id, topic, anchor and text",
+    );
+    requireValue(
+      note.quote === undefined || typeof note.quote === "string",
+      "A note's quote must be text",
+    );
+    if (note.attachments !== undefined) {
+      note.attachments = await resolveNoteAttachments(
+        session,
+        note.attachments,
+      );
+    }
+  }
+}
+
 export function submissions(session) {
   const { directory, transition, sameRound, exclusive } = session;
   function withDrawingPaths(event) {
@@ -48,129 +165,7 @@ export function submissions(session) {
       },
     };
   }
-  async function submit(data) {
-    // A tab opened before the session closed can still post, and a submission
-    // would reopen the session and wake an agent that has finished.
-    requireValue(
-      accepts(session.state, "change"),
-      "This session is closed",
-      409,
-    );
-    requireValue(
-      data.sessionId === session.state.sessionId,
-      "Wrong session",
-      409,
-    );
-    requireValue(
-      idPattern.test(data.id || "") &&
-        typeof data.text === "string" &&
-        data.text.trim(),
-      "Submission requires ID and text",
-    );
-    requireValue(data.intent === "feedback-only", "Invalid submission intent");
-    requireValue(
-      data.next === undefined || nextChoices.includes(data.next),
-      `next is one of ${nextChoices.join(", ")}`,
-    );
-    message(data);
-    requireValue(
-      data.groups &&
-        typeof data.groups === "object" &&
-        !Array.isArray(data.groups),
-      "groups must be an object",
-    );
-    // The notes loop below replaces each note's attachments with the hub's
-    // record of them, so submit copies the groups first for draftSent to
-    // compare with the draft.
-    const sent = structuredClone({ groups: data.groups });
-    if (data.groups.alignUnflagged !== undefined) {
-      requireValue(
-        typeof data.groups.alignUnflagged === "boolean",
-        "alignUnflagged must be a boolean",
-      );
-    }
-    if (data.groups.answers !== undefined) {
-      requireValue(
-        data.groups.answers &&
-          typeof data.groups.answers === "object" &&
-          !Array.isArray(data.groups.answers),
-        "answers must be an object",
-      );
-      for (const answer of Object.values(data.groups.answers)) {
-        if (answer?.kind === "drawing") {
-          requireValue(
-            ["label", "topic", "round", "sceneId", "previewId"].every(
-              (key) => typeof answer[key] === "string" && answer[key],
-            ),
-            "Drawing answers require label, topic, round and both file IDs",
-          );
-          await session.readScene(answer.sceneId);
-          const preview = await session.readUpload(answer.previewId);
-          requireValue(
-            preview.type === "image/png",
-            "Drawing preview must be PNG",
-          );
-        } else {
-          requireValue(
-            answer &&
-              answer.kind === undefined &&
-              ["label", "text", "topic"].every(
-                (key) => typeof answer[key] === "string",
-              ) &&
-              answer.text.trim(),
-            "Answers require label, text, and topic",
-          );
-        }
-      }
-    }
-    /* Each image belongs to the note it illustrates, and storedAttachment
-       accepts only an image the hub stored for this session, so a
-       submission cannot point the agent at a path the hub never wrote. */
-    if (data.groups.notes !== undefined) {
-      requireValue(Array.isArray(data.groups.notes), "notes must be an array");
-      for (const note of data.groups.notes) {
-        requireValue(
-          note &&
-            ["id", "topic", "anchor", "text"].every(
-              (key) => typeof note[key] === "string",
-            ) &&
-            note.text.trim(),
-          "Notes require id, topic, anchor and text",
-        );
-        requireValue(
-          note.quote === undefined || typeof note.quote === "string",
-          "A note's quote must be text",
-        );
-        if (note.attachments === undefined) continue;
-        requireValue(
-          Array.isArray(note.attachments),
-          "A note's attachments must be an array",
-        );
-        const images = [];
-        for (const item of note.attachments) {
-          requireValue(
-            item &&
-              typeof item.id === "string" &&
-              typeof item.path === "string" &&
-              typeof item.type === "string" &&
-              Number.isInteger(item.bytes),
-            "An attachment needs id, path, type and bytes",
-          );
-          images.push(await session.storedAttachment(item));
-        }
-        note.attachments = images;
-      }
-    }
-    const file = path.join(directory, "feedback", data.id + ".json");
-    if (await exists(file)) {
-      const original = await read(file);
-      requireValue(
-        isDeepStrictEqual(original.payload, data),
-        "Submission ID already has different content",
-        409,
-      );
-      return { id: data.id, saved: true, status: session.browserView() };
-    }
+  function requireSubmittableRound(data) {
     requireValue(
       sameRound(data),
       "Review the current round before submitting; export older drafts if needed",
@@ -190,6 +185,26 @@ export function submissions(session) {
       `Round ${data.round} was already sent, so the hub did not save what you just sent. Your draft and message stay for the next round.`,
       { code: 409, details: { roundSent: true } },
     );
+  }
+  async function submit(data) {
+    validateSubmissionHeader(session.state, data);
+    // The notes loop below replaces each note's attachments with the hub's
+    // record of them, so submit copies the groups first for draftSent to
+    // compare with the draft.
+    const sent = structuredClone({ groups: data.groups });
+    await validateAnswers(session, data.groups.answers);
+    await validateNotes(session, data.groups.notes);
+    const file = path.join(directory, "feedback", data.id + ".json");
+    if (await exists(file)) {
+      const original = await read(file);
+      requireValue(
+        isDeepStrictEqual(original.payload, data),
+        "Submission ID already has different content",
+        409,
+      );
+      return { id: data.id, saved: true, status: session.browserView() };
+    }
+    requireSubmittableRound(data);
     const event = await session.saveEvent(data);
     await session.draftSent(sent);
     await transition({

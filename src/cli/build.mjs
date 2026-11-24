@@ -68,15 +68,16 @@ async function diffInputs(html, directory) {
   });
 }
 
-export async function buildPage(source, input) {
-  const unknown = fieldProblems(input);
-  if (unknown.length) {
-    throw new Error(
-      unknown.map((line) => `${path.basename(source)}: ${line}`).join("\n"),
-    );
+function assertValidRawPage(rawPage) {
+  if (!rawPage || typeof rawPage !== "object" || Array.isArray(rawPage)) {
+    throw new Error("Page source requires one page object");
   }
-  const directory = path.dirname(source);
-  const read = (file) => fs.readFile(path.resolve(directory, file), "utf8");
+  if (rawPage.file && rawPage.html !== undefined) {
+    throw new Error("Use file or html for a page, not both");
+  }
+}
+
+async function loadStyleAndScript(rawPage, directory, read) {
   // The build lists a css or js file that cannot be read with the page's other
   // problems, so one build reports them all.
   const unreadable = [];
@@ -87,14 +88,46 @@ export async function buildPage(source, input) {
       );
       return "";
     });
+  const assets = {};
+  if (rawPage.css) assets.cssText = await readNamed("css");
+  if (rawPage.js) assets.jsText = await readNamed("js");
+  return { assets, unreadable };
+}
+
+async function loadPrototypes(prototypes, read) {
+  return Promise.all(
+    prototypes.map(async (entry) => {
+      // validatePlan refuses an entry that is not an object, with its message.
+      if (!entry || typeof entry !== "object") return entry;
+      const { file, ...prototype } = entry;
+      if (file && prototype.html !== undefined) {
+        throw new Error("Use file or html for a prototype, not both");
+      }
+      return { ...prototype, ...(file ? { html: await read(file) } : {}) };
+    }),
+  );
+}
+
+async function loadAgreements(agreements, read, prepare) {
+  return Promise.all(
+    agreements.map(async ({ file, ...entry }) => {
+      if (file && entry.html !== undefined) {
+        throw new Error("Use file or html for an agreement, not both");
+      }
+      const agreement = {
+        ...entry,
+        ...(file ? { html: await read(file) } : {}),
+      };
+      if (agreement.html) agreement.html = await prepare(agreement.html);
+      return agreement;
+    }),
+  );
+}
+
+async function loadPage(rawPage, directory) {
+  assertValidRawPage(rawPage);
+  const read = (file) => fs.readFile(path.resolve(directory, file), "utf8");
   const prepare = (html) => diffInputs(sizeImages(html), directory);
-  const { page: rawPage, ...outer } = input;
-  if (!rawPage || typeof rawPage !== "object" || Array.isArray(rawPage)) {
-    throw new Error("Page source requires one page object");
-  }
-  if (rawPage.file && rawPage.html !== undefined) {
-    throw new Error("Use file or html for a page, not both");
-  }
   const page = { ...rawPage };
   if (page.file) page.html = await read(page.file);
   if (page.html) page.html = await prepare(page.html);
@@ -102,38 +135,32 @@ export async function buildPage(source, input) {
     page.task = { ...page.task, html: await prepare(page.task.html) };
   }
   delete page.file;
-  if (page.css) page.cssText = await readNamed("css");
-  if (page.js) page.jsText = await readNamed("js");
+  const { assets, unreadable } = await loadStyleAndScript(
+    rawPage,
+    directory,
+    read,
+  );
+  Object.assign(page, assets);
   delete page.css;
   delete page.js;
   if (page.prototypes) {
-    page.prototypes = await Promise.all(
-      page.prototypes.map(async (entry) => {
-        // validatePlan refuses an entry that is not an object, with its message.
-        if (!entry || typeof entry !== "object") return entry;
-        const { file, ...prototype } = entry;
-        if (file && prototype.html !== undefined) {
-          throw new Error("Use file or html for a prototype, not both");
-        }
-        return { ...prototype, ...(file ? { html: await read(file) } : {}) };
-      }),
-    );
+    page.prototypes = await loadPrototypes(page.prototypes, read);
   }
   if (page.agreements) {
-    page.agreements = await Promise.all(
-      page.agreements.map(async ({ file, ...entry }) => {
-        if (file && entry.html !== undefined) {
-          throw new Error("Use file or html for an agreement, not both");
-        }
-        const agreement = {
-          ...entry,
-          ...(file ? { html: await read(file) } : {}),
-        };
-        if (agreement.html) agreement.html = await prepare(agreement.html);
-        return agreement;
-      }),
+    page.agreements = await loadAgreements(page.agreements, read, prepare);
+  }
+  return { page, unreadable };
+}
+
+export async function buildPage(source, input) {
+  const unknown = fieldProblems(input);
+  if (unknown.length) {
+    throw new Error(
+      unknown.map((line) => `${path.basename(source)}: ${line}`).join("\n"),
     );
   }
+  const { page: rawPage, ...outer } = input;
+  const { page, unreadable } = await loadPage(rawPage, path.dirname(source));
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
   const preview = await joinPage(

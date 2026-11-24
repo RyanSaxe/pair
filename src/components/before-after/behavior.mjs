@@ -1,3 +1,26 @@
+function prependFileName(root, controls) {
+  if (
+    !root.dataset.file ||
+    !controls ||
+    controls.querySelector(".change-file")
+  ) {
+    return;
+  }
+  const name = document.createElement("b");
+  name.className = "change-file";
+  name.textContent = root.dataset.file;
+  controls.prepend(name);
+}
+
+function ensureRootId(root, pageId, index) {
+  if (root.id) return;
+  const base = `pair-diff-${pageId}-${index}`;
+  let id = base;
+  let suffix = 1;
+  while (document.getElementById(id)) id = `${base}-${suffix++}`;
+  root.id = id;
+}
+
 planUI.define("before-after", {
   match: ".change-review",
   setup(root, { page, planUI }) {
@@ -6,16 +29,7 @@ planUI.define("before-after", {
     const buttons = root.querySelectorAll("[data-diff-style]");
     const wrapButton = root.querySelector("[data-diff-wrap]");
     const controls = root.querySelector(".change-controls");
-    if (
-      root.dataset.file &&
-      controls &&
-      !controls.querySelector(".change-file")
-    ) {
-      const name = document.createElement("b");
-      name.className = "change-file";
-      name.textContent = root.dataset.file;
-      controls.prepend(name);
-    }
+    prependFileName(root, controls);
     const prefs = planUI.prefs;
     // The key uses the element's own ID, so planUI.prefs stores a separate
     // layout for each diff on a page. A diff with no ID uses its position among
@@ -26,13 +40,7 @@ planUI.define("before-after", {
       .indexOf(root)
       .toString();
     const name = root.id || index;
-    if (!root.id) {
-      const base = `pair-diff-${page.id}-${index}`;
-      let id = base;
-      let suffix = 1;
-      while (document.getElementById(id)) id = `${base}-${suffix++}`;
-      root.id = id;
-    }
+    ensureRootId(root, page.id, index);
     const key = `diff:${page.id}/${name}`;
     const wrapKey = `${key}:wrap`;
     // data-wrap on the section opens the diff wrapped until the reviewer clicks

@@ -1,4 +1,4 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fs from "node:fs/promises";
@@ -9,6 +9,8 @@ import { problems } from "../../src/build/lint.mjs";
 import { build, buildPage } from "../../src/cli/build.mjs";
 import { pageData, readPlanData } from "../../src/shared/records.mjs";
 import { exec, pair, root } from "../support/hub.mjs";
+
+isolateConfig();
 
 const data = {
   name: "t",
@@ -45,7 +47,8 @@ const block = (css, prelude) => {
   const open = css.indexOf(`${prelude} {`) + prelude.length + 1;
   assert.ok(open > prelude.length, `no ${prelude} block`);
   for (let i = open + 1, depth = 1; i < css.length; i++) {
-    depth += css[i] === "{" ? 1 : css[i] === "}" ? -1 : 0;
+    if (css[i] === "{") depth += 1;
+    else if (css[i] === "}") depth -= 1;
     if (depth === 0) return css.slice(open + 1, i);
   }
   assert.fail(`${prelude} never closes`);

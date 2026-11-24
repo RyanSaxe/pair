@@ -228,6 +228,28 @@ function keep(info) {
   if (line) console.error(line);
   return Boolean(line);
 }
+function ensureHubNotStuck(record) {
+  // A running hub may not answer this command, as when the command runs in
+  // a sandbox with no sockets. replaceHub then leaves the hub record in place
+  // for the commands that can reach the hub.
+  if (!record || !hubRunning(record.pid)) return;
+  const message = process.env.CODEX_SANDBOX
+    ? `The hub (pid ${record.pid}) is running but does not answer on port ${record.port} inside the sandbox. ${sandboxAdvice}`
+    : `The hub (pid ${record.pid}) is running but does not answer on port ${record.port}. Run pair guide setup.md and follow it.`;
+  throw new Error(message);
+}
+
+async function ensurePortFree(port) {
+  if (!port || !(await portOpen(port))) return;
+  const other = await hubInfo(port);
+  const occupant = other
+    ? `A pair hub that this state directory has no record of (pid ${other.pid})`
+    : "Another program";
+  throw new Error(
+    `${occupant} is using port ${port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
+  );
+}
+
 // replaceHub stops the hub that runs other code, if there is one, and starts
 // a hub on this command's code.
 async function replaceHub(config, { record, info }) {
@@ -237,25 +259,9 @@ async function replaceHub(config, { record, info }) {
     process.kill(info.pid, "SIGTERM");
     await waitFor(async () => !processAlive(info.pid), 10_000);
   }
-  // A running hub may not answer this command, as when the command runs in
-  // a sandbox with no sockets. replaceHub then leaves the hub record in place
-  // for the commands that can reach the hub.
-  requireValue(
-    !(record && hubRunning(record.pid)),
-    process.env.CODEX_SANDBOX
-      ? `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port} inside the sandbox. ${sandboxAdvice}`
-      : `The hub (pid ${record?.pid}) is running but does not answer on port ${record?.port}. Run pair guide setup.md and follow it.`,
-  );
+  ensureHubNotStuck(record);
   if (record) await fs.rm(config.hubFile, { force: true });
-  if (config.port && (await portOpen(config.port))) {
-    const other = await hubInfo(config.port);
-    const occupant = other
-      ? `A pair hub that this state directory has no record of (pid ${other.pid})`
-      : "Another program";
-    throw new Error(
-      `${occupant} is using port ${config.port}. Set PAIR_HUB_PORT to a free port and run the command again.`,
-    );
-  }
+  await ensurePortFree(config.port);
   return spawnHub(config);
 }
 const withOrigin = (info) => ({

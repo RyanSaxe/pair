@@ -28,19 +28,26 @@ function frame(message) {
   return Buffer.concat([header, mask, masked]);
 }
 
-function readFrames(bytes) {
+function frameHeader(bytes) {
+  const short = bytes[1] & 0x7f;
+  if (short === 126) {
+    if (bytes.length < 4) return null;
+    return { start: 4, length: bytes.readUInt16BE(2) };
+  }
+  if (short === 127) {
+    if (bytes.length < 10) return null;
+    return { start: 10, length: Number(bytes.readBigUInt64BE(2)) };
+  }
+  return { start: 2, length: short };
+}
+
+function readFrames(input) {
+  let bytes = input;
   const frames = [];
   while (bytes.length >= 2) {
-    const short = bytes[1] & 0x7f;
-    const start = short === 126 ? 4 : short === 127 ? 10 : 2;
-    if (bytes.length < start) break;
-    const length =
-      short === 126
-        ? bytes.readUInt16BE(2)
-        : short === 127
-          ? Number(bytes.readBigUInt64BE(2))
-          : short;
-    if (bytes.length < start + length) break;
+    const header = frameHeader(bytes);
+    if (!header || bytes.length < header.start + header.length) break;
+    const { start, length } = header;
     frames.push({
       opcode: bytes[0] & 0x0f,
       payload: bytes.subarray(start, start + length),

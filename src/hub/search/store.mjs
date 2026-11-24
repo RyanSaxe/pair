@@ -168,61 +168,157 @@ const titleOf = (doc, entry) =>
   entry.pageTitles.get(`${doc.round}/${doc.page}`) ??
   null;
 
+const parseCsv = (value) => (value ? value.split(",") : null);
+
+function normalizeSearchOptions(params) {
+  const sessionList = parseCsv(params.session);
+  return {
+    query: params.query ?? "",
+    session: sessionList ? new Set(sessionList) : null,
+    round: parseCsv(params.round),
+    kinds: new Set(params.kinds ?? []),
+    closed: params.closed ?? false,
+    here: params.here ?? null,
+    limit: params.limit ?? DEFAULT_LIMIT,
+  };
+}
+
+function applySessionMeta(entry, status) {
+  entry.title = status.title || status.current?.title || "New session";
+  entry.closed = isClosed(status);
+  entry.rounds = Object.keys(status.roundPages ?? {}).toSorted(
+    (a, b) => roundNumber(b) - roundNumber(a),
+  );
+  entry.latest = entry.rounds[0] ?? "0";
+  entry.updatedAt = Date.parse(status.updatedAt) || 0;
+}
+
+function indexSessionDocs(entry, files) {
+  const pages = new Map();
+  for (const { blocks } of files.values()) {
+    if (blocks) pages.set(`${blocks.round}/${blocks.page}`, blocks);
+  }
+  entry.docs = grouped(
+    [...files.values()].flatMap((f) => f.docs).map((doc) => placed(doc, pages)),
+  ).map((doc) => ready(doc, entry.id));
+  entry.pageTitles = new Map();
+  for (const doc of entry.docs) {
+    if (doc.type !== "page title") continue;
+    for (const round of [doc.round, ...doc.also]) {
+      entry.pageTitles.set(`${round}/${doc.page}`, doc.heading);
+    }
+  }
+}
+
+function sessionMatches(entry, { session, includeClosed }) {
+  if (session && !session.has(entry.id)) return false;
+  // A closed session counts when the search asks for closed ones or names it.
+  return !(entry.closed && !includeClosed && !session);
+}
+
+const isBlankBrowseDoc = (prepared, doc) =>
+  !prepared && !doc.text && !doc.attrs;
+
+function recordScanHit(doc, hit, { inKind, acc }) {
+  acc.counts[doc.kind]++;
+  if (!inKind) return;
+  acc.total++;
+  if (!hit.inAttrs) acc.onBlocks++;
+  acc.hits.push({ doc, ...hit });
+}
+
+function scanSessionDocs(entry, { prepared, round, kinds, here }, acc) {
+  for (const doc of entry.docs) {
+    if (!inRound(doc, round, entry)) continue;
+    // With nothing typed, the list shows the newest things that have words.
+    if (isBlankBrowseDoc(prepared, doc)) continue;
+    doc.here = doc.session === here;
+    const hit = prepared ? scoreDoc(prepared, doc) : { score: doc.at };
+    const inKind = kinds.size === 0 || kinds.has(doc.kind);
+    if (inKind) acc.inScope.push(doc);
+    if (hit) recordScanHit(doc, hit, { inKind, acc });
+  }
+}
+
+function addPartialHits(query, acc) {
+  const already = new Set(acc.hits.map((hit) => hit.doc));
+  const candidates = acc.inScope.filter((doc) => !already.has(doc));
+  for (const partialHit of partialRows(query, candidates)) {
+    acc.counts[partialHit.doc.kind]++;
+    acc.total++;
+    acc.hits.push(partialHit);
+  }
+}
+
+const WIDER_STEPS = [
+  {
+    filter: "kinds",
+    applies: (o) => o.kinds.size > 0,
+    change: () => ({ kinds: new Set() }),
+  },
+  {
+    filter: "rounds",
+    applies: (o) => Boolean(o.round),
+    change: () => ({ kinds: new Set(), round: null }),
+  },
+  {
+    filter: "sessions",
+    applies: (o) => Boolean(o.session),
+    change: () => ({ kinds: new Set(), round: null, session: null }),
+  },
+  {
+    filter: "closed",
+    applies: (o) => !o.closed,
+    change: () => ({
+      kinds: new Set(),
+      round: null,
+      session: null,
+      closed: true,
+    }),
+  },
+];
+
 export function searchStore({ log = () => {} } = {}) {
   const sessions = new Map();
   let pendingLoads = 0;
   let closed = false;
   let queue = Promise.resolve();
 
+  async function loadSourceFile(entry, { file, read }) {
+    const full = path.join(entry.directory, file);
+    const stat = await fs.stat(full).catch(() => null);
+    if (!stat) return null;
+    const known = entry.files.get(file);
+    if (known?.mtimeMs === stat.mtimeMs && known.size === stat.size) {
+      return { entry: known, wrote: false };
+    }
+    let contents = { docs: [] };
+    try {
+      contents = read(await readJson(full), stat.mtimeMs);
+    } catch (error) {
+      log(`search skipped ${full}: ${error.message}`);
+    }
+    return {
+      entry: { mtimeMs: stat.mtimeMs, size: stat.size, ...contents },
+      wrote: true,
+    };
+  }
+
   async function readFiles(entry) {
     const status = await readJson(path.join(entry.directory, "status.json"));
     const files = new Map();
     let wrote = false;
-    for (const { file, read } of await sources(entry.directory, status)) {
+    for (const source of await sources(entry.directory, status)) {
       if (closed) return;
-      const full = path.join(entry.directory, file);
-      const stat = await fs.stat(full).catch(() => null);
-      if (!stat) continue;
-      const known = entry.files.get(file);
-      if (known?.mtimeMs === stat.mtimeMs && known.size === stat.size) {
-        files.set(file, known);
-        continue;
-      }
-      wrote = true;
-      let contents = { docs: [] };
-      try {
-        contents = read(await readJson(full), stat.mtimeMs);
-      } catch (error) {
-        log(`search skipped ${full}: ${error.message}`);
-      }
-      files.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, ...contents });
+      const loaded = await loadSourceFile(entry, source);
+      if (!loaded) continue;
+      if (loaded.wrote) wrote = true;
+      files.set(source.file, loaded.entry);
     }
     const removed = [...entry.files.keys()].some((file) => !files.has(file));
     entry.files = files;
-    entry.title = status.title || status.current?.title || "New session";
-    entry.closed = isClosed(status);
-    entry.rounds = Object.keys(status.roundPages ?? {}).toSorted(
-      (a, b) => roundNumber(b) - roundNumber(a),
-    );
-    entry.latest = entry.rounds[0] ?? "0";
-    entry.updatedAt = Date.parse(status.updatedAt) || 0;
-    const pages = new Map();
-    for (const { blocks } of files.values()) {
-      if (blocks) pages.set(`${blocks.round}/${blocks.page}`, blocks);
-    }
-    entry.docs = grouped(
-      [...files.values()]
-        .flatMap((f) => f.docs)
-        .map((doc) => placed(doc, pages)),
-    ).map((doc) => ready(doc, entry.id));
-    entry.pageTitles = new Map();
-    for (const doc of entry.docs) {
-      if (doc.type === "page title") {
-        for (const round of [doc.round, ...doc.also]) {
-          entry.pageTitles.set(`${round}/${doc.page}`, doc.heading);
-        }
-      }
-    }
+    applySessionMeta(entry, status);
+    indexSessionDocs(entry, files);
     if (wrote || removed) void writeCache(entry);
   }
 
@@ -333,57 +429,36 @@ export function searchStore({ log = () => {} } = {}) {
         .map(refresh),
     );
 
-  function scan({
-    query,
-    session,
-    round,
-    kinds,
-    closed: includeClosed,
-    here,
-    limit,
-  }) {
+  function scan(options) {
+    const {
+      query,
+      session,
+      round,
+      kinds,
+      closed: includeClosed,
+      here,
+      limit,
+    } = options;
     const prepared = prepare(query);
-    const counts = Object.fromEntries(KINDS.map((kind) => [kind, 0]));
-    const hits = [];
-    const inScope = [];
-    let total = 0;
-    let onBlocks = 0;
+    const acc = {
+      counts: Object.fromEntries(KINDS.map((kind) => [kind, 0])),
+      hits: [],
+      inScope: [],
+      total: 0,
+      onBlocks: 0,
+    };
+    const filter = { prepared, round, kinds, here };
     for (const entry of sessions.values()) {
-      if (session && !session.has(entry.id)) continue;
-      // A closed session counts when the search asks for closed ones or names it.
-      if (entry.closed && !includeClosed && !session) continue;
-      for (const doc of entry.docs) {
-        if (!inRound(doc, round, entry)) continue;
-        // With nothing typed, the list shows the newest things that have words.
-        if (!prepared && !doc.text && !doc.attrs) continue;
-        doc.here = doc.session === here;
-        const hit = prepared ? scoreDoc(prepared, doc) : { score: doc.at };
-        if (kinds.size === 0 || kinds.has(doc.kind)) inScope.push(doc);
-        if (!hit) continue;
-        counts[doc.kind]++;
-        if (kinds.size && !kinds.has(doc.kind)) continue;
-        total++;
-        if (!hit.inAttrs) onBlocks++;
-        hits.push({ doc, ...hit });
-      }
+      if (!sessionMatches(entry, { session, includeClosed })) continue;
+      scanSessionDocs(entry, filter, acc);
     }
-    if (prepared && onBlocks < FEW_RESULTS) {
-      const already = new Set(hits.map((hit) => hit.doc));
-      for (const partialHit of partialRows(
-        query,
-        inScope.filter((doc) => !already.has(doc)),
-      )) {
-        counts[partialHit.doc.kind]++;
-        total++;
-        hits.push(partialHit);
-      }
-    }
-    hits.sort((a, b) => b.score - a.score);
-    const oneLetter = query.trim().length === 1;
+    if (prepared && acc.onBlocks < FEW_RESULTS) addPartialHits(query, acc);
+    acc.hits.sort((a, b) => b.score - a.score);
+    const maxHits = query.trim().length === 1 ? ONE_LETTER_LIMIT : limit;
     return {
-      hits: hits.slice(0, oneLetter ? ONE_LETTER_LIMIT : limit),
-      total,
-      counts,
+      hits: acc.hits.slice(0, maxHits),
+      total: acc.total,
+      counts: acc.counts,
     };
   }
 
@@ -417,53 +492,27 @@ export function searchStore({ log = () => {} } = {}) {
   // kind, then all rounds, then all sessions. It only names a step that finds
   // something.
   function wider(options) {
-    const steps = [
-      ["kinds", { kinds: new Set() }],
-      ["rounds", { kinds: new Set(), round: null }],
-      ["sessions", { kinds: new Set(), round: null, session: null }],
-      [
-        "closed",
-        { kinds: new Set(), round: null, session: null, closed: true },
-      ],
-    ];
-    for (const [filter, change] of steps) {
-      if (filter === "kinds" && !options.kinds.size) continue;
-      if (filter === "rounds" && !options.round) continue;
-      if (filter === "sessions" && !options.session) continue;
-      if (filter === "closed" && options.closed) continue;
-      const { total } = scan({ ...options, ...change });
-      if (total) return { filter, total };
+    for (const step of WIDER_STEPS) {
+      if (!step.applies(options)) continue;
+      const { total } = scan({ ...options, ...step.change() });
+      if (total) return { filter: step.filter, total };
     }
     return null;
   }
 
-  async function search({
-    query = "",
-    session = null,
-    round = null,
-    kinds = [],
-    closed: includeClosed = false,
-    here = null,
-    limit = DEFAULT_LIMIT,
-  }) {
+  async function search(params) {
     const started = performance.now();
     await refreshChanged();
-    const options = {
-      query,
-      session: session ? new Set(session.split(",")) : null,
-      round: round ? round.split(",") : null,
-      kinds: new Set(kinds),
-      closed: includeClosed,
-      here,
-      limit,
-    };
+    const options = normalizeSearchOptions(params);
     const { hits, total, counts } = scan(options);
     return {
       results: hits.map(row),
       total,
       counts,
       ms: Math.round(performance.now() - started),
-      ...(total === 0 && prepare(query) ? { wider: wider(options) } : {}),
+      ...(total === 0 && prepare(options.query)
+        ? { wider: wider(options) }
+        : {}),
       ...(pendingLoads ? { loading: true } : {}),
     };
   }

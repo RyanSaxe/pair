@@ -3,6 +3,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { exists, requireValue } from "../../shared/util.mjs";
 
+const isPlainObject = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const validScene = (scene) =>
+  scene?.type === "excalidraw" &&
+  Array.isArray(scene.elements) &&
+  scene.elements.length > 0 &&
+  isPlainObject(scene.appState) &&
+  isPlainObject(scene.files);
+
 export function uploads(session) {
   const { directory } = session;
   async function uploadName(id) {
@@ -61,15 +71,7 @@ export function uploads(session) {
       requireValue(false, "Drawing scene must be JSON");
     }
     requireValue(
-      scene?.type === "excalidraw" &&
-        Array.isArray(scene.elements) &&
-        scene.elements.length > 0 &&
-        scene.appState &&
-        typeof scene.appState === "object" &&
-        !Array.isArray(scene.appState) &&
-        scene.files &&
-        typeof scene.files === "object" &&
-        !Array.isArray(scene.files),
+      validScene(scene),
       "Drawing scene must contain Excalidraw elements, appState and files",
     );
     const id = crypto.randomBytes(8).toString("hex");

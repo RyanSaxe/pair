@@ -47,20 +47,10 @@ function codexLine(codex) {
   return `${codex.rules} ${codex.exists ? "differs from pair's rule" : "is missing"}`;
 }
 
-// check() runs the checks that pair start needs to pass and prints one line for
-// each. A check that fails outright throws its error. A hub port in use by
-// another program or by another state directory's hub, and a missing Codex
-// rules file, each add a next step.
-export async function check() {
-  const codex = await codexReport();
-  let directory;
-  const server = http.createServer((_, response) => response.end("ready"));
+async function checkStorage(base) {
+  await fs.mkdir(base, { recursive: true });
+  const directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
   try {
-    requireNode();
-    // The hub writes under <state>/pair, so check() tests that directory.
-    const base = settings().root;
-    await fs.mkdir(base, { recursive: true });
-    directory = await fs.mkdtemp(path.join(base, "plan-capability-"));
     await fs.writeFile(path.join(directory, "draft"), "ready");
     await fs.rename(
       path.join(directory, "draft"),
@@ -71,6 +61,14 @@ export async function check() {
     ) {
       throw new Error("Session storage did not preserve the file");
     }
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function checkLoopback() {
+  const server = http.createServer((_, response) => response.end("ready"));
+  try {
     await listen(server, 0);
     const response = await fetch(`http://127.0.0.1:${server.address().port}`, {
       signal: AbortSignal.timeout(5000),
@@ -78,27 +76,51 @@ export async function check() {
     if ((await response.text()) !== "ready") {
       throw new Error("Loopback request failed");
     }
+  } finally {
+    server.closeAllConnections();
+    if (server.listening) {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }
+}
+
+function nextSteps(hub, codex) {
+  const steps = [];
+  if (hub.state === "busy") {
+    steps.push(
+      `Set PAIR_HUB_PORT to a free port, because another program uses port ${hub.port}.`,
+    );
+  }
+  if (hub.state === "other-hub") {
+    steps.push(
+      `Set PAIR_HUB_PORT to a free port, because another state directory's hub uses port ${hub.port}.`,
+    );
+  }
+  if (codex && !codex.exists) {
+    steps.push(
+      `Ask the user whether pair may write ${codex.rules}. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
+    );
+  }
+  return steps;
+}
+
+// check() runs the checks that pair start needs to pass and prints one line for
+// each. A check that fails outright throws its error. A hub port in use by
+// another program or by another state directory's hub, and a missing Codex
+// rules file, each add a next step.
+export async function check() {
+  const codex = await codexReport();
+  try {
+    requireNode();
+    // The hub writes under <state>/pair, so check() tests that directory.
+    const base = settings().root;
+    await checkStorage(base);
+    await checkLoopback();
     const config = settings();
     const hub = config.port
       ? await portReport(config)
       : { port: config.port, state: "os-assigned" };
-    const steps = [
-      ...(hub.state === "busy"
-        ? [
-            `Set PAIR_HUB_PORT to a free port, because another program uses port ${hub.port}.`,
-          ]
-        : []),
-      ...(hub.state === "other-hub"
-        ? [
-            `Set PAIR_HUB_PORT to a free port, because another state directory's hub uses port ${hub.port}.`,
-          ]
-        : []),
-      ...(codex && !codex.exists
-        ? [
-            `Ask the user whether pair may write ${codex.rules}. If they agree, run pair setup-codex outside the sandbox, then ask them to restart Codex, which reads its rules only when it starts.`,
-          ]
-        : []),
-    ];
+    const steps = nextSteps(hub, codex);
     // requireNode() has already refused a Node line with no floor, so
     // nodeFloor() returns a floor here. A Node line later than the newest
     // floor's line has no floor of its own, so check() then leaves the line out
@@ -131,10 +153,6 @@ export async function check() {
     };
   } catch (error) {
     throw checkRefusal(error);
-  } finally {
-    server.closeAllConnections();
-    if (server.listening) await new Promise((resolve) => server.close(resolve));
-    if (directory) await fs.rm(directory, { recursive: true, force: true });
   }
 }
 

@@ -1,8 +1,10 @@
-import "./env.mjs";
+import { isolateConfig } from "./env.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assemble } from "../../src/build/assemble.mjs";
+
+isolateConfig();
 
 const directory = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

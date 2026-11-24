@@ -1,4 +1,4 @@
-import "../support/env.mjs";
+import { isolateConfig } from "../support/env.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import os from "node:os";
@@ -6,6 +6,8 @@ import path from "node:path";
 import { imageSize, sizeImages } from "../../src/build/image-size.mjs";
 import { buildPage } from "../../src/cli/build.mjs";
 import { pageData } from "../../src/shared/records.mjs";
+
+isolateConfig();
 
 const png = () => {
   const bytes = Buffer.alloc(24);
