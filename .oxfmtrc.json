@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "sortPackageJson": false,
+  // rumdl formats Markdown. Fixture and demo HTML pages carry Mermaid/JSON
+  // text and screenshot selectors that reflowing breaks.
+  "ignorePatterns": ["*.md", "tests/fixture/*.html", "scripts/demo/**/*.html"]
+}
