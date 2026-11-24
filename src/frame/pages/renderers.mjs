@@ -27,8 +27,9 @@ export function installRenderers() {
       button.dataset.theme === "system" ? null : button.dataset.theme;
     activeTheme = preferredTheme || (systemTheme.matches ? "dark" : "light");
     try {
-      if (/^https?:$/.test(location.protocol))
+      if (/^https?:$/.test(location.protocol)) {
         document.cookie = `pair-theme=${preferredTheme || ""}; Path=/; SameSite=Strict; Max-Age=${preferredTheme ? 31536000 : 0}`;
+      }
     } catch {
       /* When the browser blocks cookies, the frame keeps the reader's
          choice in memory only. */
@@ -104,8 +105,9 @@ export function diffHeight(patch, diffStyle = "split") {
       const count = hunk[2] === undefined ? 1 : Number(hunk[2]);
       // A hunk with no new lines begins after its start line.
       const first = count ? start : start + 1;
-      if (first > (next ?? 1))
+      if (first > (next ?? 1)) {
         space += DIFF_SEPARATOR_PX + DIFF_SPACE_PX * (next === null ? 1 : 2);
+      }
       next = first + count;
     } else if (next === null) continue;
     else if (line[0] === "-" || line[0] === "+") run[line[0]] += 1;
@@ -124,24 +126,27 @@ export function diffHeight(patch, diffStyle = "split") {
 }
 export function theme() {
   document.documentElement.dataset.theme = activeTheme;
-  for (const button of $("theme").querySelectorAll("[data-theme]"))
+  for (const button of $("theme").querySelectorAll("[data-theme]")) {
     button.setAttribute(
       "aria-checked",
       String(button.dataset.theme === (preferredTheme || "system")),
     );
-  for (const instance of charts.values())
+  }
+  for (const instance of charts.values()) {
     instance.setOption({
       color: chartPalette(),
       ...chartTheme(instance.getOption()),
     });
+  }
   for (const viewer of diffs.values()) {
     viewer.setOptions({ ...viewer.options, theme: syntaxThemes[activeTheme] });
     viewer.rerender();
   }
   // A preview page reads the theme cookie when it loads, so theme() reloads
   // each preview.
-  for (const frame of document.querySelectorAll(".agreement-preview iframe"))
+  for (const frame of document.querySelectorAll(".agreement-preview iframe")) {
     frame.contentWindow?.location.reload();
+  }
   // Page scripts can refresh values they computed from the previous theme.
   window.dispatchEvent(new CustomEvent("plan:theme", { detail: activeTheme }));
 }
@@ -201,8 +206,9 @@ export function failed(element, error) {
   if (
     !element.isConnected ||
     element.nextElementSibling?.classList.contains("renderer-error")
-  )
+  ) {
     return;
+  }
   const message = error.message || "Renderer unavailable; source preserved.";
   // A parser's message can quote the source line and put a caret under the
   // column, which is readable only with its line breaks in fixed-width text.
@@ -215,8 +221,9 @@ export function figure(
   element,
   { title, meta, actions = [], caption, kind = "" },
 ) {
-  if (element.parentElement?.classList.contains("figure-body"))
+  if (element.parentElement?.classList.contains("figure-body")) {
     return element.parentElement.parentElement;
+  }
   const wrapper = document.createElement("figure");
   wrapper.className = `figure ${kind}`.trim();
   if (title || meta || actions.length) {
@@ -343,8 +350,9 @@ function viewerForNode(node) {
 export function diffLineForNode(node) {
   if (!viewerForNode(node)) return null;
   let line = node?.nodeType === 1 ? node : node?.parentElement;
-  for (; line; line = composedParent(line))
+  for (; line; line = composedParent(line)) {
     if (line.matches?.("[data-line][data-line-type]")) break;
+  }
   if (!line) return null;
   const side =
     line.dataset.lineType === "change-deletion" ? "deletions" : "additions";
@@ -365,8 +373,9 @@ export function diffLineForNode(node) {
    selection outside a diff. */
 export function diffSelectionRange(selection) {
   const anchor = selection?.anchorNode;
-  if (!anchor || !selection.getComposedRanges || !viewerForNode(anchor))
+  if (!anchor || !selection.getComposedRanges || !viewerForNode(anchor)) {
     return null;
+  }
   const element = anchor.nodeType === 1 ? anchor : anchor.parentElement;
   const shadowRoots = [...element.querySelectorAll("*")]
     .map((node) => node.shadowRoot)
@@ -405,8 +414,9 @@ export function setDiffThreads(element, threads, cards) {
       !["additions", "deletions"].includes(line.side) ||
       !Number.isInteger(line.lineNumber) ||
       line.lineNumber < 1
-    )
+    ) {
       continue;
+    }
     const slot = threadSlot(line);
     lines.set(slot, line);
     const card = cards.get(thread.id)?.card;
@@ -474,8 +484,9 @@ async function renderDiff(
     return viewer;
   }
   const files = parsePatchFiles(input.patch).flatMap((patch) => patch.files);
-  if (files.length !== 1)
+  if (files.length !== 1) {
     throw Error("Each diff component requires one file pair.");
+  }
   // The bar above the viewer shows the file name, and the viewer's own header
   // would repeat it with the path the patch was made from.
   viewer = new FileDiff({
@@ -489,8 +500,9 @@ async function renderDiff(
     disableFileHeader: true,
     unsafeCSS: noteHighlightCSS,
     onPostRender(_node, _viewer, phase) {
-      if (phase !== "unmount")
+      if (phase !== "unmount") {
         queueMicrotask(() => window.dispatchEvent(new Event("plan:diff")));
+      }
     },
     renderAnnotation(annotation) {
       const placeholder = document.createElement("span");

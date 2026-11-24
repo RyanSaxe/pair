@@ -48,8 +48,9 @@ test("an image upload is decided by its bytes, capped, and named by the hub", as
     [jpeg, "image/jpeg"],
     [gif, "image/gif"],
     [webp, "image/webp"],
-  ])
+  ]) {
     assert.equal((await send(bytes).then((r) => r.json())).type, type);
+  }
 
   // The hub refuses HEIC, the format a phone sends.
   const heic = Buffer.concat([

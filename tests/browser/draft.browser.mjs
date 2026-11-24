@@ -224,10 +224,11 @@ test("a page whose video has started shows what another device completes, and ke
   await video.waitFor();
   await mark(computer);
   await video.evaluate(async (element) => {
-    if (element.readyState < 1)
+    if (element.readyState < 1) {
       await new Promise((resolve) =>
         element.addEventListener("loadedmetadata", resolve, { once: true }),
       );
+    }
     element.currentTime = 0.5;
   });
 

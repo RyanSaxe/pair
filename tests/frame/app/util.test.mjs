@@ -11,11 +11,12 @@ test("a note on words its block repeats finds the appearance the reviewer select
   const second = text.lastIndexOf(words);
   assert.equal(occurrenceAt(text, words, first), 1);
   assert.equal(occurrenceAt(text, words, second), 2);
-  for (const start of [first, second])
+  for (const start of [first, second]) {
     assert.equal(
       occurrenceIndex(text, words, occurrenceAt(text, words, start)),
       start,
     );
+  }
   assert.equal(occurrenceIndex(text, words), first);
   assert.equal(occurrenceIndex(text, words, 3), -1);
 });

@@ -23,8 +23,9 @@ export function codexInvocation(args) {
     // npm's codex.cmd runs "%dp0%\SCRIPT" %*, and pnpm's runs "%~dp0\SCRIPT"
     // %*. Both name the directory of codex.cmd.
     const script = /"%~?dp0%?\\([^"]+)" %\*/.exec(shim)?.[1];
-    if (script)
+    if (script) {
       return [process.execPath, [path.join(directory, script), ...args]];
+    }
   }
   return ["codex", args];
 }

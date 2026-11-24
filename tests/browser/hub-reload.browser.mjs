@@ -134,10 +134,11 @@ const replyBox = (page, thread) =>
 // a test to change, and the hub on it reads the same state directory.
 async function restartOnNewCode(t, h) {
   const copy = await fs.mkdtemp(path.join(os.tmpdir(), "pair-new-hub-"));
-  for (const item of ["src", "adapters", "guide", "package.json"])
+  for (const item of ["src", "adapters", "guide", "package.json"]) {
     await fs.cp(path.join(root, item), path.join(copy, item), {
       recursive: true,
     });
+  }
   await fs.writeFile(path.join(copy, "src/new-code.txt"), "new code");
   const { port } = new URL(h.server.origin);
   return async () => {
@@ -365,17 +366,19 @@ test("a reload keeps the place on an older round, a read-only page, Work's tab, 
   const { a, origin } = await session(t);
   const propose = async (fields) =>
     assert.equal((await a.action("propose", fields)).code, 200);
-  for (const id of ["one", "two", "three", "four", "five", "six"])
+  for (const id of ["one", "two", "three", "four", "five", "six"]) {
     await propose({
       id,
       title: `Card ${id}`,
       delivers: "What this work delivers, so that the card has some height.",
       recommend: "here",
     });
+  }
   // Work opens on Proposed, so the reload has to bring back Running, the long
   // tab the reader picked.
-  for (const id of ["one", "two", "three", "four", "five"])
+  for (const id of ["one", "two", "three", "four", "five"]) {
     await propose({ id, start: "here", quote: "Build it." });
+  }
   const page = await open(t, "about:blank");
   if (!page) return;
   const context = await page
@@ -384,10 +387,11 @@ test("a reload keeps the place on an older round, a read-only page, Work's tab, 
     .newContext({ viewport: { width: 900, height: 420 } });
   const picks = await context.newPage();
   await picks.goto(`${origin}${a.base}/#newer`);
-  for (let index = 0; index < 25; index++)
+  for (let index = 0; index < 25; index++) {
     await picks
       .locator(`[data-choice="pick-${index}"] [data-value="a"]`)
       .click();
+  }
   await picks.close();
 
   const check = async ({ what, address, ready, at, before = () => {} }) => {

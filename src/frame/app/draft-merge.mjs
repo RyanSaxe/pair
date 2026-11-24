@@ -41,13 +41,17 @@ const none = digest(null);
    replace a checklist the reviewer changed on another device. */
 export function draftItems(draft) {
   const items = {};
-  for (const note of draft.notes)
+  for (const note of draft.notes) {
     if (!note.sentIn) items[itemKey("note", note.id)] = note;
-  for (const [key, choice] of Object.entries(draft.choices))
-    if (!choice.sentIn && (choice.kind !== "multiple" || choice.touched))
+  }
+  for (const [key, choice] of Object.entries(draft.choices)) {
+    if (!choice.sentIn && (choice.kind !== "multiple" || choice.touched)) {
       items[itemKey("choice", key)] = choice;
-  for (const [key, answer] of Object.entries(draft.answers))
+    }
+  }
+  for (const [key, answer] of Object.entries(draft.answers)) {
     if (!answer.sentIn) items[itemKey("answer", key)] = answer;
+  }
   if (draft.alignUnflagged === false) items.alignUnflagged = false;
   return items;
 }
@@ -58,9 +62,11 @@ export function draftChanges(draft) {
   const items = draftItems(draft);
   const synced = draft.synced.items;
   const changes = {};
-  for (const key of new Set([...Object.keys(items), ...Object.keys(synced)]))
-    if (digest(items[key]) !== (synced[key]?.digest ?? none))
+  for (const key of new Set([...Object.keys(items), ...Object.keys(synced)])) {
+    if (digest(items[key]) !== (synced[key]?.digest ?? none)) {
       changes[key] = items[key] ?? null;
+    }
+  }
   return changes;
 }
 
@@ -74,8 +80,9 @@ export function recordPushed(draft, changes, hub) {
     const item = hub.items[key];
     const known = draft.synced.items[key];
     if (!item || (known && item.rev <= known.rev)) continue;
-    if (digest(item.value) === digest(value))
+    if (digest(item.value) === digest(value)) {
       draft.synced.items[key] = { rev: item.rev, digest: digest(value) };
+    }
   }
 }
 // forgetSent deletes the synced record of each item that markSent() just
@@ -83,14 +90,16 @@ export function recordPushed(draft, changes, hub) {
 // removes the sent items itself when it saves the submission.
 export function forgetSent(draft, before) {
   const after = draftItems(draft);
-  for (const key of Object.keys(before))
+  for (const key of Object.keys(before)) {
     if (!(key in after)) delete draft.synced.items[key];
+  }
 }
 
 const fields = { choice: "choices", answer: "answers" };
 function sentHere(draft, kind, id) {
-  if (kind === "note")
+  if (kind === "note") {
     return Boolean(draft.notes.find((note) => note.id === id)?.sentIn);
+  }
   if (kind in fields) return Boolean(draft[fields[kind]][id]?.sentIn);
   return false;
 }
@@ -115,8 +124,9 @@ function apply(draft, { kind, id }, value) {
   // text stays after Answer. When the typed text is the answer this value
   // replaces, it goes too, so the box shows the new answer. Text the reviewer
   // typed since stays.
-  if (kind === "answer" && draft.drafts[id] === map[id]?.text)
+  if (kind === "answer" && draft.drafts[id] === map[id]?.text) {
     delete draft.drafts[id];
+  }
   if (value === null) delete map[id];
   else map[id] = value;
   return topic;
@@ -160,8 +170,9 @@ export function mergeDraft(draft, hub) {
         item.value === null &&
         parts.kind === "choice" &&
         draft.choices[parts.id]
-      )
+      ) {
         changed(apply(draft, parts, null));
+      }
     } else if (dirty && parts.kind === "note" && !item.value) {
       const note = draft.notes.find((entry) => entry.id === parts.id);
       note.id = uuid();

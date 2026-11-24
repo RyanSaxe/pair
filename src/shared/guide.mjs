@@ -14,18 +14,21 @@ export const guideCommand = (name) => `pair guide ${name}`;
 async function documents() {
   const guide = path.join(packageRoot, "guide");
   const names = new Map();
-  for (const file of await fs.readdir(guide, { recursive: true }))
-    if (/\.(md|svg)$/.test(file))
+  for (const file of await fs.readdir(guide, { recursive: true })) {
+    if (/\.(md|svg)$/.test(file)) {
       names.set(file.split(path.sep).join("/"), path.join(guide, file));
+    }
+  }
   names.set(
     "components/README.md",
     path.join(packageRoot, "src", "components", "README.md"),
   );
-  for (const { name, directory } of await componentDirectories())
+  for (const { name, directory } of await componentDirectories()) {
     names.set(
       `components/${name}/markup.html`,
       path.join(directory, "markup.html"),
     );
+  }
   return names;
 }
 
@@ -36,10 +39,11 @@ async function documents() {
 export async function guideText(name = "pair.md") {
   const names = await documents();
   const file = names.get(name);
-  if (!file)
+  if (!file) {
     throw new Error(
       `No guide file ${name}. The names are: ${[...names.keys()].toSorted().join(", ")}`,
     );
+  }
   const own = await fs.readFile(file, "utf8");
   if (!name.endsWith(".md")) return own;
   const yours = await fs

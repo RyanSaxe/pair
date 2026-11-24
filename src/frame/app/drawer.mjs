@@ -43,8 +43,9 @@ function besideText(range) {
     gap: 8,
     rect() {
       const lines = [...range.getClientRects()].filter((box) => box.width > 1);
-      if (!lines.length || !shown(range.startContainer.parentElement))
+      if (!lines.length || !shown(range.startContainer.parentElement)) {
         return null;
+      }
       const box = range.getBoundingClientRect();
       return {
         top: box.top,
@@ -89,8 +90,9 @@ function press(control) {
 function spotFor({ words, block, home }) {
   if (words) return besideText(words);
   const control = pressedControl();
-  if (control && !(block && control === $("comment-here")))
+  if (control && !(block && control === $("comment-here"))) {
     return besideControl(control);
+  }
   if (shown(block)) return besideElement(block);
   return home === "header" ? underHeader() : besideControl(home);
 }
@@ -170,8 +172,9 @@ function place(dialog, spot, side) {
   placed = { dialog, spot, side };
 }
 function placeAgain() {
-  if (placed?.dialog.open && !placed.dialog.matches(":modal"))
+  if (placed?.dialog.open && !placed.dialog.matches(":modal")) {
     place(placed.dialog, placed.spot, placed.side);
+  }
 }
 
 /* Only one drawer is open at a time, so a drawer that opens replaces the open
@@ -194,8 +197,9 @@ export function openDrawer(dialog, about = {}) {
   const swapped = others.length || modal ? [dialog, ...others] : [];
   holdStill(swapped);
   for (const other of others) other.close();
-  for (const name of ["top", "bottom", "left", "maxHeight"])
+  for (const name of ["top", "bottom", "left", "maxHeight"]) {
     dialog.style[name] = "";
+  }
   // The drawer is placed while it is still hidden, so it rises from its spot.
   if (!modal) place(dialog, spot);
   // showModal can focus the field itself, so the modal has its place first.
@@ -207,8 +211,9 @@ export function openDrawer(dialog, about = {}) {
   // WebKit's show() leaves focus where it was. The field takes focus after the
   // modal has its place, because iOS finds where to pan when it does.
   if (about.field) about.field.focus();
-  else if (!dialog.contains(document.activeElement))
+  else if (!dialog.contains(document.activeElement)) {
     dialog.querySelector("[autofocus]")?.focus();
+  }
 }
 // The drawers show their next place with no motion.
 function holdStill(drawers) {
@@ -367,8 +372,9 @@ function glided(event) {
   if (
     event.target === event.currentTarget &&
     event.propertyName === "max-height"
-  )
+  ) {
     revealField("smooth");
+  }
 }
 
 /* Where a dialog's body scrolls under its title, a line separates the two while
@@ -413,8 +419,10 @@ export function installDrawer() {
       ),
     true,
   );
-  for (const body of document.querySelectorAll(".dialog .dialog-body"))
+  for (const body of document.querySelectorAll(".dialog .dialog-body")) {
     watchScroll(body);
-  for (const dialog of document.querySelectorAll("dialog[data-drawer]"))
+  }
+  for (const dialog of document.querySelectorAll("dialog[data-drawer]")) {
     dialog.addEventListener("transitionend", glided);
+  }
 }

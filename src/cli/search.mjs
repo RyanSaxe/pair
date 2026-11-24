@@ -45,11 +45,12 @@ function kindsOf(option) {
   if (option === undefined) return [];
   const kinds = option.split(",").filter(Boolean);
   const unknown = kinds.filter((kind) => !KINDS.includes(kind));
-  if (unknown.length || !kinds.length)
+  if (unknown.length || !kinds.length) {
     throw usageError(
       "search",
       `--kind takes ${listing(KINDS)}, separated by commas.`,
     );
+  }
   return kinds;
 }
 
@@ -58,8 +59,9 @@ export async function search(options) {
   const kinds = kindsOf(options.kind);
   const limit =
     options.limit === undefined ? DEFAULT_LIMIT : Number(options.limit);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 500)
+  if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
     throw usageError("search", "--limit takes a number from 1 to 500.");
+  }
   const session = await openSession(options, { anyAgent: true });
   const params = {
     q: query,

@@ -47,12 +47,14 @@ export default {
       for await (const { data } of ctx.event.subscribe({
         types: ["session.created"],
         signal: controller.signal,
-      }))
-        if (!data.parentID)
+      })) {
+        if (!data.parentID) {
           register(data.location.directory, {
             ...variables,
             PAIR_OPENCODE_SESSION: data.sessionID,
           });
+        }
+      }
     })().catch(() => {});
     return () => {
       controller.abort();

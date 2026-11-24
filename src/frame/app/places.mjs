@@ -22,21 +22,25 @@ const readSpot = (value) =>
     : null;
 const readPlace = (value) => {
   const at = {};
-  if (record(value.at))
+  if (record(value.at)) {
     for (const [id, entry] of Object.entries(value.at)) {
       const parsed = readSpot(entry);
       if (parsed) at[id] = parsed;
     }
+  }
   return { page: value.page, at };
 };
 
 export function readPlaces(saved) {
   const places = {};
   if (!record(saved)) return { past: null, places };
-  if (record(saved.places))
-    for (const [round, value] of Object.entries(saved.places))
-      if (record(value) && typeof value.page === "string")
+  if (record(saved.places)) {
+    for (const [round, value] of Object.entries(saved.places)) {
+      if (record(value) && typeof value.page === "string") {
         places[round] = readPlace(value);
+      }
+    }
+  }
   return {
     past: typeof saved.past === "string" ? saved.past : null,
     places,
@@ -87,8 +91,9 @@ function readingAt() {
     if (element.closest("svg")) continue;
     const { top, bottom, height } = element.getBoundingClientRect();
     if (!height || bottom <= edge) continue;
-    if (!found || Math.abs(edge - top) < Math.abs(found.into))
+    if (!found || Math.abs(edge - top) < Math.abs(found.into)) {
       found = { id: element.id, into: edge - top };
+    }
   }
   return found && { id: found.id, into: Math.round(found.into) };
 }
@@ -262,15 +267,17 @@ export function land(anchor, { focusHeading = true } = {}) {
         !embedded &&
         document.activeElement === document.body &&
         element?.isConnected
-      )
+      ) {
         element.focus({ preventScroll: true });
+      }
     });
   function arrive(next) {
     element?.removeEventListener("blur", refocus);
     element = next;
     if (!target) return;
-    for (let at = element; at; at = at.parentElement)
+    for (let at = element; at; at = at.parentElement) {
       if (at.tagName === "DETAILS") at.open = true;
+    }
     // A reply inside a collapsed card has no box, so arrive() clicks the
     // card's Expand button, .thread-fold.
     element
@@ -282,11 +289,12 @@ export function land(anchor, { focusHeading = true } = {}) {
       element.focus({ preventScroll: true });
       element.addEventListener("blur", refocus);
     }
-    if (into === null)
+    if (into === null) {
       into = -Math.max(
         0,
         (box.clientHeight - element.getBoundingClientRect().height) / 2,
       );
+    }
   }
   function place() {
     if (!element?.isConnected) {
@@ -323,12 +331,14 @@ export function land(anchor, { focusHeading = true } = {}) {
     anchor: () => ({ ...anchor, ...(into === null ? {} : { into }) }),
   };
   box.style.overflowAnchor = "none";
-  if (focusHeading && !embedded && !(target && find()))
+  if (focusHeading && !embedded && !(target && find())) {
     heading().focus({ preventScroll: true });
+  }
   place();
   box.addEventListener("scroll", place, { passive: true });
-  for (const type of readerInputs)
+  for (const type of readerInputs) {
     addEventListener(type, stop, { capture: true, passive: true });
+  }
   observer.observe(view);
   const images = [...view.querySelectorAll("img")]
     .filter((image) => !image.complete)
@@ -351,10 +361,11 @@ export function land(anchor, { focusHeading = true } = {}) {
 export function installPlaces() {
   document.addEventListener("scroll", rememberPlace, true);
   addEventListener("pagehide", flushPlace);
-  for (const type of readerInputs)
+  for (const type of readerInputs) {
     addEventListener(type, () => (resumed = null), {
       capture: true,
       passive: true,
       once: true,
     });
+  }
 }

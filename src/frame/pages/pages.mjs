@@ -138,12 +138,14 @@ export function show(
     clearHighlight("plan-note");
     setPage(pages.find((item) => item.id === id) || pages[0]);
     loading = page.status === "ready" && page.pending && page.id !== "agreed";
-    if (page.status === "ready" && page.pending)
+    if (page.status === "ready" && page.pending) {
       void loadPageRecord(plan.round, page.id).catch(arrived);
+    }
     disposeRenderers();
     $("page-title").textContent = page.title;
-    if (page.id === "agreed" && !page.waiting && isPlanRound())
+    if (page.id === "agreed" && !page.waiting && isPlanRound()) {
       $("page-title").append(" ", tag("Plan", "plan"));
+    }
     $("page-content").dataset.pageId = page.id;
     $("page-content").dataset.round = plan.round;
     $("page-content").innerHTML = page.pending ? pendingPage : page.html;
@@ -170,9 +172,9 @@ export function show(
     Promise.allSettled(renders).then(placeMarks);
   }
   for (const button of document.querySelectorAll("#page-list [data-page]")) {
-    if (button.dataset.page === visiblePageId())
+    if (button.dataset.page === visiblePageId()) {
       button.setAttribute("aria-current", "page");
-    else button.removeAttribute("aria-current");
+    } else button.removeAttribute("aria-current");
   }
   const url = new URL(location.href);
   url.hash = shownPage();
@@ -181,12 +183,12 @@ export function show(
   if (!keepScroll) url.searchParams.delete("match");
   if (match) url.searchParams.set("match", match);
   // Back and a reload return to this round only when the address names it.
-  if (selectedTab === "past" && editable)
+  if (selectedTab === "past" && editable) {
     url.searchParams.set("round", plan.round);
-  else url.searchParams.delete("round");
-  if (push && !embedded && url.href !== location.href)
+  } else url.searchParams.delete("round");
+  if (push && !embedded && url.href !== location.href) {
     history.pushState(null, "", url);
-  else history.replaceState(null, "", url);
+  } else history.replaceState(null, "", url);
   if (!inPlace) closeMenus();
   updateNavigation();
   review();
@@ -213,15 +215,21 @@ export function show(
 let redrawHeld = false;
 export function showChanges(changed = null) {
   review();
-  if ($("reading").hidden || page.pending || (changed && !changed.has(page.id)))
+  if (
+    $("reading").hidden ||
+    page.pending ||
+    (changed && !changed.has(page.id))
+  ) {
     return;
+  }
   restoreChoices();
   restoreAnswers();
   if (page.id !== "agreed") markNotes();
   for (const control of $("page-content").querySelectorAll(
     "[data-multiselect], [data-question], [data-drawing-question]",
-  ))
+  )) {
     control.dispatchEvent(new CustomEvent("plan:draft"));
+  }
   redrawHeld = true;
   redrawPage();
 }
@@ -278,13 +286,13 @@ export function renderFooter(feedback) {
   setFooterLink(
     $("footer-next"),
     next,
-    !next
-      ? ""
-      : next.id === "feedback"
+    next
+      ? next.id === "feedback"
         ? !editable || selectedTab === "past" || sendState() === "waiting"
           ? "What you sent →"
           : "Review your draft →"
-        : `Next: ${next.title} →`,
+        : `Next: ${next.title} →`
+      : "",
   );
 }
 
@@ -298,11 +306,12 @@ export function pageIndicator(state) {
   const indicator = document.createElement("span");
   indicator.className = `page-activity ${state}`;
   indicator.setAttribute("aria-hidden", "true");
-  if (state !== "active")
+  if (state !== "active") {
     indicator.innerHTML =
       state === "complete"
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.5 4.5L19 7"/></svg>'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+  }
   return indicator;
 }
 function addPageButton(item) {
@@ -343,8 +352,9 @@ function newMarks(listed) {
     onScreen &&
     pageStatus(onScreen) === "complete" &&
     markOpened(session.sessionId, plan.round, onScreen.id)
-  )
+  ) {
     window.dispatchEvent(new CustomEvent("pair:opened"));
+  }
   return openedPages();
 }
 export function updateNavigation(force = false) {
@@ -352,8 +362,9 @@ export function updateNavigation(force = false) {
   $("current-tab").disabled = Boolean(submittedRound) && !currentShown();
   $("past-tab").disabled = !pastAvailable();
   $("past-tab").textContent = olderPast() ? `Round ${pastRound}` : "Last round";
-  for (const tab of ["past", "current"])
+  for (const tab of ["past", "current"]) {
     $(`${tab}-tab`).setAttribute("aria-selected", String(listed.tab === tab));
+  }
   if (
     force ||
     pageList.dataset.round !== listed.round ||
@@ -434,10 +445,11 @@ export function updateNavigation(force = false) {
       `${item.title}, ${complete ? (fresh ? "ready, not opened yet" : "ready") : item.working ? "working" : "queued"}`,
     );
   }
-  for (const button of pageList.querySelectorAll("[data-page]"))
-    if (listed.tab === selectedTab && button.dataset.page === visiblePageId())
+  for (const button of pageList.querySelectorAll("[data-page]")) {
+    if (listed.tab === selectedTab && button.dataset.page === visiblePageId()) {
       button.setAttribute("aria-current", "page");
-    else button.removeAttribute("aria-current");
+    } else button.removeAttribute("aria-current");
+  }
 }
 export function installPages() {
   displayedRound = plan.round;

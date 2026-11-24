@@ -9,10 +9,11 @@ export function choiceText(choice) {
         typeof option.label === "string" &&
         typeof option.checked === "boolean",
     )
-  )
+  ) {
     throw new Error(
       "Checklist options require IDs, labels, and checked states.",
     );
+  }
   return (
     choice.options
       .filter((option) => option.checked)

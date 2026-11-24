@@ -35,8 +35,9 @@ test("the frame reuses a thread reply ID after its response is lost", async (t) 
   if (!page) return;
   const card = page.locator(`pair-thread[data-thread="${id}"]`);
   await card.waitFor();
-  if ((await card.getAttribute("collapsed")) !== null)
+  if ((await card.getAttribute("collapsed")) !== null) {
     await card.locator(".thread-fold").click();
+  }
 
   const requests = [];
   await page.route(
@@ -106,10 +107,11 @@ test("a reply that failed to send stays on its card with Try again when the agen
   assert.equal(answered.code, 200, answered.body.error);
   await card.locator(".thread-message", { hasText: "Here." }).waitFor();
   // The card keeps the failed reply through two status polls.
-  for (let polled = 0; polled < 2; polled++)
+  for (let polled = 0; polled < 2; polled++) {
     await page.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
   const texts = () =>
     card.locator(".thread-message .thread-text").allTextContents();
   assert.deepEqual(await texts(), [
@@ -131,10 +133,11 @@ test("a reply that failed to send stays on its card with Try again when the agen
     }),
     true,
   );
-  for (let polled = 0; polled < 2; polled++)
+  for (let polled = 0; polled < 2; polled++) {
     await page.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
   assert.equal(await card.locator(".thread-bad").count(), 0);
   assert.deepEqual(await texts(), [
     "Where does this land?",

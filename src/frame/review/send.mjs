@@ -134,7 +134,7 @@ function submission(next) {
   const groups = submissionGroups(state);
   const message = state.message?.trim() || "";
   const snapshot = JSON.stringify([groups, next, message]);
-  if (state.pending?.snapshot !== snapshot)
+  if (state.pending?.snapshot !== snapshot) {
     state.pending = {
       snapshot,
       event: {
@@ -149,6 +149,7 @@ function submission(next) {
         text: feedbackText(next, message),
       },
     };
+  }
   return state.pending.event;
 }
 async function send(event) {
@@ -159,10 +160,12 @@ async function send(event) {
     body: JSON.stringify(event),
   });
   const result = await response.json();
-  if (!response.ok)
+  if (!response.ok) {
     throw Object.assign(Error(result.error), { roundSent: result.roundSent });
-  if (result.status.sessionId !== session.sessionId)
+  }
+  if (result.status.sessionId !== session.sessionId) {
     throw Error("Session identity mismatch.");
+  }
   setRemote(result.status);
   return result;
 }
@@ -216,8 +219,9 @@ export async function sendFeedback(next) {
 function sendAsMessage() {
   const text = refusedMessage;
   clearSubmissionError();
-  if (selectedTab !== "current")
+  if (selectedTab !== "current") {
     switchTab("current", null, { showPage: false });
+  }
   show("agreed");
   startThread(progressThread, text, {
     saved: () => {

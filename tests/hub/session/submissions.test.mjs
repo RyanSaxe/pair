@@ -78,11 +78,12 @@ test("the reviewer's choice for the next round decides whether Agreed may mark i
   for (const [round, plan] of [
     ["1", undefined],
     ["2", true],
-  ])
+  ]) {
     assert.equal(
       readPlanData((await a.request(`${a.base}/r/${round}`)).body).plan,
       plan,
     );
+  }
   const { rounds } = (await a.status()).body;
   assert.deepEqual(
     rounds.map((item) => [item.round, item.plan ?? false]),

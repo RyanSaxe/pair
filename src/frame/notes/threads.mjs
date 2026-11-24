@@ -69,9 +69,9 @@ function allThreads() {
       ({ replyId }) =>
         replyId && !stored.messages.some((item) => item.replyId === replyId),
     );
-    if (unsent.length)
+    if (unsent.length) {
       byId.set(id, { ...local, messages: [...stored.messages, ...unsent] });
-    else sent.delete(id);
+    } else sent.delete(id);
   }
   return [...byId.values()];
 }
@@ -87,8 +87,9 @@ async function post({ id, url, body, saved }) {
     if (!response.ok) throw Error(result.error || "The hub refused it.");
     // When the reviewer sent another reply after this one, sent keeps the
     // longer local copy until the hub answers that reply.
-    if (result.thread.messages.length >= (sent.get(id)?.messages.length ?? 0))
+    if (result.thread.messages.length >= (sent.get(id)?.messages.length ?? 0)) {
       sent.set(id, result.thread);
+    }
     saved?.();
   } catch (error) {
     sent.set(id, {
@@ -148,10 +149,11 @@ function sendReply(thread, text, attachments) {
   // removes them from the bell before the hub responds.
   clearThread(thread.id);
   // In the search window's frame, the window's own list shows the reply at once.
-  if (embedded)
+  if (embedded) {
     window.parent.dispatchEvent(
       new CustomEvent("pair:reply", { detail: { thread: thread.id, text } }),
     );
+  }
   placeThreads();
   void post({
     id: thread.id,
@@ -195,8 +197,9 @@ function contents(html) {
     ["table", "a table"],
     ["[data-prototype]", "a prototype"],
     ["video", "a video"],
-  ])
+  ]) {
     if (root.querySelector(selector)) parts.push(name);
+  }
   return parts.join(" and ");
 }
 // clampHeight matches the max-height of .thread-clamp.clamped in
@@ -208,10 +211,12 @@ function agentBody(thread, message, index) {
   const clamp = element("div", "thread-clamp");
   const content = element("div", "thread-content");
   let summary = "";
-  if (message.html !== undefined) {
+  if (message.html === undefined) {
+    content.append(element("p", "thread-text", message.text));
+  } else {
     summary = contents(message.html);
     content.innerHTML = message.html;
-  } else content.append(element("p", "thread-text", message.text));
+  }
   clamp.append(content);
   const more = element("button", "link-btn thread-more");
   more.type = "button";
@@ -307,7 +312,7 @@ function statusLine(thread) {
       line.append(retry);
     }
     box.append(line);
-  } else if (thread.state === "unanswered")
+  } else if (thread.state === "unanswered") {
     box.append(
       element(
         "p",
@@ -315,13 +320,13 @@ function statusLine(thread) {
         "You closed the session before the agent replied.",
       ),
     );
-  else if (thread.state === "sending")
+  } else if (thread.state === "sending") {
     box.append(element("p", "thread-meta", "Sending"));
-  else if (thread.state === "held")
+  } else if (thread.state === "held") {
     box.append(
       element("p", "thread-meta", "Agent paused. Send a message in chat."),
     );
-  else if (thread.state === "sent") {
+  } else if (thread.state === "sent") {
     const line = element("p", "thread-sent");
     const info = element("button", "thread-info", "i");
     info.type = "button";
@@ -444,8 +449,9 @@ function blockOf(root, thread) {
       at &&
       at.parentElement !== root &&
       !at.classList.contains("agreement-card")
-    )
+    ) {
       at = at.parentElement;
+    }
     return at && at.localName !== "pair-thread" ? at : null;
   };
   const target = thread.target && document.getElementById(thread.target);
@@ -497,8 +503,9 @@ function placeProgress(threads) {
     // When the round finishes, drawCard would collapse the card and hide the
     // reply box that the reviewer is typing in, so placeProgress records an
     // Expand.
-    if (!live && entry.form.contains(document.activeElement))
+    if (!live && entry.form.contains(document.activeElement)) {
       prefs.set(`thread:${thread.id}:collapsed`, "0");
+    }
     drawCard(entry, thread, { folded: !live });
     if (after.nextElementSibling !== entry.card) {
       after.after(entry.card);
@@ -515,14 +522,16 @@ const cardOf = (id) =>
     ...document.querySelectorAll(`[data-proposal-card="${CSS.escape(id)}"]`),
   ].find((node) => !node.closest("[hidden]"));
 function endOf(thread) {
-  if (thread.topic === "work" && shownPage() === "work")
+  if (thread.topic === "work" && shownPage() === "work") {
     return $("work-threads");
+  }
   if (
     thread.topic === "overall" &&
     shownPage() === "feedback" &&
     thread.round === plan.round
-  )
+  ) {
     return $("overall-threads");
+  }
   return null;
 }
 const folds = (threads, index) =>
@@ -534,8 +543,9 @@ function placeEnds(threads) {
       if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
       const entry = cards.get(thread.id);
       drawCard(entry, thread, { folded: folds(listed, index) });
-      if (box.children[index] !== entry.card)
+      if (box.children[index] !== entry.card) {
         box.insertBefore(entry.card, box.children[index] ?? null);
+      }
     });
     for (const card of [...box.children].slice(listed.length)) card.remove();
   }
@@ -564,8 +574,9 @@ export function placeThreads() {
   }
   placeEnds(ends);
   if (reading) {
-    for (const card of $("reading").querySelectorAll("pair-thread"))
+    for (const card of $("reading").querySelectorAll("pair-thread")) {
       if (!ids.has(card.dataset.thread)) card.remove();
+    }
     placeProgress(list.filter(onProgress));
     for (const thread of list.filter((item) => !onProgress(item))) {
       const diff = thread.diffLine && diffForTarget(thread.target);
@@ -574,7 +585,7 @@ export function placeThreads() {
     }
   }
   const placed = new Set();
-  for (const [block, threads] of groups)
+  for (const [block, threads] of groups) {
     threads.forEach((thread, index) => {
       if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
       const entry = cards.get(thread.id);
@@ -585,21 +596,24 @@ export function placeThreads() {
       let after =
         block ||
         [...root.children].findLast((node) => node.localName !== "pair-thread");
-      if (!after) {
-        if (entry.card.parentElement !== root) root.append(entry.card);
-      } else {
-        while (placed.has(after.nextElementSibling))
+      if (after) {
+        while (placed.has(after.nextElementSibling)) {
           after = after.nextElementSibling;
+        }
         // Moving a card takes focus from its reply box, so a card the reviewer
         // is typing in moves at the first poll after they leave it.
         if (
           after.nextElementSibling !== entry.card &&
           !entry.form.contains(document.activeElement)
-        )
+        ) {
           after.after(entry.card);
+        }
+      } else {
+        if (entry.card.parentElement !== root) root.append(entry.card);
       }
       placed.add(entry.card);
     });
+  }
   for (const diffView of diffViews(root)) {
     const threads = diffGroups.get(diffView) || [];
     const byLine = new Map();
@@ -607,7 +621,7 @@ export function placeThreads() {
       const key = `${thread.diffLine.side}/${thread.diffLine.lineNumber}`;
       byLine.set(key, [...(byLine.get(key) || []), thread]);
     }
-    for (const lineThreads of byLine.values())
+    for (const lineThreads of byLine.values()) {
       lineThreads.forEach((thread, index) => {
         if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
         drawCard(cards.get(thread.id), thread, {
@@ -615,33 +629,41 @@ export function placeThreads() {
           folded: folds(lineThreads, index),
         });
       });
+    }
     setDiffThreads(diffView, threads, cards);
   }
   // A message's ResizeObserver calls fit only at the next frame, after a
   // scroll to a reply has measured each long message at its full height.
   // placeThreads therefore calls fit for each card drawn here as soon as the
   // card is on the page.
-  for (const card of unfitted)
-    if (card.isConnected)
-      for (const clamp of card.querySelectorAll(".thread-clamp"))
+  for (const card of unfitted) {
+    if (card.isConnected) {
+      for (const clamp of card.querySelectorAll(".thread-clamp")) {
         fits.get(clamp)();
+      }
+    }
+  }
   unfitted.clear();
 }
 function tick() {
   for (const { card } of cards.values()) {
     if (!card.isConnected) continue;
-    for (const time of card.querySelectorAll("[data-at]"))
+    for (const time of card.querySelectorAll("[data-at]")) {
       time.textContent = when(time.dataset.at);
+    }
     const working = card.querySelector("[data-since]");
-    if (working)
+    if (working) {
       working.textContent = `Read · replying for ${lasted(working.dataset.since)}`;
+    }
   }
 }
 export function installThreads() {
-  for (const key of document.querySelectorAll("[data-send-key]"))
+  for (const key of document.querySelectorAll("[data-send-key]")) {
     key.textContent = sendKeyLabel();
-  for (const key of document.querySelectorAll("[data-send-modifier]"))
+  }
+  for (const key of document.querySelectorAll("[data-send-modifier]")) {
     key.textContent = modifier();
+  }
   // A page render replaces #page-content, so the frame draws its cards anew.
   // The progress cards are outside #page-content, and the render leaves them
   // in place, so the reply box the reviewer is typing in keeps its focus when

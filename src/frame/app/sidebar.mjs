@@ -22,8 +22,9 @@ export function setSidebar(open) {
   $("sidebar-toggle").setAttribute("aria-expanded", String(open));
   // Focus left inside a hidden sidebar would be lost, so setSidebar() moves
   // it to the toggle.
-  if (!open && $("sidebar").contains(document.activeElement))
+  if (!open && $("sidebar").contains(document.activeElement)) {
     $("sidebar-toggle").focus();
+  }
   if (narrow.matches) return;
   dropPictures();
   try {

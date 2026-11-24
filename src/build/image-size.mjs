@@ -24,8 +24,9 @@ function pngSize(bytes) {
   if (
     bytes.length < 24 ||
     !pngSignature.every((byte, index) => bytes[index] === byte)
-  )
+  ) {
     return null;
+  }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dimensions(view.getUint32(16), view.getUint32(20));
 }
@@ -61,14 +62,16 @@ function webpSize(bytes) {
     bytes.length < 20 ||
     !matches(bytes, 0, "RIFF") ||
     !matches(bytes, 8, "WEBP")
-  )
+  ) {
     return null;
+  }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (matches(bytes, 12, "VP8X") && bytes.length >= 30)
+  if (matches(bytes, 12, "VP8X") && bytes.length >= 30) {
     return dimensions(
       1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16),
       1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16),
     );
+  }
   if (matches(bytes, 12, "VP8L") && bytes.length >= 25 && bytes[20] === 0x2f) {
     const bits = view.getUint32(21, true);
     return dimensions(1 + (bits & 0x3fff), 1 + ((bits >>> 14) & 0x3fff));
@@ -79,11 +82,12 @@ function webpSize(bytes) {
     bytes[23] === 0x9d &&
     bytes[24] === 0x01 &&
     bytes[25] === 0x2a
-  )
+  ) {
     return dimensions(
       view.getUint16(26, true) & 0x3fff,
       view.getUint16(28, true) & 0x3fff,
     );
+  }
   return null;
 }
 
@@ -91,8 +95,9 @@ function gifSize(bytes) {
   if (
     bytes.length < 10 ||
     !(matches(bytes, 0, "GIF87a") || matches(bytes, 0, "GIF89a"))
-  )
+  ) {
     return null;
+  }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dimensions(view.getUint16(6, true), view.getUint16(8, true));
 }

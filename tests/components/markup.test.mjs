@@ -26,11 +26,12 @@ test("every component's markup.html builds as it is written", async (t) => {
     const prototypes = [...html.matchAll(/data-prototype="([^"]+)"/g)].map(
       ([, id]) => ({ id, title: id, html: "<p>x</p>", height: 100 }),
     );
-    for (const [, file] of html.matchAll(/data-diff-input="([^"]+)"/g))
+    for (const [, file] of html.matchAll(/data-diff-input="([^"]+)"/g)) {
       await fs.writeFile(
         path.join(directory, file),
         '{"before":"","after":"","patch":""}',
       );
+    }
     await assert.doesNotReject(
       buildPage(path.join(directory, "markup.json"), {
         name: "markup",

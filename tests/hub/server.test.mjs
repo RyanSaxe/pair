@@ -400,8 +400,9 @@ test("a round is drawn on today's frame, and only a round with no page records r
         (await fetch(origin + route)).text(),
       ),
     );
-  for (const page of await pages(h.server.origin))
+  for (const page of await pages(h.server.origin)) {
     assert.match(page, /id="search-button"/);
+  }
   await h.server.close();
   const file = path.join(a.directory, "status.json");
   const { roundPages, ...older } = JSON.parse(await fs.readFile(file, "utf8"));
@@ -409,16 +410,18 @@ test("a round is drawn on today's frame, and only a round with no page records r
   await fs.writeFile(file, JSON.stringify(older));
   const next = await startHub(h.config);
   t.after(next.close);
-  for (const page of await pages(next.origin))
+  for (const page of await pages(next.origin)) {
     assert.match(page, /id="saved-round"/);
+  }
 });
 
 test("a round URL with a malformed escape is a bad request", async (t) => {
   const h = await hub(t);
   const a = await h.session();
   await a.publish(planData());
-  for (const route of ["r", "preview"])
+  for (const route of ["r", "preview"]) {
     assert.equal((await a.request(`${a.base}/${route}/%E0%A4%A`)).code, 400);
+  }
 });
 
 test("explicit feedback is retryable, remains unread until read, and blocks premature publication", async (t) => {

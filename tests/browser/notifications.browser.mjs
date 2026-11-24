@@ -28,8 +28,9 @@ import {
 test("the popup lists the newest 5 rows with one row per thread, a link that says how many more, and Clear all", async (t) => {
   const h = await hub(t);
   const { here, other } = await sessions(t, h);
-  for (const index of [1, 2, 3, 4, 5, 6, 7])
+  for (const index of [1, 2, 3, 4, 5, 6, 7]) {
     await replied(here, `Reply number ${index}`);
+  }
   const twice = await replied(other, "First new reply");
   await reply(other, twice, "Second new reply");
   const page = await openOn(t, h, { session: here });

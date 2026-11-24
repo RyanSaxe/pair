@@ -24,8 +24,11 @@ let after = null;
 let newId = null;
 const rows = () => [...$("start-dialog").querySelectorAll("[data-where]")];
 const showSave = (shown) => {
-  for (const button of $("start-dialog").querySelectorAll("[data-start-save]"))
+  for (const button of $("start-dialog").querySelectorAll(
+    "[data-start-save]",
+  )) {
     button.hidden = !shown;
+  }
 };
 
 export function checkRow(items, chosen) {
@@ -55,8 +58,9 @@ function select(choice) {
     rows(),
     rows().find((row) => row.dataset.where === choice),
   );
-  for (const part of $("start-dialog").querySelectorAll("[data-start-for]"))
+  for (const part of $("start-dialog").querySelectorAll("[data-start-for]")) {
     part.inert = !part.dataset.startFor.split(" ").includes(choice);
+  }
   $("start-message").setAttribute("aria-describedby", `start-hint-${choice}`);
   // A plan round must not mix with this session's other work, so the frame
   // disables Plan it first when Here is chosen.
@@ -100,8 +104,9 @@ function resetDialog(choice) {
   select(choice);
   $("start-message").value = (card && state.startMessages[card.id]) || "";
   $("start-error").hidden = true;
-  for (const id of ["start-send", "start-copy", "start-open"])
+  for (const id of ["start-send", "start-copy", "start-open"]) {
     $(id).disabled = false;
+  }
   $("start-copy").textContent = "Copy command";
   // With the user's launch script, the hub starts the new agent itself.
   const launches = Boolean(remote?.startAgent);
@@ -239,7 +244,7 @@ export function installStart() {
     button.addEventListener("click", () => send("save", button));
   }
   // The form's left button has the key of the note dialog's left button.
-  for (const id of ["start-write-title", "start-write-text"])
+  for (const id of ["start-write-title", "start-write-text"]) {
     $(id).addEventListener("keydown", (event) => {
       if (!sendKey(event)) return;
       event.preventDefault();
@@ -248,8 +253,10 @@ export function installStart() {
       );
       if (!save.hidden && !save.disabled) save.click();
     });
-  for (const row of rows())
+  }
+  for (const row of rows()) {
     row.addEventListener("click", () => select(row.dataset.where));
+  }
   arrowKeys($("start-dialog").querySelector("[role=radiogroup]"), {
     rows,
     chosen: () => rows().find((row) => row.dataset.where === where),
@@ -268,11 +275,12 @@ export function installStart() {
   $("start-open").addEventListener("click", () =>
     send("open-agent", $("start-open")),
   );
-  for (const id of ["start-message", "start-write-title", "start-write-text"])
+  for (const id of ["start-message", "start-write-title", "start-write-text"]) {
     $(id).addEventListener("keydown", (event) => {
       if (!shiftEnter(event)) return;
       event.preventDefault();
       const main = $(where === "new-agent" ? "start-open" : "start-send");
       if (!main.disabled) main.click();
     });
+  }
 }

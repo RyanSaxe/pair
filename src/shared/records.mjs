@@ -75,17 +75,17 @@ function validPlan(data) {
               ),
             "A source reference's kind is note, choice, answer, conversation or thread.",
           );
-          if (ref.kind === "conversation")
+          if (ref.kind === "conversation") {
             requireValue(
               typeof ref.text === "string" && ref.text.trim(),
               "Conversation source requires text",
             );
-          else if (ref.kind === "thread")
+          } else if (ref.kind === "thread") {
             requireValue(
               idPattern.test(ref.threadId || ""),
               "Thread source requires threadId",
             );
-          else {
+          } else {
             requireValue(
               idPattern.test(ref.submissionId || ""),
               "Invalid source submission ID",
@@ -159,11 +159,12 @@ function validPlan(data) {
   for (const content of [...data.pages, ...(data.agreements || [])]) {
     for (const match of content.html.matchAll(
       /<[a-z][^>]*?\sdata-prototype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    ))
+    )) {
       requireValue(
         prototypeIds.has(match[1] ?? match[2] ?? match[3]),
         `data-prototype="${match[1] ?? match[2] ?? match[3]}" names no prototype in the page's prototypes.`,
       );
+    }
   }
   return data;
 }
@@ -218,21 +219,24 @@ export function validPage(record) {
       ? '"plan" in Agreed\'s source is true or false.'
       : '"plan" is a field of Agreed\'s source only.',
   );
-  for (const key of ["cssText", "jsText"])
+  for (const key of ["cssText", "jsText"]) {
     requireValue(
       page[key] === undefined || typeof page[key] === "string",
       `${key} must be text`,
     );
-  if (page.jsText)
+  }
+  if (page.jsText) {
     requireValue(
       exportsSetup(page.jsText),
       "Page JavaScript must export setup(root, planUI)",
     );
+  }
   if (
     /<\/style/i.test(page.cssText || "") ||
     /<\/script/i.test(page.jsText || "")
-  )
+  ) {
     requireValue(false, "Page CSS/JS cannot contain closing style/script tags");
+  }
   validPlan(pagePlan(record));
   return record;
 }
@@ -308,8 +312,9 @@ function sourceItemKey(kind) {
   return { note: "noteId", choice: "choiceId", answer: "answerId" }[kind];
 }
 export function sourceItem(payload, ref) {
-  if (ref.kind === "note")
+  if (ref.kind === "note") {
     return payload.groups?.notes?.find((note) => note.id === ref.noteId);
+  }
   if (ref.kind === "choice") return payload.groups?.choices?.[ref.choiceId];
   return payload.groups?.answers?.[ref.answerId];
 }

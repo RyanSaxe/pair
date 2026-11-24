@@ -43,8 +43,9 @@ export function syncAcks(card, thread) {
   for (const button of card.querySelectorAll(".thread-ack")) {
     const index = Number(button.dataset.index);
     const key = `${thread.id}/${index}`;
-    if (wanted.get(key) === Boolean(thread.messages[index]?.acknowledgedAt))
+    if (wanted.get(key) === Boolean(thread.messages[index]?.acknowledgedAt)) {
       wanted.delete(key);
+    }
     show(button, pressed(thread, index));
   }
 }

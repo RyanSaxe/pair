@@ -25,7 +25,7 @@ import { nextOf } from "./submissions.mjs";
 
 function threadRecord(thread) {
   // A thread on a proposal's card has no round or page. It opens on Work.
-  if (thread.proposal)
+  if (thread.proposal) {
     return {
       kind: "thread",
       threadId: thread.id,
@@ -33,6 +33,7 @@ function threadRecord(thread) {
       label: thread.page,
       proposal: thread.proposal,
     };
+  }
   const href = `./${thread.name}.${thread.round}.html${thread.target ? "?target=" + encodeURIComponent(thread.target) : ""}#${encodeURIComponent(thread.topic)}`;
   return {
     kind: "thread",
@@ -134,13 +135,13 @@ export function rounds(session) {
     const agreed = withCardSources(await read(storedPagePath(set, set.agreed)));
     // The search window's frame fetches each page it shows, so it doesn't carry
     // a round's images.
-    const records = !withPages
-      ? []
-      : await Promise.all(
+    const records = withPages
+      ? await Promise.all(
           set.pages
             .filter((slot) => slot.recordPath)
             .map((slot) => read(storedPagePath(set, slot.recordPath))),
-        );
+        )
+      : [];
     const ready = new Map(
       records.map((record) => [record.page.id, record.page]),
     );
@@ -229,8 +230,9 @@ export function rounds(session) {
       rounds: nextRounds,
     });
     // The waiting event puts the round in every pair tab's bell.
-    if (complete)
+    if (complete) {
       await session.addActivity({ kind: "waiting", round: set.round });
+    }
     return {
       status: view(),
       url: origin + current.url,
@@ -391,10 +393,12 @@ export function rounds(session) {
         ...set.pages
           .filter((item) => item.recordPath)
           .map((item) => item.recordPath),
-      ])
+      ]) {
         for (const item of (await read(storedPagePath(set, file))).page
-          .prototypes || [])
+          .prototypes || []) {
           used.add(item.id);
+        }
+      }
       requireValue(
         !(page.prototypes || []).some((item) => used.has(item.id)),
         "Prototype ID is already used in this round",
@@ -433,8 +437,9 @@ export function rounds(session) {
       startPages(set, start, note?.trim());
       requireStarted(set);
       result = await commitPageRound(set, source);
-      if (opening)
+      if (opening) {
         result.next = `${session.browserLine(result.url)} Then: ${result.next}`;
+      }
     } catch (error) {
       // When a publish fails, publishPage removes the record it wrote, so no
       // file of a page that never published stays.
@@ -461,12 +466,13 @@ export function rounds(session) {
     // Between rounds, the stage is "working" only after the agent read the
     // feedback on the last round, and then the next round's Agreed comes next.
     const { current } = session.state;
-    if (current && !session.state.openRound && session.stage() !== "working")
+    if (current && !session.state.openRound && session.stage() !== "working") {
       requireValue(
         false,
         `Every page of round ${current.round} is published, so the round has no page to start. ${await session.nextStep()}`,
         409,
       );
+    }
     requireValue(
       session.state.openRound && session.stage() === "working",
       "Publish Agreed first",
@@ -496,7 +502,7 @@ export function rounds(session) {
     const entry = (session.state.rounds || []).find(
       (item) => item.round === round,
     );
-    if (entry)
+    if (entry) {
       return {
         ...entry,
         path: path.join(
@@ -505,6 +511,7 @@ export function rounds(session) {
           `${entry.name}.${entry.round}.html`,
         ),
       };
+    }
     if (session.state.current?.round === round) return session.state.current;
     return null;
   }

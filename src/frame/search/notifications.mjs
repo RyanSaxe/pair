@@ -70,7 +70,7 @@ const terms = () => state.query.toLowerCase().split(/\s+/).filter(Boolean);
 function linesWithReplies() {
   if (!replied.size) return threadLines;
   const merged = {};
-  for (const [id, { threads, proposals }] of Object.entries(threadLines))
+  for (const [id, { threads, proposals }] of Object.entries(threadLines)) {
     merged[id] = {
       proposals,
       threads: threads.map((line) => {
@@ -88,6 +88,7 @@ function linesWithReplies() {
         });
       }),
     };
+  }
   return merged;
 }
 function liveRows() {
@@ -114,16 +115,23 @@ function matches(row) {
 }
 function passes(row, skip) {
   const chosen = state.sessions.map(hereIs);
-  if (skip !== "sessions" && chosen.length && !chosen.includes(row.session))
+  if (skip !== "sessions" && chosen.length && !chosen.includes(row.session)) {
     return false;
-  if (skip !== "kinds" && state.kinds.length && !state.kinds.includes(row.kind))
+  }
+  if (
+    skip !== "kinds" &&
+    state.kinds.length &&
+    !state.kinds.includes(row.kind)
+  ) {
     return false;
+  }
   if (
     skip !== "states" &&
     state.states.length &&
     !state.states.includes(kept.get(row.key).group)
-  )
+  ) {
     return false;
+  }
   return matches(row);
 }
 const rank = (group) => GROUPS.findIndex(([id]) => id === group);
@@ -131,8 +139,9 @@ const groupName = (group) => GROUPS.find(([id]) => id === group)[1];
 const keptPlace = (row) => kept.get(row.key);
 function snapshot() {
   const rows = liveRows();
-  for (const row of rows)
+  for (const row of rows) {
     if (!kept.has(row.key)) kept.set(row.key, { group: row.state, at: row.at });
+  }
   const shown = rows
     .filter((row) => passes(row))
     .toSorted(
@@ -141,14 +150,16 @@ function snapshot() {
         keptPlace(b).at.localeCompare(keptPlace(a).at),
     );
   const counts = {};
-  for (const [id] of KINDS)
+  for (const [id] of KINDS) {
     counts[id] = rows.filter(
       (row) => passes(row, "kinds") && row.kind === id,
     ).length;
-  for (const [id] of GROUPS)
+  }
+  for (const [id] of GROUPS) {
     counts[id] = rows.filter(
       (row) => passes(row, "states") && row.state === id,
     ).length;
+  }
   let group = null;
   const results = shown.map((row) => {
     const own = keptPlace(row).group;
@@ -183,8 +194,9 @@ async function readHits(signal) {
     kinds: "threads,proposals",
     limit: String(SEARCH_LIMIT),
   });
-  if (state.sessions.length)
+  if (state.sessions.length) {
     params.set("session", state.sessions.map(hereIs).join(","));
+  }
   const reply = await fetch(`/api/search?${params}`, { signal });
   if (!reply.ok) throw Error("Search failed.");
   const found = new Map();
@@ -294,13 +306,14 @@ function notificationsSource(win) {
         await readLines(signal);
         early(snapshot());
       }
-      if (searching)
+      if (searching) {
         try {
           hits = await readHits(signal);
         } catch (error) {
           if (error.name === "AbortError") throw error;
           searchFailed = true;
         }
+      }
       searching = false;
       return snapshot();
     },
@@ -409,8 +422,9 @@ export function refreshNotifications(fromHub) {
   const win = sharedWindow();
   if (!win || !source || win.showing() !== source) return;
   win.refresh();
-  if (fromHub && answered)
+  if (fromHub && answered) {
     void readLines().then(() => {
       if (win.showing() === source) win.refresh();
     });
+  }
 }

@@ -164,8 +164,9 @@ test("page JavaScript must parse and export setup, and the build never runs it",
   for (const jsText of [
     "throw new Error('ran');\nexport const setup = (root) => {};",
     "function setup(root) {}\nexport { setup };",
-  ])
+  ]) {
     await assert.doesNotReject(pageSource({ jsText }), jsText);
+  }
   await assert.rejects(
     pageSource({ jsText: "// export function setup(root) {}\nlet a = 1;" }),
     /Page JavaScript must export setup\(root, planUI\)/,
@@ -287,7 +288,7 @@ test("the build refuses each structural problem and names it", async () => {
     "./a/shot.png",
     "/tmp/shot.png",
     "file:///tmp/shot.png",
-  ])
+  ]) {
     await refused(
       page(`<img src="${src}" alt="">`),
       new RegExp(
@@ -295,7 +296,8 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
-  for (const value of ["3;7", "9-3", "0", "abc", ""])
+  }
+  for (const value of ["3;7", "9-3", "0", "abc", ""]) {
     await refused(
       page(`<pre data-language="ts" data-lines="${value}">a\nb</pre>`),
       new RegExp(
@@ -303,6 +305,7 @@ test("the build refuses each structural problem and names it", async () => {
         "m",
       ),
     );
+  }
   // The hub assembles every stored page again at each publish, so assemble()
   // must accept a page that an older pair build accepted.
   await assert.doesNotReject(assemble(page(`<img src="shot.png" alt="">`)));
@@ -395,8 +398,9 @@ test("the build accepts well-formed controls, anchors and blocks", () => {
       page(`<p>x</p><!-- ${decision(option())} -->`),
     ],
   ];
-  for (const [what, plan] of accepted)
+  for (const [what, plan] of accepted) {
     assert.deepEqual(problems(plan), [], what);
+  }
 });
 
 const buildAgreedPage = (overrides) =>
@@ -674,11 +678,12 @@ test("preserved prototypes retain exact executable source without escaping into 
     [[{ ...demo, height: 0 }], /Prototype height must be positive/],
     [[{ ...demo, html: "" }], /Prototypes require title and HTML/],
     [[demo, demo], /Prototype IDs must be valid and unique/],
-  ])
+  ]) {
     await assert.rejects(
       buildPage(source, { ...parsed, page: { ...parsed.page, prototypes } }),
       message,
     );
+  }
   await fs.writeFile(
     source,
     JSON.stringify({

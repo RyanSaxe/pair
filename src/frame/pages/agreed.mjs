@@ -52,20 +52,23 @@ function openInTab(link, record) {
       event.ctrlKey ||
       event.shiftKey ||
       event.altKey
-    )
+    ) {
       return;
+    }
     event.preventDefault();
     if (record.proposal) show("work", `thread-${record.threadId}`);
-    else
+    else {
       void openPast(record.round, {
         pageId: record.topic,
         targetId: record.target,
       });
+    }
   });
 }
 function recordUrl(record, route) {
-  if (record.proposal)
+  if (record.proposal) {
     return `${base}/?target=${encodeURIComponent(`thread-${record.threadId}`)}#work`;
+  }
   const params = new URLSearchParams();
   if (record.target) params.set("target", record.target);
   if (record.quote) params.set("quote", record.quote);
@@ -123,8 +126,9 @@ function agreementCard(entry) {
   const content = document.createElement("div");
   content.innerHTML = entry.html;
   body.append(title);
-  if (label || rest.textContent)
+  if (label || rest.textContent) {
     body.append(metaLine(label, tone, rest.textContent ? rest : null));
+  }
   body.append(content);
   card.append(body);
   const strip = document.createElement("div");
@@ -269,12 +273,7 @@ export function renderAgreements() {
   root.replaceChildren();
   if (agreedTask) root.append(agreedLabel("The task"), taskCard());
   root.append(agreedLabel("Alignments"));
-  if (!agreements.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent = "No alignments recorded yet.";
-    root.append(empty);
-  } else {
+  if (agreements.length) {
     const active = agreements.filter((entry) => entry.state !== "retired");
     const retired = agreements.filter((entry) => entry.state === "retired");
     for (const entry of active) root.append(agreementCard(entry));
@@ -287,6 +286,11 @@ export function renderAgreements() {
       for (const entry of retired) details.append(agreementCard(entry));
       root.append(details);
     }
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No alignments recorded yet.";
+    root.append(empty);
   }
   return enhance(root);
 }

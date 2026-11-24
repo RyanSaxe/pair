@@ -101,8 +101,9 @@ export async function codexDaemon(t, answers) {
         const message = JSON.parse(payload);
         received.push(message);
         if (message.id === undefined) continue;
-        if (message.method === "initialize")
+        if (message.method === "initialize") {
           experimental = message.params.capabilities?.experimentalApi === true;
+        }
         const entry = table[message.method];
         const answer =
           message.method.startsWith("thread/queue/") && !experimental

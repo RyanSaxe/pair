@@ -149,10 +149,11 @@ function keptLine(info) {
   if (info.live === 0) return null;
   const rule = (code) =>
     `While a session is live on the hub, pair replaces the hub only with ${code}, so the hub stays on version ${info.version}.`;
-  if (info.root === packageRoot)
+  if (info.root === packageRoot) {
     return committed()
       ? null
       : `pair: The hub runs code version ${info.version} from ${packageRoot}, and the code there is now version ${version}, with uncommitted changes under src/ or adapters/. ${rule("committed code")} The next pair command that reaches the hub replaces it with one on the new code once those changes are committed or no session is live.`;
+  }
   return `pair: The hub runs code version ${info.version}${info.root ? ` from ${info.root}` : ""}, and this command runs code version ${version} from ${packageRoot}. ${rule("code from the hub's own folder")} The next pair command that reaches the hub while no session is live replaces the hub with one on its own code.`;
 }
 // Several commands can find at once that the hub needs replacing, or that no
@@ -211,8 +212,9 @@ async function findHub(config) {
     return info && (info.stateDir ?? stateDir) === stateDir ? info : null;
   };
   let info = port ? await ownHub(port) : null;
-  if (!info && record && processAlive(record.pid))
+  if (!info && record && processAlive(record.pid)) {
     info = await waitFor(() => ownHub(record.port), 5000);
+  }
   // A hub of this state directory that answers before the record exists can
   // still be loading its sessions, so findHub waits for the record.
   if (info && !record) info = await waitFor(() => recordedHub(config), 15_000);

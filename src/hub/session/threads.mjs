@@ -39,19 +39,20 @@ const quoted = 500;
 function wakeNote(message) {
   const words = message.text;
   let note;
-  if (words.length <= quoted)
+  if (words.length <= quoted) {
     note = `Your user's message, which pair read also prints:\n${words}`;
-  else {
+  } else {
     const space = words.slice(0, quoted + 1).search(/\s\S*$/);
     const opening = words.slice(0, space > 0 ? space : quoted).trimEnd();
     note = `The beginning of your user's message, which pair read prints whole:\n${opening}…`;
   }
   const count = message.attachments?.length ?? 0;
-  if (count === 1)
+  if (count === 1) {
     note +=
       "\n\nYour user attached an image to the message. pair read prints its path.";
-  else if (count > 1)
+  } else if (count > 1) {
     note += `\n\nYour user attached ${count} images to the message. pair read prints their paths.`;
+  }
   return `\n\n${note}`;
 }
 
@@ -201,7 +202,7 @@ export function threads(session) {
         (Number.isInteger(data.occurrence) && data.occurrence > 0),
       "A thread's occurrence is a whole number from 1",
     );
-    if (data.diffLine !== undefined)
+    if (data.diffLine !== undefined) {
       requireValue(
         data.diffLine &&
           typeof data.diffLine === "object" &&
@@ -213,13 +214,15 @@ export function threads(session) {
           text(data.target),
         "A diff line needs a side, a positive line number, a quote and a target",
       );
+    }
     // diagramNode is the ID that Pele assigns to the diagram box the thread
     // is on.
-    if (data.diagramNode !== undefined)
+    if (data.diagramNode !== undefined) {
       requireValue(
         text(data.diagramNode) && text(data.quote) && text(data.target),
         "A diagram box needs its ID, a quote and a target",
       );
+    }
     const message = await reviewerMessage(data);
     const thread = {
       id: data.id,
@@ -287,8 +290,9 @@ export function threads(session) {
         typeof replyId === "string" && idPattern.test(replyId),
         "A thread reply needs a valid reply ID",
       );
-      if (thread.messages.some((message) => message.replyId === replyId))
+      if (thread.messages.some((message) => message.replyId === replyId)) {
         return { thread: shown(thread) };
+      }
     }
     // An agent can act on the message its wake quotes without running pair
     // read, so each message wakes it again once the previous wake has reached
@@ -318,8 +322,11 @@ export function threads(session) {
       typeof data.acknowledged === "boolean",
       "acknowledged is true or false",
     );
-    if (!data.acknowledged) delete message.acknowledgedAt;
-    else message.acknowledgedAt ??= timestamp();
+    if (data.acknowledged) {
+      message.acknowledgedAt ??= timestamp();
+    } else {
+      delete message.acknowledgedAt;
+    }
     await saveThread(thread);
     return { thread: shown(thread) };
   }
@@ -391,13 +398,14 @@ export function threads(session) {
       thread.readCount = thread.messages.length;
       await saveThread(thread);
       await session.transition(session.report());
-      if (opensAgent(thread))
+      if (opensAgent(thread)) {
         return {
           status: session.view(),
           thread: shown(thread),
           next: `Start the new agent in the CLI and with the settings the reviewer named in the thread, and give it pair start --from ${directory} --proposal ${thread.proposal} as its first command. Then post what you started with ${replyCommand(thread.id)} --text "…". If you cannot start one, post that command instead. Then go back to what you were doing.`,
           moment: "read-open-agent",
         };
+      }
       return {
         status: session.view(),
         thread: shown(thread),
@@ -415,10 +423,12 @@ export function threads(session) {
         `Every message the reviewer wrote in thread ${thread.id} has an answer, so there is nothing to acknowledge.`,
         409,
       );
-    } else if (data.html !== undefined) {
+    } else if (data.html === undefined) {
+      requireValue(text(data.text), "--text needs the reply's text");
+    } else {
       requireValue(text(data.html), "The reply file is empty");
       await checkReply(thread, data.html);
-    } else requireValue(text(data.text), "--text needs the reply's text");
+    }
     // A reply answers every message before it. When the agent ran pair read
     // --thread after its previous reply, the reply answers only the messages
     // that read printed. The reply then records that number in answers, and
@@ -434,9 +444,9 @@ export function threads(session) {
       at: timestamp(),
       ...(ack
         ? { kind: "ack" }
-        : data.html !== undefined
-          ? { html: data.html.trim() }
-          : { text: data.text.trim() }),
+        : data.html === undefined
+          ? { text: data.text.trim() }
+          : { html: data.html.trim() }),
       ...(answers < thread.messages.length ? { answers } : {}),
     });
     const waits = Boolean(waitingMessage(thread));
@@ -514,8 +524,9 @@ export function threads(session) {
       .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt));
     if (!waiting.length) return null;
     const named = waiting.map((thread) => `${thread.id} on "${thread.page}"`);
-    if (named.length === 1)
+    if (named.length === 1) {
       return `You have not answered the reviewer's thread ${named[0]}. Before you end your turn, run ${readCommand(waiting[0].id)}, which prints the thread with how to answer it, and answer or acknowledge it.`;
+    }
     return `You have not answered the reviewer's threads ${named.slice(0, -1).join(", ")} and ${named.at(-1)}. Before you end your turn, run ${readCommand("ID")} for each of them, which prints the thread with how to answer it, and answer or acknowledge it.`;
   }
   // A hub stops without waiting for the wakes it scheduled, so a hub that
@@ -523,8 +534,9 @@ export function threads(session) {
   // addThreadMessage sends no wake for a thread that is sending. loadSession
   // calls resendWakes, which sends each of those wakes again.
   function resendWakes() {
-    for (const thread of records.values())
+    for (const thread of records.values()) {
       if (threadState(thread) === "sending") wakeLater(thread);
+    }
   }
   // pair start's next step names every thread the agent has not answered.
   // When pair start makes a paused or closed session live, heldSent records

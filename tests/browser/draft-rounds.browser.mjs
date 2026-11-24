@@ -35,10 +35,11 @@ const ticked = (page, value, checked = true) =>
 // polls waits for the next count status polls of a page. A browser has merged
 // the hub's draft and sent its own changes by the second.
 async function polls(page, count) {
-  for (let polled = 0; polled < count; polled++)
+  for (let polled = 0; polled < count; polled++) {
     await page.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
 }
 
 // The phone ticks the checklist and turns Everything else looks good off, the

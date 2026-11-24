@@ -100,8 +100,9 @@ function itemCard({ kind, key, item }) {
   title.hidden = kind === "note" && !item.anchor;
   if (item.sentIn) title.append(tag("Sent", "ok"));
   const old = stale(kind, key, item);
-  if (old && item.round && item.round !== plan.round)
+  if (old && item.round && item.round !== plan.round) {
     title.append(tag(`from round ${item.round}`, "muted"));
+  }
   body.append(title);
   if (kind === "note" && item.quote) {
     const quote = document.createElement("blockquote");
@@ -135,7 +136,7 @@ function itemCard({ kind, key, item }) {
   }
   const topicExists =
     item.topic === "agreed" ? true : known.text.has(item.topic);
-  if (item.topic !== "overall" && topicExists)
+  if (item.topic !== "overall" && topicExists) {
     body.append(
       contextLink(
         item.topic,
@@ -143,6 +144,7 @@ function itemCard({ kind, key, item }) {
         kind === "note" ? "View" : "Edit on the page",
       ),
     );
+  }
   box.append(body);
   const actions = document.createElement("div");
   actions.className = "feedback-item-actions";
@@ -163,8 +165,9 @@ function itemCard({ kind, key, item }) {
         save();
         // show() opens the page, so the handler calls it only when the
         // note's page is already on screen, and Review stays open.
-        if (item.topic === page.id && !$("reading").hidden)
+        if (item.topic === page.id && !$("reading").hidden) {
           show(page.id, null, { keepScroll: true });
+        }
       });
     } else if (kind === "choice") {
       action("Add comment", () =>
@@ -232,21 +235,23 @@ function renderFeedback() {
     section.append(head, ...entries.map(itemCard));
     groups.append(section);
   };
-  for (const topic of pages)
+  for (const topic of pages) {
     group(
       topic.title,
       items.filter((entry) => entry.topic === topic.id),
     );
+  }
   const orphans = items.filter(
     (entry) =>
       !["overall", "work"].includes(entry.topic) &&
       !pages.some((p) => p.id === entry.topic),
   );
-  for (const round of new Set(orphans.map((entry) => entry.item.round)))
+  for (const round of new Set(orphans.map((entry) => entry.item.round))) {
     group(
       round ? `From round ${round}` : "From an earlier round",
       orphans.filter((entry) => entry.item.round === round),
     );
+  }
   group(
     "Work",
     items.filter((entry) => entry.topic === "work"),
@@ -404,8 +409,9 @@ export function renderSentFeedback() {
 // The status poll updates lastSubmission, and sentByRound contains each
 // submission fetched for an older round.
 export function shownSubmission() {
-  if (mode === "readonly" || lastSubmission?.round === plan.round)
+  if (mode === "readonly" || lastSubmission?.round === plan.round) {
     return lastSubmission;
+  }
   return sentByRound.get(plan.round) || null;
 }
 // The frame shows a past round's controls as they were sent, so showSent
@@ -448,8 +454,9 @@ export function review() {
         : unsentItems(currentDraft()).count,
   );
   const reviewLabel = $("review-row")?.querySelector("span");
-  if (reviewLabel)
+  if (reviewLabel) {
     reviewLabel.textContent = listedSent ? "What you sent" : "Review";
+  }
   $("feedback-title").textContent = sent
     ? "What you sent"
     : send === "sending"
@@ -463,7 +470,7 @@ export function review() {
   $("save-error").hidden = !submissionError || $("reading").hidden;
   $("save-error-text").textContent = submissionError;
   $("save-error-message").hidden = !refusedMessage;
-  if (locked)
+  if (locked) {
     $("page-content")
       .querySelectorAll(
         "[data-choice] [data-value], [data-multiselect] input, [data-question] textarea, [data-answer], [data-edit], [data-drawing-question] [data-draw], [data-comment]",
@@ -472,6 +479,7 @@ export function review() {
         if (control.tagName === "TEXTAREA") control.readOnly = true;
         else control.disabled = true;
       });
+  }
   commentTarget();
   renderFooter(!$("review-view").hidden);
   const rendered = JSON.stringify([

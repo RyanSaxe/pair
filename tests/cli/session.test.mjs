@@ -75,12 +75,13 @@ test("a command refuses an unknown flag, an extra argument, a repeated flag and 
       ["propose", ...dir, "--id", "x", "--changes", "y"],
       "--changes is not a flag of pair propose",
     ],
-  ])
+  ]) {
     await assert.rejects(run(...args), (error) => {
       assert.equal(error.code, 1);
       assert(error.stderr.includes(named), error.stderr);
       return true;
     });
+  }
   const status = () => run("status", ...dir, "--json").then(JSON.parse);
   assert.equal((await status()).report.note, "Reading");
 });
@@ -481,16 +482,18 @@ test("a kept source keeps each link inside it relative and the target of a link 
   await fs.writeFile(shared, "shared");
   await fs.writeFile(path.join(agreed.source, "..notes.txt"), "notes");
   const links = { "link.json": "agreed.json", "notes-link": "..notes.txt" };
-  for (const [name, target] of Object.entries(links))
+  for (const [name, target] of Object.entries(links)) {
     await fs.symlink(target, path.join(agreed.source, name));
+  }
   await fs.symlink("../shared.txt", path.join(agreed.source, "shared.txt"));
   await fs.chmod(agreed.source, 0o555);
   await publish(agreed.built, agreed.source, "--pages", list).finally(() =>
     fs.chmod(agreed.source, 0o755),
   );
   const kept = path.join(sessionDir, "src", "1", "agreed");
-  for (const [name, target] of Object.entries(links))
+  for (const [name, target] of Object.entries(links)) {
     assert.equal(await fs.readlink(path.join(kept, name)), target, name);
+  }
   assert.equal(
     await fs.readFile(path.join(kept, "shared.txt"), "utf8"),
     "shared",
@@ -642,8 +645,9 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
   const thread = new RegExp(
     `<pair_thread id="${id}"[^>]*>([^]*?)</pair_thread>`,
   ).exec(printed)?.[1];
-  for (const part of ["one result", "Why one result per input?"])
+  for (const part of ["one result", "Why one result per input?"]) {
     assert(thread?.includes(part), printed);
+  }
   const post = (...args) => cli.run("reply", ...dir, "--thread", id, ...args);
   await post("--text", "So a retry can skip it: a - b, x*y and [1].");
   const file = path.join(root, "reply.html");
@@ -657,12 +661,13 @@ test("pair read --thread prints the thread, and pair reply posts to it", async (
     "a [link](https://example.com)",
     "run `pair`",
     "one\n- two",
-  ])
+  ]) {
     await assert.rejects(post("--text", markdown), (error) => {
       assert.equal(error.code, 1);
       assert.match(error.stderr, /post it with --file/);
       return true;
     });
+  }
   const { threads } = (await session.status()).body;
   assert.deepEqual(threads[0].messages.slice(1), [
     {

@@ -40,10 +40,11 @@ test("diagram page links work by pointer and keyboard on the page and in the ful
     for (const key of [null, "Enter", "Space"]) {
       await page.goto(overview);
       await page.locator("[data-diagram] svg").waitFor();
-      if (fullSize)
+      if (fullSize) {
         await page
           .locator("[data-diagram] svg")
           .click({ position: { x: 2, y: 2 } });
+      }
       const scope = fullSize ? "#diagram-dialog" : "[data-diagram]";
       const link = page
         .getByRole("link", { name: "Open Details", exact: true })
@@ -61,10 +62,11 @@ test("diagram page links work by pointer and keyboard on the page and in the ful
     }
     await page.goto(overview);
     await page.locator("[data-diagram] svg").waitFor();
-    if (fullSize)
+    if (fullSize) {
       await page
         .locator("[data-diagram] svg")
         .click({ position: { x: 2, y: 2 } });
+    }
     const scope = fullSize ? "#diagram-dialog" : "[data-diagram]";
     await page
       .locator(`${scope} a[href="https://example.test/native"]`)

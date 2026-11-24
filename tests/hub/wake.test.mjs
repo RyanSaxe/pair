@@ -219,7 +219,7 @@ for (const [change, send, changedAt, options] of [
     (status) => status.closedAt,
     { reopen: true },
   ],
-])
+]) {
   test(
     `the hub sends no thread wake when the session ${change} before the wake goes out, and pair start names the thread`,
     {
@@ -278,6 +278,7 @@ for (const [change, send, changedAt, options] of [
       assert.equal(await waitUntil(() => a.inbox.wakes.length === 2), true);
     },
   );
+}
 
 const tools = (chain, port = 4321, sdk = "/sdk/index.js") => ({
   ancestors: () => chain,

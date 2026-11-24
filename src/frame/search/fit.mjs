@@ -40,10 +40,11 @@ export function fitToPhone({ dialog, input, list, writing }) {
     dialog.classList.toggle("is-writing", inFrame);
     dialog.classList.toggle("is-typing", typing);
     if (typing) return;
-    if (revealOnDrop)
+    if (revealOnDrop) {
       list
         .querySelector('[aria-selected="true"]')
         ?.scrollIntoView({ block: "nearest" });
+    }
     revealOnDrop = false;
   }
   visualViewport?.addEventListener("resize", fit);

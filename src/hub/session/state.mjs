@@ -75,13 +75,15 @@ export async function loadSession(
   state.startedAt ||= (await fs.stat(directory)).birthtime.toISOString();
   // Before the hub recorded holder.commandAt, every report came from a command
   // of the holder, so the last report's time stands in for the last command's.
-  if (state.holder && !state.holder.commandAt && state.report?.at)
+  if (state.holder && !state.holder.commandAt && state.report?.at) {
     state.holder = { ...state.holder, commandAt: state.report.at };
-  for (const child of ["feedback", "uploads", "scenes", "threads"])
+  }
+  for (const child of ["feedback", "uploads", "scenes", "threads"]) {
     await fs.mkdir(path.join(directory, child), {
       recursive: true,
       mode: 0o700,
     });
+  }
   const connectionFile = path.join(directory, "connection.json");
   let token = null;
   if (await exists(connectionFile)) {
@@ -89,8 +91,9 @@ export async function loadSession(
     if (
       connection.sessionId === state.sessionId &&
       /^[0-9a-f]{64}$/.test(connection.token || "")
-    )
+    ) {
       token = connection.token;
+    }
   }
   token ||= crypto.randomBytes(32).toString("hex");
   const base = `/s/${state.sessionId}`;

@@ -56,8 +56,9 @@ export function applySubmission(draft, payload) {
   const removed = {};
   for (const [key, sent] of sentItems(payload)) {
     const value = draft.items[key]?.value ?? null;
-    if (value === null || isDeepStrictEqual(content(value), content(sent)))
+    if (value === null || isDeepStrictEqual(content(value), content(sent))) {
       removed[key] = null;
+    }
   }
   return applyChanges(draft, removed);
 }
@@ -75,8 +76,9 @@ export async function draftStore(session) {
       typeof saved.id === "string" &&
       Number.isInteger(saved.revision) &&
       record(saved.items)
-    )
+    ) {
       draft = saved;
+    }
   } catch {
     /* The empty draft above stands. */
   }

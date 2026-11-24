@@ -71,14 +71,16 @@ export async function spawn(options) {
   const [cli] = options.args;
   const [harness, adapter] =
     Object.entries(adapters).find(([, each]) => each.command === cli) ?? [];
-  if (!adapter)
+  if (!adapter) {
     throw usageError(
       "spawn",
       `pair spawn has no CLI ${cli}. Give claude, codex, copilot, pi, opencode or agy.`,
     );
+  }
   requireName("spawn", options.name);
-  if (options.prompt !== undefined && options.file !== undefined)
+  if (options.prompt !== undefined && options.file !== undefined) {
     throw usageError("spawn", "Give --prompt or --file, not both.");
+  }
   const { launchScript } = settings();
   requireValue(
     existsSync(launchScript),

@@ -189,7 +189,7 @@ const openPage = (page, id) =>
   page.locator(`#page-list [data-page="${id}"]`).dispatchEvent("click");
 
 const engines = { Chrome: "chrome", WebKit: "webkit" };
-for (const [browser, engine] of Object.entries(engines))
+for (const [browser, engine] of Object.entries(engines)) {
   for (const [width, viewport] of Object.entries(widths)) {
     test(`in ${browser} on ${width}, a reply's notification opened from another page lands on the reply while code above it grows`, async (t) => {
       const s = await setup(t, engine, viewport);
@@ -289,3 +289,4 @@ for (const [browser, engine] of Object.entries(engines))
       nearly((await load(s, "#result")).top, left.top);
     });
   }
+}

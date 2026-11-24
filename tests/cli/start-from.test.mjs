@@ -34,8 +34,9 @@ async function parent(t) {
     ["deck", "Build the deck"],
     ["notes", "Write the speaker notes"],
     ["outline", "Outline the talk"],
-  ])
+  ]) {
     assert.equal((await a.action("propose", card(id, title))).code, 200);
+  }
   const joined = await a.action("propose", { id: "outline", join: "deck" });
   assert.equal(joined.code, 200, joined.body.error);
   const started = await a.request(`${a.base}/api/proposals/deck/start`, {
@@ -77,8 +78,9 @@ test("pair start --from creates a session for a started proposal, linked both wa
       "           Delivers: Outline the talk, delivered.",
     ].join("\n"),
     "Keep the header height.",
-  ])
+  ]) {
     assert.ok(output.includes(line), `${line} in:\n${output}`);
+  }
   assert.doesNotMatch(output, /May change/);
   const own = await cli.run("status", "--session-dir", child);
   assert.match(own, /^Next: Publish Agreed with round 1's page list/);

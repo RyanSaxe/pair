@@ -93,6 +93,8 @@ export async function parentSession(target) {
 // subagentTool finds the subagent among the threads the parent spawned, by
 // either name, and names its agent path, or its thread ID when it has none.
 const agentPath = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
+const childNames = (child) =>
+  [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
 
 export async function subagentTool({ thread, socket }, targetName) {
   const daemon = await openDaemon(socket);
@@ -110,17 +112,16 @@ export async function subagentTool({ thread, socket }, targetName) {
   } finally {
     daemon.close();
   }
-  const names = (child) =>
-    [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
   const subagent = spawned.find((child) =>
-    names(child).some(
+    childNames(child).some(
       (each) => each.toLowerCase() === targetName.toLowerCase(),
     ),
   );
-  if (subagent)
+  if (subagent) {
     return `followup_task and target ${agentPath(subagent) ?? subagent.id}`;
+  }
   const known = spawned.map((child) => {
-    const [first, ...others] = names(child);
+    const [first, ...others] = childNames(child);
     return others.length ? `${first} (${others.join(", ")})` : first;
   });
   throw new Error(
@@ -159,10 +160,11 @@ export async function running(target, cli) {
 export async function wake(target, line, run) {
   const { thread, text, relayed, sent, steered, steerable, waiting } =
     await deliver(target, line);
-  if (waiting)
+  if (waiting) {
     throw new Error(
       `Codex added the line to the queue of thread ${thread} and started no turn with it: ${waiting}`,
     );
+  }
   if (!sent) await queue(thread, text, run);
   if (relayed) return { via: "parent", steerable: false };
   return { via: steered ? "steer" : "queue", steerable };

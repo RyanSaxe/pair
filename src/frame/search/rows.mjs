@@ -98,8 +98,9 @@ export function whereLine(row, { allSessions }) {
   if (row.draft) parts.push("Draft");
   if (row.from) parts.push(row.from === "reviewer" ? "You" : "Agent");
   if (row.round) parts.push(`Round ${row.round}`);
-  if (row.pageTitle && row.pageTitle !== titleText(row))
+  if (row.pageTitle && row.pageTitle !== titleText(row)) {
     parts.push(row.pageTitle);
+  }
   if (row.also?.length) parts.push(`also in ${row.also.length} earlier`);
   if (row.closed) parts.push("Closed");
   if (allSessions) parts.push(row.sessionTitle);
@@ -130,16 +131,16 @@ function looser({ query, kinds, rounds, sessions }, { wider, counts }) {
 function blankMessage({ query, kinds, rounds, sessions }) {
   const words = query.trim();
   if (words) return `No matches for “${escapeHtml(words)}” here.`;
-  const where = !sessions.length
-    ? "any session"
-    : sessions.length === 1 && sessions[0] === "here"
+  const where = sessions.length
+    ? sessions.length === 1 && sessions[0] === "here"
       ? "this session"
-      : "the chosen sessions";
-  const when = !rounds.length
-    ? ""
-    : rounds.length === 1 && rounds[0] === "latest"
+      : "the chosen sessions"
+    : "any session";
+  const when = rounds.length
+    ? rounds.length === 1 && rounds[0] === "latest"
       ? "’s latest round"
-      : "’s chosen rounds";
+      : "’s chosen rounds"
+    : "";
   const scope = `${where}${when}`;
   const chosen = KINDS.filter(([id]) => kinds.includes(id))
     .map(([, label]) => label.toLowerCase())

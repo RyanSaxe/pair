@@ -181,8 +181,9 @@ test("search reads titles, Agreed, threads, feedback, proposals and the draft", 
   ]) {
     const { results } = await store.search({ query, kinds: [kind] });
     assert.ok(results[0], query);
-    for (const [key, value] of Object.entries(fields))
+    for (const [key, value] of Object.entries(fields)) {
       assert.equal(results[0][key], value, `${query} ${key}`);
+    }
   }
 });
 
@@ -292,11 +293,12 @@ test("a card saved before status parts had states is found by its parts", async 
     }),
   );
   const store = await reader(t, a);
-  for (const word of ["kudu", "dik-dik"])
+  for (const word of ["kudu", "dik-dik"]) {
     assert.equal(
       (await store.search({ query: word })).results[0]?.item,
       "older",
     );
+  }
 });
 
 test("a card whose title has the words ranks above a newer card that only quotes them", async (t) => {
@@ -310,12 +312,13 @@ test("a card whose title has the words ranks above a newer card that only quotes
     quote: "Please saddle the ibex herd today.",
   });
   const store = await reader(t, a);
-  for (const query of ["ibex", "ibex herd", "herd ibex"])
+  for (const query of ["ibex", "ibex herd", "herd ibex"]) {
     assert.deepEqual(
       (await store.search({ query })).results.map((row) => row.item),
       ["titled", "quoted"],
       query,
     );
+  }
 });
 
 test("a session indexed before the extractor read a card's words finds them with no change to the card", async (t) => {

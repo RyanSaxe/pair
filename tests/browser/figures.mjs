@@ -32,12 +32,13 @@ async function reveal(page, source) {
       }
     );
   });
-  if (tab)
+  if (tab) {
     await page
       .locator(
         `#page-content .visual-decision[data-choice="${tab.choice}"] [data-vd-tab="${tab.value}"]`,
       )
       .click();
+  }
   const box = (await source.getAttribute("data-diff-input")) !== null;
   await (box ? source.locator("xpath=..") : source).scrollIntoViewIfNeeded();
 }

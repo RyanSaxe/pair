@@ -4,8 +4,9 @@ import { deliveryState, wakeAccepts } from "#shared/wake-state.mjs";
 
 export function finishedLine({ publishedAt, receivedAt, now = Date.now() }) {
   const finished = Date.parse(publishedAt);
-  if (!Number.isFinite(finished) || !Number.isFinite(Date.parse(receivedAt)))
+  if (!Number.isFinite(finished) || !Number.isFinite(Date.parse(receivedAt))) {
     return null;
+  }
   return `Finished ${ago(publishedAt, now)} · took ${since(receivedAt, finished)}`;
 }
 
@@ -46,16 +47,19 @@ export function rowLabel(slot, { stopped, failed }, now = Date.now()) {
 // While the agent is stopped, its last note no longer says what it is doing,
 // so pendingLabel shows that the agent stopped instead.
 export function pendingLabel(slot, { stopped, failed }, now = Date.now()) {
-  if (slot.state === "ready")
+  if (slot.state === "ready") {
     return { mark: "active", text: "Loading this page" };
-  if (slot.state !== "active")
+  }
+  if (slot.state !== "active") {
     return { mark: "queued", text: "Waiting to start" };
-  if (stopped)
+  }
+  if (stopped) {
     return {
       mark: "active",
       stopped: true,
       text: failed ? "Agent stopped" : "Agent paused",
     };
+  }
   const report = lastReport(slot, now);
   return {
     mark: "active",
@@ -85,9 +89,9 @@ export function activityModel({
         { id: "agreed", title: "Agreed so far", state: "ready" },
         ...remote.openRound.pages,
       ]
-    : remote?.current?.round !== submittedRound
-      ? currentSet?.pages || []
-      : [];
+    : remote?.current?.round === submittedRound
+      ? []
+      : currentSet?.pages || [];
   const ready = slots.filter((item) => item.state === "ready").length;
   const finished = slots.length > 0 && ready === slots.length;
   // Between pages, after Agreed or a page publishes and before the agent
@@ -205,8 +209,9 @@ export function roundModel({ remote, now = Date.now() }) {
   const total = round.pages.length + 1;
   const ready = 1 + round.pages.filter((item) => item.state === "ready").length;
   if (ready === total) return null;
-  if (lifecycle(remote) === "paused")
+  if (lifecycle(remote) === "paused") {
     return { text: "Agent paused", late: true };
+  }
   const quiet = silence(remote.report, now);
   if (quiet) return { text: quiet, late: true };
   return { text: `${ready} of ${total} ready`, late: false };

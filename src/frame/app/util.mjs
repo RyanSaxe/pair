@@ -9,8 +9,9 @@ export function $(id) {
   const found = document.getElementById(id);
   const content = document.getElementById("page-content");
   if (!found || found === content || !content?.contains(found)) return found;
-  for (const element of document.querySelectorAll(`#${CSS.escape(id)}`))
+  for (const element of document.querySelectorAll(`#${CSS.escape(id)}`)) {
     if (!content.contains(element)) return element;
+  }
   return found;
 }
 // crypto.randomUUID exists only in a secure context. Over plain http on a
@@ -71,14 +72,16 @@ export function occurrenceAt(text, needle, start) {
     let index = text.indexOf(needle);
     index >= 0 && index < start;
     index = text.indexOf(needle, index + 1)
-  )
+  ) {
     occurrence++;
+  }
   return occurrence;
 }
 export function occurrenceIndex(text, needle, occurrence = 1) {
   let index = text.indexOf(needle);
-  for (let seen = 1; seen < occurrence && index >= 0; seen++)
+  for (let seen = 1; seen < occurrence && index >= 0; seen++) {
     index = text.indexOf(needle, index + 1);
+  }
   return index;
 }
 export const plural = (count, word) =>

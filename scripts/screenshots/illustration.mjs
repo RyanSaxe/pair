@@ -31,21 +31,24 @@ const covered = (page) =>
       if (!node.data.trim()) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
-      for (const box of range.getClientRects())
+      for (const box of range.getClientRects()) {
         if (
           box.right > button.left &&
           box.left < button.right &&
           box.bottom > button.top &&
           box.top < button.bottom
-        )
+        ) {
           hits.push(node.data.trim());
+        }
+      }
     }
     return hits;
   });
 
 async function refused(response, what) {
-  if (!response.ok())
+  if (!response.ok()) {
     throw new Error(`The hub refused ${what}: ${await response.text()}`);
+  }
   return response;
 }
 
@@ -116,8 +119,9 @@ export async function illustrate(t, scratch) {
     // Each publish starts the next page with --start.
     const next = (index) => (pages[index] ? ["--start", pages[index]] : []);
     await publish("agreed", "--pages", `src/${n}/pages.json`, ...next(0));
-    for (const [index, id] of pages.entries())
+    for (const [index, id] of pages.entries()) {
       await publish(id, ...next(index + 1));
+    }
   };
 
   let doing = "starting the session";
@@ -204,10 +208,11 @@ export async function illustrate(t, scratch) {
         break;
       }
     }
-    if (!clear)
+    if (!clear) {
       throw new Error(
         `the Comment button covers words for each selection: ${selections.join(", ")}`,
       );
+    }
     const shots = { browser: await inThemes(page) };
     await page.evaluate(() => getSelection().removeAllRanges());
 
@@ -268,7 +273,7 @@ export async function illustrate(t, scratch) {
     for (const [id, note] of [
       ["keys", "Building the key from the order ID in gateway.ts"],
       ["tests", "Writing a test that retries a timed-out charge"],
-    ])
+    ]) {
       await pair(
         "progress",
         "--page",
@@ -278,6 +283,7 @@ export async function illustrate(t, scratch) {
         "--session-dir",
         subDir,
       );
+    }
 
     doing = "taking the sub-session's screenshot";
     await load(page, subUrl, "agreed");

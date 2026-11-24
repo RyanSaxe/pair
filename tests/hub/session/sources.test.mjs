@@ -89,11 +89,12 @@ test("publication resolves exact mixed sources from saved feedback", async (t) =
     [[{ kind: "conversation", text: "" }], /Conversation source requires text/],
     [[{ kind: "note", submissionId: feedback.id }], /needs noteId/],
     [[{ kind: "answer", submissionId: feedback.id }], /needs answerId/],
-  ])
+  ]) {
     await assert.rejects(
       assemble({ ...data, agreements: [{ ...entry, sourceRefs }] }),
       error,
     );
+  }
 });
 
 test("choice sources preserve readable labels and complete checklist snapshots", async (t) => {

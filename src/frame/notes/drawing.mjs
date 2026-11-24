@@ -56,10 +56,11 @@ function openEditor({
   const nonce = uuid();
   activeDrawing = { key, nonce, scene, source, fit, onSaved };
   activeDrawing.loadingTimer = setTimeout(() => {
-    if (activeDrawing?.nonce === nonce)
+    if (activeDrawing?.nonce === nonce) {
       drawingError(
         "The drawing editor did not load. Check your connection and try again.",
       );
+    }
   }, 20000);
   $("drawing-title").textContent = title;
   $("drawing-detail").textContent = detail || "";
@@ -78,8 +79,9 @@ export async function openDrawing({ id, label, target, onSaved }) {
   const topic = page.id;
   const previous = state.answers[key];
   let scene = state.drafts[key] ?? null;
-  if (!scene && previous?.kind === "drawing")
+  if (!scene && previous?.kind === "drawing") {
     scene = await savedScene(previous.sceneId);
+  }
   const card = target && document.getElementById(target);
   const question = card?.querySelector(":scope > h3")?.textContent.trim();
   const reason = card?.querySelector(":scope > h3 + p")?.textContent.trim();
@@ -129,8 +131,9 @@ export function openSketch(diagram) {
       persist();
       commentOn(document.getElementById(id) || diagram, {});
       // The note took its place before the sketch was in it.
-      if ($("note-dialog").open)
+      if ($("note-dialog").open) {
         revealAdded(addNoteImage(sketchImage(saved, preview)));
+      }
     },
   });
 }
@@ -152,11 +155,12 @@ export async function editSketch(image, onSaved) {
 export function installDrawing() {
   $("drawing-dialog").addEventListener("close", resetDrawing);
   addEventListener("plan:theme", () => {
-    if (activeDrawing)
+    if (activeDrawing) {
       $("drawing-frame").contentWindow?.postMessage(
         { type: "theme", nonce: activeDrawing.nonce, theme: theme() },
         "*",
       );
+    }
   });
   $("drawing-save").addEventListener("click", () => {
     if (!activeDrawing) return;
@@ -172,8 +176,9 @@ export function installDrawing() {
       !drawing ||
       event.source !== $("drawing-frame").contentWindow ||
       event.data?.nonce !== drawing.nonce
-    )
+    ) {
       return;
+    }
     if (event.data.type === "ready") {
       clearTimeout(drawing.loadingTimer);
       drawing.loadingTimer = null;
@@ -213,8 +218,9 @@ export function installDrawing() {
           }),
           fetch(`${base}/api/upload`, { method: "POST", body: event.data.png }),
         ]);
-        if (!sceneResponse.ok || !previewResponse.ok)
+        if (!sceneResponse.ok || !previewResponse.ok) {
           throw new Error("Could not upload the drawing. Please try again.");
+        }
         const [scene, preview] = await Promise.all([
           sceneResponse.json(),
           previewResponse.json(),

@@ -41,8 +41,9 @@ export function threadState(thread, lifecycleState = "live") {
     (message) => message.from === "reviewer",
   );
   if (readCount > asked) return "read";
-  if ((wake?.through ?? 0) <= asked)
+  if ((wake?.through ?? 0) <= asked) {
     return lifecycleState === "paused" ? "held" : "sending";
+  }
   return wake.ok ? "sent" : "failed";
 }
 
@@ -80,16 +81,18 @@ export function upgradeThread(thread) {
   if (state === undefined) return thread;
   const { messages } = rest;
   if (state === "read") rest.readCount ??= messages.length;
-  if (state === "sent" || state === "failed")
+  if (state === "sent" || state === "failed") {
     rest.wake = {
       ...rest.wake,
       ok: state === "sent",
       through: messages.length,
     };
-  if (state === "sending" && rest.wake)
+  }
+  if (state === "sending" && rest.wake) {
     rest.wake = {
       ...rest.wake,
       through: messages.findLastIndex((item) => item.from === "reviewer"),
     };
+  }
   return rest;
 }

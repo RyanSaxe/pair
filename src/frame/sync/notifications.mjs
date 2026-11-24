@@ -5,8 +5,9 @@ export const announced = (entry, event) =>
   (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
 export function eventTitle(event) {
   if (event.kind === "session") return `${event.agent} started a session`;
-  if (event.kind === "waiting")
+  if (event.kind === "waiting") {
     return `Round ${event.round} is waiting for you`;
+  }
   if (event.kind === "proposal") return `Agent proposed ${event.name}`;
   if (event.agentAck) return `Agent acknowledged your message on ${event.name}`;
   return `Agent replied on ${event.name}`;
@@ -152,10 +153,12 @@ export function createReviewAlerts({
         permission() === "granted" &&
         read("enabled") !== "no" &&
         !read("enabledAt")
-      )
+      ) {
         enable();
-      if (permission() !== "granted" || read("enabled") !== "yes" || failed)
+      }
+      if (permission() !== "granted" || read("enabled") !== "yes" || failed) {
         return;
+      }
       for (const alert of alerts()) {
         if (read(alert.id)) continue;
         if (

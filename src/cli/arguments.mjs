@@ -56,13 +56,14 @@ export function parse({ name, entry, rest }) {
     let value = true;
     if (flag.value) {
       value = own[++i];
-      if (value === undefined || value.startsWith("--"))
+      if (value === undefined || value.startsWith("--")) {
         refuse(`${word} takes a value, as ${word} ${flag.value}.`);
+      }
     }
     if (flag.repeats) (options[key] ||= []).push(value);
-    else if (Object.hasOwn(options, key))
+    else if (Object.hasOwn(options, key)) {
       refuse(`${word} is given twice, and pair ${name} takes it once.`);
-    else options[key] = value;
+    } else options[key] = value;
   }
   const slots = entry.args || [];
   const extra = options.args[slots.length];
@@ -73,13 +74,16 @@ export function parse({ name, entry, rest }) {
     refuse(`${refusal}${extra.startsWith("-") ? forwardHint : ""}`);
   }
   const missing = slots.slice(options.args.length).filter((s) => !s.optional);
-  if (missing.length)
+  if (missing.length) {
     refuse(
       `pair ${name} requires ${listing(slots.filter((s) => !s.optional).map((s) => s.name))}.`,
     );
-  for (const [key, flag] of Object.entries(flags))
-    if (flag.required && options[key] === undefined)
+  }
+  for (const [key, flag] of Object.entries(flags)) {
+    if (flag.required && options[key] === undefined) {
       refuse(`pair ${name} requires ${flagName([key, flag])}.`);
+    }
+  }
   return options;
 }
 

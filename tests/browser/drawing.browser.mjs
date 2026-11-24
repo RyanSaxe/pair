@@ -67,8 +67,9 @@ export const exportToBlob = async () =>
 const stubExcalidraw = (page) =>
   page.route(/^https:\/\/esm\.sh\//, (route) => {
     const url = route.request().url();
-    if (url.endsWith(".css"))
+    if (url.endsWith(".css")) {
       return route.fulfill({ body: "", contentType: "text/css" });
+    }
     const name = url.includes("mermaid-to-excalidraw")
       ? "converter"
       : url.includes("excalidraw")

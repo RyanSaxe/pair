@@ -44,8 +44,9 @@ function drawUploading() {
   $("start-write-uploading").hidden = !busy;
   for (const button of $("start-dialog").querySelectorAll(
     ".start-actions .btn",
-  ))
+  )) {
     button.disabled = busy;
+  }
 }
 function drawImages() {
   const { attachments } = draft();
@@ -91,8 +92,9 @@ export function lockItem(locked) {
     "start-write-title",
     "start-write-text",
     "start-write-pick",
-  ])
+  ]) {
     $(id).disabled = locked;
+  }
 }
 // fitItem measures the text, so the frame calls it once the dialog is open.
 export const fitItem = () => fitText($("start-write-text"));

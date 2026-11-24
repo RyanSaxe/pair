@@ -52,8 +52,9 @@ export function status() {
   // wake again.
   if (isClosed(remote) && mode === "live") location.reload();
   // When an agent reopens the session, this tab reloads as a live page.
-  if (session.closed && !embedded && remote && !isClosed(remote))
+  if (session.closed && !embedded && remote && !isClosed(remote)) {
     location.reload();
+  }
 }
 // byStart sorts sessions by start time, so a number key opens the same
 // session from every tab until a session closes.
@@ -70,13 +71,14 @@ export function groupSessions(list) {
   const ids = new Set(list.map((entry) => entry.id));
   const children = new Map();
   const roots = [];
-  for (const entry of byStart(list))
-    if (entry.parentId && ids.has(entry.parentId))
+  for (const entry of byStart(list)) {
+    if (entry.parentId && ids.has(entry.parentId)) {
       children.set(entry.parentId, [
         ...(children.get(entry.parentId) || []),
         entry,
       ]);
-    else roots.push(entry);
+    } else roots.push(entry);
+  }
   const rows = [];
   const visit = (entry, depth) => {
     rows.push({ entry, depth });
@@ -117,10 +119,12 @@ export function stateWords(entry) {
   if (entry.wakeFailed) return "Could not wake the agent";
   if (entry.paused) return "Paused";
   if (!entry.round) return "Preparing the first round";
-  if (entry.openRound)
+  if (entry.openRound) {
     return `Working · ${entry.openRound.ready} pages readable`;
-  if (["submitted", "working"].includes(entry.stage))
+  }
+  if (["submitted", "working"].includes(entry.stage)) {
     return `Working · ${since(entry.updatedAt)}`;
+  }
   return "Live";
 }
 // A row shows its unopened pages beside this status, so a session that waits
@@ -133,8 +137,9 @@ export function rowStatus(entry) {
     !entry.round ||
     entry.openRound ||
     ["submitted", "working"].includes(entry.stage)
-  )
+  ) {
     return { text: "Working", tone: "working" };
+  }
   return null;
 }
 /* A waiting round counts only while the bell still lists its line, and
@@ -262,8 +267,9 @@ function sessionRow(entry, unopened, depth) {
     pill.textContent = text;
     marks.append(pill);
   };
-  if (unopened && !current && !closing.has(entry.id))
+  if (unopened && !current && !closing.has(entry.id)) {
     addPill(`${unopened} new`, "news");
+  }
   if (shown?.tone === "working") {
     const dot = document.createElement("span");
     dot.className = "working";
@@ -353,11 +359,11 @@ function renderSessions() {
   if (!sessionOrder.length) toggleSessions(false);
   menu.setAttribute(
     "aria-label",
-    !count
-      ? "Sessions"
-      : tone
+    count
+      ? tone
         ? `Sessions, ${count} ${count === 1 ? "needs" : "need"} you`
-        : `Sessions, ${plural(count, "other session")}`,
+        : `Sessions, ${plural(count, "other session")}`
+      : "Sessions",
   );
 }
 const isOpen = () => $("sessions-pop").matches(":popover-open");
@@ -370,10 +376,11 @@ export function toggleSessions(open = !isOpen(), focus = false) {
   }
   if (!sessionOrder.length) return;
   if (!isOpen()) $("sessions-pop").showPopover();
-  if (focus)
+  if (focus) {
     $("sessions-list")
       .querySelector(`[data-key="open:${session.sessionId}"]`)
       ?.focus();
+  }
 }
 let pendingCloseEntry = null;
 const wiredCloseConfirm = new WeakSet();

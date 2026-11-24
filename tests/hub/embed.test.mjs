@@ -49,8 +49,9 @@ test("a large reply is compressed for a browser on another machine, and not for 
   const address = Object.values(os.networkInterfaces())
     .flat()
     .find((item) => item.family === "IPv4" && !item.internal)?.address;
-  if (!address && !process.env.CI)
+  if (!address && !process.env.CI) {
     return t.skip("This machine has no address besides loopback");
+  }
   const h = await hub(t, { PAIR_HUB_HOST: address });
   const a = await h.session();
   await a.publish({ ...planData(), pages: [overview("<p>The kestrel.</p>")] });

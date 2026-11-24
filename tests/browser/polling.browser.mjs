@@ -25,7 +25,7 @@ test("a status poll waits for the one before it, and polling goes on after it ar
   assert.equal(await waitUntil(() => requests > 1), true);
 });
 
-for (const engine of ["chrome", "webkit"])
+for (const engine of ["chrome", "webkit"]) {
   test(`a poll that finds nothing changed transfers no body in ${engine}, and a change still arrives`, async (t) => {
     const h = await hub(t);
     const a = await h.session();
@@ -62,6 +62,7 @@ for (const engine of ["chrome", "webkit"])
     assert.equal(started.code, 201, started.body.error);
     await page.locator('pair-thread[data-thread="kestrel"]').waitFor();
   });
+}
 
 test("while status polls fail, every page says that the hub is unreachable and the draft is saved, and Send is off in the header and in the open Send popup, until a poll answers", async (t) => {
   const h = await hub(t);

@@ -16,8 +16,9 @@ const redraws = new WeakMap();
 // refreshReplies shows the reply drafts that another tab changed in the
 // forms on screen, and leaves the box the reviewer is typing in as it is.
 export function refreshReplies() {
-  for (const form of document.querySelectorAll("form.thread-reply"))
+  for (const form of document.querySelectorAll("form.thread-reply")) {
     redraws.get(form)?.();
+  }
 }
 const draftOf = (id) =>
   state.replyDrafts?.[id] ?? { text: "", attachments: [] };

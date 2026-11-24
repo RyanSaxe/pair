@@ -52,8 +52,9 @@ const isObject = (value) =>
 const list = (value) => (Array.isArray(value) ? value : []);
 
 function belongs(field) {
-  if (topFields.includes(field))
+  if (topFields.includes(field)) {
     return `${field} goes at the top level of the source.`;
+  }
   if (!levels.agreed.fields.includes(field)) return null;
   return `${field} goes in ${pageFields.includes(field) ? "page" : "Agreed's page"}.`;
 }
@@ -75,18 +76,20 @@ export function fieldProblems(source) {
   const page = source?.page;
   const agreed = page?.id === "agreed";
   check(source, "source", "");
-  if (isObject(source) && source.plan !== undefined && !agreed)
+  if (isObject(source) && source.plan !== undefined && !agreed) {
     problems.push(
       "plan is a field of Agreed's source only. Leave it out of this page.",
     );
+  }
   check(page, agreed ? "agreed" : "page", "page");
   if (!agreed) return problems;
   check(page.task, "task", "page.task");
   for (const [index, entry] of list(page.agreements).entries()) {
     const at = `page.agreements[${index}]`;
     check(entry, "agreement", at);
-    for (const [ref, item] of list(entry?.sourceRefs).entries())
+    for (const [ref, item] of list(entry?.sourceRefs).entries()) {
       check(item, "sourceRef", `${at}.sourceRefs[${ref}]`);
+    }
   }
   return problems;
 }

@@ -49,10 +49,13 @@ export function matchOf(row, query) {
   for (const [text, ranges] of [
     [row.text, row.ranges],
     [row.heading, row.headingRanges],
-  ])
-    for (const [from, to] of ranges)
-      if (!spelled.has(text.slice(from, to).toLowerCase()))
+  ]) {
+    for (const [from, to] of ranges) {
+      if (!spelled.has(text.slice(from, to).toLowerCase())) {
         found.add(wordAround(text, from, to));
+      }
+    }
+  }
   return [typed, ...found].join(" ");
 }
 

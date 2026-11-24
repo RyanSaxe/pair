@@ -15,12 +15,14 @@ const attributePattern =
  * first of two attributes with one name, and readTag() does too. */
 function readTag(name, text) {
   const attributes = new Map();
-  for (const [, key, ...values] of text.matchAll(attributePattern))
-    if (!attributes.has(key.toLowerCase()))
+  for (const [, key, ...values] of text.matchAll(attributePattern)) {
+    if (!attributes.has(key.toLowerCase())) {
       attributes.set(
         key.toLowerCase(),
         values.find((value) => value !== undefined),
       );
+    }
+  }
   return { name: name.toLowerCase(), attributes };
 }
 const code = (tag) =>
@@ -118,19 +120,21 @@ function codeProblems(tag, html, at) {
   if (!tag.attributes.has("data-lines")) return list;
   const value = attribute(tag, "data-lines") ?? "";
   const ranges = lineRanges(value);
-  if (!ranges)
+  if (!ranges) {
     return [
       ...list,
       `${at}: data-lines "${value}" is not a list of lines. Write lines and ranges counted from 1, such as "7", "3-4" or "3-4, 9".`,
     ];
+  }
   // Line numbers count from the block's first line, so a line past its end
   // is usually the file's own line number.
   const last = Math.max(...ranges.map(([, to]) => to));
   const count = renderedLines(tag.name, tag.body);
-  if (last > count)
+  if (last > count) {
     list.push(
       `${at}: data-lines "${value}" names line ${last}, and the block has ${count} line${count === 1 ? "" : "s"}. Count from the block's first line, and put the file's line numbers in data-caption.`,
     );
+  }
   return list;
 }
 /** controlProblems() checks each control's options. An option belongs to the
@@ -142,8 +146,9 @@ function controlProblems(all, at) {
   const groups = [];
   const open = [];
   for (const tag of all) {
-    for (const group of open)
+    for (const group of open) {
       if (group.name === tag.name) group.depth += tag.end ? -1 : 1;
+    }
     if (tag.end) {
       open.splice(0, open.length, ...open.filter((group) => group.depth));
       continue;
@@ -167,9 +172,11 @@ function controlProblems(all, at) {
   }
   for (const { kind, id, tags: inside } of groups) {
     const options = inside.filter((tag) => tag.attributes.has("data-value"));
-    for (const option of options)
-      if (!attribute(option, "data-value"))
+    for (const option of options) {
+      if (!attribute(option, "data-value")) {
         list.push(`${at}: an option in "${id}" has no data-value`);
+      }
+    }
     // The frame marks each option whose value equals the reviewer's choice
     // as selected, so two options with one value are selected together.
     const values = options
@@ -177,29 +184,33 @@ function controlProblems(all, at) {
       .filter(Boolean);
     for (const value of new Set(
       values.filter((item, index) => values.indexOf(item) !== index),
-    ))
+    )) {
       list.push(
         `${at}: options in "${id}" share data-value "${value}". Give each option in a group its own data-value.`,
       );
-    if (kind === "data-choice" && options.length < 2)
+    }
+    if (kind === "data-choice" && options.length < 2) {
       list.push(
         `${at}: decision "${id}" has ${options.length} option${options.length === 1 ? "" : "s"}. Give it at least two.`,
       );
+    }
     if (
       kind === "data-question" &&
       !inside.some((tag) => tag.name === "textarea")
-    )
+    ) {
       list.push(`${at}: question "${id}" has no textarea`);
+    }
     // A box that the author checked would look like the reviewer's own choice.
     if (
       kind === "data-multiselect" &&
       inside.some(
         (tag) => tag.name === "input" && tag.attributes.has("checked"),
       )
-    )
+    ) {
       list.push(
         `${at}: checklist "${id}" has a checked box. Start every box unchecked.`,
       );
+    }
   }
   return list;
 }
@@ -256,8 +267,9 @@ export function problems(
         if (id === undefined) continue;
         if (controls.has(id)) list.push(`${at}: control "${id}" appears twice`);
         controls.add(id);
-        if (!attribute(tag, "data-label"))
+        if (!attribute(tag, "data-label")) {
           list.push(`${at}: control "${id}" has no data-label`);
+        }
       }
       // The tab strip shares its width between the option labels, so a long
       // label leaves no room for the rest. The limit applies only to the label
@@ -270,14 +282,16 @@ export function problems(
         label !== undefined &&
         attribute(tag, "data-value") !== undefined &&
         label.length > labelLimit
-      )
+      ) {
         list.push(
           `${at}: option label "${label}" is ${label.length} characters, over ${labelLimit}`,
         );
-      if (tag.name === "h1")
+      }
+      if (tag.name === "h1") {
         list.push(
           `${at}: remove the h1, because the frame shows the page title as the page's only h1. Start headings at h2.`,
         );
+      }
       if (tag.name === "pre" || tag.name === "div") {
         const named = attribute(tag, "data-file") !== undefined;
         const source = attribute(tag, "data-diff-source") !== undefined;
@@ -285,14 +299,16 @@ export function problems(
           (tag.name === "pre" || named) &&
           !source &&
           !attribute(tag, "data-language")
-        )
+        ) {
           list.push(`${at}: a code block has no data-language`);
+        }
         // The before-after component shows both sides of a diff in the Pierre
         // viewer, and a code block marked as a diff shows neither side.
-        if (/^(?:diff|patch)$/i.test(attribute(tag, "data-language") || ""))
+        if (/^(?:diff|patch)$/i.test(attribute(tag, "data-language") || "")) {
           list.push(
             `${at}: a code block marked diff belongs in before-after. Run pair diff BEFORE AFTER OUT.json`,
           );
+        }
       }
       const language = attribute(tag, "data-language");
       if (language && !shikiLanguages.has(language)) {
@@ -302,13 +318,15 @@ export function problems(
         );
       }
       const source = tag.name === "img" ? attribute(tag, "src")?.trim() : "";
-      if (authoring && source && !/^(?:data:|https?:|\/\/)/i.test(source))
+      if (authoring && source && !/^(?:data:|https?:|\/\/)/i.test(source)) {
         list.push(
           `${at}: img src "${source}" is a file path, which the hub does not serve. Embed the image in src as a data: URI.`,
         );
+      }
       const prototype = attribute(tag, "data-prototype");
-      if (prototype !== undefined && !prototypes.has(prototype))
+      if (prototype !== undefined && !prototypes.has(prototype)) {
         list.push(`${at}: prototype "${prototype}" does not exist`);
+      }
       if (authoring && code(tag)) list.push(...codeProblems(tag, html, at));
     }
     if (!allowUnknownPages) list.push(...linkProblems(html, at, targets));
@@ -332,10 +350,11 @@ export function problems(
         !["before", "after", "patch"].every(
           (key) => typeof parsed?.[key] === "string",
         )
-      )
+      ) {
         list.push(
           `${at}: a diff input is not JSON with before, after and patch`,
         );
+      }
     }
   }
   // A page script may read the body's width, but a write to the frame's root

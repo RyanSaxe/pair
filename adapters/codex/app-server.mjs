@@ -103,8 +103,9 @@ export function connect(socketPath, timeout) {
           const end = bytes.indexOf("\r\n\r\n");
           if (end < 0) return;
           const status = bytes.subarray(0, bytes.indexOf("\r\n")).toString();
-          if (!status.startsWith("HTTP/1.1 101 "))
+          if (!status.startsWith("HTTP/1.1 101 ")) {
             throw new Error(`the daemon refused the upgrade: ${status}`);
+          }
           bytes = bytes.subarray(end + 4);
           upgraded = true;
           resolve(client);

@@ -65,7 +65,7 @@ export function createPreview({
       () => (pressHeld = Boolean(host.closest(".is-writing"))),
       true,
     );
-    for (const type of ["pointerup", "pointercancel"])
+    for (const type of ["pointerup", "pointercancel"]) {
       win.addEventListener(
         type,
         () => {
@@ -76,6 +76,7 @@ export function createPreview({
         },
         true,
       );
+    }
     win.addEventListener("focusout", () => setTimeout(onFocus, LEAVE_REST_MS));
     // The close event doesn't bubble, and a dialog closes with no focus change
     // when the control that opened it has gone.
@@ -83,11 +84,12 @@ export function createPreview({
     // A shorter frame can leave the field below its fold, or the fold of the
     // note's scrolling body.
     win.addEventListener("resize", () => {
-      if (host.closest(".is-writing"))
+      if (host.closest(".is-writing")) {
         fieldIn(win.document)?.scrollIntoView({
           block: "nearest",
           behavior: "instant",
         });
+      }
     });
   }
 
@@ -199,21 +201,24 @@ export function createPreview({
     loading(true);
     onLoading();
     if (now) void open(row, query, mine);
-    else
+    else {
       restTimer = setTimeout(
         () => open(row, query, mine),
         frames.has(keyOf(row)) ? REST_MS : LOAD_REST_MS,
       );
+    }
   }
 
   function pause() {
-    for (const { frame } of frames.values())
+    for (const { frame } of frames.values()) {
       frame.contentWindow?.pairEmbed?.pause();
+    }
   }
 
   window.addEventListener("pair:theme", ({ detail }) => {
-    for (const { frame } of frames.values())
+    for (const { frame } of frames.values()) {
       frame.contentWindow?.pairEmbed?.theme(detail);
+    }
   });
 
   return { show, pause, writing };

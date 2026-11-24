@@ -84,16 +84,18 @@ const layout = (page) =>
     for (let node = walk.nextNode(); node; node = walk.nextNode()) {
       const range = document.createRange();
       range.selectNodeContents(node);
-      for (const box of range.getClientRects())
+      for (const box of range.getClientRects()) {
         out.push(`${Math.round(box.left)},${Math.round(box.top)}`);
+      }
     }
     return [out.join(";"), document.querySelector("main").scrollTop];
   });
 // The page has endless animations of its own, so these act on transitions only.
 const finish = (page) =>
   page.evaluate(() => {
-    for (const motion of document.getAnimations())
+    for (const motion of document.getAnimations()) {
       if (motion.transitionProperty) motion.finish();
+    }
   });
 // The drawer and the sheet rise 12px as they open.
 const settled = (page, id) =>
@@ -319,8 +321,9 @@ test("a long note, a long quote, three images, a long Send list and New work ite
   await page.locator("#note-save").click();
   await page.locator("#note-dialog").waitFor({ state: "hidden" });
 
-  for (const box of await page.locator("[data-question] textarea").all())
+  for (const box of await page.locator("[data-question] textarea").all()) {
     await box.fill("A typed answer.");
+  }
   await page.locator("#submit").click();
   await page.locator("#send-not-added li").nth(9).waitFor();
   await settled(page, "send-dialog");

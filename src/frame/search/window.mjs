@@ -103,12 +103,12 @@ export function createWindow() {
       results.map((row, index) => source.rowHtml(row, index, state)).join("") +
         source.end(current),
     );
-    if (selectedRow())
+    if (selectedRow()) {
       input.setAttribute(
         "aria-activedescendant",
         `search-row-${state.selected}`,
       );
-    else input.removeAttribute("aria-activedescendant");
+    } else input.removeAttribute("aria-activedescendant");
   }
 
   function drawHead() {
@@ -132,8 +132,9 @@ export function createWindow() {
     if (!row) closeSheet();
     // On a phone, a search's best result shows under the results with no tap.
     // With nothing typed, the newest rows wait for a tap.
-    if (innerWidth <= PHONE && row && state.query.trim())
+    if (innerWidth <= PHONE && row && state.query.trim()) {
       dialog.classList.add("is-sheet");
+    }
     const showing = innerWidth > PHONE || dialog.classList.contains("is-sheet");
     const shown = showing && row ? source.preview(row) : null;
     if (showing) {
@@ -166,8 +167,9 @@ export function createWindow() {
     clearTimeout(searching);
     searching = setTimeout(() => {
       part(".search-count").textContent = "";
-      if (!current.results.length)
+      if (!current.results.length) {
         setList(`<div class="search-blank"><span>Searching…</span></div>`);
+      }
     }, SEARCHING_AFTER_MS);
     // A source draws what it has while it waits for the hub.
     const early = (reply) => {
@@ -201,11 +203,11 @@ export function createWindow() {
     drawControls();
     drawList();
     drawPreview("auto");
-    if (keep)
+    if (keep) {
       list
         .querySelector('[aria-selected="true"]')
         ?.scrollIntoView({ block: "nearest" });
-    else list.scrollTop = 0;
+    } else list.scrollTop = 0;
   }
 
   // refresh draws the source's rows again and leaves the page in the pane alone,
@@ -314,8 +316,9 @@ export function createWindow() {
     "mouseup",
     "pointerdown",
     "pointerup",
-  ])
+  ]) {
     dialog.addEventListener(type, (event) => event.stopPropagation());
+  }
 
   // A click counts as outside only when the press landed outside too, so a drag
   // that selects the preview's text and ends on the backdrop leaves it open.
@@ -327,12 +330,14 @@ export function createWindow() {
     if (
       menus.opened() &&
       !event.target.closest(".search-menu, .search-menu-button")
-    )
+    ) {
       return closeMenu();
+    }
     if (event.target === dialog) return pressedOutside && dialog.close();
     const menu = event.target.closest("[data-menu]")?.dataset.menu;
-    if (event.target.closest(".search-menu-button"))
+    if (event.target.closest(".search-menu-button")) {
       return menus.opened() === menu ? closeMenu() : menus.show(menu);
+    }
     const item = event.target.closest(".search-menu-item");
     if (item) {
       menus.choose(menu, item.dataset.value);
@@ -391,10 +396,11 @@ export function createWindow() {
       event.preventDefault();
       if (menus.opened()) menus.move(step);
       // With nothing selected, ↓ selects the first row and ↑ the last.
-      else
+      else {
         moveSelection(
           (state.selected < 0 && step < 0 ? 0 : state.selected) + step,
         );
+      }
     } else if (key === "Enter") {
       // Enter presses a control that has focus.
       if (event.target.closest("button")) return;

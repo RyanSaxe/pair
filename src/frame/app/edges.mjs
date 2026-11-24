@@ -131,13 +131,14 @@ export function installEdges() {
   };
   syncFull();
   addEventListener("resize", syncFull);
-  for (const side of ["left", "right"])
+  for (const side of ["left", "right"]) {
     installGrip(document.querySelector(`.grip.${side}`), {
       kind: "page",
       edge: pageEdge,
       widthAt: (x) => pageWidthAt(x, innerWidth),
       setWidth: setPageWidth,
     });
+  }
   const body = document.querySelector(".app-body");
   installGrip(document.querySelector(".grip.side"), {
     kind: "side",

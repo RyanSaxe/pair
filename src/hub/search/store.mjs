@@ -64,24 +64,29 @@ async function sources(directory, status) {
   add("status.json", (record) => titleDocs(record));
   for (const [round, set] of Object.entries(status.roundPages ?? {})) {
     const paged = (name) => path.join("pages", round, path.basename(name));
-    if (set.agreed)
+    if (set.agreed) {
       add(paged(set.agreed), (record, at) =>
         agreedDocs(record.page, round, at),
       );
-    for (const slot of set.pages ?? [])
-      if (slot.recordPath)
+    }
+    for (const slot of set.pages ?? []) {
+      if (slot.recordPath) {
         found.push({
           file: paged(slot.recordPath),
           read: (record, at) => readPage(record.page, round, at),
         });
+      }
+    }
   }
   for (const [folder, read] of [
     ["threads", threadDocs],
     ["feedback", feedbackDocs],
     ["proposals", proposalDocs],
-  ])
-    for (const name of await list(path.join(directory, folder)))
+  ]) {
+    for (const name of await list(path.join(directory, folder))) {
       if (name.endsWith(".json")) add(path.join(folder, name), read);
+    }
+  }
   add("draft.json", (record, at) => draftDocs(record, at));
   return found;
 }
@@ -202,18 +207,22 @@ export function searchStore({ log = () => {} } = {}) {
     entry.latest = entry.rounds[0] ?? "0";
     entry.updatedAt = Date.parse(status.updatedAt) || 0;
     const pages = new Map();
-    for (const { blocks } of files.values())
+    for (const { blocks } of files.values()) {
       if (blocks) pages.set(`${blocks.round}/${blocks.page}`, blocks);
+    }
     entry.docs = grouped(
       [...files.values()]
         .flatMap((f) => f.docs)
         .map((doc) => placed(doc, pages)),
     ).map((doc) => ready(doc, entry.id));
     entry.pageTitles = new Map();
-    for (const doc of entry.docs)
-      if (doc.type === "page title")
-        for (const round of [doc.round, ...doc.also])
+    for (const doc of entry.docs) {
+      if (doc.type === "page title") {
+        for (const round of [doc.round, ...doc.also]) {
           entry.pageTitles.set(`${round}/${doc.page}`, doc.heading);
+        }
+      }
+    }
     if (wrote || removed) void writeCache(entry);
   }
 
@@ -244,8 +253,9 @@ export function searchStore({ log = () => {} } = {}) {
       .then(async () => {
         if (closed) return;
         const lines = [JSON.stringify({ version: VERSION })];
-        for (const [file, cached] of entry.files)
+        for (const [file, cached] of entry.files) {
           lines.push(JSON.stringify({ file, ...cached }));
+        }
         await atomic(
           path.join(entry.directory, CACHE),
           `${lines.join("\n")}\n`,

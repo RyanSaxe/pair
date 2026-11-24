@@ -28,8 +28,9 @@ function threadName(thread, part, collapsed) {
     return part ? `On ${part}` : "On the words you selected";
   }
   if (thread.agreementId === "task") return "On the task";
-  if (thread.topic === "overall" || thread.topic === "work")
+  if (thread.topic === "overall" || thread.topic === "work") {
     return `On ${thread.page}`;
+  }
   if (thread.anchor === thread.page) return "On this page";
   return `On ${thread.anchor}`;
 }
@@ -77,8 +78,9 @@ export function partOf(block, thread) {
     const value = at.matches("[data-value]")
       ? at
       : values.length === 1 && values[0];
-    if (value)
+    if (value) {
       return `${list ? "item" : "option"} ${value.dataset.label || value.dataset.value}`;
+    }
   }
   return null;
 }

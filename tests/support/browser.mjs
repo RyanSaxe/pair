@@ -31,8 +31,9 @@ export async function launch({
       /Chromium distribution ['"]chromium['"] is not found|Chrome (?:is )?not found|Executable doesn't exist/i.test(
         message,
       )
-    )
+    ) {
       throw Error(missing[engine], { cause: error });
+    }
     throw error;
   }
 }
@@ -64,10 +65,11 @@ export async function open(
   }
   t.after(() => browser.close());
   const page = await browser.newPage(pageOptions);
-  if (html !== undefined)
+  if (html !== undefined) {
     await page.route("http://pair.localhost/", (route) =>
       route.fulfill({ body: html, contentType: "text/html" }),
     );
+  }
   await page.goto(url);
   return page;
 }

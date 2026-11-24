@@ -117,15 +117,17 @@ const signatures = [
   { type: "image/gif", ext: "gif", magic: [0x47, 0x49, 0x46, 0x38] },
 ];
 function imageKind(bytes) {
-  for (const entry of signatures)
+  for (const entry of signatures) {
     if (entry.magic.every((byte, at) => bytes[at] === byte)) return entry;
+  }
   // A WebP file starts with RIFF, a four-byte size and WEBP.
   if (
     bytes.length >= 12 &&
     bytes.subarray(0, 4).toString("latin1") === "RIFF" &&
     bytes.subarray(8, 12).toString("latin1") === "WEBP"
-  )
+  ) {
     return { type: "image/webp", ext: "webp" };
+  }
   return null;
 }
 /* The hub limits each upload to 10MB and sets no limit for the session, as

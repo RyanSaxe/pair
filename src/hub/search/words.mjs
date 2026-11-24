@@ -58,8 +58,9 @@ function isWordStart(lower, orig, i) {
   if (
     orig.charCodeAt(i) !== lower.charCodeAt(i) &&
     orig.charCodeAt(i - 1) === prev
-  )
+  ) {
     return 1;
+  }
   return 0;
 }
 

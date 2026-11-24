@@ -77,8 +77,9 @@ export function installEvents() {
       if (
         event.target.matches(":read-write") &&
         !event.target.closest("dialog:modal")
-      )
+      ) {
         typedAt = event.timeStamp;
+      }
     },
     true,
   );
@@ -87,8 +88,9 @@ export function installEvents() {
   )) {
     const close = $("close-button").content.firstElementChild.cloneNode(true);
     close.dataset.close = head.closest("dialog").id;
-    if (head.dataset.closeLabel)
+    if (head.dataset.closeLabel) {
       close.setAttribute("aria-label", head.dataset.closeLabel);
+    }
     head.append(close);
   }
   for (const dialog of document.querySelectorAll("dialog")) {
@@ -109,8 +111,9 @@ export function installEvents() {
   }
   // The keys dialog names this system's keys, and the home view has no threads
   // to set them.
-  for (const key of $("keys-dialog").querySelectorAll("[data-send-key]"))
+  for (const key of $("keys-dialog").querySelectorAll("[data-send-key]")) {
     key.textContent = sendKeyLabel();
+  }
   // A click inside an embedded frame never reaches this document, but it
   // moves focus, so the frame closes menus on blur as well as on outside
   // clicks.
@@ -144,26 +147,28 @@ export function installEvents() {
     const navigation = event.target.closest("[data-page]");
     if (navigation) {
       event.preventDefault();
-      if (listedTab !== selectedTab && $("page-list").contains(navigation))
+      if (listedTab !== selectedTab && $("page-list").contains(navigation)) {
         switchTab(listedTab, null, { showPage: false });
+      }
       show(navigation.dataset.page);
       clearOwnRound();
     }
     if (!feedbackEditable()) return;
     const comment = event.target.closest("[data-comment]");
-    if (comment && $("page-content").contains(comment))
+    if (comment && $("page-content").contains(comment)) {
       openNote({
         topic: page.id,
         anchor: comment.dataset.comment || page.title,
         target: comment.closest("[id]")?.id || null,
       });
+    }
     const choice = event.target.closest("[data-choice] [data-value]");
     if (choice && $("page-content").contains(choice)) {
       const group = choice.closest("[data-choice]"),
         id = controlKey(page.id, group.dataset.choice);
-      if (state.choices[id]?.value === choice.dataset.value)
+      if (state.choices[id]?.value === choice.dataset.value) {
         delete state.choices[id];
-      else
+      } else {
         state.choices[id] = {
           topic: page.id,
           label: group.dataset.label || group.dataset.choice,
@@ -175,6 +180,7 @@ export function installEvents() {
           target: group.id,
           round: plan.round,
         };
+      }
       restoreChoices();
       save();
     }
@@ -217,8 +223,9 @@ export function installEvents() {
       openSearch();
       return;
     }
-    if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey)
+    if (mode === "preview" || event.metaKey || event.ctrlKey || event.altKey) {
       return;
+    }
     if (embedded && event.key !== "Escape") return;
     /* The browser closes a modal on Escape, and a drawer gets no cancel event,
        so this handler closes the top thing that is left: a menu, then a drawer.

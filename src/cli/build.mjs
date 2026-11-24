@@ -40,10 +40,11 @@ async function readDiffInput(directory, name) {
     !["before", "after", "patch"].every(
       (key) => typeof input?.[key] === "string",
     )
-  )
+  ) {
     throw refuse(
       "is not JSON with before, after and patch strings. Name a file that pair diff BEFORE AFTER OUT.json wrote",
     );
+  }
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -54,10 +55,11 @@ async function diffInputs(html, directory) {
   for (const [, open, pasted] of html.matchAll(TEXTAREA)) {
     const name = diffFile(open);
     if (!name) continue;
-    if (pasted.trim())
+    if (pasted.trim()) {
       throw new Error(
         `data-diff-input names ${name}, and the textarea is not empty. Leave it empty.`,
       );
+    }
     inputs.set(name, await readDiffInput(directory, name));
   }
   return html.replace(TEXTAREA, (whole, open) => {
@@ -68,10 +70,11 @@ async function diffInputs(html, directory) {
 
 export async function buildPage(source, input) {
   const unknown = fieldProblems(input);
-  if (unknown.length)
+  if (unknown.length) {
     throw new Error(
       unknown.map((line) => `${path.basename(source)}: ${line}`).join("\n"),
     );
+  }
   const directory = path.dirname(source);
   const read = (file) => fs.readFile(path.resolve(directory, file), "utf8");
   // The build lists a css or js file that cannot be read with the page's other
@@ -86,36 +89,42 @@ export async function buildPage(source, input) {
     });
   const prepare = (html) => diffInputs(sizeImages(html), directory);
   const { page: rawPage, ...outer } = input;
-  if (!rawPage || typeof rawPage !== "object" || Array.isArray(rawPage))
+  if (!rawPage || typeof rawPage !== "object" || Array.isArray(rawPage)) {
     throw new Error("Page source requires one page object");
-  if (rawPage.file && rawPage.html !== undefined)
+  }
+  if (rawPage.file && rawPage.html !== undefined) {
     throw new Error("Use file or html for a page, not both");
+  }
   const page = { ...rawPage };
   if (page.file) page.html = await read(page.file);
   if (page.html) page.html = await prepare(page.html);
-  if (page.task?.html)
+  if (page.task?.html) {
     page.task = { ...page.task, html: await prepare(page.task.html) };
+  }
   delete page.file;
   if (page.css) page.cssText = await readNamed("css");
   if (page.js) page.jsText = await readNamed("js");
   delete page.css;
   delete page.js;
-  if (page.prototypes)
+  if (page.prototypes) {
     page.prototypes = await Promise.all(
       page.prototypes.map(async (entry) => {
         // validatePlan refuses an entry that is not an object, with its message.
         if (!entry || typeof entry !== "object") return entry;
         const { file, ...prototype } = entry;
-        if (file && prototype.html !== undefined)
+        if (file && prototype.html !== undefined) {
           throw new Error("Use file or html for a prototype, not both");
+        }
         return { ...prototype, ...(file ? { html: await read(file) } : {}) };
       }),
     );
-  if (page.agreements)
+  }
+  if (page.agreements) {
     page.agreements = await Promise.all(
       page.agreements.map(async ({ file, ...entry }) => {
-        if (file && entry.html !== undefined)
+        if (file && entry.html !== undefined) {
           throw new Error("Use file or html for an agreement, not both");
+        }
         const agreement = {
           ...entry,
           ...(file ? { html: await read(file) } : {}),
@@ -124,6 +133,7 @@ export async function buildPage(source, input) {
         return agreement;
       }),
     );
+  }
   const record = validPage({ ...outer, page });
   const data = pagePlan(record);
   const preview = await joinPage(

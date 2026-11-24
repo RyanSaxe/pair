@@ -33,11 +33,12 @@ export function threadLink(text, id) {
   const link = element("a", text);
   const target = `?target=thread-${encodeURIComponent(id)}`;
   if (thread.proposal) link.href = `${target}#work`;
-  else
+  else {
     link.href =
       thread.round === remote.current?.round
         ? `${base}/${target}#${thread.topic}`
         : `${base}/r/${encodeURIComponent(thread.round)}${target}#${thread.topic}`;
+  }
   return link;
 }
 // wordsPlace() links to where the reviewer wrote the words that started a

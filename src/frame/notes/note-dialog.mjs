@@ -116,10 +116,11 @@ async function attach(files) {
    its × or Escape, and again before the next note opens. The dialog's close
    event cannot call it, because saving a note also fires that event. */
 export function settleNoteImages() {
-  if (!noteImagesSaved)
+  if (!noteImagesSaved) {
     forgetImages(
       noteImages.filter((item) => !noteImagesAtOpen.includes(item.id)),
     );
+  }
   noteImages = [];
   noteImagesAtOpen = [];
   noteImagesRemoved = [];
@@ -163,8 +164,9 @@ export function saveNote({ close }) {
   noteImagesSaved = true;
   save();
   if (close) $("note-dialog").close();
-  if (note.topic === page.id && !$("reading").hidden)
+  if (note.topic === page.id && !$("reading").hidden) {
     show(page.id, null, { keepScroll: true });
+  }
   return true;
 }
 /* The frame calls yieldNote before anything opens in the note's place. A note

@@ -26,8 +26,9 @@ export const agentsDir = () => path.join(settings().root, "agents");
 async function sessionState(entry, table) {
   const adapter = adapters[entry?.cli];
   const fields = [entry?.name, entry?.processStart, entry?.registeredAt];
-  if (!adapter || !fields.every((field) => typeof field === "string"))
+  if (!adapter || !fields.every((field) => typeof field === "string")) {
     return "unknown";
+  }
   const cli = table.get(entry.pid);
   if (cli?.start !== entry.processStart) return "ended";
   const running = adapter.running?.(entry.target, cli).catch(() => true);
@@ -126,8 +127,9 @@ export async function registerAgent(
     const parentId = `${target.harness}:${parent.sessionId}`;
     const running = await readAgents(table);
     const listed = running.find((each) => each.id === parentId);
-    if (sender && listed && parent.nickname)
+    if (sender && listed && parent.nickname) {
       return { entry: listed, subagent: parent.nickname, running };
+    }
     const via = listed?.name ?? parentId;
     throw new Error(
       `This ${adapter.name} session is a subagent, so pair lists only the session that started it. Reach it through that session as ${via}/${parent.nickname ?? `SUBAGENT, with the name ${via} gave it`}.`,
@@ -186,11 +188,13 @@ export function findAgent(entries, to) {
 // of the session ID, that no other ID in ids has, because Codex's thread IDs
 // start with the time.
 function shortId(id, ids) {
-  for (let end = id.indexOf(":") + 9; end < id.length; end++)
+  for (let end = id.indexOf(":") + 9; end < id.length; end++) {
     if (
       !ids.some((other) => other !== id && other.startsWith(id.slice(0, end)))
-    )
+    ) {
       return id.slice(0, end);
+    }
+  }
   return id;
 }
 
@@ -217,11 +221,12 @@ export function requireFreeName(running, name) {
 }
 
 export function requireName(command, name) {
-  if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name))
+  if (name !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N}-]{0,63}$/u.test(name)) {
     throw usageError(
       command,
       "--name takes up to 64 letters, digits and hyphens, starting with a letter or digit.",
     );
+  }
 }
 
 // Some CLIs, such as Antigravity CLI, leave wake variables out of a hook's

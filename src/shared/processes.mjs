@@ -90,8 +90,9 @@ export function ancestors(table, pid = process.ppid) {
   for (let row = table.get(pid); row && row.pid > 1 && chain.length < 64;) {
     chain.push(row);
     const parent = table.get(row.parent);
-    if (windows && !(parent?.start && row.start && parent.start <= row.start))
+    if (windows && !(parent?.start && row.start && parent.start <= row.start)) {
       break;
+    }
     row = parent;
   }
   return chain;

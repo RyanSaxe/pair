@@ -251,7 +251,7 @@ for (const [where, options] of Object.entries({
     isMobile: true,
     hasTouch: true,
   },
-}))
+})) {
   test(`on ${where}, a slow move between rounds changes the round strip when the page arrives, with the picture below the strip until it has faded`, async (t) => {
     const s = await setup(t, options);
     if (!s) return;
@@ -282,6 +282,7 @@ for (const [where, options] of Object.entries({
     await strip.waitFor({ state: "hidden" });
     assert.deepEqual(await pictureFitsColumn(s.page), fits);
   });
+}
 
 test("a second click during a move keeps one bar and never shows the page clicked past", async (t) => {
   const s = await setup(t);
@@ -290,8 +291,9 @@ test("a second click during a move keeps one bar and never shows the page clicke
     window.shown = [];
     const content = document.getElementById("page-content");
     new MutationObserver(() => {
-      if (!content.hasAttribute("data-drawing"))
+      if (!content.hasAttribute("data-drawing")) {
         window.shown.push(content.dataset.pageId);
+      }
     }).observe(content, { attributes: true });
   });
   await pageLink(s.page, "slow").click();

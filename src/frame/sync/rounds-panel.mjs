@@ -37,8 +37,9 @@ export function renderRounds() {
   if (
     remote?.openRound &&
     !entries.some((entry) => entry.round === remote.current.round)
-  )
+  ) {
     entries.unshift(remote.current);
+  }
   const latest = remote?.current?.round ?? entries[0].round;
   const signature = JSON.stringify([
     latest,
@@ -79,15 +80,15 @@ export function renderRounds() {
     row.addEventListener("click", () => {
       hidePanel("rounds-pop");
       if (here) return;
-      if (mode !== "live")
+      if (mode !== "live") {
         location.assign(
           entry.round === latest
             ? `${base}/`
             : entry.url || `${base}/r/${encodeURIComponent(entry.round)}`,
         );
-      else if (entry.round === latest && currentAvailable())
+      } else if (entry.round === latest && currentAvailable()) {
         switchTab("current", null, { showPage: true });
-      else void openPast(entry.round);
+      } else void openPast(entry.round);
     });
     list.append(line);
   }

@@ -25,18 +25,22 @@ async function frameModules() {
   const root = fileURLToPath(assets);
   const modules = {};
   const names = [];
-  for await (const file of files(root))
-    if (file.endsWith(".mjs"))
+  for await (const file of files(root)) {
+    if (file.endsWith(".mjs")) {
       names.push(path.relative(root, file).split(path.sep).join("/"));
-  for (const name of names.toSorted())
+    }
+  }
+  for (const name of names.toSorted()) {
     modules[`#frame/${name}`] = await read(name);
+  }
   const shared = new Set(
     Object.values(modules).flatMap((text) =>
       [...text.matchAll(/from "(#shared\/[^"]+)"/g)].map((match) => match[1]),
     ),
   );
-  for (const name of [...shared].toSorted())
+  for (const name of [...shared].toSorted()) {
     modules[name] = await read(`../shared/${name.slice("#shared/".length)}`);
+  }
   return modules;
 }
 // A later stylesheet in this list wins a tie of specificity, so the list is the

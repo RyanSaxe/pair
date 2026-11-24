@@ -45,8 +45,9 @@ function eventWords(entry, event) {
   if (event.agentAck) return "Acknowledged by the agent";
   if (event.kind === "reply") return event.words ?? eventTitle(event);
   if (event.kind === "proposal") return `Proposal: ${event.name}`;
-  if (event.kind === "waiting" && !roundWaits(entry, event))
+  if (event.kind === "waiting" && !roundWaits(entry, event)) {
     return `Round ${event.round} published`;
+  }
   return eventTitle(event);
 }
 // A row's fields, from the newest event of its thread, round, proposal or session
@@ -98,8 +99,9 @@ export function bellRows(lines, thisId) {
   for (const event of lines) {
     const key = KEY_OF[event.kind](event.entry, event);
     if (rows.has(key)) rows.get(key).events.push(event.id);
-    else
+    else {
       rows.set(key, eventRow(event.entry, event, { state: "unread", thisId }));
+    }
     replies.set(key, new Set(replies.get(key)).add(event.message));
     rows.get(key).count = replies.get(key).size;
   }
@@ -160,8 +162,9 @@ export function notificationRows(sessions, { threadLines, cleared, thisId }) {
     for (const event of newest) {
       if (!KEY_OF[event.kind]) continue;
       const key = KEY_OF[event.kind](entry, event);
-      if (!rows.has(key))
+      if (!rows.has(key)) {
         rows.set(key, eventRow(entry, event, { state: "read", thisId }));
+      }
     }
     for (const card of listed.proposals) {
       const row = rows.get(`proposal:${entry.id}:${card.id}`);
@@ -176,8 +179,9 @@ export function whereText(row) {
   const place =
     row.kind === "thread" && row.own ? row.pageTitle : row.sessionTitle;
   if (row.kind === "thread") {
-    if (row.state === "waiting")
+    if (row.state === "waiting") {
       return `${row.opened ? "Read, no reply" : "Not opened"} · ${place}`;
+    }
     return row.state === "unread" && row.count > 1
       ? `${place} · ${row.count} replies`
       : place;
@@ -214,7 +218,7 @@ export function previewRow(row) {
     heading: "",
     headingRanges: [],
   };
-  if (row.kind === "thread")
+  if (row.kind === "thread") {
     return {
       ...base,
       kind: "threads",
@@ -222,8 +226,10 @@ export function previewRow(row) {
       round: row.round,
       page: placeOf(row.page),
     };
-  if (row.kind === "proposal")
+  }
+  if (row.kind === "proposal") {
     return { ...base, kind: "proposals", item: row.proposal, page: "work" };
+  }
   return {
     ...base,
     kind: "pages",
@@ -266,8 +272,9 @@ function matchLine(row, words) {
   if (!row.hit?.ranges?.length) return "";
   const shown = row.words.slice(0, SHOWN_LENGTH).toLowerCase();
   const found = hitWords(row.hit);
-  if ((found.length ? found : words).every((word) => shown.includes(word)))
+  if ((found.length ? found : words).every((word) => shown.includes(word))) {
     return "";
+  }
   return `<div class="search-snippet">${snippet(row.hit.text, row.hit.ranges)}</div>`;
 }
 const STATE_WORDS = Object.fromEntries(GROUPS);

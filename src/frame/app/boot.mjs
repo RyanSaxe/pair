@@ -177,8 +177,9 @@ function startRound() {
       });
       return;
     }
-    if (editable && !round && selectedTab === "past")
+    if (editable && !round && selectedTab === "past") {
       switchTab("current", null, { showPage: false });
+    }
     show(pageId, params.get("target"), options);
   });
   if (mode === "preview" && query.get("quote")) {
@@ -205,23 +206,24 @@ function startRound() {
       const olderAsked =
         askedRound &&
         (askedRound !== plan.round || (!target && showingWaiting()));
-      if (editable && olderAsked)
+      if (editable && olderAsked) {
         void openPast(askedRound, {
           pageId: asked || "agreed",
           targetId: target,
           match,
           push: false,
         });
-      else if (
+      } else if (
         target &&
         showingWaiting() &&
         asked !== "work" &&
         !onCurrentAgreed(target)
-      )
+      ) {
         void openPast(plan.round, {
           pageId: asked || "agreed",
           targetId: target,
         });
+      }
       // pollSessions() runs after the first status poll has placed the
       // thread cards, so the bell's first count includes a reply that is
       // already on screen.
@@ -236,10 +238,10 @@ function startRound() {
     });
     // A session's status can be large, and a preview needs it only now and
     // then, so the search window's frame asks less often, and only on screen.
-    if (embedded)
+    if (embedded) {
       setInterval(() => {
         if (embedShowing()) void poll().then(syncDraft);
       }, EMBED_POLL_MS);
-    else setInterval(() => poll().then(syncDraft), 1500);
+    } else setInterval(() => poll().then(syncDraft), 1500);
   } else review();
 }

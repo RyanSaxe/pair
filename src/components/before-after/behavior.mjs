@@ -54,8 +54,9 @@ planUI.define("before-after", {
     };
     try {
       input = JSON.parse(root.querySelector("[data-diff-input]").value);
-      for (const source of root.querySelectorAll("[data-diff-source]"))
+      for (const source of root.querySelectorAll("[data-diff-source]")) {
         source.textContent = input[source.dataset.diffSource];
+      }
     } catch (reason) {
       fail(reason);
       return;
@@ -66,25 +67,28 @@ planUI.define("before-after", {
       try {
         await planUI.diff(viewer, input, { diffStyle, wrap: wrapped() });
         wrapButton?.setAttribute("aria-pressed", String(wrapped()));
-        for (const button of buttons)
+        for (const button of buttons) {
           button.setAttribute(
             "aria-pressed",
             String(button.dataset.diffStyle === diffStyle),
           );
+        }
       } catch (reason) {
         fail(reason);
       }
     };
-    for (const button of buttons)
+    for (const button of buttons) {
       button.addEventListener("click", () => {
         prefs.set(key, button.dataset.diffStyle);
         render(button.dataset.diffStyle);
       });
-    if (wrapButton)
+    }
+    if (wrapButton) {
       wrapButton.addEventListener("click", () => {
         prefs.set(wrapKey, wrapped() ? "off" : "on");
         render(style);
       });
+    }
     render(prefs.get(key) || automatic());
     new ResizeObserver(() => {
       if (prefs.get(key)) return;

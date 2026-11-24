@@ -58,8 +58,9 @@ export function enhance(root) {
       element.dataset.ready = name;
       try {
         const task = setup(element, { page, planUI: window.planUI });
-        if (task instanceof Promise)
+        if (task instanceof Promise) {
           sizing.push(track(task).catch((error) => failed(element, error)));
+        }
       } catch (error) {
         failed(element, error);
       }

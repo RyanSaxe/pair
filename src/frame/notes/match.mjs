@@ -39,8 +39,9 @@ export function findWords(roots, words) {
         if (
           word.length <= SHORT_WORD &&
           (isLetter(lower[at - 1]) || isLetter(lower[at + word.length]))
-        )
+        ) {
           continue;
+        }
         const start = map[at];
         const end = map[at + word.length - 1];
         if (!start || !end) continue;
@@ -94,10 +95,11 @@ function hiderOf(range) {
 function reveal(hider) {
   for (let at = hider; at; at = composedParent(at)) {
     if (at.tagName === "DETAILS") at.open = true;
-    if (at.hidden || at === hider)
+    if (at.hidden || at === hider) {
       at.dispatchEvent(
         new CustomEvent("plan:reveal", { bubbles: true, composed: true }),
       );
+    }
   }
 }
 
@@ -159,14 +161,16 @@ export function scrollToRange(range) {
       (page || /auto|scroll/.test(style.overflowX)) &&
       at.scrollWidth > at.clientWidth + 1 &&
       (box.left < own.left || box.right > own.right)
-    )
+    ) {
       at.scrollLeft += box.left + box.width / 2 - (own.left + own.right) / 2;
+    }
     if (
       (page || /auto|scroll/.test(style.overflowY)) &&
       at.scrollHeight > at.clientHeight + 1 &&
       (box.top < own.top || box.bottom > own.bottom)
-    )
+    ) {
       at.scrollTop += box.top + box.height / 2 - (own.top + own.bottom) / 2;
+    }
   }
 }
 
@@ -188,8 +192,11 @@ let timer = 0;
 let changedAt = 0;
 
 function clearMarked() {
-  for (const element of document.querySelectorAll(".search-matched, .matched"))
+  for (const element of document.querySelectorAll(
+    ".search-matched, .matched",
+  )) {
     element.classList.remove("search-matched", "matched");
+  }
 }
 // Most targets have an id, and a proposal or a control has its own attribute. A
 // page can draw a copy of a card, and that copy stays in the page while Work
@@ -212,10 +219,11 @@ export function targetElement(target) {
   return document.getElementById(target);
 }
 function matchRoots({ target }) {
-  if (!target)
+  if (!target) {
     return $("review-view").hidden
       ? [$("page-title"), $("page-content")]
       : [$("review-view")];
+  }
   // A figure's title and caption sit outside the element that has the id. A sent
   // note's words sit in the card the search window draws above its block.
   const element = targetElement(target);
@@ -240,12 +248,13 @@ export function markMatch() {
   const target = visibleRange(ranges, { open: active.drawn });
   clearMarked();
   const figure = target?.startContainer.parentElement?.closest("svg");
-  if (figure)
+  if (figure) {
     (
       target.startContainer.parentElement.closest(".pele-node") ?? figure
     ).classList.add("matched");
-  else if (!target && active.drawn)
+  } else if (!target && active.drawn) {
     roots.at(-1).classList.add("search-matched");
+  }
   highlight(
     "plan-search",
     ranges.filter((range) => inTab(range) || onScreen(range)),
@@ -272,8 +281,9 @@ function outsideFolds(root) {
     let fold = root.closest("details:not([open])");
     fold;
     fold = fold.parentElement?.closest("details:not([open])")
-  )
+  ) {
     outer = fold;
+  }
   return outer;
 }
 const showing = (match) => {
@@ -323,8 +333,9 @@ export function setMatch(words, target, text = "") {
   });
   window.addEventListener("plan:diff", changed);
   document.addEventListener("toggle", changed, true);
-  for (const type of readerInputs)
+  for (const type of readerInputs) {
     addEventListener(type, moved, { capture: true, passive: true });
+  }
   active.landed = whenDrawn(active);
 }
 // Resolves once the block has drawn, the words have been marked and the page has

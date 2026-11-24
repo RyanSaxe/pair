@@ -38,12 +38,15 @@ export async function seenStore(file, log) {
   let record = Object.fromEntries(records.map((name) => [name, null]));
   try {
     const saved = await read(file);
-    for (const name of records)
-      if (Array.isArray(saved[name]))
+    for (const name of records) {
+      if (Array.isArray(saved[name])) {
         record[name] = saved[name].filter((id) => typeof id === "string");
+      }
+    }
   } catch (error) {
-    if (error.code !== "ENOENT")
+    if (error.code !== "ENOENT") {
       log(`started without ${file}: ${error.message}`);
+    }
   }
   const write = serializer();
   // The hub answers requests before it loads every session from disk.
@@ -77,8 +80,9 @@ export async function seenStore(file, log) {
         "Send cleared, opened or cards, each as a list of IDs.",
       );
       const next = { ...record };
-      for (const [name, ids] of Object.entries(data))
+      for (const [name, ids] of Object.entries(data)) {
         next[name] = [...new Set([...(record[name] || []), ...ids])];
+      }
       await keep(pruned(next, sessions));
       return record;
     },

@@ -316,7 +316,7 @@ const words =
 for (const [where, filler, earlier] of [
   ["an earlier reply", "", shots + words.repeat(6)],
   ["the page above the thread", shots + words, words],
-])
+]) {
   test(`a reply opened from the bell on a phone stays in view while screenshots in ${where} load`, async (t) => {
     const s = await setup(t);
     await s.publish("1", filler + "<p>Filler paragraph.</p>".repeat(40));
@@ -354,6 +354,7 @@ for (const [where, filler, earlier] of [
     );
     await inView(page, id, 2);
   });
+}
 
 test("each Progress thread has one card, and Current's waiting card shows only a thread sent after the feedback", async (t) => {
   const s = await setup(t);

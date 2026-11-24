@@ -98,11 +98,12 @@ export function renderActivity() {
         })
       : null;
   $("finished-line").hidden = !finished;
-  if (finished)
+  if (finished) {
     $("finished-line").replaceChildren(
       pageIndicator("complete"),
       document.createTextNode(finished),
     );
+  }
   // The page's blocks move under the note bars when the card hides and
   // placeProgress collapses its threads, so renderActivity places the marks.
   if (wasHidden !== !visible) {
@@ -170,8 +171,9 @@ export function drawActivity(running) {
     segments.replaceChildren();
     rows.replaceChildren();
     drawn.clear();
-    for (const key of opened)
+    for (const key of opened) {
       if (!key.startsWith(`${round}:`)) opened.delete(key);
+    }
     if (model.track) {
       const track = document.createElement("i");
       track.className = `track ${model.track}`;
@@ -211,8 +213,9 @@ export function drawActivity(running) {
   }
   const handoff = $("activity-handoff");
   handoff.hidden = !model.failed;
-  if (model.failed && !handoff.firstChild)
+  if (model.failed && !handoff.firstChild) {
     handoff.append(handoffLine(remote.handoff));
+  }
 }
 function crumbTrail(crumbs) {
   return crumbs.flatMap((crumb, index) => {
@@ -252,11 +255,12 @@ async function copyReopen() {
   renderHistory();
 }
 function drawHistoryLabel(label, { old, past, parent, unreachable }) {
-  if (unreachable)
+  if (unreachable) {
     return label.replaceChildren(
       "The hub is unreachable. Your draft is saved in this browser.",
     );
-  if (copyResult)
+  }
+  if (copyResult) {
     return label.replaceChildren(
       ...crumbTrail([
         copyResult === "Copied"
@@ -264,6 +268,7 @@ function drawHistoryLabel(label, { old, past, parent, unreachable }) {
           : "Paste this into any agent to reopen",
       ]),
     );
+  }
   if (old && session.closed) {
     const name = document.createElement("b");
     name.textContent = plan.title;

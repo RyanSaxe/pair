@@ -73,8 +73,9 @@ export function detectAgent(
       ...(hookInput && adapter.hookVariables?.(hookInput)),
       ...env,
     };
-    if (!adapter.variables.every((name) => seen[name]))
+    if (!adapter.variables.every((name) => seen[name])) {
       throw new Error(adapter.unwakeable);
+    }
     return adapter.detect(seen, { ...tools, ancestor });
   }
   return null;

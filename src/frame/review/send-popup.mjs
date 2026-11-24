@@ -131,10 +131,11 @@ export function openSend() {
   const loads = pages
     .filter((item) => item.pending && typedOn(item.id))
     .map((item) => loadPageRecord(plan.round, item.id).catch(() => {}));
-  if (loads.length)
+  if (loads.length) {
     void Promise.all(loads).then(() => {
       if ($("send-dialog").open) showNotAdded();
     });
+  }
 }
 function send() {
   if ($("send-button").disabled) return;

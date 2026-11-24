@@ -72,10 +72,12 @@ export function finishedStep(proposals, directory) {
   const ids = proposals
     .filter((card) => proposalState(card) === "running" && !partsLeft(card))
     .map((card) => card.id);
-  if (ids.length === 1)
+  if (ids.length === 1) {
     return `Proposal ${ids[0]} has no part left. After you publish the page that shows its work, run pair propose --session-dir ${directory} --id ${ids[0]} --done.`;
-  if (ids.length)
+  }
+  if (ids.length) {
     return `Proposals ${ids.slice(0, -1).join(", ")} and ${ids.at(-1)} have no part left. After you publish the page that shows each one's work, run pair propose --session-dir ${directory} --id ID --done for it.`;
+  }
   return null;
 }
 
@@ -102,16 +104,16 @@ export function quiet(session) {
   const idleSince = () =>
     Math.max(loadedAt, Date.parse(session.state.holder?.commandAt) || 0);
   const items = (now) =>
-    !accepts(session.state, "wake")
-      ? []
-      : quietItems(
+    accepts(session.state, "wake")
+      ? quietItems(
           {
             openRound: session.state.openRound,
             proposals: session.proposalItems(),
           },
           now,
           config.quietMs,
-        );
+        )
+      : [];
   const finishedLine = () =>
     accepts(session.state, "wake")
       ? finishedStep(session.proposalItems(), directory)

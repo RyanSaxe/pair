@@ -24,8 +24,9 @@ async function removeCopy(copy) {
     const entries = await fs
       .readdir(copy, { withFileTypes: true })
       .catch(() => []);
-    for (const entry of entries)
+    for (const entry of entries) {
       if (entry.isDirectory()) await removeCopy(path.join(copy, entry.name));
+    }
   }
   await fs.rm(copy, { recursive: true, force: true });
 }
@@ -137,8 +138,9 @@ const heard = (response, origin) =>
 // followHub runs ensureHub only when the hub that answered is that
 // environment's hub. A hub too old to send its version stays as it is.
 export async function followHub() {
-  if (hubChecked() || !answered?.version || answered.version === version)
+  if (hubChecked() || !answered?.version || answered.version === version) {
     return;
+  }
   const config = settings();
   const record = await readRecord(config);
   if (`http://127.0.0.1:${record?.port}` !== answered.origin) return;
@@ -239,8 +241,13 @@ export async function openSession(options, { anyAgent = false } = {}) {
       mayHaveActed = true;
       throw error;
     }
-    if (retry && response.status === 404 && result.error === "Unknown session")
+    if (
+      retry &&
+      response.status === 404 &&
+      result.error === "Unknown session"
+    ) {
       return reattach();
+    }
     if (response.status >= 500) mayHaveActed = true;
     requireValue(
       response.ok,
@@ -295,47 +302,54 @@ export async function start(options) {
   requireNode();
   const resuming = options["session-dir"] !== undefined;
   const from = options.from !== undefined;
-  if (from && (resuming || options.title !== undefined))
+  if (from && (resuming || options.title !== undefined)) {
     throw usageError(
       "start",
       "pair start --from takes no --title and no --session-dir. It creates a session with the proposal's title.",
     );
-  if (from !== (options.proposal !== undefined))
+  }
+  if (from !== (options.proposal !== undefined)) {
     throw usageError(
       "start",
       from
         ? "pair start --from takes --proposal ID, the proposal the new session runs."
         : "pair start takes --proposal only with --from.",
     );
-  if (resuming && options.title !== undefined)
+  }
+  if (resuming && options.title !== undefined) {
     throw usageError(
       "start",
       "pair start takes --title only when it creates a session, not with --session-dir.",
     );
-  if (options.reopen && !resuming)
+  }
+  if (options.reopen && !resuming) {
     throw usageError(
       "start",
       "pair start takes --reopen only with --session-dir, the session to reopen.",
     );
-  if (!resuming && !from && !options.title?.trim())
+  }
+  if (!resuming && !from && !options.title?.trim()) {
     throw usageError(
       "start",
       "pair start requires --title TEXT when it creates a session.",
     );
+  }
   const config = settings();
   const wake = detectWake();
-  if (wake.harness === "codex" && !(await rulesExist()))
+  if (wake.harness === "codex" && !(await rulesExist())) {
     throw new Error(codexRefusal(rulesFile));
+  }
   const directory = resuming
     ? path.resolve(options["session-dir"])
     : path.join(config.sessions, crypto.randomUUID());
   // The hub creates a session in any directory it is given, so a mistyped
   // --session-dir would start a new session there, outside sessions/.
-  if (resuming)
+  if (resuming) {
     requireValue(
       await exists(path.join(directory, "status.json")),
       `No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.`,
     );
+  }
   const started = await attach(directory, config, {
     wake,
     start: true,
@@ -386,14 +400,16 @@ export async function publish(options) {
     );
   });
   const action = { action: "publish", html };
-  if (options.pages)
+  if (options.pages) {
     action.pages = (await read(path.resolve(options.pages))).pages;
+  }
   if (options.start) action.start = options.start;
   if (options.note !== undefined) action.note = options.note;
   const [tooBig] = tooBigToPublish(file, action);
   requireValue(!tooBig, tooBig);
-  if (options.source)
+  if (options.source) {
     action.source = await keepSource(session.directory, options.source, html);
+  }
   let result;
   try {
     result = await session.request(action);
@@ -438,8 +454,9 @@ export async function publish(options) {
 export async function runHub() {
   requireNode();
   const hub = await startHub(settings());
-  for (const signal of ["SIGTERM", "SIGINT"])
+  for (const signal of ["SIGTERM", "SIGINT"]) {
     process.once(signal, () => hub.close());
+  }
   await hub.closed;
   process.exit(0);
 }

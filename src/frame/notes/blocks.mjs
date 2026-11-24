@@ -32,8 +32,9 @@ function pageBlock(node) {
     let at = node?.nodeType === 1 ? node : node?.parentElement;
     at && at !== root;
     at = composedParent(at)
-  )
+  ) {
     if (at.parentElement === root) return at;
+  }
   return null;
 }
 function selectionTarget(node, block, diffLine) {
@@ -41,8 +42,9 @@ function selectionTarget(node, block, diffLine) {
     let at = node?.nodeType === 1 ? node : node?.parentElement;
     at && at.id !== "page-content";
     at = composedParent(at)
-  )
+  ) {
     if (at.id) return at.id;
+  }
   if (!diffLine || !block) return block?.id || null;
   if (!block.id) {
     const root = $("page-content");
@@ -64,8 +66,9 @@ function insideThread(node) {
     let at = node?.nodeType === 1 ? node : node?.parentElement;
     at;
     at = composedParent(at)
-  )
+  ) {
     if (at.localName === "pair-thread") return true;
+  }
   return false;
 }
 // The frame treats every other direct child of the page content as a block
@@ -92,8 +95,9 @@ export const blockSkip = new Set([
 ]);
 function headingAbove(block) {
   let previous = block.previousElementSibling;
-  while (previous && !/^H[1-6]$/.test(previous.tagName))
+  while (previous && !/^H[1-6]$/.test(previous.tagName)) {
     previous = previous.previousElementSibling;
+  }
   return previous;
 }
 const sentence = (kind) =>
@@ -149,11 +153,11 @@ const units =
   "#work-cards > [data-proposal-card], #page-content .agreement-card, #page-content > *";
 export function choosable() {
   if (!$("review-view").hidden) return [];
-  const found = !$("work-view").hidden
-    ? $("work-cards").querySelectorAll(":scope > [data-proposal-card]")
-    : page.id === "agreed"
+  const found = $("work-view").hidden
+    ? page.id === "agreed"
       ? $("page-content").querySelectorAll(".agreement-card")
-      : $("page-content").children;
+      : $("page-content").children
+    : $("work-cards").querySelectorAll(":scope > [data-proposal-card]");
   return [...found].filter(
     (unit) => !blockSkip.has(unit.tagName) && unit.offsetParent,
   );
@@ -161,8 +165,9 @@ export function choosable() {
 function unitAt(node) {
   if (node.closest("pair-thread")) return null;
   const unit = node.closest(units);
-  if (unit?.closest("#page-content") && page.id === "agreed")
+  if (unit?.closest("#page-content") && page.id === "agreed") {
     return unit.matches(".agreement-card") ? unit : null;
+  }
   return unit && !blockSkip.has(unit.tagName) ? unit : null;
 }
 const cardOf = (unit) =>
@@ -284,7 +289,7 @@ function chosenNote() {
   /* A note on a proposal includes the card's ID, so the note's Start a
      thread starts the card's own thread. On a page the note also includes
      the component's ID, so Review can open the page at the component. */
-  if (card)
+  if (card) {
     return onWork
       ? { topic: "work", anchor: card.title, proposal: card.id }
       : {
@@ -293,6 +298,7 @@ function chosenNote() {
           proposal: card.id,
           target: chosen.id,
         };
+  }
   if (chosen.matches(".agreement-card")) {
     const entry =
       chosen.id === "agreement-task"
@@ -320,12 +326,12 @@ export function commentOnTarget() {
   if (!usable(on)) return;
   if (on === "overall") openNote({ topic: "overall", anchor: "Overall" });
   else if (on === "work") openNote({ topic: "work", anchor: "Work" });
-  else if (on === "selection" && selectedBox)
+  else if (on === "selection" && selectedBox) {
     commentOn(selectedBox.diagram, {
       quote: selectedBox.label,
       diagramNode: selectedBox.id,
     });
-  else if (on === "selection")
+  } else if (on === "selection") {
     openNote({
       topic: page.id,
       anchor: page.title,
@@ -334,7 +340,7 @@ export function commentOnTarget() {
       occurrence: selectedOccurrence(getSelection(), selected, selectedTarget),
       diffLine: selectedDiffLine,
     });
-  else if (on === "block") openNote(chosenNote());
+  } else if (on === "block") openNote(chosenNote());
   else openNote({ topic: page.id, anchor: page.title });
   chooseBlock(null);
 }
@@ -360,8 +366,9 @@ function chooseUnit(event) {
   if (!editable || (!$("reading").hidden && page.pending)) return;
   if (
     event.target.closest("button, a, input, label, select, textarea, summary")
-  )
+  ) {
     return;
+  }
   if (getSelection()?.toString().trim()) return;
   const unit = unitAt(event.target);
   if (unit && !opens(unit)) return;

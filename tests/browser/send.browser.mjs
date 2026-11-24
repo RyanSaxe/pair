@@ -142,7 +142,7 @@ test("a send the hub refuses shows the hub's reason, and the message stays in th
 for (const [width, viewport] of [
   ["a wide window", { width: 1280, height: 800 }],
   ["375px", { width: 375, height: 740 }],
-])
+]) {
   test(`Send as a message at ${width} starts a progress thread, and only the message leaves the draft`, async (t) => {
     const { session, page } = await openRound(t, { viewport });
     if (!page) return;
@@ -176,6 +176,7 @@ for (const [width, viewport] of [
     await openPopup(page);
     assert.equal(await page.locator("#send-message").inputValue(), "");
   });
+}
 
 test("a refused send with no typed message does not offer Send as a message", async (t) => {
   const { session, page } = await openRound(t);

@@ -49,10 +49,12 @@ export function agent(session) {
     if (isClosed(session.state)) return closed;
     const [event] = await pending();
     if (event) return `Run ${command("read")} to see what your user sent.`;
-    if (lifecycle(session.state) === "paused")
+    if (lifecycle(session.state) === "paused") {
       return `You paused this session. Tell the reviewer, and when they ask you to continue, run ${command("start")}.`;
-    if (!session.state.current)
+    }
+    if (!session.state.current) {
       return "Publish Agreed with round 1's page list, using pair publish, within a few minutes and before you research or write any other page.";
+    }
     if (session.state.openRound) {
       const slots = session.state.openRound.pages.filter(
         (slot) => !slot.recordPath,
@@ -67,8 +69,9 @@ export function agent(session) {
         : " None of them has started, so run pair progress --page ID for the page you work on next.";
       return `You still have to publish these pages: ${left.join(", ")}.${none} When you begin any work a page will report, such as the code it describes or what it measures, and at least every five minutes while you or a subagent do that work, run pair progress --page ID --note "…". Publish each page with pair publish as soon as pair build has built it, with --start ID for the page you work on next while other pages are left.`;
     }
-    if (session.stage() === "working")
+    if (session.stage() === "working") {
       return "Edit Agreed's task and alignments to match this feedback. Then publish Agreed with the round's page list, using pair publish, within a few minutes and before you research or write any other page.";
+    }
     const { round } = session.state.current;
     // Work started here after the agent published this round's page list has
     // no page in the round, so the agent builds it now for the next round.
@@ -103,10 +106,11 @@ export function agent(session) {
     } catch (error) {
       return { at: timestamp(), ok: false, reason: error.message };
     }
-    if (result.steerable !== undefined && session.state.holder)
+    if (result.steerable !== undefined && session.state.holder) {
       await transition({
         holder: { ...session.state.holder, steerable: result.steerable },
       });
+    }
     return {
       at: timestamp(),
       ok: true,
@@ -210,12 +214,13 @@ export function agent(session) {
       !start &&
       session.state.holder &&
       !sameAgent(session.state.holder, caller)
-    )
+    ) {
       requireValue(
         false,
         `Another agent has run this session since ${clock(session.state.holder.at)}, so stop working on it. If the reviewer asks you to take it over, run ${command("start")}.`,
         409,
       );
+    }
   }
   // act and hold record the time of each command from the holder, which
   // wakeState and the quiet check read. A closed session has no wake to
@@ -250,11 +255,12 @@ export function agent(session) {
   // here that is not done, so the agent keeps building that work in the round
   // the feedback begins.
   function eventRead(event) {
-    if (event.payload.intent !== "start")
+    if (event.payload.intent !== "start") {
       return {
         moment: ["read-feedback", choiceMoment(event.payload)].filter(Boolean),
         running: startedHere(),
       };
+    }
     return {
       moment: `read-start-${event.payload.where}`,
       proposal: session
@@ -288,7 +294,7 @@ export function agent(session) {
     const [event] = await pending();
     const declined = await session.reportDeclined();
     const closedCards = await session.reportClosed();
-    if (!event)
+    if (!event) {
       return {
         status: view(),
         ...readAnswer(null, submissionBefore()),
@@ -296,6 +302,7 @@ export function agent(session) {
         closed: closedCards,
         next: await nextStep(),
       };
+    }
     const patch = {
       ...report(),
       ...receive(event),
@@ -410,8 +417,9 @@ export function agent(session) {
       !Object.hasOwn(adapters, target.harness) ||
       !sameAgent(identify(target), session.state.holder) ||
       isDeepStrictEqual(target, session.wake)
-    )
+    ) {
       return;
+    }
     await atomic(session.wakeFile, target);
     session.wake = target;
   }
@@ -477,7 +485,7 @@ export function agent(session) {
     };
     // The frame shows takeover on the reviewer's progress card until submit
     // clears it.
-    if (!same && held)
+    if (!same && held) {
       Object.assign(patch, report(), {
         takeover: { name: adapters[caller.harness].name, at },
         formerHolders: [
@@ -485,20 +493,23 @@ export function agent(session) {
           { harness: held.harness, id: held.id, until: at },
         ],
       });
+    }
     await transition(patch);
     if (!wasLive && live()) await session.heldSent();
-    if (start && !held && !session.state.current)
+    if (start && !held && !session.state.current) {
       await session.addActivity({
         kind: "session",
         agent: adapters[target.harness].name,
       });
-    if (start && created)
+    }
+    if (start && created) {
       return {
         moment: session.state.parent
           ? ["start", session.plansFirst() ? "start-from-plan" : "start-from"]
           : "start",
         next: await nextStep(),
       };
+    }
     const next = start && (await nextStep());
     if (!next) return {};
     const moment = reopening ? { moment: "start-reopen" } : {};

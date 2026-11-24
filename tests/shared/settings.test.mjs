@@ -13,10 +13,11 @@ async function copyPackage(t) {
   const { files } = JSON.parse(
     await fs.readFile(path.join(root, "package.json"), "utf8"),
   );
-  for (const entry of ["package.json", ...files])
+  for (const entry of ["package.json", ...files]) {
     await fs.cp(path.join(root, entry), path.join(copy, entry), {
       recursive: true,
     });
+  }
   return copy;
 }
 
@@ -70,12 +71,14 @@ test("PAIR_HUB_HOST refuses every spelling of the unspecified address", () => {
     "[::]",
     "0:0:0:0:0:0:0:0",
     "::ffff:0.0.0.0",
-  ])
+  ]) {
     assert.throws(() => settings({ PAIR_HUB_HOST: host }), {
       message: `PAIR_HUB_HOST is ${host}, which would make the hub reachable from every network this machine is on. Set it to this machine's address on a network you trust.`,
     });
-  for (const host of ["100.64.1.2", "fd7a:115c:a1e0::1", "mac.tail1.ts.net"])
+  }
+  for (const host of ["100.64.1.2", "fd7a:115c:a1e0::1", "mac.tail1.ts.net"]) {
     assert.equal(settings({ PAIR_HUB_HOST: host }).host, host);
+  }
 });
 
 // Each range in engines.node gives the lowest supported release of one Node

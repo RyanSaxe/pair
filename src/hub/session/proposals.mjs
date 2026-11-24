@@ -43,12 +43,13 @@ export async function proposals(session) {
   const folder = path.join(directory, "proposals");
   const cards = new Map();
   try {
-    for (const name of (await fs.readdir(folder)).toSorted())
+    for (const name of (await fs.readdir(folder)).toSorted()) {
       if (name.endsWith(".json")) {
         const card = await read(path.join(folder, name));
         if (card.status) card.status = loadedStatus(card.status);
         cards.set(card.id, card);
       }
+    }
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
   }
@@ -147,10 +148,12 @@ export async function proposals(session) {
         .filter((name) => data[name] !== undefined)
         .map((name) => [name, words(data, name)]),
     );
-    if (data.recommend !== undefined)
+    if (data.recommend !== undefined) {
       patch.recommend = place(data.recommend, "--recommend");
-    if (data.thread !== undefined || data.page !== undefined)
+    }
+    if (data.thread !== undefined || data.page !== undefined) {
       patch.source = source(data);
+    }
     requireValue(
       Object.keys(patch).length,
       "--revise takes a field to change: --title, --delivers, --recommend, --page or --thread",
@@ -208,8 +211,9 @@ export async function proposals(session) {
     );
   }
   const wakeLater = (id) => {
-    if (session.wake && accepts(session.state, "wake"))
+    if (session.wake && accepts(session.state, "wake")) {
       setTimeout(() => session.exclusive(() => wakeFor(id)), 0);
+    }
   };
   const listed = () => ({ proposals: proposalItems() });
   // For a new agent, startProposal returns the command the reviewer pastes
@@ -272,14 +276,7 @@ export async function proposals(session) {
     const card = find(id);
     const text = message(data);
     const plan = planFirst(data, "new-agent");
-    if (!card.started)
-      await start(card, {
-        where: "new-agent",
-        by: "reviewer",
-        ...(text ? { message: text } : {}),
-        ...plan,
-      });
-    else
+    if (card.started) {
       requireValue(
         allows(card, "openAgent") && card.started.where === "new-agent",
         card.started.session
@@ -287,6 +284,14 @@ export async function proposals(session) {
           : `Proposal ${id} was already started`,
         409,
       );
+    } else {
+      await start(card, {
+        where: "new-agent",
+        by: "reviewer",
+        ...(text ? { message: text } : {}),
+        ...plan,
+      });
+    }
     const holder = launcher();
     if (holder && !text) {
       // The new session registers under the card's ID, the name that launch
@@ -342,8 +347,9 @@ export async function proposals(session) {
   async function restoreProposal(id) {
     open();
     const card = find(id);
-    if (allows(card, "restore"))
+    if (allows(card, "restore")) {
       await save(card, { declined: null, withdrawn: null });
+    }
     return listed();
   }
   async function withdraw(card, data) {
@@ -404,8 +410,9 @@ export async function proposals(session) {
     notWritten(card, "join");
     const task = find(data.join);
     joinable(card, task);
-    for (const item of joinedInto(card.id))
+    for (const item of joinedInto(card.id)) {
       await save(item, { done: { ...item.done, joined: task.id } });
+    }
     return save(card, {
       done: {
         at: timestamp(),
@@ -436,8 +443,9 @@ export async function proposals(session) {
     const change = statusChange(data);
     const card = statusable(find(id));
     const parts = changedParts(card, change);
-    if (JSON.stringify(parts) === JSON.stringify(card.status?.parts))
+    if (JSON.stringify(parts) === JSON.stringify(card.status?.parts)) {
       return card;
+    }
     return save(card, { status: { at: timestamp(), parts } });
   }
   // Any agent can run pair propose. holder is true when the session's holder
@@ -461,10 +469,11 @@ export async function proposals(session) {
     const unreported = proposalItems().filter(
       (card) => proposalState(card) === "declined" && !card.declined.reported,
     );
-    for (const card of unreported)
+    for (const card of unreported) {
       await save(card, {
         declined: { ...card.declined, reported: timestamp() },
       });
+    }
     return unreported;
   }
   // Starting a card is the reviewer's instruction to do the work, so
@@ -492,8 +501,9 @@ export async function proposals(session) {
       !card ||
       !allows(card, "close") ||
       card.started.session.id !== sessionId
-    )
+    ) {
       return;
+    }
     await save(card, { done: { at: timestamp(), by: "close" } });
   }
   // The linked session runs again, so its card is no longer done. A later close
@@ -504,14 +514,20 @@ export async function proposals(session) {
       !card ||
       !allows(card, "reopenSession") ||
       card.started.session.id !== sessionId
-    )
+    ) {
       return;
+    }
     await save(card, { done: null });
   }
   async function built(id, sessionId) {
     const card = cards.get(id);
-    if (!card || card.started?.session?.id !== sessionId || card.started.built)
+    if (
+      !card ||
+      card.started?.session?.id !== sessionId ||
+      card.started.built
+    ) {
       return;
+    }
     await save(card, { started: { ...card.started, built: timestamp() } });
   }
   // The hub sends no wake when a linked session closes, so pair read prints
@@ -520,8 +536,9 @@ export async function proposals(session) {
     const unreported = proposalItems().filter(
       (card) => proposalState(card) === "closed" && !card.done.reported,
     );
-    for (const card of unreported)
+    for (const card of unreported) {
       await save(card, { done: { ...card.done, reported: timestamp() } });
+    }
     return unreported;
   }
   return {

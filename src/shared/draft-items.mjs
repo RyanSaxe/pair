@@ -22,12 +22,15 @@ export function splitKey(key) {
 // frame's draftItems().
 export function sentItems({ groups }) {
   const sent = [];
-  for (const note of groups.notes || [])
+  for (const note of groups.notes || []) {
     sent.push([itemKey("note", note.id), note]);
-  for (const [key, choice] of Object.entries(groups.choices || {}))
+  }
+  for (const [key, choice] of Object.entries(groups.choices || {})) {
     sent.push([itemKey("choice", key), choice]);
-  for (const [key, answer] of Object.entries(groups.answers || {}))
+  }
+  for (const [key, answer] of Object.entries(groups.answers || {})) {
     sent.push([itemKey("answer", key), answer]);
+  }
   if (groups.alignUnflagged === false) sent.push(["alignUnflagged", false]);
   return sent;
 }

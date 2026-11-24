@@ -30,8 +30,9 @@ test("pair start under Codex refuses until the allow rule exists, and pair setup
   });
   await assert.rejects(cli.start(), (error) => {
     assert.equal(error.code, 1);
-    for (const part of [rules, "pair setup-codex"])
+    for (const part of [rules, "pair setup-codex"]) {
       assert(error.stderr.includes(part), error.stderr);
+    }
     return true;
   });
   assert.equal(await exists(cli.config.sessions), false);
@@ -151,13 +152,14 @@ function idleQueue({ interrupted, start }) {
     },
     "thread/queue/start": ({ queuedSubmissionId }) => {
       const index = queue.findIndex(({ id }) => id === queuedSubmissionId);
-      if (index < 0)
+      if (index < 0) {
         return {
           error: {
             code: -32600,
             message: `queued submission not found: ${queuedSubmissionId}`,
           },
         };
+      }
       if (start) return start;
       queue.splice(index, 1);
       return { turn: { id: "turn-3", status: "inProgress", items: [] } };
@@ -243,8 +245,9 @@ test("a Codex wake for a spawned subagent goes to its parent thread", async (t) 
     });
   const relayed = (text) => {
     assert(text.endsWith(`\n\n${line}`), text);
-    for (const part of ["Dalton", `target ${thread}`, "followup_task"])
+    for (const part of ["Dalton", `target ${thread}`, "followup_task"]) {
       assert(text.includes(part), text);
+    }
   };
 
   const steered = await daemon(turnInProgress(parent, "turn-7"));
@@ -338,10 +341,11 @@ test("pair message finds a Codex subagent by its nickname or its name, and names
     }),
   });
   const target = { harness: "codex", thread, socket: daemon.socket };
-  for (const name of ["echo", "goodall"])
+  for (const name of ["echo", "goodall"]) {
     assert.equal(
       await codex.subagentTool(target, name),
       "followup_task and target /root/echo",
     );
+  }
   await assert.rejects(codex.subagentTool(target, "reviewer"), /echo/);
 });

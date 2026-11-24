@@ -27,8 +27,9 @@ async function main(argv) {
   // The --help check runs before parse(), so --help prints the help even beside
   // arguments that parse() would refuse. A --help that a command forwards to
   // the program it starts is that program's.
-  if (ownWords(command).includes("--help"))
+  if (ownWords(command).includes("--help")) {
     return process.stdout.write(helpText(command));
+  }
   const options = parse(command);
   const output = await command.entry.run(options);
   if (output) await print(output, { json: options.json, command: name });

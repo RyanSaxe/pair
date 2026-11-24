@@ -92,8 +92,9 @@ async function loadPastSubmission(round) {
   // show() redraws with keepScroll and the address's target, so the reader's
   // place, or a landing still under way, survives the redraw.
   const target = new URLSearchParams(location.search).get("target");
-  if (!$("reading").hidden)
+  if (!$("reading").hidden) {
     show(page.id, target, { keepScroll: true, push: false });
+  }
   renderSentFeedback();
   renderHistory();
 }
@@ -113,8 +114,9 @@ export async function loadSubmission() {
   // submission.
   if (mode === "readonly" && submission) {
     showSent(state, submission);
-    if (!$("reading").hidden)
+    if (!$("reading").hidden) {
       show(page.id, null, { keepScroll: true, push: false });
+    }
   }
   renderSentFeedback();
 }
@@ -144,8 +146,9 @@ export async function loadPageRecord(round, id) {
     const response = await fetch(url);
     if (!response.ok) throw Error("Could not load this page.");
     const record = await response.json();
-    if (record.round !== round || record.page.id !== id)
+    if (record.round !== round || record.page.id !== id) {
       throw Error("Wrong page record.");
+    }
     const entry = view.pages.find((item) => item.id === id);
     if (id === "agreed") {
       // Agreed's source marks a plan round, so loadPageRecord sets
@@ -165,8 +168,9 @@ export async function loadPageRecord(round, id) {
         const moduleUrl = URL.createObjectURL(blob);
         try {
           ({ setup } = await import(moduleUrl));
-          if (typeof setup !== "function")
+          if (typeof setup !== "function") {
             throw Error("Page setup is unavailable.");
+          }
         } finally {
           URL.revokeObjectURL(moduleUrl);
         }
@@ -182,11 +186,13 @@ export async function loadPageRecord(round, id) {
         style.textContent = `@layer plan { @scope (#page-content[data-page-id="${id}"][data-round="${round}"]) { ${record.page.cssText} } }`;
         document.head.append(style);
       }
-      if (setup)
+      if (setup) {
         window.addEventListener("plan:page", ({ detail }) => {
-          if (detail.page.id === id && detail.round === round)
+          if (detail.page.id === id && detail.round === round) {
             setup(detail.element, window.planUI);
+          }
         });
+      }
     }
     if (
       displayedRound === round &&
@@ -241,8 +247,9 @@ function reconcilePages(view, manifest) {
     entry.status = slot.state;
     entry.working = slot.state === "active";
     if (slot.state !== "ready") entry.pending = true;
-    if (slot.state === "ready" && !entry.loaded && slot.id !== "agreed")
+    if (slot.state === "ready" && !entry.loaded && slot.id !== "agreed") {
       entry.pending = true;
+    }
   }
   view.pages = manifest.pages.map((slot) =>
     view.pages.find((item) => item.id === slot.id),
@@ -309,8 +316,9 @@ async function syncPageSet() {
       updateNavigation();
       if (displayedRound === round) {
         const selected = manifest.pages.find((item) => item.id === page.id);
-        if (selected?.state === "ready" && page.pending)
+        if (selected?.state === "ready" && page.pending) {
           void loadPageRecord(round, page.id).catch(() => {});
+        }
       }
     } else updateNavigation();
   })().finally(() => {
@@ -396,13 +404,14 @@ const viewFor = (tab) => {
     : views.get(round);
 };
 export function listedPages() {
-  if (listedTab === selectedTab)
+  if (listedTab === selectedTab) {
     return {
       tab: selectedTab,
       round: plan.round,
       pages,
       waiting: showingWaiting(),
     };
+  }
   const view = viewFor(listedTab);
   return {
     tab: listedTab,
@@ -458,8 +467,9 @@ export async function poll() {
     if (result.sessionId !== session.sessionId) throw Error("Wrong session");
     remote = result;
     connected = true;
-    if (editable && !submittedRound)
+    if (editable && !submittedRound) {
       setSubmittedRound(state.submitted?.round || remote.latestSubmissionRound);
+    }
     if (editable && !pastRound) setPastRound(submittedRound || null);
     // A read-only page stays on its own round. The next poll retries a
     // failed page-set fetch, and the failure does not mean that the hub is
@@ -480,21 +490,22 @@ export async function poll() {
         const address = new URLSearchParams(location.search);
         const target = address.get("target");
         const match = address.get("match");
-        if (!onWork && (target || match) && !onCurrentAgreed(target))
+        if (!onWork && (target || match) && !onCurrentAgreed(target)) {
           await openPast(submittedRound, {
             pageId: shownPage(),
             targetId: target,
             match,
             push: false,
           });
-        else {
+        } else {
           switchTab("current", null, { showPage: !onWork });
-          if (onWork)
+          if (onWork) {
             show("work", null, {
               keepScroll: true,
               push: false,
               inPlace: true,
             });
+          }
         }
       }
     }

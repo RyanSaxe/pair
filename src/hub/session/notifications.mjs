@@ -6,9 +6,9 @@ import { parse, textOf } from "../search/html.mjs";
    The frame asks for notificationView only while that window is open. */
 const lineLength = 160;
 const clipped = (message) =>
-  (message.text !== undefined
-    ? message.text
-    : textOf(parse(message.html ?? ""))
+  (message.text === undefined
+    ? textOf(parse(message.html ?? ""))
+    : message.text
   ).slice(0, lineLength);
 
 // A card's fields hold more than the frame shows on a row, such as a reason, so

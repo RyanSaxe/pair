@@ -253,8 +253,9 @@ export async function startHub(config = settings()) {
       const text = json(value);
       const hash = crypto.createHash("sha256").update(text).digest("base64url");
       const tag = `W/"${hash}"`;
-      if (req.headers["if-none-match"] !== tag)
+      if (req.headers["if-none-match"] !== tag) {
         return reply(200, text, { headers: { ETag: tag } });
+      }
       res.writeHead(304, { ETag: tag, "Cache-Control": "no-store" });
       res.end();
     };
@@ -288,9 +289,10 @@ export async function startHub(config = settings()) {
           }),
         );
       }
-      if (method === "GET" && url.pathname === "/api/search/sessions")
+      if (method === "GET" && url.pathname === "/api/search/sessions") {
         return reply(200, { sessions: await search.sessionChoices() });
-      if (method === "GET" && url.pathname === "/api/hub")
+      }
+      if (method === "GET" && url.pathname === "/api/hub") {
         return reply(200, {
           app: "pair",
           hub: true,
@@ -302,14 +304,17 @@ export async function startHub(config = settings()) {
           root: packageRoot,
           live: active().length,
         });
-      if (method === "GET" && url.pathname === "/api/sessions")
+      }
+      if (method === "GET" && url.pathname === "/api/sessions") {
         return polled(await sessionList(req));
-      if (method === "GET" && url.pathname === "/api/notifications")
+      }
+      if (method === "GET" && url.pathname === "/api/notifications") {
         return reply(200, {
           sessions: Object.fromEntries(
             open().map((session) => [session.id, session.notificationView()]),
           ),
         });
+      }
       if (method === "POST" && url.pathname === "/api/seen") {
         sameOrigin(req);
         const data = await readBody(req, 250_000);
@@ -330,11 +335,12 @@ export async function startHub(config = settings()) {
           (remembered && !isClosed(remembered.state) ? last : null) ||
           sessions.find((item) => !item.closed)?.url ||
           last;
-        if (target)
+        if (target) {
           return reply(302, "", {
             type: "text/plain",
             headers: { Location: target },
           });
+        }
         return html(
           '<!doctype html><title>pair</title><p style="font: 14px system-ui; margin: 40px">No live sessions.</p>',
         );
@@ -365,8 +371,9 @@ export async function startHub(config = settings()) {
         const requested = path.resolve(data.sessionDir);
         const { session, created, card, joined } = await register(async () => {
           const isNew = !(await exists(path.join(requested, "status.json")));
-          if (data.from === undefined)
+          if (data.from === undefined) {
             return { created: isNew, session: await adopt(requested) };
+          }
           return {
             created: isNew,
             ...(await startFrom(adopt, {
@@ -425,11 +432,12 @@ export async function startHub(config = settings()) {
         if (method !== "GET") sameOrigin(req);
         const rest = parts.slice(2);
         const round = () => decodeURIComponent(rest[1]);
-        if (method === "GET" && parts.length === 2)
+        if (method === "GET" && parts.length === 2) {
           return reply(302, "", {
             type: "text/plain",
             headers: { Location: session.base + "/" },
           });
+        }
         if (method === "GET" && rest.length === 1 && rest[0] === "") {
           // The hub serves a session the reviewer closed as read-only, so a
           // tab left open on it cannot submit and wake an agent that has
@@ -441,13 +449,14 @@ export async function startHub(config = settings()) {
             : firstAnswersHead(
                 await firstAnswers(session, await sessionList(req)),
               );
-          if (!session.state.current)
+          if (!session.state.current) {
             return html(
               framePage(session, await assembleHome(session.listing().title), {
                 flags: { home: true, ...flags },
                 head,
               }),
             );
+          }
           // A closed session's frame shows one round, so an older round opens at
           // its own address.
           const wanted = url.searchParams.get("round");
@@ -467,7 +476,7 @@ export async function startHub(config = settings()) {
             "Set-Cookie": `pair-last=${session.id}; Path=/; SameSite=Strict; Max-Age=2592000`,
           });
         }
-        if (method === "GET" && rest[0] === "r" && rest.length === 2)
+        if (method === "GET" && rest[0] === "r" && rest.length === 2) {
           return html(
             await roundPage(session, session.roundEntry(round()), {
               flags: {
@@ -476,6 +485,7 @@ export async function startHub(config = settings()) {
               },
             }),
           );
+        }
         if (method === "GET" && rest[0] === "embed" && rest.length === 2) {
           const wanted =
             round() === "latest" ? session.state.current?.round : round();
@@ -484,12 +494,13 @@ export async function startHub(config = settings()) {
             headers: { "Content-Encoding": "gzip" },
           });
         }
-        if (method === "GET" && rest[0] === "preview" && rest.length === 2)
+        if (method === "GET" && rest[0] === "preview" && rest.length === 2) {
           return html(
             await roundPage(session, session.roundEntry(round()), {
               flags: { preview: true },
             }),
           );
+        }
         if (
           method === "GET" &&
           rest[0] === "r" &&
@@ -505,8 +516,9 @@ export async function startHub(config = settings()) {
               "sandbox allow-scripts allow-forms allow-popups",
           });
         }
-        if (method === "GET" && rest[0] === "api" && rest[1] === "status")
+        if (method === "GET" && rest[0] === "api" && rest[1] === "status") {
           return polled({ ...session.browserView(), hubVersion: version });
+        }
         // The hub only appends a thread's messages, so an address always names
         // the same image, and the browser keeps it.
         if (
@@ -539,9 +551,10 @@ export async function startHub(config = settings()) {
             );
           }
         }
-        if (method === "GET" && rest[0] === "api" && rest[1] === "page-set")
+        if (method === "GET" && rest[0] === "api" && rest[1] === "page-set") {
           return reply(200, session.pageSet(url.searchParams.get("round")));
-        if (method === "GET" && rest[0] === "api" && rest[1] === "page")
+        }
+        if (method === "GET" && rest[0] === "api" && rest[1] === "page") {
           return reply(
             200,
             await session.pageRecord(
@@ -550,12 +563,14 @@ export async function startHub(config = settings()) {
               url.searchParams.get("version"),
             ),
           );
-        if (method === "GET" && rest[0] === "api" && rest[1] === "submission")
+        }
+        if (method === "GET" && rest[0] === "api" && rest[1] === "submission") {
           return reply(200, {
             submission: await session.latestFeedback(
               url.searchParams.get("round"),
             ),
           });
+        }
         if (method === "POST" && rest[0] === "api" && rest[1] === "dismiss") {
           return reply(200, await session.exclusive(() => session.close()));
         }
@@ -760,7 +775,7 @@ export async function startHub(config = settings()) {
     const stopped = servers.map(
       (server) => new Promise((resolve) => server.close(resolve)),
     );
-    if (inFlight > 0)
+    if (inFlight > 0) {
       await new Promise((resolve) => {
         const cutOff = setTimeout(resolve, 3000);
         drained = () => {
@@ -768,12 +783,14 @@ export async function startHub(config = settings()) {
           resolve();
         };
       });
+    }
     for (const server of servers) server.closeAllConnections();
     await Promise.all(stopped);
     await search.close();
     try {
-      if ((await read(config.hubFile)).pid === process.pid)
+      if ((await read(config.hubFile)).pid === process.pid) {
         await fs.rm(config.hubFile, { force: true });
+      }
     } catch {
       /* The hub record is already gone or unreadable. */
     }
@@ -784,12 +801,13 @@ export async function startHub(config = settings()) {
       const now = Date.now();
       if (now - quietCheckedAt >= config.quietCheckMs) {
         quietCheckedAt = now;
-        for (const session of active())
+        for (const session of active()) {
           session
             .exclusive(() => session.wakeIfQuiet(now))
             .catch((error) =>
               log(`quiet check of session ${session.id}: ${error.message}`),
             );
+        }
       }
       if (active().length) lastLiveAt = now;
       else if (now - lastLiveAt > config.idleMs) {

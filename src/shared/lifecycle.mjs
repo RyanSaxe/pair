@@ -29,8 +29,9 @@ export const accepts = (state, action) =>
 export function roundStage(state, unread = false) {
   if (unread) return "submitted";
   if (!state.current) return "ready";
-  if (state.openRound || state.latestSubmissionRound === state.current.round)
+  if (state.openRound || state.latestSubmissionRound === state.current.round) {
     return "working";
+  }
   return "updated";
 }
 
@@ -41,8 +42,8 @@ export function roundStage(state, unread = false) {
 // that the older hub closed or reopened loads as that hub left it.
 export function upgrade(state) {
   const { stage, dismissedAt, ...rest } = state;
-  if (stage === "complete")
+  if (stage === "complete") {
     rest.closedAt = dismissedAt || rest.closedAt || rest.updatedAt;
-  else if (stage) rest.closedAt = null;
+  } else if (stage) rest.closedAt = null;
   return rest;
 }

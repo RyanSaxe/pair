@@ -20,7 +20,7 @@ export function partialRows(query, docs) {
       const hit = scoreDoc(prepared, doc);
       if (!hit) continue;
       let entry = found.get(doc);
-      if (!entry)
+      if (!entry) {
         found.set(
           doc,
           (entry = {
@@ -32,6 +32,7 @@ export function partialRows(query, docs) {
             attrRanges: [],
           }),
         );
+      }
       entry.words.add(index);
       entry.score += hit.score;
       entry.textRanges.push(...hit.textRanges);
@@ -48,12 +49,13 @@ export function partialRows(query, docs) {
     entry.textRanges = tidy(entry.textRanges);
     entry.headingRanges = tidy(entry.headingRanges);
     entry.attrRanges = tidy(entry.attrRanges);
-    if (parts.length >= 3 && entry.words.size === parts.length - 1)
+    if (parts.length >= 3 && entry.words.size === parts.length - 1) {
       rows.push({
         ...entry,
         score: entry.score - 1000,
         partial: `Has ${entry.words.size} of ${parts.length} words`,
       });
+    }
     const { session, round, page } = entry.doc;
     const key = `${session}|${round}|${page}`;
     let holder = pages.get(key);
@@ -61,15 +63,17 @@ export function partialRows(query, docs) {
     for (const word of entry.words) holder.words.add(word);
     if (entry.words.size > holder.best.words.size) holder.best = entry;
   }
-  for (const holder of pages.values())
+  for (const holder of pages.values()) {
     if (
       holder.words.size === parts.length &&
       !rows.some((row) => row.doc === holder.best.doc)
-    )
+    ) {
       rows.push({
         ...holder.best,
         score: holder.best.score - 2000,
         partial: "All words on this page",
       });
+    }
+  }
   return rows;
 }

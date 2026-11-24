@@ -66,10 +66,11 @@ export function send(socket, message) {
     client.on("end", () => {
       const ok = /^ok(?: (.*))?$/s.exec(reply.trim());
       if (ok) resolve(ok[1] === undefined ? undefined : JSON.parse(ok[1]));
-      else
+      else {
         reject(
           new Error(reply.trim() || "the listener closed without an answer"),
         );
+      }
     });
     client.write(JSON.stringify(message) + "\n");
   });

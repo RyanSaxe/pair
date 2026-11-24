@@ -55,11 +55,12 @@ async function main() {
     failure = error;
     // The cleanups close Chrome, so saveFailure() runs before them.
     try {
-      if (await saveFailure(path.join(root, failures)))
+      if (await saveFailure(path.join(root, failures))) {
         failure = new Error(
           `${error.message}\nSaved a screenshot and the console log of each browser window in ${failures}/.`,
           { cause: error },
         );
+      }
     } catch (saving) {
       failure = new Error(
         `${error.message}\nSaving the browser windows failed: ${saving.message}`,
@@ -76,8 +77,9 @@ async function main() {
   }
   await fs.rm(scratch, { recursive: true, force: true });
   if (failure) throw failure;
-  for (const [file, png] of images)
+  for (const [file, png] of images) {
     await fs.writeFile(path.join(root, file), png);
+  }
   console.log(`Rewrote ${images.size} screenshots whose pictures changed.`);
 }
 

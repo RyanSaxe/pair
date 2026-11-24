@@ -29,7 +29,7 @@ function typed(args) {
 export function fixedIds(rows) {
   const standIns = new Map();
   const standIn = (id) => {
-    if (!standIns.has(id))
+    if (!standIns.has(id)) {
       standIns.set(
         id,
         createHash("sha256")
@@ -37,6 +37,7 @@ export function fixedIds(rows) {
           .digest("hex")
           .slice(0, 8),
       );
+    }
     return standIns.get(id);
   };
   const swap = (text) =>
@@ -83,7 +84,7 @@ function terminal(transcript) {
 function words(segments) {
   const all = [];
   let word = [];
-  for (const [text, cls] of segments)
+  for (const [text, cls] of segments) {
     for (const [i, part] of text.split(" ").entries()) {
       if (i > 0) {
         all.push(word);
@@ -91,6 +92,7 @@ function words(segments) {
       }
       if (part) word.push([part, cls]);
     }
+  }
   all.push(word);
   return all
     .filter((w) => w.length)
@@ -120,8 +122,9 @@ function termHtml(transcript) {
         [` ${cmd}`, "cm"],
       ])}</div>`,
     );
-    for (const line of out)
+    for (const line of out) {
       rows.push(`<div class="l">${words(tagged(line))}</div>`);
+    }
     rows.push(`<div class="l">&nbsp;</div>`);
   }
   rows.push(
@@ -225,14 +228,16 @@ export function composeIllustration(browser, { theme, shot, transcript }) {
         wide: wide.map((w) => w.textContent),
       };
     });
-    if (fit.over > 0)
+    if (fit.over > 0) {
       throw new Error(
         `The terminal's text is ${fit.over}px taller than the window`,
       );
-    if (fit.wide.length)
+    }
+    if (fit.wide.length) {
       throw new Error(
         `Terminal words wider than a line: ${fit.wide.join(", ")}`,
       );
+    }
   });
 }
 

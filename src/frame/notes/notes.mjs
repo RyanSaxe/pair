@@ -68,15 +68,17 @@ export function pageText(root) {
     if (
       node.nodeType !== Node.ELEMENT_NODE &&
       node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE
-    )
+    ) {
       return;
+    }
     if (
       node.nodeType === Node.ELEMENT_NODE &&
       node.matches(
         "script, style, pair-thread, textarea[data-diff-input], .katex-mathml",
       )
-    )
+    ) {
       return;
+    }
     if (node.shadowRoot) walk(node.shadowRoot);
     for (const child of node.childNodes) walk(child);
   }
@@ -169,8 +171,9 @@ export function markNotes() {
   ];
   noteRanges = [];
   noteBoxes = [];
-  for (const box of $("page-content").querySelectorAll(".pele-node.noted"))
+  for (const box of $("page-content").querySelectorAll(".pele-node.noted")) {
     box.classList.remove("noted");
+  }
   for (const note of notes) {
     if (!note.quote) continue;
     if (note.diagramNode) {
@@ -185,8 +188,9 @@ export function markNotes() {
       !range ||
       (range.startContainer.parentElement?.closest(richContent) &&
         !isDiffNode(range.startContainer))
-    )
+    ) {
       continue;
+    }
     noteRanges.push({ note, range });
   }
   highlight(
@@ -276,11 +280,13 @@ export function installNotes() {
   rebuildKnown();
   // A diff and a diagram render their content again after the page renders,
   // so markNotes runs again on their events.
-  for (const name of ["plan:diff", "plan:diagram"])
+  for (const name of ["plan:diff", "plan:diagram"]) {
     window.addEventListener(name, () => {
-      if (!$("reading").hidden && !page.pending && page.id !== "agreed")
+      if (!$("reading").hidden && !page.pending && page.id !== "agreed") {
         markNotes();
+      }
     });
+  }
   $("page-content").addEventListener("mousemove", showTip);
   $("page-content").addEventListener("mouseleave", () => {
     $("note-tip").hidden = true;
@@ -290,15 +296,17 @@ export function installNotes() {
     if (
       !editable ||
       event.target.closest("button, a, input, textarea, summary")
-    )
+    ) {
       return;
+    }
     const notes = notesAt(event.clientX, event.clientY);
     if (notes.length === 1) openNote(notes[0]);
     else if (notes.length > 1) show("feedback");
     // This keeps a click on a noted box from also opening the enlarged
     // diagram.
-    if (notes.some((note) => note.diagramNode))
+    if (notes.some((note) => note.diagramNode)) {
       event.stopImmediatePropagation();
+    }
   });
   /* markNotes waits a frame, so it runs after a save has redrawn the page, and
      a note the reviewer backed out of loses its mark. */
@@ -309,8 +317,9 @@ export function installNotes() {
         !$("note-dialog").open &&
         !$("reading").hidden &&
         page.id !== "agreed"
-      )
+      ) {
         markNotes();
+      }
     });
   });
   /* The browser returns focus to the control that opened the dialog, but
@@ -414,8 +423,9 @@ export function openNote({
     field: $("note-text"),
   });
   fitNoteText();
-  if (!$("reading").hidden && !page.pending && page.id !== "agreed")
+  if (!$("reading").hidden && !page.pending && page.id !== "agreed") {
     markNotes();
+  }
   commentTarget();
   return true;
 }

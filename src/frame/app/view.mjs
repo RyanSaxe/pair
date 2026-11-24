@@ -59,7 +59,7 @@ export function setPage(next) {
   page = next;
 }
 export const shownPage = () =>
-  !$("work-view").hidden ? "work" : $("reading").hidden ? "feedback" : page.id;
+  $("work-view").hidden ? ($("reading").hidden ? "feedback" : page.id) : "work";
 export const current = () =>
   selectedTab === "current" &&
   remote?.current?.name === plan.name &&

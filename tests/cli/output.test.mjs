@@ -177,11 +177,13 @@ test("pair read prints each part of the submission in a pair_ tag between the ne
   assert.equal(tag("choice", "overview/scope")[1], "Logs, Metrics");
   assert(tag("answer", "overview/why")[1].includes("a retry\ncosts little."));
   const drawing = tag("answer", "overview/boundary")[0];
-  for (const file of [scene.path, previewPath])
+  for (const file of [scene.path, previewPath]) {
     assert(drawing.includes(file), drawing);
+  }
   const note = tag("note", "note-1")[1];
-  for (const part of ["A failed item", "Keep it.", image.path])
+  for (const part of ["A failed item", "Keep it.", image.path]) {
     assert(note.includes(part), note);
+  }
   assert(
     note.includes(
       `<pair_image path="${sketch.path}" scene="${scene.path}"></pair_image>`,
@@ -553,6 +555,7 @@ test("text over 10,000 bytes goes to a file in the session directory", async (t)
   );
   assert(saved.includes(text.trim()));
   // Windows has no POSIX file modes.
-  if (process.platform !== "win32")
+  if (process.platform !== "win32") {
     assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
+  }
 });

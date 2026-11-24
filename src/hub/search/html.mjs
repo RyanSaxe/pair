@@ -142,11 +142,12 @@ export function parse(s) {
         .slice(lt + 2, e)
         .trim()
         .toLowerCase();
-      for (let k = stack.length - 1; k > 0; k--)
+      for (let k = stack.length - 1; k > 0; k--) {
         if (stack[k].tag === name) {
           stack.length = k;
           break;
         }
+      }
       i = e + 1;
       continue;
     }
@@ -183,8 +184,9 @@ export function parse(s) {
             "details",
             "article",
           ].includes(stack[k].tag)
-        )
+        ) {
           break;
+        }
       }
     }
     if (top().tag === "p" && BLOCK_STARTS_P.has(tag)) stack.pop();
@@ -221,8 +223,9 @@ export function textOf(node, skip) {
       n.tag === "style" ||
       n.tag === "textarea" ||
       n.tag === "template"
-    )
+    ) {
       return;
+    }
     if (skip && skip(n)) return;
     const block = !INLINE.has(n.tag);
     if (block) out.push(" ");

@@ -182,12 +182,17 @@ function scoreDoc(prepared, doc) {
   for (let k = 0; k < words.length; k++) {
     const word = words[k];
     const hasLetters = (word.mask & ~mask) === 0;
-    if (hasLetters && (lh.indexOf(word.w) !== -1 || lt.indexOf(word.w) !== -1))
+    if (
+      hasLetters &&
+      (lh.indexOf(word.w) !== -1 || lt.indexOf(word.w) !== -1)
+    ) {
       continue;
+    }
     if (la.indexOf(word.w) !== -1) continue;
     if (!fuzzyOn || !word.fuzzy) return null;
-    if (lt.indexOf(word.w[0]) === -1 && lh.indexOf(word.w[0]) === -1)
+    if (lt.indexOf(word.w[0]) === -1 && lh.indexOf(word.w[0]) === -1) {
       return null;
+    }
     if (popcount(word.mask & ~mask) > word.typos) return null;
     allStrict = false;
   }
@@ -226,8 +231,9 @@ function scoreDoc(prepared, doc) {
       }
       if (!fuzzyOn || !word.fuzzy) return null;
       inHead = fuzzyInField(word, { lower: lh, orig: origH, inHeading: true });
-      if (!inHead)
+      if (!inHead) {
         inText = fuzzyInField(word, { lower: lt, orig, inHeading: false });
+      }
       if (!inHead && !inText) return null;
       usedFuzzy = true;
       const hit = inHead ?? inText;

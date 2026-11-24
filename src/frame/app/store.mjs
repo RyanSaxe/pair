@@ -49,11 +49,13 @@ export function emptyDraft(round) {
 // round arrives, loadDraft() drops the items that were already sent and keeps
 // the unsent ones.
 export function loadDraft(saved, round) {
-  if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices))
+  if (!record(saved) || !Array.isArray(saved.notes) || !record(saved.choices)) {
     return emptyDraft(round);
+  }
   const draft = { ...emptyDraft(round), ...saved };
-  if (!record(draft.synced) || !record(draft.synced.items))
+  if (!record(draft.synced) || !record(draft.synced.items)) {
     draft.synced = emptySynced();
+  }
   if (saved.round !== round) {
     draft.notes = draft.notes.filter((note) => !note.sentIn);
     draft.choices = filterValues(draft.choices, (choice) => !choice.sentIn);
@@ -119,16 +121,21 @@ export function submissionGroups(draft) {
 export function changedPages(before, after) {
   const pages = new Set();
   const [old, next] = [notesById(before), notesById(after)];
-  for (const id of new Set([...old.keys(), ...next.keys()]))
-    if (itemsDiffer(old.get(id), next.get(id)))
+  for (const id of new Set([...old.keys(), ...next.keys()])) {
+    if (itemsDiffer(old.get(id), next.get(id))) {
       pages.add((old.get(id) ?? next.get(id)).topic);
-  for (const field of ["choices", "answers", "drafts"])
+    }
+  }
+  for (const field of ["choices", "answers", "drafts"]) {
     for (const key of new Set([
       ...Object.keys(before[field]),
       ...Object.keys(after[field]),
-    ]))
-      if (itemsDiffer(before[field][key], after[field][key]))
+    ])) {
+      if (itemsDiffer(before[field][key], after[field][key])) {
         pages.add(key.split("/")[0]);
+      }
+    }
+  }
   return pages;
 }
 
@@ -183,9 +190,9 @@ export const prefs = {
   },
   set(key, value) {
     try {
-      if (value === null || value === undefined)
+      if (value === null || value === undefined) {
         localStorage.removeItem(prefsPrefix + key);
-      else localStorage.setItem(prefsPrefix + key, String(value));
+      } else localStorage.setItem(prefsPrefix + key, String(value));
     } catch {
       /* When localStorage throws, the preference is not saved, and no code
          depends on it. */

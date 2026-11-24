@@ -64,10 +64,11 @@ export async function openOn(t, h, { session, focused = true, ...options }) {
   const page = await open(t, "about:blank", options);
   if (!page) return null;
   await stubPele(page);
-  if (!focused)
+  if (!focused) {
     await page.addInitScript(() => {
       document.hasFocus = () => false;
     });
+  }
   await page.goto(`${h.server.origin}${session.base}/#second`);
   await page.locator("#bell").waitFor();
   return page;

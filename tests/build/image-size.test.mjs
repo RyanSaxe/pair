@@ -52,8 +52,9 @@ test("imageSize reads PNG, JPEG, WebP and GIF headers", () => {
     lossless,
     extended,
     gif(),
-  ])
+  ]) {
     assert.deepEqual(imageSize(bytes), { width: 3, height: 2 });
+  }
 
   assert.equal(imageSize(png().subarray(0, 20)), null);
   assert.equal(imageSize(jpeg(0xc0).subarray(0, 8)), null);

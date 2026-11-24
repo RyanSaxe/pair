@@ -79,8 +79,9 @@ function holdPicture() {
     copy.style.maxWidth = "none";
     for (const part of copy.querySelectorAll(
       "#agent-activity, #finished-line, .note-count, .page-footer, .history-strip",
-    ))
+    )) {
       part.remove();
+    }
   });
 }
 function dropPicture() {
@@ -93,8 +94,9 @@ async function whenReady() {
   while (
     performance.now() < limit &&
     (renders.size || "drawing" in $("page-content").dataset)
-  )
+  ) {
     await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
+  }
 }
 function placeSent(entry) {
   document.getElementById("embed-sent")?.remove();
@@ -106,8 +108,9 @@ function placeSent(entry) {
 // A fold around the result opens, as it does when Open lands on it.
 function openFolds(target) {
   const element = target && targetElement(target);
-  for (let at = element; at; at = at.parentElement)
+  for (let at = element; at; at = at.parentElement) {
     if (at.tagName === "DETAILS") at.open = true;
+  }
 }
 // Another result on the page on screen moves the page, and draws nothing again.
 function moveToResult(target, match) {

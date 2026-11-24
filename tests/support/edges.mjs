@@ -85,8 +85,9 @@ export const fullIs = (page, expected) =>
   );
 export const save = (page, values) =>
   page.evaluate((entries) => {
-    for (const [key, value] of Object.entries(entries))
+    for (const [key, value] of Object.entries(entries)) {
       localStorage.setItem(key, value);
+    }
   }, values);
 
 // A tab sits at its strip's left plus the ::after's own left.

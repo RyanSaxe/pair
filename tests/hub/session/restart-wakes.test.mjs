@@ -153,7 +153,7 @@ test(
 for (const [kind, answer] of [
   ["reply", { text: "It stops." }],
   ["ack", { ack: true }],
-])
+]) {
   test(
     `the next hub quotes the reviewer's message, not the agent's ${kind}, in the wake it sends again`,
     { skip },
@@ -191,6 +191,7 @@ for (const [kind, answer] of [
       );
     },
   );
+}
 
 // The reviewer's feedback and a Start each wake the holder after the hub saves
 // them, and the next hub sends the wake that a stopped hub owed.
@@ -227,7 +228,7 @@ for (const [kind, send, line] of [
     },
     /^pair: your user approved proposal docs-pass, "Docs pass", in pair, to run in session /,
   ],
-])
+]) {
   test(
     `the next hub sends the wake for ${kind} that a stopped hub owed`,
     { skip },
@@ -242,3 +243,4 @@ for (const [kind, send, line] of [
       );
     },
   );
+}

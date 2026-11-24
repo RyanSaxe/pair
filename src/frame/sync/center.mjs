@@ -83,10 +83,13 @@ export function clearThread(threadId) {
 // acknowledgeReply updates the listed event at once, so the bell drops or
 // restores the reply's line before the next session list from the hub.
 export function acknowledgeReply(threadId, message, acknowledged) {
-  for (const entry of latest)
-    for (const event of entry.events || [])
-      if (event.thread === threadId && event.message === message)
+  for (const entry of latest) {
+    for (const event of entry.events || []) {
+      if (event.thread === threadId && event.message === message) {
         event.acknowledged = acknowledged;
+      }
+    }
+  }
   renderCenter(latest, false);
 }
 export const settleCleared = (listed, clearedIds) =>
@@ -232,8 +235,9 @@ export function openLine(event) {
   const match = event.match ?? null;
   if (own && event.page === "work" && editable) show("work", target, { match });
   else if (own && onCurrentAgreed(target)) {
-    if (selectedTab !== "current")
+    if (selectedTab !== "current") {
       switchTab("current", null, { showPage: false });
+    }
     show("agreed", target, { match });
   } else if (
     own &&
@@ -241,15 +245,16 @@ export function openLine(event) {
     !showingWaiting() &&
     (["overall", "feedback"].includes(event.page) ||
       pages.some((item) => item.id === event.page))
-  )
+  ) {
     show(event.page, target, { match });
+  }
   // A read-only page has no Previous tab, so openEvent opens another round
   // under Previous only on an editable page.
-  else if (own && editable && (round !== remote.current.round || waiting()))
+  else if (own && editable && (round !== remote.current.round || waiting())) {
     void openPast(round, { pageId: event.page, targetId: target, match });
-  else if (own && editable && selectedTab === "past")
+  } else if (own && editable && selectedTab === "past") {
     openCurrent({ pageId: event.page, targetId: target, match });
-  else if (embedded) show(event.page, target, { match });
+  } else if (embedded) show(event.page, target, { match });
   else location.assign(event.href ?? eventHref(event.entry, event));
 }
 const isOpen = () => $("center-pop").matches(":popover-open");

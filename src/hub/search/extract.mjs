@@ -94,8 +94,9 @@ function collect(node, { page, words, inSvg = false }) {
     (child) => child.tag === "textarea" && "data-diff-input" in child.attrs,
   );
   for (const [name, value] of Object.entries(node.attrs ?? {})) {
-    if (svg || !value || value.startsWith("data:") || NOT_TEXT.has(name))
+    if (svg || !value || value.startsWith("data:") || NOT_TEXT.has(name)) {
       continue;
+    }
     if (name.startsWith("aria-") && name !== "aria-label") continue;
     if (name === "data-prototype") {
       const prototype = (page.prototypes ?? []).find((p) => p.id === value);
@@ -103,9 +104,9 @@ function collect(node, { page, words, inSvg = false }) {
         words.text.push(prototype.title ?? "", prototype.description ?? "");
         collect(parse(prototypeText(prototype.html ?? "")), { page, words });
       }
-    } else if (DRAWN.has(name) || drawnLabel(node, name, value))
+    } else if (DRAWN.has(name) || drawnLabel(node, name, value)) {
       words.text.push(attributeWords(value));
-    else if (!diff) words.attrs.push(attributeWords(value));
+    } else if (!diff) words.attrs.push(attributeWords(value));
   }
   if (diff) {
     words.text.push(textareaWords(diff));
@@ -118,8 +119,9 @@ function collect(node, { page, words, inSvg = false }) {
   }
   // Only a script is left with raw text, and a reader never sees it.
   if (node.raw) words.attrs.push(node.raw);
-  for (const child of node.children ?? [])
+  for (const child of node.children ?? []) {
     collect(child, { page, words, inSvg: svg });
+  }
   return words;
 }
 
@@ -135,8 +137,9 @@ function holdsCode(node) {
     "data-language" in attrs ||
     "data-diff-input" in attrs ||
     "data-diagram" in attrs
-  )
+  ) {
     return true;
+  }
   return (node.children ?? []).some(
     (child) => child.text === undefined && holdsCode(child),
   );
@@ -168,7 +171,7 @@ export function pageDocs(page, { round, at, tree = parse(page.html ?? "") }) {
     const text = clean(words.text.join(" "));
     const attrs = clean(words.attrs.join(" "));
     if (isHeading(child.tag)) heading = text;
-    if (text || attrs)
+    if (text || attrs) {
       docs.push({
         ...base,
         block: index,
@@ -178,6 +181,7 @@ export function pageDocs(page, { round, at, tree = parse(page.html ?? "") }) {
         ...(attrs ? { attrs } : {}),
         ...(holdsCode(child) ? { code: true } : {}),
       });
+    }
   }
   return docs;
 }
@@ -195,11 +199,12 @@ function pageBlocks(page, round, tree) {
     if (node.text !== undefined || node.tag === "template") return;
     const { id } = node.attrs;
     if (id) inner[id] ??= block;
-    for (const type of Object.keys(controls))
+    for (const type of Object.keys(controls)) {
       if (`data-${type}` in node.attrs) {
         const count = controls[type]++;
         if (!id) inner[`${type}-${page.id}-${count}`] ??= block;
       }
+    }
     for (const child of node.children ?? []) visit(child, block);
   };
   for (const child of tree.children) {
@@ -240,7 +245,7 @@ export function placed(doc, pages) {
 export function agreedDocs(page, round, at) {
   const base = { kind: "agreed", round, page: "agreed", block: null, at };
   const docs = [];
-  if (page.task)
+  if (page.task) {
     docs.push({
       ...base,
       type: "task",
@@ -248,7 +253,8 @@ export function agreedDocs(page, round, at) {
       heading: page.task.title || "",
       text: clean(textOf(parse(page.task.html || ""))),
     });
-  for (const entry of page.agreements ?? [])
+  }
+  for (const entry of page.agreements ?? []) {
     docs.push({
       ...base,
       type: "alignment",
@@ -256,6 +262,7 @@ export function agreedDocs(page, round, at) {
       heading: entry.title || "",
       text: clean(textOf(parse(entry.html || ""))),
     });
+  }
   return docs;
 }
 
@@ -297,7 +304,7 @@ export function feedbackDocs(event) {
   const docs = [];
   const add = ({ kind, type, round, page, item, heading, text }) => {
     const words = clean(text);
-    if (words)
+    if (words) {
       docs.push({
         kind,
         type,
@@ -310,10 +317,11 @@ export function feedbackDocs(event) {
         from: "reviewer",
         at,
       });
+    }
   };
   // A Start's message shows on its card, which proposalDocs() reads, and never
   // on the round's Review page.
-  if (payload.intent !== "start")
+  if (payload.intent !== "start") {
     add({
       kind: "notes",
       type: "send message",
@@ -323,7 +331,8 @@ export function feedbackDocs(event) {
       heading: `Round ${payload.round} message`,
       text: payload.message,
     });
-  if (payload.intent && payload.intent !== "feedback-only")
+  }
+  if (payload.intent && payload.intent !== "feedback-only") {
     add({
       kind: "notes",
       type: "send message",
@@ -333,7 +342,8 @@ export function feedbackDocs(event) {
       heading: payload.proposal ?? "",
       text: payload.guidance,
     });
-  for (const note of groups.notes ?? [])
+  }
+  for (const note of groups.notes ?? []) {
     add({
       kind: "notes",
       type: "note",
@@ -343,7 +353,8 @@ export function feedbackDocs(event) {
       heading: note?.anchor ?? "",
       text: note?.text,
     });
-  for (const [key, answer] of Object.entries(groups.answers ?? {}))
+  }
+  for (const [key, answer] of Object.entries(groups.answers ?? {})) {
     add({
       kind: "answers",
       type: "typed answer",
@@ -353,7 +364,8 @@ export function feedbackDocs(event) {
       heading: answer?.label ?? "",
       text: answer?.kind === "drawing" ? answer.label : answer?.text,
     });
-  for (const [key, choice] of Object.entries(groups.choices ?? {}))
+  }
+  for (const [key, choice] of Object.entries(groups.choices ?? {})) {
     add({
       kind: "answers",
       type: "chosen option",
@@ -363,15 +375,17 @@ export function feedbackDocs(event) {
       heading: choice?.label ?? "",
       text: chosen(choice),
     });
+  }
   return docs;
 }
 
 function chosen(choice) {
-  if (choice?.kind === "multiple")
+  if (choice?.kind === "multiple") {
     return (choice.options ?? [])
       .filter((option) => option?.checked)
       .map((option) => option.label)
       .join(", ");
+  }
   return String(choice?.valueLabel ?? choice?.value ?? "");
 }
 
@@ -431,7 +445,7 @@ export function draftDocs(draft, at) {
       from: "reviewer",
       at,
     };
-    if (group === "note" && value.text)
+    if (group === "note" && value.text) {
       docs.push({
         ...base,
         kind: "notes",
@@ -439,7 +453,8 @@ export function draftDocs(draft, at) {
         heading: value.anchor ?? "",
         text: clean(value.text),
       });
-    if (group === "answer" && value.text)
+    }
+    if (group === "answer" && value.text) {
       docs.push({
         ...base,
         kind: "answers",
@@ -447,9 +462,10 @@ export function draftDocs(draft, at) {
         heading: value.label ?? "",
         text: clean(value.text),
       });
+    }
     if (group === "choice") {
       const text = clean(chosen(value));
-      if (text)
+      if (text) {
         docs.push({
           ...base,
           kind: "answers",
@@ -457,6 +473,7 @@ export function draftDocs(draft, at) {
           heading: value.label ?? "",
           text,
         });
+      }
     }
   }
   return docs;
@@ -469,7 +486,7 @@ export function titleDocs(status) {
   const started = Date.parse(status.startedAt) || 0;
   const docs = [];
   const title = status.title || status.current?.title;
-  if (title)
+  if (title) {
     docs.push({
       ...base,
       type: "session title",
@@ -480,11 +497,12 @@ export function titleDocs(status) {
       text: title,
       at: started,
     });
+  }
   const published = new Map(
     (status.rounds ?? []).map((entry) => [entry.round, entry.publishedAt]),
   );
-  for (const [round, set] of Object.entries(status.roundPages ?? {}))
-    for (const slot of set.pages ?? [])
+  for (const [round, set] of Object.entries(status.roundPages ?? {})) {
+    for (const slot of set.pages ?? []) {
       docs.push({
         ...base,
         type: "page title",
@@ -495,5 +513,7 @@ export function titleDocs(status) {
         text: "",
         at: Date.parse(published.get(round)) || started,
       });
+    }
+  }
   return docs;
 }

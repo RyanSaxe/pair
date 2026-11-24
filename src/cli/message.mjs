@@ -17,13 +17,14 @@ async function messageText(options) {
   const given = ["text", "file", "ack"].filter(
     (key) => options[key] !== undefined,
   );
-  if (given.length !== 1)
+  if (given.length !== 1) {
     throw usageError(
       "message",
       given.length
         ? "pair message takes only one of --text, --file and --ack."
         : "pair message requires --text TEXT, --file PATH or --ack.",
     );
+  }
   if (options.ack) return null;
   const text =
     options.text ?? (await fs.readFile(path.resolve(options.file), "utf8"));
@@ -42,11 +43,12 @@ function receiver(to) {
   const slash = to.indexOf("/");
   const [session, subagent] =
     slash < 0 ? [to, null] : [to.slice(0, slash), to.slice(slash + 1)];
-  if (!session || subagent === "")
+  if (!session || subagent === "") {
     throw usageError(
       "message",
       "--to takes a session's name or ID, or NAME/SUBAGENT for one of its subagents.",
     );
+  }
   return { session, subagent };
 }
 
@@ -83,8 +85,9 @@ async function identifySender(label, table) {
 // An opencode subagent's name is its task, which may have spaces, so the
 // address is quoted when the shell would split it.
 function ending(answer) {
-  if (!answer)
+  if (!answer) {
     return "This message has no answer command. Answer in your own chat, if at all.";
+  }
   const to = /^[\w.:/-]+$/.test(answer) ? answer : JSON.stringify(answer);
   return `To answer, run: pair message --to ${to} --text "…"\nIf you have nothing to say, acknowledge it: pair message --to ${to} --ack`;
 }
@@ -121,8 +124,9 @@ export async function message(options) {
   const text = await messageText(options);
   const { session, subagent } = receiver(options.to);
   const label = options.from?.trim();
-  if (options.from !== undefined && (!label || /[\r\n]/.test(label)))
+  if (options.from !== undefined && (!label || /[\r\n]/.test(label))) {
     throw usageError("message", "--from takes a label of one line.");
+  }
   const table = processTable();
   const sender = await identifySender(label, table);
   requireValue(

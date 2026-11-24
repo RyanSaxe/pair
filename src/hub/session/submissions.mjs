@@ -17,8 +17,9 @@ export function submissions(session) {
     if (
       !answers ||
       !Object.values(answers).some((item) => item.kind === "drawing")
-    )
+    ) {
       return event;
+    }
     const mapped = Object.fromEntries(
       Object.entries(answers).map(([key, answer]) => [
         key,
@@ -82,11 +83,12 @@ export function submissions(session) {
     // record of them, so submit copies the groups first for draftSent to
     // compare with the draft.
     const sent = structuredClone({ groups: data.groups });
-    if (data.groups.alignUnflagged !== undefined)
+    if (data.groups.alignUnflagged !== undefined) {
       requireValue(
         typeof data.groups.alignUnflagged === "boolean",
         "alignUnflagged must be a boolean",
       );
+    }
     if (data.groups.answers !== undefined) {
       requireValue(
         data.groups.answers &&
@@ -108,7 +110,7 @@ export function submissions(session) {
             preview.type === "image/png",
             "Drawing preview must be PNG",
           );
-        } else
+        } else {
           requireValue(
             answer &&
               answer.kind === undefined &&
@@ -118,6 +120,7 @@ export function submissions(session) {
               answer.text.trim(),
             "Answers require label, text, and topic",
           );
+        }
       }
     }
     /* Each image belongs to the note it illustrates, and storedAttachment
@@ -207,8 +210,9 @@ export function submissions(session) {
         : {}),
     });
     if (data.next === "build") await session.buildLinked();
-    if (session.wake && accepts(session.state, "wake"))
+    if (session.wake && accepts(session.state, "wake")) {
       setTimeout(() => exclusive(() => session.wakeAgent(data.round)), 0);
+    }
     return { id: data.id, saved: true, status: session.browserView() };
   }
   return { withDrawingPaths, submit };

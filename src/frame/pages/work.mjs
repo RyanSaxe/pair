@@ -91,17 +91,19 @@ export function cardState(card, shown) {
   if (shown.unread.has(card.id)) return ["Agent replied", "accent"];
   if (state === "proposed") return ["Proposed", "hollow"];
   if (state === "running") return ["Working here", "accent"];
-  if (state === "opening")
+  if (state === "opening") {
     return card.started.where === "new-agent"
       ? ["Opening a new agent session", "accent"]
       : ["Opening a sub-session", "accent"];
+  }
   if (waits(card, shown)) return ["Waiting for you", "ok"];
   // Work started with Plan it first is in planning until the reviewer of its
   // session chooses Build it.
-  if (card.started.planFirst && !card.started.built)
+  if (card.started.planFirst && !card.started.built) {
     return card.started.where === "new-agent"
       ? ["Planning with a new agent", "accent"]
       : ["Planning in a sub-session", "accent"];
+  }
   return [ownSession, "accent"];
 }
 export function metaLine(state, tone, rest) {
@@ -132,14 +134,14 @@ function cardWhere(card, label) {
   } else if (card.done?.where) {
     box.textContent = card.done.where;
     box.title = `Done ${card.done.where}`;
-  } else if (state === "closed")
+  } else if (state === "closed") {
     box.append(sessionLink("Done in its own session", linked));
-  else if (state === "linked") {
+  } else if (state === "linked") {
     if (label !== ownSession) box.append(`${ownSession} · `);
     box.append(sessionLink("Open", linked));
-  } else if (state === "opening")
+  } else if (state === "opening") {
     box.textContent = "Waiting for its session to start";
-  else {
+  } else {
     const { page, thread, reviewer } = card.source;
     if (page) box.append(pageLink(fromPage(page), page.round, page.id));
     else if (thread) box.append(threadLink("From a thread", thread));
@@ -205,12 +207,13 @@ function actions(card) {
     return node;
   };
   const left = element("span", "proposal-foot-start");
-  if (allows(card, "restore"))
+  if (allows(card, "restore")) {
     left.append(button("link-btn", "Restore", () => act(card, "restore")));
-  else if (allows(card, "decline"))
+  } else if (allows(card, "decline")) {
     left.append(button("link-btn", "Decline", () => act(card, "decline")));
+  }
   const right = element("span", "proposal-actions");
-  if (allows(card, "start"))
+  if (allows(card, "start")) {
     right.append(
       button("btn primary proposal-start", "Start", () =>
         openStart(card, joinedInto(card), (result) => {
@@ -219,6 +222,7 @@ function actions(card) {
         }),
       ),
     );
+  }
   return [left, right];
 }
 export function cardElement(
@@ -236,8 +240,9 @@ export function cardElement(
   const body = element("div", "proposal-body");
   body.append(head, metaLine(state, tone, cardWhere(card, state)));
   // A finished card that stays on screen keeps its status box, and so its height.
-  if (allows(card, "status") || (stays && card.started))
+  if (allows(card, "status") || (stays && card.started)) {
     body.append(statusBox(card));
+  }
   body.append(element("p", "proposal-delivers", card.delivers));
   if (card.attachments?.length) body.append(images(card));
   // cardElement() quotes the reviewer's words that started the card, or the
@@ -252,7 +257,7 @@ export function cardElement(
   }
   const quoted = started?.quote ?? started?.message;
   if (quoted) body.append(element("p", "proposal-message", `“${quoted}”`));
-  if (withdrawn)
+  if (withdrawn) {
     body.append(
       element(
         "p",
@@ -260,6 +265,7 @@ export function cardElement(
         `The agent's reason: ${withdrawn.reason}`,
       ),
     );
+  }
   const joined = joinedInto(card);
   if (joined.length) body.append(joinedList(joined));
   root.append(body);
@@ -290,16 +296,18 @@ function watchCards(list) {
     (entries, observer) => {
       const shown = entries.filter((entry) => entry.isIntersecting);
       for (const entry of shown) observer.unobserve(entry.target);
-      if (shown.length && !embedded)
+      if (shown.length && !embedded) {
         markSeen(
           session.sessionId,
           shown.map((entry) => entry.target.dataset.proposalCard),
         );
+      }
     },
     { threshold: 0.5 },
   );
-  for (const node of list.querySelectorAll("[data-proposal-card]"))
+  for (const node of list.querySelectorAll("[data-proposal-card]")) {
     watcher.observe(node);
+  }
 }
 
 let selected = workTabs[0].id;
@@ -457,9 +465,10 @@ function paintProposal(root, seen = seenCards()) {
 export function refreshWork(force = false) {
   if (remote && !embedded) adoptCards(session.sessionId, cards());
   const seen = seenCards();
-  for (const root of mounted.keys())
+  for (const root of mounted.keys()) {
     if (root.isConnected) paintProposal(root, seen);
     else mounted.delete(root);
+  }
   if ($("work-view").hidden) return placeThreads();
   const shown = context();
   const groups = workGroups(cards());

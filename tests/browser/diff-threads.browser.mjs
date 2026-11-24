@@ -52,8 +52,9 @@ async function selectDiffText(page, quote) {
     const point = (offset) => {
       let before = 0;
       for (const node of nodes) {
-        if (offset <= before + node.data.length)
+        if (offset <= before + node.data.length) {
           return { node, offset: offset - before };
+        }
         before += node.data.length;
       }
       throw Error(`Could not locate offset ${offset}`);
@@ -185,10 +186,11 @@ test("the reply box of a thread on a diff line keeps focus across status polls",
   });
   const box = card.getByRole("textbox", { name: "Reply in this thread" });
   await box.click();
-  for (let polls = 0; polls < 2; polls++)
+  for (let polls = 0; polls < 2; polls++) {
     await page.waitForResponse((response) =>
       response.url().endsWith("/api/status"),
     );
+  }
   assert.equal(
     await box.evaluate((field) => field === document.activeElement),
     true,

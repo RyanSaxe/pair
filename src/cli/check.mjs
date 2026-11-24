@@ -20,18 +20,25 @@ async function portReport(config) {
   if (!info) return { port, state: "busy" };
   // pair start refuses a hub unless this state directory's record has the hub's
   // pid or the hub reports this state directory as its stateDir.
-  if (info.pid !== record?.pid && info.stateDir !== (await ownStateDir(config)))
+  if (
+    info.pid !== record?.pid &&
+    info.stateDir !== (await ownStateDir(config))
+  ) {
     return { port, state: "other-hub", pid: info.pid };
+  }
   return { port, state: "hub", version: info.version, live: info.live };
 }
 function hubLine(hub) {
-  if (hub.state === "os-assigned")
+  if (hub.state === "os-assigned") {
     return "PAIR_HUB_PORT is 0, so the system picks a port when the hub starts";
+  }
   if (hub.state === "free") return `port ${hub.port} is free`;
-  if (hub.state === "busy")
+  if (hub.state === "busy") {
     return `port ${hub.port} is in use by another program`;
-  if (hub.state === "other-hub")
+  }
+  if (hub.state === "other-hub") {
     return `port ${hub.port} is in use by a pair hub that this state directory has no record of (pid ${hub.pid})`;
+  }
   const sessions = `${hub.live} live session${hub.live === 1 ? "" : "s"}`;
   return `port ${hub.port} is in use by a pair hub with ${sessions}, code ${hub.version}`;
 }
@@ -59,14 +66,18 @@ export async function check() {
       path.join(directory, "draft"),
       path.join(directory, "saved"),
     );
-    if ((await fs.readFile(path.join(directory, "saved"), "utf8")) !== "ready")
+    if (
+      (await fs.readFile(path.join(directory, "saved"), "utf8")) !== "ready"
+    ) {
       throw new Error("Session storage did not preserve the file");
+    }
     await listen(server, 0);
     const response = await fetch(`http://127.0.0.1:${server.address().port}`, {
       signal: AbortSignal.timeout(5000),
     });
-    if ((await response.text()) !== "ready")
+    if ((await response.text()) !== "ready") {
       throw new Error("Loopback request failed");
+    }
     const config = settings();
     const hub = config.port
       ? await portReport(config)
